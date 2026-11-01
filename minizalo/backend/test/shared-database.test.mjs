@@ -199,7 +199,7 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
       } });
       assert.equal(result.status, 201, JSON.stringify(result));
       assert.equal(result.data.booking.customerId, ids.user);
-      assert.equal(result.data.booking.status, 'CONFIRMED');
+      assert.equal(result.data.booking.status, 'PENDING');
       assert.equal(Number(result.data.booking.finalPrice), 90000);
       assert.equal(result.data.booking.items[0].serviceId, ids.service);
       bookingId = result.data.booking.id;

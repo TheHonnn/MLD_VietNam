@@ -1,0 +1,9 @@
+{
+  "name": "@mld/simple-git-compat",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.cjs",
+  "dependencies": {
+    "simple-git-secure": "npm:simple-git@4.0.2"
+  }
+}

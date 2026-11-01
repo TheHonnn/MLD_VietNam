@@ -1,4 +1,5 @@
 import React from 'react';
+import {branchOpenNow} from '@/utils/branch-hours';
 import {shareService} from '@/utils/service-links';
 import type { MedicalService, Doctor, Branch } from '../../../../backend/src/data/database';
 import type { Branch as CanonicalBranch } from '../../../../../database/shared_types';
@@ -47,10 +48,12 @@ export const EntityImage: React.FC<{ src?: string | null; alt: string; className
     : <div className={className + ' flex items-center justify-center rounded-[8px] bg-stone-100 p-3 text-center text-xs text-stone-500'}></div>;
 };
 
-export const BranchHours: React.FC<{ branch: BranchDetails }> = ({ branch }) => (
-  <p className="text-xs text-stone-600">Giờ hoạt động: {branch.openingTime && branch.closingTime
-    ? branch.openingTime + ' - ' + branch.closingTime : ''}</p>
-);
+export const BranchHours: React.FC<{ branch: BranchDetails }> = ({ branch }) => {
+  const [now,setNow]=React.useState(()=>new Date());
+  React.useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),30000);return()=>clearInterval(timer);},[]);
+  const open=branchOpenNow(branch.openingTime,branch.closingTime,now);
+  return <div><p className="text-xs text-stone-600">{branch.openingTime&&branch.closingTime?'Giờ hoạt động: '+branch.openingTime+' - '+branch.closingTime:''}</p>{open!==null&&<span className={'matched-open-status '+(open?'is-open':'is-closed')}>{open?'Đang mở cửa':'Đã đóng cửa'}</span>}</div>;
+};
 
 const branchCoordinates = (branch: BranchDetails) => {
   if (branch.latitude == null || branch.longitude == null || String(branch.latitude).trim() === '' || String(branch.longitude).trim() === '') return null;
@@ -76,7 +79,7 @@ export const BranchMap: React.FC<{ branch: BranchDetails }> = ({ branch }) => {
   return <div className="branch-map"><iframe key={branch.id} title={`Bản đồ ${branch.name}`} loading="lazy" referrerPolicy="no-referrer" src={`https://www.openstreetmap.org/export/embed.html?${params}`} /><MapLink branch={branch} /></div>;
 };
 
-const MapLink: React.FC<{ branch: BranchDetails }> = ({ branch }) => {
+export const MapLink: React.FC<{ branch: BranchDetails }> = ({ branch }) => {
   const coordinates=branchCoordinates(branch);
   const destination = coordinates ? coordinates.latitude + ',' + coordinates.longitude : branch.address?.trim();
   return destination

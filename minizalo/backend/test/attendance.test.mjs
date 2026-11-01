@@ -33,7 +33,7 @@ test('attendance QR is scoped, signed, time-bound and persists one real enrollme
     assert.equal((await submit()).status,403);
     assert.equal((await issue()).status,403);
     await db.query('UPDATE staff_profiles SET is_active=true WHERE user_id=$1',[id(90)]);
-    await db.query("UPDATE batch_schedules SET session_date=session_date+1 WHERE id=$1",[id(150)]);
+    await db.query("UPDATE batch_schedules SET session_date=session_date+2 WHERE id=$1",[id(150)]);
     assert.equal((await issue()).status,409);
     assert.equal((await submit()).status,409);
   }finally{await f.close();}

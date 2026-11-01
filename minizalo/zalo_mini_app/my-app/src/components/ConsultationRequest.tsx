@@ -1,0 +1,16 @@
+import React,{useEffect,useRef,useState} from 'react';
+import type {User,Branch} from '../../../../backend/src/data/database';
+import {apiClient} from '@/api/client';
+import {contactPhone} from '@/utils/phone';
+import {useBackAction} from '@/hooks/useNavigationHistory';
+export function ConsultationRequest({open,user,branches,initialBranchId,initialName='',initialPhone='',onClose,onLogin,onSaved}:{open:boolean;user:User|null;branches:Branch[];initialBranchId:string;initialName?:string;initialPhone?:string;onClose:()=>void;onLogin:(name:string,phone:string)=>void;onSaved:()=>void}){
+  const [name,setName]=useState(initialName),[phone,setPhone]=useState(initialPhone),[message,setMessage]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const [branchId,setBranchId]=useState(initialBranchId);
+  useEffect(()=>setBranchId(initialBranchId),[initialBranchId]);
+  const lock=useRef(false),alive=useRef(true);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
+  useEffect(()=>{if(open){setName(initialName);setPhone(initialPhone);setError('');}},[open,initialName,initialPhone]);
+  useBackAction(open,()=>{if(!lock.current)onClose();},3);
+  if(!open)return null;
+  return <div className="mobile-sheet-backdrop"><section role="dialog" aria-modal="true" aria-labelledby="consultation-request-heading" className="mobile-sheet"><header className="mobile-section-heading"><h2 id="consultation-request-heading">Đăng ký tư vấn</h2><button disabled={busy} type="button" onClick={onClose}>Đóng</button></header><p>Gửi thông tin để cơ sở liên hệ tư vấn.</p><form onSubmit={async e=>{e.preventDefault();if(lock.current)return;if(!name.trim()){setError('Vui lòng nhập họ và tên.');return;}if(!contactPhone(phone)){setError('Số điện thoại không hợp lệ.');return;}if(!user){onLogin(name,phone);return;}lock.current=true;setBusy(true);setError('');const epoch=apiClient.sessionVersion();try{const result=await apiClient.createConsultation({branchId,name:name.trim(),phone:contactPhone(phone)!,message:message.trim()});if(!alive.current||apiClient.sessionVersion()!==epoch)return;if(result?.error||!result?.ticket?.id){setError(result?.error||'Không thể gửi yêu cầu tư vấn.');return;}setName('');setPhone('');setMessage('');onSaved();}finally{lock.current=false;if(alive.current)setBusy(false);}}}><label className="mobile-field">Cơ sở tiếp nhận<select required disabled={busy} value={branchId} onChange={e=>setBranchId(e.target.value)}><option value=""></option>{branches.map(b=><option value={b.id} key={b.id}>{b.name}</option>)}</select></label><label className="mobile-field">Họ và tên<input required maxLength={150} value={name} disabled={busy} onChange={e=>setName(e.target.value)}/></label><label className="mobile-field">Số điện thoại<input required type="tel" maxLength={20} value={phone} disabled={busy} onChange={e=>setPhone(e.target.value)}/></label><label className="mobile-field">Nội dung cần tư vấn<textarea maxLength={9000} value={message} disabled={busy} onChange={e=>setMessage(e.target.value)}/></label>{error&&<p role="alert">{error}</p>}<button type="submit" className="mobile-primary" disabled={busy}>{busy?'Đang gửi...':user?'Gửi yêu cầu tư vấn':'Đăng nhập để gửi yêu cầu'}</button></form></section></div>;
+}

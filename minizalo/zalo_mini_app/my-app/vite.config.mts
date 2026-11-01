@@ -12,7 +12,9 @@ export default () => {
     base: "",
     plugins: [zaloMiniApp(), react({babel:{plugins:[localizeJsx]}})],
     server: {
-      host: "0.0.0.0",
+      host: process.env.ZMP_DEV_HOST || "127.0.0.1",
+      cors: false,
+      fs: {strict:true,allow:[path.resolve(__dirname)],deny:[".env",".env.*","**/.git/**","*.{crt,pem}"]},
       port: 3000,
     },
     build: {

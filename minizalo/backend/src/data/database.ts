@@ -13,11 +13,6 @@ export interface User {
   preferredBranch?: string;
   skinType?: string;
   healthNotes?: string;
-  profileExtended?:boolean;
-  occupation?:string;
-  theme?:'LIGHT'|'DARK'|'SYSTEM';
-  treatmentNotify?:boolean;
-  courseNotify?:boolean;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   purpose?: 'BEAUTY_SPA' | 'ACADEMY' | 'BOTH';
@@ -46,7 +41,7 @@ export interface AppNotification {
   message: string;
   type: string;
   entityId?: string;
-  data?: { sourceKey?:string; target?: { screen: 'booking' | 'academy' | 'treatment' | 'profile'; entityId?: string; courseId?: string; enrollmentId?: string; quizId?: string; bookingId?: string; tab?: string } };
+  data?: { sourceKey?:string; staffBranchId?:string; target?: { screen: 'booking' | 'academy' | 'treatment' | 'profile'; entityId?: string; courseId?: string; enrollmentId?: string; quizId?: string; bookingId?: string; tab?: string } };
   isRead: boolean;
   createdAt: string;
 }

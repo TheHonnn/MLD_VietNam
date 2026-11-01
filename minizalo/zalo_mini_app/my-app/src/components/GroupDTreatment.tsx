@@ -167,7 +167,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       void load('faqs', () => apiClient.getSupportFaqs(), 'faqs', setFaqs);
     }
     if (activeTab === 'journal' && suppliedRecords === undefined) void load('records', () => apiClient.getMedicalRecords(), 'records', setRecords);
-    if ((activeTab === 'packages' || activeTab === 'journal') && suppliedBookings === undefined && user.id) void load('bookings', () => apiClient.getBookings(), 'bookings', setLoadedBookings);
+    if ((activeTab === 'packages' || activeTab === 'journal') && suppliedBookings === undefined && user.id) void load('bookings', () => apiClient.getBookings('personal'), 'bookings', setLoadedBookings);
     return () => { cancelled = true; };
   }, [activeTab, suppliedRecords, suppliedBookings, user.id, resourceRetry]);
 

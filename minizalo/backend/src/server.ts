@@ -13,9 +13,10 @@ import { listNotifications, syncNotifications } from './notifications.js';
 import {ownedEnrollment,assertLessonUnlocked,recomputeProgress,lessonQuizLinks,startQuiz,submitAttempt,startPlayback,heartbeat,saveQuizDraft} from './learning.js';
 import {inboxFilter,notificationAccess,unreadCount,notificationView} from './notification-inbox.js';
 import {reservePackage} from './package-booking.js';
+import {createConsultation,staffConsultations,replyConsultation,supportTicketView,CONSULTATION_PREFIX} from './consultation-requests.js';
+import {bookingFilters} from './booking-filters.js';
 import {collectionPage} from './collection-page.js';
 import {customerRequest} from './customer-request.js';
-import {profilePreferences,saveProfilePreferences} from './profile-preferences.js';
 import {profileAvatar,profileBirthDate} from './profile-input.js';
 import {isStaffRole,staffScope,optionalStaffScope,staffCustomers,staffCustomer,bookingAccess,staffSessionStatus,bookingGuests} from './staff-booking.js';
 import {bookingGroup,cancelBookingGroup} from './booking-groups.js';
@@ -53,7 +54,7 @@ async function user(store: Store, id: string) {
   const [schema]=await store.query(Prisma.sql`SELECT to_regclass('public.miniapp_customer_profiles') IS NOT NULL AS ready`);
   const [profile]=schema.ready?await store.query(Prisma.sql`SELECT preferred_branch_id AS preferred_branch,skin_type,health_notes FROM miniapp_customer_profiles WHERE user_id=${id}::uuid`):[];
   const staffScopeValue=isStaffRole(record.role)?await optionalStaffScope(store,id):null;
-  return {...record,preferred_branch:null,skin_type:'',health_notes:'',...profile,...await profilePreferences(store,id),staff_access:Boolean(staffScopeValue),staff_branch_id:staffScopeValue?.branchId??null};
+  return {...record,preferred_branch:null,skin_type:'',health_notes:'',...profile,staff_access:Boolean(staffScopeValue),staff_branch_id:staffScopeValue?.branchId??null};
 }
 
 const bookingSelect = Prisma.sql`
@@ -293,7 +294,7 @@ export function createApp(store: Store, options: AppOptions) {
 
   app.get('/api/health', route(async (_req, res) => {
     await store.query(Prisma.sql`SELECT 1 AS ready`);
-    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['mobile-parity-v2','approval-gated-learning-v1','class-attendance-v1','unified-zalo-login-v1','personal-booking-resources-v1','portal-content-v1','staff-workspace-v1','staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1','certificate-verification-v1','youtube-lessons-v1'] });
+    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['mobile-parity-v2','approval-gated-learning-v1','class-attendance-v1','unified-zalo-login-v1','personal-booking-resources-v1','personal-group-booking-v1','booking-pagination-v1','consultation-inbox-v1','portal-content-v1','staff-workspace-v1','staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1','certificate-verification-v1','youtube-lessons-v1'] });
   }));
 
   app.get('/api/app-metadata', route(async (_req,res) => {
@@ -389,7 +390,8 @@ export function createApp(store: Store, options: AppOptions) {
     try { const token=req.headers.authorization?.replace(/^Bearer\s+/i,'')??'';const payload = jwt.verify(token,options.jwtSecret,{algorithms:['HS256'],maxAge:'8h'}) as jwt.JwtPayload; const viewer=uuid(payload.sub);await accountSession(store,viewer,token,payload,req.get('User-Agent')||'');customerId=viewer; }
     catch { /* Public users see available slots, but not another user's hold. */ }
     const [service] = await store.query(Prisma.sql`SELECT s.duration_minutes FROM services s JOIN service_categories cat ON cat.id=s.category_id WHERE s.id=${serviceId}::uuid AND s.is_active AND cat.is_active`);
-    const people=staffOnly?bookingPeople(req.query.people===undefined?undefined:Number(req.query.people)):1;
+    const people=bookingPeople(req.query.people===undefined?undefined:Number(req.query.people));
+    if(!staffOnly&&people>10)throw new ApiError(400,'Choose 1-10 people');
     if(staffOnly){
       const scope=await staffScope(store,res.locals.userId);
       if(scope.branchId&&scope.branchId!==branchId)throw new ApiError(403,'Staff cannot book another branch');
@@ -492,24 +494,26 @@ export function createApp(store: Store, options: AppOptions) {
   }));
   app.get('/api/auth/settings', route(async (_req,res) => {
     const [settings] = await store.query(Prisma.sql`SELECT * FROM user_settings WHERE user_id=${res.locals.userId}::uuid`);
-    return success(res,{settings:settings?{...settings,...await profilePreferences(store,res.locals.userId)}:null});
+    return success(res,{settings:settings??null});
   }));
   app.put('/api/auth/settings', route(async (req,res) => {
+    if(['theme','treatmentNotify','courseNotify'].some(key=>req.body[key]!==undefined))throw new ApiError(409,'Thiết lập này đang được hoãn, chưa có nơi lưu trong database.',{code:'FEATURE_DEFERRED'});
     const fields = ['biometricEnabled','appointmentReminder','promotionNotify','systemNotify'];
     if (fields.some(key=>req.body[key]!==undefined&&typeof req.body[key]!=='boolean')
       || (req.body.language!==undefined&&!['vi','en'].includes(req.body.language))) throw new ApiError(400,'Invalid app settings');
-    const [settings] = await store.transaction(async tx=>{await saveProfilePreferences(tx,res.locals.userId,req.body);return tx.query(Prisma.sql`INSERT INTO user_settings(user_id,biometric_enabled,appointment_reminder,promotion_notify,system_notify,language)
+    const [settings] = await store.query(Prisma.sql`INSERT INTO user_settings(user_id,biometric_enabled,appointment_reminder,promotion_notify,system_notify,language)
       VALUES (${res.locals.userId}::uuid,COALESCE(${req.body.biometricEnabled??null}::boolean,false),COALESCE(${req.body.appointmentReminder??null}::boolean,true),COALESCE(${req.body.promotionNotify??null}::boolean,true),COALESCE(${req.body.systemNotify??null}::boolean,true),COALESCE(${req.body.language??null}::text,'vi'))
       ON CONFLICT(user_id) DO UPDATE SET
         biometric_enabled=COALESCE(${req.body.biometricEnabled??null}::boolean,user_settings.biometric_enabled),
         appointment_reminder=COALESCE(${req.body.appointmentReminder??null}::boolean,user_settings.appointment_reminder),
         promotion_notify=COALESCE(${req.body.promotionNotify??null}::boolean,user_settings.promotion_notify),
         system_notify=COALESCE(${req.body.systemNotify??null}::boolean,user_settings.system_notify),
-        language=COALESCE(${req.body.language??null}::text,user_settings.language),updated_at=CURRENT_TIMESTAMP RETURNING *`);});
-    return success(res,{settings:{...settings,...await profilePreferences(store,res.locals.userId)}});
+        language=COALESCE(${req.body.language??null}::text,user_settings.language),updated_at=CURRENT_TIMESTAMP RETURNING *`);
+    return success(res,{settings});
   }));
   app.put('/api/auth/profile', route(async (req,res) => {
     const input = req.body;
+    if(input.occupation!==undefined)throw new ApiError(409,'Thông tin nghề nghiệp đang được hoãn, chưa có nơi lưu trong database.',{code:'FEATURE_DEFERRED'});
     const name = input.fullName!==undefined?input.fullName:input.name!==undefined?input.name:res.locals.user.full_name;
     const gender = input.gender === 'Nam' ? 'MALE' : input.gender === 'Nữ' ? 'FEMALE' : input.gender === 'Khác' ? 'OTHER' : input.gender !== undefined ? input.gender : res.locals.user.gender;
     if (typeof name !== 'string' || !name.trim() || name.trim().length>150 || /[\x00-\x1f\x7f]/.test(name) || (gender !== null && !['MALE','FEMALE','OTHER'].includes(gender))) throw new ApiError(400,'Invalid profile');
@@ -551,23 +555,22 @@ export function createApp(store: Store, options: AppOptions) {
         skin_type=CASE WHEN ${input.skinType!==undefined} THEN EXCLUDED.skin_type ELSE miniapp_customer_profiles.skin_type END,
         health_notes=CASE WHEN ${input.healthNotes!==undefined} THEN EXCLUDED.health_notes ELSE miniapp_customer_profiles.health_notes END,
         updated_at=CURRENT_TIMESTAMP RETURNING user_id`);
-      await saveProfilePreferences(tx,res.locals.userId,input);
       return user(tx,res.locals.userId);
     });
     return success(res,{user:updated});
   }));
 
-  app.get('/api/bookings', route(async (req,res) => {if(req.query.scope!==undefined&&!['personal','work'].includes(String(req.query.scope)))throw new ApiError(400,'Invalid booking scope');const access=req.query.scope==='personal'?Prisma.sql`b.customer_id=${res.locals.userId}::uuid`:await bookingAccess(store,res.locals.userId);const page=await collectionPage(store,Prisma.sql`${bookingSelect} WHERE ${access}`,req.query);return success(res,{bookings:page.rows,nextCursor:page.nextCursor});}));
-  app.get('/api/bookings/:id', route(async (req,res) => success(res,{booking:await booking(store,uuid(req.params.id),res.locals.userId)})));
-  app.get('/api/staff/bookings/:id/group',route(async(req,res)=>{
-    const rows=await bookingGroup(store,res.locals.userId,uuid(req.params.id));
+  app.get('/api/bookings', route(async (req,res) => {if(req.query.scope!==undefined&&!['personal','work'].includes(String(req.query.scope)))throw new ApiError(400,'Invalid booking scope');const access=req.query.scope==='personal'?Prisma.sql`b.customer_id=${res.locals.userId}::uuid`:await bookingAccess(store,res.locals.userId);const page=await collectionPage(store,Prisma.sql`${bookingSelect} WHERE ${access} ${bookingFilters(req.query)}`,req.query);return success(res,{bookings:page.rows,nextCursor:page.nextCursor});}));
+  app.get('/api/bookings/:id', route(async (req,res) => {const row=await booking(store,uuid(req.params.id),res.locals.userId);if(req.query.scope==='personal'&&row.customer_id!==res.locals.userId)throw new ApiError(404,'Booking not found');return success(res,{booking:row});}));
+  app.get(['/api/staff/bookings/:id/group','/api/bookings/:id/group'],route(async(req,res)=>{
+    const rows=await bookingGroup(store,res.locals.userId,uuid(req.params.id),false,!req.path.startsWith('/api/staff/'));
     const bookings=[];
     for(const row of rows)bookings.push(await booking(store,row.id,res.locals.userId));
     return success(res,{bookings});
   }));
-  app.patch('/api/staff/bookings/:id/group/cancel',route(async(req,res)=>{
+  app.patch(['/api/staff/bookings/:id/group/cancel','/api/bookings/:id/group/cancel'],route(async(req,res)=>{
     const bookings=await store.transaction(async tx=>{
-      const rows=await cancelBookingGroup(tx,res.locals.userId,uuid(req.params.id),req.body.reason);
+      const rows=await cancelBookingGroup(tx,res.locals.userId,uuid(req.params.id),req.body.reason,!req.path.startsWith('/api/staff/'));
       for(const customerId of new Set(rows.map(row=>String(row.customer_id))))await syncNotifications(tx,customerId);
       const result=[];
       for(const row of rows)result.push(await booking(tx,row.id,res.locals.userId));
@@ -601,7 +604,7 @@ export function createApp(store: Store, options: AppOptions) {
     const people=bookingPeople(req.body.people);
     const guests=bookingGuests(req.body.guests,people);
     if(guests&&!staffMode)throw new ApiError(403,'Staff booking access is required');
-    if(!staffMode&&people!==1)throw new ApiError(403,'Staff booking access is required');
+    if(!staffMode&&people>10)throw new ApiError(400,'Choose 1-10 people');
     if(people>1&&(req.body.userPackageId||req.body.couponCode||req.body.voucherCode))throw new ApiError(400,'Group bookings cannot share a personal package or voucher');
     const requestKey=req.get('Idempotency-Key')?uuid(req.get('Idempotency-Key')):null;
     const canonical=(value:any):any=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])):value;
@@ -657,13 +660,13 @@ export function createApp(store: Store, options: AppOptions) {
         (booking_code,customer_id,branch_id,technician_id,assigned_room_id,booking_date,start_time,end_time,status,base_total,coupon_id,discount_amount,final_price,
         booked_for_name,booked_for_phone,special_notes,qr_code_hash,assigned_bed_number)
         VALUES (${`SPA-${randomUUID()}`.slice(0,30)},${customerId}::uuid,${branchId}::uuid,${assigned}::uuid,${bed?.room_id??null}::uuid,${time.day}::date,${time.start}::time,${time.end}::time,
-        'CONFIRMED',${unitTotal},${applied?.record.id ?? null}::uuid,${applied?.discount ?? new Prisma.Decimal(0)},${unitTotal.sub(applied?.discount ?? 0)},
+        ${staffMode?'CONFIRMED':'PENDING'}::booking_status,${unitTotal},${applied?.record.id ?? null}::uuid,${applied?.discount ?? new Prisma.Decimal(0)},${unitTotal.sub(applied?.discount ?? 0)},
         ${guests?.[member-1].name ?? customer?.full_name ?? req.body.bookedForName ?? req.body.userName ?? null},${guests?.[member-1].phone ?? customer?.phone ?? req.body.bookedForPhone ?? req.body.userPhone ?? null},${req.body.specialNotes ?? req.body.notes ?? null},${randomUUID()},${bed?String(bed.bed_number):null}) RETURNING id`);
       if(!firstId)firstId=String(saved.id);
       if(staffMode){
         await tx.query(Prisma.sql`INSERT INTO miniapp_staff_bookings(booking_id,staff_id,branch_id) VALUES(${saved.id}::uuid,${actorId}::uuid,${branchId}::uuid) RETURNING booking_id`);
-        await tx.query(Prisma.sql`INSERT INTO miniapp_booking_group_members(booking_id,group_id,member_number) VALUES(${saved.id}::uuid,${groupId}::uuid,${member}) RETURNING booking_id`);
       }
+      if(people>1||staffMode)await tx.query(Prisma.sql`INSERT INTO miniapp_booking_group_members(booking_id,group_id,member_number) VALUES(${saved.id}::uuid,${groupId}::uuid,${member}) RETURNING booking_id`);
       await tx.query(Prisma.sql`INSERT INTO miniapp_booking_beds(booking_id,room_id,bed_number) VALUES(${saved.id}::uuid,${bed.room_id}::uuid,${bed.bed_number}) RETURNING booking_id`);
       for (const service of services) await tx.query(Prisma.sql`INSERT INTO booking_items (booking_id,service_id,technician_id,duration_minutes,price)
         VALUES (${saved.id}::uuid,${service.id}::uuid,${assigned}::uuid,${service.duration_minutes},${userPackageId?0:(service.discount_price ?? service.price)}) RETURNING id`);
@@ -843,18 +846,22 @@ export function createApp(store: Store, options: AppOptions) {
   }));
   app.put('/api/courses/:id/quiz/draft',route(async(req,res)=>success(res,await saveQuizDraft(store,res.locals.userId,uuid(req.params.id),uuid(req.body.attemptId),req.body.enrollmentId?uuid(req.body.enrollmentId):null,req.body.answers))));
 
-  app.get('/api/records',route(async(_req,res)=>success(res,{records:await store.query(Prisma.sql`${journalSelect} WHERE j.customer_id = ${res.locals.userId}::uuid ORDER BY j.session_date DESC`)})));
+  app.get('/api/records',route(async(req,res)=>{const query=Prisma.sql`${journalSelect} WHERE j.customer_id=${res.locals.userId}::uuid`;if(req.query.limit!==undefined||req.query.cursor!==undefined){const page=await collectionPage(store,query,req.query);return success(res,{records:page.rows,nextCursor:page.nextCursor});}return success(res,{records:await store.query(Prisma.sql`${query} ORDER BY j.session_date DESC`)});}));
   app.get('/api/records/:id',route(async(req,res)=>{
     const [record] = await store.query(Prisma.sql`${journalSelect} WHERE j.id = ${uuid(req.params.id)}::uuid AND j.customer_id = ${res.locals.userId}::uuid`);
     if (!record) throw new ApiError(404,'Record not found');
     return success(res,{record});
   }));
-  app.get('/api/support-tickets',route(async(req,res)=>{const page=await collectionPage(store,Prisma.sql`SELECT * FROM support_tickets WHERE customer_id=${res.locals.userId}::uuid`,req.query);return success(res,{tickets:page.rows,nextCursor:page.nextCursor});}));
+  app.get('/api/support-tickets',route(async(req,res)=>{const page=await collectionPage(store,Prisma.sql`SELECT * FROM support_tickets WHERE customer_id=${res.locals.userId}::uuid`,req.query);return success(res,{tickets:page.rows.map(supportTicketView),nextCursor:page.nextCursor});}));
+  app.post('/api/consultations',route(async(req,res)=>success(res,{ticket:await createConsultation(store,res.locals.userId,req.body,req.headers['idempotency-key'])},201)));
+  app.get('/api/staff/consultations',route(async(req,res)=>success(res,await staffConsultations(store,res.locals.userId,req.query))));
+  app.patch('/api/staff/consultations/:id',route(async(req,res)=>success(res,{ticket:await replyConsultation(store,res.locals.userId,req.params.id,req.body)})));
   app.get('/api/consultation-surveys',route(async(req,res)=>{const page=await collectionPage(store,Prisma.sql`SELECT * FROM consultation_surveys WHERE customer_id=${res.locals.userId}::uuid`,req.query);return success(res,{surveys:page.rows,nextCursor:page.nextCursor});}));
   app.get('/api/reviews/mine',route(async(_req,res)=>success(res,{reviews:await store.query(Prisma.sql`SELECT id,booking_id,service_id,rating,review_tags,comment,photos,branch_reply,created_at FROM reviews WHERE customer_id=${res.locals.userId}::uuid ORDER BY created_at DESC`)})));
   app.post('/api/support-tickets',route(async(req,res)=>{
     if(typeof req.body.subject!=='string'||typeof req.body.message!=='string') throw new ApiError(400,'A subject and message must be text');
     const subject = req.body.subject.trim(),message = req.body.message.trim();
+    if(subject.startsWith(CONSULTATION_PREFIX))throw new ApiError(400,'Use the consultation endpoint');
     if (!subject || subject.length>200 || !message || message.length>10000) throw new ApiError(400,'A subject and message are required');
     const ticket = await customerRequest(store,res.locals.userId,'support',req.headers['idempotency-key'],{subject,message},async tx=>{
       const [record]=await tx.query(Prisma.sql`INSERT INTO support_tickets(customer_id,subject,message) VALUES (${res.locals.userId}::uuid,${subject},${message}) RETURNING *`);return record;

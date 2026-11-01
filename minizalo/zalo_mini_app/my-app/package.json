@@ -8,6 +8,12 @@
   "overrides": {
     "zmp-ui": {
       "react-router-dom": "7.18.4"
+    },
+    "simple-git": "$simple-git",
+    "tar": "7.5.22",
+    "vite": "$vite",
+    "zmp-vite-plugin": {
+      "vite": "$vite"
     }
   },
   "browserslist": [
@@ -22,19 +28,22 @@
     "test:staff": "node --test scripts/staff-workspace.test.mjs",
     "test:auth": "node --test scripts/zalo-auth.test.mjs",
     "test:localization": "node --test scripts/localization.test.mjs && node scripts/audit-translations.mjs --check",
-    "prebuild": "node scripts/compile-ui-translations.mjs",
+    "prebuild": "node scripts/prepare-zmp-toolchain.mjs && node scripts/compile-ui-translations.mjs",
     "build": "vite build",
     "postbuild": "node scripts/check-build-artifacts.mjs",
     "build:verify": "node scripts/check-build-artifacts.mjs",
     "release:check": "node scripts/check-release-config.mjs",
     "backend:check": "node scripts/check-backend.mjs",
-    "predeploy:test": "npm run backend:check",
-    "predeploy": "npm run backend:check",
+    "predeploy:test": "node scripts/prepare-zmp-toolchain.mjs && npm run backend:check",
+    "predeploy": "node scripts/prepare-zmp-toolchain.mjs && npm run backend:check",
     "login": "zmp login",
     "start": "zmp start",
     "start:zalo": "zmp start -Z",
     "deploy": "zmp deploy",
-    "deploy:test": "zmp deploy -t -m \"Mobile testing\""
+    "deploy:test": "zmp deploy -t -m \"Mobile testing\"",
+    "postinstall": "node scripts/prepare-zmp-toolchain.mjs",
+    "prestart": "node scripts/prepare-zmp-toolchain.mjs",
+    "prestart:zalo": "node scripts/prepare-zmp-toolchain.mjs"
   },
   "dependencies": {
     "jotai": "^2.12.1",
@@ -54,13 +63,12 @@
     "cross-env": "^7.0.3",
     "esbuild": "^0.21.5",
     "postcss": "^8.4.38",
-    "postcss-cli": "^8.3.1",
-    "postcss-preset-env": "^6.7.0",
     "sass": "^1.76.0",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.9.3",
-    "vite": "^5.2.13",
+    "vite": "6.4.5",
     "zmp-cli": "^4.0.3",
-    "zmp-vite-plugin": "1.1.6"
+    "zmp-vite-plugin": "1.1.6",
+    "simple-git": "file:./tooling/simple-git-compat"
   }
 }

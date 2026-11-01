@@ -3,6 +3,7 @@ import type {Store} from './store.js';
 import {ApiError} from './errors.js';
 
 export function notificationView(notification:Record<string,any>){
+  if(typeof notification.title==='string'&&notification.title.includes('MINIAPP_CONSULTATION:'))notification={...notification,title:'Phản hồi yêu cầu tư vấn'};
   const key=notification.data?.sourceKey;
   if(typeof key!=='string'||!/^certificate:[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(key))return notification;
   return {...notification,title:notification.title.replace(/^Chứng chỉ:/,'Giấy chứng nhận:'),data:{...notification.data,
@@ -19,8 +20,6 @@ export const notificationAccess=(userId:string)=>Prisma.sql`n.user_id=${userId}:
 export const inboxFilter=(userId:string)=>Prisma.sql`${notificationAccess(userId)}
   AND (COALESCE(n.data->>'channel',CASE WHEN n.type='SYSTEM' THEN 'system' WHEN n.type='PROMOTION' THEN 'promotion' ELSE 'activity' END)<>'system' OR COALESCE((SELECT system_notify FROM user_settings WHERE user_id=${userId}::uuid),true))
   AND (COALESCE(n.data->>'channel',CASE WHEN n.type='PROMOTION' THEN 'promotion' ELSE '' END)<>'promotion' OR COALESCE((SELECT promotion_notify FROM user_settings WHERE user_id=${userId}::uuid),true))
-  AND (n.type<>'TREATMENT' OR COALESCE((SELECT (to_jsonb(p)->>'treatment_notify')::boolean FROM miniapp_customer_profiles p WHERE p.user_id=${userId}::uuid),true))
-  AND (n.type<>'COURSE' OR COALESCE((SELECT (to_jsonb(p)->>'course_notify')::boolean FROM miniapp_customer_profiles p WHERE p.user_id=${userId}::uuid),true))
   AND (COALESCE(n.data->>'channel','')<>'reminder' OR COALESCE((SELECT appointment_reminder FROM user_settings WHERE user_id=${userId}::uuid),true))`;
 export async function unreadCount(store:Store,userId:string) {
   const [row]=await store.query(Prisma.sql`SELECT count(*)::int AS count FROM notifications n WHERE ${inboxFilter(userId)} AND NOT n.is_read`);

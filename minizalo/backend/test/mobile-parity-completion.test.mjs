@@ -6,6 +6,16 @@ test('sequential learning, enrollment contacts and personal scope follow canonic
   const f=await workflowFixture(),{db,id,request}=f;
   const course=`/courses/${id(22)}`,enrollmentId=id(29);
   try{
+    await t.test('deferred profile fields cannot produce a fake successful save on the unchanged schema',async()=>{
+      const before=(await db.query('SELECT full_name FROM users WHERE id=$1',[id(1)])).rows[0].full_name;
+      const profile=await request('/auth/profile',{method:'PUT',body:{name:'Must not change',occupation:'Not supported yet'}});
+      assert.equal(profile.status,409);assert.equal(profile.code,'FEATURE_DEFERRED');
+      assert.equal((await db.query('SELECT full_name FROM users WHERE id=$1',[id(1)])).rows[0].full_name,before);
+      for(const body of [{theme:'DARK'},{treatmentNotify:false},{courseNotify:false}]){
+        const settings=await request('/auth/settings',{method:'PUT',body});assert.equal(settings.status,409);assert.equal(settings.code,'FEATURE_DEFERRED');
+      }
+      assert.equal((await db.query('SELECT count(*)::int AS n FROM user_settings WHERE user_id=$1',[id(1)])).rows[0].n,0);
+    });
     await t.test('later lessons cannot be read, marked complete, played or tested before prerequisites',async()=>{
       await db.query('UPDATE course_lessons SET lesson_order=CASE id WHEN $1 THEN 1 WHEN $2 THEN 2 ELSE 4 END WHERE chapter_id=$3',[id(24),id(25),id(23)]);
       await db.query("INSERT INTO course_lessons(id,chapter_id,title,lesson_type,lesson_order,video_url,duration_minutes) VALUES($1,$2,'Ordered actual video','VIDEO',3,'https://files.test/video.mp4',1)",[id(70),id(23)]);

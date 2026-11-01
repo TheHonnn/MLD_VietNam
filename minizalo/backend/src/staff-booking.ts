@@ -79,7 +79,7 @@ export async function staffCustomer(store:Store,actorId:string,branchId:string,b
 
 export async function staffSessionStatus(store:Store,actorId:string,bookingId:string,body:Row){
   const scope=await staffScope(store,actorId),status=body.status;
-  if(!['CHECKED_IN','IN_SERVICE','COMPLETED'].includes(status))throw new ApiError(400,'Invalid treatment session status');
+  if(!['CONFIRMED','CHECKED_IN','IN_SERVICE','COMPLETED'].includes(status))throw new ApiError(400,'Invalid treatment session status');
   for(const field of ['treatmentNotes','conditionBefore','conditionAfter','specialistAdvice']){
     if(body[field]!==undefined&&(typeof body[field]!=='string'||body[field].length>10000||body[field].includes('\0')))throw new ApiError(400,'Invalid treatment notes');
   }
@@ -87,9 +87,14 @@ export async function staffSessionStatus(store:Store,actorId:string,bookingId:st
     AND (${scope.branchId}::uuid IS NULL OR branch_id=${scope.branchId}::uuid) FOR UPDATE`);
   if(!current)throw new ApiError(404,'Booking not found');
   if(current.status===status)return;
-  if(({CHECKED_IN:'CONFIRMED',IN_SERVICE:'CHECKED_IN',COMPLETED:'IN_SERVICE'} as Record<string,string>)[status]!==current.status)throw new ApiError(409,'Invalid treatment session transition');
+  if(({CONFIRMED:'PENDING',CHECKED_IN:'CONFIRMED',IN_SERVICE:'CHECKED_IN',COMPLETED:'IN_SERVICE'} as Record<string,string>)[status]!==current.status)throw new ApiError(409,'Invalid treatment session transition');
+  if(status==='CONFIRMED'){
+    if(Date.parse(`${current.day}T${current.start}+07:00`)<=Date.now())throw new ApiError(409,'Past appointments cannot be confirmed');
+    const [resources]=await store.query(Prisma.sql`SELECT t.id FROM technicians t JOIN branches b ON b.id=t.branch_id AND b.is_active JOIN branch_rooms r ON r.branch_id=b.id AND r.is_available WHERE t.id=${current.technician_id}::uuid AND t.is_active AND b.id=${current.branch_id}::uuid AND r.id=${current.assigned_room_id}::uuid`);
+    if(!resources)throw new ApiError(409,'Cơ sở cần phân công giường và chuyên viên còn hoạt động trước khi xác nhận.');
+  }
   const today=new Date(Date.now()+7*3600_000).toISOString().slice(0,10);
-  if(current.day>today||(status==='CHECKED_IN'&&current.day!==today)||(status!=='CHECKED_IN'&&Date.parse(`${current.day}T${current.start}+07:00`)>Date.now()))throw new ApiError(409,'Treatment session has not started');
+  if(status!=='CONFIRMED'&&(current.day>today||(status==='CHECKED_IN'&&current.day!==today)||(status!=='CHECKED_IN'&&Date.parse(`${current.day}T${current.start}+07:00`)>Date.now())))throw new ApiError(409,'Treatment session has not started');
   if(status==='COMPLETED'){
     if(!body.treatmentNotes?.trim())throw new ApiError(400,'Treatment notes are required to end a session');
     const [link]=await store.query(Prisma.sql`SELECT user_package_id,state,journal_id FROM miniapp_booking_packages WHERE booking_id=${bookingId}::uuid FOR UPDATE`);

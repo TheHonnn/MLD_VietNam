@@ -113,7 +113,7 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   try {
     response = await window.fetch(input, { cache: 'no-store', ...init, headers, signal: controller.signal });
     envelope = await response.json();
-    const field=method==='GET'&&!url.searchParams.has('cursor')?pagedCollections[relativePath(url)]:undefined;
+    const field=method==='GET'&&!url.searchParams.has('cursor')&&!url.searchParams.has('limit')?pagedCollections[relativePath(url)]:undefined;
     if(field&&response.ok&&envelope.success===true&&Array.isArray(envelope.data?.[field])) {
       const seen=new Set<string>();
       let next=envelope.data.nextCursor;
@@ -153,7 +153,7 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
   });
 };
 const responseJson = async (res: Response) => res.json();
-const createCustomerRecord=async(scope:'support-tickets'|'consultation-surveys',body:unknown)=>{
+const createCustomerRecord=async(scope:'support-tickets'|'consultation-surveys'|'consultations',body:unknown)=>{
   const token=session.get(),epoch=sessionEpoch;
   if(!token)return {error:'Vui lòng đăng nhập.',status:401};
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token));
@@ -215,7 +215,7 @@ export const apiClient = {
     const owner = session.get(), epoch = sessionEpoch;
     const results = await Promise.all(staffMode
       ?[apiClient.getSettings(),apiClient.getSearchHistory(),apiClient.getCourseEnrollments()]
-      :[apiClient.getMedicalRecords(),apiClient.getMembership(),apiClient.getBookings(),apiClient.getNotifications(),apiClient.getTreatmentPlans(),apiClient.getSettings(),apiClient.getTransactions(),apiClient.getSupportTickets(),apiClient.getConsultationSurveys(),apiClient.getMyReviews(),apiClient.getSearchHistory(),apiClient.getCourseEnrollments()]);
+      :[apiClient.getMedicalRecords(),apiClient.getMembership(),apiClient.getReadPage('/bookings',{scope:'personal'}),apiClient.getNotifications(),apiClient.getReadPage('/treatment-plans'),apiClient.getSettings(),apiClient.getReadPage('/support-tickets'),apiClient.getReadPage('/consultation-surveys'),apiClient.getMyReviews(),apiClient.getSearchHistory(),apiClient.getCourseEnrollments()]);
     const enrollments = results[results.length - 1]?.enrollments;
     // Catalogs are warmed globally; full learning payloads are bounded for mobile memory.
     const eligible = Array.isArray(enrollments) ? enrollments.filter((entry: any) => ['enrolled','studying'].includes(entry.status?.toLowerCase())).slice(0,3) : [];
@@ -426,9 +426,9 @@ export const apiClient = {
     }
   },
 
-  async getSlots(branchId: string, date: string, serviceId: string, technicianId?: string, signal?: AbortSignal) {
+  async getSlots(branchId: string, date: string, serviceId: string, technicianId?: string, signal?: AbortSignal,people=1) {
     try {
-      const params = new URLSearchParams({ branchId, date, serviceId });
+      const params = new URLSearchParams({ branchId, date, serviceId,people:String(people) });
       if (technicianId) params.set('technicianId', technicianId);
       const res = await fetch(`${API_BASE_URL}/slots?${params}`, { cache: 'no-store', signal });
       return await responseJson(res);
@@ -437,9 +437,9 @@ export const apiClient = {
     }
   },
 
-  async getSlotDates(branchId:string,date:string,throughDate:string,serviceId:string,technicianId?:string,signal?:AbortSignal){
+  async getSlotDates(branchId:string,date:string,throughDate:string,serviceId:string,technicianId?:string,signal?:AbortSignal,people=1){
     try{
-      const params=new URLSearchParams({branchId,date,throughDate,serviceId});
+      const params=new URLSearchParams({branchId,date,throughDate,serviceId,people:String(people)});
       if(technicianId)params.set('technicianId',technicianId);
       const response = await fetch(`${API_BASE_URL}/slots/dates?${params}`,{cache:'no-store',signal});
       if ([401,404].includes(response.status)) return {error:'Máy chủ chưa cập nhật tính năng tìm ngày trống. Bạn có thể chọn ngày trực tiếp trong lịch.',status:response.status};
@@ -550,6 +550,14 @@ export const apiClient = {
     catch{return {error:'Không thể cập nhật ca trị liệu. Vui lòng thử lại.'};}
   },
 
+  async getReadPage(path:'/records'|'/bookings'|'/treatment-plans'|'/support-tickets'|'/consultation-surveys',params:Record<string,string>={},signal?:AbortSignal){
+    try{return await responseJson(await fetch(API_BASE_URL+path+'?'+new URLSearchParams({limit:'50',...params}),{signal}));}
+    catch{return {error:'Không thể tải dữ liệu. Vui lòng thử lại.'};}
+  },
+  async getBooking(id:string,scope:'personal'|'work'='personal'){
+    try{return await responseJson(await fetch(API_BASE_URL+'/bookings/'+encodeURIComponent(id)+'?scope='+scope));}
+    catch{return {error:'Không thể tải lịch hẹn.'};}
+  },
   async getBookings(scope:'personal'|'work'='work') {
     try {
       const res = await fetch(`${API_BASE_URL}/bookings?scope=${scope}`);
@@ -574,12 +582,12 @@ export const apiClient = {
     }
   },
 
-  async getBookingGroup(id:string,signal?:AbortSignal){
-    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/bookings/${encodeURIComponent(id)}/group`,{signal,cache:'no-store'}));}
+  async getBookingGroup(id:string,signal?:AbortSignal,scope:'personal'|'work'='work'){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/${scope==='work'?'staff/':''}bookings/${encodeURIComponent(id)}/group`,{signal,cache:'no-store'}));}
     catch{return {error:'Không thể tải nhóm đặt lịch. Vui lòng thử lại.'};}
   },
-  async cancelBookingGroup(id:string){
-    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/bookings/${encodeURIComponent(id)}/group/cancel`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason:'Nhân viên hủy cả nhóm trên Mini App'})}));}
+  async cancelBookingGroup(id:string,scope:'personal'|'work'='work',reason=''){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/${scope==='work'?'staff/':''}bookings/${encodeURIComponent(id)}/group/cancel`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason})}));}
     catch{return {error:'Không thể hủy nhóm đặt lịch. Vui lòng thử lại.'};}
   },
   async cancelBooking(id: string, reason?: string) {
@@ -664,6 +672,15 @@ export const apiClient = {
     }
   },
 
+  async createConsultation(body:{name:string;phone:string;message:string;branchId:string}){
+    try{return await createCustomerRecord('consultations',body);}catch{return {error:'Không thể gửi yêu cầu tư vấn.'};}
+  },
+  async getConsultationRequests(status='',cursor?:string,signal?:AbortSignal){
+    try{return await responseJson(await fetch(API_BASE_URL+'/staff/consultations?'+new URLSearchParams({limit:'50',status,...cursor?{cursor}:{}}),{signal}));}catch{return {error:'Không thể tải yêu cầu tư vấn.'};}
+  },
+  async replyConsultation(id:string,body:{status:string;reply:string;expectedStatus:string;expectedReply:string}){
+    try{return await responseJson(await fetch(API_BASE_URL+'/staff/consultations/'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));}catch{return {error:'Không thể lưu phản hồi.'};}
+  },
   async getSupportTickets() {
     try { return await responseJson(await fetch(`${API_BASE_URL}/support-tickets`)); }
     catch { return { error: 'Không thể tải yêu cầu hỗ trợ.' }; }

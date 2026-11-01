@@ -10,6 +10,7 @@ const result = await build({
     import {AcademyCourseDetail, AcademyCatalog} from './src/components/AcademyViews';
     import {HomeCatalog} from './src/components/GroupBHome';
     export {trainingMetadata} from './src/utils/training-metadata';
+    export {branchOpenNow} from './src/utils/branch-hours';
     export {adaptCourse,adaptBooking,adaptDoctor} from './src/api/adapters';
     export const renderCourse = course => renderToStaticMarkup(React.createElement(AcademyCourseDetail, {course}));
     export const renderAcademy = courses => renderToStaticMarkup(React.createElement(AcademyCatalog, {courses, branches:[], branchId:''}));
@@ -21,7 +22,7 @@ const result = await build({
     builder.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export const EntityImage=()=>null;export const BranchHours=()=>null;',loader:'js'}));
   }}],
 });
-const {renderCourse,renderCatalog,renderAcademy,trainingMetadata,adaptCourse,adaptBooking,adaptDoctor}=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
+const {branchOpenNow,renderCourse,renderCatalog,renderAcademy,trainingMetadata,adaptCourse,adaptBooking,adaptDoctor}=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
 test('unpaid bookings and missing specialist specialties remain readable without fabricated values',()=>{
   const booking=adaptBooking({id:'actual',customerId:'owner',bookingCode:'ACTUAL',paymentMethod:null,status:'PENDING',bookingDate:'2026-10-28',startTime:'14:00',endTime:'15:00',items:[],baseTotal:100000,discountAmount:0,pointsDiscount:0,finalPrice:100000});
   assert.equal(booking.paymentMethod,'');assert.equal(booking.status,'pending');assert.equal(booking.code,'ACTUAL');
@@ -64,4 +65,12 @@ test('mobile training metadata survives adaptation without fabricated audience o
   assert.deepEqual(trainingMetadata({learningOutcomes:'invalid JSON'}),{targetAudience:'',targetNeed:'',courseGroup:'',learningOutcomes:[]});
   const goals=['Mục tiêu từ database',{title:'Thực hành'}];
   assert.deepEqual(trainingMetadata({learningOutcomes:goals}).learningOutcomes,goals);
+});
+
+test('branch status uses Vietnam time, exclusive closing and overnight hours without inventing missing hours',()=>{
+  assert.equal(branchOpenNow('08:00','20:00',new Date('2026-11-01T01:00:00Z')),true);
+  assert.equal(branchOpenNow('08:00','20:00',new Date('2026-11-01T13:00:00Z')),false);
+  assert.equal(branchOpenNow('22:00','06:00',new Date('2026-11-01T17:00:00Z')),true);
+  assert.equal(branchOpenNow('22:00','06:00',new Date('2026-11-01T03:00:00Z')),false);
+  for(const [a,b] of [[null,'20:00'],['24:00','20:00'],['08:99','20:00'],['08:00','08:00']])assert.equal(branchOpenNow(a,b),null);
 });
