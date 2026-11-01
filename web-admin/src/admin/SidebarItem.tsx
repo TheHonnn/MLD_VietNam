@@ -10,7 +10,7 @@ export interface SubMenuItem {
 }
 
 export const menuResources: Record<string, string[]> = {
-  '/customers': ['users', 'consultation_surveys', 'reviews', 'support_tickets', 'support_faqs'],
+  '/customers': ['users', 'consultation_surveys', 'reviews'],
   '/staff-schedule': ['technician_shifts', 'technician_slots'],
   '/medical-records': ['treatment_packages', 'user_packages', 'treatment_journal', 'home_care_guidelines'],
   '/cashier-pos': ['bookings', 'booking_items', 'invoices', 'invoice_items'],
