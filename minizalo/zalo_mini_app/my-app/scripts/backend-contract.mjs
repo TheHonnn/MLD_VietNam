@@ -1,4 +1,4 @@
-export const requiredFeatures = ['unified-zalo-login-v1','personal-booking-resources-v1','personal-group-booking-v1','booking-pagination-v1','consultation-inbox-v1','portal-content-v1','class-attendance-v1','mobile-parity-v2','approval-gated-learning-v1'];
+export const requiredFeatures = ['admin-document-policy-v1','journal-sharing-v1','staff-academy-approval-v1','staff-catalog-v1','unified-zalo-login-v1','personal-booking-resources-v1','personal-group-booking-v1','booking-pagination-v1','consultation-inbox-v1','portal-content-v1','class-attendance-v1','mobile-parity-v2','approval-gated-learning-v1'];
 
 export function checkBackendContract(envelope) {
   if(envelope?.success !== true || envelope?.data?.status !== 'ok') return ['health-response'];

@@ -49,6 +49,7 @@ interface GroupDTreatmentProps {
   initialForm?: 'survey';
   initialEntityId?: string;
   treatmentPlans?: Plan[] | null;
+  planCursor?:string|null;onMorePlans?:()=>void;
   sourceLoading?: boolean;
   sourceErrors?: {bookings?:string;records?:string;plans?:string};
   bookingError?:string;
@@ -75,7 +76,7 @@ const cachedPaths: Record<string,string> = {surveys:'/consultation-surveys',revi
 
 export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   user, notifications: serverNotifications, onClose, initialTab = 'packages', initialEntityId, initialForm,
-  treatmentPlans, sourceLoading=false, sourceErrors={}, bookingError, onRetrySource, onBusyChange, records: suppliedRecords, bookings: suppliedBookings, onNotificationsChange, onOpenNotification,onOpenPlanBooking,onOpenInbox,
+  treatmentPlans, planCursor,onMorePlans, sourceLoading=false, sourceErrors={}, bookingError, onRetrySource, onBusyChange, records: suppliedRecords, bookings: suppliedBookings, onNotificationsChange, onOpenNotification,onOpenPlanBooking,onOpenInbox,
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [packageTab, setPackageTab] = useState('active');
@@ -105,7 +106,9 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   const [photos, setPhotos] = useState('');
   const [survey, setSurvey] = useState(emptySurvey);
   const [notice, setNotice] = useState('');
-  const busy = useRef(false);
+  const busy = useRef(false),alive=useRef(true);
+  const [moreCursors,setMoreCursors]=useState<Record<string,string|null>>({});
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
   const saving=Boolean(loading.form||loading.send);
   useEffect(()=>{onBusyChange?.(saving);return()=>onBusyChange?.(false);},[saving,onBusyChange]);
   useBackAction(Boolean(form || articleId || selectedId || loading.form || loading.send), () => {
@@ -134,7 +137,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
       try {
         const result = await request();
         if (!cancelled) {
-          if (!result?.error && Array.isArray(result?.[field])) save(result[field]);
+          if (!result?.error && Array.isArray(result?.[field])) {save(result[field]);setMoreCursors(current=>({...current,[key]:result.nextCursor||null}));}
           else error(key, result?.error || 'Lịch sử chưa khả dụng.');
         }
       } catch { if (!cancelled) error(key, 'Không thể tải lịch sử. Vui lòng thử lại.'); }
@@ -244,6 +247,8 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     {key==='bookings'&&suppliedBookings!==undefined&&sourceLoading&&<p role="status" className="text-xs">Đang tải lịch hẹn...</p>}
     {key==='bookings'&&suppliedBookings!==undefined&&sourceErrors.bookings&&<p role="alert" className="text-xs text-red-700">{sourceErrors.bookings} <button type="button" disabled={sourceLoading} onClick={onRetrySource}>Thử lại</button></p>}
   </>;
+  const moreButton=(key:string,path:'/bookings'|'/support-tickets'|'/consultation-surveys',field:string,merge:(rows:any[])=>void)=>moreCursors[key]?<button type="button" className={button} disabled={Boolean(loading[key])||saving} onClick={async()=>{if(busy.current)return;busy.current=true;setLoading(current=>({...current,[key]:true}));error(key,'');const epoch=apiClient.sessionVersion();try{const result=await apiClient.getReadPage(path,{cursor:moreCursors[key]!,...path==='/bookings'?{scope:'personal'}:{}});if(!alive.current||epoch!==apiClient.sessionVersion())return;if(!Array.isArray(result?.[field])){error(key,result?.error||'Không thể tải dữ liệu. Vui lòng thử lại.');return;}merge(result[field]);setMoreCursors(current=>({...current,[key]:result.nextCursor||null}));}finally{busy.current=false;if(alive.current)setLoading(current=>({...current,[key]:false}));}}}>Xem thêm</button>:null;
+  const mergeRows=<T extends {id:string}>(old:T[]|null,rows:T[])=>Array.from(new Map([...(old||[]),...rows].map(row=>[row.id,row])).values());
   const surveyHistory = <section className="space-y-3" aria-label="Phiếu thông tin đã gửi">
     <h2 className="text-sm font-bold">Phiếu thông tin đã gửi</h2>{feedback('surveys')}
     {errors.surveys && <button className={button} onClick={() => setHistoryRetry(prev => prev + 1)}>Thử lại</button>}
@@ -378,8 +383,9 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
         <h2 className="text-sm font-bold">{title(plan)}</h2>{plan.serviceName && <p className="text-xs">{plan.serviceName}</p>}{stats(plan)}
         <button className={button} onClick={() => setSelectedId(plan.id)}>Xem chi tiết gói</button>
       </article>)}
+      {planCursor&&onMorePlans&&<button type="button" className={button} disabled={sourceLoading} onClick={onMorePlans}>Xem thêm</button>}
       <button className={button} disabled={saving} onClick={() => { if(busy.current)return; setForm('survey'); error('form', ''); setNotice(''); }}>Thông tin trước dịch vụ</button>
-      {surveyHistory}
+      {surveyHistory}{moreButton('surveys','/consultation-surveys','surveys',rows=>setSavedSurveys(current=>mergeRows(current,rows)))}
     </section>}
 
     {!form && !selected && !article && activeTab === 'journal' && <>
@@ -402,7 +408,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
           })}
         </article>)}
       </section>
-      {reviewHistory}
+      {moreButton('bookings','/bookings','bookings',rows=>setLoadedBookings(current=>mergeRows(current,rows)))}{reviewHistory}
     </>}
 
     {!form && !selected && !article && activeTab === 'care_guide' && <section className="space-y-3">
@@ -425,6 +431,7 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
         <h2 className="font-bold">{ticket.subject}</h2><p>{careDate(ticket.createdAt)}{ticket.status ? ` · ${ticket.status}` : ''}</p><p className="whitespace-pre-wrap">{ticket.message}</p>
         {ticket.adminReply && <div><h3 className="font-semibold">Phản hồi hỗ trợ</h3><p className="whitespace-pre-wrap">{ticket.adminReply}</p>{ticket.resolvedAt && <p>Ngày giải quyết: {careDate(ticket.resolvedAt)}</p>}</div>}
       </article>)}
+      {moreButton('tickets','/support-tickets','tickets',rows=>setTickets(current=>mergeRows(current,rows)))}
       <form className="space-y-3" onSubmit={event => { event.preventDefault(); if (!subject.trim() || !message.trim()) return;
         void mutate('send', () => apiClient.createSupportTicket(subject.trim(), message.trim()), result => Boolean(result?.ticket?.id), result => {
           setTickets(prev => [result.ticket, ...prev.filter(ticket => ticket.id !== result.ticket.id)]); setSubject(''); setMessage(''); setNotice('Đã gửi yêu cầu hỗ trợ.');

@@ -1,4 +1,5 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
+import {getRouteParams} from 'zmp-sdk';
 import {apiClient} from '@/api/client';
 import type {User,MedicalService,Branch,Doctor,Course,Booking,AppNotification} from '../../../../backend/src/data/database';
 import {useLocale} from '@/i18n';
@@ -46,6 +47,7 @@ export function MainLayout(){
   const [courseId,setCourseId]=useState<string|undefined>(),[academyTarget,setAcademyTarget]=useState<any>(),[packageId,setPackageId]=useState<string|undefined>(),[bookingId,setBookingId]=useState<string|undefined>();
   const [metadata,setMetadata]=useState<any>({}),[bookings,setBookings]=useState<Booking[]>([]),[summary,setSummary]=useState<any>(null),[unread,setUnread]=useState(0);
   const [treatmentLoading,setTreatmentLoading]=useState(false),[treatmentRevision,setTreatmentRevision]=useState(0);
+  const [planCursor,setPlanCursor]=useState<string|null>(null),planPageLock=useRef(false);
   const [plans,setPlans]=useState<any[]|null>(null),[records,setRecords]=useState<any[]|null>(null),[sourceErrors,setSourceErrors]=useState<{plans?:string;records?:string;bookings?:string}>({});
   const [loading,setLoading]=useState(true),[privateLoading,setPrivateLoading]=useState(false),[error,setError]=useState(''),[privateError,setPrivateError]=useState(''),[revision,setRevision]=useState(0),[notice,setNotice]=useState(''),[search,setSearch]=useState(false);
   const [consultation,setConsultation]=useState(false),[consultationDraft,setConsultationDraft]=useState({name:'',phone:''});
@@ -78,9 +80,11 @@ export function MainLayout(){
     if(deepLinkHandled.current||loading)return;
     try{
       const params=new URLSearchParams(window.location.search);
-      const targetServiceId=params.get('serviceId');
-      const targetCourseId=params.get('courseId');
-      const targetTab=params.get('tab');
+      let native:Record<string,unknown>={};try{native=getRouteParams()||{};}catch{/* Browser preview uses URL parameters. */}
+      const launch=(key:string)=>typeof native[key]==='string'?native[key] as string:params.get(key);
+      const targetServiceId=launch('serviceId');
+      const targetCourseId=launch('courseId');
+      const targetTab=launch('tab');
       if(targetServiceId&&services.length){
         const found=services.find(s=>s.id===targetServiceId);
         if(found){deepLinkHandled.current=true;setService(found);setView('service-detail');return;}
@@ -119,9 +123,10 @@ export function MainLayout(){
     if(!user?.id||!['packages','journal','review','consultation'].includes(view||'')){setTreatmentLoading(false);return;}
     let active=true;const epoch=apiClient.sessionVersion();setTreatmentLoading(true);
     const isPlan=view==='packages';
-    (isPlan?apiClient.getTreatmentPlans():apiClient.getMedicalRecords()).then(result=>{if(!active||epoch!==apiClient.sessionVersion())return;const data=isPlan?result?.treatmentPlans:result?.records;if(Array.isArray(data)){if(isPlan)setPlans(data);else setRecords(data);setSourceErrors(current=>({...current,[isPlan?'plans':'records']:undefined}));}else setSourceErrors(current=>({...current,[isPlan?'plans':'records']:result?.error||'Không thể tải dữ liệu. Vui lòng thử lại.'}));}).finally(()=>{if(active)setTreatmentLoading(false);});
+    (isPlan?apiClient.getTreatmentPlans():apiClient.getMedicalRecords()).then(result=>{if(!active||epoch!==apiClient.sessionVersion())return;const data=isPlan?result?.treatmentPlans:result?.records;if(Array.isArray(data)){if(isPlan){setPlans(data);setPlanCursor(result.nextCursor||null);}else setRecords(data);setSourceErrors(current=>({...current,[isPlan?'plans':'records']:undefined}));}else setSourceErrors(current=>({...current,[isPlan?'plans':'records']:result?.error||'Không thể tải dữ liệu. Vui lòng thử lại.'}));}).finally(()=>{if(active)setTreatmentLoading(false);});
     return()=>{active=false;};
   },[view,user?.id,treatmentRevision]);
+  const morePlans=async()=>{if(!planCursor||planPageLock.current)return;planPageLock.current=true;setTreatmentLoading(true);const epoch=apiClient.sessionVersion();try{const result=await apiClient.getReadPage('/treatment-plans',{cursor:planCursor});if(epoch!==apiClient.sessionVersion()||currentView.current!=='packages')return;if(Array.isArray(result?.treatmentPlans)){setPlans(current=>Array.from(new Map([...(current||[]),...result.treatmentPlans].map(plan=>[plan.id,plan])).values()));setPlanCursor(result.nextCursor||null);}else setSourceErrors(current=>({...current,plans:result?.error||'Không thể tải gói liệu trình.'}));}finally{planPageLock.current=false;if(epoch===apiClient.sessionVersion()&&currentView.current==='packages')setTreatmentLoading(false);}};
   const book=(item?:MedicalService)=>{const selected=item||services[0];if(!selected)return;setService(selected);setBookingNotes('');visit('booking');};
   const onLoggedIn=(account:User)=>{if(owner.current!==account.id){generation.current++;setBanners([]);setBookings([]);setPlans(null);setRecords(null);setSummary(null);setUnread(0);}owner.current=account.id;setUser(account);if(pending)setView(pending);setPending(null);const epoch=apiClient.sessionVersion();void apiClient.syncZaloProfile().then(result=>{if(owner.current!==account.id||apiClient.sessionVersion()!==epoch)return;if('user' in result&&result.user)setUser(result.user);if('error' in result&&result.error)setNotice(result.error);});};
   const navigate=(destination:string)=>{
@@ -138,7 +143,7 @@ export function MainLayout(){
     if(view==='examination')return <ExaminationServicePicker services={services} onClose={close} onSelect={item=>{setService(item);setBookingNotes(LYMPH_BOOKING_NOTE);visit('booking');}}/>;
     if(view==='booking'&&user&&service)return <BookingForm key={user.id+service.id+(packageId||'')} currentUser={user} initialService={service} initialBranch={activeBranch} initialPackageId={packageId} initialNotes={bookingNotes} allServices={services} branches={branches} onClose={close} onCatalogUpdate={setServices} onBookingSuccess={saved=>{setNotice('Đặt lịch thành công!');setWorkAppointments(false);setBookings(list=>[saved,...list.filter(b=>b.id!==saved.id)]);setBookingId(saved.id);setView('appointments');void loadPrivate();}}/>;
     if(view==='appointments')return <Appointments key={(user?.id||'guest')+':'+(workAppointments?'work':'personal')} canManageSessions={workAppointments&&canUseStaffTools(user||{})} initialBookingId={bookingId} bookings={workAppointments?[]:bookings.filter(b=>b.userId===user?.id)} branches={branches} services={services} authenticated={Boolean(user)} onRequireLogin={()=>setAuth(true)} onClose={close} loading={privateLoading} error={privateError} onRefresh={()=>void loadPrivate()} onUpdateBookings={rows=>{if(!workAppointments)setBookings(current=>Array.from(new Map([...current,...rows].map(b=>[b.id,b])).values()));}} onBookNewService={()=>workAppointments?visit('staff-work'):book()} onBusyChange={setBusy} onRebookService={id=>{const item=services.find(s=>s.id===id);if(item){if(workAppointments){setNotice('Chọn khách hàng để đặt lại dịch vụ.');setView('staff-work');}else book(item);}else setNotice('Dịch vụ hiện không khả dụng.');}}/>;
-    if((view==='packages'||view==='journal'||view==='support'||view==='care_guide'||view==='consultation'||view==='review')&&user)return <Treatment key={user.id+view} user={user} initialTab={view==='consultation'||view==='review'?'journal':view} initialForm={view==='consultation'?'survey':undefined} initialEntityId={treatmentEntityId} treatmentPlans={plans} records={records} sourceLoading={privateLoading||treatmentLoading} sourceErrors={sourceErrors} onRetrySource={()=>setTreatmentRevision(v=>v+1)} onBusyChange={setBusy} onClose={close} onOpenBooking={()=>book()} onOpenPlanBooking={(id,serviceId)=>{const item=services.find(s=>s.id===serviceId);if(!item){setNotice('Dịch vụ của liệu trình hiện không khả dụng.');return;}setPackageId(id);book(item);}} onOpenInbox={()=>visit('notifications')}/>;
+    if((view==='packages'||view==='journal'||view==='support'||view==='care_guide'||view==='consultation'||view==='review')&&user)return <Treatment key={user.id+view} user={user} initialTab={view==='consultation'||view==='review'?'journal':view} initialForm={view==='consultation'?'survey':undefined} initialEntityId={treatmentEntityId} treatmentPlans={plans} planCursor={planCursor} onMorePlans={()=>void morePlans()} records={records} sourceLoading={privateLoading||treatmentLoading} sourceErrors={sourceErrors} onRetrySource={()=>setTreatmentRevision(v=>v+1)} onBusyChange={setBusy} onClose={close} onOpenBooking={()=>book()} onOpenPlanBooking={(id,serviceId)=>{const item=services.find(s=>s.id===serviceId);if(!item){setNotice('Dịch vụ của liệu trình hiện không khả dụng.');return;}setPackageId(id);book(item);}} onOpenInbox={()=>visit('notifications')}/>;
     if(view==='my-courses')return <Academy key={'mine:'+user?.id} courses={courses} branches={branches} user={user||undefined} userId={user?.id||''} mode="learning" notificationTarget={academyTarget} onRequireLogin={()=>setAuth(true)} onRefresh={refresh} onExit={close} onBusyChange={setBusy}/>;
     if(view==='schedule')return <Schedule userId={user?.id||''} onBack={close} onOpen={(enrollmentId)=>{setAcademyTarget({id:String(Date.now()),enrollmentId,tab:'schedule'});setView('my-courses');}}/>;
     if(view==='certificates')return <Certificates userId={user?.id||''} onBack={close} onRequireLogin={()=>setAuth(true)}/>;
@@ -146,7 +151,7 @@ export function MainLayout(){
     if(view==='notifications')return <Inbox onBack={close} onOpen={openNotification} onUnread={setUnread}/>;
     if(view==='community')return <Community onBack={close} onExamination={()=>visit('examination')}/>;
     if(view==='sessions')return <Sessions userId={user?.id||''} userName={user?.name||''} phone={user?.phone} onClose={close} onLogout={async()=>{await apiClient.logout();setUser(null);close();}}/>;
-    if(view==='staff-work'&&user)return <StaffWork user={user} services={services} branches={branches} onBack={close} onAppointment={id=>{setWorkAppointments(true);setBookingId(id);setView('appointments');}} onNavigate={navigate} onBooked={saved=>{setWorkAppointments(true);setBookingId(saved.id);setView('appointments');void loadPrivate();}}/>;
+    if(view==='staff-work'&&user)return <StaffWork onChanged={()=>setRevision(value=>value+1)} user={user} services={services} branches={branches} onBack={close} onAppointment={id=>{setWorkAppointments(true);setBookingId(id);setView('appointments');}} onNavigate={navigate} onBooked={saved=>{setWorkAppointments(true);setBookingId(saved.id);setView('appointments');void loadPrivate();}}/>;
     if(view==='branches')return <Branches branches={branches} services={services} onClose={close} onSelectBranch={openBranch}/>;
     if(view==='specialists')return <Specialists doctors={doctors} services={services} onClose={close} onSelectDoctor={openSpecialist}/>;
     if(view==='service-detail'&&service)return <ServiceDetail userId={user?.id} service={service} doctors={doctors.filter(d=>d.serviceIds?.includes(service.id))} onSpecialist={openSpecialist} onClose={close} onRequireLogin={()=>setAuth(true)} onBookNow={book}/>;

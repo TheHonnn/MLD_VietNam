@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export function useCarousel(ids: string[], paused = false, initialIndex = 0) {
+export function useCarousel(ids: string[], paused = false, initialIndex = 0, intervalMs=3000) {
   const [selected, setSelected] = useState(ids[initialIndex] || '');
   const [visible, setVisible] = useState(() => !document.hidden);
   const signature = JSON.stringify(ids);
@@ -12,8 +12,8 @@ export function useCarousel(ids: string[], paused = false, initialIndex = 0) {
   }, []);
   useEffect(() => {
     if (paused || !visible || ids.length < 2) return;
-    const timer = window.setTimeout(() => setSelected(ids[(index + 1) % ids.length]), 3000);
+    const timer = window.setTimeout(() => setSelected(ids[(index + 1) % ids.length]), intervalMs);
     return () => window.clearTimeout(timer);
-  }, [signature, index, selected, paused, visible]);
+  }, [signature, index, selected, paused, visible,intervalMs]);
   return { index, select: setSelected, move: (offset: number) => setSelected(ids[(index + offset + ids.length) % ids.length] || '') };
 }

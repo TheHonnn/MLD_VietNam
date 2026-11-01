@@ -1092,3 +1092,81 @@ Yêu cầu tư vấn	Consultation requests
 Đã phản hồi	Responded
 Đã sử dụng	Used
 Đã đóng	Closed
+Bỏ các thay đổi chưa lưu?	Discard unsaved changes?
+Chia sẻ / xuất PDF	Share / export PDF
+Chia sẻ liên kết	Share link
+Chia sẻ nhật ký	Share care journal
+Chuyên gia Master	Master specialist
+Chỉ quản trị viên được chỉnh sửa dịch vụ và khóa học.	Only administrators can edit services and courses.
+Chọn danh mục	Select a category
+Chọn lớp học	Select a class
+Danh mục không còn hoạt động. Vui lòng chọn lại.	This category is inactive. Please select another.
+Danh mục quản trị	Manage catalog
+Duyệt hồ sơ & xếp lớp	Approve application and assign class
+Dịch vụ & khóa	Services and courses
+Dịch vụ & khóa học	Services and courses
+Giảng viên không còn hoạt động. Vui lòng chọn lại.	This instructor is inactive. Please select another.
+Giới thiệu chi tiết	Full description
+Giờ lý thuyết	Theory hours
+Giờ thực hành	Practical hours
+Hồ sơ ghi danh không còn khả dụng.	This enrollment is unavailable.
+Hồ sơ ghi danh thuộc cơ sở khác.	This enrollment belongs to another branch.
+Hồ sơ đã thay đổi. Hãy tải lại trước khi duyệt.	This application has changed. Reload it before approving.
+Không thể chia sẻ. Bạn có thể sao chép liên kết bên dưới.	Unable to share. You can copy the link below.
+Không thể hiển thị trang PDF.	Unable to display this PDF page.
+Không thể lưu thay đổi. Vui lòng thử lại.	Unable to save changes. Please try again.
+Không thể mở tài liệu chỉ đọc trên thiết bị này.	Unable to open a read-only document on this device.
+Không thể tạo liên kết nhật ký.	Unable to create a care journal link.
+Không thể tạo liên kết nhật ký. Vui lòng thử lại.	Unable to create a care journal link. Please try again.
+Không thể tải dữ liệu quản trị. Vui lòng thử lại.	Unable to load administration data. Please try again.
+Không thể đọc PDF. Vui lòng thử lại khi có kết nối.	Unable to read this PDF. Please try again when connected.
+Kiểm tra trình độ, tổng giờ lý thuyết/thực hành và mức đặt cọc.	Check the level, total theory and practical hours, and deposit amount.
+Liên kết có hiệu lực 24 giờ. Người nhận liên kết có thể xem và tải hồ sơ, gồm ảnh và chữ ký nếu có.	This link is valid for 24 hours. Anyone with it can view and download the record, including available photos and signatures.
+Liên kết nhật ký	Care journal link
+Liên kết nhật ký đã hết hạn hoặc hồ sơ đã thay đổi.	This care journal link has expired or the record has changed.
+Lớp học	Class
+Lớp học đã đóng hoặc không thuộc phạm vi quản lý.	This class is closed or outside your management scope.
+Lớp học đã đủ sĩ số. Vui lòng chọn lớp khác.	This class is full. Please select another class.
+Mã khóa học	Course code
+Mô tả ngắn	Short description
+Mức đặt cọc	Deposit amount
+Ngừng hoạt động	Inactive
+Nhật ký chăm sóc MLD	MLD care journal
+Nhật ký chăm sóc.pdf	Care journal.pdf
+Nội dung đã được người khác cập nhật. Hãy tải lại trước khi lưu.	Someone has updated this content. Reload it before saving.
+Số bài học	Number of lessons
+Thêm mới	Add new
+Thời lượng (phút)	Duration (minutes)
+Tiếp đón Spa	Spa reception
+Trang trước	Previous page
+Trang tài liệu	Document pages
+Trạng thái hồ sơ hiện tại không cho phép duyệt.	This application's current status does not allow approval.
+Tuyển sinh & xếp lớp	Admissions and class assignment
+Tài khoản chưa có quyền quản lý tuyển sinh.	This account does not have admissions management access.
+Tên	Name
+Tên giấy chứng nhận	Certificate title
+Tìm học viên, số điện thoại, khóa học	Search student, phone number or course
+Tìm theo tên	Search by name
+Tạo liên kết 24 giờ	Create a 24-hour link
+Tổng giờ	Total hours
+Tổng quan	Overview
+Vui lòng chọn lớp và tải lại hồ sơ trước khi duyệt.	Select a class and reload the application before approving.
+Vui lòng nhập số hợp lệ trong giới hạn cho phép.	Enter a valid number within the allowed range.
+Vui lòng nhập đầy đủ tên và mã hoặc đường dẫn hợp lệ.	Enter a valid name and code or slug.
+Xác nhận chia sẻ hồ sơ	Confirm record sharing
+Đang mở tài liệu...	Opening document...
+Đang tạo...	Creating...
+Điều hướng công việc	Work navigation
+Đã duyệt	Approved
+Đường dẫn dịch vụ	Service slug
+Địa chỉ ảnh	Image URL
+Địa chỉ ảnh phải dùng HTTPS.	The image URL must use HTTPS.
+Tải lại	Reload
+Lưu nhận xét	Save feedback
+Nhận xét bài kiểm tra	Review exam submissions
+Nhận xét giảng viên	Instructor feedback
+Tìm học viên, khóa học, bài kiểm tra	Search student, course or exam
+Tài khoản chưa có quyền nhận xét bài kiểm tra.	This account does not have exam review access.
+Vui lòng nhập nhận xét giảng viên hợp lệ.	Enter valid instructor feedback.
+Bài làm không còn khả dụng hoặc ngoài phạm vi giảng dạy.	This submission is unavailable or outside your teaching scope.
+Nhận xét đã thay đổi. Hãy tải lại trước khi lưu.	This feedback has changed. Reload before saving.

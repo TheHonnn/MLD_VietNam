@@ -7,7 +7,7 @@ test('certificate records remain owner-private and available independently of le
   const read=(path='/certificates',owner=1)=>f.request(path,{owner});
   try{
     await db.query("UPDATE users SET date_of_birth='1998-05-15' WHERE id=$1",[id(1)]);
-    await db.query("INSERT INTO course_enrollments(id,student_id,course_id,batch_id,status) VALUES($1,$2,$3,$4,'STUDYING')",[id(102),id(2),id(22),id(30)]);
+    await db.query("INSERT INTO course_enrollments(id,student_id,course_id,batch_id,status,approval_status) VALUES($1,$2,$3,$4,'STUDYING','APPROVED')",[id(102),id(2),id(22),id(30)]);
     for(const [number,owner,enrollment,status] of [[100,1,29,'ISSUED'],[101,1,29,'DRAFT'],[103,1,29,'REVOKED'],[104,1,102,'ISSUED'],[105,2,102,'ISSUED']]){
       await db.query("INSERT INTO student_certificates(id,enrollment_id,student_id,course_id,certificate_code,qr_verification_code,student_name,course_title,issue_date,theory_score,practical_score,status,certificate_pdf_url,revocation_reason) VALUES($1,$2,$3,$4,$5,$6,'Actual fixture student','Actual fixture course','2026-10-24',8,9,$7::certificate_status,'https://example.test/issued.pdf',$8)",[id(number),id(enrollment),id(owner),id(22),'CERT-'+number,'VERIFY-'+number,status,status==='REVOKED'?'Actual fixture revocation':null]);
     }

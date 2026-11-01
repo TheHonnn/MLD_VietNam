@@ -11,6 +11,7 @@ export default () => {
     envDir: path.resolve(__dirname),
     base: "",
     plugins: [zaloMiniApp(), react({babel:{plugins:[localizeJsx]}})],
+    optimizeDeps: {include:['pdfjs-dist/legacy/build/pdf.mjs']},
     server: {
       host: process.env.ZMP_DEV_HOST || "127.0.0.1",
       cors: false,

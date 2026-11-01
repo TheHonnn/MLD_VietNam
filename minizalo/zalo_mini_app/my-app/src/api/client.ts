@@ -51,6 +51,8 @@ const invalidatePaths = (paths: string[]) => readCache.invalidate(key => {
   return paths.some(path => relativePath(url) === path || relativePath(url).startsWith(path + '/'));
 });
 const invalidateMutation = (path: string) => {
+  if(path.startsWith('/staff/catalog/'))return invalidatePaths(['/services','/courses','/app-metadata','/staff/catalog']);
+  if(path.startsWith('/staff/academy/'))return invalidatePaths(['/course-enrollments','/courses','/membership','/notifications','/staff/academy']);
   if(/^\/services\/[^/]+\/favorite$/.test(path))return;
   if (path === '/vouchers/apply') return;
   if (path.startsWith('/search/history')) return invalidatePaths(['/search/history','/search/popular']);
@@ -655,6 +657,21 @@ export const apiClient = {
     }
   },
 
+  async staffAdminRead(path:string,params:Record<string,string>={},signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/${path}?${new URLSearchParams(params)}`,{cache:'no-store',signal}));}catch{return {error:'Không thể tải dữ liệu quản trị. Vui lòng thử lại.'};}
+  },
+  async staffAdminSave(path:string,body:Record<string,unknown>,method:'PUT'|'PATCH'){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/staff/${path}`,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));}catch{return {error:'Không thể lưu thay đổi. Vui lòng thử lại.'};}
+  },
+  async shareJournal(id:string){
+    try{
+      const result=await responseJson(await fetch(`${API_BASE_URL}/records/${encodeURIComponent(id)}/share`,{method:'POST'}));
+      if(result.error)return result;
+      const base=API_BASE_URL.replace(/\/api\/?$/,'');
+      if(typeof result.path!=='string'||!result.path.startsWith('/share/journals/')||typeof result.pdfPath!=='string'||!result.pdfPath.startsWith('/share/journals/'))return {error:'Không thể tạo liên kết nhật ký.'};
+      return {url:base+result.path,pdfUrl:base+result.pdfPath,expiresAt:result.expiresAt};
+    }catch{return {error:'Không thể tạo liên kết nhật ký. Vui lòng thử lại.'};}
+  },
   async getMedicalRecords() {
     try {
       const res = await fetch(`${API_BASE_URL}/records`);

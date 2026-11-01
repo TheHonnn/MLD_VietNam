@@ -8,6 +8,7 @@ const documentLesson=Prisma.sql`(l.lesson_type::text IN ('READING_DOC','PRACTICE
   (jsonb_typeof(l.attachments)='array' AND l.attachments<>'[]'::jsonb))`;
 const usableEnrollment=Prisma.sql`SELECT ce.id FROM course_enrollments ce
   WHERE ce.student_id=viewer.id AND ce.course_id=c.id AND ce.status IN ('ENROLLED','STUDYING','GRADUATED')
+    AND COALESCE(NULLIF(to_jsonb(ce)->>'approval_status',''),'APPROVED')='APPROVED'
   ORDER BY ce.enrolled_at DESC,ce.id DESC LIMIT 1`;
 
 export async function documentLibrary(store:Store,userId:string,input:Record<string,unknown>){

@@ -4,23 +4,25 @@ import {ApiError} from './errors.js';
 import {collectionPage} from './collection-page.js';
 import {documentAttachments} from './document-library.js';
 import {isStaffRole,optionalStaffScope} from './staff-booking.js';
+import {portalDocumentPolicy,type PortalAudience} from './portal-document-policy.js';
 
 async function audience(store:Store,actorId?:string){
-  if(!actorId)return {staff:false,member:false};
+  if(!actorId)return {staff:false,member:false,actorId:null,role:'GUEST'};
   const [actor]=await store.query(Prisma.sql`SELECT role FROM users WHERE id=${actorId}::uuid AND is_active`);
   if(!actor)throw new ApiError(401,'Shared account is missing or inactive');
-  if(isStaffRole(actor.role)&&await optionalStaffScope(store,actorId))return {staff:true,member:true};
+  if(isStaffRole(actor.role)&&await optionalStaffScope(store,actorId))return {staff:true,member:true,actorId,role:actor.role};
   const [card]=await store.query(Prisma.sql`SELECT user_id FROM miniapp_membership_cards WHERE user_id=${actorId}::uuid AND is_active AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)`);
-  return {staff:false,member:Boolean(card)};
+  return {staff:false,member:Boolean(card),actorId,role:actor.role};
 }
 const fields=Prisma.sql`c.id,c.kind,c.title,c.summary,c.image_url,c.published_at,c.created_at,
   to_jsonb(c)->>'category' AS category,COALESCE(to_jsonb(c)->>'author_name',u.full_name) AS author_name`;
 const from=Prisma.sql`FROM miniapp_shared_content c LEFT JOIN users u ON u.id=c.author_id`;
-function visible(scope:{staff:boolean;member:boolean}){
+function visible(scope:PortalAudience){
   // Legacy internal posts without an audience remain staff-only, never public by default.
   const access=Prisma.sql`UPPER(COALESCE(NULLIF(to_jsonb(c)->>'access_level',''),'STAFF_ONLY'))`;
+  const policy=portalDocumentPolicy(scope);
   return Prisma.sql`UPPER(c.status) IN ('PUBLISHED','APPROVED') AND (c.published_at IS NULL OR c.published_at<=CURRENT_TIMESTAMP)
-    AND (${access}='PUBLIC' OR ${access}='FREE_TRIAL' OR (${scope.member} AND ${access}='MEMBERS_ONLY') OR ${scope.staff})`;
+    AND (${access}='PUBLIC' OR ${access}='FREE_TRIAL' OR (${scope.member} AND ${access}='MEMBERS_ONLY') OR (${policy.enrolled} AND ${access} IN ('MEMBERS_ONLY','COURSE_ENROLLED')) OR ${scope.staff}) AND ${policy.readable}`;
 }
 export async function portalContent(store:Store,input:Record<string,unknown>,actorId?:string){
   if(input.kind!=='COMMUNITY'&&input.kind!=='DOCUMENT')throw new ApiError(400,'Invalid content kind');
@@ -36,10 +38,12 @@ export async function portalContent(store:Store,input:Record<string,unknown>,act
 }
 export async function portalContentDetail(store:Store,id:string,actorId?:string){
   const scope=await audience(store,actorId);
-  const [item]=await store.query(Prisma.sql`SELECT ${fields},c.content_text,c.attachments,to_jsonb(c)->>'file_url' AS file_url ${from}
+  const policy=portalDocumentPolicy(scope);
+  const [item]=await store.query(Prisma.sql`SELECT ${fields},c.content_text,c.attachments,to_jsonb(c)->>'file_url' AS file_url,
+    ${policy.downloadable} AS can_download,to_jsonb(c)->>'watermark_text' AS watermark_text ${from}
     WHERE c.id=${id}::uuid AND UPPER(c.kind) IN ('DOCUMENT','COMMUNITY','ARTICLE') AND ${visible(scope)}`);
   if(!item)throw new ApiError(404,'Shared content is unavailable');
   const attachments=documentAttachments([...(Array.isArray(item.attachments)?item.attachments:[]),...(item.file_url?[{url:item.file_url,name:item.title}]:[])]);
   const {file_url,...record}=item;
-  return {...record,attachments:[...new Map(attachments.map(file=>[file.url,file])).values()]};
+  return {...record,attachments:[...new Map(attachments.map(file=>[file.url,{...file,canDownload:item.can_download}])).values()]};
 }

@@ -18,7 +18,8 @@ export async function ownedEnrollment(store:Store,userId:string,courseId:string,
   const [available]=await store.query(Prisma.sql`SELECT c.id FROM courses c JOIN course_categories cat ON cat.id=c.category_id WHERE c.id=${courseId}::uuid AND c.is_active AND cat.is_active`);
   if(!available) throw new ApiError(404,'Course is unavailable');
   const [entry]=await store.query(Prisma.sql`SELECT * FROM course_enrollments WHERE student_id=${userId}::uuid AND course_id=${courseId}::uuid
-    AND (${enrollmentId}::uuid IS NULL OR id=${enrollmentId}::uuid) AND status IN ('ENROLLED','STUDYING','GRADUATED') ORDER BY enrolled_at DESC,id DESC LIMIT 1 ${lock?Prisma.sql`FOR UPDATE`:Prisma.empty}`);
+    AND (${enrollmentId}::uuid IS NULL OR id=${enrollmentId}::uuid) AND status IN ('ENROLLED','STUDYING','GRADUATED')
+    AND COALESCE(NULLIF(to_jsonb(course_enrollments)->>'approval_status',''),'APPROVED')='APPROVED' ORDER BY enrolled_at DESC,id DESC LIMIT 1 ${lock?Prisma.sql`FOR UPDATE`:Prisma.empty}`);
   if(!entry) throw new ApiError(403,'Enrollment is required');
   const [access]=await store.query(Prisma.sql`SELECT expires_at,is_suspended,(expires_at IS NOT NULL AND expires_at<=clock_timestamp()) AS expired FROM miniapp_course_access WHERE enrollment_id=${entry.id}::uuid`);
   if(access?.is_suspended||access?.expired)throw new ApiError(403,'Course access has expired or is suspended',{code:'COURSE_ACCESS_EXPIRED'});

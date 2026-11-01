@@ -17,7 +17,7 @@ test('registration remains locked until canonical Admin approval, with no client
     assert.equal((await request(`/documents/${id(25)}`,{owner:2})).status,403);
     assert.equal((await request('/course-enrollments',{owner:2,method:'POST',body:{courseId:id(22)}})).status,409);
     // Simulate the existing Admin writing its real shared enrollment row.
-    await db.query("UPDATE course_enrollments SET status='ENROLLED',batch_id=$2 WHERE id=$1",[enrollmentId,id(30)]);
+    await db.query("UPDATE course_enrollments SET status='ENROLLED',approval_status='APPROVED',batch_id=$2 WHERE id=$1",[enrollmentId,id(30)]);
     const approved=await learning();assert.equal(approved.status,200,JSON.stringify(approved));
     assert.equal(approved.data.course.lessons.find(l=>l.id===id(25)).contentText,null);
     const read=await request(`/courses/${id(22)}/lessons/${id(24)}/progress`,{owner:2,method:'POST',body:{enrollmentId,isCompleted:true}});assert.equal(read.status,200,JSON.stringify(read));

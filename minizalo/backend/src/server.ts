@@ -30,6 +30,10 @@ import {sharedContent,sharedContentDetail,sharedContentEdit,manageSharedContent,
 import {accountSession,accountSessions,revokeSession,revokeOtherSessions} from './account-sessions.js';
 import {lessonMedia} from './lesson-media.js';
 import {portalContent,portalContentDetail} from './portal-content.js';
+import {createJournalShare,sharedJournal,journalPage,journalPdf} from './journal-sharing.js';
+import {academyCandidates,approveCandidate} from './staff-academy.js';
+import {staffCatalog,saveStaffCatalog} from './staff-catalog.js';
+import {assessmentSubmissions,reviewSubmission} from './staff-assessments.js';
 import {staffClassSchedules,attendanceCode,recordAttendance} from './attendance.js';
 export { ApiError } from './errors.js';
 
@@ -280,6 +284,17 @@ export function createApp(store: Store, options: AppOptions) {
     (req: Request, res: Response, next: NextFunction) => { Promise.resolve(handler(req, res)).catch(next); };
   const certificateKey=options.certificateVerificationKey||options.jwtSecret;
   const verificationLimit=createRateLimiter(20);
+  const journalShareLimit=createRateLimiter(20);
+  app.get('/share/journals/:token',journalShareLimit,route(async(req,res)=>{
+    const record=await sharedJournal(store,req.params.token,options.jwtSecret),nonce=randomUUID();
+    res.set({'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex, nofollow, noarchive','X-Content-Type-Options':'nosniff','Content-Security-Policy':`default-src 'none'; img-src https:; style-src 'nonce-${nonce}'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`});
+    return res.type('html').send(journalPage(record,`/share/journals/${req.params.token}/pdf`,nonce));
+  }));
+  app.get('/share/journals/:token/pdf',journalShareLimit,route(async(req,res)=>{
+    const record=await sharedJournal(store,req.params.token,options.jwtSecret);
+    res.set({'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex, nofollow, noarchive','X-Content-Type-Options':'nosniff','Content-Disposition':'attachment; filename="MLD-care-journal.pdf"'});
+    return res.type('application/pdf').send(await journalPdf(record));
+  }));
   const verificationHeaders=(res:Response)=>res.set({'Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex, nofollow, noarchive','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY'});
   app.get('/api/certificate-verification/:token',verificationLimit,route(async(req,res)=>{
     verificationHeaders(res);
@@ -294,7 +309,7 @@ export function createApp(store: Store, options: AppOptions) {
 
   app.get('/api/health', route(async (_req, res) => {
     await store.query(Prisma.sql`SELECT 1 AS ready`);
-    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['mobile-parity-v2','approval-gated-learning-v1','class-attendance-v1','unified-zalo-login-v1','personal-booking-resources-v1','personal-group-booking-v1','booking-pagination-v1','consultation-inbox-v1','portal-content-v1','staff-workspace-v1','staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1','certificate-verification-v1','youtube-lessons-v1'] });
+    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['admin-document-policy-v1','journal-sharing-v1','staff-academy-approval-v1','staff-catalog-v1','mobile-parity-v2','approval-gated-learning-v1','class-attendance-v1','unified-zalo-login-v1','personal-booking-resources-v1','personal-group-booking-v1','booking-pagination-v1','consultation-inbox-v1','portal-content-v1','staff-workspace-v1','staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1','certificate-verification-v1','youtube-lessons-v1'] });
   }));
 
   app.get('/api/app-metadata', route(async (_req,res) => {
@@ -439,6 +454,12 @@ export function createApp(store: Store, options: AppOptions) {
   const staffReadLimit=createRateLimiter(60,60000,(_req,res)=>res.locals.userId);
   app.use('/api/staff',staffReadLimit);
   app.get('/api/staff/context',route(async(_req,res)=>success(res,{scope:await staffScope(store,res.locals.userId)})));
+  app.get('/api/staff/catalog/:kind',route(async(req,res)=>success(res,await staffCatalog(store,res.locals.userId,req.params.kind,req.query))));
+  app.put('/api/staff/catalog/:kind/:id',route(async(req,res)=>success(res,{item:await saveStaffCatalog(store,res.locals.userId,req.params.kind,uuid(req.params.id),req.body)})));
+  app.get('/api/staff/academy/candidates',route(async(req,res)=>success(res,await academyCandidates(store,res.locals.userId,req.query))));
+  app.get('/api/staff/academy/submissions',route(async(req,res)=>success(res,await assessmentSubmissions(store,res.locals.userId,req.query))));
+  app.patch('/api/staff/academy/submissions/:id',route(async(req,res)=>success(res,{submission:await reviewSubmission(store,res.locals.userId,uuid(req.params.id),req.body)})));
+  app.patch('/api/staff/academy/candidates/:id/approve',route(async(req,res)=>success(res,{enrollment:await approveCandidate(store,res.locals.userId,uuid(req.params.id),req.body)})));
   app.get('/api/staff/dashboard',route(async(_req,res)=>success(res,await staffDashboard(store,res.locals.userId))));
   app.get('/api/staff/customers/directory',route(async(req,res)=>success(res,await staffCustomerDirectory(store,res.locals.userId,req.query))));
   app.get('/api/staff/customers',route(async(req,res)=>success(res,{customers:await staffCustomers(store,res.locals.userId,req.query.search)})));
@@ -852,6 +873,7 @@ export function createApp(store: Store, options: AppOptions) {
     if (!record) throw new ApiError(404,'Record not found');
     return success(res,{record});
   }));
+  app.post('/api/records/:id/share',route(async(req,res)=>success(res,await createJournalShare(store,res.locals.userId,uuid(req.params.id),options.jwtSecret))));
   app.get('/api/support-tickets',route(async(req,res)=>{const page=await collectionPage(store,Prisma.sql`SELECT * FROM support_tickets WHERE customer_id=${res.locals.userId}::uuid`,req.query);return success(res,{tickets:page.rows.map(supportTicketView),nextCursor:page.nextCursor});}));
   app.post('/api/consultations',route(async(req,res)=>success(res,{ticket:await createConsultation(store,res.locals.userId,req.body,req.headers['idempotency-key'])},201)));
   app.get('/api/staff/consultations',route(async(req,res)=>success(res,await staffConsultations(store,res.locals.userId,req.query))));

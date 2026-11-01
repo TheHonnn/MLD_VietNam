@@ -8,7 +8,7 @@ test('schedule deletion notifies only the affected class and rolls back with the
   try{
     await db.exec(statements.join(';\n'));
     await db.exec(statements.join(';\n'));
-    await db.query('INSERT INTO course_enrollments(id,student_id,course_id,batch_id,status) VALUES($1,$2,$3,$4,$5)',[id(801),id(2),id(22),id(33),'STUDYING']);
+    await db.query("INSERT INTO course_enrollments(id,student_id,course_id,batch_id,status,approval_status) VALUES($1,$2,$3,$4,$5,'APPROVED')",[id(801),id(2),id(22),id(33),'STUDYING']);
     await db.query("INSERT INTO batch_schedules(id,batch_id,session_date,start_time,end_time,topic) VALUES($1,$2,'2099-01-01','10:00','12:00','Removed class session')",[id(800),id(30)]);
     const deletionEvents=async()=> (await db.query("SELECT user_id,data FROM notifications WHERE data->>'sourceKey' LIKE 'deleted-schedule:%'")).rows;
     await assert.rejects(db.transaction(async tx=>{

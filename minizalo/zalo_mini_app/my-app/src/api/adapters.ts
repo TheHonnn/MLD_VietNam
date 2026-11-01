@@ -110,14 +110,14 @@ export const adaptCourse = (c: CourseResponse): View.Course => ({
 });
 
 export const adaptEnrollment = (e: CourseEnrollment & {
-  courseTitle?: string; courseImage?: string; studentName?: string; phone?: string; email?: string;
+  courseTitle?: string; courseImage?: string; studentName?: string; phone?: string; email?: string;approvalStatus?:string;
 }): View.CourseEnrollment => ({
   ...e, code: '', courseTitle: e.courseTitle || e.course?.title || '',
   courseImage: e.courseImage || e.course?.imageUrl || '',
   studentName: e.studentName || e.student?.fullName || '',
   phone: e.phone || e.student?.phone || '', email: e.email || e.student?.email || '',
   totalAmount: Number(e.tuitionTotal), amountPaid: Number(e.amountPaid),
-  progressPercent: Number(e.progressPercent), status: lower(e.status), createdAt: e.enrolledAt,
+  progressPercent: Number(e.progressPercent), status: e.approvalStatus&&e.approvalStatus!=='APPROVED'&&['ENROLLED','STUDYING'].includes(e.status.toUpperCase())?'consulting':lower(e.status), createdAt: e.enrolledAt,
 });
 
 export const adaptVoucher = (v: UserVoucher): View.Voucher => ({

@@ -12,9 +12,22 @@
     "simple-git": "$simple-git",
     "tar": "7.5.22",
     "vite": "$vite",
-    "zmp-vite-plugin": {
-      "vite": "$vite"
-    }
+    "axios": "0.34.0",
+    "jsonwebtoken": "9.0.3",
+    "ansi-html": "0.0.9",
+    "tmp": "0.2.7",
+    "micromatch": "4.0.8",
+    "braces": "3.0.3",
+    "multer": "2.5.0",
+    "postcss": "$postcss",
+    "serialize-javascript": "7.1.4",
+    "svgo": "2.8.4",
+    "postcss-svgo": "5.1.0",
+    "css-select": "4.3.0",
+    "nth-check": "2.1.1",
+    "basic-ftp": "6.2.4",
+    "browser-sync": "3.0.4",
+    "decode-uri-component": "$decode-uri-component"
   },
   "browserslist": [
     "Chrome >= 108",
@@ -40,7 +53,7 @@
     "start": "zmp start",
     "start:zalo": "zmp start -Z",
     "deploy": "zmp deploy",
-    "deploy:test": "zmp deploy -t -m \"Mobile testing\"",
+    "deploy:test": "zmp deploy --testing --passive --desc \"Mobile testing\" --mode production",
     "postinstall": "node scripts/prepare-zmp-toolchain.mjs",
     "prestart": "node scripts/prepare-zmp-toolchain.mjs",
     "prestart:zalo": "node scripts/prepare-zmp-toolchain.mjs"
@@ -48,6 +61,7 @@
   "dependencies": {
     "jotai": "^2.12.1",
     "lucide-react": "^1.62.0",
+    "pdfjs-dist": "^6.4.299",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -61,14 +75,15 @@
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
     "cross-env": "^7.0.3",
+    "decode-uri-component": "file:./tooling/decode-uri-compat",
     "esbuild": "^0.21.5",
-    "postcss": "^8.4.38",
+    "postcss": "8.5.32",
     "sass": "^1.76.0",
+    "simple-git": "file:./tooling/simple-git-compat",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.9.3",
     "vite": "6.4.5",
-    "zmp-cli": "^4.0.3",
-    "zmp-vite-plugin": "1.1.6",
-    "simple-git": "file:./tooling/simple-git-compat"
+    "zmp-cli": "4.0.5",
+    "zmp-vite-plugin": "1.1.6"
   }
 }

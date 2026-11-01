@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'zmp-ui';
 import type { MedicalRecord } from '../../../../backend/src/data/database';
 import type { TreatmentJournal } from '../../../../../database/shared_types';
+import {JournalActions} from './JournalActions';
 
 export type CareRecord = Partial<MedicalRecord & TreatmentJournal> & {
   id: string;
@@ -54,6 +55,7 @@ export const GroupDRecords: React.FC<{
           </div>;
         })}
         {record.customerSignatureUrl && <section><h3 className="text-xs font-semibold">Xác nhận của khách hàng</h3><img src={record.customerSignatureUrl} alt="Chữ ký xác nhận buổi chăm sóc" loading="lazy" className="max-h-32 max-w-full object-contain" /></section>}
+        <JournalActions id={record.id}/>
       </Box>
     ))}
   </Box>

@@ -2,11 +2,27 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
 import {once} from 'node:events';
+import {gzipSync} from 'node:zlib';
 import {OwnerWriteQueue} from '../../zalo_mini_app/my-app/src/utils/owner-write-queue.ts';
 import {abortable,concurrentMap} from '../../zalo_mini_app/my-app/src/utils/async-control.ts';
 import {createRateLimiter} from '../dist/rate-limit.js';
 import {createApp} from '../dist/server.js';
 import {preloadCatalogImages} from '../../zalo_mini_app/my-app/src/api/preload-images.ts';
+
+test('compressed bodies are rejected before parsing without crashing the API',async()=>{
+  let databaseReads=0;
+  const app=createApp({query:async query=>{assert.match(query.text,/SELECT 1 AS ready/);databaseReads++;return [{ready:1}];}},{jwtSecret:'isolated-compressed-body-test'});
+  const server=app.listen(0,'127.0.0.1');await once(server,'listening');
+  const base=`http://127.0.0.1:${server.address().port}/api`;
+  try{
+    for(const body of [gzipSync('{}'),Buffer.concat([gzipSync('{}'),Buffer.from('invalid trailing bytes')])]){
+      const response=await fetch(base+'/auth/zalo',{method:'POST',headers:{'Content-Type':'application/json','Content-Encoding':'gzip'},body});
+      assert.equal(response.status,415);assert.equal((await response.json()).success,false);
+    }
+    assert.equal(databaseReads,0);
+    assert.equal((await fetch(base+'/health')).status,200);assert.equal(databaseReads,1);
+  }finally{await new Promise(resolve=>server.close(resolve));}
+});
 
 test('cancelled SDK work rejects promptly and handles a late rejection',async()=>{
   const controller=new AbortController();

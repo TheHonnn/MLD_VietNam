@@ -29,7 +29,7 @@ test('admin-managed catalog, settings, learning and private documents use the ca
       ('${id(12)}','${id(10)}','Preview lesson',5,'https://example.test/preview.mp4','Preview text','[]',true);
     INSERT INTO branch_rooms(id,branch_id,name) VALUES('${id(13)}','${id(3)}','Actual room');
     INSERT INTO course_batches(id,course_id,branch_id,batch_code,instructor_id,start_date,end_date,schedule_text) VALUES('${id(14)}','${id(9)}','${id(3)}','BATCH1','${id(8)}','2099-01-01','2099-02-01','Actual schedule');
-    INSERT INTO course_enrollments(id,student_id,course_id,batch_id,status) VALUES('${id(15)}','${id(1)}','${id(9)}','${id(14)}','STUDYING');
+    INSERT INTO course_enrollments(id,student_id,course_id,batch_id,status,approval_status) VALUES('${id(15)}','${id(1)}','${id(9)}','${id(14)}','STUDYING','APPROVED');
     INSERT INTO batch_schedules(id,batch_id,assigned_room_id,session_date,start_time,end_time,topic) VALUES('${id(16)}','${id(14)}','${id(13)}','2099-01-01','10:00','11:00','Actual topic');
     INSERT INTO home_care_guidelines(title,category,summary,content,image_url,is_published) VALUES('Published guide','Care','Summary','Published content','/guide.jpg',true),('Hidden guide','Care','Summary','Secret draft','/draft.jpg',false);
     INSERT INTO support_faqs(question,answer,category) VALUES('Actual question','Actual answer','Care');

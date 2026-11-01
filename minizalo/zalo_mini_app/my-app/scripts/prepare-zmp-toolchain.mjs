@@ -1,4 +1,9 @@
 import {readFile,writeFile} from 'node:fs/promises';
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+import {buildSync} from 'esbuild';
+const require=createRequire(import.meta.url);
+buildSync({entryPoints:[require.resolve('decode-uri-secure')],bundle:true,platform:'node',format:'cjs',target:'node18',outfile:fileURLToPath(new URL('../node_modules/.cache/zmp-toolchain/decode-uri.cjs',import.meta.url)),logLevel:'silent'});
 const file=new URL('../node_modules/vite/package.json',import.meta.url);
 const pkg=JSON.parse(await readFile(file,'utf8'));
 // ZMP CLI 4 reads exports['.'].import.default directly. Vite 6 shortened that

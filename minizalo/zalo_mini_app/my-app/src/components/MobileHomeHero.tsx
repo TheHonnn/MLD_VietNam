@@ -6,7 +6,7 @@ import {useBackAction} from '@/hooks/useNavigationHistory';
 import heroImage from '@/static/brand-hero.webp';
 export function MobileHomeHero({banners,phone,onBook,onNavigate}:{banners:PortalBanner[];phone:string;onBook?:()=>void;onNavigate:(target:string)=>void}){
   const [detail,setDetail]=useState<PortalBanner|null>(null);
-  const {index,select}=useCarousel(banners.map(b=>b.id),Boolean(detail));
+  const {index,select}=useCarousel(banners.map(b=>b.id),Boolean(detail),0,5000);
   const banner=banners[index],target=portalTarget(banner?.targetLink);
   useBackAction(Boolean(detail),()=>setDetail(null),2);
   const picture=<img src={banner?.imageUrl||heroImage} alt={banner?.title||''} onError={e=>{if(e.currentTarget.src!==new URL(heroImage,location.href).href)e.currentTarget.src=heroImage;}}/>;

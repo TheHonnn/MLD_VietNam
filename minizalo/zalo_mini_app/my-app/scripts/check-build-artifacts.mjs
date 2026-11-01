@@ -16,16 +16,19 @@ try{
   }
   // Check lazy chunks as well as manifest entries. A development bundle can
   // open a Vite socket on the phone even when the API itself works normally.
-  let checkedScripts=0;
+  let checkedScripts=0,totalBytes=0,largestFileBytes=0;
   const scan=async(folder)=>{
     for(const entry of await readdir(folder,{withFileTypes:true})){
       const file=path.join(folder,entry.name);
       if(entry.isDirectory()){await scan(file);continue;}
+      const bytes=(await readFile(file)).byteLength;totalBytes+=bytes;largestFileBytes=Math.max(largestFileBytes,bytes);
+      if(bytes>3*1024*1024)throw new Error('An asset exceeds the Zalo 3 MB per-file limit.');
       if(!/\.(?:js|mjs|html)$/.test(entry.name))continue;
       const contents=await readFile(file,'utf8');checkedScripts++;
       if(/\/@vite\/client|\/@react-refresh|vite-hmr|__vite_ping/.test(contents))throw new Error('Development client found in production assets. Rebuild before deploying.');
     }
   };
   await scan(directory);
-  console.log(JSON.stringify({buildDirectory:'www',referencedAssets:files.length,checkedScripts,manifestVerified:true,noDevelopmentClient:true}));
+  if(totalBytes>10*1024*1024)throw new Error('The build exceeds the Zalo 10 MB application limit.');
+  console.log(JSON.stringify({buildDirectory:'www',referencedAssets:files.length,checkedScripts,totalBytes,largestFileBytes,manifestVerified:true,noDevelopmentClient:true}));
 }catch(error){console.error(`Build verification failed: ${error.message}`);process.exitCode=1;}

@@ -60,9 +60,9 @@ export async function workflowFixture() {
     INSERT INTO course_batches(id,course_id,branch_id,batch_code,instructor_id,start_date,end_date,schedule_text) VALUES
       ('${id(30)}','${id(22)}','${id(3)}','WF-CLASS','${id(21)}','2099-01-01','2099-02-01','Actual class schedule'),
       ('${id(33)}','${id(22)}','${id(3)}','WF-OTHER-CLASS','${id(21)}','2099-03-01','2099-04-01','Other actual schedule');
-    INSERT INTO course_enrollments(id,student_id,course_id,batch_id,status) VALUES
-      ('${id(29)}','${id(1)}','${id(22)}','${id(30)}','STUDYING'),
-      ('${id(32)}','${id(1)}','${id(22)}','${id(33)}','STUDYING');
+    INSERT INTO course_enrollments(id,student_id,course_id,batch_id,status,approval_status) VALUES
+      ('${id(29)}','${id(1)}','${id(22)}','${id(30)}','STUDYING','APPROVED'),
+      ('${id(32)}','${id(1)}','${id(22)}','${id(33)}','STUDYING','APPROVED');
   `);
   await db.exec('INSERT INTO miniapp_technician_services(technician_id,service_id) SELECT t.id,s.id FROM technicians t CROSS JOIN services s');
   const store = client => ({ query: async q => (await client.query(q.text,q.values.map(value => Prisma.Decimal.isDecimal(value) ? value.toString() : value))).rows,

@@ -239,7 +239,7 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
       assert.equal((await request(`/courses/${ids.course}/learning`)).status, 403);
     });
     await t.test('learning and quiz results read/write canonical academy tables without issuing fake certificates',async()=>{
-      await db.query("UPDATE course_enrollments SET status='ENROLLED' WHERE student_id=$1 AND course_id=$2",[ids.user,ids.course]);
+      await db.query("UPDATE course_enrollments SET status='ENROLLED',approval_status='APPROVED' WHERE student_id=$1 AND course_id=$2",[ids.user,ids.course]);
       const chapter = (await db.query("INSERT INTO course_chapters(course_id,title) VALUES ($1,'Shared Chapter') RETURNING id",[ids.course])).rows[0];
       await db.query("INSERT INTO course_lessons(chapter_id,title,video_url) VALUES ($1,'Shared Lesson','https://example.test/lesson.mp4')",[chapter.id]);
       const quiz = (await db.query("INSERT INTO course_quizzes(course_id,title,total_questions) VALUES ($1,'Shared Quiz',1) RETURNING id",[ids.course])).rows[0];

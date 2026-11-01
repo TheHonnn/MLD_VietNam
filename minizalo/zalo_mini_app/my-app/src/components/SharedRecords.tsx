@@ -6,11 +6,12 @@ import {EntityImage} from './GroupBExtensions';
 import type {CustomerSection} from '@/types/staff';
 import {CareDocuments} from './CareDocuments';
 import {DocumentAttachment} from './DocumentAttachment';
+import {JournalActions} from './JournalActions';
 import '@/css/shared-records.scss';
 
 export type StaffRecordCustomer={id:string;fullName:string;phone:string|null;dateOfBirth?:string|null};
 type Customer=StaffRecordCustomer;
-type Document={isLocked?:boolean;id:string;title:string;courseTitle?:string;chapterTitle?:string;summary?:string;imageUrl?:string;authorName?:string;publishedAt?:string;contentText?:string;attachments?:{url:string;name:string}[]};
+type Document={isLocked?:boolean;id:string;title:string;courseTitle?:string;chapterTitle?:string;summary?:string;imageUrl?:string;authorName?:string;publishedAt?:string;contentText?:string;canDownload?:boolean;watermarkText?:string;attachments?:{url:string;name:string;canDownload?:boolean}[]};
 type RecordEntry={id:string;title?:string;serviceId?:string;bookingId?:string;bookingCode?:string;date?:string;startTime?:string;endTime?:string;status?:string;branchName?:string;technicianName?:string;recipientName?:string;treatmentNotes?:string;conditionBefore?:string;conditionAfter?:string;specialistAdvice?:string;totalSessions?:number;completedSessions?:number;reservedSessions?:number;remainingSessions?:number;expiresAt?:string;sessionNumber?:number;serviceName?:string;packageDescription?:string;serviceDescription?:string;serviceSteps?:unknown[];durationMinutes?:number};
 
 function PackageInformation({item}:{item:RecordEntry}){
@@ -70,8 +71,8 @@ function DocumentRows({query,onSelect,kind,category,onCategories}:{query:string;
 function DocumentDetail({id,shared=false}:{id:string;shared?:boolean}){
   const [item,setItem]=useState<Document|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[version,setVersion]=useState(0);
   useEffect(()=>{
-    let active=true;const controller=new AbortController();setLoading(true);setItem(null);setError('');
-    (shared?apiClient.getSharedContentItem(id,controller.signal):apiClient.getDocument(id,controller.signal)).then(result=>{if(!active)return;const record=shared?result?.item:result?.document;if(record?.id===id)setItem(record);else setError(result?.error||'Không thể mở nội dung.');}).catch(()=>{if(active)setError('Không thể mở nội dung.');}).finally(()=>{if(active)setLoading(false);});
+    let active=true;const controller=new AbortController();setLoading(true);setError('');
+    (shared?apiClient.getSharedContentItem(id,controller.signal):apiClient.getDocument(id,controller.signal)).then(result=>{if(!active)return;const record=shared?result?.item:result?.document;if(record?.id===id)setItem(record);else{setItem(null);setError(result?.error||'Không thể mở nội dung.');}}).catch(()=>{if(active){setItem(null);setError('Không thể mở nội dung.');}}).finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;controller.abort();};
   },[id,version,shared]);
   useEffect(()=>{
@@ -79,7 +80,7 @@ function DocumentDetail({id,shared=false}:{id:string;shared?:boolean}){
     const timer=window.setInterval(refresh,30000);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);
     return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};
   },[]);
-  return <>{loading&&<p role="status">Đang mở nội dung...</p>}{error&&<div role="alert">{error}<button type="button" onClick={()=>setVersion(value=>value+1)}>Thử lại</button></div>}{item&&<article className="document-reading">{item.imageUrl&&<EntityImage src={item.imageUrl} alt={item.title} className="shared-content-cover"/>}<h2>{item.title}</h2><p>{[item.courseTitle,item.chapterTitle,item.summary].filter(Boolean).join(' · ')}</p>{item.authorName&&<p>{item.authorName} · {date(item.publishedAt)}</p>}<div className="record-text">{item.contentText}</div>{item.attachments?.map((file,index)=><DocumentAttachment key={file.url+index} file={file}/>)}</article>}</>;
+  return <>{loading&&<p role="status">Đang mở nội dung...</p>}{error&&<div role="alert">{error}<button type="button" onClick={()=>setVersion(value=>value+1)}>Thử lại</button></div>}{item&&<article className="document-reading">{item.imageUrl&&<EntityImage src={item.imageUrl} alt={item.title} className="shared-content-cover"/>}<h2>{item.title}</h2><p>{[item.courseTitle,item.chapterTitle,item.summary].filter(Boolean).join(' · ')}</p>{item.authorName&&<p>{item.authorName} · {date(item.publishedAt)}</p>}<div className="record-text">{item.contentText}</div>{item.attachments?.map((file,index)=><DocumentAttachment key={file.url+index} file={file} canDownload={item.canDownload!==false} watermark={item.watermarkText}/>)}</article>}</>;
 }
 export function DocumentLibrary({onBack}:{onBack:()=>void}){
   const {value,setValue,query}=useSearch(),[selected,setSelected]=useState(''),[source,setSource]=useState<'care'|'course'|'shared'>('shared');
@@ -99,7 +100,7 @@ function CustomerHistory({customer,section,onAppointment,onBookPackage}:{custome
     {item.recipientName&&<p>Người trị liệu / đại diện nhóm: {item.recipientName}</p>}{item.branchName&&<p>{item.branchName}</p>}{item.technicianName&&<p>{item.technicianName}</p>}{item.status&&<p>{status(item.status)}</p>}
     {section==='treatments'&&item.sessionNumber!=null&&<p>Buổi trị liệu {item.sessionNumber}</p>}
     {section==='appointments'&&<button type="button" onClick={()=>onAppointment(item.id)}>Xem lịch hẹn</button>}
-    {section==='treatments'&&<><dl>{[['Trước trị liệu',item.conditionBefore],['Nội dung trị liệu',item.treatmentNotes],['Sau trị liệu',item.conditionAfter],['Lời dặn',item.specialistAdvice]].map(([label,value])=>value?<React.Fragment key={label}><dt>{label}</dt><dd>{value}</dd></React.Fragment>:null)}</dl>{item.bookingId&&<button type="button" onClick={()=>onAppointment(item.bookingId!)}>Xem lịch hẹn</button>}</>}
+    {section==='treatments'&&<><dl>{[['Trước trị liệu',item.conditionBefore],['Nội dung trị liệu',item.treatmentNotes],['Sau trị liệu',item.conditionAfter],['Lời dặn',item.specialistAdvice]].map(([label,value])=>value?<React.Fragment key={label}><dt>{label}</dt><dd>{value}</dd></React.Fragment>:null)}</dl><JournalActions id={item.id}/>{item.bookingId&&<button type="button" onClick={()=>onAppointment(item.bookingId!)}>Xem lịch hẹn</button>}</>}
     {section==='packages'&&<PackageInformation item={item}/>}
     {section==='packages'&&<><p>{item.completedSessions}/{item.totalSessions} buổi đã dùng · {item.reservedSessions} buổi đã đặt</p><p>Còn {item.remainingSessions} buổi · Hạn dùng {date(item.expiresAt)}</p><button type="button" disabled={item.status!=='ACTIVE'||!item.serviceId||!item.remainingSessions||!item.expiresAt||Date.parse(item.expiresAt)<=Date.now()} onClick={()=>onBookPackage(customer,item.serviceId!,{id:item.id,name:item.title||''})}>Đặt buổi tiếp theo</button></>}
   </article>)}<PageState state={state}/></>;
