@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { SidebarItem, menuResources } from '../../admin/SidebarItem';
+import { SidebarItem, type SubMenuItem } from '../../admin/SidebarItem';
 import { adminApi, Resource } from '../../admin/api';
 import { DEFAULT_RESOURCES } from '../../admin/defaultResources';
 import { toast } from '../common';
@@ -8,7 +8,6 @@ import {
   LayoutGrid,
   Store,
   Users,
-  Calendar,
   Leaf,
   CreditCard,
   Contact,
@@ -20,12 +19,11 @@ import {
   Settings,
   Ticket,
   UserRoundCog,
-  BadgeCheck,
   ShieldCheck,
-  DollarSign,
   Smartphone,
   Layers,
   Award,
+  Sparkles,
   type LucideIcon,
   X,
 } from 'lucide-react';
@@ -35,8 +33,22 @@ export interface SidebarProps {
   onCloseMobile?: () => void;
 }
 
+interface SidebarSectionItem {
+  name: string;
+  path: string;
+  icon: LucideIcon;
+  subItems?: SubMenuItem[];
+  onlyWhenAllowed?: boolean;
+}
+
+interface SidebarSection {
+  title: string;
+  items: SidebarSectionItem[];
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }) => {
   const [resources, setResources] = useState<Resource[]>(DEFAULT_RESOURCES);
+
   useEffect(() => {
     const controller = new AbortController();
     adminApi<Resource[]>('resources', undefined, controller.signal)
@@ -46,30 +58,152 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
       .catch(() => {});
     return () => controller.abort();
   }, []);
-  const sections: { title: string; items: { name: string; path: string; icon: LucideIcon; onlyWhenAllowed?: boolean }[] }[] = [
+
+  const sections: SidebarSection[] = [
     {
-      title: 'VẬN HÀNH SPA',
+      title: 'TỔNG QUAN',
       items: [
         { name: 'Tổng quan', path: '/', icon: LayoutGrid },
-        { name: 'Chi nhánh', path: '/branches', icon: Store },
-        { name: 'Khách hàng', path: '/customers', icon: Users },
-        { name: 'Dịch vụ', path: '/manage/services', icon: Leaf, onlyWhenAllowed: true },
-        { name: 'Nhân viên', path: '/manage/staff_profiles', icon: UserRoundCog, onlyWhenAllowed: true },
-        { name: 'Lịch kỹ thuật viên', path: '/staff-schedule', icon: Calendar },
-        { name: 'Liệu trình', path: '/medical-records', icon: Leaf },
-        { name: 'Thu ngân', path: '/cashier-pos', icon: CreditCard },
-        { name: 'Hoa hồng KTV', path: '/commissions', icon: DollarSign },
-        { name: 'Voucher & hội viên', path: '/manage/coupons', icon: Ticket, onlyWhenAllowed: true },
       ],
     },
     {
-      title: 'HỌC VIỆN',
+      title: 'CƠ SỞ VẬT CHẤT',
       items: [
-        { name: 'Tuyển sinh', path: '/academy-enrollment', icon: Contact },
-        { name: 'Giảng viên', path: '/instructors', icon: Presentation },
-        { name: 'Học viên', path: '/attendance', icon: GraduationCap },
-        { name: 'Vận hành đào tạo', path: '/curriculum', icon: BookOpen },
-        { name: 'Giấy chứng nhận', path: '/certificates', icon: Award },
+        {
+          name: 'Chi nhánh & Phòng ốc',
+          path: '/branches',
+          icon: Store,
+          subItems: [
+            { name: 'Danh sách chi nhánh', path: '/branches' },
+            { name: 'Phòng & Giường trị liệu', path: '/branches?tab=rooms' },
+          ],
+        },
+      ],
+    },
+    {
+      title: 'VẬN HÀNH DỊCH VỤ SPA',
+      items: [
+        {
+          name: 'Thu ngân & Tiếp đón',
+          path: '/cashier-pos',
+          icon: CreditCard,
+          subItems: [
+            { name: 'Thu ngân POS', path: '/cashier-pos' },
+            { name: 'Lịch hẹn & Tiếp đón', path: '/manage/bookings' },
+            { name: 'Hóa đơn thanh toán', path: '/manage/invoices' },
+          ],
+        },
+        {
+          name: 'Khách hàng (CRM)',
+          path: '/customers',
+          icon: Users,
+          subItems: [
+            { name: 'Hồ sơ Khách hàng', path: '/customers' },
+            { name: 'Khảo sát trước dịch vụ', path: '/manage/consultation_surveys' },
+            { name: 'Đánh giá từ khách', path: '/manage/reviews' },
+            { name: 'Yêu cầu hỗ trợ', path: '/manage/support_tickets' },
+            { name: 'Câu hỏi thường gặp FAQ', path: '/manage/support_faqs' },
+          ],
+        },
+        {
+          name: 'Quản lý Liệu trình',
+          path: '/medical-records',
+          icon: Leaf,
+          subItems: [
+            { name: 'Hồ sơ phác đồ MLD', path: '/medical-records' },
+            { name: 'Gói liệu trình Spa', path: '/manage/treatment_packages' },
+            { name: 'Liệu trình khách hàng', path: '/manage/user_packages' },
+            { name: 'Nhật ký điều trị', path: '/manage/treatment_journal' },
+            { name: 'Hướng dẫn chăm sóc tại nhà', path: '/manage/home_care_guidelines' },
+          ],
+        },
+        {
+          name: 'Dịch vụ & Định mức',
+          path: '/manage/services',
+          icon: Sparkles,
+          subItems: [
+            { name: 'Danh mục dịch vụ', path: '/manage/service_categories' },
+            { name: 'Bảng giá dịch vụ', path: '/manage/services' },
+            { name: 'Định mức tiêu hao vật tư (BOM)', path: '/manage/service_materials' },
+          ],
+        },
+        {
+          name: 'Nhân sự & Kỹ thuật viên',
+          path: '/staff-schedule',
+          icon: UserRoundCog,
+          subItems: [
+            { name: 'Lịch trực & Điều phối ca', path: '/staff-schedule' },
+            { name: 'Hồ sơ nhân viên', path: '/manage/staff_profiles' },
+            { name: 'Đội ngũ Chuyên viên KTV', path: '/manage/technicians' },
+            { name: 'Đơn nghỉ phép', path: '/manage/staff_leaves' },
+            { name: 'Hoa hồng KTV & Thưởng', path: '/commissions' },
+          ],
+        },
+        {
+          name: 'Voucher & Hội viên',
+          path: '/manage/coupons',
+          icon: Ticket,
+          subItems: [
+            { name: 'Mã giảm giá Voucher', path: '/manage/coupons' },
+            { name: 'Voucher khách hàng', path: '/manage/user_vouchers' },
+            { name: 'Hạng thành viên', path: '/manage/membership_tier_rules' },
+            { name: 'Cấu hình điểm thưởng', path: '/manage/loyalty_point_settings' },
+            { name: 'Lịch sử giao dịch điểm', path: '/manage/point_transactions' },
+          ],
+        },
+      ],
+    },
+    {
+      title: 'HỌC VIỆN & ĐÀO TẠO',
+      items: [
+        {
+          name: 'Tuyển sinh & Ghi danh',
+          path: '/academy-enrollment',
+          icon: Contact,
+          subItems: [
+            { name: 'Hồ sơ tư vấn tuyển sinh', path: '/academy-enrollment' },
+            { name: 'Danh sách ghi danh', path: '/manage/course_enrollments' },
+            { name: 'Thu học phí & Đặt cọc', path: '/manage/tuition_transactions' },
+          ],
+        },
+        {
+          name: 'Đội ngũ Giảng viên',
+          path: '/instructors',
+          icon: Presentation,
+        },
+        {
+          name: 'Học viên & Lớp học',
+          path: '/attendance',
+          icon: GraduationCap,
+          subItems: [
+            { name: 'Điểm danh & Sổ theo dõi', path: '/attendance' },
+            { name: 'Lớp học đang mở', path: '/manage/course_batches' },
+            { name: 'Thời khóa biểu', path: '/manage/batch_schedules' },
+            { name: 'Bảng điểm học viên', path: '/manage/student_academic_records' },
+          ],
+        },
+        {
+          name: 'Chương trình đào tạo',
+          path: '/curriculum',
+          icon: BookOpen,
+          subItems: [
+            { name: 'Khung chương trình', path: '/curriculum' },
+            { name: 'Danh mục khóa học', path: '/manage/course_categories' },
+            { name: 'Khóa đào tạo', path: '/manage/courses' },
+            { name: 'Chương & Bài học video', path: '/manage/course_chapters' },
+            { name: 'Đề thi & Trắc nghiệm', path: '/manage/course_quizzes' },
+          ],
+        },
+        {
+          name: 'Giấy chứng nhận',
+          path: '/certificates',
+          icon: Award,
+          subItems: [
+            { name: 'Quản lý cấp chứng chỉ', path: '/certificates' },
+            { name: 'Mẫu phôi chứng chỉ', path: '/manage/certificate_templates' },
+            { name: 'Danh sách đã cấp', path: '/manage/student_certificates' },
+          ],
+        },
       ],
     },
     {
@@ -83,11 +217,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
       items: [
         { name: 'Nội dung Portal', path: '/portal-content', icon: Layers },
         { name: 'CSKH Zalo ZNS', path: '/zalo-zns', icon: Smartphone },
-        { name: 'Phân quyền', path: '/manage/roles', icon: ShieldCheck, onlyWhenAllowed: true },
+        {
+          name: 'Phân quyền & Bảo mật',
+          path: '/manage/roles',
+          icon: ShieldCheck,
+          subItems: [
+            { name: 'Danh sách Vai trò', path: '/manage/roles' },
+            { name: 'Danh mục quyền hạn', path: '/manage/permissions' },
+            { name: 'Phân quyền tài khoản', path: '/manage/user_roles' },
+            { name: 'Nhật ký bảo mật Audit Trail', path: '/manage/audit_logs' },
+          ],
+        },
       ],
     },
   ];
 
+  const isItemAllowed = (item: SidebarSectionItem) => {
+    if (!item.onlyWhenAllowed) return true;
+    if (item.subItems && item.subItems.length > 0) {
+      return item.subItems.some((sub) => {
+        if (sub.path.startsWith('/manage/')) {
+          const tbl = sub.path.replace('/manage/', '').split('?')[0];
+          return resources.some((r) => r.name === tbl);
+        }
+        return true;
+      });
+    }
+    return true;
+  };
 
   return (
     <>
@@ -129,75 +286,71 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           </button>
         </div>
 
-      {/* Workspace Section Header */}
-      <div className="px-4 pt-2 pb-1.5">
-        <span className="text-[10px] font-bold text-[#A69788] uppercase tracking-wider">
-          KHÔNG GIAN QUẢN TRỊ
-        </span>
-      </div>
-
-      {/* Navigation Sections */}
-      <nav className="px-3 py-1 space-y-3.5 flex-1">
-        {sections.filter(section => section.items.some(item => !item.onlyWhenAllowed || resources.some(resource => menuResources[item.path]?.includes(resource.name)))).map((section, idx) => (
-          <div key={idx}>
-            <div className="px-2 mb-1 text-[9.5px] font-bold text-[#A69788] uppercase tracking-wider">
-              {section.title}
-            </div>
-            <div className="space-y-0.5">
-              {section.items
-                .filter(
-                  item =>
-                    !item.onlyWhenAllowed ||
-                    resources.some(resource =>
-                      menuResources[item.path]?.includes(resource.name)
-                    )
-                )
-                .map(item => (
-                  <SidebarItem
-                    key={item.path}
-                    {...item}
-                    resources={resources}
-                    onNavigate={onCloseMobile}
-                  />
-                ))}
-            </div>
-          </div>
-        ))}
-      </nav>
-
-      {/* Footer Support & Settings */}
-      <div className="p-3 border-t border-[#EFE4D9] space-y-0.5 mt-auto">
-        <button
-          type="button"
-          onClick={() =>
-            toast.info(
-              'Trung tâm hỗ trợ MLD',
-              'Hotline kỹ thuật: 1900 8888 · Email hỗ trợ: support@mldvietnam.vn (08:00–22:00).'
-            )
-          }
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
-        >
-          <HelpCircle className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
-          <span>Cần hỗ trợ?</span>
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            toast.info(
-              'Cấu hình quản trị',
-              'Hệ thống đang hoạt động theo chính sách phân quyền bảo mật MLD Spa & Clinic.'
-            )
-          }
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
-        >
-          <Settings className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
-          <span>Cài đặt</span>
-        </button>
-        <div className="pt-2 px-3">
-          <p className="text-[10px] text-[#A69788]">Hệ thống Quản trị MLD v1.0</p>
+        {/* Workspace Section Header */}
+        <div className="px-4 pt-2 pb-1.5">
+          <span className="text-[10px] font-bold text-[#A69788] uppercase tracking-wider">
+            KHÔNG GIAN QUẢN TRỊ
+          </span>
         </div>
-      </div>
-    </aside>
+
+        {/* Navigation Sections */}
+        <nav className="px-3 py-1 space-y-3.5 flex-1 pb-6">
+          {sections
+            .filter((section) => section.items.some((item) => isItemAllowed(item)))
+            .map((section, idx) => (
+              <div key={idx}>
+                <div className="px-2 mb-1 text-[9.5px] font-bold text-[#A69788] uppercase tracking-wider">
+                  {section.title}
+                </div>
+                <div className="space-y-0.5">
+                  {section.items
+                    .filter((item) => isItemAllowed(item))
+                    .map((item) => (
+                      <SidebarItem
+                        key={item.path}
+                        {...item}
+                        resources={resources}
+                        onNavigate={onCloseMobile}
+                      />
+                    ))}
+                </div>
+              </div>
+            ))}
+        </nav>
+
+        {/* Footer Support & Settings */}
+        <div className="p-3 border-t border-[#EFE4D9] space-y-0.5 mt-auto">
+          <button
+            type="button"
+            onClick={() =>
+              toast.info(
+                'Trung tâm hỗ trợ MLD',
+                'Hotline kỹ thuật: 1900 8888 · Email hỗ trợ: support@mldvietnam.vn (08:00–22:00).'
+              )
+            }
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+          >
+            <HelpCircle className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
+            <span>Cần hỗ trợ?</span>
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              toast.info(
+                'Cấu hình quản trị',
+                'Hệ thống đang hoạt động theo chính sách phân quyền bảo mật MLD Spa & Clinic.'
+              )
+            }
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+          >
+            <Settings className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
+            <span>Cài đặt</span>
+          </button>
+          <div className="pt-2 px-3">
+            <p className="text-[10px] text-[#A69788]">Hệ thống Quản trị MLD v1.0</p>
+          </div>
+        </div>
+      </aside>
     </>
   );
 };

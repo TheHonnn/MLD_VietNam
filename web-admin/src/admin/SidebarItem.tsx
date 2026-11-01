@@ -3,6 +3,12 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronDown, type LucideIcon } from 'lucide-react';
 import { Resource } from './api';
 
+export interface SubMenuItem {
+  name: string;
+  path: string;
+  resourceName?: string;
+}
+
 export const menuResources: Record<string, string[]> = {
   '/customers': ['users', 'consultation_surveys', 'reviews', 'support_tickets', 'support_faqs'],
   '/staff-schedule': ['technician_shifts', 'technician_slots'],
@@ -12,47 +18,140 @@ export const menuResources: Record<string, string[]> = {
   '/instructors': ['instructors'],
   '/attendance': ['student_attendance', 'student_academic_records'],
   '/curriculum': ['course_categories', 'courses', 'course_batches', 'batch_schedules', 'course_chapters', 'course_lessons', 'course_quizzes', 'quiz_questions', 'quiz_submissions', 'user_lesson_progress'],
-  '/manage/services': ['service_categories', 'services'],
+  '/manage/services': ['service_categories', 'services', 'service_materials'],
   '/manage/staff_profiles': ['staff_profiles', 'technicians', 'staff_leaves'],
   '/manage/coupons': ['coupons', 'voucher_distribution_rules', 'user_vouchers', 'membership_tier_rules', 'loyalty_point_settings', 'point_transactions'],
   '/manage/student_certificates': ['certificate_templates', 'student_certificates'],
   '/manage/roles': ['roles', 'permissions', 'role_permissions', 'user_roles', 'audit_logs'],
 };
 
+export interface SidebarItemProps {
+  name: string;
+  path: string;
+  icon: LucideIcon;
+  resources?: Resource[];
+  subItems?: SubMenuItem[];
+  onlyWhenAllowed?: boolean;
+  onNavigate?: () => void;
+}
+
 export function SidebarItem({
   name,
   path,
   icon: Icon,
-  resources,
+  resources = [],
+  subItems,
   onNavigate,
-}: {
-  name: string;
-  path: string;
-  icon: LucideIcon;
-  resources: Resource[];
-  onNavigate?: () => void;
-}) {
-  const { pathname } = useLocation();
-  const children = (menuResources[path] || []).flatMap(table => {
-    const resource = resources.find(item => item.name === table);
-    return resource ? [resource] : [];
-  });
-  const childActive = children.some(item => pathname === `/manage/${item.name}`);
+}: SidebarItemProps) {
+  const location = useLocation();
+  const currentPath = location.pathname;
+  const currentFull = location.pathname + location.search;
+
+  // Resolve sub-items: either custom subItems or fallback to menuResources mapping
+  const children: SubMenuItem[] = (() => {
+    if (subItems && subItems.length > 0) {
+      return subItems.filter((item) => {
+        if (item.resourceName) {
+          return resources.length === 0 || resources.some((r) => r.name === item.resourceName);
+        }
+        if (item.path.startsWith('/manage/')) {
+          const tbl = item.path.replace('/manage/', '').split('?')[0];
+          return resources.length === 0 || resources.some((r) => r.name === tbl);
+        }
+        return true;
+      });
+    }
+
+    return (menuResources[path] || []).flatMap((table) => {
+      const resource = resources.find((item) => item.name === table);
+      return resource ? [{ name: resource.title, path: `/manage/${resource.name}` }] : [];
+    });
+  })();
+
+  const isSubActive = (subPath: string) => {
+    if (subPath.includes('?')) {
+      return currentFull === subPath;
+    }
+    return currentPath === subPath;
+  };
+
+  const childActive = children.some((item) => isSubActive(item.path));
+
+  // Determine if parent is directly active or an alias is active
+  const isParentActive = (() => {
+    if (path === '/') return currentPath === '/';
+    if (currentPath === path) return true;
+    if (path === '/customers' && currentPath.startsWith('/customer')) return true;
+    if (
+      path === '/medical-records' &&
+      (currentPath.startsWith('/medical-records') || currentPath.startsWith('/treatment-management'))
+    )
+      return true;
+    if (
+      path === '/staff-schedule' &&
+      (currentPath.startsWith('/staff-schedule') || currentPath.startsWith('/technician-schedule'))
+    )
+      return true;
+    if (
+      path === '/cashier-pos' &&
+      (currentPath === '/cashier-pos' ||
+        currentPath === '/invoices' ||
+        currentPath === '/receipts' ||
+        currentPath === '/hoa-don')
+    )
+      return true;
+    if (path === '/instructors' && (currentPath.startsWith('/instructor') || currentPath.startsWith('/giang-vien')))
+      return true;
+    if (
+      path === '/certificates' &&
+      (currentPath.startsWith('/certificate') ||
+        currentPath.startsWith('/chung-chi') ||
+        currentPath.startsWith('/giay-chung-nhan'))
+    )
+      return true;
+    if (path === '/portal-content' && currentPath.startsWith('/portal')) return true;
+    if (path === '/zalo-zns' && (currentPath.startsWith('/zalo-zns') || currentPath.startsWith('/crm-zns')))
+      return true;
+    if (path === '/branches' && currentPath.startsWith('/branches')) return true;
+    return false;
+  })();
+
   const [open, setOpen] = useState(childActive);
-  useEffect(() => { if (childActive) setOpen(true); }, [pathname, childActive]);
+  useEffect(() => {
+    if (childActive) setOpen(true);
+  }, [childActive]);
+
   const expanded = open && children.length > 0;
   const submenuId = `submenu-${path.replace(/[^a-z0-9]/gi, '-')}`;
+
+  const handleParentClick = () => {
+    if (children.length > 0) {
+      setOpen(true);
+    }
+    if (onNavigate) onNavigate();
+  };
+
   return (
     <div>
       <div className="relative">
         <NavLink
           to={path}
           end={path === '/'}
-          onClick={onNavigate}
-          className={({isActive}) => `flex items-center gap-2.5 px-3 py-2 ${children.length ? 'pr-10' : ''} rounded-xl text-xs font-semibold transition-all duration-150 ${isActive || childActive || (path === '/customers' && pathname.startsWith('/customer')) ? 'bg-[#F3E2CE] text-[#8A4F23] shadow-xs' : 'text-[#4A3E34] hover:bg-[#FAF7F2] hover:text-[#2C241E]'}`}
+          onClick={handleParentClick}
+          className={`flex items-center gap-2.5 px-3 py-2 ${
+            children.length ? 'pr-10' : ''
+          } rounded-xl text-xs font-semibold transition-all duration-150 ${
+            isParentActive || childActive
+              ? 'bg-[#F3E2CE] text-[#8A4F23] shadow-xs'
+              : 'text-[#4A3E34] hover:bg-[#FAF7F2] hover:text-[#2C241E]'
+          }`}
         >
-          <Icon className={`w-4 h-4 shrink-0 stroke-[1.8] ${childActive || pathname === path ? 'text-[#8A4F23]' : 'text-[#8C7A6B]'}`} />
-          <span>{name}</span>
+          <Icon
+            className={`w-4 h-4 shrink-0 stroke-[1.8] ${
+              childActive || isParentActive ? 'text-[#8A4F23]' : 'text-[#8C7A6B]'
+            }`}
+          />
+          <span className="truncate">{name}</span>
         </NavLink>
         {children.length > 0 && (
           <button
@@ -61,25 +160,32 @@ export function SidebarItem({
             aria-label={`${expanded ? 'Thu gọn' : 'Mở'} ${name}`}
             aria-expanded={expanded}
             aria-controls={submenuId}
-            onClick={() => setOpen(value => !value)}
-            className="absolute right-1 top-1 w-7 h-7 flex items-center justify-center rounded-lg text-[#8C7A6B] hover:bg-[#F3E2CE] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#985018]"
+            onClick={() => setOpen((value) => !value)}
+            className="absolute right-1 top-1 w-7 h-7 flex items-center justify-center rounded-lg text-[#8C7A6B] hover:bg-[#F3E2CE] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#985018] cursor-pointer"
           >
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
           </button>
         )}
       </div>
       {children.length > 0 && (
-        <div id={submenuId} hidden={!expanded} className="ml-5 pl-2 mt-1 mb-1 border-l border-[#EFE4D9] space-y-0.5">
-          {children.map(resource => (
-            <NavLink
-              key={resource.name}
-              to={`/manage/${resource.name}`}
-              onClick={onNavigate}
-              className={({isActive}) => `block px-3 py-2 rounded-xl text-[11px] font-medium leading-normal ${isActive ? 'bg-[#F3E2CE] text-[#8A4F23]' : 'text-[#7A6D61] hover:bg-[#FAF7F2] hover:text-[#2C241E]'}`}
-            >
-              {resource.title}
-            </NavLink>
-          ))}
+        <div id={submenuId} hidden={!expanded} className="ml-5 pl-2.5 mt-1 mb-1.5 border-l border-[#EFE4D9] space-y-0.5">
+          {children.map((sub) => {
+            const active = isSubActive(sub.path);
+            return (
+              <NavLink
+                key={sub.path}
+                to={sub.path}
+                onClick={onNavigate}
+                className={`block px-2.5 py-1.5 rounded-lg text-[11px] font-medium leading-normal transition-colors ${
+                  active
+                    ? 'bg-[#F3E2CE] text-[#8A4F23] font-semibold'
+                    : 'text-[#7A6D61] hover:bg-[#FAF7F2] hover:text-[#2C241E]'
+                }`}
+              >
+                {sub.name}
+              </NavLink>
+            );
+          })}
         </div>
       )}
     </div>
