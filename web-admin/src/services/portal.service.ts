@@ -1,5 +1,6 @@
 import { PortalContentItem, PortalContentKind, PortalContentStatus, DocumentAccessLevel, ApiResponse } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
+import { supabase } from './supabaseClient';
 
 function mapDbToPortalContent(item: any): PortalContentItem {
   return {
@@ -22,6 +23,13 @@ function mapDbToPortalContent(item: any): PortalContentItem {
     status: (item.status || 'DRAFT').toUpperCase() as PortalContentStatus,
     authorName: item.author_name || 'Hệ thống MLD',
     authorAvatar: item.author_avatar || '',
+    // Phân quyền chuyên sâu cho Giáo trình & Tài liệu đào tạo MLD
+    courseId: item.course_id || null,
+    courseTitle: item.courses ? item.courses.title : (item.course_title || undefined),
+    allowDownload: item.allow_download !== undefined ? Boolean(item.allow_download) : false,
+    requireFullPayment: item.require_full_payment !== undefined ? Boolean(item.require_full_payment) : true,
+    allowedRoles: Array.isArray(item.allowed_roles) ? item.allowed_roles : ['STUDENT', 'INSTRUCTOR', 'ADMIN'],
+    watermarkText: item.watermark_text || 'MLD ACADEMY - BẢN QUYỀN ĐÀO TẠO',
     publishedAt: item.published_at || null,
     createdAt: item.created_at || new Date().toISOString(),
     updatedAt: item.updated_at || new Date().toISOString(),
@@ -36,10 +44,11 @@ export const portalService = {
     kind?: PortalContentKind;
     status?: PortalContentStatus;
     category?: string;
+    courseId?: string;
     search?: string;
   }): Promise<ApiResponse<PortalContentItem[]>> {
     try {
-      let queryPath = 'miniapp_shared_content?select=*&order=sort_order.asc,created_at.desc';
+      let queryPath = 'miniapp_shared_content?select=*,courses:course_id(id,title)&order=sort_order.asc,created_at.desc';
       
       if (params?.kind) {
         queryPath += `&kind=eq.${params.kind}`;
@@ -50,6 +59,9 @@ export const portalService = {
       if (params?.category && params.category !== 'ALL') {
         queryPath += `&category=eq.${params.category}`;
       }
+      if (params?.courseId && params.courseId !== 'ALL') {
+        queryPath += `&course_id=eq.${params.courseId}`;
+      }
       if (params?.search) {
         queryPath += `&title=ilike.*${params.search}*`;
       }
@@ -58,6 +70,7 @@ export const portalService = {
       if (!raw) {
         return { success: true, statusCode: 200, message: 'Danh sách nội dung portal', data: [] };
       }
+
 
       const list: PortalContentItem[] = raw.map(mapDbToPortalContent);
       return { success: true, statusCode: 200, message: 'Tải nội dung portal thành công', data: list };
@@ -107,6 +120,12 @@ export const portalService = {
         status: (data.status || 'PUBLISHED').toUpperCase(),
         author_name: data.authorName || 'Hệ thống MLD',
         author_avatar: data.authorAvatar || null,
+        // Phân quyền chuyên sâu cho Giáo trình & Tài liệu đào tạo MLD
+        course_id: data.courseId || null,
+        allow_download: Boolean(data.allowDownload),
+        require_full_payment: data.requireFullPayment !== undefined ? Boolean(data.requireFullPayment) : true,
+        allowed_roles: data.allowedRoles || ['STUDENT', 'INSTRUCTOR', 'ADMIN'],
+        watermark_text: data.watermarkText || 'MLD ACADEMY - BẢN QUYỀN ĐÀO TẠO',
         attachments: (data as any).attachments || [],
         payload_hash: ' ',
         published_at: data.status === 'PUBLISHED' || data.status === 'APPROVED' ? new Date().toISOString() : null,
@@ -156,6 +175,12 @@ export const portalService = {
       if (updates.commentsCount !== undefined) payload.comments_count = Number(updates.commentsCount);
       if (updates.authorName !== undefined) payload.author_name = updates.authorName;
       if (updates.authorAvatar !== undefined) payload.author_avatar = updates.authorAvatar;
+      // Phân quyền chuyên sâu cho Giáo trình & Tài liệu đào tạo MLD
+      if (updates.courseId !== undefined) payload.course_id = updates.courseId || null;
+      if (updates.allowDownload !== undefined) payload.allow_download = Boolean(updates.allowDownload);
+      if (updates.requireFullPayment !== undefined) payload.require_full_payment = Boolean(updates.requireFullPayment);
+      if (updates.allowedRoles !== undefined) payload.allowed_roles = updates.allowedRoles;
+      if (updates.watermarkText !== undefined) payload.watermark_text = updates.watermarkText;
       if (updates.status !== undefined) {
         payload.status = updates.status.toUpperCase();
         if (payload.status === 'PUBLISHED' || payload.status === 'APPROVED') {
@@ -175,6 +200,38 @@ export const portalService = {
       return { success: false, statusCode: 500, message: err.message || 'Lỗi cập nhật nội dung', data: false };
     }
   },
+
+  /**
+   * Kiểm tra quyền xem / tải giáo trình của học viên qua Supabase RPC
+   */
+  async checkStudentDocumentAccess(studentId: string, documentId: string): Promise<ApiResponse<{ can_access: boolean; can_download: boolean; reason: string }>> {
+    try {
+      const { data, error } = await supabase.rpc('fn_check_student_document_access', {
+        p_student_id: studentId,
+        p_document_id: documentId,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Kiểm tra quyền truy cập giáo trình',
+        data: data || { can_access: false, can_download: false, reason: 'Không có dữ liệu phản hồi' },
+      };
+    } catch (err: any) {
+      console.error('[portalService] checkStudentDocumentAccess error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: err.message || 'Lỗi kiểm tra quyền tải giáo trình',
+        data: { can_access: false, can_download: false, reason: 'Lỗi hệ thống' },
+      };
+    }
+  },
+
 
   /**
    * Xóa mục nội dung

@@ -17,6 +17,7 @@ import { InstructorFormEditor } from "./InstructorFormEditor";
 import { BatchScheduleFormEditor } from "./BatchScheduleFormEditor";
 import { StudentAcademicRecordFormEditor } from "./StudentAcademicRecordFormEditor";
 import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
+import { ShareJournalModal, ShareJournalItem } from "../components/treatment/ShareJournalModal";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
 import {
@@ -59,6 +60,7 @@ import {
   CheckCheck,
   FileEdit,
   FileSpreadsheet,
+  Share2,
 } from "lucide-react";
 import {
   adminApi,
@@ -3761,6 +3763,14 @@ function RecordDialog({
 }
 
 function availableActions(table: string, row: Row) {
+  if (table === "treatment_journal")
+    return [
+      {
+        key: "share-journal",
+        title: "Chia sẻ link & Xuất PDF nhật ký điều trị",
+        icon: Share2,
+      },
+    ];
   if (table === "consultation_surveys")
     return [
       {
@@ -3871,6 +3881,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     [reason, setReason] = useState("");
   const [search, setSearch] = useState(params.get("search") || "");
   const [showExcelImportModal, setShowExcelImportModal] = useState(false);
+  const [shareJournalItem, setShareJournalItem] = useState<ShareJournalItem | null>(null);
   const confirmDialog = useRef<HTMLDialogElement>(null);
   const page = Number(params.get("page")) || 1;
   const resource = resources.find((r) => r.name === table);
@@ -5874,6 +5885,18 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                                 className="admin-icon"
                                 title={a.title}
                                 onClick={() => {
+                                  if (a.key === "share-journal") {
+                                    setShareJournalItem({
+                                      id: row.id,
+                                      sessionNumber: row.session_number,
+                                      sessionDate: row.session_date,
+                                      customerName: row.customer?.full_name || row.customer_name || 'Khách hàng',
+                                      customerPhone: row.customer?.phone || row.phone,
+                                      customerEmail: row.customer?.email || row.email,
+                                      serviceName: row.treatment_notes,
+                                    });
+                                    return;
+                                  }
                                   if (a.key === "open-schedule") {
                                     const bCode =
                                       row.booking_code ||
@@ -6174,6 +6197,13 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </footer>
         </dialog>
       )}
+
+      {/* Share Treatment Journal Modal */}
+      <ShareJournalModal
+        isOpen={Boolean(shareJournalItem)}
+        onClose={() => setShareJournalItem(null)}
+        journal={shareJournalItem}
+      />
 
       {/* Excel Quiz Import Modal */}
       <ExcelQuizImportModal

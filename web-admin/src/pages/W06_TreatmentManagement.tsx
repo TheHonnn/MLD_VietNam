@@ -20,6 +20,7 @@ import {
   LoaderCircle,
   Phone,
   Crown,
+  Share2,
 } from 'lucide-react';
 import {
   treatmentService,
@@ -29,6 +30,7 @@ import {
   portalService,
 } from '../services';
 import { toast } from '../components/common';
+import { ShareJournalModal, ShareJournalItem } from '../components/treatment/ShareJournalModal';
 import { matchSearch } from '../utils/searchUtils';
 import { supabaseService } from '../services/supabaseService';
 import {
@@ -80,6 +82,7 @@ interface TreatmentPackageUI {
   treatmentName: string;
   serviceName: string;
   sessionsHistory: {
+    id?: string;
     number: string;
     totalSessions: number;
     date: string;
@@ -137,6 +140,7 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [isBookNextModalOpen, setIsBookNextModalOpen] = useState(false);
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
   const [isAssignPackageModalOpen, setIsAssignPackageModalOpen] = useState(false);
+  const [shareModalJournal, setShareModalJournal] = useState<ShareJournalItem | null>(null);
 
   // Form States
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
@@ -264,6 +268,7 @@ export const W06_TreatmentManagement: React.FC = () => {
           ? `${booking.startTime.slice(0, 5)}${booking.endTime ? `–${booking.endTime.slice(0, 5)}` : ''}`
           : undefined;
         return {
+          id: j.id,
           number: String(j.sessionNumber).padStart(2, '0'),
           totalSessions: total,
           date: j.sessionDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(j.sessionDate)) : '—',
@@ -959,7 +964,29 @@ export const W06_TreatmentManagement: React.FC = () => {
                         </span>
                         <span className="text-xs font-bold text-[#2C241E]">Buổi {s.number} · {s.date}</span>
                       </div>
-                      <span className="text-xs text-[#73675F] font-medium">{s.treatmentNotes || '—'}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-[#73675F] font-medium">{s.treatmentNotes || '—'}</span>
+                        {s.id && (
+                          <button
+                            type="button"
+                            onClick={() => setShareModalJournal({
+                              id: s.id!,
+                              sessionNumber: s.number,
+                              sessionDate: s.date,
+                              customerName: selectedCustomer?.fullName || 'Khách hàng',
+                              customerPhone: selectedCustomer?.phone,
+                              customerEmail: selectedCustomer?.email,
+                              serviceName: selectedPkg.serviceName || s.serviceName,
+                              branchName: selectedPkg.branch,
+                            })}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[#8A4F23] bg-white hover:bg-[#8A4F23] hover:text-white border border-[#D5A26F] rounded-lg transition-all shadow-xs cursor-pointer"
+                            title="Chia sẻ link & In/Xuất PDF nhật ký điều trị"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                            <span>Chia sẻ & PDF</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-[#554A41]">
@@ -1529,6 +1556,12 @@ export const W06_TreatmentManagement: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Modal Chia sẻ & Xuất PDF nhật ký điều trị */}
+      <ShareJournalModal
+        isOpen={Boolean(shareModalJournal)}
+        onClose={() => setShareModalJournal(null)}
+        journal={shareModalJournal}
+      />
     </div>
   );
 };

@@ -977,10 +977,18 @@ export interface PortalContentItem {
   status: PortalContentStatus;
   authorName?: string;
   authorAvatar?: string;
+  // Phân quyền chuyên sâu cho Giáo trình & Tài liệu đào tạo MLD
+  courseId?: string | null;
+  courseTitle?: string;
+  allowDownload?: boolean;
+  requireFullPayment?: boolean;
+  allowedRoles?: string[];
+  watermarkText?: string;
   publishedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
 
 // ==========================================
 // AUTOMATED EMAIL NOTIFICATION TYPES
