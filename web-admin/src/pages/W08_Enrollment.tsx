@@ -208,8 +208,8 @@ export const W08_Enrollment: React.FC = () => {
       const crs = crsMap.get(enr.courseId);
       const bat = batMap.get(enr.batchId || '') || liveBatches.find((b) => b.courseId === enr.courseId);
 
-      const custName = cust?.fullName || enr.studentName || `Học viên ${idx + 1}`;
-      const custPhone = cust?.phone || enr.studentPhone || '—';
+      const custName = enr.studentName || cust?.fullName || `Học viên ${idx + 1}`;
+      const custPhone = enr.studentPhone || cust?.phone || '—';
       const notesCode = enr.approvalNotes?.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1];
       const custCode = notesCode || `HV26${String(idx + 1).padStart(3, '0')}`;
       const orderCode = enr.orderCode || `KH-${new Date(enr.enrolledAt || Date.now()).toISOString().slice(0, 10).replace(/-/g, '')}-${String(idx + 1).padStart(3, '0')}`;
@@ -578,12 +578,18 @@ export const W08_Enrollment: React.FC = () => {
         status: EnrollmentStatus.CONSULTING,
         tuitionTotal: cleanTuition,
         amountPaid: 0,
+        studentName: cleanName,
+        studentPhone: cleanPhone,
+        studentEmail: formEmail.trim() || undefined,
       });
 
       if (enrRes.success && enrRes.data) {
         // Update the new workflow fields on Supabase Cloud
         await supabaseService.updateEnrollment(enrRes.data.id, {
           orderCode: newOrderCode,
+          studentName: cleanName,
+          studentPhone: cleanPhone,
+          studentEmail: formEmail.trim() || undefined,
           consultationStatus: ConsultationStatus.PENDING_CONSULTATION,
           paymentVerificationStatus: PaymentVerificationStatus.UNPAID,
           studentAdmissionStatus: StudentAdmissionStatus.NOT_APPROVED,
@@ -593,7 +599,7 @@ export const W08_Enrollment: React.FC = () => {
             {
               timestamp: new Date().toISOString(),
               author: 'Hệ thống tuyển sinh',
-              note: `Khách hàng đăng ký tư vấn khóa học qua hệ thống. Mã đơn: ${newOrderCode}`,
+              note: `Khách hàng ${cleanName} (${cleanPhone}) đăng ký tư vấn khóa học qua hệ thống. Mã đơn: ${newOrderCode}`,
             },
           ],
         });

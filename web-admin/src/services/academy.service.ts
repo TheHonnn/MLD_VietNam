@@ -287,6 +287,9 @@ export const academyService = {
     status?: EnrollmentStatus;
     tuitionTotal?: number;
     amountPaid?: number;
+    studentName?: string;
+    studentPhone?: string;
+    studentEmail?: string;
   }): Promise<ApiResponse<CourseEnrollment>> {
     try {
       const created = await supabaseService.createEnrollment(data);

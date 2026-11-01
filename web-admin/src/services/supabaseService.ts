@@ -1915,6 +1915,9 @@ class SupabaseService {
     status?: EnrollmentStatus;
     tuitionTotal?: number;
     amountPaid?: number;
+    studentName?: string;
+    studentPhone?: string;
+    studentEmail?: string;
   }): Promise<CourseEnrollment | null> {
     try {
       const payload: Record<string, any> = {
@@ -1928,6 +1931,9 @@ class SupabaseService {
         progress_percent: 0,
         enrolled_at: new Date().toISOString(),
       };
+      if (data.studentName !== undefined) payload.student_name = data.studentName;
+      if (data.studentPhone !== undefined) payload.student_phone = data.studentPhone;
+      if (data.studentEmail !== undefined) payload.student_email = data.studentEmail;
       const res = await this.query<any[]>('course_enrollments', {
         method: 'POST',
         headers: { Prefer: 'return=representation' },
@@ -1962,6 +1968,9 @@ class SupabaseService {
       batchId?: string | null;
       amountPaid?: number;
       tuitionTotal?: number;
+      studentName?: string;
+      studentPhone?: string;
+      studentEmail?: string;
       selectedBranch?: string;
       progressPercent?: number;
       completedLessonsCount?: number;
@@ -1987,6 +1996,9 @@ class SupabaseService {
   ): Promise<boolean> {
     try {
       const payload: Record<string, any> = {};
+      if (updates.studentName !== undefined) payload.student_name = updates.studentName;
+      if (updates.studentPhone !== undefined) payload.student_phone = updates.studentPhone;
+      if (updates.studentEmail !== undefined) payload.student_email = updates.studentEmail;
       if (updates.status !== undefined) payload.status = updates.status;
       if (updates.batchId !== undefined) payload.batch_id = updates.batchId;
       if (updates.amountPaid !== undefined) payload.amount_paid = updates.amountPaid;

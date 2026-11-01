@@ -2219,19 +2219,6 @@ function GenderSelector({
   );
 }
 
-const PRESET_CATEGORY_ICONS = [
-  { label: "Chăm sóc da", url: "https://cdn-icons-png.flaticon.com/512/3163/3163195.png" },
-  { label: "Gội đầu dưỡng sinh", url: "https://cdn-icons-png.flaticon.com/512/2622/2622075.png" },
-  { label: "Massage Body", url: "https://cdn-icons-png.flaticon.com/512/2865/2865620.png" },
-  { label: "Công nghệ cao", url: "https://cdn-icons-png.flaticon.com/512/4371/4371510.png" },
-  { label: "Đông y & Thảo dược", url: "https://cdn-icons-png.flaticon.com/512/1047/1047711.png" },
-  { label: "Nail & Móng", url: "https://cdn-icons-png.flaticon.com/512/1940/1940922.png" },
-  { label: "Nối mi", url: "https://cdn-icons-png.flaticon.com/512/3163/3163188.png" },
-  { label: "Dưỡng trắng", url: "https://cdn-icons-png.flaticon.com/512/2965/2965567.png" },
-  { label: "Đào tạo Academy", url: "https://cdn-icons-png.flaticon.com/512/3976/3976625.png" },
-  { label: "Mỹ phẩm Spa", url: "https://cdn-icons-png.flaticon.com/512/2553/2553691.png" },
-];
-
 function toCategoryCode(name: string): string {
   return name
     .normalize("NFD")
@@ -2264,268 +2251,264 @@ function CategoryIconPicker({
   required?: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
-  const [loadError, setLoadError] = useState(false);
-  const [isCustomUrl, setIsCustomUrl] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setLoadError(false);
-    try {
-      const ext = file.name.split(".").pop() || "png";
-      const cleanFileName = `cat_icon_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
-      const SUPABASE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
-      const KEY =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
+  const uploadIconBlob = async (blob: Blob, nameHint = "cat_icon.png") => {
+    const ext = nameHint.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "png";
+    const cleanFileName = `cat_icon_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+    const SUPABASE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
+    const KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
 
-      const res = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/avatars/${cleanFileName}`,
+    // Try 'services' bucket first, then fallback to 'avatars'
+    let targetBucket = "services";
+    let res = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
+      {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          Authorization: `Bearer ${KEY}`,
+          "Content-Type": blob.type || "image/png",
+        },
+        body: blob,
+      }
+    );
+
+    if (!res.ok) {
+      targetBucket = "avatars";
+      res = await fetch(
+        `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
         {
           method: "POST",
           headers: {
             apikey: KEY,
             Authorization: `Bearer ${KEY}`,
-            "Content-Type": file.type || "image/png",
+            "Content-Type": blob.type || "image/png",
           },
-          body: file,
+          body: blob,
         }
       );
+    }
 
-      if (!res.ok) {
-        throw new Error("Tải ảnh thất bại");
+    if (!res.ok) {
+      throw new Error("Không thể tải ảnh icon lên kho lưu trữ Supabase.");
+    }
+
+    return `${SUPABASE_URL}/storage/v1/object/public/${targetBucket}/${cleanFileName}`;
+  };
+
+  const handleProcessFile = async (file: File | Blob, nameHint?: string) => {
+    setUploading(true);
+    try {
+      const publicUrl = await uploadIconBlob(file, nameHint || (file as File).name);
+      onChange(publicUrl);
+    } catch (err: any) {
+      alert(err.message || "Tải ảnh thất bại");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          await handleProcessFile(file, `pasted_${Date.now()}.${item.type.split("/")[1] || "png"}`);
+          return;
+        }
+      }
+    }
+  };
+
+  const handlePasteButtonClick = async () => {
+    if (!navigator.clipboard) {
+      alert("Trình duyệt không hỗ trợ đọc bộ nhớ tạm qua nút bấm. Bạn có thể nhấn phím tắt Ctrl+V trực tiếp vào ô nhập!");
+      return;
+    }
+
+    try {
+      setUploading(true);
+      if (navigator.clipboard.read) {
+        try {
+          const clipboardItems = await navigator.clipboard.read();
+          for (const item of clipboardItems) {
+            const imgType = item.types.find((t) => t.startsWith("image/"));
+            if (imgType) {
+              const blob = await item.getType(imgType);
+              const url = await uploadIconBlob(blob, `pasted_${Date.now()}.${imgType.split("/")[1] || "png"}`);
+              onChange(url);
+              setUploading(false);
+              return;
+            }
+          }
+        } catch (readErr) {
+          console.warn("clipboard.read() not allowed or no blob, trying readText()", readErr);
+        }
       }
 
-      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/avatars/${cleanFileName}`;
-      onChange(publicUrl);
-    } catch (err) {
-      console.error(err);
-      alert("Lỗi khi tải biểu tượng lên storage. Vui lòng thử lại!");
+      const text = await navigator.clipboard.readText();
+      const trimmed = text ? text.trim() : "";
+      if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:image/")) {
+        onChange(trimmed);
+        setUploading(false);
+        return;
+      }
+
+      alert("Không tìm thấy hình ảnh hoặc đường link ảnh trong bộ nhớ tạm. Hãy sao chép (Copy) ảnh hoặc chụp màn hình rồi thử lại!");
+    } catch (err: any) {
+      alert("Không thể đọc bộ nhớ tạm. Bạn vui lòng bấm phím Ctrl+V trực tiếp vào ô nhập URL!");
     } finally {
       setUploading(false);
     }
   };
 
-  const selectedPreset = PRESET_CATEGORY_ICONS.find((p) => p.url === value);
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith("image/")) {
+        await handleProcessFile(file);
+      } else {
+        alert("Vui lòng thả tập tin hình ảnh (JPG, PNG, WebP, SVG...)");
+      }
+    }
+  };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
-      {/* 1. Preset Icons Quick Picker */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: "11.5px", fontWeight: 600, color: "#766554" }}>
-            ✨ Chọn nhanh biểu tượng Spa chuẩn:
-          </span>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "4px",
-              padding: "4px 8px",
-              fontSize: "11px",
-              fontWeight: 600,
-              color: "#8A4F23",
-              background: "#FAF4EE",
-              border: "1px solid #D7BBA6",
-              borderRadius: "6px",
-              cursor: "pointer",
-            }}
-          >
-            {uploading ? <LoaderCircle size={12} className="animate-spin" /> : <Upload size={12} />}
-            <span>Tải icon từ máy</span>
-          </button>
-        </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          style={{ display: "none" }}
-          onChange={handleFileUpload}
-        />
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(5, 1fr)",
-            gap: "8px",
-            background: "#FAF8F5",
-            padding: "10px",
-            borderRadius: "10px",
-            border: "1px solid #E8DFD8",
-          }}
-        >
-          {PRESET_CATEGORY_ICONS.map((item) => {
-            const isSelected = value === item.url;
-            return (
-              <button
-                key={item.url}
-                type="button"
-                onClick={() => {
-                  onChange(item.url);
-                  setLoadError(false);
-                }}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "4px",
-                  padding: "6px 4px",
-                  borderRadius: "8px",
-                  border: isSelected ? "2px solid #8A4F23" : "1px solid #E8DFD8",
-                  background: isSelected ? "#FAF0E4" : "#ffffff",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                  position: "relative",
-                }}
-                title={item.label}
-              >
-                <img
-                  src={item.url}
-                  alt={item.label}
-                  style={{ width: "28px", height: "28px", objectFit: "contain" }}
-                />
-                <span
-                  style={{
-                    fontSize: "10px",
-                    fontWeight: isSelected ? 700 : 500,
-                    color: isSelected ? "#8A4F23" : "#554A41",
-                    textAlign: "center",
-                    lineHeight: 1.1,
-                    maxWidth: "100%",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {item.label}
-                </span>
-                {isSelected && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "-4px",
-                      right: "-4px",
-                      background: "#8A4F23",
-                      color: "#fff",
-                      borderRadius: "50%",
-                      width: "14px",
-                      height: "14px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "9px",
-                    }}
-                  >
-                    ✓
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 2. Active Preview & Custom URL Toggle */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          padding: "8px 12px",
-          background: "#ffffff",
-          border: "1px solid #E8DFD8",
-          borderRadius: "8px",
+    <div
+      onPaste={handlePaste}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`space-y-2.5 p-3.5 rounded-xl font-['Plus_Jakarta_Sans',sans-serif] transition-all border ${
+        isDragging
+          ? "bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/20"
+          : "bg-[#FAF8F5] border-[#E8DFD8]"
+      }`}
+    >
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleProcessFile(file);
         }}
-      >
+      />
+
+      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+        {/* Preview box 1:1 Icon */}
         <div
-          style={{
-            width: "36px",
-            height: "36px",
-            borderRadius: "8px",
-            border: "1px solid #E8DFD8",
-            background: "#FAF8F5",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            overflow: "hidden",
+          className="relative w-28 h-28 rounded-xl overflow-hidden bg-white border border-[#E8DFD8] shrink-0 shadow-xs flex items-center justify-center group cursor-pointer"
+          onClick={() => {
+            if (!value && !uploading) fileInputRef.current?.click();
           }}
+          title={value ? "Bấm vào nút gỡ nếu muốn đổi icon" : "Bấm để tải icon từ máy"}
         >
-          {value ? (
-            <img
-              src={value}
-              alt="Icon preview"
-              style={{ width: "28px", height: "28px", objectFit: "contain" }}
-              onError={() => setLoadError(true)}
-            />
+          {uploading ? (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-[#FAF0E4] text-[#985018] gap-1.5 p-2">
+              <LoaderCircle className="w-6 h-6 animate-spin" />
+              <span className="text-[10px] font-bold">Đang tải icon...</span>
+            </div>
+          ) : value ? (
+            <>
+              <img
+                src={value}
+                alt="Category Icon Preview"
+                className="w-20 h-20 object-contain p-1"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = "none";
+                }}
+              />
+              <div className="absolute top-1 left-1 bg-black/60 backdrop-blur-xs text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded tracking-wider shadow-xs">
+                ICON 1:1
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange("");
+                }}
+                title="Gỡ icon này"
+                className="absolute inset-0 bg-black/55 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <Trash2 size={16} className="stroke-[2.2]" />
+                <span className="text-[10px] font-semibold mt-1">Gỡ icon</span>
+              </button>
+            </>
           ) : (
-            <span style={{ fontSize: "11px", color: "#A89B8F" }}>Trống</span>
+            <div className="w-full h-full border border-dashed border-[#D7BBA6] rounded-xl flex flex-col items-center justify-center text-[#8A7968] p-2 hover:bg-[#FAF4EE] transition-colors">
+              <Leaf size={22} className="text-[#8A4F23] stroke-[1.8] mb-1 opacity-80" />
+              <span className="text-[11px] font-semibold text-[#8A4F23]">Chưa có icon</span>
+              <span className="text-[9px] text-[#A69788] text-center mt-0.5">Tỷ lệ 1:1 (vuông)</span>
+            </div>
           )}
         </div>
 
-        <div style={{ flex: 1, minWidth: 0, fontSize: "12px" }}>
-          {selectedPreset ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ fontWeight: 600, color: "#8A4F23" }}>
-                Biểu tượng: {selectedPreset.label}
-              </span>
-              <span style={{ fontSize: "11px", color: "#059669", fontWeight: 500 }}>
-                (Sẵn sàng hiển thị)
-              </span>
-            </div>
-          ) : (
-            <div style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", color: "#554A41" }}>
-              {value ? `URL: ${value}` : "(Chưa chọn biểu tượng)"}
-            </div>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setIsCustomUrl(!isCustomUrl)}
-          style={{
-            fontSize: "11px",
-            fontWeight: 500,
-            color: "#766554",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            textDecoration: "underline",
-            flexShrink: 0,
-          }}
-        >
-          {isCustomUrl ? "Thu gọn URL" : "Dán link ảnh tùy chỉnh"}
-        </button>
-      </div>
-
-      {isCustomUrl && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+        {/* Right Controls: URL input and action buttons */}
+        <div className="flex-1 w-full space-y-2.5">
           <input
-            type="url"
+            type="text"
             value={value}
-            onChange={(e) => {
-              onChange(e.target.value);
-              setLoadError(false);
-            }}
-            placeholder="Dán link ảnh biểu tượng (https://...png)..."
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Dán link ảnh icon (URL) hoặc nhấn Ctrl+V để dán ảnh icon..."
             required={required}
-            style={{
-              padding: "8px 12px",
-              borderRadius: "8px",
-              border: "1px solid #E8DFD8",
-              fontSize: "13px",
-              width: "100%",
-              boxSizing: "border-box",
-            }}
+            className="w-full px-3.5 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all shadow-2xs"
           />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2 bg-[#985018] hover:bg-[#854412] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              {uploading ? (
+                <LoaderCircle size={14} className="animate-spin" />
+              ) : (
+                <Upload size={14} className="stroke-[2.2]" />
+              )}
+              <span>Tải icon từ máy</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={handlePasteButtonClick}
+              className="px-3.5 py-2 bg-white hover:bg-[#FAF4EE] text-[#8A4F23] border border-[#D7BBA6] rounded-xl text-xs font-semibold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Dán hình ảnh hoặc link ảnh từ bộ nhớ tạm clipboard"
+            >
+              <Clipboard size={14} className="stroke-[2.2]" />
+              <span>Dán từ bộ nhớ tạm (Ctrl+V)</span>
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -2890,7 +2873,7 @@ function RecordDialog({
     if (mode === "create") {
       if (resource.name === "service_categories") {
         if (c.name === "display_order") return 1;
-        if (c.name === "icon_url") return PRESET_CATEGORY_ICONS[0].url;
+        if (c.name === "icon_url") return "";
       }
       if (c.type === "bool") return c.defaultValue === "true" || c.name.startsWith("is_");
       if (c.name === "valid_from") {
@@ -3495,7 +3478,7 @@ function RecordDialog({
                   <div key={c.name} className="admin-field-wide">
                     <span className="text-xs font-bold text-[#2C241E] mb-1.5 flex items-center justify-between">
                       <span>Biểu tượng danh mục <b className="text-[#8A4F23]">*</b></span>
-                      <span className="text-[11px] font-normal text-[#8A7968]">Hỗ trợ chọn icon sẵn, tải ảnh hoặc dán link</span>
+                      <span className="text-[11px] font-normal text-[#8A7968]">Hỗ trợ tải icon từ máy hoặc dán link ảnh (tỷ lệ 1:1)</span>
                     </span>
                     <CategoryIconPicker
                       value={String(value || "")}
