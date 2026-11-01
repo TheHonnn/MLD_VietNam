@@ -47,7 +47,7 @@ export const ADMIN_RESOURCES: Record<
   home_care_guidelines: { title: 'Chăm sóc tại nhà', group: 'Điều trị' },
   course_categories: { title: 'Danh mục khóa học', group: 'Đào tạo' },
   courses: { title: 'Khóa học', group: 'Đào tạo' },
-  instructors: { title: 'Giảng viên', group: 'Đào tạo' },
+  instructors: { title: 'Giảng viên', group: 'Giảng viên' },
   course_batches: { title: 'Lớp học', group: 'Đào tạo' },
   course_enrollments: { title: 'Ghi danh', group: 'Đào tạo' },
   batch_schedules: { title: 'Thời khóa biểu', group: 'Đào tạo' },
