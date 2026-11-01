@@ -264,7 +264,7 @@ export function createApp(store: Store, options: AppOptions) {
   app.use(cors({exposedHeaders:['Retry-After']}));
   const authLimit=createRateLimiter(30);
   app.use(['/api/auth/zalo','/api/auth/zalo/register'],authLimit);
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '1mb', inflate: false }));
   app.use((req,_res,next)=>{
     if(['POST','PUT','PATCH','DELETE'].includes(req.method)&&(req.body===null||typeof req.body!=='object'||Array.isArray(req.body)))return next(new ApiError(400,'Request body must be an object'));
     // PostgreSQL text/jsonb cannot represent NUL or unpaired UTF-16 surrogates.

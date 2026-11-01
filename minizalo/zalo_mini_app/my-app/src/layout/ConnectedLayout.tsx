@@ -53,6 +53,7 @@ export function MainLayout(){
   const openConsultation=(name='',phone='')=>{setConsultationDraft({name,phone});setConsultation(true);};
   const [busy,setBusy]=useState(false),[bookingNotes,setBookingNotes]=useState(''),[treatmentEntityId,setTreatmentEntityId]=useState<string|undefined>();
   const [workAppointments,setWorkAppointments]=useState(false),[profilePanel,setProfilePanel]=useState<'edit'|'settings'|undefined>();
+  const deepLinkHandled=useRef(false);
   const privateFlight=useRef<Promise<void>|null>(null),privateFlightKey=useRef(''),currentView=useRef(view);currentView.current=view;
   const generation=useRef(0),owner=useRef('');owner.current=user?.id||'';
   useEffect(()=>{if(user?.preferredBranch&&branches.some(b=>b.id===user.preferredBranch))setBranchId(user.preferredBranch);},[user?.id,user?.preferredBranch,branches.map(b=>b.id).join(',')]);
@@ -73,6 +74,26 @@ export function MainLayout(){
     ]).finally(()=>{if(current)setLoading(false);});
     return()=>{current=false;};
   },[revision,user?.id,user?.role]);
+  useEffect(()=>{
+    if(deepLinkHandled.current||loading)return;
+    try{
+      const params=new URLSearchParams(window.location.search);
+      const targetServiceId=params.get('serviceId');
+      const targetCourseId=params.get('courseId');
+      const targetTab=params.get('tab');
+      if(targetServiceId&&services.length){
+        const found=services.find(s=>s.id===targetServiceId);
+        if(found){deepLinkHandled.current=true;setService(found);setView('service-detail');return;}
+      }
+      if(targetCourseId&&courses.length){
+        const found=courses.find(c=>c.id===targetCourseId);
+        if(found){deepLinkHandled.current=true;setCourseId(found.id);setTab('academy');return;}
+      }
+      if(targetTab&&['home','services','academy','documents','profile'].includes(targetTab)){
+        deepLinkHandled.current=true;setTab(targetTab as NavTabId);return;
+      }
+    }catch{/* ignore invalid search */}
+  },[loading,services,courses]);
   useEffect(()=>{
     let active=true;void apiClient.loginWithZalo(false).then(result=>{if(!active)return;if(result.user)onLoggedIn(result.user);else if(result.needsConsent)apiClient.clearUnverifiedSession();});
     const expired=(event:Event)=>{owner.current='';generation.current++;setUser(null);setPrivateLoading(false);setWorkAppointments(false);setBanners([]);setBookings([]);setPlans(null);setRecords(null);setSummary(null);setUnread(0);setView(null);setPrivateError('');if(event.type==='mld:session-expired')setNotice('Vui lòng đăng nhập lại để tiếp tục.');};

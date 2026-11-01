@@ -117,7 +117,10 @@ const fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
     if(field&&response.ok&&envelope.success===true&&Array.isArray(envelope.data?.[field])) {
       const seen=new Set<string>();
       let next=envelope.data.nextCursor;
-      while(next) {
+      let pages=0;
+      const MAX_PAGES=5;
+      while(next&&pages<MAX_PAGES) {
+        pages++;
         if(session.get()!==token||sessionEpoch!==epoch)throw new DOMException('Session changed','AbortError');
         if(typeof next!=='string'||seen.has(next))throw new Error('Invalid collection pagination');
         seen.add(next);

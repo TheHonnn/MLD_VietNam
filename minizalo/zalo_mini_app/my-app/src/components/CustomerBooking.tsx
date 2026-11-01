@@ -17,7 +17,7 @@ export function CustomerBooking({currentUser,initialService,initialBranch,initia
   const [date,setDate]=useState(vietnamToday),[time,setTime]=useState(''),[slots,setSlots]=useState<Slot[]>([]),[dates,setDates]=useState<string[]>([]);
   const [people,setPeople]=useState(1);
   const [version,setVersion]=useState(0),[loading,setLoading]=useState(true),[slotsError,setSlotsError]=useState(''),[slotsFor,setSlotsFor]=useState('');
-  const [forSelf,setForSelf]=useState(true),[name,setName]=useState(currentUser.name),[phone,setPhone]=useState(''),[notes,setNotes]=useState(initialNotes),[email,setEmail]=useState(''),[address,setAddress]=useState('');
+  const [forSelf,setForSelf]=useState(true),[name,setName]=useState(currentUser.name),[phone,setPhone]=useState(currentUser.phone||''),[notes,setNotes]=useState(initialNotes),[email,setEmail]=useState(currentUser.email||''),[address,setAddress]=useState(currentUser.address||'');
   const [packages,setPackages]=useState<OwnedPackage[]>([]),[packageId,setPackageId]=useState(initialPackageId||''),[packageError,setPackageError]=useState('');
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
   const locked=useRef(false),mounted=useRef(true),epoch=useRef(apiClient.sessionVersion());
@@ -79,8 +79,8 @@ export function CustomerBooking({currentUser,initialService,initialBranch,initia
         <div className="staff-slot-grid">{ready&&Array.from(new Set(slots.map(label))).map(value=><button key={value} type="button" aria-pressed={time===value} onClick={()=>setTime(value)}>{value}</button>)}</div>
         <button type="button" className="staff-refresh" onClick={()=>setVersion(value=>value+1)}>Cập nhật giờ trống</button>
       </section>
-      <section><h2>Thông tin người sử dụng</h2><div className="staff-customer-modes">{([true,false]).map(value=><label key={String(value)}><input type="radio" name="booking-recipient" checked={forSelf===value} onChange={()=>{setForSelf(value);setName(value?currentUser.name:'');setPhone('');setEmail('');setAddress('');}}/>{value?'Bản thân':'Đặt hộ người khác'}</label>)}</div>
-        {forSelf&&<button type="button" className="staff-refresh" onClick={()=>{setName(currentUser.name);setPhone(currentUser.phone);setEmail(currentUser.email||'');setAddress(currentUser.address||'');}}>Dùng thông tin tài khoản</button>}
+      <section><h2>Thông tin người sử dụng</h2><div className="staff-customer-modes">{([true,false]).map(value=><label key={String(value)}><input type="radio" name="booking-recipient" checked={forSelf===value} onChange={()=>{setForSelf(value);setName(value?currentUser.name:'');setPhone(value?(currentUser.phone||''):'');setEmail(value?(currentUser.email||''):'');setAddress(value?(currentUser.address||''):'');}}/>{value?'Bản thân':'Đặt hộ người khác'}</label>)}</div>
+        {forSelf&&<button type="button" className="staff-refresh" onClick={()=>{setName(currentUser.name);setPhone(currentUser.phone||'');setEmail(currentUser.email||'');setAddress(currentUser.address||'');}}>Dùng thông tin tài khoản</button>}
         <label>Họ và tên<input aria-label="Họ tên người sử dụng" value={name} maxLength={150} autoComplete="name" onChange={event=>setName(event.target.value)}/></label>
         <label>Số điện thoại<input aria-label="Số điện thoại người sử dụng" type="tel" value={phone} maxLength={20} autoComplete="tel" onChange={event=>setPhone(event.target.value)}/></label>
         <label>Email liên hệ<input aria-label="Email liên hệ" type="email" value={email} maxLength={150} onChange={e=>setEmail(e.target.value)}/></label><label>Địa chỉ liên hệ<input aria-label="Địa chỉ liên hệ" value={address} maxLength={500} onChange={e=>setAddress(e.target.value)}/></label>
