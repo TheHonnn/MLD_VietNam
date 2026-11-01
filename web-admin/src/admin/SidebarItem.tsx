@@ -69,10 +69,31 @@ export function SidebarItem({
   })();
 
   const isSubActive = (subPath: string) => {
+    // 1. Exact match with query params (e.g. /branches?tab=rooms)
     if (subPath.includes('?')) {
       return currentFull === subPath;
     }
-    return currentPath === subPath;
+
+    // 2. If subPath has NO query params:
+    if (currentPath !== subPath) {
+      // Check known aliases for specific screens
+      if (subPath === '/customers' && currentPath.startsWith('/customer')) return true;
+      if (subPath === '/medical-records' && currentPath.startsWith('/treatment-management')) return true;
+      if (subPath === '/staff-schedule' && currentPath.startsWith('/technician-schedule')) return true;
+      return false;
+    }
+
+    // If currentFull has query params, check if any sibling specifically matches those query params
+    if (location.search) {
+      const siblingWithQueryMatches = children.some(
+        (sibling) => sibling.path.includes('?') && currentFull === sibling.path
+      );
+      if (siblingWithQueryMatches) {
+        return false;
+      }
+    }
+
+    return true;
   };
 
   const childActive = children.some((item) => isSubActive(item.path));
@@ -176,13 +197,18 @@ export function SidebarItem({
                 key={sub.path}
                 to={sub.path}
                 onClick={onNavigate}
-                className={`block px-2.5 py-1.5 rounded-lg text-[11px] font-medium leading-normal transition-colors ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-medium leading-normal transition-all ${
                   active
-                    ? 'bg-[#F3E2CE] text-[#8A4F23] font-semibold'
+                    ? 'bg-[#F2DFCD] text-[#7A3F15] font-semibold shadow-2xs'
                     : 'text-[#7A6D61] hover:bg-[#FAF7F2] hover:text-[#2C241E]'
                 }`}
               >
-                {sub.name}
+                <span
+                  className={`w-1.5 h-1.5 rounded-full transition-colors shrink-0 ${
+                    active ? 'bg-[#985018]' : 'bg-[#D8C4B2]/40'
+                  }`}
+                />
+                <span className="truncate">{sub.name}</span>
               </NavLink>
             );
           })}
