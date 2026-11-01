@@ -90,7 +90,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           subItems: [
             { name: 'Thu ngân POS', path: '/cashier-pos' },
             { name: 'Lịch hẹn & Tiếp đón', path: '/manage/bookings' },
+            { name: 'Dịch vụ trong lịch hẹn', path: '/manage/booking_items' },
             { name: 'Hóa đơn thanh toán', path: '/manage/invoices' },
+            { name: 'Chi tiết hóa đơn', path: '/manage/invoice_items' },
           ],
         },
         {
@@ -125,6 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             { name: 'Danh mục dịch vụ', path: '/manage/service_categories' },
             { name: 'Bảng giá dịch vụ', path: '/manage/services' },
             { name: 'Định mức tiêu hao vật tư (BOM)', path: '/manage/service_materials' },
+            { name: 'Xuất kho vật tư tiêu hao (BOM)', path: '/manage/inventory_consumption_logs' },
           ],
         },
         {
@@ -135,6 +138,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             { name: 'Lịch trực & Điều phối ca', path: '/staff-schedule' },
             { name: 'Hồ sơ nhân viên', path: '/manage/staff_profiles' },
             { name: 'Đội ngũ Chuyên viên KTV', path: '/manage/technicians' },
+            { name: 'Ca làm việc', path: '/manage/technician_shifts' },
+            { name: 'Khung giờ chuyên viên', path: '/manage/technician_slots' },
             { name: 'Đơn nghỉ phép', path: '/manage/staff_leaves' },
             { name: 'Hoa hồng KTV & Thưởng', path: '/commissions' },
           ],
@@ -144,8 +149,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           path: '/manage/coupons',
           icon: Ticket,
           subItems: [
-            { name: 'Mã giảm giá Voucher', path: '/manage/coupons' },
+            { name: 'Mã giảm giá (Voucher)', path: '/manage/coupons' },
             { name: 'Voucher khách hàng', path: '/manage/user_vouchers' },
+            { name: 'Quy tắc phân phối', path: '/manage/voucher_distribution_rules' },
             { name: 'Hạng thành viên', path: '/manage/membership_tier_rules' },
             { name: 'Cấu hình điểm thưởng', path: '/manage/loyalty_point_settings' },
             { name: 'Lịch sử giao dịch điểm', path: '/manage/point_transactions' },
@@ -191,7 +197,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             { name: 'Danh mục khóa học', path: '/manage/course_categories' },
             { name: 'Khóa đào tạo', path: '/manage/courses' },
             { name: 'Chương & Bài học video', path: '/manage/course_chapters' },
+            { name: 'Bài học & video', path: '/manage/course_lessons' },
             { name: 'Đề thi & Trắc nghiệm', path: '/manage/course_quizzes' },
+            { name: 'Ngân hàng câu hỏi', path: '/manage/quiz_questions' },
+            { name: 'Bài thi đã nộp', path: '/manage/quiz_submissions' },
+            { name: 'Tiến độ học', path: '/manage/user_lesson_progress' },
           ],
         },
         {
@@ -224,6 +234,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           subItems: [
             { name: 'Danh sách Vai trò', path: '/manage/roles' },
             { name: 'Danh mục quyền hạn', path: '/manage/permissions' },
+            { name: 'Quyền của vai trò', path: '/manage/role_permissions' },
             { name: 'Phân quyền tài khoản', path: '/manage/user_roles' },
             { name: 'Nhật ký bảo mật Audit Trail', path: '/manage/audit_logs' },
           ],
