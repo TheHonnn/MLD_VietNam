@@ -6034,6 +6034,17 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           onSaved={done}
         />
       )}
+      {certificateTemplatePreview && (
+        <CertificateTemplateEditor
+          certificate={makeTemplatePreviewCertificate(certificateTemplatePreview)}
+          templateName={certificateTemplatePreview.name || "Mẫu chứng nhận hoàn thành khóa học MLD"}
+          qrDataUrl=""
+          isExporting={isExportingTemplatePdf}
+          onClose={() => setCertificateTemplatePreview(null)}
+          onExportingChange={setIsExportingTemplatePdf}
+          onPrint={() => window.print()}
+        />
+      )}
       {confirmation && listing && (
         <dialog
           ref={confirmDialog}
