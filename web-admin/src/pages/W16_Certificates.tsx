@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import QRCode from 'qrcode';
 import {
   Award,
   CheckCircle2,
@@ -51,9 +50,6 @@ export const W16_Certificates: React.FC = () => {
   const [showRevokeModal, setShowRevokeModal] = useState<boolean>(false);
   const [certToRevoke, setCertToRevoke] = useState<StudentCertificate | null>(null);
   const [revokeReason, setRevokeReason] = useState<string>('');
-
-  // Generated dynamic QR Data URL for preview
-  const [previewQrDataUrl, setPreviewQrDataUrl] = useState<string>('');
 
   // Form cấp mới GCN chuyên sâu
   const [formData, setFormData] = useState({
@@ -110,24 +106,6 @@ export const W16_Certificates: React.FC = () => {
 
     setFormData((prev) => ({ ...prev, finalGrade: grade }));
   }, [formData.theoryScore, formData.practicalScore]);
-
-  // Sinh QR code thực sự khi mở bản xem trước
-  useEffect(() => {
-    if (selectedCert) {
-      const verifyUrl = selectedCert.qrVerificationCode || `https://mldvietnam.vn/verify/${selectedCert.certificateCode}`;
-      QRCode.toDataURL(verifyUrl, {
-        width: 300,
-        margin: 1,
-        color: {
-          dark: '#082f49', // Navy y tế đậm
-          light: '#ffffff',
-        },
-        errorCorrectionLevel: 'H',
-      })
-        .then((url) => setPreviewQrDataUrl(url))
-        .catch((err) => console.error('Lỗi sinh QR Code:', err));
-    }
-  }, [selectedCert]);
 
   // Lọc danh sách GCN
   const filteredCerts = useMemo(() => {
@@ -576,7 +554,6 @@ export const W16_Certificates: React.FC = () => {
       {showPreviewModal && selectedCert && (
         <CertificateTemplateEditor
           certificate={selectedCert}
-          qrDataUrl={previewQrDataUrl}
           isExporting={isExportingPdf}
           onClose={() => setShowPreviewModal(false)}
           onExportingChange={setIsExportingPdf}

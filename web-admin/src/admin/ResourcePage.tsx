@@ -2723,44 +2723,50 @@ function CertificateTemplateFormPreview({
 }) {
   return (
     <section className="admin-field-wide border-t border-gray-200 px-4 py-5 sm:px-6" aria-label="Bản xem trước chứng nhận">
+      <style>{`.certificate-form-preview-header{background:linear-gradient(180deg,rgba(180,222,248,.82),rgba(255,255,255,.25))}.certificate-form-preview-footer{isolation:isolate}.certificate-form-preview-footer:before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.04) 42%)}.certificate-form-preview-mountain{position:absolute;inset-inline:-2%;bottom:-1px;z-index:0;height:88%;pointer-events:none;filter:blur(1.5px)}.certificate-form-preview-mountain-back{opacity:.72;background:linear-gradient(180deg,#e6f7fb,#a6e0ea);clip-path:polygon(0 28%,8% 25%,16% 5%,23% 12%,31% 35%,43% 28%,54% 7%,64% 23%,73% 31%,82% 10%,91% 23%,100% 19%,100% 100%,0 100%)}.certificate-form-preview-mountain-mid{opacity:.86;background:linear-gradient(180deg,#8bd6e2,#5caec4);clip-path:polygon(0 47%,11% 42%,19% 28%,30% 45%,39% 53%,51% 31%,62% 48%,74% 34%,84% 48%,95% 37%,100% 41%,100% 100%,0 100%)}.certificate-form-preview-mountain-front{background:linear-gradient(180deg,#4eaa76,#126274);clip-path:polygon(0 72%,12% 61%,25% 74%,38% 57%,50% 63%,63% 43%,76% 58%,87% 68%,100% 54%,100% 100%,0 100%)}`}</style>
       <h3 className="mb-3 text-sm font-bold text-gray-800">Bản xem trước chứng nhận</h3>
       <div className="mx-auto w-full max-w-[560px]">
         <article
-          className="relative flex aspect-[210/297] w-full flex-col overflow-hidden border border-sky-200 bg-white px-[7.5%] pb-[5%] pt-[5%] text-gray-900 shadow-lg"
+          className="relative flex aspect-[210/297] w-full flex-col overflow-hidden border border-sky-200 bg-white px-[7.5%] pb-[3.5%] pt-[3.5%] font-sans text-gray-900 shadow-lg"
           style={backgroundUrl ? { backgroundImage: `url("${backgroundUrl.replace(/["\\]/g, "")}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
         >
-          <div className="relative flex items-center justify-center border-b-2 border-sky-100 px-2 pb-[3%] pt-2 text-center text-[#0b43a8]">
-            <div>
-              <p className="text-[clamp(7px,1.5vw,12px)] font-extrabold leading-tight">VIỆN NGHIÊN CỨU VÀ PHÁT TRIỂN CÔNG NGHỆ CSSK CỘNG ĐỒNG</p>
-              <p className="mt-1 text-[clamp(7px,1.4vw,11px)] font-bold leading-tight">TRUNG TÂM ỨNG DỤNG KHOA HỌC BẠCH HUYẾT VIỆT NAM</p>
+          <div className="pointer-events-none absolute inset-x-[8%] top-[24%] flex h-[48%] items-center justify-center opacity-[0.055]" aria-hidden="true"><img src="/logo_mld.png" alt="" className="h-full w-full object-contain" /></div>
+          <div className="certificate-form-preview-header relative flex items-center gap-[3%] px-1 py-[1.5%] text-[#0b43a8]">
+            <img src="/logo_mld.png" alt="Logo MLD Việt Nam" className="h-auto max-h-12 w-[20%] shrink-0 object-contain object-left" />
+            <div className="min-w-0 flex-1 text-center">
+              <p className="text-[clamp(7px,1.25vw,12px)] font-extrabold leading-tight">VIỆN NGHIÊN CỨU VÀ PHÁT TRIỂN CÔNG NGHỆ CSSK CỘNG ĐỒNG</p>
+              <p className="mt-0.5 text-[clamp(7px,1.2vw,11px)] font-bold leading-tight">TRUNG TÂM ỨNG DỤNG KHOA HỌC BẠCH HUYẾT VIỆT NAM</p>
             </div>
           </div>
-          <div className="relative mt-[6%] text-center text-[#0b43a8]">
-            <h1 className="font-serif text-[clamp(24px,5vw,42px)] font-bold leading-none">{title || "CHỨNG NHẬN"}</h1>
-            <p className="mt-[2%] text-[clamp(9px,1.8vw,15px)] font-extrabold">HOÀN THÀNH ĐÀO TẠO</p>
-            <p className="mt-[1%] text-[clamp(8px,1.5vw,13px)] font-bold uppercase">{name || "TÊN CHƯƠNG TRÌNH ĐÀO TẠO"}</p>
+          <div className="relative mt-[3.5%] text-center text-[#0b43a8]">
+            <h1 className="font-serif text-[clamp(34px,6vw,56px)] font-bold leading-none">{title || "CHỨNG NHẬN"}</h1>
+            <p className="mt-[1.6%] text-[clamp(10px,1.8vw,16px)] font-extrabold">HOÀN THÀNH ĐÀO TẠO</p>
+            <p className="mt-[0.6%] text-[clamp(8px,1.5vw,13px)] font-bold uppercase">{name || "TÊN CHƯƠNG TRÌNH ĐÀO TẠO"}</p>
           </div>
-          <div className="relative mt-[7%] space-y-2 text-[clamp(8px,1.55vw,13px)] font-semibold leading-snug">
+          <div className="relative mt-[6%] space-y-[0.7%] text-[clamp(9px,1.65vw,14px)] font-semibold leading-snug">
             <p>Chứng nhận này xác nhận rằng, học viên:</p>
             <p>Họ và tên: <strong className="font-extrabold uppercase">HỌ VÀ TÊN HỌC VIÊN</strong></p>
-            <p>Số hiệu chứng nhận: <strong>{code || "MÃ CHỨNG NHẬN"}</strong></p>
+            <p>Ngày sinh: <strong>__/__/____</strong></p>
+            <p>Mã học viên: <strong>{code || "MÃ HỌC VIÊN"}</strong></p>
             <p>Ngày cấp: <strong>__/__/____</strong></p>
-            <p className="pt-2">Đã hoàn thành xuất sắc chương trình đào tạo:</p>
-            <p className="font-extrabold text-[#0b43a8]">{name || "Tên khóa học"} <span className="font-semibold">thuộc Khung đào tạo chuyên môn của MLD Việt Nam tại Thành phố Hồ Chí Minh.</span></p>
+            <p className="pt-[1%]">Đã hoàn thành xuất sắc chương trình đào tạo:</p>
+            <p className="font-extrabold uppercase leading-snug text-[#0b43a8]">{name || "TÊN CHƯƠNG TRÌNH ĐÀO TẠO"} <span className="font-semibold">thuộc Khung đào tạo số 4 của MLD Việt Nam tại Thành phố Hồ Chí Minh.</span></p>
           </div>
-          <div className="relative mt-auto flex min-h-[19%] items-end justify-between gap-2 pb-[3%]">
-            {sealUrl ? <img src={sealUrl} alt="Con dấu" className="h-[18%] max-h-16 w-[18%] object-contain" /> : <span className="w-[18%]" />}
-            <div className="w-[54%] pb-[2%] text-center">
+          <div className="relative mt-[2%] flex min-h-[14%] justify-end pb-[1%] pr-[5%] text-center">
+            <div className="w-[42%]">
               <p className="text-[clamp(8px,1.45vw,12px)] font-extrabold uppercase">{signerTitle || "GIÁM ĐỐC"}</p>
               {signatureUrl ? <img src={signatureUrl} alt="Chữ ký" className="mx-auto h-[clamp(35px,7vw,62px)] max-w-full object-contain" /> : <div className="h-[clamp(35px,7vw,62px)]" />}
               <p className="text-[clamp(8px,1.4vw,12px)] font-bold">{signerName || "HỌ TÊN NGƯỜI KÝ"}</p>
             </div>
-            <span className="w-[18%]" />
           </div>
-          <footer className="relative -mx-[9.2%] mt-[1%] min-h-[17%] bg-gradient-to-b from-[#dff4fa] to-[#55b5cc] px-[9.2%] pb-[4%] pt-[4%] text-[clamp(6px,1.05vw,9px)] leading-[1.35] text-gray-900">
+          <footer className="certificate-form-preview-footer relative -mx-[9.2%] mt-auto min-h-[27%] px-[9.2%] pb-[4%] pt-[5%] text-[clamp(6px,1.05vw,9px)] leading-[1.3] text-gray-900">
+            <div className="certificate-form-preview-mountain certificate-form-preview-mountain-back" />
+            <div className="certificate-form-preview-mountain certificate-form-preview-mountain-mid" />
+            <div className="certificate-form-preview-mountain certificate-form-preview-mountain-front" />
             <ul className="relative z-10 list-disc space-y-1 pl-4">
               <li>Chứng nhận này xác nhận học viên đã hoàn thành đầy đủ các yêu cầu đào tạo của cấp độ tương ứng theo quy định của chương trình.</li>
-              <li>Chứng nhận này không đồng nghĩa với việc được phép giảng dạy, đào tạo hoặc chuyển giao phương pháp.</li>
+              <li>Chứng nhận này không đồng nghĩa với việc được phép giảng dạy, đào tạo, cấp chứng nhận hoặc chuyển giao phương pháp Dẫn lưu Bạch huyết Thủ công (MLD) cho người khác.</li>
+              <li>Quyền giảng dạy và tư cách giảng viên chỉ được công nhận qua chương trình đào tạo giảng viên chính thức và phải được phê duyệt bằng văn bản.</li>
             </ul>
           </footer>
         </article>
@@ -6121,7 +6127,6 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         <CertificateTemplateEditor
           certificate={makeTemplatePreviewCertificate(certificateTemplatePreview)}
           templateName={certificateTemplatePreview.name || "Mẫu chứng nhận hoàn thành khóa học MLD"}
-          qrDataUrl=""
           isExporting={isExportingTemplatePdf}
           onClose={() => setCertificateTemplatePreview(null)}
           onExportingChange={setIsExportingTemplatePdf}

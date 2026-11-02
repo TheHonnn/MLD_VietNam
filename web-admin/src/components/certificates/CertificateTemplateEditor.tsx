@@ -63,7 +63,6 @@ const readSettings = (): TemplateSettings => {
 interface CertificateTemplateEditorProps {
   certificate: StudentCertificate;
   templateName?: string;
-  qrDataUrl: string;
   isExporting: boolean;
   onClose: () => void;
   onExportingChange: (value: boolean) => void;
@@ -193,7 +192,7 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
             </div>
             <div className="min-w-0">
               <h2 className="truncate text-sm font-bold text-gray-900">{templateName || 'Mẫu chứng nhận hoàn thành khóa học'}</h2>
-              <p className="truncate font-mono text-[11px] text-gray-500">Số hiệu: {certificate.certificateCode}</p>
+              <p className="truncate font-mono text-[11px] text-gray-500">Mã học viên: {certificate.certificateCode}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -241,7 +240,7 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
                 <div className="relative mt-[6%] space-y-[0.7%] text-left text-[clamp(10px,1.75vw,15px)] font-semibold leading-snug">
                   <p>{settings.intro}</p>
                   <p>Họ và tên: <strong className="font-extrabold uppercase">{fields.studentName || '____________________________'}</strong></p>
-                  {fields.dateOfBirth && <p>Ngày sinh: <strong>{fields.dateOfBirth}</strong></p>}
+                  <p>Ngày sinh: <strong>{fields.dateOfBirth || '__/__/____'}</strong></p>
                   <p>Mã học viên: <strong>{certificate.certificateCode}</strong></p>
                   <p>Ngày cấp: <strong>{displayIssueDate}</strong></p>
                   <p className="pt-[1%]">{settings.completion}</p>
