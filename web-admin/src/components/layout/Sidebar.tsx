@@ -112,7 +112,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           icon: Leaf,
           subItems: [
             { name: 'Hồ sơ phác đồ MLD', path: '/medical-records' },
-            { name: 'Gói liệu trình Spa', path: '/manage/treatment_packages' },
+            { name: 'Bảng giá & Gói liệu trình', path: '/services-catalog' },
+            { name: 'Gói liệu trình Spa (CSDL)', path: '/manage/treatment_packages' },
             { name: 'Liệu trình khách hàng', path: '/manage/user_packages' },
             { name: 'Nhật ký điều trị', path: '/manage/treatment_journal' },
             { name: 'Hướng dẫn chăm sóc tại nhà', path: '/manage/home_care_guidelines' },
@@ -120,11 +121,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
         },
         {
           name: 'Dịch vụ & Định mức',
-          path: '/manage/services',
+          path: '/services-catalog',
           icon: Sparkles,
           subItems: [
-            { name: 'Danh mục dịch vụ', path: '/manage/service_categories' },
-            { name: 'Bảng giá dịch vụ', path: '/manage/services' },
+            { name: 'Bảng giá niêm yết MLD', path: '/services-catalog' },
+            { name: 'Dịch vụ lẻ (CSDL)', path: '/manage/services' },
+            { name: 'Danh mục nhóm dịch vụ', path: '/manage/service_categories' },
             { name: 'Định mức tiêu hao vật tư (BOM)', path: '/manage/service_materials' },
             { name: 'Xuất kho vật tư tiêu hao (BOM)', path: '/manage/inventory_consumption_logs' },
           ],

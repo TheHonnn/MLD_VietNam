@@ -12,6 +12,7 @@ const W03_Customers = lazy(() => import('./pages/W03_Customers').then((m) => ({ 
 const W04_CustomerDetail = lazy(() => import('./pages/W04_CustomerDetail').then((m) => ({ default: m.W04_CustomerDetail })));
 const W05_StaffSchedule = lazy(() => import('./pages/W05_StaffSchedule').then((m) => ({ default: m.W05_StaffSchedule })));
 const W06_TreatmentManagement = lazy(() => import('./pages/W06_TreatmentManagement').then((m) => ({ default: m.W06_TreatmentManagement })));
+const W06_ServicesCatalog = lazy(() => import('./pages/W06_ServicesCatalog').then((m) => ({ default: m.W06_ServicesCatalog })));
 const W07_CashierPOS = lazy(() => import('./pages/W07_CashierPOS').then((m) => ({ default: m.W07_CashierPOS })));
 const W08_Enrollment = lazy(() => import('./pages/W08_Enrollment').then((m) => ({ default: m.W08_Enrollment })));
 const W09_Instructors = lazy(() => import('./pages/W09_Instructors').then((m) => ({ default: m.W09_Instructors })));
@@ -148,7 +149,8 @@ const AppContent: React.FC = () => {
             <Route path="treatment-management" element={<W06_TreatmentManagement />} />
             <Route path="staff-schedule" element={<W05_StaffSchedule />} />
             <Route path="technician-schedule" element={<W05_StaffSchedule />} />
-            <Route path="services-catalog" element={<Navigate to="/manage/services" replace />} />
+            <Route path="services-catalog" element={<W06_ServicesCatalog />} />
+            <Route path="pricing" element={<W06_ServicesCatalog />} />
             <Route
               path="cashier-pos"
               element={
