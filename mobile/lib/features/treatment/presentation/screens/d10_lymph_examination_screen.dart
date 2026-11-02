@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
+import '../../../booking/data/repositories/booking_repository.dart';
 
 /// Screen D10: Đăng ký kiểm tra phù bạch huyết (Section 6, items 76-84)
 /// Quy chuẩn Trắng và Xanh Y tế (#0066B2)
@@ -72,9 +73,26 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
     return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   }
 
-  void _submitRegistration() {
+  Future<void> _submitRegistration() async {
     if (_formKey.currentState?.validate() ?? false) {
-      final code = 'MLD-EXAM-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+      final name = _nameController.text.trim();
+      final phone = _phoneController.text.trim();
+      final extraNotes = _notesController.text.trim();
+      final combinedNotes = 'Tình trạng: $_selectedCondition' + (extraNotes.isNotEmpty ? ' | Ghi chú: $extraNotes' : '');
+
+      final bookingCode = await BookingRepository.instance.registerQuickConsultation(
+        name: name,
+        phone: phone,
+        notes: combinedNotes,
+        branchName: _selectedBranch,
+        date: _selectedDate,
+        timeSlot: _selectedTime,
+        registrationType: 'Khám phù bạch huyết',
+      );
+
+      final code = bookingCode ?? 'MLD-EXAM-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
+      if (!mounted) return;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -116,7 +134,7 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
                   border: Border.all(color: AppColors.border),
                 ),
                 child: Text(
-                  'Mã phiếu: $code',
+                  'Mã phiếu tiếp đón: $code',
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -133,7 +151,7 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
                   border: Border.all(color: Colors.amber.shade300),
                 ),
                 child: Text(
-                  'Trạng thái: Chờ cơ sở xác nhận',
+                  'Trạng thái: Đã gửi thông tin đến bộ phận tiếp đón',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

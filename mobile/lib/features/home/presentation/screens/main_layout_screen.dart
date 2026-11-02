@@ -7,6 +7,8 @@ import '../../../academy/presentation/screens/e01_academy_home_screen.dart';
 import '../../../membership/presentation/screens/f01_profile_dashboard_screen.dart';
 import '../../../treatment/presentation/screens/d09_documents_screen.dart';
 import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
+import '../../../booking/data/repositories/booking_repository.dart';
+import '../data/repositories/branch_repository.dart';
 import 'b01_home_screen.dart';
 
 class MainLayoutScreen extends StatefulWidget {
@@ -160,6 +162,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                   onPressed: isSubmitting
                       ? null
                       : () async {
+                          final name = nameCtrl.text.trim();
                           final phone = phoneCtrl.text.trim();
                           if (phone.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -171,7 +174,15 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                             return;
                           }
                           setModalState(() => isSubmitting = true);
-                          await Future.delayed(const Duration(milliseconds: 600));
+                          final activeBranch = BranchRepository.instance.activeBranch;
+                          final bookingCode = await BookingRepository.instance.registerQuickConsultation(
+                            name: name.isEmpty ? 'Khách hàng' : name,
+                            phone: phone,
+                            branchId: activeBranch?.id,
+                            branchName: activeBranch?.name,
+                            registrationType: 'Tư vấn nhanh',
+                            notes: 'Khách hàng yêu cầu tư vấn nhanh từ thanh điều hướng chính',
+                          );
                           if (mounted) {
                             Navigator.pop(ctx);
                             showDialog(
@@ -186,9 +197,37 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                                     Text('Đăng ký thành công', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
                                   ],
                                 ),
-                                content: const Text(
-                                  'Nhân viên sẽ liên hệ đến bạn trong thời gian sớm nhất.',
-                                  style: TextStyle(fontSize: 14, color: Color(0xFF334155), height: 1.45),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Nhân viên tiếp đón và chuyên gia sẽ liên hệ đến bạn trong thời gian sớm nhất.',
+                                      style: TextStyle(fontSize: 14, color: Color(0xFF334155), height: 1.45),
+                                    ),
+                                    if (bookingCode != null) ...[
+                                      const SizedBox(height: 12),
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF1F5F9),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.confirmation_number_outlined, size: 18, color: Color(0xFF0D766E)),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Mã tiếp đón: $bookingCode',
+                                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0D766E)),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 actions: [
                                   ElevatedButton(

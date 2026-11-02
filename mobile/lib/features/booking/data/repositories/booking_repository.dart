@@ -426,6 +426,200 @@ class BookingRepository {
     return null;
   }
 
+  /// C11/Quick: Đăng ký nhanh tư vấn / Đăng ký dịch vụ từ Mobile App
+  /// Tự động đồng bộ vào bảng `bookings` trên Supabase Cloud để xuất hiện ngay
+  /// trên màn hình "Tiếp đón & Lịch hẹn" của Web Admin (/manage/bookings, /staff-schedule) và POS
+  Future<String?> registerQuickConsultation({
+    required String name,
+    required String phone,
+    String? notes,
+    String? branchId,
+    String? branchName,
+    DateTime? date,
+    String? timeSlot,
+    String registrationType = 'Đăng ký nhanh',
+    String? serviceId,
+    String? serviceName,
+  }) async {
+    final cleanName = name.trim().isEmpty ? 'Khách hàng' : name.trim();
+    final cleanPhone = phone.trim();
+    if (cleanPhone.isEmpty) return null;
+
+    final randomNum = 100000 + Random().nextInt(900000);
+    final bookingCode = 'MLD-DK-$randomNum';
+
+    final targetDate = date ?? DateTime.now();
+    final dateStr = '${targetDate.year}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')}';
+
+    // Parse khung giờ
+    String startTime = '09:00:00';
+    String endTime = '10:00:00';
+    String slotDisplay = '09:00 - 10:00';
+
+    if (timeSlot != null && timeSlot.trim().isNotEmpty) {
+      slotDisplay = timeSlot.trim();
+      final parts = slotDisplay.split('-');
+      String s = parts.first.trim();
+      String e = parts.length > 1 ? parts.last.trim() : '10:00';
+      if (!RegExp(r'^\d{1,2}:\d{2}').hasMatch(s)) s = '09:00';
+      if (!RegExp(r'^\d{1,2}:\d{2}').hasMatch(e)) e = '10:00';
+      startTime = s.length == 5 ? '$s:00' : s;
+      endTime = e.length == 5 ? '$e:00' : e;
+    } else {
+      final now = DateTime.now();
+      if (targetDate.year == now.year && targetDate.month == now.month && targetDate.day == now.day) {
+        final nextH = (now.hour < 8 || now.hour >= 20) ? 9 : (now.hour + 1);
+        final startHStr = nextH.toString().padLeft(2, '0');
+        final endHStr = (nextH + 1).toString().padLeft(2, '0');
+        startTime = '$startHStr:00:00';
+        endTime = '$endHStr:00:00';
+        slotDisplay = '$startHStr:00 - $endHStr:00';
+      }
+    }
+
+    final uuidRegex = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+
+    // 1. Chi nhánh
+    String effectiveBranchId = 'aaaaaaaa-0001-0001-0001-000000000001';
+    if (branchId != null && uuidRegex.hasMatch(branchId)) {
+      effectiveBranchId = branchId;
+    }
+    final effectiveBranchName = branchName ?? 'Trụ sở MLD Việt Nam';
+
+    // 2. Dịch vụ
+    final effectiveServiceId = (serviceId != null && uuidRegex.hasMatch(serviceId))
+        ? serviceId
+        : '235166f2-66c9-4231-bbe1-af91b48fc67c';
+    final effectiveServiceName = (serviceName != null && serviceName.isNotEmpty)
+        ? serviceName
+        : 'Tư vấn & Khám phù bạch huyết';
+
+    // 3. Khách hàng: tra cứu theo phone hoặc dùng tài khoản đăng nhập hiện tại
+    String effectiveCustomerId = 'bbbbbbbb-0001-0001-0001-000000000001';
+    final currentUid = AuthService.instance.currentUserId;
+    if (currentUid != null && uuidRegex.hasMatch(currentUid)) {
+      effectiveCustomerId = currentUid;
+    } else {
+      try {
+        final lookupRes = await _apiClient.dio.get('/rest/v1/users?phone=eq.$cleanPhone&select=id&limit=1');
+        if (lookupRes.data is List && (lookupRes.data as List).isNotEmpty) {
+          final matched = lookupRes.data[0]['id']?.toString();
+          if (matched != null && uuidRegex.hasMatch(matched)) {
+            effectiveCustomerId = matched;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 4. Kỹ thuật viên mặc định
+    const effectiveTechId = 'cccccccc-0001-0001-0001-000000000001';
+
+    // 5. Ghi chú tiếp đón
+    final notesBuffer = <String>['[$registrationType từ Mobile App]'];
+    if (notes != null && notes.trim().isNotEmpty) {
+      notesBuffer.add(notes.trim());
+    }
+    final fullNotes = notesBuffer.join(' - ');
+
+    // 6. Payload Supabase Cloud
+    final bookingPayload = {
+      'booking_code': bookingCode,
+      'customer_id': effectiveCustomerId,
+      'branch_id': effectiveBranchId,
+      'technician_id': effectiveTechId,
+      'booking_date': dateStr,
+      'start_time': startTime,
+      'end_time': endTime,
+      'status': 'PENDING',
+      'payment_status': 'UNPAID',
+      'payment_method': 'CASH_AT_SPA',
+      'base_total': 0.0,
+      'final_price': 0.0,
+      'booked_for_name': cleanName,
+      'booked_for_phone': cleanPhone,
+      'special_notes': fullNotes,
+      'qr_code_hash': 'QR-$bookingCode-${DateTime.now().millisecondsSinceEpoch}',
+      'booking_source': 'MOBILE_APP',
+    };
+
+    String? createdId;
+
+    try {
+      final res = await _apiClient.dio.post(
+        '/rest/v1/bookings',
+        data: bookingPayload,
+        options: Options(headers: {'Prefer': 'return=representation'}),
+      );
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final body = res.data;
+        final data = (body is List && body.isNotEmpty)
+            ? body.first
+            : (body is Map ? (body['data'] ?? body) : null);
+        createdId = data?['id']?.toString();
+
+        if (createdId != null && createdId.isNotEmpty) {
+          try {
+            await _apiClient.dio.post(
+              '/rest/v1/booking_items',
+              data: {
+                'booking_id': createdId,
+                'service_id': effectiveServiceId,
+                'technician_id': effectiveTechId,
+                'duration_minutes': 60,
+                'price': 0.0,
+              },
+            );
+          } catch (itemErr) {
+            debugPrint('>>> [BookingRepository] Register consultation booking_items note: $itemErr');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('>>> [BookingRepository] Error syncing quick consultation to Supabase: $e');
+    }
+
+    // 7. Đồng bộ vào danh sách cục bộ của App để hiển thị ngay trong Lịch hẹn của tôi
+    final appointment = AppointmentItemModel(
+      id: createdId ?? 'apt-${DateTime.now().millisecondsSinceEpoch}',
+      bookingCode: bookingCode,
+      serviceName: effectiveServiceName,
+      serviceImage: 'assets/images/specialist_hero_1.png',
+      durationMinutes: 60,
+      branchName: effectiveBranchName,
+      branchAddress: 'Chi nhánh tiếp nhận MLD Việt Nam',
+      specialistName: 'Chuyên viên tư vấn MLD',
+      specialistTitle: 'Bác sĩ / Chuyên gia MLD',
+      specialistAvatar: 'assets/images/specialist_avatar_1.png',
+      appointmentDate: targetDate,
+      timeSlot: slotDisplay,
+      customerName: cleanName,
+      customerPhone: cleanPhone,
+      customerEmail: '',
+      specialNotes: fullNotes,
+      totalAmount: 0.0,
+      depositAmount: 0.0,
+      remainingAmount: 0.0,
+      paymentMethod: 'CASH_AT_SPA',
+      status: AppointmentStatus.pending,
+      createdAt: DateTime.now(),
+      timeline: [
+        BookingTimelineEvent(
+          title: 'Đăng ký nhanh',
+          description: 'Đã gửi thông tin đến bộ phận tiếp đón',
+          timestamp: DateTime.now(),
+          isCompleted: true,
+          isCurrent: true,
+        ),
+      ],
+    );
+
+    _appointments.removeWhere((item) => item.bookingCode == bookingCode);
+    _appointments.insert(0, appointment);
+
+    return bookingCode;
+  }
+
   /// C10: Đổi lịch hẹn (Reschedule) lưu vào Database Backend
   Future<bool> rescheduleAppointment(
     String id,

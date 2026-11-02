@@ -38,6 +38,7 @@ import 'b04_search_screen.dart';
 import '../../data/models/home_models.dart';
 import '../../data/repositories/branch_repository.dart';
 import '../../data/repositories/service_repository.dart';
+import '../../../booking/data/repositories/booking_repository.dart';
 
 /// Màn hình Trang chủ MLD Việt Nam (Mobile-First)
 /// Thiết kế đồng bộ 100% theo giao diện nhận diện thương hiệu chuẩn MLD:
@@ -446,8 +447,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     } catch (_) {}
   }
 
-  /// Xử lý gửi Form Đăng ký tư vấn 30 giây
+  /// Xử lý gửi Form Đăng ký tư vấn 30 giây (Đồng bộ vào bookings tiếp đón)
   Future<void> _submitConsultationLead() async {
+    final name = _leadNameController.text.trim();
     final phone = _leadPhoneController.text.trim();
 
     if (phone.isEmpty) {
@@ -462,7 +464,15 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     }
 
     setState(() => _isSubmittingLead = true);
-    await Future.delayed(const Duration(milliseconds: 600));
+    final activeBranch = BranchRepository.instance.activeBranch;
+    final bookingCode = await BookingRepository.instance.registerQuickConsultation(
+      name: name.isEmpty ? 'Khách hàng' : name,
+      phone: phone,
+      branchId: activeBranch?.id,
+      branchName: activeBranch?.name,
+      registrationType: 'Đăng ký trong 30 giây',
+      notes: 'Khách hàng yêu cầu tư vấn nhanh từ Trang chủ Mobile App',
+    );
     if (!mounted) return;
     setState(() => _isSubmittingLead = false);
     _leadNameController.clear();
@@ -480,9 +490,37 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
             Text('Đăng ký thành công', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
           ],
         ),
-        content: const Text(
-          'Bác sĩ gọi lại tư vấn miễn phí trong thời gian sớm nhất.',
-          style: TextStyle(fontSize: 14, color: Color(0xFF334155), height: 1.45),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Bác sĩ và bộ phận tiếp đón đã nhận được thông tin và sẽ gọi lại tư vấn miễn phí cho bạn trong thời gian sớm nhất.',
+              style: TextStyle(fontSize: 14, color: Color(0xFF334155), height: 1.45),
+            ),
+            if (bookingCode != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.confirmation_number_outlined, size: 18, color: Color(0xFF0D766E)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Mã tiếp đón: $bookingCode',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0D766E)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           ElevatedButton(
