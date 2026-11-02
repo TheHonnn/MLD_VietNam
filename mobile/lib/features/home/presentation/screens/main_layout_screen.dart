@@ -8,7 +8,7 @@ import '../../../membership/presentation/screens/f01_profile_dashboard_screen.da
 import '../../../treatment/presentation/screens/d09_documents_screen.dart';
 import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
 import '../../../booking/data/repositories/booking_repository.dart';
-import '../data/repositories/branch_repository.dart';
+import '../../data/repositories/branch_repository.dart';
 import 'b01_home_screen.dart';
 
 class MainLayoutScreen extends StatefulWidget {
