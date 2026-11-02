@@ -1496,6 +1496,20 @@ export class AdminService {
            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PAID',$1,$11,now()) RETURNING *`,
           [transactionCode,enrollment.id,enrollment.student_id,enrollment.course_id,branchId,actor.id,shiftId,transactionType,amount,paymentMethod,typeof body.notes === 'string' ? body.notes.trim().slice(0, 1000) : null],
         )).rows[0];
+        if (enrollment.assigned_staff_id) {
+          const commissionRate = Number((await client.query(
+            'SELECT commission_rate FROM staff_profiles WHERE user_id=$1 AND is_active=true',
+            [enrollment.assigned_staff_id],
+          )).rows[0]?.commission_rate || 0);
+          if (commissionRate > 0 && commissionRate <= 100) {
+            await client.query(
+              `INSERT INTO staff_commissions(staff_id,branch_id,tuition_transaction_id,commission_type,base_amount,percentage,commission_amount,status,cycle_month,notes)
+               VALUES($1,$2,$3,'COURSE_ENROLLMENT',$4,$5,round($4*$5/100),'PENDING',to_char(now(),'YYYY-MM'),$6)
+               ON CONFLICT (tuition_transaction_id) WHERE tuition_transaction_id IS NOT NULL DO NOTHING`,
+              [enrollment.assigned_staff_id,branchId,transaction.id,amount,commissionRate,`Hoa hồng tư vấn khóa học từ giao dịch ${transactionCode}`],
+            );
+          }
+        }
         await client.query(
           `UPDATE course_enrollments SET amount_paid=$2,
            approval_status=CASE WHEN $2>=tuition_total THEN 'APPROVED' ELSE approval_status END,
@@ -1570,8 +1584,11 @@ export class AdminService {
 
       const packageId = String(body.packageId || '');
       const customerId = String(body.customerId || '');
+      const commissionStaffId = String(body.commissionStaffId || '');
       if (!this.isUuid(packageId) || !this.isUuid(customerId))
         throw new BadRequestException('Gói liệu trình hoặc khách hàng không hợp lệ.');
+      if (commissionStaffId && !this.isUuid(commissionStaffId))
+        throw new BadRequestException('Nhân viên phụ trách gói liệu trình không hợp lệ.');
       const treatmentPackage = (await client.query(
         `SELECT tp.*,s.is_active AS service_is_active
          FROM treatment_packages tp
@@ -1597,9 +1614,9 @@ export class AdminService {
       const total = subtotal + vatAmount;
       if (total <= 0) throw new BadRequestException('Tổng thanh toán phải lớn hơn 0.');
       const packageOwner = (await client.query(
-        `INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,purchased_at,expires_at)
-         VALUES($1,$2,$3,0,'ACTIVE',now(),now()+($4::int * interval '1 month')) RETURNING *`,
-        [customerId,packageId,treatmentPackage.total_sessions,treatmentPackage.validity_months],
+        `INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,purchased_at,expires_at,commission_staff_id)
+         VALUES($1,$2,$3,0,'ACTIVE',now(),now()+($4::int * interval '1 month'),$5) RETURNING *`,
+        [customerId,packageId,treatmentPackage.total_sessions,treatmentPackage.validity_months,commissionStaffId || null],
       )).rows[0];
       const invoiceCode = `POS-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
       const invoice = (await client.query(
@@ -1614,6 +1631,20 @@ export class AdminService {
       const paidInvoice = (await client.query(
         "UPDATE invoices SET payment_status='PAID',paid_at=now() WHERE id=$1 RETURNING *", [invoice.id],
       )).rows[0];
+      if (commissionStaffId) {
+        const commissionRate = Number((await client.query(
+          'SELECT commission_rate FROM staff_profiles WHERE user_id=$1 AND is_active=true',
+          [commissionStaffId],
+        )).rows[0]?.commission_rate || 0);
+        if (commissionRate > 0 && commissionRate <= 100) {
+          await client.query(
+            `INSERT INTO staff_commissions(staff_id,branch_id,invoice_id,user_package_id,commission_type,base_amount,percentage,commission_amount,status,cycle_month,notes)
+             VALUES($1,$2,$3,$4,'TREATMENT_PATHWAY',$5,$6,round($5*$6/100),'PENDING',to_char(now(),'YYYY-MM'),$7)
+             ON CONFLICT (user_package_id) WHERE user_package_id IS NOT NULL DO NOTHING`,
+            [commissionStaffId,shift.branch_id,paidInvoice.id,packageOwner.id,subtotal,commissionRate,`Hoa hồng bán lộ trình ${treatmentPackage.name} từ hóa đơn ${invoiceCode}`],
+          );
+        }
+      }
       await this.updateCashierShiftTotals(client, shiftId, paymentMethod, total);
       await this.audit(client, actor, 'invoices', 'PACKAGE_SALE', invoice.id);
       await client.query('COMMIT');

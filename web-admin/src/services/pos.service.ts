@@ -14,6 +14,7 @@ export interface CashierCollection {
   enrollmentId?: string;
   packageId?: string;
   customerId?: string;
+  commissionStaffId?: string;
   branchId?: string;
   amount?: number;
   vatRate?: number;

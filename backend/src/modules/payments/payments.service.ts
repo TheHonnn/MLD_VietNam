@@ -433,11 +433,109 @@ export class PaymentsService {
           })
           .eq('id', targetEnrollmentId);
 
+        await this.ensureEnrollmentPayment(
+          targetEnrollmentId,
+          amountPaid,
+          `TX-PAYOS-${orderCode}`,
+          undefined,
+          `Đối soát PayOS cho mã ${orderCode}`,
+        );
+
         this.logger.log(`[Auto-Approve] Enrollment ${targetEnrollmentId} đã được tự động duyệt vào khóa học thành công!`);
       }
     } catch (enrErr) {
       this.logger.warn(`[Auto-Approve Warning]: ${enrErr}`);
     }
+  }
+
+  private async ensureEnrollmentPayment(
+    enrollmentId: string,
+    amount: number,
+    transactionCode: string,
+    preferredBranchId?: string,
+    notes?: string,
+  ) {
+    const client = this.supabaseService.adminClient;
+    const { data: enrollment, error: enrollmentError } = await client
+      .from('course_enrollments')
+      .select('student_id, course_id, batch_id, assigned_staff_id')
+      .eq('id', enrollmentId)
+      .maybeSingle();
+    if (enrollmentError || !enrollment) return;
+
+    let branchId = preferredBranchId;
+    if (!branchId && enrollment.batch_id) {
+      const { data: batch } = await client
+        .from('course_batches')
+        .select('branch_id')
+        .eq('id', enrollment.batch_id)
+        .maybeSingle();
+      branchId = batch?.branch_id;
+    }
+    branchId ||= 'aaaaaaaa-0001-0001-0001-000000000001';
+
+    let { data: transaction } = await client
+      .from('tuition_transactions')
+      .select('id')
+      .eq('transaction_code', transactionCode)
+      .maybeSingle();
+    if (!transaction) {
+      const { data, error } = await client
+        .from('tuition_transactions')
+        .insert({
+          transaction_code: transactionCode,
+          enrollment_id: enrollmentId,
+          student_id: enrollment.student_id,
+          course_id: enrollment.course_id,
+          branch_id: branchId,
+          transaction_type: 'FULL_PAYMENT',
+          amount,
+          payment_method: 'BANK_TRANSFER',
+          payment_status: 'PAID',
+          notes: notes || 'Thanh toán học phí đã được xác nhận',
+          paid_at: new Date().toISOString(),
+        })
+        .select('id')
+        .maybeSingle();
+      if (error) {
+        this.logger.warn(`[Tuition Transaction] ${error.message}`);
+        return;
+      }
+      transaction = data;
+    }
+
+    if (!enrollment.assigned_staff_id || !transaction?.id) return;
+    const { data: profile } = await client
+      .from('staff_profiles')
+      .select('commission_rate')
+      .eq('user_id', enrollment.assigned_staff_id)
+      .eq('is_active', true)
+      .maybeSingle();
+    const percentage = Number(profile?.commission_rate || 0);
+    if (percentage <= 0 || percentage > 100) return;
+
+    const { error: commissionError } = await client.from('staff_commissions').insert({
+      staff_id: enrollment.assigned_staff_id,
+      branch_id: branchId,
+      tuition_transaction_id: transaction.id,
+      commission_type: 'COURSE_ENROLLMENT',
+      base_amount: amount,
+      percentage,
+      commission_amount: Math.round((amount * percentage) / 100),
+      status: 'PENDING',
+      cycle_month: new Date().toISOString().slice(0, 7),
+      notes: notes || 'Hoa hồng tư vấn khóa học sau khi thanh toán thành công',
+    });
+    if (commissionError && commissionError.code !== '23505') {
+      this.logger.warn(`[Course Commission] ${commissionError.message}`);
+    }
+  }
+
+  private bankTransactionCode(referenceCode: string, fallbackCode: string) {
+    const suffix = String(referenceCode || fallbackCode || Date.now())
+      .replace(/[^A-Za-z0-9_-]/g, '')
+      .slice(-40);
+    return `TX-BANK-${suffix || Date.now()}`;
   }
 
   /**
@@ -588,6 +686,13 @@ export class PaymentsService {
                 approval_notes: `[Tự động đối soát Webhook Ngân hàng] Nhận ${amount.toLocaleString('vi-VN')}đ khớp ${matchedCode}`,
               })
               .eq('id', inv.enrollment_id);
+            await this.ensureEnrollmentPayment(
+              inv.enrollment_id,
+              amount,
+              this.bankTransactionCode(referenceCode, matchedCode),
+              inv.branch_id,
+              `Đối soát Webhook ngân hàng cho hóa đơn ${matchedCode}`,
+            );
           }
 
           if (inv.booking_id) {
@@ -633,35 +738,13 @@ export class PaymentsService {
               })
               .eq('id', enr.id);
 
-            await this.supabaseService.adminClient
-              .from('tuition_transactions')
-              .insert({
-                transaction_code: `TX-BANK-${Date.now().toString().slice(-6)}`,
-                enrollment_id: enr.id,
-                student_id: enr.student_id,
-                course_id: enr.course_id,
-                amount: amount,
-                payment_method: 'BANK_TRANSFER',
-                payment_status: 'PAID',
-                notes: `Đối soát tự động qua Webhook Ngân hàng (Mã GD: ${referenceCode || 'WEBHOOK'})`,
-                paid_at: new Date().toISOString(),
-              });
-
-            if (enr.assigned_staff_id) {
-              const admissionCommissionAmt = Math.round((amount * 5.0) / 100);
-              await this.supabaseService.adminClient
-                .from('staff_commissions')
-                .insert({
-                  staff_id: enr.assigned_staff_id,
-                  commission_type: 'PACKAGE_UPSELL',
-                  base_amount: amount,
-                  percentage: 5.0,
-                  commission_amount: admissionCommissionAmt,
-                  status: 'APPROVED',
-                  cycle_month: new Date().toISOString().slice(0, 7),
-                  notes: `Hoa hồng tư vấn tuyển sinh 5% tự động trích qua Webhook khớp ${matchedCode}`,
-                });
-            }
+            await this.ensureEnrollmentPayment(
+              enr.id,
+              amount,
+              this.bankTransactionCode(referenceCode, matchedCode),
+              undefined,
+              `Đối soát tự động qua Webhook ngân hàng khớp ${matchedCode}`,
+            );
           }
         }
       }

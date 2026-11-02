@@ -57,7 +57,7 @@ export const W13_StaffCommissions: React.FC = () => {
         setBranches(branchRes.data);
       }
       if (staffRes.success && staffRes.data) {
-        setStaffList(staffRes.data.filter((s) => s.role === 'TECHNICIAN' || s.role === 'INSTRUCTOR'));
+        setStaffList(staffRes.data.filter((s) => s.staffProfile.isActive));
       }
     } catch (err) {
       console.error('Error loading commissions data:', err);
@@ -176,6 +176,10 @@ export const W13_StaffCommissions: React.FC = () => {
         return { label: 'Tư vấn bán gói Combo', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
       case 'CSAT_BONUS':
         return { label: 'Thưởng CSAT 5 Sao', bg: 'bg-amber-50 text-amber-700 border-amber-200' };
+      case 'COURSE_ENROLLMENT':
+        return { label: 'Tư vấn ghi danh khóa học', bg: 'bg-cyan-50 text-cyan-700 border-cyan-200' };
+      case 'TREATMENT_PATHWAY':
+        return { label: 'Tư vấn bán lộ trình', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
       default:
         return { label: type, bg: 'bg-gray-50 text-gray-700 border-gray-200' };
     }

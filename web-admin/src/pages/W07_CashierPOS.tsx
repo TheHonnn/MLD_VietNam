@@ -40,6 +40,8 @@ import {
   treatmentService,
   academyService,
   commissionService,
+  staffService,
+  StaffWithProfile,
 } from '../services';
 import { toast } from '../components/common';
 import {
@@ -202,6 +204,14 @@ export const W07_CashierPOS: React.FC = () => {
   const [isSubmittingWalkIn, setIsSubmittingWalkIn] = useState<boolean>(false);
   const [allServices, setAllServices] = useState<Service[]>([]);
   const [allTechnicians, setAllTechnicians] = useState<Technician[]>([]);
+  const [commissionStaff, setCommissionStaff] = useState<StaffWithProfile[]>([]);
+  const [selectedCommissionStaffId, setSelectedCommissionStaffId] = useState('');
+
+  useEffect(() => {
+    staffService.getStaffList().then((res) => {
+      if (res.success && res.data) setCommissionStaff(res.data.filter((staff) => staff.staffProfile.isActive));
+    });
+  }, []);
 
   const [selectedReceiptData, setSelectedReceiptData] = useState<{
     id: string;
@@ -810,11 +820,16 @@ export const W07_CashierPOS: React.FC = () => {
         toast.error('Không thể bán gói', 'Gói liệu trình không tồn tại hoặc đã ngừng mở bán.');
         return;
       }
+      if (isPackageSale && !selectedCommissionStaffId) {
+        toast.error('Chưa chọn người phụ trách', 'Chọn nhân viên được hưởng hoa hồng cho lộ trình này.');
+        return;
+      }
       const taxRate = isPackageSale ? 0 : vatRate;
       const result = await posService.collectPayment(isPackageSale
         ? {
             kind: 'PACKAGE', packageId: packageId!,
             customerId: customer!.id,
+            commissionStaffId: selectedCommissionStaffId,
             branchId: currentShift.branchId, paymentMethod: method,
             shiftId: currentShift.id, vatRate: taxRate,
           }
@@ -851,6 +866,7 @@ export const W07_CashierPOS: React.FC = () => {
       });
       setShowReceiptModal(true);
       await fetchPosData();
+      if (isPackageSale) setSelectedCommissionStaffId('');
       if (!isPackageSale && booking?.technicianId) {
         await commissionService.createCommission({
           staffId: booking.technicianId, branchId: booking.branchId,
@@ -1848,7 +1864,7 @@ export const W07_CashierPOS: React.FC = () => {
 
       {/* 3. Middle Section: Two Columns (Service Details & Payment Breakdown) */}
       {packageIdParam && posMode === 'spa' && (
-        <section className="bg-white border border-[#EFE4D9] rounded-xl p-4 flex flex-col sm:flex-row sm:items-end gap-3">
+        <section className="bg-white border border-[#EFE4D9] rounded-xl p-4 grid gap-3 sm:grid-cols-2">
           <div className="flex-1">
             <label className="block text-xs font-semibold text-[#2C241E] mb-1">Khách hàng mua gói</label>
             <select value={customer?.id || ''} onChange={(event) => setCustomer(allCustomers.find((item) => item.id === event.target.value))} className="w-full h-10 px-3 border border-[#E8DFD8] rounded-lg text-sm bg-white">
@@ -1856,7 +1872,17 @@ export const W07_CashierPOS: React.FC = () => {
               {allCustomers.filter((item) => isUuid(item.id)).map((item) => <option key={item.id} value={item.id}>{item.fullName} · {item.phone || 'Chưa có SĐT'}</option>)}
             </select>
           </div>
-          <div className="text-sm sm:text-right"><div className="font-semibold text-[#2C241E]">{selectedTreatmentPackage?.name || 'Đang tải gói liệu trình...'}</div><div className="text-xs text-[#73675F]">{selectedTreatmentPackage ? `${selectedTreatmentPackage.totalSessions} buổi · ${selectedPackagePrice.toLocaleString('vi-VN')}đ` : ''}</div></div>
+          <div>
+            <label className="block text-xs font-semibold text-[#2C241E] mb-1">Nhân viên phụ trách hoa hồng</label>
+            <select value={selectedCommissionStaffId} onChange={(event) => setSelectedCommissionStaffId(event.target.value)} className="w-full h-10 px-3 border border-[#E8DFD8] rounded-lg text-sm bg-white" required>
+              <option value="">Chọn người phụ trách</option>
+              {commissionStaff.map((staff) => <option key={staff.id} value={staff.id}>{staff.fullName} · {staff.staffProfile.commissionRate}%</option>)}
+            </select>
+          </div>
+          <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+            <div className="font-semibold text-[#2C241E]">{selectedTreatmentPackage?.name || 'Đang tải gói liệu trình...'}</div>
+            <div className="text-xs text-[#73675F]">{selectedTreatmentPackage ? `${selectedTreatmentPackage.totalSessions} buổi · ${selectedPackagePrice.toLocaleString('vi-VN')}đ` : ''}</div>
+          </div>
         </section>
       )}
 

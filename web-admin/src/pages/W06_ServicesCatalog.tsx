@@ -123,31 +123,46 @@ export const W06_ServicesCatalog: React.FC = () => {
   };
 
   // Identify core 3 services by duration or name
-  const serviceKhuTru = services.find(
+  const serviceKhuTru: ServiceItem = services.find(
     (s) => s.duration_minutes === 45 || s.name.toLowerCase().includes('khu trú')
   ) || {
     id: '11111111-2222-3333-4444-000000000001',
     name: "Chăm sóc khu trú (45')",
+    slug: 'cham-soc-khu-tru-45',
     duration_minutes: 45,
     price: 500000,
+    discount_price: 500000,
+    full_description: 'Chương trình chăm sóc khu trú 45 phút chuẩn Vodder quốc tế.',
+    is_featured: true,
+    is_active: true,
   };
 
-  const serviceMoRong = services.find(
+  const serviceMoRong: ServiceItem = services.find(
     (s) => s.duration_minutes === 60 || s.name.toLowerCase().includes('mở rộng')
   ) || {
     id: '235166f2-66c9-4231-bbe1-af91b48fc67c',
     name: "Chăm sóc mở rộng (60')",
+    slug: 'cham-soc-mo-rong-60',
     duration_minutes: 60,
     price: 900000,
+    discount_price: 900000,
+    full_description: 'Chương trình chăm sóc mở rộng 60 phút bao quát phạm vi liên kết rộng hơn trên cơ thể.',
+    is_featured: true,
+    is_active: true,
   };
 
-  const serviceToanDien = services.find(
+  const serviceToanDien: ServiceItem = services.find(
     (s) => s.duration_minutes === 90 || s.name.toLowerCase().includes('toàn diện')
   ) || {
     id: '11111111-2222-3333-4444-000000000003',
     name: "Chăm sóc toàn diện (90')",
+    slug: 'cham-soc-toan-dien-90',
     duration_minutes: 90,
     price: 1700000,
+    discount_price: 1700000,
+    full_description: 'Chương trình chăm sóc toàn diện 90 phút phục hồi tối đa hệ bạch huyết toàn thân.',
+    is_featured: true,
+    is_active: true,
   };
 
   // Find package by service and session count
