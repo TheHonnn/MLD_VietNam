@@ -53,6 +53,7 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
   const [isTogglingStatus, setIsTogglingStatus] = useState<boolean>(false);
   const [packages, setPackages] = useState<RelatedPackage[]>([]);
   const [loadingPackages, setLoadingPackages] = useState<boolean>(true);
+  const [imageFailed, setImageFailed] = useState(false);
 
   const serviceId = row.id;
   const serviceName = row.name || 'Dịch vụ MLD';
@@ -67,6 +68,10 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
   const imageUrl = row.image_url;
   const shortDesc = row.short_description || '';
   const fullDesc = row.full_description || '';
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [imageUrl]);
 
   // Parse steps (json array of strings)
   const steps: string[] = Array.isArray(row.steps)
@@ -224,13 +229,13 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
           {/* Service Thumbnail / Image 16:9 */}
           <div className="relative w-full sm:w-56 md:w-64 aspect-[16/9] rounded-2xl overflow-hidden bg-[#FAF0E4] border border-[#E8DFD8] shrink-0 shadow-sm">
-            {imageUrl ? (
+            {imageUrl && !imageFailed ? (
               <img
                 src={imageUrl}
                 alt={serviceName}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
+                  setImageFailed(true);
                 }}
               />
             ) : (

@@ -1085,7 +1085,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
                     {metrics.passPercentage}%
                   </span>
                   <span className="text-[10px] text-[#9C8B7D]">
-                    Ngưỡng đạt chứng chỉ
+                    Ngưỡng đạt chứng nhận
                   </span>
                 </div>
 

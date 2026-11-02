@@ -426,10 +426,10 @@ export const AVAILABLE_BANNER_ROUTES: {
           description: 'Lịch học lý thuyết trực tiếp và lịch thực hành tại phòng Lab Vodder',
         },
         {
-          label: 'Kết quả Học tập & Chứng chỉ Tốt nghiệp',
+          label: 'Kết quả Học tập & Chứng nhận Tốt nghiệp',
           path: '/academy/results',
-          badge: 'Chứng chỉ',
-          description: 'Bảng điểm đánh giá năng lực và tra cứu chứng chỉ đào tạo MLD',
+          badge: 'Chứng nhận',
+          description: 'Bảng điểm đánh giá năng lực và tra cứu chứng nhận đào tạo MLD',
         },
       ],
     },
@@ -2225,7 +2225,7 @@ export const W18_PortalContent: React.FC = () => {
                 <span>4 Mẫu Email Thông báo Đào tạo Tự động (Chuẩn Doanh nghiệp MLD)</span>
               </h3>
               <p className="text-xs text-[#73675F] mt-1">
-                Tự động cá nhân hóa nội dung và biến số gửi tới học viên: Xác nhận đăng ký, Nhắc lịch thực hành, Kết quả thi, Chứng chỉ điện tử.
+                Tự động cá nhân hóa nội dung và biến số gửi tới học viên: Xác nhận đăng ký, Nhắc lịch thực hành, Kết quả thi, Chứng nhận điện tử.
               </p>
             </div>
           </div>

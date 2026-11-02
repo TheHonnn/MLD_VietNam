@@ -1,7 +1,11 @@
 const fs = require('fs');
 
-const SUPABASE_URL = 'https://wstvwushpwcdsmhpunvh.supabase.co';
-const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
+const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!KEY) {
+  console.error('LỖI: Vui lòng thiết lập biến môi trường SUPABASE_SERVICE_ROLE_KEY');
+  process.exit(1);
+}
 
 async function uploadFile(filePath, destName) {
   const fileBuffer = fs.readFileSync(filePath);

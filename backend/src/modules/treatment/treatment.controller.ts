@@ -55,6 +55,12 @@ export class TreatmentController {
     return this.treatmentService.getCareJournal(userId || 'default-user');
   }
 
+  @Get('shared-journal/:token')
+  @ApiOperation({ summary: 'Xem nhật ký điều trị được chia sẻ bằng liên kết có thời hạn' })
+  async getSharedJournal(@Param('token') token: string) {
+    return { data: await this.treatmentService.getSharedJournal(token) };
+  }
+
   @Post('journal')
   @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()

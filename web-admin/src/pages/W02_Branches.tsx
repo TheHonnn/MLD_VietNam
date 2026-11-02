@@ -37,6 +37,7 @@ import {
   Clipboard,
 } from 'lucide-react';
 import { branchService, treatmentService } from '../services';
+import { portalService } from '../services/portal.service';
 import { toast } from '../components/common';
 import { Branch, BranchRoom, Service, RoomType } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
@@ -103,48 +104,7 @@ const BranchImageUploadInput: React.FC<BranchImageUploadInputProps> = ({ value, 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const uploadImageBlob = async (blob: Blob, nameHint = 'branch_img.png') => {
-    const ext = nameHint.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'png';
-    const cleanFileName = `branch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
-    const SUPABASE_URL = 'https://wstvwushpwcdsmhpunvh.supabase.co';
-    const KEY =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
-
-    // Try 'services' bucket first, then fallback to 'avatars'
-    let targetBucket = 'services';
-    let res = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
-      {
-        method: 'POST',
-        headers: {
-          apikey: KEY,
-          Authorization: `Bearer ${KEY}`,
-          'Content-Type': blob.type || 'image/png',
-        },
-        body: blob,
-      }
-    );
-
-    if (!res.ok) {
-      targetBucket = 'avatars';
-      res = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
-        {
-          method: 'POST',
-          headers: {
-            apikey: KEY,
-            Authorization: `Bearer ${KEY}`,
-            'Content-Type': blob.type || 'image/png',
-          },
-          body: blob,
-        }
-      );
-    }
-
-    if (!res.ok) {
-      throw new Error('Không thể tải ảnh lên kho lưu trữ Supabase.');
-    }
-
-    return `${SUPABASE_URL}/storage/v1/object/public/${targetBucket}/${cleanFileName}`;
+    return portalService.uploadFileToStorage(blob, nameHint);
   };
 
   const handleProcessFile = async (file: File | Blob, nameHint?: string) => {

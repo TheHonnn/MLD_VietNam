@@ -134,8 +134,8 @@ const AppContent: React.FC = () => {
       <Suspense fallback={<PageLoadingFallback />}>
         <Routes>
           {/* Public Shareable Treatment Journal for Customers (No login needed) */}
-          <Route path="/treatment-journal/:id" element={<PublicTreatmentJournal />} />
-          <Route path="/journal/:id" element={<PublicTreatmentJournal />} />
+          <Route path="/treatment-journal/:token" element={<PublicTreatmentJournal />} />
+          <Route path="/journal/:token" element={<PublicTreatmentJournal />} />
 
           <Route path="/" element={<Layout />}>
             <Route index element={<W01_Dashboard />} />

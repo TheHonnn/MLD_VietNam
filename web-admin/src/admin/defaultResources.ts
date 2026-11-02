@@ -68,7 +68,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'user_lesson_progress', title: 'Tiến độ học', group: 'Chương trình đào tạo', readonly: true, actions: [] },
 
   // 12. Giấy chứng nhận
-  { name: 'certificate_templates', title: 'Mẫu phôi chứng chỉ', group: 'Giấy chứng nhận', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'certificate_templates', title: 'Mẫu chứng nhận', group: 'Giấy chứng nhận', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'student_certificates', title: 'Danh sách đã cấp', group: 'Giấy chứng nhận', actions: ['create', 'update', 'delete', 'action'] },
 
   // 13. Phân quyền & Bảo mật

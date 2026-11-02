@@ -21,7 +21,7 @@ try {
   Client = require('../../backend/node_modules/pg').Client;
 }
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres.wstvwushpwcdsmhpunvh:20051811buiH%40%40@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres';
+const DATABASE_URL = process.env.ADMIN_DATABASE_URL || process.env.DATABASE_URL;
 
 async function runConsistencyE2ESuite() {
   console.log('╔════════════════════════════════════════════════════════════════════════════════════╗');

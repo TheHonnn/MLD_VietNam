@@ -31,7 +31,6 @@ export async function exportElementToPdf(
     backgroundColor: '#ffffff',
   });
 
-  const imgData = canvas.toDataURL('image/png', 1.0);
   const orientation = options.orientation || 'portrait';
   const format = options.format || 'a4';
 
@@ -44,24 +43,23 @@ export async function exportElementToPdf(
 
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfHeight = pdf.internal.pageSize.getHeight();
+  const sourcePageHeight = Math.max(1, Math.floor((canvas.width * pdfHeight) / pdfWidth));
+  const pageCount = Math.ceil(canvas.height / sourcePageHeight);
 
-  const imgWidth = canvas.width;
-  const imgHeight = canvas.height;
-  const ratio = imgWidth / imgHeight;
+  for (let page = 0; page < pageCount; page += 1) {
+    const sourceY = page * sourcePageHeight;
+    const sliceHeight = Math.min(sourcePageHeight, canvas.height - sourceY);
+    const pageCanvas = document.createElement('canvas');
+    pageCanvas.width = canvas.width;
+    pageCanvas.height = sliceHeight;
+    const context = pageCanvas.getContext('2d');
+    if (!context) throw new Error('Không thể dựng trang PDF.');
+    context.drawImage(canvas, 0, sourceY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
 
-  let renderWidth = pdfWidth;
-  let renderHeight = pdfWidth / ratio;
-
-  // Căn chỉnh vừa khớp trang
-  if (renderHeight > pdfHeight) {
-    renderHeight = pdfHeight;
-    renderWidth = pdfHeight * ratio;
+    if (page > 0) pdf.addPage(format, orientation);
+    const renderHeight = (sliceHeight * pdfWidth) / canvas.width;
+    pdf.addImage(pageCanvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, pdfWidth, renderHeight, undefined, 'FAST');
   }
-
-  const posX = (pdfWidth - renderWidth) / 2;
-  const posY = (pdfHeight - renderHeight) / 2;
-
-  pdf.addImage(imgData, 'PNG', posX, posY, renderWidth, renderHeight, undefined, 'FAST');
 
   const finalFileName = options.fileName.toLowerCase().endsWith('.pdf')
     ? options.fileName

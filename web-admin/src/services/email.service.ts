@@ -107,7 +107,7 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
     <div style="background: #FAF8F5; padding: 30px 25px; border: 1px solid #BA7E4C; border-top: none; border-radius: 0 0 12px 12px; text-align: center;">
       <p style="font-size: 15px; margin-bottom: 20px;">Chứng nhận hoàn thành kỹ thuật Dẫn lưu Bạch huyết Quốc tế cấp cho:</p>
       <h3 style="font-size: 22px; color: #985018; margin: 0 0 10px 0; font-family: serif;">{{student_name}}</h3>
-      <p style="font-size: 13px; color: #554B42; margin-bottom: 25px;">Mã số Chứng chỉ: <strong style="font-family: monospace; color: #2C241E; font-size: 15px;">{{certificate_code}}</strong></p>
+      <p style="font-size: 13px; color: #554B42; margin-bottom: 25px;">Mã số Chứng nhận: <strong style="font-family: monospace; color: #2C241E; font-size: 15px;">{{certificate_code}}</strong></p>
       <a href="{{verification_url}}" style="display: inline-block; background: #985018; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 14px;">TRA CỨU & XÁC THỰC MÃ QR</a>
       <p style="font-size: 11px; color: #73675F; margin-top: 25px;">Chứng nhận có giá trị đối chiếu trên Cổng Dữ Liệu Quốc Gia MLD Việt Nam.</p>
     </div>
@@ -172,7 +172,7 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
     id: 'ENROLLMENT_EXPIRY_WARNING',
     name: 'Cảnh báo hết hạn khóa học 1 năm (30 ngày & 7 ngày)',
     subject: '[QUAN TRỌNG] MLD Academy - Khóa học {{course_name}} của bạn còn {{days_left}} ngày hiệu lực',
-    description: 'Gửi tự động khi thời hạn học còn 30 ngày hoặc 7 ngày để học viên kịp thi và hoàn tất chứng chỉ trước khi khóa học bị hủy/đóng quyền truy cập',
+    description: 'Gửi tự động khi thời hạn học còn 30 ngày hoặc 7 ngày để học viên kịp thi và hoàn tất chứng nhận trước khi khóa học bị hủy/đóng quyền truy cập',
     bodyHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E8DFD8;">
       <div style="background: linear-gradient(135deg, #B3261E 0%, #7A1712 100%); padding: 30px 20px; text-align: center; color: #ffffff;">
         <h1 style="margin: 0; font-size: 22px; font-weight: bold;">CẢNH BÁO THỜI HẠN KHÓA ĐÀO TẠO</h1>

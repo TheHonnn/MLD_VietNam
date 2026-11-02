@@ -28,7 +28,10 @@ for (let i = 0; i < files.length; i++) {
   const filePath = path.join(testDir, file);
   process.stdout.write(`[${i + 1}/${files.length}] Running ${file}... `);
 
-  const res = spawnSync(process.execPath, ['--import', 'tsx', '--test', filePath], {
+  const res = spawnSync(process.execPath, [
+    '--require', path.join(__dirname, 'test-node-compat.cjs'),
+    '--import', 'tsx', '--test', filePath,
+  ], {
     cwd: path.resolve(__dirname, '..'),
     encoding: 'utf-8',
     env: { ...process.env, NODE_ENV: 'test' },

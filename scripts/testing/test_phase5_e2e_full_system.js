@@ -10,7 +10,7 @@ const assert = require('assert');
 const { Client } = require(path.join(__dirname, '../../backend/node_modules/pg'));
 
 const client = new Client({
-  connectionString: 'postgresql://postgres.wstvwushpwcdsmhpunvh:20051811buiH%40%40@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres',
+  connectionString: (process.env.ADMIN_DATABASE_URL || process.env.DATABASE_URL),
   ssl: { rejectUnauthorized: false }
 });
 

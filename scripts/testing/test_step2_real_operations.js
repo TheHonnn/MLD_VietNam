@@ -13,7 +13,7 @@ const XLSX = require(path.join(__dirname, '../../web-admin/node_modules/xlsx'));
 const { jsPDF } = require(path.join(__dirname, '../../web-admin/node_modules/jspdf'));
 
 const client = new Client({
-  connectionString: 'postgresql://postgres.wstvwushpwcdsmhpunvh:20051811buiH%40%40@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres',
+  connectionString: (process.env.ADMIN_DATABASE_URL || process.env.DATABASE_URL),
   ssl: { rejectUnauthorized: false }
 });
 

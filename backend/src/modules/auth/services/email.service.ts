@@ -1,5 +1,6 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'crypto';
 import * as nodemailer from 'nodemailer';
 import { OtpPurpose } from './otp.service';
 import { SupabaseService } from '../../../database/supabase.service';
@@ -44,7 +45,7 @@ export class EmailService {
           secure,
           auth: { user, pass },
           tls: {
-            rejectUnauthorized: false,
+            rejectUnauthorized: this.configService.get<string>('NODE_ENV') === 'production' || process.env.NODE_ENV === 'production',
           },
           connectionTimeout: 3500,
           greetingTimeout: 3500,
@@ -97,11 +98,9 @@ export class EmailService {
       otp,
     });
 
-    // In log mã OTP ra terminal trong mọi trường hợp để dễ dàng debug/test
-    this.logger.log(`\n======================================================`);
-    this.logger.log(`📧 GỬI EMAIL OTP [${purpose}] TỚI: ${to}`);
-    this.logger.log(`🔑 MÃ XÁC THỰC OTP 6 SỐ: [ ${otp} ] (Hiệu lực: 5 phút)`);
-    this.logger.log(`======================================================\n`);
+    const maskedEmail = to.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => `${a}${'*'.repeat(Math.max(1, b.length))}${c}`);
+    const correlationId = randomUUID().slice(0, 8);
+    this.logger.log(`📧 Gửi email OTP [${purpose}] tới: ${maskedEmail} (CorrelationId: ${correlationId})`);
 
     return this.dispatchHtmlEmail(to, subject, htmlContent);
   }
@@ -423,10 +422,16 @@ export class EmailService {
       }
     }
 
-    this.logger.log(`\n======================================================`);
-    this.logger.log(`📧 [EMAIL DISPATCHED] TỚI: ${to}`);
-    this.logger.log(`   Tiêu đề: ${subject}`);
-    this.logger.log(`======================================================\n`);
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production' ||
+      process.env.NODE_ENV === 'production';
+
+    if (isProduction) {
+      this.logger.error(`❌ [Production Email Failure] Không thể gửi email tới ${to}. Cả dịch vụ API và SMTP đều không thành công.`);
+      return false;
+    }
+
+    this.logger.warn(`⚠️ [Dev Simulated Dispatch] Email mô phỏng tới ${to}: "${subject}"`);
     return true;
   }
 

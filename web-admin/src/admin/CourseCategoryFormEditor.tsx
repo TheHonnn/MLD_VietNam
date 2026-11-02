@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { portalService } from "../services/portal.service";
 import {
   Upload,
   Image as ImageIcon,
@@ -78,7 +79,7 @@ export const PRESET_ICONS = [
     url: "https://api.iconify.design/lucide:microscope.svg?color=%23985018",
   },
   {
-    label: "Chứng chỉ",
+    label: "Chứng nhận",
     emoji: "🏆",
     url: "https://api.iconify.design/lucide:award.svg?color=%23985018",
   },
@@ -118,34 +119,13 @@ export const CourseCategoryFormEditor: React.FC<CourseCategoryFormEditorProps> =
     }
   };
 
-  // Tải ảnh biểu tượng lên Supabase Storage
+  // Tải ảnh biểu tượng lên Supabase Storage qua backend media upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
-      const cleanFileName = `cat_icon_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
-      const SUPABASE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
-      const KEY =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
-
-      const res = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/avatars/${cleanFileName}`,
-        {
-          method: "POST",
-          headers: {
-            apikey: KEY,
-            Authorization: `Bearer ${KEY}`,
-            "Content-Type": file.type || "image/png",
-          },
-          body: file,
-        }
-      );
-      if (!res.ok) {
-        throw new Error("Không thể tải ảnh biểu tượng lên đám mây.");
-      }
-      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/avatars/${cleanFileName}`;
+      const publicUrl = await portalService.uploadFileToStorage(file, file.name);
       onChange("icon_url", publicUrl);
     } catch (err: any) {
       alert(err.message || "Lỗi khi tải ảnh biểu tượng");

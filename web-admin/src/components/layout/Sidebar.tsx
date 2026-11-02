@@ -207,8 +207,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           path: '/certificates',
           icon: Award,
           subItems: [
-            { name: 'Quản lý cấp chứng chỉ', path: '/certificates' },
-            { name: 'Mẫu phôi chứng chỉ', path: '/manage/certificate_templates' },
+            { name: 'Quản lý cấp chứng nhận', path: '/certificates' },
+            { name: 'Mẫu chứng nhận', path: '/manage/certificate_templates' },
             { name: 'Danh sách đã cấp', path: '/manage/student_certificates' },
           ],
         },

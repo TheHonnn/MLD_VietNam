@@ -6,13 +6,32 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
-  const allowedOrigins = (process.env.CORS_ORIGIN || '*').split(',').map(origin => origin.trim());
+  const logger = new Logger('Bootstrap');
+  const isProduction = process.env.NODE_ENV === 'production';
+  const defaultProdOrigins = [
+    'https://mldvietnam.vn',
+    'https://admin.mldvietnam.vn',
+    'https://mld-web-admin.vercel.app',
+  ];
+  let allowedOrigins: string[] | string = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  if (isProduction) {
+    if (!allowedOrigins.length || (Array.isArray(allowedOrigins) && allowedOrigins.includes('*'))) {
+      allowedOrigins = defaultProdOrigins;
+    }
+  } else {
+    if (!allowedOrigins.length || (Array.isArray(allowedOrigins) && allowedOrigins.includes('*'))) {
+      allowedOrigins = '*';
+    }
+  }
 
   // 1. CORS Configuration
   app.enableCors({
-    origin: allowedOrigins.includes('*') ? '*' : allowedOrigins,
+    origin: allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: false,
   });

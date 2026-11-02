@@ -1,6 +1,6 @@
 import { PortalContentItem, PortalContentKind, PortalContentStatus, DocumentAccessLevel, ApiResponse } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
-import { supabase } from './supabaseClient';
+import { getAdminAuthToken, supabase } from './supabaseClient';
 
 function mapDbToPortalContent(item: any): PortalContentItem {
   return {
@@ -286,45 +286,23 @@ export const portalService = {
    */
   async uploadFileToStorage(file: File | Blob, nameHint = 'portal_file.pdf'): Promise<string> {
     const ext = nameHint.split('.').pop()?.toLowerCase().replace(/[^a-zA-Z0-9]/g, '') || 'png';
-    const cleanFileName = `portal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
-    const SUPABASE_URL = 'https://wstvwushpwcdsmhpunvh.supabase.co';
-    const KEY =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
+    const token = getAdminAuthToken();
+    if (!token) throw new Error('Phiên quản trị đã hết hạn. Vui lòng đăng nhập lại.');
 
-    const isDoc = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'zip', 'rar'].includes(ext);
-    const primaryBucket = isDoc ? 'documents' : 'services';
-    const fallbackBucket = isDoc ? 'services' : 'avatars';
-
-    let res = await fetch(`${SUPABASE_URL}/storage/v1/object/${primaryBucket}/${cleanFileName}`, {
+    const apiBase = ((import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api/v1').replace(/\/$/, '');
+    const form = new FormData();
+    form.append('file', file, `upload.${ext}`);
+    const response = await fetch(`${apiBase}/admin/media/upload`, {
       method: 'POST',
-      headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${KEY}`,
-        'Content-Type': file.type || (isDoc ? 'application/pdf' : 'image/png'),
-      },
-      body: file,
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
     });
-
-    if (res.ok) {
-      return `${SUPABASE_URL}/storage/v1/object/public/${primaryBucket}/${cleanFileName}`;
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || payload?.success === false) {
+      throw new Error(payload?.message || 'Không thể tải tệp lên máy chủ.');
     }
-
-    // Fallback bucket
-    res = await fetch(`${SUPABASE_URL}/storage/v1/object/${fallbackBucket}/${cleanFileName}`, {
-      method: 'POST',
-      headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${KEY}`,
-        'Content-Type': file.type || 'application/octet-stream',
-      },
-      body: file,
-    });
-
-    if (res.ok) {
-      return `${SUPABASE_URL}/storage/v1/object/public/${fallbackBucket}/${cleanFileName}`;
-    }
-
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Không thể tải tệp lên máy chủ: ${errText || res.statusText}`);
+    const result = payload?.data || payload;
+    if (!result?.url) throw new Error('Máy chủ không trả về liên kết của tệp.');
+    return result.url;
   },
 };

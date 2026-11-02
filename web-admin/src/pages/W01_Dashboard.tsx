@@ -18,6 +18,10 @@ import {
   Phone,
   Radio,
   ArrowUpRight,
+  Award,
+  BookOpen,
+  UserCheck,
+  Users,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -39,6 +43,8 @@ import {
   TuitionTransType,
   Technician,
   User as CustomerUser,
+  Instructor,
+  EnrollmentStatus,
 } from '../types/shared_types';
 import {
   MultiColorLineChart,
@@ -82,6 +88,7 @@ export const W01_Dashboard: React.FC = () => {
   const [tuitions, setTuitions] = useState<TuitionTransaction[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [customers, setCustomers] = useState<CustomerUser[]>([]);
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Listen to Global Branch Changes and Branch List Updates from other modules
@@ -206,7 +213,7 @@ export const W01_Dashboard: React.FC = () => {
   const fetchData = useCallback(async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     try {
-      const [invRes, bkRes, brRes, pkgRes, enrRes, tuiRes, liveTechs, custRes] = await Promise.all([
+      const [invRes, bkRes, brRes, pkgRes, enrRes, tuiRes, liveTechs, custRes, insRes] = await Promise.all([
         posService.getInvoices(),
         bookingService.getBookings(),
         branchService.getAllBranches(),
@@ -215,6 +222,7 @@ export const W01_Dashboard: React.FC = () => {
         academyService.getTuitionTransactions(),
         supabaseService.getTechnicians(),
         customerService.getCustomers(),
+        academyService.getInstructors(),
       ]);
       if (invRes.success) setInvoices(invRes.data);
       if (bkRes.success) setBookings(bkRes.data);
@@ -224,6 +232,7 @@ export const W01_Dashboard: React.FC = () => {
       if (tuiRes.success) setTuitions(tuiRes.data);
       if (liveTechs) setTechnicians(liveTechs);
       if (custRes.success) setCustomers(custRes.data);
+      if (insRes && insRes.success && insRes.data) setInstructors(insRes.data);
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
@@ -253,6 +262,8 @@ export const W01_Dashboard: React.FC = () => {
           ? 'Giao dịch học phí'
           : event.table === 'course_enrollments'
           ? 'Hồ sơ tuyển sinh'
+          : (event.table as string) === 'instructors'
+          ? 'Hồ sơ giảng viên'
           : 'Dữ liệu vận hành';
 
       setRealtimeToast({
@@ -447,6 +458,22 @@ export const W01_Dashboard: React.FC = () => {
   const packagesCount = userPackages.length;
   const enrolledCount = filteredEnrollments.length;
 
+  // Thống kê Học viên học viện (Student Metrics)
+  const distinctStudentIds = useMemo(() => {
+    return new Set(filteredEnrollments.map((e) => e.studentId || e.id));
+  }, [filteredEnrollments]);
+  const studentsCount = distinctStudentIds.size;
+  const studyingStudentsCount = filteredEnrollments.filter(
+    (e) => e.status === EnrollmentStatus.STUDYING || e.status === EnrollmentStatus.ENROLLED
+  ).length;
+  const consultingStudentsCount = filteredEnrollments.filter(
+    (e) => e.status === EnrollmentStatus.CONSULTING || e.status === EnrollmentStatus.DEPOSITED
+  ).length;
+
+  // Thống kê Giảng viên đào tạo (Instructor Metrics)
+  const instructorsCount = instructors.length;
+  const activeInstructorsCount = instructors.filter((i) => i.isActive !== false).length;
+
   const pendingBookings = filteredBookings.filter((b) => b.paymentStatus !== 'PAID');
   const pendingBookingAmount = pendingBookings.reduce((s, b) => s + b.finalPrice, 0);
 
@@ -561,10 +588,26 @@ export const W01_Dashboard: React.FC = () => {
     {
       title: 'Khóa đã ghi danh',
       value: `${enrolledCount}`,
-      subtext: `${filteredEnrollments.filter((e) => e.status === 'STUDYING' || e.status === 'ENROLLED').length} học viên đang học`,
-      icon: GraduationCap,
+      subtext: `${studyingStudentsCount} lớp đang học`,
+      icon: BookOpen,
       route: '/academy-enrollment',
       actionLabel: 'Xem ghi danh',
+    },
+    {
+      title: 'Giảng viên đào tạo',
+      value: `${instructorsCount}`,
+      subtext: `${activeInstructorsCount} đang giảng dạy`,
+      icon: Award,
+      route: '/instructors',
+      actionLabel: 'Xem giảng viên',
+    },
+    {
+      title: 'Học viên học viện',
+      value: `${studentsCount}`,
+      subtext: `${studyingStudentsCount} đang học • ${consultingStudentsCount} chờ xếp lớp`,
+      icon: GraduationCap,
+      route: '/academy-enrollment',
+      actionLabel: 'Xem học viên',
     },
   ];
 
@@ -694,7 +737,7 @@ export const W01_Dashboard: React.FC = () => {
   // 5. QUICK SEARCH AUTOCOMPLETE SUGGESTIONS
   const quickResults = useMemo(() => {
     if (!searchTerm.trim()) {
-      return { bookings: [], customers: [], enrollments: [], invoices: [] };
+      return { bookings: [], customers: [], enrollments: [], invoices: [], instructors: [] };
     }
 
     const matchedBookings = bookings
@@ -737,19 +780,30 @@ export const W01_Dashboard: React.FC = () => {
       })
       .slice(0, 3);
 
+    const matchedInstructors = instructors
+      .filter((ins) => {
+        return matchSearch(
+          [ins.fullName, ins.title, ins.bio, ins.user?.phone, ins.user?.email],
+          searchTerm
+        );
+      })
+      .slice(0, 3);
+
     return {
       bookings: matchedBookings,
       customers: matchedCustomers,
       enrollments: matchedEnrollments,
       invoices: matchedInvoices,
+      instructors: matchedInstructors,
     };
-  }, [searchTerm, bookings, customers, enrollments, invoices, customerMap, techMap]);
+  }, [searchTerm, bookings, customers, enrollments, invoices, instructors, customerMap, techMap]);
 
   const totalQuickMatches =
     quickResults.bookings.length +
     quickResults.customers.length +
     quickResults.enrollments.length +
-    quickResults.invoices.length;
+    quickResults.invoices.length +
+    quickResults.instructors.length;
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -969,6 +1023,48 @@ export const W01_Dashboard: React.FC = () => {
                             </div>
                             <span className="text-[11px] font-bold text-[#2E7D32]">
                               {inv.totalAmount.toLocaleString('vi-VN')}đ
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Instructors Matches */}
+                  {quickResults.instructors.length > 0 && (
+                    <div>
+                      <div className="text-[10.5px] font-bold text-[#8E4002] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <Award className="w-3.5 h-3.5" /> Giảng viên đào tạo ({quickResults.instructors.length})
+                      </div>
+                      <div className="space-y-1">
+                        {quickResults.instructors.map((ins) => (
+                          <div
+                            key={ins.id}
+                            onClick={() => {
+                              navigate('/instructors');
+                              setIsSearchFocused(false);
+                            }}
+                            className="p-2 rounded-xl hover:bg-[#FAF8F5] cursor-pointer flex items-center justify-between text-xs transition-colors border border-transparent hover:border-[#EFE4D9]"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              {ins.avatarUrl ? (
+                                <img
+                                  src={ins.avatarUrl}
+                                  alt={ins.fullName}
+                                  className="w-7 h-7 rounded-full object-cover border border-[#EFE4D9]"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-[#FAF0E4] text-[#985018] flex items-center justify-center font-bold text-xs">
+                                  {ins.fullName.slice(0, 1)}
+                                </div>
+                              )}
+                              <div>
+                                <div className="font-bold text-[#2C241E]">{ins.fullName}</div>
+                                <div className="text-[11px] text-[#8C7E72]">{ins.title}</div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#F5EBE1] text-[#985018]">
+                              {ins.experienceYears ? `${ins.experienceYears} năm KN` : 'Chuyên gia'}
                             </span>
                           </div>
                         ))}
@@ -1200,8 +1296,8 @@ export const W01_Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* 3. Five KPI Cards Row - Responsive: 1 col on mobile, 2 on small, 3 on tablet, 5 on wide desktop */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+      {/* 3. Seven KPI Cards Row - Responsive: 1-2 on mobile, 3 on tablet, 4 on small laptop, 7 on desktop */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 sm:gap-3">
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon;
           return (
@@ -1216,28 +1312,28 @@ export const W01_Dashboard: React.FC = () => {
                   handleKpiClick(kpi.route);
                 }
               }}
-              className="group bg-white p-4 rounded-2xl border border-[#EFE4D9] hover:border-[#985018] flex flex-col justify-between shadow-xs hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer text-left select-none relative overflow-hidden"
+              className="group bg-white p-3.5 2xl:p-4 rounded-2xl border border-[#EFE4D9] hover:border-[#985018] flex flex-col justify-between shadow-xs hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer text-left select-none relative overflow-hidden"
               title={`Nhấp để mở ${kpi.title.toLowerCase()} (${kpi.actionLabel})`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold text-[#7A6E63] group-hover:text-[#985018] transition-colors">
+              <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                <span className="text-[11px] font-semibold text-[#7A6E63] group-hover:text-[#985018] transition-colors truncate pr-1">
                   {kpi.title}
                 </span>
-                <div className="w-6 h-6 rounded-lg bg-[#FAF4EE] group-hover:bg-[#985018] flex items-center justify-center transition-colors">
+                <div className="w-6 h-6 rounded-lg bg-[#FAF4EE] group-hover:bg-[#985018] flex items-center justify-center transition-colors shrink-0">
                   <Icon className="w-3.5 h-3.5 text-[#985018] group-hover:text-white stroke-[1.8] transition-colors" />
                 </div>
               </div>
               <div className="my-1">
-                <div className="text-[22px] sm:text-[24px] xl:text-[26px] font-extrabold text-[#8E4002] tracking-tight leading-none">
+                <div className="text-[18px] sm:text-[20px] xl:text-[19px] 2xl:text-[23px] font-extrabold text-[#8E4002] tracking-tight leading-none truncate">
                   {isLoading ? '...' : kpi.value}
                 </div>
               </div>
               <div className="flex items-center justify-between gap-1 mt-1 pt-1 border-t border-[#F5EBE1]/70">
-                <p className="text-[10.5px] text-[#8C7E72] font-medium truncate">
+                <p className="text-[10px] 2xl:text-[10.5px] text-[#8C7E72] font-medium truncate" title={kpi.subtext}>
                   {kpi.subtext}
                 </p>
                 <span className="text-[10px] font-bold text-[#985018] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 shrink-0">
-                  <span>{kpi.actionLabel}</span>
+                  <span className="hidden 2xl:inline">{kpi.actionLabel}</span>
                   <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />
                 </span>
               </div>

@@ -2,8 +2,14 @@ process.env.NODE_PATH = './backend/node_modules';
 require('module').Module._initPaths();
 const { Client } = require('pg');
 
+const connectionString = process.env.ADMIN_DATABASE_URL || process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error('LỖI: Vui lòng thiết lập biến môi trường ADMIN_DATABASE_URL hoặc DATABASE_URL');
+  process.exit(1);
+}
+
 const client = new Client({
-  connectionString: 'postgresql://postgres.wstvwushpwcdsmhpunvh:Anhyeuemnhieu123@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres'
+  connectionString
 });
 
 async function run() {

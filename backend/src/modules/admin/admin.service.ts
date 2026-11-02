@@ -424,6 +424,9 @@ export class AdminService {
     body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string },
   ) {
     this.resource(table, actor, true);
+    if (table === 'user_packages' && operation === 'create') {
+      throw new BadRequestException('Chỉ luồng POS mới được kích hoạt gói cho khách hàng.');
+    }
     const columns = await this.columns(table, actor);
     let input = body?.values;
     let password: string | undefined;

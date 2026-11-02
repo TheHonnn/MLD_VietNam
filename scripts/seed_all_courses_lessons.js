@@ -1,6 +1,10 @@
 const https = require('https');
-const supabaseUrl = 'https://wstvwushpwcdsmhpunvh.supabase.co';
-const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!serviceKey) {
+  console.error('LỖI: Vui lòng thiết lập biến môi trường SUPABASE_SERVICE_ROLE_KEY');
+  process.exit(1);
+}
 
 async function req(path, method = 'GET', data = null) {
   return new Promise((resolve, reject) => {

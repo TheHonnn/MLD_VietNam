@@ -19,6 +19,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { adminApi, Listing, Row } from "./api";
+import { portalService } from "../services/portal.service";
 
 export interface InstructorFormValues {
   user_id?: string;
@@ -137,41 +138,10 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
     onChange("avatar_url", localBlob);
 
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-      const cleanFileName = `instructor_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
-      const SUPABASE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
-      const KEY =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
-
-      const res = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/avatars/${cleanFileName}`,
-        {
-          method: "POST",
-          headers: {
-            apikey: KEY,
-            Authorization: `Bearer ${KEY}`,
-            "Content-Type": file.type || "image/png",
-          },
-          body: file,
-        }
-      );
-
-      if (!res.ok) {
-        // Fallback sang Base64 nếu storage gặp trục trặc
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (reader.result) {
-            onChange("avatar_url", String(reader.result));
-          }
-        };
-        reader.readAsDataURL(file);
-        return;
-      }
-
-      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/avatars/${cleanFileName}`;
+      const publicUrl = await portalService.uploadFileToStorage(file, file.name);
       onChange("avatar_url", publicUrl);
     } catch (err: any) {
-      console.warn("Lỗi tải ảnh lên Supabase Storage, chuyển sang lưu Base64:", err);
+      console.warn("Lỗi tải ảnh lên Supabase Storage qua API backend, chuyển sang lưu Base64:", err);
       // Fallback an toàn sang Base64 để không làm gián đoạn người dùng
       const reader = new FileReader();
       reader.onload = () => {

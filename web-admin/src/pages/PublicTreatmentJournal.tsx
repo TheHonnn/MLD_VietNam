@@ -20,7 +20,6 @@ import {
   HeartHandshake,
   MessageCircle,
 } from 'lucide-react';
-import { supabase } from '../services/supabaseClient';
 import { exportElementToPdf } from '../utils/pdfExport';
 
 interface JournalData {
@@ -66,7 +65,7 @@ interface JournalData {
 }
 
 export const PublicTreatmentJournal: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
 
   const [journal, setJournal] = useState<JournalData | null>(null);
@@ -80,8 +79,8 @@ export const PublicTreatmentJournal: React.FC = () => {
     let isMounted = true;
 
     async function loadJournal() {
-      if (!id) {
-        setErrorMsg('Mã hồ sơ không hợp lệ.');
+      if (!token) {
+        setErrorMsg('Liên kết nhật ký không hợp lệ.');
         setIsLoading(false);
         return;
       }
@@ -90,134 +89,15 @@ export const PublicTreatmentJournal: React.FC = () => {
       setErrorMsg(null);
 
       try {
-        // 1. Fetch raw journal row
-        const { data: rawRow, error: jErr } = await supabase
-          .from('treatment_journal')
-          .select('*')
-          .eq('id', id)
-          .maybeSingle();
-
-        if (jErr || !rawRow) {
-          if (isMounted) {
-            setErrorMsg('Không tìm thấy thông tin nhật ký điều trị hoặc đường dẫn đã hết hạn.');
-            setIsLoading(false);
-          }
-          return;
+        const apiBase = ((import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api/v1').replace(/\/$/, '');
+        const response = await fetch(`${apiBase}/treatment/shared-journal/${encodeURIComponent(token)}`);
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.data) {
+          throw new Error(payload?.message || 'Không tìm thấy nhật ký hoặc liên kết đã hết hạn/thu hồi.');
         }
-
-        // 2. Fetch related details in parallel (resilient to nulls)
-        const [custRes, techRes, pkgRes, bookingRes] = await Promise.all([
-          rawRow.customer_id
-            ? supabase.from('users').select('id, full_name, phone, avatar_url').eq('id', rawRow.customer_id).maybeSingle()
-            : Promise.resolve({ data: null }),
-          rawRow.technician_id
-            ? supabase.from('technicians').select('id, full_name, title').eq('id', rawRow.technician_id).maybeSingle()
-            : Promise.resolve({ data: null }),
-          rawRow.user_package_id
-            ? supabase.from('user_packages').select('id, total_sessions, completed_sessions, package:treatment_packages(id, name)').eq('id', rawRow.user_package_id).maybeSingle()
-            : Promise.resolve({ data: null }),
-          rawRow.booking_id
-            ? supabase.from('bookings').select('id, branch_id, assigned_room_id, branch:branches(id, name, address, district, city, phone), room:branch_rooms(id, name)').eq('id', rawRow.booking_id).maybeSingle()
-            : Promise.resolve({ data: null }),
-        ]);
-
-        const customer = custRes?.data
-          ? {
-              id: custRes.data.id,
-              fullName: custRes.data.full_name || 'Khách hàng',
-              phone: custRes.data.phone,
-              avatarUrl: custRes.data.avatar_url,
-            }
-          : null;
-
-        const technician = techRes?.data
-          ? {
-              id: techRes.data.id,
-              fullName: techRes.data.full_name,
-              title: techRes.data.title || 'Chuyên viên trị liệu MLD',
-            }
-          : null;
-
-        const pkgData = (pkgRes?.data as any)?.package;
-        const packageInfo = pkgRes?.data
-          ? {
-              id: pkgRes.data.id,
-              name: pkgData?.name || 'Gói chăm sóc trị liệu chuyên sâu',
-              totalSessions: pkgRes.data.total_sessions || 10,
-              completedSessions: pkgRes.data.completed_sessions || rawRow.session_number || 1,
-            }
-          : null;
-
-        const branchData = (bookingRes?.data as any)?.branch;
-        const roomData = (bookingRes?.data as any)?.room;
-
-        let branch = branchData
-          ? {
-              id: branchData.id,
-              name: branchData.name,
-              address: branchData.address,
-              district: branchData.district,
-              city: branchData.city,
-              hotline: branchData.phone || '1900 6868',
-            }
-          : null;
-
-        // Fallback default branch if not linked via booking
-        if (!branch) {
-          const { data: defaultBranch } = await supabase
-            .from('branches')
-            .select('id, name, address, district, city, phone')
-            .limit(1)
-            .maybeSingle();
-
-          if (defaultBranch) {
-            branch = {
-              id: defaultBranch.id,
-              name: defaultBranch.name,
-              address: defaultBranch.address,
-              district: defaultBranch.district,
-              city: defaultBranch.city,
-              hotline: defaultBranch.phone || '1900 6868',
-            };
-          }
-        }
-
-        const parsePhotos = (val: any): string[] => {
-          if (Array.isArray(val)) return val.map((x) => String(x)).filter(Boolean);
-          if (typeof val === 'string') {
-            try {
-              const parsed = JSON.parse(val);
-              if (Array.isArray(parsed)) return parsed.map((x) => String(x)).filter(Boolean);
-            } catch {
-              if (val.trim()) return [val.trim()];
-            }
-          }
-          return [];
-        };
-
-        const compiled: JournalData = {
-          id: rawRow.id,
-          sessionNumber: Number(rawRow.session_number) || 1,
-          sessionDate: rawRow.session_date || new Date().toISOString().split('T')[0],
-          treatmentStartTime: rawRow.treatment_start_time,
-          treatmentEndTime: rawRow.treatment_end_time,
-          conditionBefore: rawRow.condition_before,
-          conditionAfter: rawRow.condition_after,
-          treatmentNotes: rawRow.treatment_notes,
-          beforePhotos: parsePhotos(rawRow.before_photos),
-          afterPhotos: parsePhotos(rawRow.after_photos),
-          specialistAdvice: rawRow.specialist_advice,
-          customerSignatureUrl: rawRow.customer_signature_url,
-          createdAt: rawRow.created_at,
-          customer,
-          technician,
-          package: packageInfo,
-          branch,
-          roomName: roomData?.name || null,
-        };
 
         if (isMounted) {
-          setJournal(compiled);
+          setJournal(payload.data as JournalData);
           setIsLoading(false);
         }
       } catch (err: any) {
@@ -233,7 +113,7 @@ export const PublicTreatmentJournal: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [id]);
+  }, [token]);
 
   // Mask phone number for public privacy (e.g., 0912345678 -> 0912 ••• 678)
   const maskPhone = (phone?: string | null) => {

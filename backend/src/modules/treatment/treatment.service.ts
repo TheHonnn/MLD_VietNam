@@ -4,6 +4,7 @@ import { CreateJournalDto } from './dto/create-journal.dto';
 import { CreateConsultationDto } from './dto/create-consultation.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
+import { createHash } from 'crypto';
 
 @Injectable()
 export class TreatmentService {
@@ -227,6 +228,58 @@ export class TreatmentService {
     }
 
     return [];
+  }
+
+  async getSharedJournal(token: string) {
+    if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) throw new NotFoundException('Liên kết nhật ký không hợp lệ hoặc đã hết hạn.');
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const { data: row, error } = await this.supabaseService.adminClient
+      .from('treatment_journal')
+      .select('*')
+      .eq('share_token_hash', tokenHash)
+      .gt('share_expires_at', new Date().toISOString())
+      .is('share_revoked_at', null)
+      .maybeSingle();
+    if (error || !row) throw new NotFoundException('Liên kết nhật ký không hợp lệ hoặc đã hết hạn.');
+
+    const [customerRes, techRes, packageRes, bookingRes] = await Promise.all([
+      this.supabaseService.adminClient.from('users').select('id, full_name, phone, avatar_url').eq('id', row.customer_id).maybeSingle(),
+      row.technician_id
+        ? this.supabaseService.adminClient.from('technicians').select('id, full_name, title').eq('id', row.technician_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      row.user_package_id
+        ? this.supabaseService.adminClient.from('user_packages').select('id, total_sessions, completed_sessions, package:treatment_packages(id, name)').eq('id', row.user_package_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      row.booking_id
+        ? this.supabaseService.adminClient.from('bookings').select('id, branch:branches(id, name, address, district, city, phone), room:branch_rooms(id, name)').eq('id', row.booking_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    const customer = customerRes.data;
+    const technician = techRes.data as any;
+    const packageRow = packageRes.data as any;
+    const booking = bookingRes.data as any;
+    const branch = booking?.branch;
+    return {
+      id: row.id,
+      sessionNumber: row.session_number,
+      sessionDate: row.session_date,
+      treatmentStartTime: row.treatment_start_time,
+      treatmentEndTime: row.treatment_end_time,
+      conditionBefore: row.condition_before,
+      conditionAfter: row.condition_after,
+      treatmentNotes: row.treatment_notes,
+      beforePhotos: row.before_photos || [],
+      afterPhotos: row.after_photos || [],
+      specialistAdvice: row.specialist_advice,
+      customerSignatureUrl: row.customer_signature_url,
+      createdAt: row.created_at,
+      customer: customer ? { id: customer.id, fullName: customer.full_name || 'Khách hàng', phone: customer.phone, avatarUrl: customer.avatar_url } : null,
+      technician: technician ? { id: technician.id, fullName: technician.full_name, title: technician.title || 'Chuyên viên trị liệu MLD' } : null,
+      package: packageRow ? { id: packageRow.id, name: packageRow.package?.name || 'Gói chăm sóc trị liệu chuyên sâu', totalSessions: packageRow.total_sessions, completedSessions: packageRow.completed_sessions } : null,
+      branch: branch ? { id: branch.id, name: branch.name, address: branch.address, district: branch.district, city: branch.city, hotline: branch.phone } : null,
+      roomName: booking?.room?.name || null,
+    };
   }
 
   /**

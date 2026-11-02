@@ -419,7 +419,7 @@ export const ChapterEditorSheet: React.FC<ChapterEditorSheetProps> = ({
               </div>
               <div>
                 <h3 className="text-sm font-bold text-[#2C241E]">2. Tiêu đề chương học</h3>
-                <p className="text-xs text-[#7F6E60]">Tên chương hiển thị trên lộ trình học viên và chứng chỉ</p>
+                <p className="text-xs text-[#7F6E60]">Tên chương hiển thị trên lộ trình học viên và chứng nhận</p>
               </div>
             </div>
 

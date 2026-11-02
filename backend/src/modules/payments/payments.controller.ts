@@ -4,6 +4,7 @@ import {
   Get,
   Body,
   Param,
+  Headers,
   HttpCode,
   HttpStatus,
   ParseIntPipe,
@@ -62,22 +63,22 @@ export class PaymentsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Webhook tự động đối soát biến động số dư ngân hàng (SePay / Casso / MBBank)' })
   @ApiResponse({ status: 200, description: 'Đối soát và cập nhật thanh toán tự động thành công' })
-  async handleBankTransferWebhook(@Body() body: any) {
-    return this.paymentsService.handleBankTransferWebhook(body);
+  async handleBankTransferWebhook(@Body() body: any, @Headers() headers: Record<string, string>) {
+    return this.paymentsService.handleBankTransferWebhook(body, headers);
   }
 
   @Post('sepay-webhook')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Endpoint Webhook tích hợp trực tiếp SePay' })
-  async handleSepayWebhook(@Body() body: any) {
-    return this.paymentsService.handleBankTransferWebhook(body);
+  async handleSepayWebhook(@Body() body: any, @Headers() headers: Record<string, string>) {
+    return this.paymentsService.handleBankTransferWebhook(body, headers);
   }
 
   @Post('casso-webhook')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Endpoint Webhook tích hợp trực tiếp Casso' })
-  async handleCassoWebhook(@Body() body: any) {
-    return this.paymentsService.handleBankTransferWebhook(body);
+  async handleCassoWebhook(@Body() body: any, @Headers() headers: Record<string, string>) {
+    return this.paymentsService.handleBankTransferWebhook(body, headers);
   }
 
   @Post('zalo-refresh-token')

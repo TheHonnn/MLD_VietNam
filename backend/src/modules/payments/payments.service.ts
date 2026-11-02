@@ -3,6 +3,7 @@ import {
   Logger,
   BadRequestException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../../database/supabase.service';
@@ -40,19 +41,27 @@ export class PaymentsService {
     private supabaseService: SupabaseService,
     private redisService: RedisService,
   ) {
-    const clientId = this.configService.get<string>('PAYOS_CLIENT_ID') || 'bc4b5481-da88-4f8f-bacd-4226e4ce959a';
-    const apiKey = this.configService.get<string>('PAYOS_API_KEY') || '3fc4338f-0940-40df-bd37-30cf6e8ad734';
-    const checksumKey = this.configService.get<string>('PAYOS_CHECKSUM_KEY') || '46edada6e9e516bfca357fc1db04bddb529ce2f1185be31e6a3b9e9de7aad436';
+    const clientId = this.configService.get<string>('PAYOS_CLIENT_ID');
+    const apiKey = this.configService.get<string>('PAYOS_API_KEY');
+    const checksumKey = this.configService.get<string>('PAYOS_CHECKSUM_KEY');
 
-    this.bankBin = this.configService.get<string>('PAYOS_BANK_BIN') || '970422';
-    this.bankAccountNo = this.configService.get<string>('PAYOS_BANK_ACCOUNT_NO') || '0394316963';
-    this.bankAccountName = this.configService.get<string>('PAYOS_BANK_ACCOUNT_NAME') || 'BUI THE HOANG';
+    this.bankBin = this.configService.get<string>('PAYOS_BANK_BIN', '970422');
+    this.bankAccountNo = this.configService.get<string>('PAYOS_BANK_ACCOUNT_NO', '');
+    this.bankAccountName = this.configService.get<string>('PAYOS_BANK_ACCOUNT_NAME', 'MLD VIETNAM');
 
-    try {
-      this.payos = new PayOS({ clientId, apiKey, checksumKey });
-      this.logger.log(' PayOS VietQR Payment Client initialized successfully for MBBank 0394316963 (BUI THE HOANG)');
-    } catch (e) {
-      this.logger.error('Failed to initialize PayOS Client: ' + e);
+    if (clientId && apiKey && checksumKey) {
+      try {
+        this.payos = new PayOS({ clientId, apiKey, checksumKey });
+        this.logger.log('✅ PayOS VietQR Payment Client initialized successfully');
+      } catch (e) {
+        this.logger.error('Failed to initialize PayOS Client: ' + e);
+        this.payos = null;
+      }
+    } else {
+      this.payos = null;
+      this.logger.warn(
+        '⚠️ PayOS credentials (PAYOS_CLIENT_ID, PAYOS_API_KEY, PAYOS_CHECKSUM_KEY) chưa được cấu hình. VietQR PayOS sẽ hoạt động ở chế độ hiển thị VietQR tĩnh hoặc chuyển khoản thủ công.',
+      );
     }
   }
 
@@ -219,6 +228,10 @@ export class PaymentsService {
    * 3. XỬ LÝ WEBHOOK TỰ ĐỘNG TỪ PAYOS KHI CÓ TIỀN VÀO TÀI KHOẢN
    */
   async handleWebhook(webhookBody: any) {
+    if (!this.payos) {
+      this.logger.error('[PayOS Webhook Error] PayOS is not configured on this server');
+      throw new ServiceUnavailableException('Cổng thanh toán PayOS chưa được cấu hình biến môi trường.');
+    }
     try {
       // 1. Xác thực chữ ký điện tử an toàn từ PayOS (HMAC-SHA256)
       const verifiedData = await this.payos.webhooks.verify(webhookBody);
@@ -273,6 +286,21 @@ export class PaymentsService {
    * 4. HÀM CẬP NHẬT KHI ĐÃ NHẬN TIỀN THỰC TẾ VÀO TÀI KHOẢN NGÂN HÀNG
    */
   private async handlePaymentSuccess(orderCode: number, mapping: any, paymentData: any) {
+    try {
+      const { data: existingInv } = await this.supabaseService.adminClient
+        .from('invoices')
+        .select('id, payment_status')
+        .eq('gateway_transaction_id', String(orderCode))
+        .maybeSingle();
+
+      if (existingInv && existingInv.payment_status === 'PAID') {
+        this.logger.log(`[PayOS Idempotent] orderCode ${orderCode} already processed into invoice ${existingInv.id}. Skipping duplicate.`);
+        return;
+      }
+    } catch (e) {
+      this.logger.warn(`[PayOS Idempotency Check Error]: ${e}`);
+    }
+
     if (mapping) {
       mapping.status = 'PAID';
       this.orderMappings.set(orderCode, mapping);
@@ -425,7 +453,34 @@ export class PaymentsService {
    * 5. XỬ LÝ WEBHOOK TỰ ĐỘNG CHO CÁC CỔNG BIẾN ĐỘNG SỐ DƯ NGÂN HÀNG (SEPAY, CASSO, MBBANK)
    */
   async handleBankTransferWebhook(body: any, headers?: any) {
-    this.logger.log(`[Bank Transfer Webhook] Received webhook payload: ${JSON.stringify(body)}`);
+    this.logger.log(`[Bank Transfer Webhook] Received webhook payload`);
+
+    const configuredSecret =
+      this.configService.get<string>('BANK_WEBHOOK_SECRET') ||
+      this.configService.get<string>('SEPAY_API_KEY') ||
+      this.configService.get<string>('CASSO_SECURE_TOKEN');
+
+    if (configuredSecret) {
+      const authHeader = String(
+        headers?.authorization ||
+        headers?.Authorization ||
+        headers?.['x-api-key'] ||
+        headers?.['secure-token'] ||
+        headers?.apikey ||
+        '',
+      ).trim();
+      const token = authHeader.replace(/^(Bearer|Apikey)\s+/i, '').trim();
+      if (!token || token !== configuredSecret) {
+        this.logger.warn('[Bank Transfer Webhook] Unauthorized request: secret token mismatch');
+        throw new BadRequestException('Mã bí mật xác thực webhook không hợp lệ.');
+      }
+    } else if (
+      this.configService.get<string>('NODE_ENV') === 'production' ||
+      process.env.NODE_ENV === 'production'
+    ) {
+      this.logger.warn('[Bank Transfer Webhook] BANK_WEBHOOK_SECRET is not configured in production. Webhook call rejected.');
+      throw new BadRequestException('Cổng webhook ngân hàng chưa được kích hoạt khóa bí mật production.');
+    }
 
     let transactions: any[] = [];
     if (body && (body.transferAmount !== undefined || body.content !== undefined)) {
@@ -471,7 +526,7 @@ export class PaymentsService {
       if (!amount || amount <= 0) continue;
 
       const upperContent = content.toUpperCase();
-      this.logger.log(`[Reconcile Check] Analyzing transfer content: "${content}" with amount ${amount}đ`);
+      this.logger.log(`[Reconcile Check] Analyzing transfer content for amount ${amount}đ`);
 
       let matchedType: 'INVOICE' | 'ENROLLMENT' | 'BOOKING' | 'UNKNOWN' = 'UNKNOWN';
       let matchedId: string | null = null;
@@ -488,6 +543,25 @@ export class PaymentsService {
           .maybeSingle();
 
         if (inv) {
+          if (inv.payment_status === 'PAID') {
+            this.logger.log(`[Bank Transfer Webhook Idempotency] Invoice ${inv.invoice_code} is already PAID. Skipping duplicate processing.`);
+            results.push({ matchedCode, status: 'ALREADY_PAID', skipped: true });
+            continue;
+          }
+          if (amount < inv.total_amount) {
+            this.logger.warn(`[Bank Transfer Partial] Transfer amount ${amount} is less than invoice total ${inv.total_amount}. Marking PARTIAL.`);
+            await this.supabaseService.adminClient
+              .from('invoices')
+              .update({
+                payment_status: 'PARTIAL',
+                paid_at: new Date().toISOString(),
+                gateway_transaction_id: referenceCode || 'BANK_TRANSFER_WEBHOOK',
+              })
+              .eq('id', inv.id);
+            results.push({ matchedCode, status: 'PARTIAL', amountPaid: amount, required: inv.total_amount });
+            continue;
+          }
+
           matchedType = 'INVOICE';
           matchedId = inv.id;
 

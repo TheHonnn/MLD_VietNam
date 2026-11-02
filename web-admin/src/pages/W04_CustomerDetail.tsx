@@ -1405,7 +1405,7 @@ export const W04_CustomerDetail: React.FC = () => {
                     Hồ sơ học viên & Khóa học Academy ({enrollments.length})
                   </h3>
                   <p className="text-xs text-[#73675F] mt-0.5">
-                    Theo dõi tiến độ học tập, điểm danh và văn bằng chứng chỉ
+                    Theo dõi tiến độ học tập, điểm danh và chứng nhận
                   </p>
                 </div>
                 <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-[#F5ECE3] text-[#985018]">

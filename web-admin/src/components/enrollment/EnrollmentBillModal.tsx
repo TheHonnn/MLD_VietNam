@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Printer, CheckCircle2, RefreshCw, QrCode, AlertCircle, Copy, Check } from 'lucide-react';
+import { X, Printer, Download, CheckCircle2, RefreshCw, QrCode, AlertCircle, Copy, Check } from 'lucide-react';
 import { toast } from '../common';
+import { exportElementToPdf } from '../../utils/pdfExport';
 
 export interface CandidateBillInfo {
   id: string;
@@ -37,6 +38,7 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
   const [isChecking, setIsChecking] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   if (!isOpen || !candidate) return null;
 
@@ -61,6 +63,22 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      await exportElementToPdf('enrollment-bill-print-area', {
+        fileName: `Phieu_dang_ky_${candidate.orderCode || candidate.code}`,
+        orientation: 'portrait',
+        format: 'a4',
+        scale: 2,
+      });
+    } catch (error: any) {
+      toast.error('Lỗi xuất PDF', error?.message || 'Không thể tạo phiếu PDF.');
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   const handleCheckNow = async () => {
@@ -149,6 +167,14 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isExportingPdf}
+              className="px-3.5 py-2 bg-white border border-[#E8DFD8] hover:bg-[#FAF8F5] text-[#4A3B32] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>{isExportingPdf ? 'Đang tạo PDF...' : 'Tải PDF'}</span>
+            </button>
             <button
               onClick={handlePrint}
               className="px-3.5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
@@ -274,7 +300,7 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
                   <tr>
                     <td className="py-3 px-4">
                       <div className="font-semibold text-[#2C241E]">{candidate.program}</div>
-                      <div className="text-[11px] text-[#73675F]">Đã bao gồm giáo trình, thực hành máy và chứng chỉ tốt nghiệp</div>
+                      <div className="text-[11px] text-[#73675F]">Đã bao gồm giáo trình, thực hành máy và chứng nhận tốt nghiệp</div>
                     </td>
                     <td className="py-3 px-4 text-center text-[#73675F]">Khóa trọn gói</td>
                     <td className="py-3 px-4 text-right font-semibold text-[#2C241E]">

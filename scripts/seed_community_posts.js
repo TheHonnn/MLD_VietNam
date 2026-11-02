@@ -1,7 +1,11 @@
 const https = require('https');
 
-const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
-const HOST = 'wstvwushpwcdsmhpunvh.supabase.co';
+const API_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!API_KEY) {
+  console.error('LỖI: Vui lòng thiết lập biến môi trường SUPABASE_SERVICE_ROLE_KEY');
+  process.exit(1);
+}
+const HOST = process.env.SUPABASE_HOST || 'wstvwushpwcdsmhpunvh.supabase.co';
 
 const articles = [
   {

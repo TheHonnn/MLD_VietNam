@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Share2,
@@ -14,6 +14,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { toast } from '../common/Toast';
+import { getAdminAuthToken } from '../../services/supabaseClient';
 
 export interface ShareJournalItem {
   id: string;
@@ -40,11 +41,51 @@ export const ShareJournalModal: React.FC<ShareJournalModalProps> = ({
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
+  const [publicUrl, setPublicUrl] = useState('');
+  const [linkExpiresAt, setLinkExpiresAt] = useState('');
+  const [isCreatingLink, setIsCreatingLink] = useState(false);
+
+  const origin = typeof window === 'undefined' ? '' : window.location.origin;
+  useEffect(() => {
+    if (!isOpen || !journal) {
+      setPublicUrl('');
+      return;
+    }
+    let active = true;
+    const createLink = async () => {
+      const token = getAdminAuthToken();
+      if (!token) {
+        setPublicUrl('');
+        return;
+      }
+      setIsCreatingLink(true);
+      try {
+        const apiBase = ((import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api/v1').replace(/\/$/, '');
+        const response = await fetch(`${apiBase}/admin/treatment-journals/${encodeURIComponent(journal.id)}/share-link`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.data?.token) throw new Error(payload?.message || 'Không thể tạo liên kết chia sẻ.');
+        if (active) {
+          setPublicUrl(`${origin}/treatment-journal/${payload.data.token}`);
+          setLinkExpiresAt(payload.data.expiresAt);
+        }
+      } catch (error: any) {
+        if (active) {
+          setPublicUrl('');
+          toast.error('Không thể tạo liên kết', error?.message || 'Vui lòng thử lại.');
+        }
+      } finally {
+        if (active) setIsCreatingLink(false);
+      }
+    };
+    setPublicUrl('');
+    void createLink();
+    return () => { active = false; };
+  }, [isOpen, journal?.id, origin]);
 
   if (!isOpen || !journal) return null;
-
-  const origin = window.location.origin;
-  const publicUrl = `${origin}/treatment-journal/${journal.id}`;
 
   const defaultMessage = `Kính gửi Quý khách ${journal.customerName || ''},\nMLD Vietnam xin gửi Quý khách Phiếu theo dõi Nhật ký chăm sóc & kết quả buổi trị liệu (Buổi ${journal.sessionNumber || 1}) ngày ${journal.sessionDate || 'vừa qua'}.\nQuý khách có thể xem chi tiết hình ảnh đối chiếu Trước - Sau và Lời dặn chuyên viên tại đường link:\n${publicUrl}\n\nHotline hỗ trợ MLD Vietnam: 1900 6868. Chúc Quý khách một ngày nhiều niềm vui!`;
 
@@ -65,7 +106,26 @@ export const ShareJournalModal: React.FC<ShareJournalModalProps> = ({
   };
 
   const handleOpenPublicView = () => {
-    window.open(publicUrl, '_blank');
+    if (publicUrl) window.open(publicUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleRevokeLink = async () => {
+    const token = getAdminAuthToken();
+    if (!token) return;
+    const apiBase = ((import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api/v1').replace(/\/$/, '');
+    try {
+      const response = await fetch(`${apiBase}/admin/treatment-journals/${encodeURIComponent(journal.id)}/revoke-share-link`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.message || 'Không thể thu hồi liên kết.');
+      setPublicUrl('');
+      setLinkExpiresAt('');
+      toast.success('Đã thu hồi liên kết nhật ký.');
+    } catch (error: any) {
+      toast.error('Lỗi thu hồi liên kết', error?.message || 'Vui lòng thử lại.');
+    }
   };
 
   const handleOpenZaloChat = () => {
@@ -118,11 +178,12 @@ export const ShareJournalModal: React.FC<ShareJournalModalProps> = ({
           {/* 1. PUBLIC LINK BOX */}
           <div className="space-y-1.5">
             <label className="font-bold text-[#2C241E] flex items-center justify-between">
-              <span>Đường link xem nhật ký trực tuyến (Không cần đăng nhập):</span>
+              <span>Liên kết riêng, tự hết hạn sau 30 ngày:</span>
               <button
                 type="button"
                 onClick={handleOpenPublicView}
-                className="text-[#8A4F23] hover:underline flex items-center gap-1 font-semibold text-[11px] cursor-pointer"
+                disabled={!publicUrl}
+                className="text-[#8A4F23] hover:underline disabled:opacity-40 flex items-center gap-1 font-semibold text-[11px] cursor-pointer"
               >
                 Mở xem <ExternalLink className="w-3 h-3" />
               </button>
@@ -131,18 +192,23 @@ export const ShareJournalModal: React.FC<ShareJournalModalProps> = ({
               <input
                 type="text"
                 readOnly
-                value={publicUrl}
+                value={isCreatingLink ? 'Đang tạo liên kết bảo mật...' : publicUrl || 'Chưa có liên kết hoạt động'}
                 className="w-full px-3 py-2 bg-[#F9F6F2] border border-[#E8DFD8] rounded-xl text-xs font-mono text-[#5C4D42] select-all focus:outline-none"
               />
               <button
                 type="button"
                 onClick={handleCopyLink}
+                disabled={!publicUrl}
                 className="px-3.5 py-2 bg-[#8A4F23] hover:bg-[#723F1A] text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
               >
                 {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copiedLink ? 'Đã chép' : 'Chép link'}</span>
               </button>
             </div>
+            {linkExpiresAt && <div className="flex items-center justify-between text-[10px] text-[#73675F]">
+              <span>Hết hạn: {new Date(linkExpiresAt).toLocaleString('vi-VN')}</span>
+              <button type="button" onClick={handleRevokeLink} className="text-red-700 hover:underline">Thu hồi liên kết</button>
+            </div>}
           </div>
 
           {/* 2. PRE-FORMATTED MESSAGE */}

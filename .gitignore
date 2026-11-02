@@ -22,6 +22,7 @@ Thumbs.db
 .local-archive/
 scratch/
 test_screens/
+tmp/
 *.tmp
 *.log
 

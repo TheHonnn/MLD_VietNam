@@ -2,7 +2,7 @@ const path = require('path');
 const { Client } = require(path.join(__dirname, '../../backend/node_modules/pg'));
 require(path.join(__dirname, '../../backend/node_modules/dotenv')).config({ path: path.join(__dirname, '../../backend/.env') });
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres.wstvwushpwcdsmhpunvh:20051811buiH%40%40@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres';
+const connectionString = process.env.ADMIN_DATABASE_URL || process.env.DATABASE_URL;
 
 async function checkPortal() {
   const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });

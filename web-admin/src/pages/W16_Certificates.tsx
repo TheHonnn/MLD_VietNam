@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import QRCode from 'qrcode';
 import {
   Award,
   CheckCircle2,
   XCircle,
-  QrCode,
-  Printer,
   Search,
   Filter,
   Plus,
@@ -28,7 +26,7 @@ import {
   Info,
 } from 'lucide-react';
 import { academyService } from '../services';
-import { exportElementToPdf } from '../utils/pdfExport';
+import CertificateTemplateEditor from '../components/certificates/CertificateTemplateEditor';
 import {
   StudentCertificate,
   CertificateStatus,
@@ -70,8 +68,6 @@ export const W16_Certificates: React.FC = () => {
     signerName: '',
     signerTitle: '',
   });
-
-  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadAllData();
@@ -166,25 +162,6 @@ export const W16_Certificates: React.FC = () => {
 
   const handlePrint = () => {
     window.print();
-  };
-
-  const handleDownloadPdf = async () => {
-    if (!printRef.current || !selectedCert) return;
-    try {
-      setIsExportingPdf(true);
-      await exportElementToPdf(printRef.current, {
-        fileName: `GCN_MLD_${selectedCert.certificateCode}_${(selectedCert.studentName || 'HocVien').replace(/\s+/g, '_')}`,
-        orientation: 'landscape',
-        format: 'a4',
-        scale: 2.5,
-      });
-      toast.success('Xuất file thành công', `Đã tải về Giấy chứng nhận ${selectedCert.certificateCode}.pdf`);
-    } catch (err) {
-      console.error('PDF export error:', err);
-      toast.error('Lỗi xuất PDF', 'Không thể tạo file PDF giấy chứng nhận.');
-    } finally {
-      setIsExportingPdf(false);
-    }
   };
 
   const handleOpenRevoke = (cert: StudentCertificate) => {
@@ -338,37 +315,6 @@ export const W16_Certificates: React.FC = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* STYLE ISOLATION CHO CHẾ ĐỘ IN ẤN A4 NGANG (PRINT MODE) */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-certificate, #printable-certificate * {
-            visibility: visible !important;
-          }
-          #printable-certificate {
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            margin: 0 !important;
-            padding: 24px !important;
-            border: 12px double #b45309 !important;
-            background: white !important;
-            box-shadow: none !important;
-            z-index: 999999 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          @page {
-            size: A4 landscape;
-            margin: 0;
-          }
-        }
-      `}</style>
-
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-5">
         <div>
@@ -386,7 +332,7 @@ export const W16_Certificates: React.FC = () => {
                 </span>
               </div>
               <p className="text-sm text-gray-500 mt-0.5">
-                Chứng chỉ số điện tử tích hợp mã QR tra cứu tính minh bạch & chống làm giả mạo của Viện MLD Việt Nam
+                Chứng nhận điện tử tích hợp mã QR tra cứu tính minh bạch & chống làm giả mạo của Viện MLD Việt Nam
               </p>
             </div>
           </div>
@@ -627,174 +573,15 @@ export const W16_Certificates: React.FC = () => {
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* MODAL XEM TRƯỚC BẢN PHÔI GIẤY CHỨNG NHẬN CHUẨN Y KHOA                     */}
-      {/* ========================================================================= */}
       {showPreviewModal && selectedCert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full p-6 space-y-6 animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Controls */}
-            <div className="flex items-center justify-between border-b border-gray-200 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
-                  <Award className="w-5 h-5 text-sky-600" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-gray-900">
-                    Phôi Giấy Chứng Nhận Điện Tử Chuẩn Y Khoa
-                  </h3>
-                  <p className="text-xs text-gray-500 font-mono">Số hiệu: {selectedCert.certificateCode}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={handleDownloadPdf}
-                  disabled={isExportingPdf}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-sm transition cursor-pointer disabled:opacity-50"
-                  title="Tải trực tiếp tệp PDF chuẩn in A4 ngang về máy tính"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>{isExportingPdf ? 'Đang tạo PDF...' : 'Tải file PDF (A4)'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-sm font-semibold shadow-sm transition cursor-pointer"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>In trực tiếp</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPreviewModal(false)}
-                  className="px-3.5 py-2 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-
-            {/* CERTIFICATE PRINTABLE AREA */}
-            <div
-              id="printable-certificate"
-              ref={printRef}
-              className="relative p-10 bg-gradient-to-br from-amber-50/30 via-white to-sky-50/20 border-8 border-double border-amber-600/40 rounded-2xl shadow-inner text-center font-serif text-gray-900 space-y-5"
-            >
-              {/* Corner Ornaments */}
-              <div className="absolute top-4 left-4 text-amber-800/60 font-mono text-xs tracking-wider">◆ VIỆN ĐÀO TẠO MLD VIỆT NAM ◆</div>
-              <div className="absolute top-4 right-4 text-amber-800/60 font-mono text-xs tracking-wider">◆ CHUẨN QUỐC TẾ ISO 9001:2015 ◆</div>
-              <div className="absolute bottom-4 left-4 text-gray-500 font-mono text-[11px]">
-                Sổ vào sổ cấp GCN: <strong className="text-gray-800">{selectedCert.certificateCode}</strong>
-              </div>
-              <div className="absolute bottom-4 right-4 text-gray-500 font-mono text-[11px]">
-                Hệ thống xác thực điện tử bảo hộ độc quyền
-              </div>
-
-              {/* National Header */}
-              <div className="space-y-1">
-                <p className="text-xs font-bold tracking-widest text-gray-800 uppercase">
-                  CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
-                </p>
-                <p className="text-xs font-semibold text-gray-600 tracking-wider">
-                  Độc lập - Tự do - Hạnh phúc
-                </p>
-                <div className="w-28 h-0.5 bg-amber-700/50 mx-auto mt-1"></div>
-              </div>
-
-              {/* Institute Name */}
-              <div className="pt-2">
-                <h4 className="text-sm font-bold tracking-wider text-sky-900 uppercase">
-                  VIỆN TRỊ LIỆU & ĐÀO TẠO KỸ THUẬT DẪN LƯU BẠCH HUYẾT MLD VIỆT NAM
-                </h4>
-                <p className="text-xs text-gray-500 italic mt-0.5">
-                  MLD Vietnam Institute of Manual Lymphatic Drainage & Clinical Therapy
-                </p>
-              </div>
-
-              {/* Title Certificate */}
-              <div className="pt-3 pb-1">
-                <h2 className="text-3xl font-extrabold text-amber-800 tracking-widest uppercase">
-                  GIẤY CHỨNG NHẬN
-                </h2>
-                <p className="text-xs tracking-widest text-sky-800 uppercase font-sans font-bold mt-1">
-                  CERTIFICATE OF CLINICAL EXCELLENCE & PROFESSIONAL PRACTICE
-                </p>
-              </div>
-
-              {/* Body Content */}
-              <div className="space-y-3 py-2 max-w-xl mx-auto">
-                <p className="text-xs text-gray-600 italic">Hội đồng Chuyên môn Y khoa MLD Việt Nam chứng nhận học viên:</p>
-                <h3 className="text-2xl font-extrabold text-sky-950 tracking-wide uppercase border-b-2 border-amber-600/30 pb-1 inline-block min-w-[320px]">
-                  {selectedCert.studentName}
-                </h3>
-                {selectedCert.dateOfBirth && (
-                  <p className="text-xs text-gray-600 font-sans">
-                    Sinh ngày: <span className="font-semibold text-gray-900">{selectedCert.dateOfBirth}</span>
-                  </p>
-                )}
-
-                <p className="text-xs text-gray-700 pt-2 leading-relaxed">
-                  Đã hoàn thành xuất sắc chương trình đào tạo & vượt qua kỳ kiểm tra thực hành lâm sàng:
-                </p>
-                <p className="text-base font-bold text-sky-900 font-sans px-4 py-2 bg-sky-50/80 rounded-xl border border-sky-200">
-                  {selectedCert.courseTitle}
-                </p>
-
-                <div className="flex items-center justify-center gap-6 text-xs font-sans text-gray-700 pt-1">
-                  {selectedCert.theoryScore !== null && selectedCert.theoryScore !== undefined && (
-                    <span>Lý thuyết: <strong className="font-bold">{selectedCert.theoryScore} / 10</strong></span>
-                  )}
-                  {selectedCert.practicalScore !== null && selectedCert.practicalScore !== undefined && (
-                    <span>Thực hành lâm sàng: <strong className="font-bold">{selectedCert.practicalScore} / 10</strong></span>
-                  )}
-                  <span>Xếp loại: <strong className="text-sky-800 font-bold px-2 py-0.5 bg-amber-100 rounded">{selectedCert.finalGrade}</strong></span>
-                </div>
-              </div>
-
-              {/* Footer Signatures & Real Dynamic QR */}
-              <div className="grid grid-cols-3 items-end pt-5 gap-4 text-xs font-sans">
-                {/* QR Code */}
-                <div className="text-left space-y-1.5">
-                  <div className="w-24 h-24 p-1 bg-white border border-gray-300 rounded-xl shadow-xs flex items-center justify-center">
-                    {previewQrDataUrl ? (
-                      <img src={previewQrDataUrl} alt="QR Tra cứu" className="w-full h-full object-contain" />
-                    ) : (
-                      <QrCode className="w-20 h-20 text-sky-900" />
-                    )}
-                  </div>
-                  <p className="text-[10px] text-gray-500 font-mono">Quét QR tra cứu văn bằng gốc</p>
-                  <p className="text-[10px] text-sky-700 font-mono font-semibold break-all">
-                    {selectedCert.certificateCode}
-                  </p>
-                </div>
-
-                {/* Seal Icon */}
-                <div className="text-center pb-2">
-                  <div className="w-20 h-20 mx-auto rounded-full border-2 border-red-600/80 flex items-center justify-center text-red-600 font-bold text-[9px] uppercase leading-tight rotate-[-12deg] shadow-xs">
-                    HỘI ĐỒNG<br />Y KHOA MLD<br />VIỆT NAM
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1 italic">Con dấu điện tử xác thực</p>
-                </div>
-
-                {/* Signer */}
-                <div className="text-right space-y-1">
-                  <p className="text-gray-600 text-xs">Hà Nội, ngày {selectedCert.issueDate}</p>
-                  <p className="font-bold text-gray-800 uppercase text-xs">
-                    {selectedCert.signerTitle || 'Chủ Tịch Hội Đồng Y Khoa'}
-                  </p>
-                  <div className="h-12 flex items-center justify-end">
-                    <span className="font-serif italic text-lg text-sky-900 pr-2">Tran Hoang Nam</span>
-                  </div>
-                  <p className="font-bold text-gray-900 text-xs">
-                    {selectedCert.signerName || 'BS. CKI Trần Hoàng Nam'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <CertificateTemplateEditor
+          certificate={selectedCert}
+          qrDataUrl={previewQrDataUrl}
+          isExporting={isExportingPdf}
+          onClose={() => setShowPreviewModal(false)}
+          onExportingChange={setIsExportingPdf}
+          onPrint={handlePrint}
+        />
       )}
 
       {/* ========================================================================= */}

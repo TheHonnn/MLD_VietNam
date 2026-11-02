@@ -2,7 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const { Client } = require(path.join(__dirname, '../../backend/node_modules/pg'));
 
-const connectionString = 'postgresql://postgres.wstvwushpwcdsmhpunvh:20051811buiH%40%40@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres';
+const connectionString = process.env.ADMIN_DATABASE_URL || process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error('❌ Vui lòng cung cấp ADMIN_DATABASE_URL hoặc DATABASE_URL qua biến môi trường.');
+  process.exit(1);
+}
 
 async function applyMigration010() {
   console.log('=== ÁP DỤNG MIGRATION 010: BƯỚC 1 KHÓA BẢO VỆ KHẨN CẤP RLS ===\n');

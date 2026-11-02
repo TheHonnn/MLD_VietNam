@@ -840,10 +840,10 @@ export const W08_Enrollment: React.FC = () => {
 
   // Graduation status handler
   const handleGraduateStudent = async (enrollmentId: string) => {
-    if (!window.confirm('Xác nhận xét tốt nghiệp và cấp chứng chỉ đào tạo cho học viên này?')) return;
+    if (!window.confirm('Xác nhận xét tốt nghiệp và cấp chứng nhận đào tạo cho học viên này?')) return;
     try {
       const res = await academyService.updateEnrollmentStatus(enrollmentId, EnrollmentStatus.GRADUATED, {
-        approvalNotes: 'Đã hoàn thành xuất sắc khóa học và được cấp chứng chỉ MLD',
+        approvalNotes: 'Đã hoàn thành xuất sắc khóa học và được cấp chứng nhận MLD',
       });
       if (res.success) {
         const refreshed = await supabaseService.getEnrollments();
@@ -1836,7 +1836,7 @@ export const W08_Enrollment: React.FC = () => {
                         className="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Xét tốt nghiệp & Cấp chứng chỉ</span>
+                        <span>Xét tốt nghiệp & Cấp chứng nhận</span>
                       </button>
                     )}
                   </div>

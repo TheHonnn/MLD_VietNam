@@ -604,6 +604,9 @@ CREATE TABLE IF NOT EXISTS treatment_journal (
     after_photos JSONB NOT NULL DEFAULT '[]'::jsonb,
     specialist_advice TEXT,
     customer_signature_url TEXT,
+    share_token_hash TEXT UNIQUE,
+    share_expires_at TIMESTAMPTZ,
+    share_revoked_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -805,7 +808,7 @@ CREATE TABLE IF NOT EXISTS courses (
     tuition_fee NUMERIC(12, 2) NOT NULL DEFAULT 9000000.00,
     deposit_amount NUMERIC(12, 2) NOT NULL DEFAULT 2000000.00,
     learning_outcomes JSONB NOT NULL DEFAULT '[]'::jsonb,
-    certificate_title VARCHAR(200) NOT NULL DEFAULT 'Chứng chỉ Kỹ thuật viên Spa MLD',
+    certificate_title VARCHAR(200) NOT NULL DEFAULT 'Chứng nhận Kỹ thuật viên Spa MLD',
     image_url TEXT NOT NULL,
     is_featured BOOLEAN NOT NULL DEFAULT FALSE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -959,7 +962,7 @@ CREATE TABLE IF NOT EXISTS certificate_templates (
     name VARCHAR(200) NOT NULL,
     code VARCHAR(50) UNIQUE NOT NULL,
     background_image_url TEXT NOT NULL,
-    title_text VARCHAR(255) NOT NULL DEFAULT 'CHỨNG CHỈ TỐT NGHIỆP',
+    title_text VARCHAR(255) NOT NULL DEFAULT 'CHỨNG NHẬN TỐT NGHIỆP',
     signer_name VARCHAR(150) NOT NULL DEFAULT 'ThS. Nguyễn Thu Hà',
     signer_title VARCHAR(150) NOT NULL DEFAULT 'Hiệu trưởng Học viện MLD Vietnam',
     signature_image_url TEXT,

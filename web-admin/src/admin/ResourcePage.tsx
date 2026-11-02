@@ -18,6 +18,7 @@ import { BatchScheduleFormEditor } from "./BatchScheduleFormEditor";
 import { StudentAcademicRecordFormEditor } from "./StudentAcademicRecordFormEditor";
 import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
 import { ShareJournalModal, ShareJournalItem } from "../components/treatment/ShareJournalModal";
+import { portalService } from "../services/portal.service";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
 import {
@@ -657,48 +658,7 @@ function ServiceImageInput({
 
 
   const uploadImageBlob = async (blob: Blob, nameHint = "service_img.png") => {
-    const ext = nameHint.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "png";
-    const cleanFileName = `service_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
-    const SUPABASE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
-    const KEY =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
-
-    // Try 'services' bucket first, then fallback to 'avatars'
-    let targetBucket = "services";
-    let res = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
-      {
-        method: "POST",
-        headers: {
-          apikey: KEY,
-          Authorization: `Bearer ${KEY}`,
-          "Content-Type": blob.type || "image/png",
-        },
-        body: blob,
-      }
-    );
-
-    if (!res.ok) {
-      targetBucket = "avatars";
-      res = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
-        {
-          method: "POST",
-          headers: {
-            apikey: KEY,
-            Authorization: `Bearer ${KEY}`,
-            "Content-Type": blob.type || "image/png",
-          },
-          body: blob,
-        }
-      );
-    }
-
-    if (!res.ok) {
-      throw new Error("Không thể tải ảnh lên kho lưu trữ Supabase.");
-    }
-
-    return `${SUPABASE_URL}/storage/v1/object/public/${targetBucket}/${cleanFileName}`;
+    return portalService.uploadFileToStorage(blob, nameHint);
   };
 
   const handleProcessFile = async (file: File | Blob, nameHint?: string) => {
@@ -1133,19 +1093,18 @@ function formatCell(row: Row, c: Column): React.ReactNode {
     const url = row[c.name];
     const isIcon = c.name === "icon_url";
     return (
-      <div className={`${isIcon ? "w-10 h-10 rounded-xl" : "w-16 h-9 aspect-[16/9] rounded-lg"} overflow-hidden bg-[#FAF8F5] border border-[#E8DFD8] shrink-0 shadow-xs flex items-center justify-center`}>
+      <div className={`${isIcon ? "w-10 h-10 rounded-xl" : "w-16 h-9 aspect-[16/9] rounded-lg"} relative overflow-hidden bg-[#FAF8F5] border border-[#E8DFD8] shrink-0 shadow-xs flex items-center justify-center`}>
+        <Leaf className="w-4 h-4 text-[#BA7E4C] absolute" />
         {url ? (
           <img
             src={url}
             alt=""
-            className="w-full h-full object-cover"
+            className="relative w-full h-full object-cover"
             onError={(e) => {
-              (e.target as HTMLElement).style.display = "none";
+              (e.target as HTMLElement).style.visibility = "hidden";
             }}
           />
-        ) : (
-          <Leaf className="w-4 h-4 text-[#BA7E4C]" />
-        )}
+        ) : null}
       </div>
     );
   }
@@ -2002,28 +1961,7 @@ function ImageUploadInput({
     setUploading(true);
     setLoadError(false);
     try {
-      const ext = file.name.split(".").pop() || "png";
-      const cleanFileName = `avatar_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
-      const SUPABASE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
-      const KEY =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
-
-      const res = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/avatars/${cleanFileName}`,
-        {
-          method: "POST",
-          headers: {
-            apikey: KEY,
-            Authorization: `Bearer ${KEY}`,
-            "Content-Type": file.type || "image/png",
-          },
-          body: file,
-        },
-      );
-      if (!res.ok) {
-        throw new Error("Không thể tải ảnh lên kho lưu trữ Supabase.");
-      }
-      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/avatars/${cleanFileName}`;
+      const publicUrl = await portalService.uploadFileToStorage(file, file.name);
       onChange(publicUrl);
     } catch (err: any) {
       alert(err.message || "Lỗi khi tải ảnh");
@@ -2257,48 +2195,7 @@ function CategoryIconPicker({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadIconBlob = async (blob: Blob, nameHint = "cat_icon.png") => {
-    const ext = nameHint.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "png";
-    const cleanFileName = `cat_icon_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
-    const SUPABASE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
-    const KEY =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
-
-    // Try 'services' bucket first, then fallback to 'avatars'
-    let targetBucket = "services";
-    let res = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
-      {
-        method: "POST",
-        headers: {
-          apikey: KEY,
-          Authorization: `Bearer ${KEY}`,
-          "Content-Type": blob.type || "image/png",
-        },
-        body: blob,
-      }
-    );
-
-    if (!res.ok) {
-      targetBucket = "avatars";
-      res = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
-        {
-          method: "POST",
-          headers: {
-            apikey: KEY,
-            Authorization: `Bearer ${KEY}`,
-            "Content-Type": blob.type || "image/png",
-          },
-          body: blob,
-        }
-      );
-    }
-
-    if (!res.ok) {
-      throw new Error("Không thể tải ảnh icon lên kho lưu trữ Supabase.");
-    }
-
-    return `${SUPABASE_URL}/storage/v1/object/public/${targetBucket}/${cleanFileName}`;
+    return portalService.uploadFileToStorage(blob, nameHint);
   };
 
   const handleProcessFile = async (file: File | Blob, nameHint?: string) => {

@@ -49,6 +49,31 @@ export interface ExcelQuizImportModalProps {
   onImportSuccess?: (count: number) => void;
 }
 
+const normalizeHeader = (value: string) =>
+  value
+    .trim()
+    .toLocaleLowerCase('vi-VN')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+function readQuestionField(row: Record<string, unknown>, aliases: string[]): string {
+  const headers = Object.keys(row).map((header) => [normalizeHeader(header), header] as const);
+  const normalizedAliases = aliases.map(normalizeHeader);
+  const match = headers.find(([header]) =>
+    normalizedAliases.some((alias) => header === alias || header.startsWith(`${alias} `)),
+  );
+  return match ? String(row[match[1]] ?? '').trim() : '';
+}
+
+function readCorrectOption(value: string): string {
+  const normalized = value.trim().toUpperCase();
+  const match = normalized.match(/^(?:DAP AN(?: DUNG)?\s*[:=-]?\s*)?\(?([A-D])\)?(?:\b|[).:\s-])/i);
+  return match?.[1] || '';
+}
+
 export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
   isOpen,
   onClose,
@@ -57,8 +82,6 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
   onStagedQuestions,
   onImportSuccess,
 }) => {
-  if (!isOpen) return null;
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Steps: 'upload' -> 'preview' -> 'done'
@@ -237,6 +260,16 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
   };
 
   const processFile = (file: File) => {
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (!['xlsx', 'xls', 'csv'].includes(extension || '')) {
+      setErrorMessage('Chỉ hỗ trợ file .xlsx, .xls hoặc .csv.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMessage('File vượt quá 10 MB. Vui lòng tách nhỏ dữ liệu rồi thử lại.');
+      return;
+    }
+
     setIsProcessingFile(true);
     setErrorMessage("");
     setFileName(file.name);
@@ -260,37 +293,18 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
           return;
         }
 
-        // Helper to match column names flexibly
-        const findVal = (rowObj: Record<string, any>, patterns: string[]): string => {
-          for (const key of Object.keys(rowObj)) {
-            const cleanKey = key.trim().toLowerCase();
-            for (const p of patterns) {
-              if (cleanKey.includes(p.toLowerCase())) {
-                return String(rowObj[key] ?? "").trim();
-              }
-            }
-          }
-          return "";
-        };
-
         const parsed: ParsedExcelQuestion[] = rawRows.map((rowObj: Record<string, any>, index: number) => {
           const qNum =
-            Number(findVal(rowObj, ["stt", "số tt", "no", "number", "câu số"])) ||
+            Number(readQuestionField(rowObj, ["stt", "số tt", "no", "number", "câu số"])) ||
             index + 1;
-          const qText = findVal(rowObj, ["nội dung", "câu hỏi", "question", "content"]);
-          const optA = findVal(rowObj, ["đáp án a", "phương án a", "a.", "opt_a", "option a", "a"]);
-          const optB = findVal(rowObj, ["đáp án b", "phương án b", "b.", "opt_b", "option b", "b"]);
-          const optC = findVal(rowObj, ["đáp án c", "phương án c", "c.", "opt_c", "option c", "c"]);
-          const optD = findVal(rowObj, ["đáp án d", "phương án d", "d.", "opt_d", "option d", "d"]);
-          const rawCorrect = findVal(rowObj, ["đáp án đúng", "đúng", "correct", "key", "answer"]);
-          const explanation = findVal(rowObj, ["giải thích", "ghi chú", "lời giải", "explanation", "note"]);
-
-          // Extract correct option A/B/C/D
-          let cleanCorrect = "";
-          const matchCorrect = rawCorrect.toUpperCase().match(/[A-D]/);
-          if (matchCorrect) {
-            cleanCorrect = matchCorrect[0];
-          }
+          const qText = readQuestionField(rowObj, ["nội dung câu hỏi", "câu hỏi", "question", "content"]);
+          const optA = readQuestionField(rowObj, ["đáp án a", "phương án a", "option a", "opt a", "a"]);
+          const optB = readQuestionField(rowObj, ["đáp án b", "phương án b", "option b", "opt b", "b"]);
+          const optC = readQuestionField(rowObj, ["đáp án c", "phương án c", "option c", "opt c", "c"]);
+          const optD = readQuestionField(rowObj, ["đáp án d", "phương án d", "option d", "opt d", "d"]);
+          const rawCorrect = readQuestionField(rowObj, ["đáp án đúng", "đúng", "correct answer", "correct option", "correct", "key", "answer"]);
+          const explanation = readQuestionField(rowObj, ["giải thích chi tiết", "giải thích", "ghi chú", "lời giải", "explanation", "note"]);
+          const cleanCorrect = readCorrectOption(rawCorrect);
 
           const errors: string[] = [];
           if (!qText || qText.length < 3) {
@@ -309,6 +323,9 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
           };
           if (optC) options.C = optC;
           if (optD) options.D = optD;
+          if (cleanCorrect && !options[cleanCorrect as keyof typeof options]) {
+            errors.push(`Đáp án đúng ${cleanCorrect} chưa có nội dung lựa chọn tương ứng`);
+          }
 
           return {
             tempId: `excel-q-${index + 1}-${Date.now()}`,
@@ -320,6 +337,17 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
             isValid: errors.length === 0,
             errors,
           };
+        });
+
+        const questionNumberCounts = parsed.reduce((counts, question) => {
+          counts.set(question.question_number, (counts.get(question.question_number) || 0) + 1);
+          return counts;
+        }, new Map<number, number>());
+        parsed.forEach((question) => {
+          if ((questionNumberCounts.get(question.question_number) || 0) > 1) {
+            question.isValid = false;
+            question.errors.push(`Số thứ tự câu ${question.question_number} bị trùng`);
+          }
         });
 
         // Auto sort by question_number
@@ -371,6 +399,12 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
   const handleConfirmImport = async () => {
     if (validQuestions.length === 0) {
       setErrorMessage("Không có câu hỏi hợp lệ nào để nhập vào hệ thống.");
+      return;
+    }
+
+    if (invalidQuestions.length > 0 && !window.confirm(
+      `Có ${invalidQuestions.length} câu lỗi sẽ bị bỏ qua. Chỉ nhập ${validQuestions.length} câu hợp lệ?`
+    )) {
       return;
     }
 
@@ -502,6 +536,8 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
       setIsSubmitting(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">

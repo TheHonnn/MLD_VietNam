@@ -101,7 +101,7 @@ const DURATION_PRESETS = [
   { days: 14, label: "2 tuần", desc: "Tiêu chuẩn MLD" },
   { days: 30, label: "1 tháng", desc: "30 ngày" },
   { days: 60, label: "2 tháng", desc: "Nâng cao" },
-  { days: 90, label: "3 tháng", desc: "Chứng chỉ Master" },
+  { days: 90, label: "3 tháng", desc: "Chứng nhận Master" },
 ];
 
 export const BatchDateRangeEditor: React.FC<BatchDateRangeEditorProps> = ({

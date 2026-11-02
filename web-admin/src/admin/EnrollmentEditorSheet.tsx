@@ -63,7 +63,7 @@ const STATUS_OPTIONS = [
   {
     value: "GRADUATED",
     label: "Tốt nghiệp",
-    desc: "Đã hoàn thành khóa và nhận chứng chỉ",
+    desc: "Đã hoàn thành khóa và nhận chứng nhận",
     badgeClass: "bg-[#FAF5FF] text-[#6B21A8] border-[#E9D5FF]",
     dotClass: "bg-[#9333EA]",
   },

@@ -46,20 +46,26 @@ Hệ thống đã có sẵn cấu hình tự động tại file [`render.yaml`](
 | :--- | :--- | :--- |
 | `NODE_ENV` | `production` | Bắt buộc |
 | `PORT` | `3000` | Render tự cấp PORT hoặc nhận 3000 |
-| `CORS_ORIGIN` | `*` (hoặc domain web-admin Vercel) | Cho phép Web Admin gọi API |
-| `SUPABASE_URL` | `https://wstvwushpwcdsmhpunvh.supabase.co` | Supabase Cloud Live |
-| `SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` | Key công khai |
-| `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` | Key đặc quyền server |
-| `JWT_SECRET` | `super-secret-jwt-key-medical-healthcare-2026` | Ký JWT Token |
+| `ADMIN_DATABASE_URL` | `postgresql://postgres.[REF]:[PASS]@[HOST]:6543/postgres` | Kết nối PostgreSQL trực tiếp cho Web Admin CRUD (Bắt buộc) |
+| `CORS_ORIGIN` | `https://mldvietnam.vn,https://admin.mldvietnam.vn,https://mld-web-admin.vercel.app` | Danh sách domain production được phép gọi API (ngăn chặn CORS *) |
+| `SUPABASE_URL` | `https://[PROJECT-REF].supabase.co` | Supabase Cloud Live URL |
+| `SUPABASE_ANON_KEY` | `<SUPABASE_ANON_KEY>` | Key công khai |
+| `SUPABASE_SERVICE_ROLE_KEY` | `<SUPABASE_SERVICE_ROLE_KEY>` | Key đặc quyền server (Nhập trực tiếp tại Render Secret Manager) |
+| `SUPABASE_JWT_SECRET` | `<SUPABASE_JWT_SECRET>` | Secret lấy từ Supabase Dashboard > Project Settings > API |
+| `JWT_SECRET` | `<CHUỖI_NGẪU_NHIÊN_ÍT_NHẤT_32_KÝ_TỰ>` | Ký JWT Token (Tuyệt đối không dùng mẫu mặc định) |
 | `JWT_EXPIRES_IN` | `30m` | Thời gian sống access token |
-| `JWT_REFRESH_SECRET` | `super-secret-refresh-token-key-mld-vietnam-2026` | Ký Refresh Token |
+| `JWT_REFRESH_SECRET` | `<CHUỖI_NGẪU_NHIÊN_KHÁC_JWT_SECRET_32_KÝ_TỰ>` | Ký Refresh Token (Phải khác hoàn toàn JWT_SECRET) |
 | `JWT_REFRESH_EXPIRES_IN`| `30d` | Thời hạn refresh token |
-| `PAYOS_CLIENT_ID` | `bc4b5481-da88-4f8f-bacd-4226e4ce959a` | VietQR Gateway |
-| `PAYOS_API_KEY` | `3fc4338f-0940-40df-bd37-30cf6e8ad734` | VietQR Gateway |
-| `PAYOS_CHECKSUM_KEY` | `46edada6e9e516bfca357fc1db04bddb529ce2f...` | Ký webhook đối soát |
-| `PAYOS_BANK_BIN` | `970422` | Mã BIN MBBank |
-| `PAYOS_BANK_ACCOUNT_NO` | `0394316963` | Số tài khoản nhận tiền |
-| `PAYOS_BANK_ACCOUNT_NAME`| `BUI THE HOANG` | Tên chủ tài khoản |
+| `SMTP_HOST` | `smtp.gmail.com` | Máy chủ gửi thư |
+| `SMTP_PORT` | `587` | Cổng SMTP TLS |
+| `SMTP_USER` | `<EMAIL_GUI_THU>` | Tài khoản gửi email OTP |
+| `SMTP_PASS` | `<APP_PASSWORD_16_KY_TU>` | Mật khẩu ứng dụng Google (Nhập tại Render Secret Manager) |
+| `PAYOS_CLIENT_ID` | `<PAYOS_CLIENT_ID>` | VietQR Gateway Client ID |
+| `PAYOS_API_KEY` | `<PAYOS_API_KEY>` | VietQR Gateway API Key |
+| `PAYOS_CHECKSUM_KEY` | `<PAYOS_CHECKSUM_KEY>` | Ký webhook đối soát thanh toán |
+| `PAYOS_BANK_BIN` | `970422` | Mã BIN MBBank (hoặc ngân hàng tương ứng) |
+| `PAYOS_BANK_ACCOUNT_NO` | `<SO_TAI_KHOAN_NHAN_TIEN>` | Số tài khoản nhận tiền |
+| `PAYOS_BANK_ACCOUNT_NAME`| `<TEN_CHU_TAI_KHOAN>` | Tên chủ tài khoản nhận tiền |
 
 5. Bấm **Create Web Service**. Chờ từ 2 - 3 phút để Render build xong.
 6. Khi thấy dòng log `Nest application successfully started`, copy URL Backend của bạn:

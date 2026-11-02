@@ -21,6 +21,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { adminApi, Row } from "./api";
+import { portalService } from "../services/portal.service";
 import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
 
 export interface CourseEditorSheetProps {
@@ -141,58 +142,10 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
     setImageUrl(localBlob);
 
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-      const cleanFileName = `course_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
-      const STORAGE_URL = "https://wstvwushpwcdsmhpunvh.supabase.co";
-      const KEY =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE";
-
-      // Thử tải lên bucket 'services' trước, nếu thất bại thử sang bucket 'avatars'
-      let targetBucket = "services";
-      let res = await fetch(
-        `${STORAGE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
-        {
-          method: "POST",
-          headers: {
-            apikey: KEY,
-            Authorization: `Bearer ${KEY}`,
-            "Content-Type": file.type || "image/png",
-          },
-          body: file,
-        }
-      );
-
-      if (!res.ok) {
-        targetBucket = "avatars";
-        res = await fetch(
-          `${STORAGE_URL}/storage/v1/object/${targetBucket}/${cleanFileName}`,
-          {
-            method: "POST",
-            headers: {
-              apikey: KEY,
-              Authorization: `Bearer ${KEY}`,
-              "Content-Type": file.type || "image/png",
-            },
-            body: file,
-          }
-        );
-      }
-
-      if (res.ok) {
-        const publicUrl = `${STORAGE_URL}/storage/v1/object/public/${targetBucket}/${cleanFileName}`;
-        setImageUrl(publicUrl);
-      } else {
-        // Fallback sang Base64
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (reader.result) {
-            setImageUrl(String(reader.result));
-          }
-        };
-        reader.readAsDataURL(file);
-      }
+      const publicUrl = await portalService.uploadFileToStorage(file, file.name);
+      setImageUrl(publicUrl);
     } catch (err: any) {
-      console.warn("Lỗi tải ảnh lên Supabase Storage, chuyển sang lưu Base64:", err);
+      console.warn("Lỗi tải ảnh lên Supabase Storage qua API backend, chuyển sang lưu Base64:", err);
       const reader = new FileReader();
       reader.onload = () => {
         if (reader.result) {
@@ -233,7 +186,7 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
     if (isCreate && !certificateManuallyEdited && newTitle.trim()) {
-      setCertificateTitle(`Chứng chỉ hoàn thành: ${newTitle.trim()}`);
+      setCertificateTitle(`Chứng nhận hoàn thành: ${newTitle.trim()}`);
     }
   };
 
@@ -342,7 +295,7 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
           target_audience: targetAudience.trim(),
           target_need: targetNeed.trim(),
         },
-        certificate_title: certificateTitle.trim() || `Chứng chỉ hoàn thành: ${title.trim()}`,
+        certificate_title: certificateTitle.trim() || `Chứng nhận hoàn thành: ${title.trim()}`,
         short_description: shortDescription.trim(),
         full_description: fullDescription.trim(),
         image_url: imageUrl.trim() || "assets/images/course_banner_clean.png",
@@ -959,11 +912,11 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-[#2C241E] mb-1.5">
-                Tên chứng chỉ cấp khi tốt nghiệp
+                Tên chứng nhận cấp khi tốt nghiệp
               </label>
               <input
                 type="text"
-                placeholder="Ví dụ: Chứng chỉ hoàn thành chương trình MLD Vodder Level 1"
+                placeholder="Ví dụ: Chứng nhận hoàn thành chương trình MLD Vodder Level 1"
                 disabled={isView}
                 value={certificateTitle}
                 onChange={(e) => {
