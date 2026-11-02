@@ -177,10 +177,14 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
         .certificate-mountain-back { opacity: .72; background: linear-gradient(180deg, #e6f7fb 0%, #a6e0ea 100%); clip-path: polygon(0 28%, 8% 25%, 16% 5%, 23% 12%, 31% 35%, 43% 28%, 54% 7%, 64% 23%, 73% 31%, 82% 10%, 91% 23%, 100% 19%, 100% 100%, 0 100%); }
         .certificate-mountain-mid { opacity: .86; background: linear-gradient(180deg, #8bd6e2 0%, #5caec4 100%); clip-path: polygon(0 47%, 11% 42%, 19% 28%, 30% 45%, 39% 53%, 51% 31%, 62% 48%, 74% 34%, 84% 48%, 95% 37%, 100% 41%, 100% 100%, 0 100%); }
         .certificate-mountain-front { background: linear-gradient(180deg, #4eaa76 0%, #126274 100%); clip-path: polygon(0 72%, 12% 61%, 25% 74%, 38% 57%, 50% 63%, 63% 43%, 76% 58%, 87% 68%, 100% 54%, 100% 100%, 0 100%); }
+        #printable-certificate .certificate-header-org { font-size: clamp(6px, 1.02vw, 10.5px); letter-spacing: -0.015em; white-space: nowrap; }
+        #printable-certificate .certificate-header-inst { font-size: clamp(5.5px, 0.95vw, 9.8px); letter-spacing: -0.015em; white-space: nowrap; }
         @media print {
           body * { visibility: hidden !important; }
           #printable-certificate, #printable-certificate * { visibility: visible !important; }
           #printable-certificate { position: fixed !important; inset: 0 auto auto 0 !important; width: 210mm !important; height: 297mm !important; margin: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+          #printable-certificate .certificate-header-org { font-size: 10.5pt !important; letter-spacing: -0.01em !important; }
+          #printable-certificate .certificate-header-inst { font-size: 9.8pt !important; letter-spacing: -0.01em !important; }
         }
       `}</style>
 
@@ -223,11 +227,34 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
                   </div>
                 )}
 
-                <div className="certificate-header relative flex items-center gap-[3%] px-1 py-[1.5%]" style={{ color: settings.primaryColor }}>
-                  {settings.showLogo && <img src="/logo_mld.png" alt="Logo MLD Việt Nam" crossOrigin="anonymous" className="h-auto max-h-12 w-[20%] shrink-0 object-contain object-left" />}
+                <div className="certificate-header relative flex items-center gap-2 sm:gap-3 px-2 py-[1.5%]" style={{ color: settings.primaryColor }}>
+                  {settings.showLogo && (
+                    <img
+                      src="/logo_mld.png"
+                      alt="Logo MLD Việt Nam"
+                      crossOrigin="anonymous"
+                      className="h-auto max-h-11 w-[15%] max-w-[68px] shrink-0 object-contain object-left"
+                    />
+                  )}
                   <div className="min-w-0 flex-1 text-center">
-                    <p className="text-[clamp(7px,1.25vw,12px)] font-extrabold leading-tight">{settings.organization}</p>
-                    <p className="mt-0.5 text-[clamp(7px,1.2vw,11px)] font-bold leading-tight">{settings.institute}</p>
+                    {settings.organization.split('\n').map((line, idx) => (
+                      <p
+                        key={idx}
+                        className="certificate-header-org font-extrabold uppercase leading-tight tracking-tight whitespace-nowrap overflow-hidden text-ellipsis"
+                        title={line}
+                      >
+                        {line.replace(/CỘNG\s+ĐỒNG/g, 'CỘNG\u00A0ĐỒNG')}
+                      </p>
+                    ))}
+                    {settings.institute.split('\n').map((line, idx) => (
+                      <p
+                        key={idx}
+                        className="certificate-header-inst mt-0.5 font-bold uppercase leading-tight tracking-tight whitespace-nowrap overflow-hidden text-ellipsis"
+                        title={line}
+                      >
+                        {line}
+                      </p>
+                    ))}
                   </div>
                 </div>
 

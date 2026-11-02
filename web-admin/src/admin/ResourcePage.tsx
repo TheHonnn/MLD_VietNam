@@ -2723,7 +2723,7 @@ function CertificateTemplateFormPreview({
 }) {
   return (
     <section className="admin-field-wide border-t border-gray-200 px-4 py-5 sm:px-6" aria-label="Bản xem trước chứng nhận">
-      <style>{`.certificate-form-preview-header{background:linear-gradient(180deg,rgba(180,222,248,.82),rgba(255,255,255,.25))}.certificate-form-preview-footer{isolation:isolate}.certificate-form-preview-footer:before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.04) 42%)}.certificate-form-preview-mountain{position:absolute;inset-inline:-2%;bottom:-1px;z-index:0;height:88%;pointer-events:none;filter:blur(1.5px)}.certificate-form-preview-mountain-back{opacity:.72;background:linear-gradient(180deg,#e6f7fb,#a6e0ea);clip-path:polygon(0 28%,8% 25%,16% 5%,23% 12%,31% 35%,43% 28%,54% 7%,64% 23%,73% 31%,82% 10%,91% 23%,100% 19%,100% 100%,0 100%)}.certificate-form-preview-mountain-mid{opacity:.86;background:linear-gradient(180deg,#8bd6e2,#5caec4);clip-path:polygon(0 47%,11% 42%,19% 28%,30% 45%,39% 53%,51% 31%,62% 48%,74% 34%,84% 48%,95% 37%,100% 41%,100% 100%,0 100%)}.certificate-form-preview-mountain-front{background:linear-gradient(180deg,#4eaa76,#126274);clip-path:polygon(0 72%,12% 61%,25% 74%,38% 57%,50% 63%,63% 43%,76% 58%,87% 68%,100% 54%,100% 100%,0 100%)}`}</style>
+      <style>{`.certificate-form-preview-header{background:linear-gradient(180deg,rgba(180,222,248,.82),rgba(255,255,255,.25))}.certificate-form-preview-footer{isolation:isolate}.certificate-form-preview-footer:before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.04) 42%)}.certificate-form-preview-mountain{position:absolute;inset-inline:-2%;bottom:-1px;z-index:0;height:88%;pointer-events:none;filter:blur(1.5px)}.certificate-form-preview-mountain-back{opacity:.72;background:linear-gradient(180deg,#e6f7fb,#a6e0ea);clip-path:polygon(0 28%,8% 25%,16% 5%,23% 12%,31% 35%,43% 28%,54% 7%,64% 23%,73% 31%,82% 10%,91% 23%,100% 19%,100% 100%,0 100%)}.certificate-form-preview-mountain-mid{opacity:.86;background:linear-gradient(180deg,#8bd6e2,#5caec4);clip-path:polygon(0 47%,11% 42%,19% 28%,30% 45%,39% 53%,51% 31%,62% 48%,74% 34%,84% 48%,95% 37%,100% 41%,100% 100%,0 100%)}.certificate-form-preview-mountain-front{background:linear-gradient(180deg,#4eaa76,#126274);clip-path:polygon(0 72%,12% 61%,25% 74%,38% 57%,50% 63%,63% 43%,76% 58%,87% 68%,100% 54%,100% 100%,0 100%)}.certificate-form-preview-org{font-size:clamp(6px,1.02vw,10.5px);letter-spacing:-0.015em;white-space:nowrap}.certificate-form-preview-inst{font-size:clamp(5.5px,0.95vw,9.8px);letter-spacing:-0.015em;white-space:nowrap}`}</style>
       <h3 className="mb-3 text-sm font-bold text-gray-800">Bản xem trước chứng nhận</h3>
       <div className="mx-auto w-full max-w-[560px]">
         <article
@@ -2731,11 +2731,15 @@ function CertificateTemplateFormPreview({
           style={backgroundUrl ? { backgroundImage: `url("${backgroundUrl.replace(/["\\]/g, "")}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
         >
           <div className="pointer-events-none absolute inset-x-[8%] top-[24%] flex h-[48%] items-center justify-center opacity-[0.055]" aria-hidden="true"><img src="/logo_mld.png" alt="" className="h-full w-full object-contain" /></div>
-          <div className="certificate-form-preview-header relative flex items-center gap-[3%] px-1 py-[1.5%] text-[#0b43a8]">
-            <img src="/logo_mld.png" alt="Logo MLD Việt Nam" className="h-auto max-h-12 w-[20%] shrink-0 object-contain object-left" />
+          <div className="certificate-form-preview-header relative flex items-center gap-2 sm:gap-3 px-2 py-[1.5%] text-[#0b43a8]">
+            <img src="/logo_mld.png" alt="Logo MLD Việt Nam" className="h-auto max-h-11 w-[15%] max-w-[68px] shrink-0 object-contain object-left" />
             <div className="min-w-0 flex-1 text-center">
-              <p className="text-[clamp(7px,1.25vw,12px)] font-extrabold leading-tight">VIỆN NGHIÊN CỨU VÀ PHÁT TRIỂN CÔNG NGHỆ CSSK CỘNG ĐỒNG</p>
-              <p className="mt-0.5 text-[clamp(7px,1.2vw,11px)] font-bold leading-tight">TRUNG TÂM ỨNG DỤNG KHOA HỌC BẠCH HUYẾT VIỆT NAM</p>
+              <p className="certificate-form-preview-org font-extrabold uppercase leading-tight tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                VIỆN NGHIÊN CỨU VÀ PHÁT TRIỂN CÔNG NGHỆ CSSK CỘNG&nbsp;ĐỒNG
+              </p>
+              <p className="certificate-form-preview-inst mt-0.5 font-bold uppercase leading-tight tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                TRUNG TÂM ỨNG DỤNG KHOA HỌC BẠCH HUYẾT VIỆT NAM
+              </p>
             </div>
           </div>
           <div className="relative mt-[3.5%] text-center text-[#0b43a8]">
