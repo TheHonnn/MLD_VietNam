@@ -1108,9 +1108,9 @@ export const academyService = {
     }
   },
 
-  async seedBatchSchedules(batchId: string, startDate?: string): Promise<ApiResponse<BatchSchedule[]>> {
+  async seedBatchSchedules(batchId: string, startDate?: string, scheduleText?: string): Promise<ApiResponse<BatchSchedule[]>> {
     try {
-      const seeded = await supabaseService.seedBatchSchedules(batchId, startDate);
+      const seeded = await supabaseService.seedBatchSchedules(batchId, startDate, scheduleText);
       return {
         success: true,
         statusCode: 201,

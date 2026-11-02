@@ -7345,5 +7345,16 @@ export const SCHEMA_COLUMNS: Record<string, Column[]> = {
       "writable": false,
       "reference": null
     }
+  ],
+  "home_products": [
+    { "name": "id", "type": "uuid", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": true, "writable": false, "reference": null },
+    { "name": "name", "type": "varchar", "required": true, "hasDefault": false, "maxLength": 255, "options": [], "primary": false, "writable": true, "reference": null },
+    { "name": "category", "type": "varchar", "required": true, "hasDefault": false, "maxLength": 100, "options": ["Dụng cụ tập luyện", "Băng ép", "Chăm sóc da", "Tài liệu"], "primary": false, "writable": true, "reference": null },
+    { "name": "price_min", "type": "numeric", "required": true, "hasDefault": false, "maxLength": null, "options": [], "primary": false, "writable": true, "reference": null },
+    { "name": "price_max", "type": "numeric", "required": true, "hasDefault": false, "maxLength": null, "options": [], "primary": false, "writable": true, "reference": null },
+    { "name": "unit", "type": "varchar", "required": true, "hasDefault": false, "maxLength": 100, "options": [], "primary": false, "writable": true, "reference": null },
+    { "name": "details", "type": "text[]", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": false, "writable": true, "reference": null },
+    { "name": "sort_order", "type": "int4", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": false, "writable": true, "reference": null },
+    { "name": "created_at", "type": "timestamptz", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": false, "writable": false, "reference": null }
   ]
 };

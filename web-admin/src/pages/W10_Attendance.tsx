@@ -211,37 +211,70 @@ export const W10_Attendance: React.FC = () => {
     return instructors.find((i) => i.id === activeBatch.instructorId);
   }, [activeBatch, instructors]);
 
+  const custMap = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
+
+  const getStudentDisplayName = (st: CourseEnrollment) => {
+    const cust = custMap.get(st.studentId);
+    return cust?.fullName || st.studentName || 'Học viên';
+  };
+
+  const getStudentPhoneOrCode = (st: CourseEnrollment) => {
+    const cust = custMap.get(st.studentId);
+    return cust?.phone || st.studentPhone || st.orderCode || '--';
+  };
+
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  const getSessionDateDisplay = (dateStr?: string) => {
+    if (!dateStr) return { dayName: '', dateDisplay: '—' };
+    const d = new Date(`${dateStr}T00:00:00`);
+    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const dayName = isNaN(d.getDay()) ? '' : dayNames[d.getDay()];
+    const dateDisplay = dateStr.split('-').reverse().slice(0, 2).join('/');
+    return { dayName, dateDisplay };
+  };
+
+  // Lấy học viên đúng của lớp học này (không fallback sang lớp khác)
   const batchStudents = useMemo(() => {
-    if (!selectedBatchId) return liveEnrollments;
-    const directMatches = liveEnrollments.filter(
+    if (!selectedBatchId) return [];
+    return liveEnrollments.filter(
       (e) => e.batchId === selectedBatchId || e.batch?.id === selectedBatchId
     );
-    if (directMatches.length > 0) return directMatches;
-    return liveEnrollments;
   }, [liveEnrollments, selectedBatchId]);
 
-  const getCellStatus = (scheduleId: string, enrollmentId: string): AttendanceStatus => {
-    return attendanceGrid[scheduleId]?.[enrollmentId] || AttendanceStatus.PRESENT;
+  // Trạng thái điểm danh: trả về null nếu chưa được chấm (không tự động mặc định Có mặt)
+  const getCellStatus = (scheduleId: string, enrollmentId: string): AttendanceStatus | null => {
+    return attendanceGrid[scheduleId]?.[enrollmentId] ?? null;
   };
 
   const handleToggleCell = (scheduleId: string, enrollmentId: string) => {
     const current = getCellStatus(scheduleId, enrollmentId);
-    let next: AttendanceStatus;
-    if (current === AttendanceStatus.PRESENT) next = AttendanceStatus.LATE;
+    let next: AttendanceStatus | null;
+    if (current === null) next = AttendanceStatus.PRESENT;
+    else if (current === AttendanceStatus.PRESENT) next = AttendanceStatus.LATE;
     else if (current === AttendanceStatus.LATE) next = AttendanceStatus.EXCUSED;
     else if (current === AttendanceStatus.EXCUSED) next = AttendanceStatus.ABSENT;
-    else next = AttendanceStatus.PRESENT;
+    else next = null; // Vòng lặp: Chưa điểm danh (-) -> P -> L -> E -> A -> (-)
 
-    setAttendanceGrid((prev) => ({
-      ...prev,
-      [scheduleId]: {
-        ...(prev[scheduleId] || {}),
-        [enrollmentId]: next,
-      },
-    }));
+    setAttendanceGrid((prev) => {
+      const scheduleMap = { ...(prev[scheduleId] || {}) };
+      if (next === null) {
+        delete scheduleMap[enrollmentId];
+      } else {
+        scheduleMap[enrollmentId] = next;
+      }
+      return {
+        ...prev,
+        [scheduleId]: scheduleMap,
+      };
+    });
   };
 
   const handleMarkAllPresentForSchedule = (scheduleId: string) => {
+    if (batchStudents.length === 0) return;
     setAttendanceGrid((prev) => {
       const scheduleMap = { ...(prev[scheduleId] || {}) };
       batchStudents.forEach((st) => {
@@ -259,10 +292,14 @@ export const W10_Attendance: React.FC = () => {
     if (!selectedBatchId) return;
     setIsLoadingSchedules(true);
     try {
-      const res = await academyService.seedBatchSchedules(selectedBatchId, activeBatch?.startDate);
+      const res = await academyService.seedBatchSchedules(
+        selectedBatchId,
+        activeBatch?.startDate,
+        activeBatch?.scheduleText
+      );
       if (res.success && res.data) {
         setBatchSchedules(res.data);
-        showToast('Đã khởi tạo thành công 8 buổi học chuẩn phác đồ Vodder!');
+        showToast('Đã khởi tạo và sắp xếp 8 buổi học đúng thứ trong tuần!');
       } else {
         toast.error('Lỗi', 'Không thể khởi tạo thời khóa biểu.');
       }
@@ -290,17 +327,25 @@ export const W10_Attendance: React.FC = () => {
       batchSchedules.forEach((sch) => {
         batchStudents.forEach((st) => {
           const status = getCellStatus(sch.id, st.id);
-          recordsToSave.push({
-            scheduleId: sch.id,
-            enrollmentId: st.id,
-            status,
-          });
+          if (status !== null) {
+            recordsToSave.push({
+              scheduleId: sch.id,
+              enrollmentId: st.id,
+              status,
+            });
+          }
         });
       });
 
+      if (recordsToSave.length === 0) {
+        toast.info('Thông báo', 'Chưa có buổi học nào được chấm điểm danh. Vui lòng bấm vào các ô để điểm danh trước khi lưu.');
+        setIsSavingAttendance(false);
+        return;
+      }
+
       const res = await academyService.saveBatchAttendance(recordsToSave);
       if (res.success) {
-        showToast('Đã lưu thành công dữ liệu điểm danh lên Supabase Cloud!');
+        showToast(`Đã lưu thành công ${recordsToSave.length} lượt điểm danh lên hệ thống!`);
       } else {
         toast.error('Lỗi lưu điểm danh', res.message || 'Vui lòng thử lại sau.');
       }
@@ -533,7 +578,7 @@ export const W10_Attendance: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {batchSchedules.length === 0 ? (
                 <button
                   type="button"
@@ -545,15 +590,27 @@ export const W10_Attendance: React.FC = () => {
                   <span>Khởi tạo 8 buổi học chuẩn phác đồ</span>
                 </button>
               ) : (
-                <button
-                  type="button"
-                  disabled={isSavingAttendance}
-                  onClick={handleSaveAttendance}
-                  className="px-5 py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{isSavingAttendance ? 'Đang lưu...' : 'Lưu điểm danh lên hệ thống'}</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    disabled={isLoadingSchedules}
+                    onClick={handleSeedSchedules}
+                    className="px-3.5 py-2.5 bg-[#FAF0E4] hover:bg-[#F3E2CE] text-[#8A4F23] border border-[#E8DFD8] text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    title="Cập nhật lại ngày học của 8 buổi học theo đúng các thứ trong tuần"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Đồng bộ ngày theo lịch</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingAttendance}
+                    onClick={handleSaveAttendance}
+                    className="px-5 py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{isSavingAttendance ? 'Đang lưu...' : 'Lưu điểm danh lên hệ thống'}</span>
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -580,6 +637,18 @@ export const W10_Attendance: React.FC = () => {
                 <span>Khởi tạo 8 buổi học ngay</span>
               </button>
             </div>
+          ) : batchStudents.length === 0 ? (
+            <div className="p-10 text-center bg-white rounded-2xl border border-[#EFE4D9] space-y-3">
+              <div className="w-12 h-12 rounded-full bg-[#FAF0E4] border border-[#E8DFD8] text-[#8D4B1A] flex items-center justify-center mx-auto">
+                <Users className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-bold text-[#2C241E]">
+                Lớp học này hiện chưa có học viên ghi danh
+              </h3>
+              <p className="text-xs text-[#73675F] max-w-md mx-auto">
+                Chưa có học viên nào được xếp vào lớp <strong>{activeBatch?.batchCode || 'này'}</strong>. Bạn có thể sang mục <strong>Tuyển sinh & Ghi danh (W08)</strong> để xếp lớp cho học viên hoặc chọn lớp học khác từ danh sách phía trên.
+              </p>
+            </div>
           ) : (
             <div className="bg-white rounded-2xl border border-[#EFE4D9] shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
@@ -589,38 +658,52 @@ export const W10_Attendance: React.FC = () => {
                       <th className="p-3.5 font-bold text-[#3E200C] sticky left-0 bg-[#FAF8F5] z-10 min-w-[200px] border-r border-[#EFE4D9]">
                         Học viên ({batchStudents.length})
                       </th>
-                      {batchSchedules.map((sch, sIdx) => (
-                        <th
-                          key={sch.id}
-                          className="p-3 text-center min-w-[110px] border-r border-[#EFE4D9] last:border-r-0"
-                        >
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="font-extrabold text-[#3E200C] text-[11px]">
-                              Buổi {sIdx + 1}
-                            </span>
-                            <span className="text-[10px] text-[#73675F] font-mono">
-                              {sch.sessionDate?.split('-').reverse().slice(0, 2).join('/')}
-                            </span>
-                            {sch.isPracticeLab ? (
-                              <span className="text-[9px] bg-sky-50 text-sky-700 px-1.5 py-0.2 rounded font-bold border border-sky-200">
-                                Thực hành
+                      {batchSchedules.map((sch, sIdx) => {
+                        const { dayName, dateDisplay } = getSessionDateDisplay(sch.sessionDate);
+                        const isToday = sch.sessionDate === todayStr;
+
+                        return (
+                          <th
+                            key={sch.id}
+                            className={`p-3 text-center min-w-[115px] border-r border-[#EFE4D9] last:border-r-0 ${
+                              isToday ? 'bg-amber-50/50' : ''
+                            }`}
+                          >
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="flex items-center gap-1">
+                                <span className="font-extrabold text-[#3E200C] text-[11px]">
+                                  Buổi {sIdx + 1}
+                                </span>
+                                {isToday && (
+                                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-[#0D6832] text-white">
+                                    Hôm nay
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-[#73675F] font-semibold">
+                                {dayName ? `${dayName} · ` : ''}{dateDisplay}
                               </span>
-                            ) : (
-                              <span className="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded font-bold border border-amber-200">
-                                Lý thuyết
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleMarkAllPresentForSchedule(sch.id)}
-                              title="Đánh dấu cả lớp có mặt cho buổi này"
-                              className="text-[9px] text-[#8D4B1A] hover:underline font-bold mt-0.5 cursor-pointer"
-                            >
-                              + All Có mặt
-                            </button>
-                          </div>
-                        </th>
-                      ))}
+                              {sch.isPracticeLab ? (
+                                <span className="text-[9px] bg-sky-50 text-sky-700 px-1.5 py-0.2 rounded font-bold border border-sky-200">
+                                  Thực hành
+                                </span>
+                              ) : (
+                                <span className="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded font-bold border border-amber-200">
+                                  Lý thuyết
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleMarkAllPresentForSchedule(sch.id)}
+                                title="Đánh dấu tất cả học viên có mặt cho buổi này"
+                                className="text-[9px] text-[#8D4B1A] hover:underline font-bold mt-0.5 cursor-pointer"
+                              >
+                                + All Có mặt
+                              </button>
+                            </div>
+                          </th>
+                        );
+                      })}
                       <th className="p-3.5 text-center font-bold text-[#3E200C] min-w-[90px]">
                         Tỷ lệ (%)
                       </th>
@@ -628,27 +711,41 @@ export const W10_Attendance: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-[#EFE4D9]">
                     {batchStudents.map((st) => {
+                      const displayName = getStudentDisplayName(st);
+                      const phoneOrCode = getStudentPhoneOrCode(st);
+                      const nameParts = displayName.trim().split(' ');
+                      const initials = nameParts.length > 1
+                        ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
+                        : displayName.slice(0, 2).toUpperCase();
+
                       const presentCount = batchSchedules.filter(
                         (sch) => getCellStatus(sch.id, st.id) === AttendanceStatus.PRESENT
                       ).length;
+                      const lateCount = batchSchedules.filter(
+                        (sch) => getCellStatus(sch.id, st.id) === AttendanceStatus.LATE
+                      ).length;
+                      const recordedCount = batchSchedules.filter(
+                        (sch) => getCellStatus(sch.id, st.id) !== null
+                      ).length;
+
                       const attendanceRate =
-                        batchSchedules.length > 0
-                          ? Math.round((presentCount / batchSchedules.length) * 100)
-                          : 100;
+                        recordedCount > 0
+                          ? Math.round(((presentCount + lateCount * 0.5) / recordedCount) * 100)
+                          : null;
 
                       return (
                         <tr key={st.id} className="hover:bg-[#FAF8F5]/60 transition-colors">
                           <td className="p-3.5 sticky left-0 bg-white z-10 border-r border-[#EFE4D9] font-medium">
                             <div className="flex items-center gap-2.5">
                               <div className="w-8 h-8 rounded-full bg-[#FAF0E4] border border-[#E8DFD8] text-[#8D4B1A] font-bold text-xs flex items-center justify-center shrink-0">
-                                {st.studentName?.slice(0, 2).toUpperCase() || 'HV'}
+                                {initials}
                               </div>
                               <div className="truncate">
-                                <div className="font-bold text-[#2C241E] truncate max-w-[140px]">
-                                  {st.studentName || 'Học viên'}
+                                <div className="font-bold text-[#2C241E] truncate max-w-[140px]" title={displayName}>
+                                  {displayName}
                                 </div>
                                 <div className="text-[10px] text-[#73675F] truncate">
-                                  {st.studentPhone || st.orderCode || '--'}
+                                  {phoneOrCode}
                                 </div>
                               </div>
                             </div>
@@ -656,10 +753,14 @@ export const W10_Attendance: React.FC = () => {
 
                           {batchSchedules.map((sch) => {
                             const status = getCellStatus(sch.id, st.id);
+                            const isToday = sch.sessionDate === todayStr;
+
                             return (
                               <td
                                 key={sch.id}
-                                className="p-2.5 text-center border-r border-[#EFE4D9] last:border-r-0"
+                                className={`p-2.5 text-center border-r border-[#EFE4D9] last:border-r-0 ${
+                                  isToday ? 'bg-amber-50/20' : ''
+                                }`}
                               >
                                 <button
                                   type="button"
@@ -671,16 +772,20 @@ export const W10_Attendance: React.FC = () => {
                                       ? 'bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300'
                                       : status === AttendanceStatus.EXCUSED
                                       ? 'bg-sky-100 hover:bg-sky-200 text-sky-800 border border-sky-300'
-                                      : 'bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300'
+                                      : status === AttendanceStatus.ABSENT
+                                      ? 'bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300'
+                                      : 'bg-[#FAF8F5] hover:bg-[#F2ECE4] text-[#A69788] hover:text-[#2C241E] border border-dashed border-[#D8C4B2]'
                                   }`}
                                   title={`Bấm để đổi trạng thái. Hiện tại: ${
                                     status === AttendanceStatus.PRESENT
-                                      ? 'Có mặt'
+                                      ? 'Có mặt (P)'
                                       : status === AttendanceStatus.LATE
-                                      ? 'Đi trễ'
+                                      ? 'Đi trễ (L)'
                                       : status === AttendanceStatus.EXCUSED
-                                      ? 'Có phép'
-                                      : 'Vắng mặt'
+                                      ? 'Có phép (E)'
+                                      : status === AttendanceStatus.ABSENT
+                                      ? 'Vắng mặt (A)'
+                                      : 'Chưa điểm danh (-)'
                                   }`}
                                 >
                                   {status === AttendanceStatus.PRESENT
@@ -689,24 +794,40 @@ export const W10_Attendance: React.FC = () => {
                                     ? 'L'
                                     : status === AttendanceStatus.EXCUSED
                                     ? 'E'
-                                    : 'A'}
+                                    : status === AttendanceStatus.ABSENT
+                                    ? 'A'
+                                    : '—'}
                                 </button>
                               </td>
                             );
                           })}
 
                           <td className="p-3 text-center font-bold">
-                            <span
-                              className={`px-2 py-1 rounded-full text-[11px] font-extrabold ${
-                                attendanceRate >= 80
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : attendanceRate >= 60
-                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
-                              }`}
-                            >
-                              {attendanceRate}%
-                            </span>
+                            {attendanceRate === null ? (
+                              <span
+                                className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FAF8F5] text-[#8C7A6B] border border-[#E8DFD8]"
+                                title="Chưa có buổi học nào được điểm danh"
+                              >
+                                —
+                              </span>
+                            ) : (
+                              <div className="flex flex-col items-center">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
+                                    attendanceRate >= 80
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : attendanceRate >= 60
+                                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  }`}
+                                >
+                                  {attendanceRate}%
+                                </span>
+                                <span className="text-[9.5px] text-[#8C7A6B] mt-0.5">
+                                  {presentCount}/{recordedCount} buổi
+                                </span>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
@@ -719,6 +840,12 @@ export const W10_Attendance: React.FC = () => {
               <div className="p-3.5 bg-[#FAF8F5] border-t border-[#EFE4D9] flex flex-wrap items-center justify-between gap-3 text-xs text-[#73675F]">
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="font-semibold text-[#2C241E]">Ký hiệu:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-md bg-[#FAF8F5] text-[#A69788] border border-dashed border-[#D8C4B2] font-bold flex items-center justify-center text-[10px]">
+                      —
+                    </span>
+                    <span>Chưa điểm danh</span>
+                  </div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-[10px] border border-emerald-300">
                       P
@@ -746,7 +873,7 @@ export const W10_Attendance: React.FC = () => {
                 </div>
 
                 <div className="text-[11px] text-[#8C7A6B]">
-                  💡 Bấm vào ô chữ (P/L/E/A) để chuyển nhanh trạng thái điểm danh cho từng học viên.
+                  💡 Bấm vào từng ô để chuyển trạng thái (— ➔ P ➔ L ➔ E ➔ A ➔ —).
                 </div>
               </div>
             </div>
