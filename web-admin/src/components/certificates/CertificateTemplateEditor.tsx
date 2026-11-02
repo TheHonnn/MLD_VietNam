@@ -1,5 +1,6 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Eye, EyeOff, Printer, RotateCcw, Save, Settings2, X } from 'lucide-react';
+import QRCode from 'qrcode';
 import { StudentCertificate } from '../../types/shared_types';
 import { exportElementToPdf } from '../../utils/pdfExport';
 import { toast } from '../common';
@@ -63,6 +64,7 @@ const readSettings = (): TemplateSettings => {
 
 interface CertificateTemplateEditorProps {
   certificate: StudentCertificate;
+  templateName?: string;
   qrDataUrl: string;
   isExporting: boolean;
   onClose: () => void;
@@ -97,6 +99,7 @@ const Field: React.FC<{ label: string; value: string; onChange: (value: string) 
 
 export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps> = ({
   certificate,
+  templateName,
   qrDataUrl,
   isExporting,
   onClose,
@@ -114,9 +117,20 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
   });
   const [editorOpen, setEditorOpen] = useState(true);
   const [saved, setSaved] = useState(true);
+  const [generatedQr, setGeneratedQr] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
+  const effectiveQr = qrDataUrl || generatedQr;
 
   const displayIssueDate = useMemo(() => fields.issueDate || '________________', [fields.issueDate]);
+
+  useEffect(() => {
+    if (qrDataUrl || !certificate.qrVerificationCode) return;
+    let active = true;
+    QRCode.toDataURL(certificate.qrVerificationCode, { width: 240, margin: 1, errorCorrectionLevel: 'H' })
+      .then((value) => { if (active) setGeneratedQr(value); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [certificate.qrVerificationCode, qrDataUrl]);
 
   const updateSettings = <K extends keyof TemplateSettings>(key: K, value: TemplateSettings[K]) => {
     setSettings((current) => ({ ...current, [key]: value }));
@@ -192,7 +206,7 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
               <Settings2 className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-sm font-bold text-gray-900">Mẫu chứng nhận hoàn thành khóa học</h2>
+              <h2 className="truncate text-sm font-bold text-gray-900">{templateName || 'Mẫu chứng nhận hoàn thành khóa học'}</h2>
               <p className="truncate font-mono text-[11px] text-gray-500">Số hiệu: {certificate.certificateCode}</p>
             </div>
           </div>
@@ -254,7 +268,7 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
                 <div className="relative mt-auto flex min-h-[17%] items-end justify-between gap-3 pb-[2%]">
                   {settings.showQr ? (
                     <div className="flex shrink-0 flex-col items-center gap-1 self-end">
-                      {qrDataUrl && <img src={qrDataUrl} alt="QR tra cứu chứng nhận" crossOrigin="anonymous" className="h-[clamp(52px,11vw,82px)] w-[clamp(52px,11vw,82px)] object-contain" />}
+                      {effectiveQr && <img src={effectiveQr} alt="QR tra cứu chứng nhận" crossOrigin="anonymous" className="h-[clamp(52px,11vw,82px)] w-[clamp(52px,11vw,82px)] object-contain" />}
                       <span className="text-center text-[clamp(6px,1vw,9px)] font-medium text-gray-600">Quét mã tra cứu</span>
                     </div>
                   ) : <div />}

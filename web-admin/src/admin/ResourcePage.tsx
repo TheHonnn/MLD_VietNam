@@ -4490,6 +4490,14 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       setParams(next, { replace: true });
     } else setVersion((v) => v + 1);
   };
+  const openRecordPreview = (row: Row) => {
+    if (table === "certificate_templates") {
+      setCertificateTemplatePreview(row);
+      setEdit(null);
+      return;
+    }
+    setEdit({ row, mode: "view" });
+  };
 
   const { user } = useAdmin();
   const isSuperAdminOrAdmin = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN";
@@ -4554,6 +4562,21 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           <h1>{resource?.title || "Đang tải phân hệ…"}</h1>
         </div>
         <div className="admin-toolbar-actions">
+          {table === "certificate_templates" && (
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md border border-[#D9C3AD] bg-white px-3 py-2 text-xs font-semibold text-[#7D431C] transition hover:bg-[#FAF3EA]"
+              onClick={() => setCertificateTemplatePreview({
+                id: "mld-course-completion",
+                name: "Mẫu chứng nhận hoàn thành khóa học MLD",
+                code: "MLD-COURSE-CERT",
+                signer_title: "GIÁM ĐỐC",
+              })}
+            >
+              <Eye size={15} />
+              Xem mẫu mới
+            </button>
+          )}
           <button
             className="admin-icon"
             title="Tải lại"
@@ -5734,7 +5757,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           {j === 0 ? (
                             <button
                               className="admin-record-link"
-                              onClick={() => setEdit({ row, mode: "view" })}
+                              onClick={() => openRecordPreview(row)}
                             >
                               {formatCell(row, c)}
                             </button>
@@ -5780,8 +5803,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                         <div className="admin-row-actions">
                           <button
                             className="admin-icon"
-                            title="Xem chi tiết"
-                            onClick={() => setEdit({ row, mode: "view" })}
+                            title={table === "certificate_templates" ? "Xem & chỉnh sửa phôi chứng nhận A4" : "Xem chi tiết"}
+                            onClick={() => openRecordPreview(row)}
                           >
                             <Eye size={16} />
                           </button>
