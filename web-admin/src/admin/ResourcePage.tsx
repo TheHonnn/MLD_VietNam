@@ -18,6 +18,7 @@ import { BatchScheduleFormEditor } from "./BatchScheduleFormEditor";
 import { StudentAcademicRecordFormEditor } from "./StudentAcademicRecordFormEditor";
 import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
 import { ShareJournalModal, ShareJournalItem } from "../components/treatment/ShareJournalModal";
+import CertificateTemplateEditor from "../components/certificates/CertificateTemplateEditor";
 import { portalService } from "../services/portal.service";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
@@ -81,6 +82,7 @@ import {
   HISTORICAL_PROVINCE_NAMES,
 } from "../data/vietnamLocations";
 import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
+import { CertificateStatus, StudentCertificate } from "../types/shared_types";
 
 const toSlug = (str: string) =>
   str
@@ -91,6 +93,23 @@ const toSlug = (str: string) =>
     .replace(/[^a-z0-9\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-");
+
+const makeTemplatePreviewCertificate = (template: Row): StudentCertificate => {
+  const code = "MLD-DEMO-2026-0001";
+  return {
+    id: `template-preview-${template.id || "default"}`,
+    certificateCode: code,
+    qrVerificationCode: `https://mldvietnam.vn/verify/${code}`,
+    studentName: "NGUYỄN THỊ HỌC VIÊN",
+    dateOfBirth: "1995-06-15",
+    courseTitle: "CẤP ĐỘ 2 - DẪN LƯU BẠCH HUYẾT SÂU (DEEP LYMPHATIC DRAINAGE)",
+    issueDate: new Date().toISOString().slice(0, 10),
+    finalGrade: "XUẤT SẮC",
+    signerName: template.signer_name || "",
+    signerTitle: template.signer_title || "GIÁM ĐỐC",
+    status: CertificateStatus.ISSUED,
+  };
+};
 
 function ServiceStepsEditor({
   value,
@@ -2691,6 +2710,7 @@ function RecordDialog({
   onClose,
   onSaved,
   onSwitchMode,
+  onShareJournal,
 }: {
   resource: Resource;
   columns: Column[];
@@ -2699,6 +2719,7 @@ function RecordDialog({
   onClose: () => void;
   onSaved: () => void;
   onSwitchMode?: (newMode: "create" | "update" | "view", targetRow?: Row) => void;
+  onShareJournal?: (row: Row) => void;
 }) {
   const [values, setValues] = useState<Row>(() =>
       mode === "create" ? { ...row } : {},
@@ -3632,6 +3653,18 @@ function RecordDialog({
         )}
         {!(["consultation_surveys", "services"].includes(resource.name) && mode === "view") && (
           <footer>
+            {resource.name === "treatment_journal" && row.id && onShareJournal && (
+              <button
+                type="button"
+                className="admin-secondary"
+                style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#8A4F23", borderColor: "#D7BBA6" }}
+                onClick={() => onShareJournal(row)}
+                disabled={busy}
+              >
+                <Share2 size={16} />
+                Chia sẻ & Xuất PDF
+              </button>
+            )}
             <button
               type="button"
               className="admin-secondary"
@@ -3779,6 +3812,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const [search, setSearch] = useState(params.get("search") || "");
   const [showExcelImportModal, setShowExcelImportModal] = useState(false);
   const [shareJournalItem, setShareJournalItem] = useState<ShareJournalItem | null>(null);
+  const [certificateTemplatePreview, setCertificateTemplatePreview] = useState<Row | null>(null);
+  const [isExportingTemplatePdf, setIsExportingTemplatePdf] = useState(false);
   const confirmDialog = useRef<HTMLDialogElement>(null);
   const page = Number(params.get("page")) || 1;
   const resource = resources.find((r) => r.name === table);
@@ -5953,6 +5988,17 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           onSwitchMode={(newMode, targetRow) =>
             setEdit({ row: targetRow || edit.row, mode: newMode })
           }
+          onShareJournal={(targetRow) => {
+            setShareJournalItem({
+              id: targetRow.id,
+              sessionNumber: targetRow.session_number,
+              sessionDate: targetRow.session_date,
+              customerName: targetRow.customer?.full_name || targetRow.customer_name || 'Khách hàng',
+              customerPhone: targetRow.customer?.phone || targetRow.phone,
+              customerEmail: targetRow.customer?.email || targetRow.email,
+              serviceName: targetRow.treatment_notes,
+            });
+          }}
           onClose={() => {
             setEdit(null);
             if (params.has("create")) {
