@@ -38,6 +38,12 @@ const defaultSettings = {
 type TemplateSettings = typeof defaultSettings;
 type PrintFields = Pick<StudentCertificate, 'studentName' | 'dateOfBirth' | 'courseTitle' | 'issueDate' | 'signerName' | 'signerTitle'>;
 
+const formatCertificateDate = (value?: string | null) => {
+  if (!value) return '';
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+};
+
 const readSettings = (): TemplateSettings => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -100,9 +106,9 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
   const [settings, setSettings] = useState<TemplateSettings>(readSettings);
   const [fields, setFields] = useState<PrintFields>({
     studentName: certificate.studentName,
-    dateOfBirth: certificate.dateOfBirth || '',
+    dateOfBirth: formatCertificateDate(certificate.dateOfBirth),
     courseTitle: certificate.courseTitle,
-    issueDate: certificate.issueDate,
+    issueDate: formatCertificateDate(certificate.issueDate),
     signerName: certificate.signerName || '',
     signerTitle: certificate.signerTitle || 'GIÁM ĐỐC',
   });
@@ -165,7 +171,9 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
       <style>{`
         @page { size: A4 portrait; margin: 0; }
         .certificate-sheet { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .certificate-header { background: linear-gradient(180deg, rgba(224,243,255,.9), rgba(255,255,255,.2)); }
         .certificate-footer { isolation: isolate; }
+        .certificate-footer::before { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.5)); }
         .certificate-mountain { position: absolute; inset-inline: -2%; bottom: -1px; z-index: 0; height: 82%; pointer-events: none; }
         .certificate-mountain-back { background: linear-gradient(180deg, #e6f7fb 0%, #9cdeeb 100%); clip-path: polygon(0 52%, 12% 31%, 23% 45%, 38% 17%, 51% 40%, 66% 20%, 80% 42%, 92% 27%, 100% 43%, 100% 100%, 0 100%); }
         .certificate-mountain-mid { background: linear-gradient(180deg, #76cada 0%, #3d9dbb 100%); clip-path: polygon(0 67%, 13% 39%, 27% 57%, 43% 29%, 56% 52%, 72% 32%, 86% 55%, 100% 37%, 100% 100%, 0 100%); }
@@ -201,7 +209,7 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
           </div>
         </header>
 
-        <div className="grid min-h-0 flex-1 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_320px]">
           <section className="min-h-[65vh] overflow-auto bg-gray-100 p-3 sm:p-6" aria-label="Bản xem trước chứng nhận">
             <div className="mx-auto w-full max-w-[590px]">
               <article
@@ -216,8 +224,8 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
                   </div>
                 )}
 
-                <div className="relative flex items-center gap-4 border-b-2 border-sky-100 pb-[3%]" style={{ color: settings.primaryColor }}>
-                  {settings.showLogo && <img src="/logo_mld.png" alt="Logo MLD Việt Nam" crossOrigin="anonymous" className="h-[9%] max-h-14 w-[22%] object-contain object-left" />}
+                <div className="certificate-header relative flex items-center gap-4 border-b-2 border-sky-100 px-2 pt-2 pb-[3%]" style={{ color: settings.primaryColor }}>
+                  {settings.showLogo && <img src="/logo_mld.png" alt="Logo MLD Việt Nam" crossOrigin="anonymous" className="h-auto max-h-14 w-[22%] shrink-0 object-contain object-left" />}
                   <div className={`min-w-0 flex-1 text-center ${settings.showLogo ? 'pr-[18%]' : ''}`}>
                     <p className="text-[clamp(7px,1.5vw,13px)] font-extrabold leading-tight">{settings.organization}</p>
                     <p className="mt-1 text-[clamp(7px,1.45vw,12px)] font-bold leading-tight">{settings.institute}</p>
@@ -234,14 +242,13 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
                   <p>{settings.intro}</p>
                   <p>Họ và tên: <strong className="font-extrabold uppercase">{fields.studentName || '____________________________'}</strong></p>
                   {fields.dateOfBirth && <p>Ngày sinh: <strong>{fields.dateOfBirth}</strong></p>}
-                  <p>Mã học viên: <strong>{certificate.certificateCode}</strong></p>
+                  <p>Số hiệu chứng nhận: <strong>{certificate.certificateCode}</strong></p>
                   <p>Ngày cấp: <strong>{displayIssueDate}</strong></p>
                   <p className="pt-[1%]">{settings.completion}</p>
                   <p className="font-extrabold leading-snug" style={{ color: settings.primaryColor }}>
                     {fields.courseTitle || 'Tên khóa học'} {settings.framework && <span className="font-semibold">{settings.framework}</span>}
                     {settings.location && <span className="font-semibold"> tại {settings.location}.</span>}
                   </p>
-                  {certificate.finalGrade && <p className="pt-[1%] text-[0.9em]">Xếp loại: <strong>{certificate.finalGrade}</strong></p>}
                 </div>
 
                 <div className="relative mt-auto flex min-h-[17%] items-end justify-between gap-3 pb-[2%]">
@@ -273,7 +280,7 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
             </div>
           </section>
 
-          <aside className="min-h-0 border-t border-gray-200 bg-white xl:border-l xl:border-t-0" aria-label="Công cụ chỉnh sửa mẫu">
+          <aside className="min-h-0 border-t border-gray-200 bg-white lg:border-l lg:border-t-0" aria-label="Công cụ chỉnh sửa mẫu">
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
               <div>
                 <h3 className="text-sm font-bold text-gray-900">Chỉnh sửa</h3>
@@ -284,7 +291,7 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
               </button>
             </div>
 
-            {editorOpen && <div className="max-h-[56vh] space-y-5 overflow-y-auto p-4 xl:max-h-[calc(100vh-175px)]">
+            {editorOpen && <div className="max-h-[56vh] space-y-5 overflow-y-auto p-4 lg:max-h-[calc(100vh-230px)]">
               <section className="space-y-3">
                 <h4 className="text-[11px] font-bold uppercase text-gray-500">Thông tin bản in</h4>
                 <Field label="Họ và tên học viên" value={fields.studentName} onChange={(value) => updateField('studentName', value)} />
