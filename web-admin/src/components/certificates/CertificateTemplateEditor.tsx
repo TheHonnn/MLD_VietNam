@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Download, Eye, EyeOff, Printer, RotateCcw, Save, Settings2, X } from 'lucide-react';
-import QRCode from 'qrcode';
 import { StudentCertificate } from '../../types/shared_types';
 import { exportElementToPdf } from '../../utils/pdfExport';
 import { toast } from '../common';
 
-const STORAGE_KEY = 'mld.certificate-template.v1';
+const STORAGE_KEY = 'mld.certificate-template.v2';
 
 const palettes = [
   { name: 'MLD Blue', value: '#0b43a8' },
@@ -21,19 +20,18 @@ const defaultSettings = {
   subtitle: 'HOÀN THÀNH ĐÀO TẠO',
   intro: 'Chứng nhận này xác nhận rằng, học viên:',
   completion: 'Đã hoàn thành xuất sắc chương trình đào tạo:',
-  framework: 'thuộc Khung đào tạo chuyên môn của MLD Việt Nam',
+  framework: 'thuộc Khung đào tạo số 4 của MLD Việt Nam',
   location: 'Thành phố Hồ Chí Minh',
   footerNotes: [
     'Chứng nhận này xác nhận học viên đã hoàn thành đầy đủ các yêu cầu đào tạo của cấp độ tương ứng theo quy định của chương trình.',
-    'Chứng nhận này không đồng nghĩa với việc được phép giảng dạy, đào tạo, cấp chứng nhận hoặc chuyển giao phương pháp cho người khác.',
-    'Quyền giảng dạy chỉ được công nhận thông qua chương trình đào tạo giảng viên chính thức và phải có sự phê duyệt bằng văn bản.',
+    'Chứng nhận này không đồng nghĩa với việc được phép giảng dạy, đào tạo, cấp chứng nhận hoặc chuyển giao phương pháp Dẫn lưu Bạch huyết Thủ công (MLD) cho người khác.',
+    'Quyền giảng dạy và tư cách giảng viên chỉ được công nhận thông qua Chương trình Đào tạo Giảng viên chính thức và phải có sự phê duyệt bằng văn bản từ Hệ thống Đào tạo MLD Việt Nam.',
   ],
   primaryColor: '#0b43a8',
-  titleSize: 46,
+  titleSize: 56,
   showLogo: true,
   showWatermark: true,
   showFooterNotes: true,
-  showQr: true,
 };
 
 type TemplateSettings = typeof defaultSettings;
@@ -100,7 +98,6 @@ const Field: React.FC<{ label: string; value: string; onChange: (value: string) 
 export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps> = ({
   certificate,
   templateName,
-  qrDataUrl,
   isExporting,
   onClose,
   onExportingChange,
@@ -117,20 +114,9 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
   });
   const [editorOpen, setEditorOpen] = useState(true);
   const [saved, setSaved] = useState(true);
-  const [generatedQr, setGeneratedQr] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
-  const effectiveQr = qrDataUrl || generatedQr;
 
   const displayIssueDate = useMemo(() => fields.issueDate || '________________', [fields.issueDate]);
-
-  useEffect(() => {
-    if (qrDataUrl || !certificate.qrVerificationCode) return;
-    let active = true;
-    QRCode.toDataURL(certificate.qrVerificationCode, { width: 240, margin: 1, errorCorrectionLevel: 'H' })
-      .then((value) => { if (active) setGeneratedQr(value); })
-      .catch(() => {});
-    return () => { active = false; };
-  }, [certificate.qrVerificationCode, qrDataUrl]);
 
   const updateSettings = <K extends keyof TemplateSettings>(key: K, value: TemplateSettings[K]) => {
     setSettings((current) => ({ ...current, [key]: value }));
@@ -185,13 +171,13 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
       <style>{`
         @page { size: A4 portrait; margin: 0; }
         .certificate-sheet { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .certificate-header { background: linear-gradient(180deg, rgba(224,243,255,.9), rgba(255,255,255,.2)); }
+        .certificate-header { background: linear-gradient(180deg, rgba(180,222,248,.82), rgba(255,255,255,.25)); }
         .certificate-footer { isolation: isolate; }
-        .certificate-footer::before { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.5)); }
-        .certificate-mountain { position: absolute; inset-inline: -2%; bottom: -1px; z-index: 0; height: 82%; pointer-events: none; }
-        .certificate-mountain-back { background: linear-gradient(180deg, #e6f7fb 0%, #9cdeeb 100%); clip-path: polygon(0 52%, 12% 31%, 23% 45%, 38% 17%, 51% 40%, 66% 20%, 80% 42%, 92% 27%, 100% 43%, 100% 100%, 0 100%); }
-        .certificate-mountain-mid { background: linear-gradient(180deg, #76cada 0%, #3d9dbb 100%); clip-path: polygon(0 67%, 13% 39%, 27% 57%, 43% 29%, 56% 52%, 72% 32%, 86% 55%, 100% 37%, 100% 100%, 0 100%); }
-        .certificate-mountain-front { background: linear-gradient(180deg, #247c98 0%, #126274 100%); clip-path: polygon(0 79%, 16% 56%, 31% 76%, 47% 46%, 63% 68%, 78% 48%, 91% 72%, 100% 57%, 100% 100%, 0 100%); }
+        .certificate-footer::before { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.04) 42%); }
+        .certificate-mountain { position: absolute; inset-inline: -2%; bottom: -1px; z-index: 0; height: 88%; pointer-events: none; filter: blur(1.5px); }
+        .certificate-mountain-back { opacity: .72; background: linear-gradient(180deg, #e6f7fb 0%, #a6e0ea 100%); clip-path: polygon(0 28%, 8% 25%, 16% 5%, 23% 12%, 31% 35%, 43% 28%, 54% 7%, 64% 23%, 73% 31%, 82% 10%, 91% 23%, 100% 19%, 100% 100%, 0 100%); }
+        .certificate-mountain-mid { opacity: .86; background: linear-gradient(180deg, #8bd6e2 0%, #5caec4 100%); clip-path: polygon(0 47%, 11% 42%, 19% 28%, 30% 45%, 39% 53%, 51% 31%, 62% 48%, 74% 34%, 84% 48%, 95% 37%, 100% 41%, 100% 100%, 0 100%); }
+        .certificate-mountain-front { background: linear-gradient(180deg, #4eaa76 0%, #126274 100%); clip-path: polygon(0 72%, 12% 61%, 25% 74%, 38% 57%, 50% 63%, 63% 43%, 76% 58%, 87% 68%, 100% 54%, 100% 100%, 0 100%); }
         @media print {
           body * { visibility: hidden !important; }
           #printable-certificate, #printable-certificate * { visibility: visible !important; }
@@ -229,59 +215,52 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
               <article
                 id="printable-certificate"
                 ref={printRef}
-                className="certificate-sheet relative mx-auto flex aspect-[210/297] w-full flex-col overflow-hidden border border-sky-200 bg-white px-[7.5%] pb-[5%] pt-[5%] text-gray-900 shadow-xl"
+                className="certificate-sheet relative mx-auto flex aspect-[210/297] w-full flex-col overflow-hidden border border-sky-200 bg-white px-[7.5%] pb-[3.5%] pt-[3.5%] font-sans text-gray-900 shadow-xl"
                 style={{ '--certificate-primary': settings.primaryColor } as React.CSSProperties}
               >
                 {settings.showWatermark && (
-                  <div className="pointer-events-none absolute inset-x-[18%] top-[28%] flex justify-center opacity-[0.045]" aria-hidden="true">
-                    <img src="/logo_mld.png" alt="" className="w-full object-contain" />
+                  <div className="pointer-events-none absolute inset-x-[8%] top-[24%] flex h-[48%] items-center justify-center opacity-[0.055]" aria-hidden="true">
+                    <img src="/logo_mld.png" alt="" className="h-full w-full object-contain" />
                   </div>
                 )}
 
-                <div className="certificate-header relative flex items-center gap-4 border-b-2 border-sky-100 px-2 pt-2 pb-[3%]" style={{ color: settings.primaryColor }}>
-                  {settings.showLogo && <img src="/logo_mld.png" alt="Logo MLD Việt Nam" crossOrigin="anonymous" className="h-auto max-h-14 w-[22%] shrink-0 object-contain object-left" />}
-                  <div className={`min-w-0 flex-1 text-center ${settings.showLogo ? 'pr-[18%]' : ''}`}>
-                    <p className="text-[clamp(7px,1.5vw,13px)] font-extrabold leading-tight">{settings.organization}</p>
-                    <p className="mt-1 text-[clamp(7px,1.45vw,12px)] font-bold leading-tight">{settings.institute}</p>
+                <div className="certificate-header relative flex items-center gap-[3%] px-1 py-[1.5%]" style={{ color: settings.primaryColor }}>
+                  {settings.showLogo && <img src="/logo_mld.png" alt="Logo MLD Việt Nam" crossOrigin="anonymous" className="h-auto max-h-12 w-[20%] shrink-0 object-contain object-left" />}
+                  <div className="min-w-0 flex-1 text-center">
+                    <p className="text-[clamp(7px,1.25vw,12px)] font-extrabold leading-tight">{settings.organization}</p>
+                    <p className="mt-0.5 text-[clamp(7px,1.2vw,11px)] font-bold leading-tight">{settings.institute}</p>
                   </div>
                 </div>
 
-                <div className="relative mt-[5%] text-center" style={{ color: settings.primaryColor }}>
-                  <h1 className="font-serif font-bold leading-none" style={{ fontSize: `clamp(30px, ${settings.titleSize / 5.9}vw, ${settings.titleSize}px)` }}>{settings.title}</h1>
-                  <p className="mt-[2%] text-[clamp(10px,2vw,17px)] font-extrabold leading-tight">{settings.subtitle}</p>
-                  <p className="mx-auto mt-[1%] max-w-[95%] text-[clamp(9px,1.7vw,15px)] font-bold uppercase leading-snug">{fields.courseTitle || 'TÊN CHƯƠNG TRÌNH ĐÀO TẠO'}</p>
+                <div className="relative mt-[3.5%] text-center" style={{ color: settings.primaryColor }}>
+                  <h1 className="font-serif font-bold leading-none" style={{ fontSize: `clamp(34px, ${settings.titleSize / 5.9}vw, ${settings.titleSize}px)` }}>{settings.title}</h1>
+                  <p className="mt-[1.6%] text-[clamp(10px,1.8vw,16px)] font-extrabold leading-tight">{settings.subtitle}</p>
+                  <p className="mx-auto mt-[0.6%] max-w-[95%] text-[clamp(9px,1.6vw,14px)] font-bold uppercase leading-snug">{fields.courseTitle || 'TÊN CHƯƠNG TRÌNH ĐÀO TẠO'}</p>
                 </div>
 
-                <div className="relative mt-[7%] space-y-[1.2%] text-left text-[clamp(10px,1.8vw,15px)] font-semibold leading-snug">
+                <div className="relative mt-[6%] space-y-[0.7%] text-left text-[clamp(10px,1.75vw,15px)] font-semibold leading-snug">
                   <p>{settings.intro}</p>
                   <p>Họ và tên: <strong className="font-extrabold uppercase">{fields.studentName || '____________________________'}</strong></p>
                   {fields.dateOfBirth && <p>Ngày sinh: <strong>{fields.dateOfBirth}</strong></p>}
-                  <p>Số hiệu chứng nhận: <strong>{certificate.certificateCode}</strong></p>
+                  <p>Mã học viên: <strong>{certificate.certificateCode}</strong></p>
                   <p>Ngày cấp: <strong>{displayIssueDate}</strong></p>
                   <p className="pt-[1%]">{settings.completion}</p>
-                  <p className="font-extrabold leading-snug" style={{ color: settings.primaryColor }}>
+                  <p className="font-extrabold uppercase leading-snug" style={{ color: settings.primaryColor }}>
                     {fields.courseTitle || 'Tên khóa học'} {settings.framework && <span className="font-semibold">{settings.framework}</span>}
                     {settings.location && <span className="font-semibold"> tại {settings.location}.</span>}
                   </p>
                 </div>
 
-                <div className="relative mt-auto flex min-h-[17%] items-end justify-between gap-3 pb-[2%]">
-                  {settings.showQr ? (
-                    <div className="flex shrink-0 flex-col items-center gap-1 self-end">
-                      {effectiveQr && <img src={effectiveQr} alt="QR tra cứu chứng nhận" crossOrigin="anonymous" className="h-[clamp(52px,11vw,82px)] w-[clamp(52px,11vw,82px)] object-contain" />}
-                      <span className="text-center text-[clamp(6px,1vw,9px)] font-medium text-gray-600">Quét mã tra cứu</span>
-                    </div>
-                  ) : <div />}
-                  <div className="w-[48%] pb-[3%] text-center">
+                <div className="relative mt-[2%] flex min-h-[14%] justify-end pb-[1%] pr-[5%] text-center">
+                  <div className="w-[42%]">
                     <p className="text-[clamp(10px,1.65vw,14px)] font-extrabold uppercase">{fields.signerTitle || 'GIÁM ĐỐC'}</p>
-                    <div className="h-[clamp(48px,10vw,78px)]" />
+                    <div className="h-[clamp(38px,7vw,60px)]" />
                     {fields.signerName && <p className="text-[clamp(9px,1.5vw,13px)] font-bold">{fields.signerName}</p>}
                   </div>
-                  <div className="w-[12%]" />
                 </div>
 
                 {settings.showFooterNotes && (
-                  <footer className="certificate-footer relative -mx-[9.2%] mt-[1%] min-h-[18%] px-[9.2%] pb-[4%] pt-[4%] text-[clamp(7px,1.25vw,10px)] leading-[1.35] text-gray-900">
+                  <footer className="certificate-footer relative -mx-[9.2%] mt-auto min-h-[27%] px-[9.2%] pb-[4%] pt-[5%] text-[clamp(7px,1.2vw,10px)] leading-[1.3] text-gray-900">
                     <div className="certificate-mountain certificate-mountain-back" />
                     <div className="certificate-mountain certificate-mountain-mid" />
                     <div className="certificate-mountain certificate-mountain-front" />
@@ -352,7 +331,6 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
                   ['showLogo', 'Hiện logo MLD'],
                   ['showWatermark', 'Hiện watermark'],
                   ['showFooterNotes', 'Hiện ghi chú cuối trang'],
-                  ['showQr', 'Hiện QR tra cứu'],
                 ] as const).map(([key, label]) => (
                   <label key={key} className="flex items-center gap-2.5 text-xs font-medium text-gray-700">
                     <input type="checkbox" checked={settings[key]} onChange={(event) => updateSettings(key, event.target.checked)} className="h-4 w-4 rounded border-gray-300 accent-sky-700" />

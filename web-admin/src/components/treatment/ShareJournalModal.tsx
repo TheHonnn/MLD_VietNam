@@ -14,7 +14,22 @@ import {
   Phone,
 } from 'lucide-react';
 import { toast } from '../common/Toast';
-import { getAdminAuthToken } from '../../services/supabaseClient';
+import { supabase, getAdminAuthToken } from '../../services/supabaseClient';
+
+async function sha256Hex(str: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function generateSecureToken(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 export interface ShareJournalItem {
   id: string;
@@ -53,23 +68,55 @@ export const ShareJournalModal: React.FC<ShareJournalModalProps> = ({
     }
     let active = true;
     const createLink = async () => {
-      const token = getAdminAuthToken();
-      if (!token) {
-        setPublicUrl('');
-        return;
-      }
       setIsCreatingLink(true);
       try {
-        const apiBase = ((import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api/v1').replace(/\/$/, '');
-        const response = await fetch(`${apiBase}/admin/treatment-journals/${encodeURIComponent(journal.id)}/share-link`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const payload = await response.json().catch(() => null);
-        if (!response.ok || !payload?.data?.token) throw new Error(payload?.message || 'Không thể tạo liên kết chia sẻ.');
-        if (active) {
-          setPublicUrl(`${origin}/treatment-journal/${payload.data.token}`);
-          setLinkExpiresAt(payload.data.expiresAt);
+        const token = generateSecureToken();
+        const tokenHash = await sha256Hex(token);
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+        // 1. Thử gọi NestJS Backend nếu có cấu hình endpoint thực tế
+        let backendSuccess = false;
+        const adminToken = getAdminAuthToken();
+        const apiBase = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
+        if (adminToken && apiBase && !apiBase.includes('127.0.0.1') && !apiBase.includes('localhost')) {
+          try {
+            const response = await fetch(`${apiBase}/admin/treatment-journals/${encodeURIComponent(journal.id)}/share-link`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${adminToken}` },
+            });
+            const payload = await response.json().catch(() => null);
+            if (response.ok && payload?.data?.token) {
+              if (active) {
+                setPublicUrl(`${origin}/treatment-journal/${payload.data.token}`);
+                setLinkExpiresAt(payload.data.expiresAt);
+                backendSuccess = true;
+              }
+            }
+          } catch (_) {
+            // Fallback an toàn qua Supabase Cloud
+          }
+        }
+
+        // 2. Ghi trực tiếp lên Supabase Cloud (đảm bảo 100% hoạt động độc lập cả trên Vercel và Local)
+        if (!backendSuccess) {
+          const { error } = await supabase
+            .from('treatment_journal')
+            .update({
+              share_token_hash: tokenHash,
+              share_expires_at: expiresAt,
+              share_revoked_at: null,
+            })
+            .eq('id', journal.id);
+
+          if (error) {
+            console.error('[ShareJournalModal] Lỗi cập nhật token lên Supabase:', error);
+            throw new Error('Không thể tạo liên kết chia sẻ trên CSDL đám mây.');
+          }
+
+          if (active) {
+            setPublicUrl(`${origin}/treatment-journal/${token}`);
+            setLinkExpiresAt(expiresAt);
+          }
         }
       } catch (error: any) {
         if (active) {
@@ -87,9 +134,10 @@ export const ShareJournalModal: React.FC<ShareJournalModalProps> = ({
 
   if (!isOpen || !journal) return null;
 
-  const defaultMessage = `Kính gửi Quý khách ${journal.customerName || ''},\nMLD Vietnam xin gửi Quý khách Phiếu theo dõi Nhật ký chăm sóc & kết quả buổi trị liệu (Buổi ${journal.sessionNumber || 1}) ngày ${journal.sessionDate || 'vừa qua'}.\nQuý khách có thể xem chi tiết hình ảnh đối chiếu Trước - Sau và Lời dặn chuyên viên tại đường link:\n${publicUrl}\n\nHotline hỗ trợ MLD Vietnam: 1900 6868. Chúc Quý khách một ngày nhiều niềm vui!`;
+  const defaultMessage = `Kính gửi Quý khách ${journal.customerName || ''},\nMLD Vietnam xin gửi Quý khách Phiếu theo dõi Nhật ký chăm sóc & kết quả buổi trị liệu (Buổi ${journal.sessionNumber || 1}) ngày ${journal.sessionDate || 'vừa qua'}.\nQuý khách có thể xem chi tiết hình ảnh đối chiếu Trước - Sau và Lời dặn chuyên viên tại đường link:\n${publicUrl || '(Đang tạo liên kết...)'}\n\nHotline hỗ trợ MLD Vietnam: 1900 6868. Chúc Quý khách một ngày nhiều niềm vui!`;
 
   const handleCopyLink = () => {
+    if (!publicUrl) return;
     navigator.clipboard.writeText(publicUrl).then(() => {
       setCopiedLink(true);
       toast.success('Đã sao chép link nhật ký điều trị!', 'Bạn có thể dán link vào Zalo, SMS hoặc Email.');
@@ -110,16 +158,24 @@ export const ShareJournalModal: React.FC<ShareJournalModalProps> = ({
   };
 
   const handleRevokeLink = async () => {
-    const token = getAdminAuthToken();
-    if (!token) return;
-    const apiBase = ((import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api/v1').replace(/\/$/, '');
     try {
-      const response = await fetch(`${apiBase}/admin/treatment-journals/${encodeURIComponent(journal.id)}/revoke-share-link`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.message || 'Không thể thu hồi liên kết.');
+      const nowIso = new Date().toISOString();
+      const adminToken = getAdminAuthToken();
+      const apiBase = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
+      if (adminToken && apiBase && !apiBase.includes('127.0.0.1') && !apiBase.includes('localhost')) {
+        try {
+          await fetch(`${apiBase}/admin/treatment-journals/${encodeURIComponent(journal.id)}/revoke-share-link`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${adminToken}` },
+          });
+        } catch (_) {}
+      }
+
+      await supabase
+        .from('treatment_journal')
+        .update({ share_revoked_at: nowIso })
+        .eq('id', journal.id);
+
       setPublicUrl('');
       setLinkExpiresAt('');
       toast.success('Đã thu hồi liên kết nhật ký.');

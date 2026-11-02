@@ -21,6 +21,14 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { exportElementToPdf } from '../utils/pdfExport';
+import { supabase } from '../services/supabaseClient';
+
+async function sha256Hex(str: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 interface JournalData {
   id: string;
@@ -89,15 +97,91 @@ export const PublicTreatmentJournal: React.FC = () => {
       setErrorMsg(null);
 
       try {
-        const apiBase = ((import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api/v1').replace(/\/$/, '');
-        const response = await fetch(`${apiBase}/treatment/shared-journal/${encodeURIComponent(token)}`);
-        const payload = await response.json().catch(() => null);
-        if (!response.ok || !payload?.data) {
-          throw new Error(payload?.message || 'Không tìm thấy nhật ký hoặc liên kết đã hết hạn/thu hồi.');
+        let loadedData: JournalData | null = null;
+        const apiBase = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
+        if (apiBase && !apiBase.includes('127.0.0.1') && !apiBase.includes('localhost')) {
+          try {
+            const response = await fetch(`${apiBase}/treatment/shared-journal/${encodeURIComponent(token)}`);
+            const payload = await response.json().catch(() => null);
+            if (response.ok && payload?.data) {
+              loadedData = payload.data as JournalData;
+            }
+          } catch (_) {}
         }
 
-        if (isMounted) {
-          setJournal(payload.data as JournalData);
+        if (!loadedData) {
+          const tokenHash = await sha256Hex(token);
+          const { data: row, error } = await supabase
+            .from('treatment_journal')
+            .select(`
+              *,
+              customer:users!customer_id(id, full_name, phone, avatar_url),
+              technician:technicians!technician_id(id, full_name, title),
+              booking:bookings!booking_id(branch_id, booking_code, branches(id, name, address, phone))
+            `)
+            .eq('share_token_hash', tokenHash)
+            .gt('share_expires_at', new Date().toISOString())
+            .is('share_revoked_at', null)
+            .maybeSingle();
+
+          if (error || !row) {
+            throw new Error('Liên kết nhật ký không hợp lệ, đã bị thu hồi hoặc đã hết hạn.');
+          }
+
+          const beforePhotos = Array.isArray(row.before_photos)
+            ? row.before_photos
+            : (typeof row.before_photos === 'string' && row.before_photos ? [row.before_photos] : []);
+          const afterPhotos = Array.isArray(row.after_photos)
+            ? row.after_photos
+            : (typeof row.after_photos === 'string' && row.after_photos ? [row.after_photos] : []);
+
+          loadedData = {
+            id: row.id,
+            sessionNumber: Number(row.session_number || 1),
+            sessionDate: row.session_date || new Date(row.created_at).toISOString().slice(0, 10),
+            treatmentStartTime: row.treatment_start_time,
+            treatmentEndTime: row.treatment_end_time,
+            conditionBefore: row.condition_before,
+            conditionAfter: row.condition_after,
+            treatmentNotes: row.treatment_notes,
+            beforePhotos,
+            afterPhotos,
+            specialistAdvice: row.specialist_advice,
+            customerSignatureUrl: row.customer_signature_url,
+            createdAt: row.created_at,
+            customer: row.customer ? {
+              id: row.customer.id,
+              fullName: row.customer.full_name || 'Khách hàng',
+              phone: row.customer.phone,
+              avatarUrl: row.customer.avatar_url,
+            } : null,
+            technician: row.technician ? {
+              id: row.technician.id,
+              fullName: row.technician.full_name || 'Kỹ thuật viên MLD',
+              title: row.technician.title || 'Chuyên viên Trị liệu MLD',
+            } : null,
+            package: {
+              id: row.user_package_id || 'pkg-default',
+              name: 'Liệu trình Trị liệu Dẫn lưu bạch huyết MLD',
+              totalSessions: 10,
+              completedSessions: Number(row.session_number || 1),
+            },
+            branch: row.booking?.branches ? {
+              id: row.booking.branches.id,
+              name: row.booking.branches.name,
+              address: row.booking.branches.address,
+              hotline: row.booking.branches.phone || '1900 6868',
+            } : {
+              id: 'aaaaaaaa-0001-0001-0001-000000000001',
+              name: 'Trụ sở Viện MLD Việt Nam',
+              address: 'Số 260 Bùi Xương Trạch, Khương Đình, Hà Nội',
+              hotline: '1900 6868',
+            },
+          };
+        }
+
+        if (isMounted && loadedData) {
+          setJournal(loadedData);
           setIsLoading(false);
         }
       } catch (err: any) {

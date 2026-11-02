@@ -444,6 +444,36 @@
   box-shadow: 0 24px 80px #35281933;
   overflow: auto;
 }
+.certificate-template-dialog {
+  width: min(1180px, calc(100% - 32px));
+  max-width: none;
+}
+.certificate-template-form-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+}
+.certificate-template-form-layout--plain {
+  display: contents;
+}
+.certificate-template-fields {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  max-height: calc(100dvh - 190px);
+  overflow-y: auto;
+}
+.certificate-template-form-layout > [aria-label="Bản xem trước chứng nhận"] {
+  min-width: 0;
+  border-top: 0;
+  padding: 20px 24px;
+  order: 1;
+}
+.certificate-template-form-layout > [aria-label="Bản xem trước chứng nhận"] > div {
+  max-width: min(100%, calc((100dvh - 230px) * 0.707));
+}
+.certificate-template-form-layout > .certificate-template-fields {
+  order: 0;
+}
 .admin-dialog::backdrop {
   background: #2d282552;
 }
@@ -676,6 +706,28 @@
   }
 }
 @media (max-width: 760px) {
+  .certificate-template-form-layout {
+    display: flex;
+    flex-direction: column;
+  }
+  .certificate-template-form-layout > [aria-label="Bản xem trước chứng nhận"] {
+    order: 0;
+    width: 100%;
+    padding: 16px 18px;
+  }
+  .certificate-template-form-layout > [aria-label="Bản xem trước chứng nhận"] > div {
+    max-width: min(100%, 360px);
+  }
+  .certificate-template-form-layout > .certificate-template-fields {
+    order: 1;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+  }
+  .certificate-template-dialog {
+    width: calc(100% - 16px);
+    max-height: calc(100dvh - 16px);
+  }
   .admin-mobile-only {
     display: inline-flex;
   }

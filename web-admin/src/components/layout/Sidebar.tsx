@@ -89,6 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           icon: CreditCard,
           subItems: [
             { name: 'Thu ngân POS', path: '/cashier-pos' },
+            { name: 'Sản phẩm mang về', path: '/home-products' },
             { name: 'Lịch hẹn & Tiếp đón', path: '/manage/bookings' },
             { name: 'Dịch vụ trong lịch hẹn', path: '/manage/booking_items' },
             { name: 'Hóa đơn thanh toán', path: '/manage/invoices' },

@@ -22,6 +22,7 @@ const W13_StaffCommissions = lazy(() => import('./pages/W13_StaffCommissions').t
 const W14_ZaloZNS = lazy(() => import('./pages/W14_ZaloZNS').then((m) => ({ default: m.W14_ZaloZNS })));
 const W16_Certificates = lazy(() => import('./pages/W16_Certificates').then((m) => ({ default: m.W16_Certificates })));
 const W18_PortalContent = lazy(() => import('./pages/W18_PortalContent').then((m) => ({ default: m.W18_PortalContent })));
+const W19_HomeProducts = lazy(() => import('./pages/W19_HomeProducts').then((m) => ({ default: m.W19_HomeProducts })));
 const ResourcePage = lazy(() => import('./admin/ResourcePage').then((m) => ({ default: m.ResourcePage })));
 const PublicTreatmentJournal = lazy(() => import('./pages/PublicTreatmentJournal').then((m) => ({ default: m.PublicTreatmentJournal })));
 
@@ -153,6 +154,14 @@ const AppContent: React.FC = () => {
               element={
                 <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST']}>
                   <W07_CashierPOS />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="home-products"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST']}>
+                  <W19_HomeProducts />
                 </RoleRoute>
               }
             />

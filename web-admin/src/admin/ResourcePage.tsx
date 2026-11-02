@@ -3049,7 +3049,9 @@ function RecordDialog({
   return (
     <dialog
       className={`admin-dialog ${
-        ["staff_profiles", "courses", "course_enrollments", "course_chapters", "course_lessons", "course_quizzes", "quiz_questions"].includes(resource.name)
+        resource.name === "certificate_templates"
+          ? "certificate-template-dialog"
+          : ["staff_profiles", "courses", "course_enrollments", "course_chapters", "course_lessons", "course_quizzes", "quiz_questions"].includes(resource.name)
           ? "!max-w-[880px] !w-[min(880px,calc(100%-32px))]"
           : ""
       }`}
@@ -3246,8 +3248,8 @@ function RecordDialog({
             />
           </div>
         ) : (
-          <>
-          <div className="admin-form-grid">
+          <div className={resource.name === "certificate_templates" && mode !== "view" ? "certificate-template-form-layout" : "certificate-template-form-layout--plain"}>
+          <div className={resource.name === "certificate_templates" && mode !== "view" ? "admin-form-grid certificate-template-fields" : "admin-form-grid"}>
             {fields.map((c) => {
               const value = current(c),
                 structured =
@@ -3725,7 +3727,7 @@ function RecordDialog({
             sealUrl={String(values.seal_image_url ?? (columns.find((x) => x.name === "seal_image_url") ? current(columns.find((x) => x.name === "seal_image_url")!) : ""))}
           />
         )}
-          </>
+          </div>
         )}
         {error && (
           <p role="alert" className="admin-error">
