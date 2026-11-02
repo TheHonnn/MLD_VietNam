@@ -2702,6 +2702,73 @@ function AddressInput({
   );
 }
 
+function CertificateTemplateFormPreview({
+  name,
+  code,
+  title,
+  signerName,
+  signerTitle,
+  backgroundUrl,
+  signatureUrl,
+  sealUrl,
+}: {
+  name: string;
+  code: string;
+  title: string;
+  signerName: string;
+  signerTitle: string;
+  backgroundUrl: string;
+  signatureUrl: string;
+  sealUrl: string;
+}) {
+  return (
+    <section className="admin-field-wide border-t border-gray-200 px-4 py-5 sm:px-6" aria-label="Bản xem trước chứng nhận">
+      <h3 className="mb-3 text-sm font-bold text-gray-800">Bản xem trước chứng nhận</h3>
+      <div className="mx-auto w-full max-w-[560px]">
+        <article
+          className="relative flex aspect-[210/297] w-full flex-col overflow-hidden border border-sky-200 bg-white px-[7.5%] pb-[5%] pt-[5%] text-gray-900 shadow-lg"
+          style={backgroundUrl ? { backgroundImage: `url("${backgroundUrl.replace(/["\\]/g, "")}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+        >
+          <div className="relative flex items-center justify-center border-b-2 border-sky-100 px-2 pb-[3%] pt-2 text-center text-[#0b43a8]">
+            <div>
+              <p className="text-[clamp(7px,1.5vw,12px)] font-extrabold leading-tight">VIỆN NGHIÊN CỨU VÀ PHÁT TRIỂN CÔNG NGHỆ CSSK CỘNG ĐỒNG</p>
+              <p className="mt-1 text-[clamp(7px,1.4vw,11px)] font-bold leading-tight">TRUNG TÂM ỨNG DỤNG KHOA HỌC BẠCH HUYẾT VIỆT NAM</p>
+            </div>
+          </div>
+          <div className="relative mt-[6%] text-center text-[#0b43a8]">
+            <h1 className="font-serif text-[clamp(24px,5vw,42px)] font-bold leading-none">{title || "CHỨNG NHẬN"}</h1>
+            <p className="mt-[2%] text-[clamp(9px,1.8vw,15px)] font-extrabold">HOÀN THÀNH ĐÀO TẠO</p>
+            <p className="mt-[1%] text-[clamp(8px,1.5vw,13px)] font-bold uppercase">{name || "TÊN CHƯƠNG TRÌNH ĐÀO TẠO"}</p>
+          </div>
+          <div className="relative mt-[7%] space-y-2 text-[clamp(8px,1.55vw,13px)] font-semibold leading-snug">
+            <p>Chứng nhận này xác nhận rằng, học viên:</p>
+            <p>Họ và tên: <strong className="font-extrabold uppercase">HỌ VÀ TÊN HỌC VIÊN</strong></p>
+            <p>Số hiệu chứng nhận: <strong>{code || "MÃ CHỨNG NHẬN"}</strong></p>
+            <p>Ngày cấp: <strong>__/__/____</strong></p>
+            <p className="pt-2">Đã hoàn thành xuất sắc chương trình đào tạo:</p>
+            <p className="font-extrabold text-[#0b43a8]">{name || "Tên khóa học"} <span className="font-semibold">thuộc Khung đào tạo chuyên môn của MLD Việt Nam tại Thành phố Hồ Chí Minh.</span></p>
+          </div>
+          <div className="relative mt-auto flex min-h-[19%] items-end justify-between gap-2 pb-[3%]">
+            {sealUrl ? <img src={sealUrl} alt="Con dấu" className="h-[18%] max-h-16 w-[18%] object-contain" /> : <span className="w-[18%]" />}
+            <div className="w-[54%] pb-[2%] text-center">
+              <p className="text-[clamp(8px,1.45vw,12px)] font-extrabold uppercase">{signerTitle || "GIÁM ĐỐC"}</p>
+              {signatureUrl ? <img src={signatureUrl} alt="Chữ ký" className="mx-auto h-[clamp(35px,7vw,62px)] max-w-full object-contain" /> : <div className="h-[clamp(35px,7vw,62px)]" />}
+              <p className="text-[clamp(8px,1.4vw,12px)] font-bold">{signerName || "HỌ TÊN NGƯỜI KÝ"}</p>
+            </div>
+            <span className="w-[18%]" />
+          </div>
+          <footer className="relative -mx-[9.2%] mt-[1%] min-h-[17%] bg-gradient-to-b from-[#dff4fa] to-[#55b5cc] px-[9.2%] pb-[4%] pt-[4%] text-[clamp(6px,1.05vw,9px)] leading-[1.35] text-gray-900">
+            <ul className="relative z-10 list-disc space-y-1 pl-4">
+              <li>Chứng nhận này xác nhận học viên đã hoàn thành đầy đủ các yêu cầu đào tạo của cấp độ tương ứng theo quy định của chương trình.</li>
+              <li>Chứng nhận này không đồng nghĩa với việc được phép giảng dạy, đào tạo hoặc chuyển giao phương pháp.</li>
+            </ul>
+          </footer>
+        </article>
+      </div>
+    </section>
+  );
+}
+
 function RecordDialog({
   resource,
   columns,
@@ -3179,6 +3246,7 @@ function RecordDialog({
             />
           </div>
         ) : (
+          <>
           <div className="admin-form-grid">
             {fields.map((c) => {
               const value = current(c),
@@ -3645,6 +3713,19 @@ function RecordDialog({
             </label>
           )}
         </div>
+        {resource.name === "certificate_templates" && mode !== "view" && (
+          <CertificateTemplateFormPreview
+            name={String(values.name ?? (columns.find((x) => x.name === "name") ? current(columns.find((x) => x.name === "name")!) : ""))}
+            code={String(values.code ?? (columns.find((x) => x.name === "code") ? current(columns.find((x) => x.name === "code")!) : ""))}
+            title={String(values.title_text ?? (columns.find((x) => x.name === "title_text") ? current(columns.find((x) => x.name === "title_text")!) : ""))}
+            signerName={String(values.signer_name ?? (columns.find((x) => x.name === "signer_name") ? current(columns.find((x) => x.name === "signer_name")!) : ""))}
+            signerTitle={String(values.signer_title ?? (columns.find((x) => x.name === "signer_title") ? current(columns.find((x) => x.name === "signer_title")!) : ""))}
+            backgroundUrl={String(values.background_image_url ?? (columns.find((x) => x.name === "background_image_url") ? current(columns.find((x) => x.name === "background_image_url")!) : ""))}
+            signatureUrl={String(values.signature_image_url ?? (columns.find((x) => x.name === "signature_image_url") ? current(columns.find((x) => x.name === "signature_image_url")!) : ""))}
+            sealUrl={String(values.seal_image_url ?? (columns.find((x) => x.name === "seal_image_url") ? current(columns.find((x) => x.name === "seal_image_url")!) : ""))}
+          />
+        )}
+          </>
         )}
         {error && (
           <p role="alert" className="admin-error">
