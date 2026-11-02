@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { academyService } from '../services';
 import CertificateTemplateEditor from '../components/certificates/CertificateTemplateEditor';
+import CertificateDocumentPreview from '../components/certificates/CertificateDocumentPreview';
 import {
   StudentCertificate,
   CertificateStatus,
@@ -34,7 +35,7 @@ import {
 } from '../types/shared_types';
 import { toast } from '../components/common';
 
-const STORAGE_KEY = 'mld_certificate_template_v1';
+const STORAGE_KEY = 'mld.certificate-template.v2';
 
 const defaultTemplateSettings = {
   organization: 'VIỆN NGHIÊN CỨU VÀ PHÁT TRIỂN CÔNG NGHỆ CSSK CỘNG ĐỒNG',
@@ -97,6 +98,7 @@ export const W16_Certificates: React.FC = () => {
   const [selectedCert, setSelectedCert] = useState<StudentCertificate | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
   const [showIssueModal, setShowIssueModal] = useState<boolean>(false);
+  const [issueCode, setIssueCode] = useState('');
   const [showRevokeModal, setShowRevokeModal] = useState<boolean>(false);
   const [certToRevoke, setCertToRevoke] = useState<StudentCertificate | null>(null);
   const [revokeReason, setRevokeReason] = useState<string>('');
@@ -115,6 +117,12 @@ export const W16_Certificates: React.FC = () => {
     signerTitle: 'GIÁM ĐỐC',
   });
 
+  const makeCertificateCode = () => `MLD-GCN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const openIssueModal = () => {
+    setIssueCode(makeCertificateCode());
+    setShowIssueModal(true);
+  };
+
   // Đọc cài đặt mẫu chứng nhận từ localStorage nếu có
   const currentTemplate = useMemo(() => {
     try {
@@ -125,7 +133,7 @@ export const W16_Certificates: React.FC = () => {
     } catch {
       return defaultTemplateSettings;
     }
-  }, [showPreviewModal]);
+  }, [activeTab, showIssueModal, showPreviewModal]);
 
   useEffect(() => {
     loadAllData();
@@ -258,6 +266,7 @@ export const W16_Certificates: React.FC = () => {
         ...prev,
         studentId: found.studentId || '',
         studentName: studentName || prev.studentName,
+        dateOfBirth: (found as any).student?.dateOfBirth || (found as any).dateOfBirth || prev.dateOfBirth,
         courseId: found.courseId || '',
         courseTitle: matchedCourse?.title || prev.courseTitle,
       }));
@@ -329,9 +338,7 @@ export const W16_Certificates: React.FC = () => {
       }
     }
 
-    const year = new Date().getFullYear();
-    const randomHex = Math.floor(1000 + Math.random() * 9000);
-    const code = `MLD-GCN-${year}-${randomHex}`;
+    const code = issueCode || makeCertificateCode();
 
     try {
       const payload: Partial<StudentCertificate> = {
@@ -470,7 +477,7 @@ export const W16_Certificates: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setShowIssueModal(true)}
+            onClick={openIssueModal}
             className="flex items-center gap-2 px-4 py-2 bg-sky-700 hover:bg-sky-800 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs transition"
           >
             <Plus className="w-4 h-4" />
@@ -574,7 +581,7 @@ export const W16_Certificates: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveTab('issue')}
+          onClick={() => { setIssueCode(makeCertificateCode()); setActiveTab('issue'); }}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition ${
             activeTab === 'issue'
               ? 'border-sky-700 text-sky-800 bg-sky-50/50'
@@ -686,7 +693,7 @@ export const W16_Certificates: React.FC = () => {
                           <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
                             <button
                               type="button"
-                              onClick={() => setShowIssueModal(true)}
+                              onClick={openIssueModal}
                               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-700 text-white text-xs font-semibold hover:bg-sky-800 transition shadow-xs"
                             >
                               <Plus className="w-3.5 h-3.5" />
@@ -974,7 +981,7 @@ export const W16_Certificates: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => setShowIssueModal(true)}
+                  onClick={openIssueModal}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-sky-300 hover:bg-sky-50 text-sky-800 rounded-xl text-xs sm:text-sm font-semibold transition shadow-xs"
                 >
                   <Plus className="w-4 h-4 text-sky-700" />
@@ -990,7 +997,8 @@ export const W16_Certificates: React.FC = () => {
       {/* TAB 3: CẤP CHỨNG NHẬN NHANH TRỰC TIẾP TRÊN TRANG                          */}
       {/* ========================================================================= */}
       {activeTab === 'issue' && (
-        <div className="max-w-2xl mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 shadow-sm space-y-6">
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)]">
+        <div className="max-w-2xl mx-auto w-full bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 shadow-sm space-y-6">
           <div className="flex items-center gap-3 border-b border-gray-200 pb-4">
             <div className="w-10 h-10 rounded-2xl bg-sky-50 text-sky-700 flex items-center justify-center font-bold">
               <Plus className="w-5 h-5 text-sky-700" />
@@ -1061,7 +1069,7 @@ export const W16_Certificates: React.FC = () => {
               </label>
               <select
                 value={formData.courseTitle}
-                onChange={(e) => setFormData({ ...formData, courseTitle: e.target.value })}
+                onChange={(e) => { const selected = courses.find((course) => course.title === e.target.value); setFormData({ ...formData, courseTitle: e.target.value, courseId: selected?.id || '' }); }}
                 className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
               >
                 {courses.map((crs) => (
@@ -1173,6 +1181,23 @@ export const W16_Certificates: React.FC = () => {
             </div>
           </form>
         </div>
+        <aside className="min-w-0" aria-label="Bản xem trước chứng nhận">
+          <div className="mx-auto w-full max-w-[440px] xl:sticky xl:top-6">
+            <CertificateDocumentPreview
+              settings={currentTemplate}
+              fields={{
+                studentName: formData.studentName,
+                dateOfBirth: formData.dateOfBirth ? formatDisplayDate(formData.dateOfBirth) : '',
+                courseTitle: formData.courseTitle,
+                certificateCode: issueCode,
+                issueDate: formatDisplayDate(new Date().toISOString().split('T')[0]),
+                signerName: formData.signerName,
+                signerTitle: formData.signerTitle,
+              }}
+            />
+          </div>
+        </aside>
+        </div>
       )}
 
       {/* ========================================================================= */}
@@ -1180,7 +1205,7 @@ export const W16_Certificates: React.FC = () => {
       {/* ========================================================================= */}
       {showIssueModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-[1180px] w-full max-h-[calc(100dvh-32px)] overflow-y-auto p-5 sm:p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-gray-200 pb-3">
               <div className="flex items-center gap-2">
                 <Award className="w-5 h-5 text-sky-700" />
@@ -1195,6 +1220,8 @@ export const W16_Certificates: React.FC = () => {
               </button>
             </div>
 
+            <div className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
+            <div className="order-2 max-h-[70vh] overflow-y-auto pr-1 md:order-1">
             <form onSubmit={handleIssueSubmit} className="space-y-4">
               {enrollments.length > 0 && (
                 <div>
@@ -1252,7 +1279,7 @@ export const W16_Certificates: React.FC = () => {
                 </label>
                 <select
                   value={formData.courseTitle}
-                  onChange={(e) => setFormData({ ...formData, courseTitle: e.target.value })}
+                  onChange={(e) => { const selected = courses.find((course) => course.title === e.target.value); setFormData({ ...formData, courseTitle: e.target.value, courseId: selected?.id || '' }); }}
                   className="w-full px-3.5 py-2 border border-gray-300 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
                 >
                   {courses.map((crs) => (
@@ -1357,6 +1384,24 @@ export const W16_Certificates: React.FC = () => {
                 </button>
               </div>
             </form>
+            </div>
+            <aside className="order-1 min-w-0 md:order-2" aria-label="Bản xem trước chứng nhận">
+              <div className="mx-auto w-full max-w-[390px]">
+                <CertificateDocumentPreview
+                  settings={currentTemplate}
+                  fields={{
+                    studentName: formData.studentName,
+                    dateOfBirth: formData.dateOfBirth ? formatDisplayDate(formData.dateOfBirth) : '',
+                    courseTitle: formData.courseTitle,
+                    certificateCode: issueCode,
+                    issueDate: formatDisplayDate(new Date().toISOString().split('T')[0]),
+                    signerName: formData.signerName,
+                    signerTitle: formData.signerTitle,
+                  }}
+                />
+              </div>
+            </aside>
+            </div>
           </div>
         </div>
       )}
