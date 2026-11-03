@@ -102,6 +102,8 @@ minizalo/node_modules/
 minizalo/dist/
 minizalo/.env
 minizalo/.env.local
+minizalo/**/www/
+minizalo/**/www*/
 
 # ==============================================================================
 # FIGMA RAW DUMPS & SCRAPED ASSETS (Heavy binary files)

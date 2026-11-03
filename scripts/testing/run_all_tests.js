@@ -1,5 +1,18 @@
 const { execSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
+
+// Tự động nạp cấu hình môi trường từ backend/.env (hỗ trợ cả Node >=20 process.loadEnvFile và dotenv)
+const envPath = path.resolve(__dirname, '../../backend/.env');
+if (fs.existsSync(envPath)) {
+  if (typeof process.loadEnvFile === 'function') {
+    process.loadEnvFile(envPath);
+  } else {
+    try {
+      require(path.join(__dirname, '../../backend/node_modules/dotenv')).config({ path: envPath });
+    } catch (_) {}
+  }
+}
 
 const defaultScripts = [
   { name: 'Giai đoạn 1: Chuyên môn Y khoa & Cấp Giấy chứng nhận (W16, W17, W06)', file: 'test_phase1_medical.js' },
@@ -33,7 +46,7 @@ let allSuccess = true;
 scripts.forEach((s, idx) => {
   const filePath = path.join(__dirname, s.file);
   try {
-    const out = execSync(`node "${filePath}"`, { stdio: 'pipe' }).toString();
+    const out = execSync(`node "${filePath}"`, { stdio: 'pipe', env: process.env }).toString();
     console.log(`[P${idx + 1}] ${s.name}`);
     console.log(out.trim());
     console.log('--------------------------------------------------------------------------------\n');
@@ -53,4 +66,3 @@ if (allSuccess) {
   console.error('⚠️ CÓ GIAI ĐOẠN CHƯA ĐẠT CHUẨN. CẦN KIỂM TRA LẠI.');
   process.exit(1);
 }
-
