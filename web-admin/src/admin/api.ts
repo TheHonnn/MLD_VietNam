@@ -338,6 +338,9 @@ function formatDatabaseError(err: any, defaultMsg: string): string {
   if (msg.includes("violates not-null constraint")) {
     return "Dữ liệu thiếu các thông tin bắt buộc.";
   }
+  return msg;
+}
+
 async function enrichMissingRelations(rows: Row[], signal?: AbortSignal): Promise<void> {
   if (!rows || rows.length === 0) return;
 
