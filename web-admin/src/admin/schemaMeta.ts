@@ -7355,6 +7355,7 @@ export const SCHEMA_COLUMNS: Record<string, Column[]> = {
     { "name": "unit", "type": "varchar", "required": true, "hasDefault": false, "maxLength": 100, "options": [], "primary": false, "writable": true, "reference": null },
     { "name": "details", "type": "text[]", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": false, "writable": true, "reference": null },
     { "name": "sort_order", "type": "int4", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": false, "writable": true, "reference": null },
+    { "name": "image_url", "type": "text", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": false, "writable": true, "reference": null },
     { "name": "created_at", "type": "timestamptz", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": false, "writable": false, "reference": null }
   ]
 };

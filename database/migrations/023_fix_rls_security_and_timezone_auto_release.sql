@@ -74,3 +74,4 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION public.fn_release_completed_bookings(UUID) TO authenticated, service_role, anon;
+

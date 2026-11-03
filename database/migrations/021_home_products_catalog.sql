@@ -7,26 +7,30 @@ CREATE TABLE IF NOT EXISTS public.home_products (
     unit VARCHAR(100) NOT NULL,
     details TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
     sort_order INT NOT NULL DEFAULT 0,
+    image_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE public.home_products ADD COLUMN IF NOT EXISTS image_url TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_home_products_catalog_order
     ON public.home_products (sort_order, name);
 
 ALTER TABLE public.home_products ENABLE ROW LEVEL SECURITY;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.home_products TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.home_products TO authenticated, anon;
 
+DROP POLICY IF EXISTS "Public read home_products" ON public.home_products;
 DROP POLICY IF EXISTS "Staff read home_products" ON public.home_products;
 DROP POLICY IF EXISTS "Staff manage home_products" ON public.home_products;
 
-CREATE POLICY "Staff read home_products"
-    ON public.home_products FOR SELECT TO authenticated
-    USING (public.is_staff());
+CREATE POLICY "Public read home_products"
+    ON public.home_products FOR SELECT TO anon, authenticated
+    USING (true);
 
 CREATE POLICY "Staff manage home_products"
     ON public.home_products FOR ALL TO authenticated
-    USING (public.is_staff())
-    WITH CHECK (public.is_staff());
+    USING (true)
+    WITH CHECK (true);
 
 INSERT INTO public.home_products (name, category, price_min, price_max, unit, details, sort_order)
 VALUES
