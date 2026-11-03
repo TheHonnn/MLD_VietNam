@@ -1,5 +1,6 @@
 import { EmailTemplate, EmailLog, ApiResponse } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
+import { adminCommand } from '../admin/api';
 
 const DEFAULT_TEMPLATES: EmailTemplate[] = [
   {
@@ -386,44 +387,18 @@ export const emailService = {
     metadata?: Record<string, any>;
   }): Promise<ApiResponse<boolean>> {
     try {
-      // 1. Lấy template
-      const tRes = await this.getTemplateById(params.templateId);
-      if (!tRes.success || !tRes.data) {
-        throw new Error('Không tìm thấy mẫu Email phù hợp');
-      }
-      const template = tRes.data;
-
-      // 2. Điền biến vào Subject và Body
-      let finalSubject = template.subject;
-      let finalHtml = template.bodyHtml;
-
-      Object.entries(params.variables).forEach(([key, val]) => {
-        const regex = new RegExp(`{{${key}}}`, 'g');
-        finalSubject = finalSubject.replace(regex, val || '');
-        finalHtml = finalHtml.replace(regex, val || '');
-      });
-
-      // 3. Ghi log gửi mail
-      const logPayload = {
-        recipient_email: params.recipientEmail,
-        recipient_name: params.recipientName || '',
-        template_id: params.templateId,
-        subject: finalSubject,
-        body_html: finalHtml,
-        status: 'SENT',
-        metadata: params.metadata || {},
-        sent_at: new Date().toISOString(),
-      };
-
-      await supabaseService.query('email_logs', {
-        method: 'POST',
-        body: JSON.stringify(logPayload),
+      await adminCommand<boolean>('email/test', {
+        recipientEmail: params.recipientEmail,
+        recipientName: params.recipientName,
+        templateId: params.templateId,
+        variables: params.variables,
+        metadata: params.metadata,
       });
 
       return {
         success: true,
         statusCode: 200,
-        message: `Đã gửi thành công email "${finalSubject}" tới ${params.recipientEmail}`,
+        message: `Đã gửi thành công email mẫu tới ${params.recipientEmail}`,
         data: true,
       };
     } catch (err: any) {

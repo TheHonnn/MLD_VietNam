@@ -336,7 +336,7 @@ export class EmailService {
   /**
    * Bộ điều phối gửi Email thực tế đa kênh: Brevo (HTTPS 443) -> Resend (HTTPS 443) -> Nodemailer SMTP (TLS/587)
    */
-  public async dispatchHtmlEmail(to: string, subject: string, htmlContent: string): Promise<boolean> {
+  public async dispatchHtmlEmail(to: string, subject: string, htmlContent: string, allowSimulation = true): Promise<boolean> {
     // 0. Ưu tiên Brevo HTTP API (HTTPS 443)
     const brevoApiKey = this.configService.get<string>('BREVO_API_KEY');
     if (brevoApiKey) {
@@ -431,6 +431,11 @@ export class EmailService {
       return false;
     }
 
+    if (!allowSimulation) {
+      this.logger.warn(`⚠️ Không gửi email tới ${to}: chưa cấu hình được nhà cung cấp email.`);
+      return false;
+    }
+
     this.logger.warn(`⚠️ [Dev Simulated Dispatch] Email mô phỏng tới ${to}: "${subject}"`);
     return true;
   }
@@ -449,6 +454,7 @@ export class EmailService {
 
     let subject = 'Thông báo từ Học Viện MLD Việt Nam';
     let htmlContent = '<p>Nội dung thông báo từ MLD Việt Nam</p>';
+    let templateFound = false;
 
     // 1. Tải Template từ bảng email_templates trên Supabase Cloud
     if (this.supabaseService) {
@@ -463,6 +469,7 @@ export class EmailService {
         if (tmpl) {
           subject = tmpl.subject;
           htmlContent = tmpl.body_html;
+          templateFound = true;
         }
       } catch (err: any) {
         this.logger.warn(`Không thể tải template ${templateId}: ${err.message}`);
@@ -481,7 +488,8 @@ export class EmailService {
     let errorMessage: string | null = null;
 
     try {
-      sendSuccess = await this.dispatchHtmlEmail(to, subject, htmlContent);
+      if (!templateFound) throw new Error(`Không tìm thấy mẫu Email đang hoạt động: ${templateId}`);
+      sendSuccess = await this.dispatchHtmlEmail(to, subject, htmlContent, false);
     } catch (sendErr: any) {
       errorMessage = sendErr.message;
       this.logger.error(`Lỗi gửi mail template ${templateId} tới ${to}: ${errorMessage}`);
