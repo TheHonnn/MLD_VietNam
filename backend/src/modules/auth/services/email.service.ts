@@ -47,9 +47,9 @@ export class EmailService {
           tls: {
             rejectUnauthorized: this.configService.get<string>('NODE_ENV') === 'production' || process.env.NODE_ENV === 'production',
           },
-          connectionTimeout: 3500,
-          greetingTimeout: 3500,
-          socketTimeout: 4000,
+          connectionTimeout: 15000,
+          greetingTimeout: 15000,
+          socketTimeout: 20000,
         });
         this.logger.log(`✅ Mail Transporter (SMTP) đã kết nối: ${host}:${port} (${user})`);
       } catch (err: any) {
@@ -403,22 +403,16 @@ export class EmailService {
     // 2. Dự phòng qua SMTP (Nodemailer) với timeout an toàn 3.5s
     if (this.transporter) {
       try {
-        const sendPromise = this.transporter.sendMail({
+        const info = await this.transporter.sendMail({
           from: `"${this.fromName}" <${this.fromAddress}>`,
           to,
           subject,
           html: htmlContent,
         });
-
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('SMTP timeout: Connection timeout after 3500ms')), 3500),
-        );
-
-        await Promise.race([sendPromise, timeoutPromise]);
-        this.logger.log(`📨 [SMTP] Đã gửi thành công email tới ${to}`);
+        this.logger.log(`📨 [SMTP Brevo] Đã gửi thành công email tới ${to} (MessageId: ${info?.messageId || 'OK'})`);
         return true;
       } catch (err: any) {
-        this.logger.warn(`⚠️ Gửi email SMTP thất bại hoặc quá hạn: ${err.message}`);
+        this.logger.error(`❌ Gửi email SMTP thất bại: ${err.message}`);
       }
     }
 
