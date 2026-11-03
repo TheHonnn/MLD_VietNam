@@ -2894,15 +2894,16 @@ class SupabaseService {
     // Cập nhật lại lịch đã có nếu đã khởi tạo trước đó
     const existing = await this.getBatchSchedules(batchId);
     if (existing.length > 0) {
+      const sortedExisting = [...existing].sort((a, b) => (a.sessionDate || '').localeCompare(b.sessionDate || ''));
       for (let i = 0; i < existing.length && i < sessionDates.length; i++) {
-        await this.query(`batch_schedules?id=eq.${existing[i].id}`, {
+        await this.query(`batch_schedules?id=eq.${sortedExisting[i].id}`, {
           method: 'PATCH',
           body: JSON.stringify({
             session_date: sessionDates[i],
             start_time: startTimeStr,
             end_time: endTimeStr,
-            topic: curriculumTopics[i]?.topic || existing[i].topic,
-            is_practice_lab: curriculumTopics[i]?.lab !== undefined ? curriculumTopics[i].lab : existing[i].isPracticeLab,
+            topic: curriculumTopics[i]?.topic || sortedExisting[i].topic,
+            is_practice_lab: curriculumTopics[i]?.lab !== undefined ? curriculumTopics[i].lab : sortedExisting[i].isPracticeLab,
           }),
         });
       }

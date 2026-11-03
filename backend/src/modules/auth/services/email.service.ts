@@ -341,7 +341,7 @@ export class EmailService {
     const brevoApiKey = this.configService.get<string>('BREVO_API_KEY');
     if (brevoApiKey) {
       try {
-        const brevoSender = this.configService.get<string>('BREVO_SENDER_EMAIL') || 'hbui73444@gmail.com';
+        const brevoSender = this.configService.get<string>('BREVO_SENDER_EMAIL') || this.fromAddress;
         const res = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: {
