@@ -13,6 +13,7 @@ async function bootstrap() {
     'https://mldvietnam.vn',
     'https://admin.mldvietnam.vn',
     'https://mld-web-admin.vercel.app',
+    'https://mld-vietnam.vercel.app',
   ];
   let allowedOrigins: string[] | string = (process.env.CORS_ORIGIN || '')
     .split(',')
@@ -31,9 +32,21 @@ async function bootstrap() {
 
   // 1. CORS Configuration
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins === '*' || (Array.isArray(allowedOrigins) && allowedOrigins.includes('*'))) {
+        return callback(null, true);
+      }
+      if (Array.isArray(allowedOrigins) && allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      if (!isProduction || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('vercel.app')) {
+        return callback(null, true);
+      }
+      callback(null, true);
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: false,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-MLD-Local-Admin', 'Accept', 'Origin', 'X-Requested-With'],
+    credentials: true,
   });
 
   // 2. Global Prefix: /api/v1
@@ -72,8 +85,7 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 3000;
-  const localAdmin = process.env.ADMIN_LOCAL_NO_AUTH === 'true' && process.env.NODE_ENV !== 'production';
-  await app.listen(port, localAdmin ? '127.0.0.1' : '0.0.0.0');
+  await app.listen(port, '0.0.0.0');
   logger.log(`🚀 Máy chủ Backend đang chạy tại: http://localhost:${port}/api/v1`);
   logger.log(`📚 Tài liệu Swagger API tại: http://localhost:${port}/api/docs`);
 }

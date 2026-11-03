@@ -6,5 +6,8 @@
     "build": "cd web-admin && npm install && npm run build",
     "test:develop": "node scripts/testing/run_all_tests.js",
     "check:secrets": "node scripts/security/check_secrets.js"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.16"
   }
 }

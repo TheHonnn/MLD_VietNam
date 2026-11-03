@@ -387,13 +387,32 @@ export const emailService = {
     metadata?: Record<string, any>;
   }): Promise<ApiResponse<boolean>> {
     try {
-      await adminCommand<boolean>('email/test', {
-        recipientEmail: params.recipientEmail,
-        recipientName: params.recipientName,
-        templateId: params.templateId,
-        variables: params.variables,
-        metadata: params.metadata,
-      });
+      try {
+        await adminCommand<boolean>('email/test', {
+          recipientEmail: params.recipientEmail,
+          recipientName: params.recipientName,
+          templateId: params.templateId,
+          variables: params.variables,
+          metadata: params.metadata,
+        });
+      } catch (cmdErr: any) {
+        // Fallback directly to /api/email endpoint on current origin
+        const res = await fetch('/api/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-MLD-Local-Admin': '1' },
+          body: JSON.stringify({
+            recipientEmail: params.recipientEmail,
+            recipientName: params.recipientName,
+            templateId: params.templateId,
+            variables: params.variables,
+            metadata: params.metadata,
+          }),
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.success) {
+          throw new Error(json?.message || cmdErr.message || 'Lỗi gửi email');
+        }
+      }
 
       return {
         success: true,

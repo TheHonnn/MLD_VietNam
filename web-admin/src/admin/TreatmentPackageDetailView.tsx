@@ -108,7 +108,7 @@ export const TreatmentPackageDetailSheet: React.FC<TreatmentPackageDetailSheetPr
             status,
             purchased_at,
             expires_at,
-            users (
+            customer:users!customer_id (
               id,
               full_name,
               phone,
@@ -123,9 +123,9 @@ export const TreatmentPackageDetailSheet: React.FC<TreatmentPackageDetailSheetPr
           const mapped: ClientPackageHolder[] = data.map((d: any) => ({
             id: d.id,
             customer_id: d.customer_id,
-            customer_name: d.users?.full_name || 'Khách hàng MLD',
-            customer_phone: d.users?.phone || '--',
-            customer_avatar: d.users?.avatar_url,
+            customer_name: d.customer?.full_name || d.users?.full_name || 'Khách hàng MLD',
+            customer_phone: d.customer?.phone || d.users?.phone || '--',
+            customer_avatar: d.customer?.avatar_url || d.users?.avatar_url,
             total_sessions: Number(d.total_sessions || 0),
             completed_sessions: Number(d.completed_sessions || 0),
             status: d.status || 'ACTIVE',
