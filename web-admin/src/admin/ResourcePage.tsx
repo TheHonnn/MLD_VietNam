@@ -1044,10 +1044,42 @@ function formatCell(row: Row, c: Column): React.ReactNode {
     );
   }
   if (c.name === "user_id") {
-    return row.full_name || row.users?.full_name || display(row[c.name]);
+    const uName = row.full_name || row.user?.full_name || row.users?.full_name;
+    const phone = row.phone || row.user?.phone || row.users?.phone;
+    const email = row.email || row.user?.email || row.users?.email;
+    const avatar = row.avatar_url || row.user?.avatar_url || row.users?.avatar_url;
+    const rawVal = String(row[c.name] || "");
+    const isRawUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawVal.trim());
+    const displayName = uName || (isRawUuid ? `Người dùng #${rawVal.slice(0, 8)}` : rawVal || "—");
+
+    return (
+      <div className="flex items-center gap-2.5">
+        {avatar ? (
+          <img
+            src={avatar}
+            alt=""
+            className="w-7 h-7 rounded-full object-cover border border-[#EFE4D9] shrink-0"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = "none";
+            }}
+          />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-[#FAF0E4] text-[#985018] font-bold text-xs flex items-center justify-center shrink-0 border border-[#E8DFD8]">
+            {uName ? uName.slice(0, 1).toUpperCase() : "👤"}
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="font-bold text-[#2C241E] truncate leading-tight" title={rawVal}>{displayName}</div>
+          {(phone || email) && <div className="text-[10px] text-[#73675F] truncate">{phone || email}</div>}
+        </div>
+      </div>
+    );
   }
   if (c.name === "customer_id") {
-    const custName = row.customer_name || row.customer?.full_name || row.users?.full_name || display(row[c.name]);
+    const rawVal = String(row[c.name] || "");
+    const rawCust = row.customer_name || row.customer?.full_name || row.users?.full_name;
+    const isRawUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(rawCust || rawVal).trim());
+    const custName = rawCust || (isRawUuid ? `Khách hàng #${rawVal.slice(0, 8)}` : display(row[c.name]));
     const phone = row.customer_phone || row.customer?.phone || row.users?.phone;
     const avatar = row.customer_avatar || row.customer?.avatar_url || row.users?.avatar_url;
     return (
@@ -1063,21 +1095,233 @@ function formatCell(row: Row, c: Column): React.ReactNode {
           />
         ) : (
           <div className="w-7 h-7 rounded-full bg-[#FAF0E4] text-[#985018] font-bold text-xs flex items-center justify-center shrink-0 border border-[#E8DFD8]">
-            {String(custName || "K").slice(0, 1)}
+            {rawCust ? String(rawCust).slice(0, 1).toUpperCase() : "👤"}
           </div>
         )}
         <div className="min-w-0">
-          <div className="font-bold text-[#2C241E] truncate leading-tight">{custName}</div>
+          <div className="font-bold text-[#2C241E] truncate leading-tight" title={rawVal}>{custName}</div>
           {phone && <div className="text-[10px] text-[#73675F]">{phone}</div>}
         </div>
       </div>
     );
   }
+  if (c.name === "package_id") {
+    const pkgName =
+      row.package_name ||
+      row.package?.name ||
+      row.treatment_packages?.name;
+    const rawVal = String(row[c.name] || "");
+    const price = row.package_price ?? row.package?.price ?? row.treatment_packages?.price;
+    const totalSess = row.package_total_sessions ?? row.package?.total_sessions ?? row.treatment_packages?.total_sessions;
+
+    if (pkgName) {
+      return (
+        <div className="min-w-0 max-w-[260px]">
+          <div className="font-bold text-[#2C241E] text-xs truncate flex items-center gap-1.5" title={pkgName}>
+            <span>💆</span>
+            <span className="truncate">{pkgName}</span>
+          </div>
+          {(price !== undefined || totalSess !== undefined) && (
+            <div className="text-[10.5px] text-[#8A4F23] mt-0.5 flex items-center gap-2">
+              {totalSess !== undefined && <span className="font-semibold">{totalSess} buổi</span>}
+              {price !== undefined && price > 0 && <span>{Number(price).toLocaleString("vi-VN")} ₫</span>}
+            </div>
+          )}
+        </div>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono inline-flex items-center gap-1" title={rawVal}>
+        <span>💆</span>
+        <span>Gói #{rawVal.slice(0, 8)}</span>
+      </span>
+    );
+  }
+  if (c.name === "user_package_id") {
+    const pkgName =
+      row.package_name ||
+      row.user_packages?.package?.name ||
+      row.user_packages?.treatment_packages?.name;
+    const custName =
+      row.customer_name ||
+      row.user_packages?.customer?.full_name ||
+      row.user_packages?.users?.full_name;
+    const rawVal = String(row[c.name] || "");
+
+    if (pkgName || custName) {
+      return (
+        <div className="min-w-0 max-w-[240px]">
+          {pkgName && (
+            <div className="font-bold text-[#2C241E] text-xs truncate flex items-center gap-1.5" title={pkgName}>
+              <span>💆</span>
+              <span className="truncate">{pkgName}</span>
+            </div>
+          )}
+          {custName && (
+            <div className="text-[10.5px] text-[#73675F] mt-0.5 flex items-center gap-1 truncate">
+              <span>👤</span>
+              <span className="truncate">{custName}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono inline-flex items-center gap-1" title={rawVal}>
+        <span>💆</span>
+        <span>Liệu trình #{rawVal.slice(0, 8)}</span>
+      </span>
+    );
+  }
+  if (c.name === "invoice_id" || c.name === "used_in_invoice_id") {
+    const invCode =
+      row.invoice_code ||
+      row.invoices?.invoice_code;
+    const rawVal = String(row[c.name] || "");
+    if (!invCode && !rawVal) return <span className="text-[#A69788] text-xs">—</span>;
+    const displayCode = invCode || (rawVal.startsWith("INV-") || rawVal.startsWith("HD-") ? rawVal : `HD-${rawVal.slice(0, 8)}`);
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#EBF3FC] text-[#1E40AF] border border-[#BFDBFE]" title={rawVal}>
+        <span>🧾</span>
+        <span>{displayCode}</span>
+      </span>
+    );
+  }
+  if (c.name === "coupon_id") {
+    const cCode = row.coupon_code || row.coupons?.code;
+    const rawVal = String(row[c.name] || "");
+    if (cCode) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#FFF7ED] text-[#C2410C] border border-[#FFEDD5]">
+          <span>🎟️</span>
+          <span>{cCode}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Voucher #{rawVal.slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "role_id") {
+    const rName = row.role_name || row.roles?.name;
+    const rawVal = String(row[c.name] || "");
+    if (rName) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+          <span>🛡️</span>
+          <span>{rName}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Vai trò #{rawVal.slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "permission_id") {
+    const pCode = row.permission_code || row.permissions?.code || row.permissions?.description;
+    const rawVal = String(row[c.name] || "");
+    if (pCode) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold bg-[#F5F2ED] text-[#5C4D42] border border-[#E8DFD8]">
+          <span>🔑</span>
+          <span>{pCode}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Quyền #{rawVal.slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "chapter_id") {
+    const chTitle = row.chapter_title || row.course_chapters?.title;
+    const rawVal = String(row[c.name] || "");
+    if (chTitle) {
+      return (
+        <span className="font-medium text-[#2C241E] text-xs inline-flex items-center gap-1.5" title={chTitle}>
+          <span>📖</span>
+          <span className="truncate max-w-[200px]">{chTitle}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Chương #{rawVal.slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "lesson_id") {
+    const lTitle = row.lesson_title || row.course_lessons?.title;
+    const rawVal = String(row[c.name] || "");
+    if (lTitle) {
+      return (
+        <span className="font-medium text-[#2C241E] text-xs inline-flex items-center gap-1.5" title={lTitle}>
+          <span>🎬</span>
+          <span className="truncate max-w-[200px]">{lTitle}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Bài học #{rawVal.slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "quiz_id") {
+    const qTitle = row.quiz_title || row.course_quizzes?.title;
+    const rawVal = String(row[c.name] || "");
+    if (qTitle) {
+      return (
+        <span className="font-medium text-[#2C241E] text-xs inline-flex items-center gap-1.5" title={qTitle}>
+          <span>📝</span>
+          <span className="truncate max-w-[200px]">{qTitle}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Đề thi #{rawVal.slice(0, 8)}
+      </span>
+    );
+  }
   if (c.name === "technician_id") {
-    return row.technician_name || row.technicians?.full_name || display(row[c.name]);
+    const tName = row.technician_name || row.technicians?.full_name;
+    const rawVal = String(row[c.name] || "");
+    if (tName) {
+      return (
+        <span className="font-semibold text-[#8A4F23] text-xs inline-flex items-center gap-1.5" title={rawVal}>
+          <span>👩‍⚕️</span>
+          <span>{tName}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        KTV #{rawVal.slice(0, 8)}
+      </span>
+    );
   }
   if (c.name === "service_id") {
-    return row.service_name || row.services?.name || display(row[c.name]);
+    const sName = row.service_name || row.services?.name;
+    const rawVal = String(row[c.name] || "");
+    if (sName) {
+      return (
+        <span className="font-bold text-[#2C241E] text-xs inline-flex items-center gap-1.5" title={sName}>
+          <span>💆</span>
+          <span className="truncate max-w-[200px]">{sName}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Dịch vụ #{rawVal.slice(0, 8)}
+      </span>
+    );
   }
   if (c.name === "category_id") {
     const catName =
@@ -1407,6 +1651,112 @@ function formatCell(row: Row, c: Column): React.ReactNode {
         <span className={`w-1.5 h-1.5 rounded-full ${opt?.dot || "bg-[#8A4F23]"}`} />
         <span>{opt?.label || enums[s] || s}</span>
       </span>
+    );
+  }
+  if (
+    c.name === "status" &&
+    (row.completed_sessions !== undefined || row.package_id !== undefined)
+  ) {
+    const s = String(row[c.name] || "ACTIVE").toUpperCase();
+    const pkgStatusMap: Record<string, { label: string; badge: string; dot: string }> = {
+      ACTIVE: {
+        label: "Đang sử dụng",
+        badge: "bg-[#E8F6ED] text-[#0D6832] border-[#BDE8CD]",
+        dot: "bg-[#0D6832]",
+      },
+      COMPLETED: {
+        label: "Đã hoàn thành",
+        badge: "bg-[#EBF3FC] text-[#1E40AF] border-[#BFDBFE]",
+        dot: "bg-[#2563EB]",
+      },
+      PAUSED: {
+        label: "Tạm dừng",
+        badge: "bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]",
+        dot: "bg-[#D97706]",
+      },
+      EXPIRED: {
+        label: "Hết hạn",
+        badge: "bg-[#F3F4F6] text-[#4B5563] border-[#E5E7EB]",
+        dot: "bg-[#9CA3AF]",
+      },
+      CANCELLED: {
+        label: "Đã hủy",
+        badge: "bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]",
+        dot: "bg-[#DC2626]",
+      },
+    };
+    const opt = pkgStatusMap[s];
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+          opt?.badge || "bg-[#FAF0E4] text-[#8A4F23] border-[#E8DFD8]"
+        }`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full ${opt?.dot || "bg-[#8A4F23]"}`} />
+        <span>{opt?.label || enums[s] || s}</span>
+      </span>
+    );
+  }
+  if (
+    c.name === "status" &&
+    (row.coupon_id !== undefined || row.claimed_at !== undefined)
+  ) {
+    const s = String(row[c.name] || "AVAILABLE").toUpperCase();
+    const vStatusMap: Record<string, { label: string; badge: string; dot: string }> = {
+      ACTIVE: {
+        label: "Có thể dùng",
+        badge: "bg-[#E8F6ED] text-[#0D6832] border-[#BDE8CD]",
+        dot: "bg-[#0D6832]",
+      },
+      AVAILABLE: {
+        label: "Có thể dùng",
+        badge: "bg-[#E8F6ED] text-[#0D6832] border-[#BDE8CD]",
+        dot: "bg-[#0D6832]",
+      },
+      USED: {
+        label: "Đã sử dụng",
+        badge: "bg-[#F3F4F6] text-[#4B5563] border-[#E5E7EB]",
+        dot: "bg-[#9CA3AF]",
+      },
+      EXPIRED: {
+        label: "Hết hạn",
+        badge: "bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]",
+        dot: "bg-[#DC2626]",
+      },
+    };
+    const opt = vStatusMap[s];
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+          opt?.badge || "bg-[#FAF0E4] text-[#8A4F23] border-[#E8DFD8]"
+        }`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full ${opt?.dot || "bg-[#8A4F23]"}`} />
+        <span>{opt?.label || enums[s] || s}</span>
+      </span>
+    );
+  }
+  if (c.name === "completed_sessions" && row.total_sessions !== undefined) {
+    const done = Number(row.completed_sessions || 0);
+    const total = Number(row.total_sessions || 1);
+    const pct = Math.min(100, Math.round((done / Math.max(1, total)) * 100));
+    return (
+      <div className="min-w-[105px] max-w-[145px]">
+        <div className="flex items-center justify-between text-xs font-bold mb-1">
+          <span className={done >= total ? "text-[#0D6832]" : "text-[#2C241E]"}>
+            {done} / {total} buổi
+          </span>
+          <span className="text-[10px] text-[#8C7A6B]">{pct}%</span>
+        </div>
+        <div className="w-full h-1.5 bg-[#FAF0E4] rounded-full overflow-hidden border border-[#E8DFD8]">
+          <div
+            className={`h-full rounded-full transition-all ${
+              done >= total ? "bg-[#0D6832]" : "bg-[#985018]"
+            }`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
     );
   }
   if (c.name === "tuition_total") {
