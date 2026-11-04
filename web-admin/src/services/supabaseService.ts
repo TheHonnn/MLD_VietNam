@@ -1546,7 +1546,14 @@ class SupabaseService {
         } as any : undefined,
         items: parsedItems,
         serviceTitle: parsedItems.length > 0 ? parsedItems.map((i: { itemName: string }) => i.itemName).join(', ') : undefined,
-        serviceCategory: inv.enrollment_id ? 'ACADEMY' : inv.user_package_id ? 'PACKAGE' : 'SERVICE',
+        serviceCategory: (() => {
+          const code = (inv.invoice_code || '').toUpperCase();
+          if (inv.enrollment_id || code.startsWith('HD-HP-')) return 'ACADEMY';
+          if (inv.user_package_id || code.startsWith('HD-LT-')) return 'PACKAGE';
+          if (inv.booking_id || code.startsWith('HD-SPA-') || code.startsWith('HD-DV-')) return 'SERVICE';
+          if (parsedItems.some((it: { itemType?: string }) => it.itemType === 'PRODUCT')) return 'OTHER';
+          return 'SERVICE';
+        })(),
       };
     });
   }

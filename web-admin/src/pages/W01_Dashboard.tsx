@@ -357,6 +357,17 @@ export const W01_Dashboard: React.FC = () => {
   // 1. FILTERED ENTITIES (By Branch and Date Range)
   const filteredInvoices = useMemo(() => {
     return invoices.filter((inv) => {
+      // Loại trừ các hóa đơn tạo từ kịch bản kiểm thử tự động (TEST/UAT/E2E/SEC/EXPIRY)
+      const code = (inv.invoiceCode || '').toUpperCase();
+      if (
+        code.includes('TEST') ||
+        code.includes('UAT') ||
+        code.includes('E2E') ||
+        code.includes('SEC') ||
+        code.includes('EXPIRY')
+      ) {
+        return false;
+      }
       const matchBranch = selectedBranchId === 'ALL' || inv.branchId === selectedBranchId;
       if (!matchBranch) return false;
       if (datePreset === 'ALL') return true;
