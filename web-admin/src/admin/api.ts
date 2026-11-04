@@ -31,18 +31,34 @@ export interface Listing {
   total: number;
 }
 
+function cleanApiBase(url: string): string {
+  if (!url || typeof url !== 'string') return '';
+  let clean = url.trim().replace(/\/+$/, '');
+  // Strip trailing /health if user pasted the healthcheck path into VITE_API_BASE_URL
+  clean = clean.replace(/\/health$/, '');
+  // If user passed a bare domain like https://something.onrender.com, append /api/v1
+  if (!clean.endsWith('/api/v1') && !clean.endsWith('/api')) {
+    clean = `${clean}/api/v1`;
+  }
+  return clean.replace(/\/+$/, '');
+}
+
 function resolveApiBase(): string {
   if (typeof window !== "undefined") {
-    if (window.location.protocol === "https:") {
-      const customEnv = (import.meta as any).env?.VITE_API_BASE_URL;
-      if (customEnv && customEnv.startsWith("https://")) {
-        return customEnv.replace(/\/$/, "");
+    const rawEnv = (import.meta as any).env?.VITE_API_BASE_URL;
+    if (rawEnv && typeof rawEnv === "string" && rawEnv.trim()) {
+      const sanitized = cleanApiBase(rawEnv);
+      if (window.location.protocol === "https:") {
+        if (sanitized.startsWith("https://")) {
+          return sanitized;
+        }
+        return `${window.location.origin}/api`;
       }
-      return `${window.location.origin}/api`;
+      return sanitized.replace("localhost", "127.0.0.1");
     }
-    const envUrl = (import.meta as any).env?.VITE_API_BASE_URL;
-    if (envUrl) {
-      return envUrl.replace("localhost", "127.0.0.1").replace(/\/$/, "");
+
+    if (window.location.protocol === "https:") {
+      return `${window.location.origin}/api`;
     }
   }
   return "http://127.0.0.1:3000/api/v1";
@@ -1510,8 +1526,11 @@ export async function adminCommand<T>(path: string, body?: unknown): Promise<T> 
   const timeout = window.setTimeout(() => controller.abort(), 20000);
   const token = sessionStorage.getItem('mld_admin_token');
   try {
-    let response: Response;
-    const primaryUrl = `${base}/admin/${path}`;
+    let response: Response | null = null;
+    const cleanPath = path.replace(/^\/+/, '');
+    // Ensure no accidental double /health/ in URL
+    const primaryUrl = `${base}/admin/${cleanPath}`.replace('/health/admin/', '/admin/');
+
     try {
       response = await fetch(primaryUrl, {
         method: body === undefined ? 'GET' : 'POST',
@@ -1523,22 +1542,42 @@ export async function adminCommand<T>(path: string, body?: unknown): Promise<T> 
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-    } catch (primaryErr: any) {
-      // Fallback: If primary failed (e.g. Mixed Content or local port closed), try relative /api/admin/...
-      if (typeof window !== 'undefined' && !primaryUrl.startsWith(window.location.origin + '/api/admin/')) {
-        response = await fetch(`/api/admin/${path}`, {
-          method: body === undefined ? 'GET' : 'POST',
-          signal: controller.signal,
-          headers: {
-            'X-MLD-Local-Admin': '1',
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        });
-      } else {
-        throw primaryErr;
+    } catch {
+      // Primary network failure / Mixed Content
+    }
+
+    // Fallback: If primary failed or returned 404/502/503/504, try relative fallbacks
+    if (!response || (!response.ok && [404, 502, 503, 504].includes(response.status))) {
+      if (typeof window !== 'undefined') {
+        const fallbackUrls = [
+          `/api/admin/${cleanPath}`,
+          `/api/v1/admin/${cleanPath}`,
+          `/api/${cleanPath}`
+        ];
+        for (const fbUrl of fallbackUrls) {
+          if (fbUrl === primaryUrl) continue;
+          try {
+            const fb = await fetch(fbUrl, {
+              method: body === undefined ? 'GET' : 'POST',
+              signal: controller.signal,
+              headers: {
+                'X-MLD-Local-Admin': '1',
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+            });
+            if (fb.ok) {
+              response = fb;
+              break;
+            }
+          } catch {}
+        }
       }
+    }
+
+    if (!response) {
+      throw new Error(`Không thể kết nối đến máy chủ (${primaryUrl}). Vui lòng kiểm tra lại dịch vụ backend.`);
     }
 
     const json = await response.json().catch(() => null);

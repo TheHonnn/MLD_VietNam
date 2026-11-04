@@ -1,1 +1,1 @@
-module.exports = require('../../api/admin/email/test.js');
+module.exports = require('./admin/email/test.js');

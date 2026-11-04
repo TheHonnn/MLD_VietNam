@@ -396,21 +396,41 @@ export const emailService = {
           metadata: params.metadata,
         });
       } catch (cmdErr: any) {
-        // Fallback directly to /api/email endpoint on current origin
-        const res = await fetch('/api/email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-MLD-Local-Admin': '1' },
-          body: JSON.stringify({
-            recipientEmail: params.recipientEmail,
-            recipientName: params.recipientName,
-            templateId: params.templateId,
-            variables: params.variables,
-            metadata: params.metadata,
-          }),
-        });
-        const json = await res.json().catch(() => null);
-        if (!res.ok || !json?.success) {
-          throw new Error(json?.message || cmdErr.message || 'Lỗi gửi email');
+        // Fallback directly to serverless endpoints on current origin
+        const fallbackEndpoints = [
+          '/api/admin/email/test',
+          '/api/v1/admin/email/test',
+          '/api/v1/health/admin/email/test',
+          '/api/email'
+        ];
+        let succeeded = false;
+        let lastErrorMsg = cmdErr?.message || 'Lỗi gửi email';
+
+        for (const ep of fallbackEndpoints) {
+          try {
+            const res = await fetch(ep, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-MLD-Local-Admin': '1' },
+              body: JSON.stringify({
+                recipientEmail: params.recipientEmail,
+                recipientName: params.recipientName,
+                templateId: params.templateId,
+                variables: params.variables,
+                metadata: params.metadata,
+              }),
+            });
+            const json = await res.json().catch(() => null);
+            if (res.ok && json?.success) {
+              succeeded = true;
+              break;
+            } else if (json?.message) {
+              lastErrorMsg = json.message;
+            }
+          } catch {}
+        }
+
+        if (!succeeded) {
+          throw new Error(lastErrorMsg);
         }
       }
 

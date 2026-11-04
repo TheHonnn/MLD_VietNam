@@ -49,10 +49,18 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // 2. Global Prefix: /api/v1
+  // 2. Normalize misconfigured URLs (e.g. client having /health in base URL)
+  app.use((req: any, res: any, next: any) => {
+    if (req.url && req.url.includes('/health/admin/')) {
+      req.url = req.url.replace('/health/admin/', '/admin/');
+    }
+    next();
+  });
+
+  // 3. Global Prefix: /api/v1
   app.setGlobalPrefix('api/v1');
 
-  // 3. Global Pipes & Interceptors & Filters
+  // 4. Global Pipes & Interceptors & Filters
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
