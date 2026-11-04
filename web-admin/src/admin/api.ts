@@ -1491,10 +1491,8 @@ export async function adminApi<T>(
     });
     const json = await response.json().catch(() => null);
     if (!response.ok || !json?.success) {
-      if (response.status === 401 && path !== "login" && token) {
-        sessionStorage.removeItem("mld_admin_token");
-        window.dispatchEvent(new Event("admin-signout"));
-      }
+      // NOTE: Do not clear session or signout here if backend fails with 401.
+      // Instead, throw so that the catch block seamlessly triggers querySupabaseFallback!
       throw new Error(
         Array.isArray(json?.message)
           ? json.message.join(", ")
@@ -1546,8 +1544,8 @@ export async function adminCommand<T>(path: string, body?: unknown): Promise<T> 
       // Primary network failure / Mixed Content
     }
 
-    // Fallback: If primary failed or returned 404/502/503/504, try relative fallbacks
-    if (!response || (!response.ok && [404, 502, 503, 504].includes(response.status))) {
+    // Fallback: If primary failed or returned any non-OK status (including 401, 403, 404, 500, 502, 503, 504), try relative fallbacks
+    if (!response || !response.ok) {
       if (typeof window !== 'undefined') {
         const fallbackUrls = [
           `/api/admin/${cleanPath}`,
@@ -1582,10 +1580,8 @@ export async function adminCommand<T>(path: string, body?: unknown): Promise<T> 
 
     const json = await response.json().catch(() => null);
     if (!response.ok || !json?.success) {
-      if (response.status === 401 && token) {
-        sessionStorage.removeItem('mld_admin_token');
-        window.dispatchEvent(new Event('admin-signout'));
-      }
+      // NOTE: Do NOT sign out user here. adminCommand is an operational utility
+      // (email sending, PDF export, etc.). A failure here should never kick the user to login.
       throw new Error(json?.message || `Không thể hoàn tất thao tác (${response.status}).`);
     }
     return json.data as T;

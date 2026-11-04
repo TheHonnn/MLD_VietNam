@@ -64,14 +64,17 @@ export class AdminGuard implements CanActivate {
     const backendSecret = this.config.get<string>('JWT_SECRET');
 
     let payload: { sub: string; audience?: string } | null = null;
+    let userEmail: string | undefined;
 
     // 1. Xác thực Supabase Auth JWT (nếu có cấu hình SUPABASE_JWT_SECRET)
     if (supabaseSecret && supabaseSecret.length >= 32) {
       try {
-        payload = this.jwt.verify(token, {
+        const decoded = this.jwt.verify(token, {
           secret: supabaseSecret,
           audience: 'authenticated',
         });
+        payload = decoded;
+        userEmail = (decoded as any)?.email;
       } catch {}
     }
 
@@ -81,6 +84,7 @@ export class AdminGuard implements CanActivate {
         const { data: sbData, error: sbErr } = await this.supabase.adminClient.auth.getUser(token);
         if (sbData?.user?.id && !sbErr) {
           payload = { sub: sbData.user.id, audience: 'authenticated' };
+          userEmail = sbData.user.email;
         }
       } catch {}
     }
@@ -88,10 +92,12 @@ export class AdminGuard implements CanActivate {
     // 2. Xác thực JWT nội bộ của backend (audience: 'mld-admin')
     if (!payload && backendSecret && backendSecret.length >= 32) {
       try {
-        payload = this.jwt.verify(token, {
+        const decoded = this.jwt.verify(token, {
           secret: backendSecret,
           audience: 'mld-admin',
         });
+        payload = decoded;
+        userEmail = (decoded as any)?.email;
       } catch {}
     }
 
@@ -100,8 +106,9 @@ export class AdminGuard implements CanActivate {
     }
 
     const { rows } = await this.db.connection.query(
-      'SELECT id, full_name, role, is_active FROM users WHERE id=$1',
-      [payload.sub],
+      'SELECT id, full_name, role, is_active FROM users WHERE id=$1' +
+        (userEmail ? ' OR LOWER(email)=LOWER($2)' : ''),
+      userEmail ? [payload.sub, userEmail] : [payload.sub],
     );
     const user = rows[0];
     if (!user?.is_active)
