@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, BadRequestException, BadGatewayException } from '@nestjs/common';
 import { AppService } from './app.service';
 import { EmailService } from './modules/auth/services/email.service';
 
@@ -23,11 +23,16 @@ export class AppController {
     };
   }
 
-  @Post(['health/admin/email/test', 'admin/email/test'])
+  @Post('health/admin/email/test')
   async fallbackEmailTest(@Body() body: any) {
     const recipientEmail = typeof body?.recipientEmail === 'string' ? body.recipientEmail.trim() : '';
     const templateId = typeof body?.templateId === 'string' ? body.templateId.trim() : 'CONFIRMATION_ENROLLMENT';
     const variables = body?.variables || {};
+
+    if (!recipientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+      throw new BadRequestException('Địa chỉ email người nhận không hợp lệ.');
+    }
+
     const sent = await this.emailService.sendTemplateEmail({
       to: recipientEmail,
       recipientName: typeof body.recipientName === 'string' ? body.recipientName : '',
@@ -35,10 +40,18 @@ export class AppController {
       variables,
       metadata: { is_test: true, trigger_screen: 'W18_PortalContent_Alias' },
     });
+
+    if (!sent) {
+      throw new BadGatewayException(
+        `Gửi email thất bại tới ${recipientEmail}. Vui lòng kiểm tra lại cấu hình Brevo/SMTP và nhật ký Email.`,
+      );
+    }
+
     return {
       success: true,
+      statusCode: 200,
       message: `Đã gửi thành công email mẫu tới ${recipientEmail}`,
-      data: { sent, recipient: recipientEmail },
+      data: { sent: true, recipient: recipientEmail },
     };
   }
 

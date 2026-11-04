@@ -27,30 +27,32 @@ export class AdminGuard implements CanActivate {
     // 0. Chế độ phát triển máy nội bộ (Local Development)
     if (this.config.get<string>('ADMIN_LOCAL_NO_AUTH') === 'true' && this.config.get<string>('NODE_ENV') !== 'production') {
       const loopback = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
-      const originSetting = this.config.get<string>('CORS_ORIGIN') || '*';
+      const originSetting = this.config.get<string>('CORS_ORIGIN') || 'http://localhost:5173,http://127.0.0.1:5173';
       const allowedOrigins = originSetting.split(',').map((v) => v.trim());
       let localHost = false;
       let localOrigin = false;
       try {
         localHost = ['localhost', '127.0.0.1', '[::1]'].includes(new URL('http://' + req.headers.host).hostname);
         localOrigin =
-          allowedOrigins.includes('*') ||
-          (req.headers.origin && allowedOrigins.includes(req.headers.origin)) ||
-          (req.headers.origin && ['localhost', '127.0.0.1', '[::1]'].includes(new URL(req.headers.origin).hostname));
+          allowedOrigins.includes(req.headers.origin) &&
+          ['localhost', '127.0.0.1', '[::1]'].includes(new URL(req.headers.origin).hostname);
       } catch {}
 
       if (
-        (loopback.has(req.socket?.remoteAddress) || localHost) &&
-        (req.headers['x-mld-local-admin'] === '1' || localOrigin)
+        !loopback.has(req.socket?.remoteAddress) ||
+        !localHost ||
+        !localOrigin ||
+        req.headers['x-mld-local-admin'] !== '1'
       ) {
-        const { rows } = await this.db.connection.query(
-          "SELECT id, full_name, role, is_active FROM users WHERE role='SUPER_ADMIN' AND is_active=true ORDER BY created_at, id LIMIT 1",
-        );
-        if (rows[0]) {
-          req.admin = { ...rows[0], localDevelopment: true };
-          return true;
-        }
+        throw new ForbiddenException('Chế độ tạm bỏ đăng nhập chỉ dùng trên máy local.');
       }
+
+      const { rows } = await this.db.connection.query(
+        "SELECT id, full_name, role, is_active FROM users WHERE role='SUPER_ADMIN' AND is_active=true ORDER BY created_at, id LIMIT 1",
+      );
+      if (!rows[0]) throw new ForbiddenException('Database chưa có SUPER_ADMIN đang hoạt động.');
+      req.admin = { ...rows[0], localDevelopment: true };
+      return true;
     }
 
     const token = /^Bearer (\S+)$/.exec(req.headers.authorization || '')?.[1];
