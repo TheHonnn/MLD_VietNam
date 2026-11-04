@@ -317,6 +317,226 @@ export class TasksService {
       return { releasedCount: 0 };
     }
   }
+
+  /**
+   * CRON JOB 6: Tự động phát hiện và gửi Email cho các hành động trên Mobile (Đặt lịch Spa, Thanh toán, Ghi danh học viên)
+   * Chạy định kỳ mỗi 1 phút
+   * Đảm bảo tính nhất quán kể cả khi Flutter App hoặc Zalo Mini App ghi trực tiếp qua Supabase REST API
+   * Cơ chế Idempotent: kiểm tra email_logs trước khi gửi, cam kết không bao giờ spam trùng lặp
+   */
+  @Cron('*/1 * * * *')
+  async handleAutoDispatchMobileCustomerEmails(): Promise<void> {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+    // 1. Quét Bookings mới tạo trong 2 giờ qua
+    try {
+      const { data: recentBookings, error: bkgErr } = await this.supabaseService.adminClient
+        .from('bookings')
+        .select(`
+          id,
+          booking_code,
+          booking_date,
+          start_time,
+          booked_for_name,
+          booked_for_phone,
+          special_notes,
+          final_price,
+          payment_method,
+          branch_id,
+          technician_id,
+          customer_id,
+          users:users!bookings_customer_id_fkey(email, full_name),
+          branches(name, address),
+          technicians(full_name),
+          booking_items(services(name))
+        `)
+        .gte('created_at', twoHoursAgo)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (!bkgErr && recentBookings && recentBookings.length > 0) {
+        for (const bk of recentBookings) {
+          const { data: existingLog } = await this.supabaseService.adminClient
+            .from('email_logs')
+            .select('id')
+            .or(`metadata->>booking_id.eq.${bk.id},metadata->>booking_code.eq.${bk.booking_code}`)
+            .eq('status', 'SENT')
+            .limit(1)
+            .maybeSingle();
+
+          if (existingLog) continue;
+
+          let customerEmail = (bk as any).users?.email?.trim();
+          if ((!customerEmail || !customerEmail.includes('@')) && bk.special_notes) {
+            const match = bk.special_notes.match(/Email:\s*([^\s|]+)/i);
+            if (match && match[1]) customerEmail = match[1].trim();
+          }
+
+          if (!customerEmail || !customerEmail.includes('@')) continue;
+
+          const customerName = bk.booked_for_name || (bk as any).users?.full_name || 'Quý khách';
+          const branchName = (bk as any).branches?.name || 'Chi nhánh MLD Việt Nam';
+          const branchAddress = (bk as any).branches?.address || 'Hệ thống Trị liệu MLD';
+          const specialistName = (bk as any).technicians?.full_name || 'Chuyên viên chỉ định MLD';
+          const serviceName = (bk as any).booking_items?.[0]?.services?.name || 'Dịch vụ Trị liệu Spa MLD';
+
+          await this.emailService.sendBookingConfirmationEmail({
+            to: customerEmail,
+            customerName,
+            bookingCode: bk.booking_code,
+            serviceName,
+            branchName,
+            branchAddress,
+            bookingDate: bk.booking_date,
+            bookingTime: bk.start_time,
+            specialistName,
+            price: bk.final_price || 0,
+            paymentMethod: bk.payment_method || 'Tại quầy Spa',
+            specialNotes: bk.special_notes,
+            metadata: {
+              booking_id: bk.id,
+              booking_code: bk.booking_code,
+              source: 'MOBILE_BACKGROUND_WATCHER',
+            },
+          });
+          this.logger.log(`📧 [Watcher] Tự động gửi Email xác nhận đặt lịch ${bk.booking_code} tới ${customerEmail}`);
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Lỗi trong cron watcher booking email: ${err.message}`);
+    }
+
+    // 2. Quét Invoices đã thanh toán (PAID) trong 2 giờ qua
+    try {
+      const { data: recentInvoices, error: invErr } = await this.supabaseService.adminClient
+        .from('invoices')
+        .select(`
+          id,
+          invoice_code,
+          total_amount,
+          payment_method,
+          paid_at,
+          customer_id,
+          booking_id,
+          enrollment_id,
+          users:customer_id(email, full_name, membership_tier, loyalty_points)
+        `)
+        .eq('payment_status', 'PAID')
+        .gte('paid_at', twoHoursAgo)
+        .order('paid_at', { ascending: false })
+        .limit(30);
+
+      if (!invErr && recentInvoices && recentInvoices.length > 0) {
+        for (const inv of recentInvoices) {
+          const { data: existingLog } = await this.supabaseService.adminClient
+            .from('email_logs')
+            .select('id')
+            .or(`metadata->>invoice_id.eq.${inv.id},metadata->>invoice_code.eq.${inv.invoice_code}`)
+            .eq('status', 'SENT')
+            .limit(1)
+            .maybeSingle();
+
+          if (existingLog) continue;
+
+          const customerEmail = (inv as any).users?.email?.trim();
+          if (!customerEmail || !customerEmail.includes('@')) continue;
+
+          const customerName = (inv as any).users?.full_name || 'Quý khách';
+          const tierName = (inv as any).users?.membership_tier || 'MLD Member';
+          const pointsEarned = Math.round((Number(inv.total_amount) || 0) / 100000);
+          const paidAt = inv.paid_at
+            ? new Date(inv.paid_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
+            : new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+          await this.emailService.sendPaymentReceiptEmail({
+            to: customerEmail,
+            customerName,
+            invoiceCode: inv.invoice_code,
+            amount: inv.total_amount || 0,
+            paymentMethod: inv.payment_method || 'Chuyển khoản / VietQR',
+            paidAt,
+            description: `Thanh toán thành công đơn hàng ${inv.invoice_code}`,
+            tierName,
+            pointsEarned,
+            metadata: {
+              invoice_id: inv.id,
+              invoice_code: inv.invoice_code,
+              source: 'MOBILE_BACKGROUND_WATCHER',
+            },
+          });
+          this.logger.log(`📧 [Watcher] Tự động gửi Email biên lai thanh toán ${inv.invoice_code} tới ${customerEmail}`);
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Lỗi trong cron watcher payment receipt: ${err.message}`);
+    }
+
+    // 3. Quét Course Enrollments đăng ký mới trong 2 giờ qua
+    try {
+      const { data: recentEnrollments, error: enrErr } = await this.supabaseService.adminClient
+        .from('course_enrollments')
+        .select(`
+          id,
+          student_id,
+          student_name,
+          student_email,
+          student_phone,
+          selected_branch,
+          tuition_total,
+          amount_paid,
+          order_code,
+          course_id,
+          created_at,
+          courses(title),
+          users:student_id(email, full_name)
+        `)
+        .gte('created_at', twoHoursAgo)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (!enrErr && recentEnrollments && recentEnrollments.length > 0) {
+        for (const enr of recentEnrollments) {
+          const { data: existingLog } = await this.supabaseService.adminClient
+            .from('email_logs')
+            .select('id')
+            .or(`metadata->>enrollment_id.eq.${enr.id},metadata->>student_code.eq.${enr.order_code || enr.id}`)
+            .eq('status', 'SENT')
+            .limit(1)
+            .maybeSingle();
+
+          if (existingLog) continue;
+
+          let studentEmail = enr.student_email?.trim();
+          if (!studentEmail || !studentEmail.includes('@')) {
+            studentEmail = (enr as any).users?.email?.trim();
+          }
+          if (!studentEmail || !studentEmail.includes('@')) continue;
+
+          const studentName = enr.student_name || (enr as any).users?.full_name || 'Học viên';
+          const courseTitle = (enr as any).courses?.title || 'Khóa đào tạo chuyên sâu MLD';
+          const studentCode = enr.order_code || `HV-${enr.id.slice(0, 6)}`;
+          const branchAddress = enr.selected_branch || 'Trụ sở MLD Việt Nam - 260/271 Bùi Xương Trạch, Hà Nội';
+          const paidAmount = enr.amount_paid || 0;
+
+          await this.emailService.sendEnrollmentConfirmationEmail({
+            to: studentEmail,
+            studentName,
+            studentCode,
+            courseName: courseTitle,
+            branchAddress,
+            paidAmount,
+            metadata: {
+              enrollment_id: enr.id,
+              student_code: studentCode,
+              source: 'MOBILE_BACKGROUND_WATCHER',
+            },
+          });
+          this.logger.log(`📧 [Watcher] Tự động gửi Email xác nhận đăng ký khóa học cho học viên ${studentEmail}`);
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Lỗi trong cron watcher enrollment email: ${err.message}`);
+    }
+  }
+
 }
-
-

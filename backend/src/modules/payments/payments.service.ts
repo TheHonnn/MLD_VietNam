@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Optional,
   Logger,
   BadRequestException,
   NotFoundException,
@@ -9,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../../database/supabase.service';
 import { RedisService } from '../../database/redis.service';
 import { CreatePaymentLinkDto } from './dto/create-payment-link.dto';
+import { EmailService } from '../auth/services/email.service';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { PayOS } = require('@payos/node');
@@ -40,6 +42,7 @@ export class PaymentsService {
     private configService: ConfigService,
     private supabaseService: SupabaseService,
     private redisService: RedisService,
+    @Optional() private emailService?: EmailService,
   ) {
     const clientId = this.configService.get<string>('PAYOS_CLIENT_ID');
     const apiKey = this.configService.get<string>('PAYOS_API_KEY');
@@ -380,6 +383,40 @@ export class PaymentsService {
           this.logger.warn(`[Invoice Insert Warning]: ${invErr.message}`);
         } else {
           this.logger.log(`[Invoice Created] ${invoiceCode} for booking ${targetBookingId}`);
+
+        if (this.emailService && bkgData?.customer_id) {
+          (async () => {
+            try {
+              const { data: cust } = await this.supabaseService.adminClient
+                .from('users')
+                .select('email, full_name, membership_tier, loyalty_points')
+                .eq('id', bkgData.customer_id)
+                .maybeSingle();
+              if (cust?.email && cust.email.includes('@')) {
+                await this.emailService.sendPaymentReceiptEmail({
+                  to: cust.email,
+                  customerName: cust.full_name || mapping?.customerName || 'Quý khách',
+                  invoiceCode: invoiceCode,
+                  amount: amountPaid,
+                  paymentMethod: 'VietQR MBBank (PayOS)',
+                  paidAt: new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
+                  description: mapping?.description || `Thanh toán thành công ${mapping?.bookingCode || ''}`,
+                  tierName: cust.membership_tier || 'MLD Member',
+                  pointsEarned: Math.round(amountPaid / 100000),
+                  metadata: {
+                    invoice_code: invoiceCode,
+                    booking_id: targetBookingId,
+                    source: 'PAYOS_PAYMENT_SUCCESS',
+                  },
+                });
+                this.logger.log(`📧 [Auto-Email] Đã gửi biên lai thanh toán ${invoiceCode} tới ${cust.email}`);
+              }
+            } catch (err: any) {
+              this.logger.warn(`Lỗi dispatch email biên lai PayOS: ${err.message}`);
+            }
+          })().catch(() => {});
+        }
+
         }
       } catch (invErr) {
         this.logger.warn(`[Invoice Insert Catch]: ${invErr}`);
@@ -656,6 +693,40 @@ export class PaymentsService {
                 gateway_transaction_id: referenceCode || 'BANK_TRANSFER_WEBHOOK',
               })
               .eq('id', inv.id);
+
+          if (this.emailService && inv.customer_id) {
+            (async () => {
+              try {
+                const { data: cust } = await this.supabaseService.adminClient
+                  .from('users')
+                  .select('email, full_name, membership_tier, loyalty_points')
+                  .eq('id', inv.customer_id)
+                  .maybeSingle();
+                if (cust?.email && cust.email.includes('@')) {
+                  await this.emailService.sendPaymentReceiptEmail({
+                    to: cust.email,
+                    customerName: cust.full_name || 'Quý khách',
+                    invoiceCode: inv.invoice_code,
+                    amount: amount,
+                    paymentMethod: 'Chuyển khoản Ngân hàng (VietQR)',
+                    paidAt: new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
+                    description: `Thanh toán thành công hóa đơn ${inv.invoice_code}`,
+                    tierName: cust.membership_tier || 'MLD Member',
+                    pointsEarned: Math.round(amount / 100000),
+                    metadata: {
+                      invoice_id: inv.id,
+                      invoice_code: inv.invoice_code,
+                      source: 'BANK_TRANSFER_WEBHOOK',
+                    },
+                  });
+                  this.logger.log(`📧 [Auto-Email] Đã gửi biên lai hóa đơn ${inv.invoice_code} tới ${cust.email}`);
+                }
+              } catch (err: any) {
+                this.logger.warn(`Lỗi dispatch email hóa đơn: ${err.message}`);
+              }
+            })().catch(() => {});
+          }
+
             results.push({ matchedCode, status: 'PARTIAL', amountPaid: amount, required: inv.total_amount });
             continue;
           }
@@ -737,6 +808,43 @@ export class PaymentsService {
                 approval_notes: `[Tự động đối soát Webhook Ngân hàng] Đã nhận thanh toán ${amount.toLocaleString('vi-VN')}đ khớp mã ${matchedCode}`,
               })
               .eq('id', enr.id);
+
+            if (this.emailService && enr.student_id) {
+              (async () => {
+                try {
+                  const { data: student } = await this.supabaseService.adminClient
+                    .from('users')
+                    .select('email, full_name')
+                    .eq('id', enr.student_id)
+                    .maybeSingle();
+                  const { data: crs } = await this.supabaseService.adminClient
+                    .from('courses')
+                    .select('title')
+                    .eq('id', enr.course_id)
+                    .maybeSingle();
+                  const studentEmail = (enr as any).student_email || student?.email;
+                  if (studentEmail && studentEmail.includes('@')) {
+                    await this.emailService.sendEnrollmentConfirmationEmail({
+                      to: studentEmail,
+                      studentName: student?.full_name || (enr as any).student_name || 'Học viên',
+                      studentCode: enr.order_code || `HV-${enr.id.slice(0, 6)}`,
+                      courseName: crs?.title || 'Khóa đào tạo chuyên sâu MLD',
+                      branchAddress: (enr as any).selected_branch || 'Trụ sở MLD Việt Nam - 260/271 Bùi Xương Trạch, Hà Nội',
+                      paidAmount: amount,
+                      metadata: {
+                        enrollment_id: enr.id,
+                        order_code: enr.order_code,
+                        source: 'BANK_TRANSFER_ENROLLMENT_PAID',
+                      },
+                    });
+                    this.logger.log(`📧 [Auto-Email] Đã gửi xác nhận học phí cho học viên ${studentEmail}`);
+                  }
+                } catch (err: any) {
+                  this.logger.warn(`Lỗi dispatch email học viên: ${err.message}`);
+                }
+              })().catch(() => {});
+            }
+
 
             await this.ensureEnrollmentPayment(
               enr.id,

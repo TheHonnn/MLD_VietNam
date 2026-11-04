@@ -456,6 +456,67 @@ export class EmailService {
     };
 
     const BUILTIN_DEFAULT_TEMPLATES: Record<string, { subject: string; html: string }> = {
+      CONFIRMATION_BOOKING: {
+        subject: 'MLD Việt Nam - Xác nhận đặt lịch hẹn chăm sóc Spa: {{booking_code}}',
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2C241E; line-height: 1.6;">
+        <div style="background: linear-gradient(135deg, #985018 0%, #693B20 100%); padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: bold;">VIỆN TRỊ LIỆU & SPA MLD VIỆT NAM</h1>
+          <p style="color: #FAF0E4; margin: 8px 0 0 0; font-size: 13px;">Hệ thống Dưỡng sinh & Dẫn lưu Bạch huyết Chuẩn Y Khoa</p>
+        </div>
+        <div style="background: #ffffff; padding: 30px 25px; border: 1px solid #E8DFD8; border-top: none; border-radius: 0 0 12px 12px;">
+          <p style="font-size: 16px; font-weight: bold; margin-top: 0;">Kính gửi Quý khách {{customer_name}},</p>
+          <p>MLD Việt Nam xin trân trọng thông báo lịch hẹn chăm sóc sức khỏe & trị liệu của Quý khách đã được xác nhận thành công trên hệ thống:</p>
+          <div style="background: #FAF8F5; border-left: 4px solid #985018; padding: 18px 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+            <p style="margin: 5px 0;"><strong>Mã lịch hẹn:</strong> <span style="font-family: monospace; font-weight: bold; color: #985018; font-size: 15px;">{{booking_code}}</span></p>
+            <p style="margin: 5px 0;"><strong>Dịch vụ trị liệu:</strong> {{service_name}}</p>
+            <p style="margin: 5px 0;"><strong>Thời gian hẹn:</strong> <span style="color: #985018; font-weight: bold;">{{booking_time}} · Ngày {{booking_date}}</span></p>
+            <p style="margin: 5px 0;"><strong>Chuyên viên thực hiện:</strong> {{specialist_name}}</p>
+            <p style="margin: 5px 0;"><strong>Chi nhánh:</strong> {{branch_name}}</p>
+            <p style="margin: 5px 0;"><strong>Địa chỉ:</strong> {{branch_address}}</p>
+            <p style="margin: 5px 0;"><strong>Giá dịch vụ:</strong> <span style="color: #137333; font-weight: bold;">{{price}} VNĐ</span></p>
+            <p style="margin: 5px 0;"><strong>Phương thức:</strong> {{payment_method}}</p>
+            {{notes_section}}
+          </div>
+          <div style="background: #FFF8F0; border: 1px dashed #C58D59; padding: 14px 18px; border-radius: 8px; font-size: 13px; color: #6B6158;">
+            💡 <strong>Lưu ý dành cho Quý khách:</strong>
+            <ul style="margin: 8px 0 0 0; padding-left: 18px;">
+              <li>Quý khách vui lòng đến trước giờ hẹn 10 - 15 phút để thưởng trà dưỡng sinh và được thăm khám thể trạng trước buổi trị liệu.</li>
+              <li>Nếu cần dời lịch hoặc hỗ trợ, Quý khách có thể thao tác trực tiếp trên App MLD hoặc liên hệ Hotline chi nhánh.</li>
+            </ul>
+          </div>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px dashed #E8DFD8; font-size: 12px; color: #73675F; text-align: center;">
+            Hotline Hỗ trợ CSKH: <strong>0388.886.688</strong> | Website: <strong>mldvietnam.vn</strong>
+          </div>
+        </div>
+      </div>`,
+      },
+      PAYMENT_RECEIPT: {
+        subject: 'MLD Việt Nam - Biên lai xác nhận thanh toán thành công: {{invoice_code}}',
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2C241E; line-height: 1.6;">
+        <div style="background: linear-gradient(135deg, #137333 0%, #0D5324 100%); padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: bold;">BIÊN LAI THANH TOÁN ĐIỆN TỬ</h1>
+          <p style="color: #E6F4EA; margin: 8px 0 0 0; font-size: 13px;">Hệ thống Dưỡng sinh & Đào tạo MLD Việt Nam</p>
+        </div>
+        <div style="background: #ffffff; padding: 30px 25px; border: 1px solid #E8DFD8; border-top: none; border-radius: 0 0 12px 12px;">
+          <p style="font-size: 16px; font-weight: bold; margin-top: 0;">Kính gửi {{customer_name}},</p>
+          <p>MLD Việt Nam xin trân trọng thông báo giao dịch thanh toán của Quý khách đã được xác nhận thành công:</p>
+          <div style="background: #FAF8F5; border-left: 4px solid #137333; padding: 18px 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+            <p style="margin: 5px 0;"><strong>Mã hóa đơn:</strong> <span style="font-family: monospace; font-weight: bold; color: #137333; font-size: 15px;">{{invoice_code}}</span></p>
+            <p style="margin: 5px 0;"><strong>Số tiền đã thanh toán:</strong> <span style="color: #137333; font-weight: bold; font-size: 16px;">{{amount}} VNĐ</span></p>
+            <p style="margin: 5px 0;"><strong>Phương thức thanh toán:</strong> {{payment_method}}</p>
+            <p style="margin: 5px 0;"><strong>Thời gian ghi nhận:</strong> {{paid_at}}</p>
+            <p style="margin: 5px 0;"><strong>Nội dung thanh toán:</strong> {{description}}</p>
+            <p style="margin: 5px 0;"><strong>Điểm tích lũy nhận được:</strong> <span style="color: #985018; font-weight: bold;">+{{points_earned}} điểm</span></p>
+            <p style="margin: 5px 0;"><strong>Hạng thành viên hiện tại:</strong> <span style="font-weight: bold; color: #985018;">{{tier_name}}</span></p>
+          </div>
+          <p style="font-size: 13px; color: #6B6158;">Biên lai điện tử này được lưu trữ tự động trên ứng dụng MLD trong mục <em>Hồ sơ &gt; Lịch sử giao dịch</em>. Quý khách có thể xem và tra cứu bất kỳ lúc nào.</p>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px dashed #E8DFD8; font-size: 12px; color: #73675F; text-align: center;">
+            Hotline Kế toán & CSKH: <strong>0388.886.688</strong> | Website: <strong>mldvietnam.vn</strong>
+          </div>
+        </div>
+      </div>`,
+      },
+
       CONFIRMATION_ENROLLMENT: {
         subject: 'MLD Việt Nam - Xác nhận đăng ký khóa học thành công: {{course_name}}',
         html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2C241E; line-height: 1.6;">
@@ -784,4 +845,133 @@ export class EmailService {
       metadata: { type: 'PRACTICE_SCHEDULE', batchCode: params.batchCode, sessionDate: params.sessionDate },
     });
   }
+
+  /**
+   * Helper 4: Xác nhận đặt lịch hẹn chăm sóc Spa mới (CONFIRMATION_BOOKING)
+   */
+  public async sendBookingConfirmationEmail(params: {
+    to: string;
+    customerName: string;
+    bookingCode: string;
+    serviceName: string;
+    branchName: string;
+    branchAddress: string;
+    bookingDate: string;
+    bookingTime: string;
+    specialistName?: string;
+    price: number | string;
+    paymentMethod?: string;
+    specialNotes?: string;
+    metadata?: Record<string, any>;
+  }): Promise<boolean> {
+    const formattedPrice = typeof params.price === 'number'
+      ? params.price.toLocaleString('vi-VN')
+      : String(params.price);
+    const notesHtml = params.specialNotes && params.specialNotes.trim().length > 0
+      ? `<p style="margin: 5px 0;"><strong>Ghi chú dịch vụ:</strong> ${params.specialNotes}</p>`
+      : '';
+
+    return this.sendTemplateEmail({
+      to: params.to,
+      recipientName: params.customerName,
+      templateId: 'CONFIRMATION_BOOKING',
+      variables: {
+        customer_name: params.customerName,
+        booking_code: params.bookingCode,
+        service_name: params.serviceName,
+        branch_name: params.branchName,
+        branch_address: params.branchAddress,
+        booking_date: params.bookingDate,
+        booking_time: params.bookingTime,
+        specialist_name: params.specialistName || 'Chuyên viên chỉ định MLD',
+        price: formattedPrice,
+        payment_method: params.paymentMethod || 'Tại quầy Spa',
+        notes_section: notesHtml,
+      },
+      metadata: {
+        type: 'CONFIRMATION_BOOKING',
+        booking_code: params.bookingCode,
+        ...params.metadata,
+      },
+    });
+  }
+
+  /**
+   * Helper 5: Biên lai xác nhận thanh toán thành công (PAYMENT_RECEIPT)
+   */
+  public async sendPaymentReceiptEmail(params: {
+    to: string;
+    customerName: string;
+    invoiceCode: string;
+    amount: number | string;
+    paymentMethod: string;
+    paidAt: string;
+    description?: string;
+    pointsEarned?: number | string;
+    tierName?: string;
+    metadata?: Record<string, any>;
+  }): Promise<boolean> {
+    const formattedAmount = typeof params.amount === 'number'
+      ? params.amount.toLocaleString('vi-VN')
+      : String(params.amount);
+
+    return this.sendTemplateEmail({
+      to: params.to,
+      recipientName: params.customerName,
+      templateId: 'PAYMENT_RECEIPT',
+      variables: {
+        customer_name: params.customerName,
+        invoice_code: params.invoiceCode,
+        amount: formattedAmount,
+        payment_method: params.paymentMethod,
+        paid_at: params.paidAt,
+        description: params.description || 'Thanh toán dịch vụ / khóa học MLD Việt Nam',
+        points_earned: String(params.pointsEarned ?? Math.round(Number(params.amount) / 100000)),
+        tier_name: params.tierName || 'MLD Member',
+      },
+      metadata: {
+        type: 'PAYMENT_RECEIPT',
+        invoice_code: params.invoiceCode,
+        ...params.metadata,
+      },
+    });
+  }
+
+  /**
+   * Helper 6: Xác nhận đăng ký khóa học mới (CONFIRMATION_ENROLLMENT)
+   */
+  public async sendEnrollmentConfirmationEmail(params: {
+    to: string;
+    studentName: string;
+    studentCode: string;
+    courseName: string;
+    startDate?: string;
+    branchAddress?: string;
+    paidAmount?: number | string;
+    metadata?: Record<string, any>;
+  }): Promise<boolean> {
+    const formattedAmount = typeof params.paidAmount === 'number'
+      ? params.paidAmount.toLocaleString('vi-VN')
+      : String(params.paidAmount || '0');
+
+    return this.sendTemplateEmail({
+      to: params.to,
+      recipientName: params.studentName,
+      templateId: 'CONFIRMATION_ENROLLMENT',
+      variables: {
+        student_name: params.studentName,
+        student_code: params.studentCode,
+        course_name: params.courseName,
+        start_date: params.startDate || 'Theo lịch xếp lớp của Học viện MLD',
+        branch_address: params.branchAddress || 'Trụ sở MLD Việt Nam - 260/271 Bùi Xương Trạch, Hà Nội',
+        paid_amount: formattedAmount,
+      },
+      metadata: {
+        type: 'CONFIRMATION_ENROLLMENT',
+        student_code: params.studentCode,
+        ...params.metadata,
+      },
+    });
+  }
+
 }
