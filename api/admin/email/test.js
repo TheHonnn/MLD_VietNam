@@ -280,8 +280,11 @@ module.exports = async function handler(req, res) {
   const targetEmail = recipientEmail.trim();
 
   // 1. Kiểm tra từ Supabase Cloud REST trước (nếu có cấu hình)
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  const DEFAULT_SUPABASE_URL = 'https://wstvwushpwcdsmhpunvh.supabase.co';
+  const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMTk0MjAsImV4cCI6MjEwNzU5NTQyMH0.1mDiB0Rsst_nyseC5k-AyfLOwYTRe96ZzQ4yHEU5Z58';
+
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY;
 
   let subject = '';
   let bodyHtml = '';
@@ -365,10 +368,39 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const smtpHost = process.env.SMTP_HOST || 'smtp-relay.brevo.com';
-    const smtpPort = Number(process.env.SMTP_PORT) || 587;
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
+    let smtpHost = process.env.SMTP_HOST || 'smtp-relay.brevo.com';
+    let smtpPort = Number(process.env.SMTP_PORT) || 587;
+    let smtpUser = process.env.SMTP_USER;
+    let smtpPass = process.env.SMTP_PASS;
+    let senderEmail = process.env.MAIL_FROM_ADDRESS || 'xuantruong.dev26@gmail.com';
+    let senderName = process.env.MAIL_FROM_NAME || 'MLD Việt Nam';
+
+    // Tự động nạp cấu hình Brevo SMTP từ Supabase RPC nếu môi trường Vercel chưa có biến
+    if ((!smtpUser || !smtpPass) && supabaseUrl && supabaseKey) {
+      try {
+        const rpcRes = await fetch(`${supabaseUrl}/rest/v1/rpc/get_smtp_credentials`, {
+          method: 'POST',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (rpcRes.ok) {
+          const cfg = await rpcRes.json();
+          if (cfg && cfg.user && cfg.pass) {
+            smtpHost = cfg.host || smtpHost;
+            smtpPort = Number(cfg.port) || smtpPort;
+            smtpUser = cfg.user;
+            smtpPass = cfg.pass;
+            senderEmail = cfg.from_address || senderEmail;
+            senderName = cfg.from_name || senderName;
+          }
+        }
+      } catch (rpcErr) {
+        console.warn('[Vercel Email] Không thể nạp SMTP từ Supabase RPC:', rpcErr.message);
+      }
+    }
 
     if (!smtpUser || !smtpPass) {
       throw new Error('Chưa cấu hình tài khoản SMTP (SMTP_USER / SMTP_PASS).');
@@ -386,9 +418,6 @@ module.exports = async function handler(req, res) {
       greetingTimeout: 15000,
       socketTimeout: 20000
     });
-
-    const senderEmail = process.env.MAIL_FROM_ADDRESS || 'xuantruong.dev26@gmail.com';
-    const senderName = process.env.MAIL_FROM_NAME || 'MLD Việt Nam';
 
     const info = await transporter.sendMail({
       from: `"${senderName}" <${senderEmail}>`,
