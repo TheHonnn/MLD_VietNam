@@ -366,10 +366,37 @@ export class TasksService {
 
           if (existingLog) continue;
 
-          let customerEmail = (bk as any).users?.email?.trim();
-          if ((!customerEmail || !customerEmail.includes('@')) && bk.special_notes) {
+          // 1. Trích xuất email khách hàng: Ưu tiên cao nhất từ special_notes mà khách nhập trên Mobile
+          let customerEmail = '';
+          if (bk.special_notes) {
             const match = bk.special_notes.match(/Email:\s*([^\s|]+)/i);
-            if (match && match[1]) customerEmail = match[1].trim();
+            if (match && match[1] && match[1].includes('@')) {
+              customerEmail = match[1].trim();
+            }
+          }
+
+          // 2. Nếu không có trong ghi chú, tìm theo số điện thoại đặt lịch
+          if (!customerEmail && bk.booked_for_phone) {
+            try {
+              const { data: uByPhone } = await this.supabaseService.adminClient
+                .from('users')
+                .select('email')
+                .eq('phone', bk.booked_for_phone.trim())
+                .maybeSingle();
+              if (uByPhone?.email && uByPhone.email.includes('@') && !uByPhone.email.endsWith('@kks.com')) {
+                customerEmail = uByPhone.email.trim();
+              }
+            } catch (_) {}
+          }
+
+          // 3. Dự phòng theo customer_id nếu không phải email test ảo
+          if (!customerEmail) {
+            const userEmail = (bk as any).users?.email?.trim();
+            if (userEmail && userEmail.includes('@') && !userEmail.endsWith('@kks.com')) {
+              customerEmail = userEmail;
+            } else if (userEmail && userEmail.includes('@')) {
+              customerEmail = userEmail;
+            }
           }
 
           if (!customerEmail || !customerEmail.includes('@')) continue;

@@ -16,8 +16,8 @@ export interface SendOtpEmailOptions {
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: nodemailer.Transporter | null = null;
-  private readonly fromAddress: string;
-  private readonly fromName: string;
+  private fromAddress: string;
+  private fromName: string;
 
   constructor(
     private configService: ConfigService,
@@ -28,6 +28,55 @@ export class EmailService {
       this.configService.get<string>('MAIL_FROM_ADDRESS') || 'no-reply@mldvietnam.vn';
 
     this.initTransporter();
+  }
+
+  
+  private async ensureTransporter(): Promise<nodemailer.Transporter | null> {
+    if (this.transporter) return this.transporter;
+
+    let host = this.configService.get<string>('SMTP_HOST') || process.env.SMTP_HOST;
+    let port = Number(this.configService.get<number>('SMTP_PORT') || process.env.SMTP_PORT) || 587;
+    let user = this.configService.get<string>('SMTP_USER') || process.env.SMTP_USER;
+    let pass = this.configService.get<string>('SMTP_PASS') || process.env.SMTP_PASS;
+
+    if ((!user || !pass) && this.supabaseService?.adminClient) {
+      try {
+        const { data: smtpData } = await this.supabaseService.adminClient.rpc('get_smtp_credentials');
+        if (smtpData && smtpData.user && smtpData.pass) {
+          host = smtpData.host || host || 'smtp-relay.brevo.com';
+          port = Number(smtpData.port) || port || 587;
+          user = smtpData.user;
+          pass = smtpData.pass;
+          if (smtpData.from_address) this.fromAddress = smtpData.from_address;
+          if (smtpData.from_name) this.fromName = smtpData.from_name;
+        }
+      } catch (e: any) {
+        this.logger.warn(`Không thể nạp SMTP từ Supabase RPC: ${e.message}`);
+      }
+    }
+
+    if (host && user && pass) {
+      try {
+        this.transporter = nodemailer.createTransport({
+          host,
+          port,
+          secure: false,
+          auth: { user, pass },
+          tls: {
+            rejectUnauthorized: this.configService.get<string>('NODE_ENV') === 'production' || process.env.NODE_ENV === 'production',
+          },
+          connectionTimeout: 15000,
+          greetingTimeout: 15000,
+          socketTimeout: 20000,
+        });
+        this.logger.log(`✅ Mail Transporter (SMTP) đã kết nối: ${host}:${port} (${user})`);
+        return this.transporter;
+      } catch (err: any) {
+        this.logger.error(`❌ Khởi tạo Mail Transporter thất bại: ${err.message}`);
+        this.transporter = null;
+      }
+    }
+    return null;
   }
 
   private initTransporter(): void {
@@ -401,9 +450,10 @@ export class EmailService {
     }
 
     // 2. Dự phòng qua SMTP (Nodemailer) với timeout an toàn 3.5s
-    if (this.transporter) {
+    const transporter = await this.ensureTransporter();
+    if (transporter) {
       try {
-        const info = await this.transporter.sendMail({
+        const info = await transporter.sendMail({
           from: `"${this.fromName}" <${this.fromAddress}>`,
           to,
           subject,
