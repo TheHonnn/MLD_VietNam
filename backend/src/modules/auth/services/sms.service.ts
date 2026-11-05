@@ -104,6 +104,9 @@ export class SmsService {
         if (data?.CodeResult === '100') {
           this.logger.log(`✅ [eSMS Gửi Thật] Đã gửi SMS OTP thành công tới số ${local} (SMSID: ${data.SMSID})`);
           return true;
+        } else if (data?.CodeResult === '103') {
+          this.logger.error(`❌ [eSMS Hết Số Dư] Tài khoản eSMS chỉ còn 80đ (CodeResult=103: Balance not enough to send message). Cần nạp tiền hoặc xin thêm quota test trên account.esms.vn`);
+          return false;
         } else {
           this.logger.error(`❌ [eSMS Thất Bại] Cổng eSMS từ chối: CodeResult=${data?.CodeResult}, ErrorMessage="${data?.ErrorMessage || data?.Message}". Vui lòng kiểm tra số dư và kích hoạt Whitelist số điện thoại.`);
           return false;
