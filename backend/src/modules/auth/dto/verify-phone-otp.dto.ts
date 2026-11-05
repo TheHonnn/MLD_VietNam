@@ -30,3 +30,4 @@ export class VerifyPhoneOtpDto {
   @IsString()
   fcmToken?: string;
 }
+
