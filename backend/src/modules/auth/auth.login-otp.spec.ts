@@ -11,6 +11,7 @@ describe('AuthService - Login OTP Flow', () => {
   let mockPasswordHasherService: any;
   let mockOtpService: any;
   let mockEmailService: any;
+  let mockSmsService: any;
 
   beforeEach(() => {
     mockSupabaseService = {
@@ -48,6 +49,10 @@ describe('AuthService - Login OTP Flow', () => {
       sendOtpEmail: vi.fn().mockResolvedValue(true),
     };
 
+    mockSmsService = {
+      sendOtpSms: vi.fn().mockResolvedValue(true),
+    };
+
     authService = new AuthService(
       mockSupabaseService,
       mockRedisService,
@@ -56,6 +61,7 @@ describe('AuthService - Login OTP Flow', () => {
       mockPasswordHasherService,
       mockOtpService,
       mockEmailService,
+      mockSmsService,
     );
   });
 
@@ -169,6 +175,66 @@ describe('AuthService - Login OTP Flow', () => {
       expect(res.user.email).toBe('test@mld.vn');
       expect(res.accessToken).toBe('mock_jwt_token');
       expect(res.refreshToken).toBe('mock_jwt_token');
+    });
+  });
+
+  describe('requestPhoneOtp', () => {
+    it('should generate random OTP and dispatch SMS', async () => {
+      const res = await authService.requestPhoneOtp({ phone: '0987654321' });
+
+      expect(res.success).toBe(true);
+      expect(mockOtpService.generateAndSaveOtp).toHaveBeenCalledWith('0987654321', 'LOGIN');
+      expect(mockSmsService.sendOtpSms).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: '0987654321',
+          otp: '654321',
+        }),
+      );
+    });
+  });
+
+  describe('verifyPhoneOtp', () => {
+    it('should verify OTP and return tokens for phone user', async () => {
+      mockSupabaseService.adminClient.from.mockImplementation((table: string) => {
+        if (table === 'users') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: {
+                    id: 'u_phone_1',
+                    phone: '0987654321',
+                    full_name: 'Khách hàng 4321',
+                    role: 'CUSTOMER',
+                    is_active: true,
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+          };
+        }
+        if (table === 'refresh_tokens') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        return {
+          select: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ data: [] }) }),
+        };
+      });
+
+      const res = await authService.verifyPhoneOtp({
+        phone: '0987654321',
+        otp: '654321',
+      });
+
+      expect(mockOtpService.verifyOtp).toHaveBeenCalledWith('0987654321', 'LOGIN', '654321');
+      expect(res.user.phone).toBe('0987654321');
+      expect(res.accessToken).toBe('mock_jwt_token');
     });
   });
 });

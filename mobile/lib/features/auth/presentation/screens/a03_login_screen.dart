@@ -65,32 +65,59 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     super.dispose();
   }
 
-  // Luồng đăng nhập SĐT
-  void _handlePhoneContinue() {
-    if (_phoneFormKey.currentState?.validate() ?? false) {
-      final phone = _phoneController.text.trim();
-      AuthService.instance.saveLastLogin(phone: phone, method: 'phone');
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
+  // Luồng đăng nhập SĐT qua mã OTP SMS
+  Future<void> _handlePhoneContinue() async {
+    if (!(_phoneFormKey.currentState?.validate() ?? false)) return;
+    final phone = _phoneController.text.trim();
+    AuthService.instance.saveLastLogin(phone: phone, method: 'phone');
 
-      Future.delayed(const Duration(milliseconds: 400), () {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => A04OtpScreen(
-                phoneNumber: _phoneController.text.trim(),
-                purpose: 'LOGIN_PHONE',
-              ),
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await ApiClient.instance.post(
+        ApiEndpoints.authRequestPhoneOtp,
+        data: {'phone': phone},
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mã OTP đã được gửi qua tin nhắn SMS tới số điện thoại của bạn!'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => A04OtpScreen(
+              phoneNumber: phone,
+              purpose: 'LOGIN_PHONE',
             ),
-          );
-        }
-      });
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        // Điều hướng để người dùng có thể tiếp tục
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => A04OtpScreen(
+              phoneNumber: phone,
+              purpose: 'LOGIN_PHONE',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

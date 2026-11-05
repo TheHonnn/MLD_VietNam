@@ -10,3 +10,4 @@ export class RequestLoginOtpDto {
   @IsEmail({}, { message: 'Địa chỉ Email không đúng định dạng' })
   email: string;
 }
+

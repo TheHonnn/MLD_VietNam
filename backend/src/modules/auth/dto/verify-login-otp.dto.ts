@@ -28,3 +28,4 @@ export class VerifyLoginOtpDto {
   @IsString()
   fcmToken?: string;
 }
+

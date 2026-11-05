@@ -235,41 +235,68 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
           );
         }
       } else {
-        // Luồng đăng nhập bằng Số điện thoại (Phone OTP)
+        // Luồng đăng nhập bằng Số điện thoại (Phone OTP qua Gateway)
         try {
           final res = await ApiClient.instance.post(
-            ApiEndpoints.verifyOtp,
+            ApiEndpoints.authVerifyPhoneOtp,
             data: {
               'phone': widget.phoneNumber,
-              'token': code,
-              'type': 'sms',
+              'otp': code,
             },
           );
-          final session = res.data['session'];
-          final accessToken = session?['access_token'] ?? 'mld_token_${DateTime.now().millisecondsSinceEpoch}';
-          final refreshToken = session?['refresh_token'];
-          final user = res.data['user'];
+          final body = res.data;
+          final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
+          final accessToken = data['accessToken'] as String?;
+          final refreshToken = data['refreshToken'] as String?;
+          final user = data['user'] as Map<String, dynamic>?;
 
-          await AuthService.instance.saveSession(
-            accessToken: accessToken,
-            refreshToken: refreshToken,
-            phone: widget.phoneNumber,
-            userId: user?['id'],
-          );
-          await AuthService.instance.saveLastLogin(
-            phone: widget.phoneNumber,
-            method: 'phone',
-          );
+          if (accessToken != null && accessToken.isNotEmpty) {
+            final userName = (user?['full_name'] ?? user?['fullName']) as String?;
+            final userAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
+            final userPhone = user?['phone'] as String? ?? widget.phoneNumber;
+            await AuthService.instance.saveSession(
+              accessToken: accessToken,
+              refreshToken: refreshToken,
+              userId: user?['id'] as String?,
+              phone: userPhone,
+              displayName: userName,
+              avatarUrl: userAvatar,
+            );
+            await AuthService.instance.saveLastLogin(
+              phone: userPhone,
+              method: 'phone',
+            );
+          }
         } catch (_) {
-          // Fallback an toàn nếu backend OTP server đang chạy test
-          await AuthService.instance.saveSession(
-            accessToken: 'mld_session_${DateTime.now().millisecondsSinceEpoch}',
-            phone: widget.phoneNumber,
-          );
-          await AuthService.instance.saveLastLogin(
-            phone: widget.phoneNumber,
-            method: 'phone',
-          );
+          // Fallback sang Supabase Verify Otp nếu gateway gặp sự cố
+          try {
+            final res = await ApiClient.instance.post(
+              ApiEndpoints.verifyOtp,
+              data: {
+                'phone': widget.phoneNumber,
+                'token': code,
+                'type': 'sms',
+              },
+            );
+            final session = res.data['session'];
+            final accessToken = session?['access_token'] ?? 'mld_token_${DateTime.now().millisecondsSinceEpoch}';
+            final refreshToken = session?['refresh_token'];
+            final user = res.data['user'];
+
+            await AuthService.instance.saveSession(
+              accessToken: accessToken,
+              refreshToken: refreshToken,
+              phone: widget.phoneNumber,
+              userId: user?['id'],
+            );
+            await AuthService.instance.saveLastLogin(
+              phone: widget.phoneNumber,
+              method: 'phone',
+            );
+          } catch (fbErr) {
+            // Re-throw để hiển thị thông báo lỗi chính xác
+            rethrow;
+          }
         }
 
         if (mounted) {
@@ -352,14 +379,21 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
           );
         }
       } else {
-        await ApiClient.instance.post(
-          ApiEndpoints.sendOtp,
-          data: {'phone': widget.phoneNumber},
-        );
+        try {
+          await ApiClient.instance.post(
+            ApiEndpoints.authRequestPhoneOtp,
+            data: {'phone': widget.phoneNumber},
+          );
+        } catch (_) {
+          await ApiClient.instance.post(
+            ApiEndpoints.sendOtp,
+            data: {'phone': widget.phoneNumber},
+          );
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Đã gửi lại mã xác thực OTP mới'),
+              content: Text('Đã gửi lại mã xác thực OTP qua SMS'),
               backgroundColor: AppColors.primary,
             ),
           );

@@ -9,6 +9,7 @@ import { LocalEmailPasswordStrategy } from './strategies/local-email.strategy';
 import { PasswordHasherService } from './services/password-hasher.service';
 import { OtpService } from './services/otp.service';
 import { EmailService } from './services/email.service';
+import { SmsService } from './services/sms.service';
 import { BruteForceGuard } from './guards/brute-force.guard';
 
 @Module({
@@ -35,8 +36,9 @@ import { BruteForceGuard } from './guards/brute-force.guard';
     PasswordHasherService,
     OtpService,
     EmailService,
+    SmsService,
     BruteForceGuard,
   ],
-  exports: [AuthService, JwtModule, PasswordHasherService, OtpService, EmailService],
+  exports: [AuthService, JwtModule, PasswordHasherService, OtpService, EmailService, SmsService],
 })
 export class AuthModule {}
