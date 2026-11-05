@@ -71,8 +71,12 @@ export class SmsService {
 
         const response = await fetch('https://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_post_json/', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(6000),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+          signal: AbortSignal.timeout(30000),
           body: JSON.stringify({
             ApiKey: esmsApiKey,
             SecretKey: esmsSecretKey,
@@ -87,15 +91,15 @@ export class SmsService {
 
         const data: any = await response.json();
         if (data?.CodeResult === '100') {
-          this.logger.log(`✅ [eSMS] Đã gửi SMS OTP thành công tới ${local} (SMSID: ${data.SMSID})`);
+          this.logger.log(`✅ [eSMS Gửi Thật] Đã gửi SMS OTP thành công tới số ${local} (SMSID: ${data.SMSID})`);
           return true;
         } else {
-          this.logger.warn(`⚠️ [eSMS] Phản hồi CodeResult=${data?.CodeResult}, Msg=${data?.ErrorMessage || data?.Message}. Kích hoạt chế độ dự phòng OTP: ${otp}`);
-          return true;
+          this.logger.error(`❌ [eSMS Thất Bại] Cổng eSMS từ chối: CodeResult=${data?.CodeResult}, ErrorMessage="${data?.ErrorMessage || data?.Message}". Vui lòng kiểm tra số dư và kích hoạt Whitelist số điện thoại.`);
+          return false;
         }
       } catch (err: any) {
-        this.logger.warn(`⚠️ [eSMS Timeout/Error] ${err.message}. Kích hoạt chế độ dự phòng OTP: ${otp}`);
-        return true;
+        this.logger.error(`❌ [eSMS Lỗi Kết Nối] Không thể gửi tin nhắn qua eSMS: ${err.message}`);
+        return false;
       }
     }
 
