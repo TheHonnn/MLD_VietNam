@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 
 export interface SendOtpSmsOptions {
   to: string;
@@ -86,6 +87,7 @@ export class SmsService {
             Brandname: brandname,
             SmsType: '2', // CSKH / OTP Brandname
             Sandbox: isSandbox,
+            RequestId: crypto.randomUUID(),
           }),
         });
 
