@@ -15,8 +15,8 @@ export class SmsService {
   private readonly brandname: string;
 
   constructor(private configService: ConfigService) {
-    this.provider = this.configService.get<string>('SMS_PROVIDER', 'SANDBOX').toUpperCase();
-    this.brandname = this.configService.get<string>('SMS_BRANDNAME', 'MLD Vietnam');
+    this.provider = this.configService.get<string>('SMS_PROVIDER', 'ESMS').toUpperCase();
+    this.brandname = this.configService.get<string>('SMS_BRANDNAME', 'Baotrixemay');
   }
 
   /**
@@ -50,26 +50,35 @@ export class SmsService {
     const { international, local } = this.normalizePhoneNumber(to);
     const content = `[${this.brandname}] Ma xac thuc OTP cua ban la ${otp}. Ma co hieu luc trong 5 phut. Tuyet doi khong chia se ma nay cho bat ky ai.`;
 
-    // 1. Chế độ Sandbox / Development: In ra terminal/logger để thử nghiệm miễn phí
-    const apiKey = this.configService.get<string>('SMS_API_KEY') || this.configService.get<string>('ESMS_API_KEY');
-    if (this.provider === 'SANDBOX' || !apiKey) {
+    const esmsApiKey =
+      this.configService.get<string>('ESMS_API_KEY') ||
+      this.configService.get<string>('SMS_API_KEY') ||
+      'B277D31C06949EE58D2D3631E7577F';
+    const esmsSecretKey =
+      this.configService.get<string>('ESMS_SECRET_KEY') ||
+      'DDA50743696AA876457DCDE6BBC35C';
+    const brandname =
+      this.configService.get<string>('SMS_BRANDNAME') ||
+      'Baotrixemay';
+
+    // 1. Chế độ Sandbox / Development: Chỉ kích hoạt nếu được cấu hình rõ ràng là SANDBOX
+    if (this.provider === 'SANDBOX') {
       this.logger.log(`📱 [SMS Sandbox Simulator] Đã gửi mã OTP tới ${local} (${international}): ${otp}`);
       this.logger.log(`💬 [SMS Nội dung]: "${content}"`);
       return true;
     }
 
-    // 2. Tích hợp eSMS.vn (Cổng SMS Brandname uy tín tại Việt Nam)
-    if (this.provider === 'ESMS') {
+    // 2. Tích hợp eSMS.vn (Cổng SMS Brandname uy tín tại Việt Nam - Mặc định)
+    if (this.provider === 'ESMS' || esmsApiKey) {
       try {
-        const esmsApiKey = this.configService.get<string>('ESMS_API_KEY') || apiKey;
-        const esmsSecretKey = this.configService.get<string>('ESMS_SECRET_KEY');
-        const brandname = this.configService.get<string>('SMS_BRANDNAME', 'MLD VIETNAM');
         const isBaotrixemay = brandname.toLowerCase().includes('baotrixemay');
         const esmsContent = isBaotrixemay
           ? `${otp} la ma xac minh dang ky Baotrixemay cua ban`
           : content;
         const isSandbox = this.configService.get<string>('ESMS_SANDBOX') === 'true' ? '1' : '0';
+        const requestId = crypto.randomUUID();
 
+        this.logger.log(`🚀 [eSMS API] Đang gửi SMS thật tới ${local} qua Brandname ${brandname} (RequestId: ${requestId})...`);
         const response = await fetch('https://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_post_json/', {
           method: 'POST',
           headers: {
@@ -87,7 +96,7 @@ export class SmsService {
             Brandname: brandname,
             SmsType: '2', // CSKH / OTP Brandname
             Sandbox: isSandbox,
-            RequestId: crypto.randomUUID(),
+            RequestId: requestId,
           }),
         });
 
@@ -108,7 +117,7 @@ export class SmsService {
     // 3. Tích hợp SpeedSMS.vn
     if (this.provider === 'SPEEDSMS') {
       try {
-        const accessToken = this.configService.get<string>('SPEEDSMS_ACCESS_TOKEN') || apiKey;
+        const accessToken = this.configService.get<string>('SPEEDSMS_ACCESS_TOKEN');
         const sender = this.configService.get<string>('SMS_BRANDNAME', 'MLD VIETNAM');
 
         const authHeader = 'Basic ' + Buffer.from(accessToken + ':x').toString('base64');
