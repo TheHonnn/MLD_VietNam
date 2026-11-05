@@ -176,6 +176,64 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
         if (mounted) {
           Navigator.pop(context, code);
         }
+      } else if (widget.purpose == 'LOGIN_EMAIL') {
+        // Gọi API xác thực mã OTP ngẫu nhiên đăng nhập qua Email
+        final res = await ApiClient.instance.post(
+          ApiEndpoints.authVerifyLoginOtp,
+          data: {
+            'email': widget.email!.trim(),
+            'otp': code,
+          },
+        );
+
+        final body = res.data;
+        final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
+        final accessToken = data['accessToken'] as String?;
+        final refreshToken = data['refreshToken'] as String?;
+        final user = data['user'] as Map<String, dynamic>?;
+
+        if (accessToken != null && accessToken.isNotEmpty) {
+          final loggedInName = (user?['full_name'] ?? user?['fullName']) as String?;
+          final userAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
+          final userPhone = user?['phone'] as String?;
+          await AuthService.instance.saveSession(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            userId: user?['id'] as String?,
+            phone: userPhone,
+            displayName: loggedInName,
+            avatarUrl: userAvatar,
+          );
+
+          await AuthService.instance.saveLastLogin(
+            email: widget.email?.trim(),
+            method: 'email',
+          );
+
+          MembershipRepository.instance.syncUserSession(
+            fullName: loggedInName,
+            phone: userPhone,
+            email: widget.email?.trim(),
+            avatarUrl: userAvatar,
+            memberCode: user?['referral_code']?.toString() ?? user?['referralCode']?.toString(),
+          );
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đăng nhập thành công! Đang vào ứng dụng...'),
+              backgroundColor: AppColors.primary,
+            ),
+          );
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const MainLayoutScreen(),
+            ),
+            (route) => false,
+          );
+        }
       } else {
         // Luồng đăng nhập bằng Số điện thoại (Phone OTP)
         try {
@@ -263,11 +321,15 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
 
     try {
       if (_isEmail) {
+        String purpose = 'REGISTER';
+        if (widget.purpose == 'RESET_PASSWORD') purpose = 'RESET_PASSWORD';
+        if (widget.purpose == 'LOGIN_EMAIL') purpose = 'LOGIN';
+
         final res = await ApiClient.instance.post(
           ApiEndpoints.authResendOtp,
           data: {
             'email': widget.email,
-            'purpose': widget.purpose == 'RESET_PASSWORD' ? 'RESET_PASSWORD' : 'REGISTER',
+            'purpose': purpose,
           },
         );
         final body = res.data;

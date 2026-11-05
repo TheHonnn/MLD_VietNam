@@ -85,6 +85,8 @@ class ApiEndpoints {
   static const String authResendOtp = '/auth/resend-otp';
   static const String authLogin = '/auth/login';
   static const String authLoginEmail = '/auth/login/email';
+  static const String authRequestLoginOtp = '/auth/login/request-otp';
+  static const String authVerifyLoginOtp = '/auth/login/verify-otp';
   static const String authRefresh = '/auth/refresh';
   static const String authLogout = '/auth/logout';
   static const String authForgotPassword = '/auth/forgot-password';

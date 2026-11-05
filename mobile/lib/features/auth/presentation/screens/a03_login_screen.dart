@@ -94,6 +94,65 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     }
   }
 
+  // Luồng đăng nhập bằng mã OTP ngẫu nhiên gửi về Email (Passwordless Login)
+  Future<void> _handleRequestLoginOtp() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      setState(() {
+        _errorMessage = 'Vui lòng nhập địa chỉ email hợp lệ để nhận mã OTP';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await ApiClient.instance.post(
+        ApiEndpoints.authRequestLoginOtp,
+        data: {'email': email},
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mã OTP đăng nhập đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư!'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => A04OtpScreen(
+              email: email,
+              purpose: 'LOGIN_EMAIL',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        String msg = 'Không thể gửi mã OTP. Vui lòng kiểm tra lại địa chỉ email.';
+        if (e is ApiException) {
+          msg = e.message;
+        } else {
+          msg = e.toString().replaceFirst('Exception: ', '').replaceAll('ApiException: ', '');
+        }
+        setState(() {
+          _errorMessage = msg;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   // Luồng đăng nhập Email + Mật khẩu
   Future<void> _handleEmailLogin() async {
     if (!(_emailFormKey.currentState?.validate() ?? false)) return;
@@ -637,6 +696,24 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                   text: 'Đăng nhập',
                                   isLoading: _isLoading,
                                   onPressed: _handleEmailLogin,
+                                ),
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    side: const BorderSide(color: AppColors.secondary, width: 1.2),
+                                  ),
+                                  icon: const Icon(Icons.mark_email_read_outlined, size: 18, color: AppColors.primary),
+                                  label: const Text(
+                                    'Đăng nhập bằng mã OTP qua Email',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  onPressed: _isLoading ? null : _handleRequestLoginOtp,
                                 ),
                               ],
                             ),

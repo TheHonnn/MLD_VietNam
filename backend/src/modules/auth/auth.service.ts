@@ -18,6 +18,8 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { EmailRegisterDto } from './dto/email-register.dto';
 import { EmailLoginDto } from './dto/email-login.dto';
+import { RequestLoginOtpDto } from './dto/request-login-otp.dto';
+import { VerifyLoginOtpDto } from './dto/verify-login-otp.dto';
 import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
@@ -187,6 +189,18 @@ export class AuthService {
       try {
         const pending = JSON.parse(pendingJson);
         fullName = pending.fullName;
+      } catch (_) {}
+    }
+    if (!fullName) {
+      try {
+        const { data: user } = await this.supabaseService.adminClient
+          .from('users')
+          .select('full_name')
+          .eq('email', normalizedEmail)
+          .maybeSingle();
+        if (user?.full_name) {
+          fullName = user.full_name;
+        }
       } catch (_) {}
     }
 
@@ -362,6 +376,87 @@ export class AuthService {
       password: dto.password,
       fcmToken: dto.fcmToken,
     });
+  }
+
+  /**
+   * Yêu cầu gửi mã OTP ngẫu nhiên về Email để đăng nhập không cần mật khẩu (Passwordless Login)
+   */
+  async requestLoginOtp(dto: RequestLoginOtpDto) {
+    const normalizedEmail = dto.email.toLowerCase().trim();
+
+    // 1. Kiểm tra tài khoản trong bảng users
+    const { data: user, error } = await this.supabaseService.adminClient
+      .from('users')
+      .select('id, email, phone, full_name, is_active, role')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if (error || !user) {
+      throw new NotFoundException('Không tìm thấy tài khoản với email này. Vui lòng kiểm tra lại hoặc đăng ký mới.');
+    }
+
+    if (!user.is_active) {
+      throw new UnauthorizedException('Tài khoản này đã bị tạm khóa. Vui lòng liên hệ ban quản trị.');
+    }
+
+    // 2. Sinh mã OTP ngẫu nhiên 6 chữ số (CSPRNG), mã hóa SHA-256 + secret salt lưu vào Redis & DB
+    const rawOtp = await this.otpService.generateAndSaveOtp(normalizedEmail, 'LOGIN');
+
+    // 3. Gửi Email thật qua Brevo SMTP Relay
+    this.emailService.sendOtpEmail({
+      to: normalizedEmail,
+      otp: rawOtp,
+      purpose: 'LOGIN',
+      fullName: user.full_name,
+    }).catch(err => this.logger.error(`[Login OTP] Lỗi gửi email: ${err.message}`));
+
+    return {
+      success: true,
+      message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư.',
+      email: normalizedEmail,
+    };
+  }
+
+  /**
+   * Xác thực mã OTP ngẫu nhiên để hoàn tất đăng nhập -> Cấp Access & Refresh Tokens
+   */
+  async verifyLoginOtp(dto: VerifyLoginOtpDto) {
+    const normalizedEmail = dto.email.toLowerCase().trim();
+
+    // 1. Xác thực OTP đã băm qua OtpService (chống brute force, kiểm tra TTL 5 phút)
+    await this.otpService.verifyOtp(normalizedEmail, 'LOGIN', dto.otp);
+
+    // 2. Lấy thông tin user
+    const { data: user, error } = await this.supabaseService.adminClient
+      .from('users')
+      .select('id, phone, email, full_name, role, is_active, avatar_url, referral_code')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if (error || !user) {
+      throw new NotFoundException('Không tìm thấy tài khoản người dùng.');
+    }
+
+    if (!user.is_active) {
+      throw new UnauthorizedException('Tài khoản này đã bị tạm khóa.');
+    }
+
+    // 3. Cập nhật FCM token thiết bị nếu có
+    if (dto.fcmToken) {
+      await this.supabaseService.adminClient
+        .from('users')
+        .update({ fcm_device_token: dto.fcmToken })
+        .eq('id', user.id);
+    }
+
+    // 4. Sinh bộ Token (Access Token 30m, Refresh Token 30d)
+    const tokens = await this.generateTokens(user.id, user.phone || user.email, user.role);
+
+    return {
+      message: 'Đăng nhập bằng mã OTP thành công',
+      user,
+      ...tokens,
+    };
   }
 
   /**

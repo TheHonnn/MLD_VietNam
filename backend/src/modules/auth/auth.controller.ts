@@ -15,6 +15,8 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { EmailRegisterDto } from './dto/email-register.dto';
 import { EmailLoginDto } from './dto/email-login.dto';
+import { RequestLoginOtpDto } from './dto/request-login-otp.dto';
+import { VerifyLoginOtpDto } from './dto/verify-login-otp.dto';
 import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
@@ -77,6 +79,24 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Đăng nhập thành công' })
   async loginEmail(@Body() dto: EmailLoginDto) {
     return this.authService.loginEmail(dto);
+  }
+
+  @Post('login/request-otp')
+  @UseGuards(BruteForceGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Yêu cầu gửi mã OTP ngẫu nhiên về Email để đăng nhập (Passwordless Login)' })
+  @ApiResponse({ status: 200, description: 'Đã gửi mã OTP đăng nhập về Email' })
+  async requestLoginOtp(@Body() dto: RequestLoginOtpDto) {
+    return this.authService.requestLoginOtp(dto);
+  }
+
+  @Post('login/verify-otp')
+  @UseGuards(BruteForceGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Xác thực mã OTP ngẫu nhiên để đăng nhập & nhận Tokens' })
+  @ApiResponse({ status: 200, description: 'Đăng nhập thành công, trả về Access Token & Refresh Token' })
+  async verifyLoginOtp(@Body() dto: VerifyLoginOtpDto) {
+    return this.authService.verifyLoginOtp(dto);
   }
 
   @Post('refresh')
