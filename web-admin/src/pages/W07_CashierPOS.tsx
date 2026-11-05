@@ -230,6 +230,15 @@ export const W07_CashierPOS: React.FC = () => {
   const [customerSearchKeyword, setCustomerSearchKeyword] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [selectedCommissionStaffId, setSelectedCommissionStaffId] = useState('');
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({
+    fullName: '',
+    phone: '',
+    gender: 'FEMALE' as 'MALE' | 'FEMALE' | 'OTHER',
+    address: '',
+  });
+  const [isSubmittingCustomer, setIsSubmittingCustomer] = useState(false);
+  const [queueSearchTerm, setQueueSearchTerm] = useState('');
 
   // Catalog Menu Filter & Search
   const [catalogCategory, setCatalogCategory] = useState<'ALL' | 'SERVICE' | 'PACKAGE' | 'PRODUCT'>('ALL');
@@ -569,6 +578,17 @@ export const W07_CashierPOS: React.FC = () => {
       return true;
     });
   }, [allBookings, selectedBranchId]);
+
+  const filteredPendingBookings = useMemo(() => {
+    if (!queueSearchTerm.trim()) return pendingBookings;
+    return pendingBookings.filter((bk) => {
+      const srv = bk.items?.[0]?.service;
+      const srvName = srv?.name || (bk as any).serviceName || '';
+      const custName = bk.customer?.fullName || bk.bookedForName || '';
+      const custPhone = bk.customer?.phone || bk.bookedForPhone || '';
+      return matchSearch([bk.bookingCode, custName, custPhone, srvName], queueSearchTerm);
+    });
+  }, [pendingBookings, queueSearchTerm]);
 
   const loadBookingIntoCart = (bk: Booking) => {
     const srv = bk.items?.[0]?.service;
@@ -1089,13 +1109,7 @@ export const W07_CashierPOS: React.FC = () => {
       if (invoiceMethodFilter !== 'ALL' && r.methodCode !== invoiceMethodFilter) return false;
       if (invoiceStatusFilter !== 'ALL' && r.statusCode !== invoiceStatusFilter) return false;
       if (invoiceSearchTerm.trim()) {
-        const query = invoiceSearchTerm.toLowerCase();
-        return (
-          r.id.toLowerCase().includes(query) ||
-          r.customerName.toLowerCase().includes(query) ||
-          r.customerPhone.includes(query) ||
-          r.content.toLowerCase().includes(query)
-        );
+        return matchSearch([r.id, r.customerName, r.customerPhone, r.content, r.branchName], invoiceSearchTerm);
       }
       return true;
     });
@@ -1134,8 +1148,8 @@ export const W07_CashierPOS: React.FC = () => {
     }
   };
 
-  // Catalog items filtered by category and search
-  const displayedCatalogItems = useMemo(() => {
+  // 1. Toàn bộ thực đơn danh mục (Dịch vụ lẻ, Gói combo, Sản phẩm bổ trợ)
+  const allCatalogItems = useMemo(() => {
     const items: Array<{
       id: string;
       name: string;
@@ -1148,58 +1162,118 @@ export const W07_CashierPOS: React.FC = () => {
       imageUrl?: string;
       serviceId?: string;
       packageId?: string;
+      searchTokens: string;
     }> = [];
 
-    if (catalogCategory === 'ALL' || catalogCategory === 'SERVICE') {
-      allServices.forEach((s) => {
-        items.push({
-          id: s.id,
-          name: s.name,
-          type: 'SERVICE',
-          price: Number(s.price || 500000),
-          durationMinutes: s.durationMinutes || 60,
-          description: s.shortDescription || s.fullDescription || 'Chăm sóc Dẫn lưu bạch huyết chuẩn Y khoa Vodder',
-          badgeText: `${s.durationMinutes || 60} phút`,
-          imageUrl: s.imageUrl || '/spa_massage_banner.png',
-          serviceId: s.id,
-        });
+    // Dịch vụ cốt lõi (Buổi lẻ)
+    allServices.forEach((s) => {
+      const duration = s.durationMinutes || 60;
+      const price = Number(s.price || 500000);
+      items.push({
+        id: s.id,
+        name: s.name,
+        type: 'SERVICE',
+        price,
+        durationMinutes: duration,
+        description: s.shortDescription || s.fullDescription || 'Chăm sóc Dẫn lưu bạch huyết chuẩn Y khoa Vodder',
+        badgeText: `${duration} phút`,
+        imageUrl: s.imageUrl || '/spa_massage_banner.png',
+        serviceId: s.id,
+        searchTokens: `${s.name} dich vu le buoi le cham soc ${duration} phut ${duration}p ${duration}' ${duration}phut ${price} ${Math.round(price / 1000)}k ${price >= 1000000 ? (price / 1000000).toFixed(1) + 'tr' : ''} ${s.shortDescription || ''}`,
       });
+    });
+
+    // Gói liệu trình (Combo 10, 20, 30 buổi)
+    treatmentPackages.forEach((p) => {
+      const sessions = Number(p.totalSessions || 10);
+      const price = Number(p.price || 4800000);
+      items.push({
+        id: p.id,
+        name: p.name,
+        type: 'PACKAGE',
+        price,
+        totalSessions: sessions,
+        description: p.description || `Lộ trình ${sessions} buổi chuyên sâu điều hòa hệ bạch huyết`,
+        badgeText: `${sessions} buổi`,
+        imageUrl: p.imageUrl || '/spa_massage_banner.png',
+        packageId: p.id,
+        searchTokens: `${p.name} goi lieu trinh combo ${sessions} buoi ${sessions}b ${sessions}buoi ${price} ${Math.round(price / 1000)}k ${price >= 1000000 ? (price / 1000000).toFixed(1) + 'tr' : ''} ${p.description || ''}`,
+      });
+    });
+
+    // Sản phẩm bổ trợ Homecare
+    HOMECARE_PRODUCTS.forEach((pr) => {
+      items.push({
+        id: pr.id,
+        name: pr.name,
+        type: 'PRODUCT',
+        price: pr.unitPrice,
+        description: 'Sản phẩm bổ trợ chăm sóc phục hồi mô tế bào tại nhà',
+        badgeText: 'Homecare',
+        imageUrl: pr.imageUrl,
+        searchTokens: `${pr.name} san pham my pham homecare ${pr.unitPrice} ${Math.round(pr.unitPrice / 1000)}k`,
+      });
+    });
+
+    return items;
+  }, [allServices, treatmentPackages]);
+
+  // 2. Thống kê số lượng kết quả tìm kiếm theo từng tab
+  const catalogCounts = useMemo(() => {
+    const q = catalogSearch.trim();
+    const filterItem = (it: typeof allCatalogItems[0]) => {
+      if (!q) return true;
+      return matchSearch([it.name, it.description, it.badgeText, it.searchTokens], q);
+    };
+
+    const allMatches = allCatalogItems.filter(filterItem);
+    return {
+      all: allMatches.length,
+      service: allMatches.filter((it) => it.type === 'SERVICE').length,
+      package: allMatches.filter((it) => it.type === 'PACKAGE').length,
+      product: allMatches.filter((it) => it.type === 'PRODUCT').length,
+    };
+  }, [allCatalogItems, catalogSearch]);
+
+  // 3. Danh sách mục hiển thị kết hợp tìm kiếm và chuyển đổi tab thông minh
+  const displayedCatalogItems = useMemo(() => {
+    const q = catalogSearch.trim();
+    const matchesSearch = (it: typeof allCatalogItems[0]) => {
+      if (!q) return true;
+      return matchSearch([it.name, it.description, it.badgeText, it.searchTokens], q);
+    };
+
+    const inCategory = allCatalogItems.filter((it) => {
+      if (catalogCategory === 'SERVICE') return it.type === 'SERVICE';
+      if (catalogCategory === 'PACKAGE') return it.type === 'PACKAGE';
+      if (catalogCategory === 'PRODUCT') return it.type === 'PRODUCT';
+      return true;
+    });
+
+    const filtered = inCategory.filter(matchesSearch);
+
+    // Cross-category fallback:
+    // Nếu thu ngân đang đứng ở tab cụ thể mà từ khóa tìm kiếm không có trong tab đó,
+    // nhưng lại có trong danh mục khác -> tự động hiển thị kết quả từ toàn bộ thực đơn
+    if (q && filtered.length === 0 && catalogCategory !== 'ALL') {
+      const allMatches = allCatalogItems.filter(matchesSearch);
+      if (allMatches.length > 0) return allMatches;
     }
 
-    if (catalogCategory === 'ALL' || catalogCategory === 'PACKAGE') {
-      treatmentPackages.forEach((p) => {
-        items.push({
-          id: p.id,
-          name: p.name,
-          type: 'PACKAGE',
-          price: Number(p.price || 4800000),
-          totalSessions: Number(p.totalSessions || 10),
-          description: p.description || `Lộ trình ${p.totalSessions} buổi chuyên sâu điều hòa hệ bạch huyết`,
-          badgeText: `${p.totalSessions} buổi`,
-          imageUrl: p.imageUrl || '/spa_massage_banner.png',
-          packageId: p.id,
-        });
-      });
-    }
+    return filtered;
+  }, [allCatalogItems, catalogCategory, catalogSearch]);
 
-    if (catalogCategory === 'ALL' || catalogCategory === 'PRODUCT') {
-      HOMECARE_PRODUCTS.forEach((pr) => {
-        items.push({
-          id: pr.id,
-          name: pr.name,
-          type: 'PRODUCT',
-          price: pr.unitPrice,
-          description: 'Sản phẩm bổ trợ chăm sóc phục hồi mô tế bào tại nhà',
-          badgeText: 'Homecare',
-          imageUrl: pr.imageUrl,
-        });
-      });
+  // 4. Danh sách khách hàng gợi ý khi tìm kiếm tại quầy
+  const filteredCustomers = useMemo(() => {
+    const q = customerSearchKeyword.trim();
+    if (!q) {
+      return allCustomers.filter((c) => isUuid(c.id) && c.id !== GUEST_CUSTOMER.id).slice(0, 8);
     }
-
-    if (!catalogSearch.trim()) return items;
-    const q = catalogSearch.toLowerCase();
-    return items.filter((it) => it.name.toLowerCase().includes(q) || (it.description && it.description.toLowerCase().includes(q)));
-  }, [allServices, treatmentPackages, catalogCategory, catalogSearch]);
+    return allCustomers.filter((c) => {
+      if (!isUuid(c.id) || c.id === GUEST_CUSTOMER.id) return false;
+      return matchSearch([c.fullName, c.phone, c.email, c.membershipTier], q);
+    }).slice(0, 15);
+  }, [allCustomers, customerSearchKeyword]);
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] pb-12 animate-in fade-in duration-200">
@@ -1466,7 +1540,7 @@ export const W07_CashierPOS: React.FC = () => {
             {/* Menu Filter Toolbar & Search */}
             <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs space-y-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                {/* Category Pills */}
+                {/* Category Pills with dynamic counts */}
                 <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
@@ -1477,7 +1551,7 @@ export const W07_CashierPOS: React.FC = () => {
                         : 'bg-[#FAF8F5] text-[#73675F] hover:bg-[#F3E2CE] hover:text-[#2C241E]'
                     }`}
                   >
-                    Tất cả thực đơn
+                    Tất cả thực đơn ({catalogCounts.all})
                   </button>
                   <button
                     type="button"
@@ -1488,7 +1562,7 @@ export const W07_CashierPOS: React.FC = () => {
                         : 'bg-[#FAF8F5] text-[#73675F] hover:bg-[#F3E2CE] hover:text-[#2C241E]'
                     }`}
                   >
-                    Dịch vụ cốt lõi (45' · 60' · 90')
+                    Dịch vụ cốt lõi (45' · 60' · 90') ({catalogCounts.service})
                   </button>
                   <button
                     type="button"
@@ -1499,7 +1573,7 @@ export const W07_CashierPOS: React.FC = () => {
                         : 'bg-[#FAF8F5] text-[#73675F] hover:bg-[#F3E2CE] hover:text-[#2C241E]'
                     }`}
                   >
-                    Gói liệu trình (10 · 20 · 30 buổi)
+                    Gói liệu trình (10 · 20 · 30 buổi) ({catalogCounts.package})
                   </button>
                   <button
                     type="button"
@@ -1510,33 +1584,85 @@ export const W07_CashierPOS: React.FC = () => {
                         : 'bg-[#FAF8F5] text-[#73675F] hover:bg-[#F3E2CE] hover:text-[#2C241E]'
                     }`}
                   >
-                    Sản phẩm bổ trợ
+                    Sản phẩm bổ trợ ({catalogCounts.product})
                   </button>
                 </div>
 
                 {/* Counter */}
                 <span className="text-[11px] font-semibold text-[#8C7A6B]">
-                  {displayedCatalogItems.length} mục khả dụng
+                  {displayedCatalogItems.length} mục hiển thị
                 </span>
               </div>
 
-              {/* Live Search Input */}
+              {/* Live Search Input with Diacritics Support */}
               <div className="relative">
                 <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={catalogSearch}
                   onChange={(e) => setCatalogSearch(e.target.value)}
-                  placeholder="Gõ tìm nhanh tên dịch vụ, gói 10/20/30 buổi hoặc sản phẩm..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setCatalogSearch('');
+                  }}
+                  placeholder="Gõ tìm nhanh: khu trú, mở rộng, 20 buổi, 90 phút, 500k, sản phẩm..."
                   className="w-full pl-9 pr-8 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] focus:bg-white focus:outline-none focus:border-[#985018] transition-all"
                 />
                 {catalogSearch && (
                   <button
                     type="button"
                     onClick={() => setCatalogSearch('')}
+                    title="Xóa tìm kiếm (Esc)"
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Search Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-[11px] scrollbar-none">
+                <span className="text-[#8C7A6B] shrink-0 font-medium">Gợi ý tìm nhanh:</span>
+                {[
+                  { label: 'Khu trú (45\')', val: 'khu trú' },
+                  { label: 'Mở rộng (60\')', val: 'mở rộng' },
+                  { label: 'Toàn diện (90\')', val: 'toàn diện' },
+                  { label: 'Gói 10 buổi', val: '10 buổi' },
+                  { label: 'Gói 20 buổi', val: '20 buổi' },
+                  { label: 'Gói 30 buổi', val: '30 buổi' },
+                  { label: 'Sản phẩm', val: 'sản phẩm' },
+                ].map((chip) => {
+                  const isSelected = catalogSearch.toLowerCase().trim() === chip.val.toLowerCase();
+                  return (
+                    <button
+                      key={chip.val}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setCatalogSearch('');
+                        } else {
+                          setCatalogSearch(chip.val);
+                        }
+                      }}
+                      className={`px-2.5 py-1 rounded-lg shrink-0 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#985018] text-white shadow-2xs font-bold'
+                          : 'bg-[#FAF8F5] border border-[#E8DFD8] text-[#73675F] hover:bg-[#FAF0E4] hover:text-[#985018]'
+                      }`}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+                {catalogSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCatalogSearch('');
+                      setCatalogCategory('ALL');
+                    }}
+                    className="text-[#8A4F23] hover:underline shrink-0 font-bold ml-1 cursor-pointer"
+                  >
+                    Đặt lại
                   </button>
                 )}
               </div>
@@ -1544,6 +1670,28 @@ export const W07_CashierPOS: React.FC = () => {
 
             {/* Catalog Grid Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5">
+              {displayedCatalogItems.length === 0 && (
+                <div className="col-span-full py-12 text-center bg-white rounded-2xl border border-dashed border-[#E8DFD8] p-6 space-y-3">
+                  <Search className="w-8 h-8 text-[#A69788] mx-auto opacity-50" />
+                  <div className="text-sm font-bold text-[#2C241E]">
+                    Không tìm thấy mục nào phù hợp với "{catalogSearch}"
+                  </div>
+                  <p className="text-xs text-[#73675F] max-w-md mx-auto">
+                    Bạn có thể thử tìm bằng từ không dấu như: <code>khu tru</code>, <code>mo rong</code>, <code>toan dien</code>, <code>20 buoi</code>, <code>45 phut</code>, <code>500k</code> hoặc bấm nút bên dưới để xem lại toàn bộ.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCatalogSearch('');
+                      setCatalogCategory('ALL');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Xem lại tất cả thực đơn</span>
+                  </button>
+                </div>
+              )}
               {displayedCatalogItems.map((item) => {
                 const inCartItem = posCart.find((c) => c.id === item.id);
                 return (
@@ -1625,56 +1773,222 @@ export const W07_CashierPOS: React.FC = () => {
           {/* ------------------------------------------------------------- */}
           <div className="lg:col-span-5 xl:col-span-4 bg-white rounded-2xl border border-[#EFE4D9] p-4 sm:p-5 shadow-xs space-y-4 sticky top-4">
             {/* Header: Customer Profile Bar */}
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
                   <UserCheck className="w-4 h-4 text-[#985018]" />
                   <span>Khách hàng thanh toán</span>
                 </label>
-                {selectedCustomer.id !== GUEST_CUSTOMER.id && (
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setSelectedCustomer(allCustomers.find((c) => c.id === GUEST_CUSTOMER.id) || GUEST_CUSTOMER)}
-                    className="text-[11px] font-bold text-[#8A4F23] hover:underline cursor-pointer"
+                    onClick={() => {
+                      setNewCustomerForm({ fullName: '', phone: '', gender: 'FEMALE', address: '' });
+                      setIsAddingCustomer(true);
+                    }}
+                    className="text-[11px] font-bold text-[#985018] hover:text-[#854412] hover:underline flex items-center gap-1 cursor-pointer"
                   >
-                    Về khách vãng lai
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>+ Khách mới</span>
                   </button>
+                  {selectedCustomer.id !== GUEST_CUSTOMER.id && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const guest = allCustomers.find((c) => c.id === GUEST_CUSTOMER.id) || GUEST_CUSTOMER;
+                        setSelectedCustomer(guest);
+                        setCustomerSearchKeyword('');
+                        setShowCustomerDropdown(false);
+                      }}
+                      className="text-[11px] font-bold text-[#8A4F23] hover:underline cursor-pointer"
+                    >
+                      Về vãng lai
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Searchable Customer Input & Combobox Dropdown */}
+              <div className="relative">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={customerSearchKeyword}
+                    onFocus={() => setShowCustomerDropdown(true)}
+                    onChange={(e) => {
+                      setCustomerSearchKeyword(e.target.value);
+                      setShowCustomerDropdown(true);
+                    }}
+                    placeholder="Gõ tìm tên, SĐT khách (vd: Hoàng, 091...)"
+                    className="w-full h-10 pl-9 pr-8 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] text-xs font-semibold text-[#2C241E] focus:bg-white focus:outline-none focus:border-[#985018] transition-all"
+                  />
+                  {customerSearchKeyword ? (
+                    <button
+                      type="button"
+                      onClick={() => setCustomerSearchKeyword('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomerDropdown((p) => !p)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E]"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Dropdown Results */}
+                {showCustomerDropdown && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-30"
+                      onClick={() => setShowCustomerDropdown(false)}
+                    />
+                    <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white rounded-xl border border-[#EFE4D9] shadow-xl max-h-72 overflow-y-auto divide-y divide-[#F2ECE6]">
+                      {/* Guest Customer Option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const guest = allCustomers.find((c) => c.id === GUEST_CUSTOMER.id) || GUEST_CUSTOMER;
+                          setSelectedCustomer(guest);
+                          setShowCustomerDropdown(false);
+                          setCustomerSearchKeyword('');
+                        }}
+                        className={`w-full px-3 py-2.5 text-left text-xs flex items-center justify-between hover:bg-[#FAF8F5] transition-colors cursor-pointer ${
+                          selectedCustomer.id === GUEST_CUSTOMER.id ? 'bg-[#FAF0E4]' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-[#EFE4D9] text-[#8A4F23] flex items-center justify-center text-xs font-bold">
+                            ⚡
+                          </span>
+                          <div>
+                            <div className="font-bold text-[#2C241E]">Khách hàng Vãng lai (Guest)</div>
+                            <div className="text-[11px] text-[#73675F]">0900000000 · Thanh toán nhanh tại quầy</div>
+                          </div>
+                        </div>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FAF0E4] text-[#8A4F23]">
+                          STANDARD
+                        </span>
+                      </button>
+
+                      {/* Filtered Customer List */}
+                      {filteredCustomers.length > 0 ? (
+                        filteredCustomers.map((cust) => {
+                          const isSelected = selectedCustomer.id === cust.id;
+                          return (
+                            <button
+                              key={cust.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCustomer(cust);
+                                setShowCustomerDropdown(false);
+                                setCustomerSearchKeyword('');
+                              }}
+                              className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-[#FAF8F5] transition-colors cursor-pointer ${
+                                isSelected ? 'bg-[#FAF0E4]' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-[#F3E2CE] text-[#985018] flex items-center justify-center text-[10px] font-bold">
+                                  {cust.fullName ? cust.fullName.charAt(0).toUpperCase() : 'K'}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-[#2C241E]">{cust.fullName}</div>
+                                  <div className="text-[11px] text-[#73675F]">{cust.phone || 'Chưa có SĐT'}</div>
+                                </div>
+                              </div>
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                  cust.membershipTier === 'DIAMOND'
+                                    ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                    : cust.membershipTier === 'GOLD'
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : cust.membershipTier === 'SILVER'
+                                    ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                                    : 'bg-[#FAF0E4] text-[#8A4F23]'
+                                }`}
+                              >
+                                {cust.membershipTier || 'STANDARD'}
+                              </span>
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="p-3 text-center text-xs text-[#73675F] space-y-2">
+                          <p>Không tìm thấy khách hàng nào khớp với "{customerSearchKeyword}"</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowCustomerDropdown(false);
+                              setNewCustomerForm((p) => ({
+                                ...p,
+                                fullName: /^\d+$/.test(customerSearchKeyword) ? '' : customerSearchKeyword.trim(),
+                                phone: /^\d+$/.test(customerSearchKeyword) ? customerSearchKeyword.trim() : '',
+                              }));
+                              setIsAddingCustomer(true);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-[#985018] text-white text-xs font-bold hover:bg-[#854412] inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>Tạo khách hàng mới</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
 
-              {/* Customer Selector Dropdown */}
-              <div className="relative">
-                <select
-                  value={selectedCustomer.id}
-                  onChange={(e) => {
-                    const found = allCustomers.find((c) => c.id === e.target.value);
-                    if (found) setSelectedCustomer(found);
-                  }}
-                  className="w-full h-10 px-3 pr-8 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] text-xs font-semibold text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer appearance-none"
-                >
-                  <option value={GUEST_CUSTOMER.id}>
-                    👤 {GUEST_CUSTOMER.fullName} · {GUEST_CUSTOMER.phone}
-                  </option>
-                  {allCustomers
-                    .filter((c) => isUuid(c.id) && c.id !== GUEST_CUSTOMER.id)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        👤 {c.fullName} · {c.phone || 'Chưa có SĐT'} ({c.membershipTier || 'MEMBER'})
-                      </option>
-                    ))}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-
-              {/* Selected Customer Mini Card */}
+              {/* Selected Customer Card */}
               <div className="bg-[#FAF8F5] p-2.5 rounded-xl border border-[#EFE4D9] flex items-center justify-between text-xs">
-                <div>
-                  <div className="font-bold text-[#2C241E]">{selectedCustomer.fullName}</div>
-                  <div className="text-[11px] text-[#73675F]">{selectedCustomer.phone || 'Không có SĐT'}</div>
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-[#FAF0E4] text-[#985018] flex items-center justify-center font-bold text-xs border border-[#E8DFD8]">
+                    {selectedCustomer.id === GUEST_CUSTOMER.id ? '👤' : (selectedCustomer.fullName?.charAt(0).toUpperCase() || 'K')}
+                  </div>
+                  <div>
+                    <div className="font-bold text-[#2C241E] flex items-center gap-1.5">
+                      <span>{selectedCustomer.fullName}</span>
+                      {selectedCustomer.id === GUEST_CUSTOMER.id && (
+                        <span className="text-[10px] px-1 py-0.2 bg-[#EFE4D9] text-[#73675F] rounded font-medium">Vãng lai</span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-[#73675F]">{selectedCustomer.phone || 'Không có SĐT'}</div>
+                  </div>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FAF0E4] text-[#8A4F23]">
-                  {selectedCustomer.membershipTier || 'STANDARD'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      selectedCustomer.membershipTier === 'DIAMOND'
+                        ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                        : selectedCustomer.membershipTier === 'GOLD'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : selectedCustomer.membershipTier === 'SILVER'
+                        ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                        : 'bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]'
+                    }`}
+                  >
+                    {selectedCustomer.membershipTier || 'STANDARD'}
+                  </span>
+                  {selectedCustomer.id !== GUEST_CUSTOMER.id && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const guest = allCustomers.find((c) => c.id === GUEST_CUSTOMER.id) || GUEST_CUSTOMER;
+                        setSelectedCustomer(guest);
+                      }}
+                      title="Trở về khách vãng lai"
+                      className="p-1 text-[#8C7A6B] hover:text-rose-600 rounded-md hover:bg-white transition-colors cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1992,6 +2306,29 @@ export const W07_CashierPOS: React.FC = () => {
             </button>
           </div>
 
+          {/* Queue Search Toolbar */}
+          {pendingBookings.length > 0 && (
+            <div className="relative">
+              <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={queueSearchTerm}
+                onChange={(e) => setQueueSearchTerm(e.target.value)}
+                placeholder="Tìm nhanh theo tên khách, SĐT, mã lịch hẹn BK-... hoặc dịch vụ..."
+                className="w-full pl-9 pr-8 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] focus:bg-white focus:outline-none focus:border-[#985018] transition-all"
+              />
+              {queueSearchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setQueueSearchTerm('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
           {pendingBookings.length === 0 ? (
             <div className="py-16 text-center space-y-2">
               <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
@@ -2000,9 +2337,23 @@ export const W07_CashierPOS: React.FC = () => {
                 Tất cả khách hàng đã được thanh toán hoặc chưa có lịch hẹn mới. Bạn có thể bán gói hoặc dịch vụ mới tại Tab "Bán hàng tại quầy".
               </p>
             </div>
+          ) : filteredPendingBookings.length === 0 ? (
+            <div className="py-12 text-center bg-[#FAF8F5] rounded-xl border border-dashed border-[#E8DFD8] p-4 space-y-2">
+              <Search className="w-8 h-8 text-[#A69788] mx-auto opacity-50" />
+              <div className="text-xs font-bold text-[#2C241E]">
+                Không tìm thấy lịch hẹn nào khớp với "{queueSearchTerm}"
+              </div>
+              <button
+                type="button"
+                onClick={() => setQueueSearchTerm('')}
+                className="text-xs text-[#985018] hover:underline font-bold cursor-pointer"
+              >
+                Xóa từ khóa tìm kiếm
+              </button>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {pendingBookings.map((bk) => {
+              {filteredPendingBookings.map((bk) => {
                 const srv = bk.items?.[0]?.service;
                 const srvPrice = Number(srv?.price || bk.finalPrice || bk.baseTotal || 500000);
                 const srvName = srv?.name || (bk as any).serviceName || 'Trị liệu Dẫn lưu MLD';
@@ -2927,6 +3278,136 @@ export const W07_CashierPOS: React.FC = () => {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Add Customer Modal */}
+      {isAddingCustomer && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#EFE4D9] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 border-b border-[#F2ECE6] flex items-center justify-between bg-[#FAF8F5]">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[#FAF0E4] text-[#985018] flex items-center justify-center">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-bold text-[#2C241E]">Thêm nhanh khách hàng mới</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddingCustomer(false)}
+                className="p-1 rounded-lg text-[#8C7A6B] hover:text-[#2C241E] hover:bg-[#F4ECE3] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!newCustomerForm.fullName.trim()) {
+                  toast.error('Thiếu thông tin', 'Vui lòng nhập họ và tên khách hàng.');
+                  return;
+                }
+                if (!newCustomerForm.phone.trim()) {
+                  toast.error('Thiếu thông tin', 'Vui lòng nhập số điện thoại.');
+                  return;
+                }
+                setIsSubmittingCustomer(true);
+                try {
+                  const res = await customerService.createCustomer({
+                    fullName: newCustomerForm.fullName.trim(),
+                    phone: newCustomerForm.phone.trim(),
+                    gender: newCustomerForm.gender,
+                    address: newCustomerForm.address.trim() || undefined,
+                  });
+                  if (res.success && res.data) {
+                    setAllCustomers((prev) => [res.data, ...prev]);
+                    setSelectedCustomer(res.data);
+                    setIsAddingCustomer(false);
+                    setNewCustomerForm({ fullName: '', phone: '', gender: 'FEMALE', address: '' });
+                    toast.success('Thành công', `Đã tạo khách hàng "${res.data.fullName}" và áp dụng vào đơn.`);
+                  } else {
+                    toast.error('Lỗi', res.message || 'Không thể tạo khách hàng.');
+                  }
+                } catch (err: any) {
+                  toast.error('Lỗi', err.message || 'Không thể kết nối máy chủ.');
+                } finally {
+                  setIsSubmittingCustomer(false);
+                }
+              }}
+              className="p-5 space-y-3.5 text-xs"
+            >
+              <div>
+                <label className="font-bold text-[#2C241E] block mb-1">
+                  Họ và tên khách hàng <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newCustomerForm.fullName}
+                  onChange={(e) => setNewCustomerForm((p) => ({ ...p, fullName: e.target.value }))}
+                  placeholder="Ví dụ: Nguyễn Thị Mai"
+                  className="w-full px-3 py-2 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-[#2C241E] block mb-1">
+                  Số điện thoại <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={newCustomerForm.phone}
+                  onChange={(e) => setNewCustomerForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="Ví dụ: 0912345678"
+                  className="w-full px-3 py-2 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-[#2C241E] block mb-1">Giới tính</label>
+                  <select
+                    value={newCustomerForm.gender}
+                    onChange={(e) => setNewCustomerForm((p) => ({ ...p, gender: e.target.value as any }))}
+                    className="w-full px-3 py-2 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018] cursor-pointer"
+                  >
+                    <option value="FEMALE">Nữ</option>
+                    <option value="MALE">Nam</option>
+                    <option value="OTHER">Khác</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-[#2C241E] block mb-1">Địa chỉ (tùy chọn)</label>
+                  <input
+                    type="text"
+                    value={newCustomerForm.address}
+                    onChange={(e) => setNewCustomerForm((p) => ({ ...p, address: e.target.value }))}
+                    placeholder="Quận/Huyện..."
+                    className="w-full px-3 py-2 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#F2ECE6]">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingCustomer(false)}
+                  className="px-3.5 py-2 rounded-xl border border-[#E8DFD8] text-[#73675F] font-bold hover:bg-[#FAF8F5] cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingCustomer}
+                  className="px-4 py-2 rounded-xl bg-[#985018] hover:bg-[#854412] text-white font-bold cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingCustomer ? 'Đang lưu...' : 'Lưu & Chọn ngay'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
