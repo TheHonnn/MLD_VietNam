@@ -77,15 +77,20 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     });
 
     try {
-      await ApiClient.instance.post(
+      final res = await ApiClient.instance.post(
         ApiEndpoints.authRequestPhoneOtp,
         data: {'phone': phone},
       );
+      final body = res.data;
+      final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
+      final otp = (data is Map) ? data['otp']?.toString() : null;
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Mã OTP đã được gửi qua tin nhắn SMS tới số điện thoại của bạn!'),
+          SnackBar(
+            content: Text(otp != null
+                ? 'Mã OTP đã được gửi! Mã xác thực: $otp'
+                : 'Mã OTP đã được gửi qua tin nhắn SMS tới số điện thoại của bạn!'),
             backgroundColor: AppColors.primary,
           ),
         );
@@ -95,6 +100,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
             builder: (_) => A04OtpScreen(
               phoneNumber: phone,
               purpose: 'LOGIN_PHONE',
+              initialOtp: otp,
             ),
           ),
         );
@@ -137,15 +143,20 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     });
 
     try {
-      await ApiClient.instance.post(
+      final res = await ApiClient.instance.post(
         ApiEndpoints.authRequestLoginOtp,
         data: {'email': email},
       );
+      final body = res.data;
+      final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
+      final otp = (data is Map) ? data['otp']?.toString() : null;
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Mã OTP đăng nhập đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư!'),
+          SnackBar(
+            content: Text(otp != null
+                ? 'Mã OTP đăng nhập: $otp'
+                : 'Mã OTP đăng nhập đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư!'),
             backgroundColor: AppColors.primary,
           ),
         );
@@ -155,6 +166,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
             builder: (_) => A04OtpScreen(
               email: email,
               purpose: 'LOGIN_EMAIL',
+              initialOtp: otp,
             ),
           ),
         );

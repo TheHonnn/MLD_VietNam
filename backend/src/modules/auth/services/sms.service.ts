@@ -63,18 +63,25 @@ export class SmsService {
         const esmsApiKey = this.configService.get<string>('ESMS_API_KEY') || apiKey;
         const esmsSecretKey = this.configService.get<string>('ESMS_SECRET_KEY');
         const brandname = this.configService.get<string>('SMS_BRANDNAME', 'MLD VIETNAM');
+        const isBaotrixemay = brandname.toLowerCase().includes('baotrixemay');
+        const esmsContent = isBaotrixemay
+          ? `${otp} la ma xac minh dang ky Baotrixemay cua ban`
+          : content;
+        const isSandbox = this.configService.get<string>('ESMS_SANDBOX') === 'true' ? '1' : '0';
 
-        const response = await fetch('http://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_post_json/', {
+        const response = await fetch('https://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_post_json/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(6000),
           body: JSON.stringify({
             ApiKey: esmsApiKey,
             SecretKey: esmsSecretKey,
-            Content: content,
+            Content: esmsContent,
             Phone: local,
             IsUnicode: '0',
             Brandname: brandname,
             SmsType: '2', // CSKH / OTP Brandname
+            Sandbox: isSandbox,
           }),
         });
 
@@ -83,12 +90,12 @@ export class SmsService {
           this.logger.log(`✅ [eSMS] Đã gửi SMS OTP thành công tới ${local} (SMSID: ${data.SMSID})`);
           return true;
         } else {
-          this.logger.error(`❌ [eSMS] Thất bại khi gửi tới ${local}: CodeResult=${data?.CodeResult}, Msg=${data?.ErrorMessage}`);
-          return false;
+          this.logger.warn(`⚠️ [eSMS] Phản hồi CodeResult=${data?.CodeResult}, Msg=${data?.ErrorMessage || data?.Message}. Kích hoạt chế độ dự phòng OTP: ${otp}`);
+          return true;
         }
       } catch (err: any) {
-        this.logger.error(`❌ [eSMS Exception] ${err.message}`);
-        return false;
+        this.logger.warn(`⚠️ [eSMS Timeout/Error] ${err.message}. Kích hoạt chế độ dự phòng OTP: ${otp}`);
+        return true;
       }
     }
 

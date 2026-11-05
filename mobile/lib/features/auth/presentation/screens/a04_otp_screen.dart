@@ -41,6 +41,11 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
   void initState() {
     super.initState();
     _startCountdown();
+    if (widget.initialOtp != null && widget.initialOtp!.length == 6) {
+      for (int i = 0; i < 6; i++) {
+        _controllers[i].text = widget.initialOtp![i];
+      }
+    }
   }
 
   @override
@@ -518,6 +523,40 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                             ),
                           ),
 
+                                                    if (widget.initialOtp != null && widget.initialOtp!.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            InkWell(
+                              onTap: () {
+                                for (int i = 0; i < 6 && i < widget.initialOtp!.length; i++) {
+                                  _controllers[i].text = widget.initialOtp![i];
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.verified_rounded, size: 16, color: AppColors.primary),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Mã OTP: ${widget.initialOtp} (Bấm để điền)',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 28),
 
                           // 4. Hàng 6 ô nhập mã OTP

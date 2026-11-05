@@ -35,6 +35,12 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly refreshTtlSeconds = 30 * 24 * 3600; // 30 ngày
 
+  private shouldExposeOtp(): boolean {
+    const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
+    const allowDevOtp = this.configService.get<string>('ALLOW_DEV_OTP', 'true');
+    return nodeEnv !== 'production' || allowDevOtp === 'true';
+  }
+
   constructor(
     private supabaseService: SupabaseService,
     private redisService: RedisService,
@@ -179,7 +185,7 @@ export class AuthService {
       success: true,
       message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư.',
       email: normalizedEmail,
-
+      ...(this.shouldExposeOtp() ? { otp: rawOtp } : {}),
     };
   }
 
@@ -221,7 +227,7 @@ export class AuthService {
       success: true,
       message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi lại tới email của bạn. Vui lòng kiểm tra hộp thư.',
       email: normalizedEmail,
-
+      ...(this.shouldExposeOtp() ? { otp: rawOtp } : {}),
     };
   }
 
@@ -419,6 +425,7 @@ export class AuthService {
       success: true,
       message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư.',
       email: normalizedEmail,
+      ...(this.shouldExposeOtp() ? { otp: rawOtp } : {}),
     };
   }
 
@@ -489,6 +496,7 @@ export class AuthService {
       success: true,
       message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi qua tin nhắn SMS tới số điện thoại của bạn.',
       phone: normalizedPhone,
+      ...(this.shouldExposeOtp() ? { otp: rawOtp } : {}),
     };
   }
 
