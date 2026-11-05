@@ -481,18 +481,15 @@ export class AuthService {
     // 1. Sinh mã OTP ngẫu nhiên 6 chữ số an toàn (CSPRNG), mã hóa SHA-256 + secret salt lưu vào Redis & DB
     const rawOtp = await this.otpService.generateAndSaveOtp(normalizedPhone, 'LOGIN');
 
-    // 2. Gửi tin nhắn SMS thật qua SmsService (eSMS)
+    // 2. Gửi tin nhắn SMS thật qua SmsService (eSMS) bất đồng bộ (Non-blocking để App phản hồi ngay lập tức)
     if (this.smsService) {
-      const sent = await this.smsService.sendOtpSms({
+      this.smsService.sendOtpSms({
         to: normalizedPhone,
         otp: rawOtp,
         purpose: 'LOGIN_PHONE',
-      });
-      if (!sent) {
-        throw new BadRequestException('Cổng viễn thông SMS chưa thể gửi tin nhắn đến số điện thoại của bạn lúc này. Vui lòng thử lại sau ít phút.');
-      }
+      }).catch(err => this.logger.error(`❌ [SMS OTP Exception] ${err.message}`));
     } else {
-      this.logger.log(`📱 [SMS OTP] ${normalizedPhone}: ${rawOtp}`);
+      this.logger.log(`📱 [SMS OTP Simulator] ${normalizedPhone}: ${rawOtp}`);
     }
 
     return {
