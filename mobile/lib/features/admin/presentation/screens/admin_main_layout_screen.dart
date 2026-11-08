@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../home/presentation/screens/main_layout_screen.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../auth/presentation/screens/a03_login_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_frontdesk_screen.dart';
 import 'admin_academy_screen.dart';
@@ -51,11 +52,59 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
     );
   }
 
-  void _switchToCustomerMode() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
+  Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.logout_rounded, color: Color(0xFFE11D48), size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'Đăng xuất quản trị',
+              style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        content: Text(
+          'Bạn có chắc chắn muốn đăng xuất khỏi giao diện quản trị viên?',
+          style: GoogleFonts.montserrat(fontSize: 13, color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Hủy',
+              style: GoogleFonts.montserrat(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE11D48),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text('Đăng xuất', style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed == true && mounted) {
+      await AuthService.instance.logout();
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+          (route) => false,
+        );
+      }
+    }
   }
 
   @override
@@ -64,6 +113,7 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
       AdminDashboardScreen(
         onNavigateTab: _onNavigateTab,
         onOpenQrScanner: _openQrScanner,
+        onLogout: _handleLogout,
       ),
       const AdminFrontdeskScreen(),
       AdminAcademyScreen(
@@ -105,7 +155,7 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
                 _buildNavItem(1, 'Tiếp đón Spa', Icons.calendar_month_rounded),
                 _buildNavItem(2, 'Đào tạo', Icons.school_rounded),
                 _buildNavItem(3, 'Dịch vụ & Khóa', Icons.spa_rounded),
-                _buildSwitchModeItem(),
+                _buildLogoutItem(),
               ],
             ),
           ),
@@ -161,44 +211,11 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
     );
   }
 
-  Widget _buildSwitchModeItem() {
+  Widget _buildLogoutItem() {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: Text(
-                'Chuyển sang Chế độ Khách hàng',
-                style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-              content: Text(
-                'Bạn có muốn chuyển sang xem giao diện ứng dụng từ góc nhìn của Khách hàng không?',
-                style: GoogleFonts.montserrat(fontSize: 13, color: AppColors.textSecondary),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text('Ở lại', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600)),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _switchToCustomerMode();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: Text('Chuyển đổi', style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
-                ),
-              ],
-            ),
-          );
-        },
+        onTap: _handleLogout,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Column(
@@ -211,14 +228,14 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
-                  Icons.switch_account_rounded,
+                  Icons.logout_rounded,
                   size: 18,
                   color: Color(0xFFE11D48),
                 ),
               ),
               const SizedBox(height: 2),
               Text(
-                'App Khách',
+                'Đăng xuất',
                 style: GoogleFonts.montserrat(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,

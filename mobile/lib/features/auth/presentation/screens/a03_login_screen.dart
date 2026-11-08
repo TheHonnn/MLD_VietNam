@@ -5,6 +5,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../admin/presentation/screens/admin_main_layout_screen.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../../membership/presentation/screens/legal_document_screen.dart';
@@ -144,6 +145,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
         final loggedInAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
         final loggedInPhone = user?['phone'] as String?;
         final loggedInEmail = user?['email'] as String? ?? _emailController.text.trim();
+        final userRole = user?['role']?.toString().toUpperCase();
 
         await AuthService.instance.saveSession(
           accessToken: accessToken,
@@ -152,6 +154,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
           phone: loggedInPhone,
           displayName: loggedInName,
           avatarUrl: loggedInAvatar,
+          role: userRole,
         );
 
         await AuthService.instance.saveLastLogin(
@@ -168,9 +171,13 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
         );
 
         if (mounted) {
+          final targetScreen = AuthService.instance.isAdmin
+              ? const AdminMainLayoutScreen()
+              : const MainLayoutScreen();
+
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
+            MaterialPageRoute(builder: (_) => targetScreen),
             (route) => false,
           );
         }

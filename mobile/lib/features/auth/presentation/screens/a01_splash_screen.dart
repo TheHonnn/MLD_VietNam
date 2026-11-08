@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/motion/app_page_transitions.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../admin/presentation/screens/admin_main_layout_screen.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
 import 'a02_welcome_screen.dart';
 
@@ -93,7 +94,9 @@ class _A01SplashScreenState extends State<A01SplashScreen>
     _timeoutTimer?.cancel();
 
     final Widget destination = isAutoLogin
-        ? const MainLayoutScreen()
+        ? (AuthService.instance.isAdmin
+            ? const AdminMainLayoutScreen()
+            : const MainLayoutScreen())
         : const A02WelcomeScreen();
 
     // Pure Cross-fade đúng 300ms, Scale cố định 1.0
