@@ -63,7 +63,9 @@ export class EmailService {
           secure: false,
           auth: { user, pass },
           tls: {
-            rejectUnauthorized: false,
+            rejectUnauthorized:
+              (this.configService.get<string>('NODE_ENV') || process.env.NODE_ENV) === 'production' &&
+              this.configService.get<string>('SMTP_TLS_REJECT_UNAUTHORIZED') !== 'false',
           },
           connectionTimeout: 15000,
           greetingTimeout: 15000,
@@ -94,7 +96,9 @@ export class EmailService {
           secure,
           auth: { user, pass },
           tls: {
-            rejectUnauthorized: false,
+            rejectUnauthorized:
+              (this.configService.get<string>('NODE_ENV') || process.env.NODE_ENV) === 'production' &&
+              this.configService.get<string>('SMTP_TLS_REJECT_UNAUTHORIZED') !== 'false',
           },
           connectionTimeout: 15000,
           greetingTimeout: 15000,
