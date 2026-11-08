@@ -308,7 +308,6 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
             rethrow;
           }
         }
-        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -362,15 +361,13 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
         if (widget.purpose == 'RESET_PASSWORD') purpose = 'RESET_PASSWORD';
         if (widget.purpose == 'LOGIN_EMAIL') purpose = 'LOGIN';
 
-        final res = await ApiClient.instance.post(
+        await ApiClient.instance.post(
           ApiEndpoints.authResendOtp,
           data: {
             'email': widget.email,
             'purpose': purpose,
           },
         );
-        final body = res.data;
-        final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

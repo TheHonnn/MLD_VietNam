@@ -51,7 +51,7 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
 
     try {
       final email = _emailController.text.trim();
-      final res = await ApiClient.instance.post(
+      await ApiClient.instance.post(
         ApiEndpoints.authRegisterEmail,
         data: {
           'fullName': _nameController.text.trim(),

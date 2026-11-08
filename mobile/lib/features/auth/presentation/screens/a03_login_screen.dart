@@ -69,7 +69,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     });
 
     try {
-      final res = await ApiClient.instance.post(
+      await ApiClient.instance.post(
         ApiEndpoints.authRequestPhoneOtp,
         data: {'phone': phone},
       );
@@ -128,7 +128,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     });
 
     try {
-      final res = await ApiClient.instance.post(
+      await ApiClient.instance.post(
         ApiEndpoints.authRequestLoginOtp,
         data: {'email': email},
       );
