@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/services/auth_service.dart';
@@ -12,7 +11,6 @@ import '../../../membership/presentation/screens/legal_document_screen.dart';
 import '../../widgets/primary_button.dart';
 import 'a03_email_register_screen.dart';
 import 'a03_forgot_password_screen.dart';
-import 'a04_otp_screen.dart';
 
 class A03LoginScreen extends StatefulWidget {
   const A03LoginScreen({super.key});
@@ -33,7 +31,9 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
 
   // Controllers cho SĐT
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _phonePasswordController = TextEditingController();
   final GlobalKey<FormState> _phoneFormKey = GlobalKey<FormState>();
+  bool _obscurePhonePassword = true;
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -45,7 +45,11 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     if (lastEmail != null && lastEmail.isNotEmpty) {
       _emailController.text = lastEmail;
     }
-    // Luôn luôn mặc định tab Email khi vào trang Đăng nhập
+    final lastPhone = AuthService.instance.lastLoginPhone;
+    if (lastPhone != null && lastPhone.isNotEmpty) {
+      final clean = lastPhone.startsWith('0') ? lastPhone.substring(1) : lastPhone;
+      _phoneController.text = clean;
+    }
     _selectedTabIndex = 0;
   }
 
@@ -54,14 +58,12 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _phoneController.dispose();
+    _phonePasswordController.dispose();
     super.dispose();
   }
 
-  // Luồng đăng nhập SĐT qua mã OTP SMS
-  Future<void> _handlePhoneContinue() async {
+  Future<void> _handlePhoneLogin() async {
     if (!(_phoneFormKey.currentState?.validate() ?? false)) return;
-    final phone = _phoneController.text.trim();
-    AuthService.instance.saveLastLogin(phone: phone, method: 'phone');
 
     setState(() {
       _isLoading = true;
@@ -69,39 +71,88 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     });
 
     try {
-      await ApiClient.instance.post(
-        ApiEndpoints.authRequestPhoneOtp,
-        data: {'phone': phone},
+      final raw = _phoneController.text.trim().replaceAll(' ', '');
+      final phone = raw.startsWith('0') ? raw : '0$raw';
+      final password = _phonePasswordController.text;
+
+      final response = await ApiClient.instance.post(
+        ApiEndpoints.authLogin,
+        data: {
+          'identifier': phone,
+          'password': password,
+        },
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Mã OTP đã được gửi qua tin nhắn SMS tới số điện thoại của bạn!'),
-            backgroundColor: AppColors.primary,
-          ),
+
+      final body = response.data;
+      final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
+
+      final accessToken = data['accessToken'] as String?;
+      final refreshToken = data['refreshToken'] as String?;
+      final user = data['user'] as Map<String, dynamic>?;
+
+      if (accessToken != null) {
+        final loggedInName = (user?['full_name'] ?? user?['fullName']) as String?;
+        final loggedInAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
+        final loggedInPhone = user?['phone'] as String? ?? phone;
+        final loggedInEmail = user?['email'] as String?;
+        final userRole = user?['role']?.toString().toUpperCase();
+
+        await AuthService.instance.saveSession(
+          accessToken: accessToken,
+          refreshToken: refreshToken,
+          userId: user?['id'] as String?,
+          phone: loggedInPhone,
+          displayName: loggedInName,
+          avatarUrl: loggedInAvatar,
+          role: userRole,
         );
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => A04OtpScreen(
-              phoneNumber: phone,
-              purpose: 'LOGIN_PHONE',
-            ),
-          ),
+
+        await AuthService.instance.saveLastLogin(
+          phone: loggedInPhone,
+          method: 'phone',
         );
+
+        MembershipRepository.instance.syncUserSession(
+          fullName: loggedInName,
+          phone: loggedInPhone,
+          email: loggedInEmail,
+          avatarUrl: loggedInAvatar,
+          memberCode: user?['referral_code']?.toString() ?? user?['referralCode']?.toString(),
+        );
+
+        if (mounted) {
+          final targetScreen = AuthService.instance.isAdmin
+              ? const AdminMainLayoutScreen()
+              : const MainLayoutScreen();
+
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => targetScreen),
+            (route) => false,
+          );
+        }
+      } else {
+        setState(() {
+          _errorMessage = 'Không thể xác thực thông tin đăng nhập.';
+        });
       }
     } catch (e) {
+      String msg = 'Số điện thoại hoặc mật khẩu không chính xác.';
+      final errStr = e.toString();
+      if (errStr.contains('ACCOUNT_LOCKED') || errStr.contains('khóa')) {
+        msg = 'Tài khoản tạm thời bị khóa do nhập sai nhiều lần. Vui lòng thử lại sau 15 phút.';
+      } else if (errStr.contains('INVALID_CREDENTIALS')) {
+        msg = 'Số điện thoại hoặc mật khẩu không chính xác.';
+      } else {
+        final cleanMsg = errStr.replaceFirst('Exception: ', '').replaceAll('ApiException: ', '').trim();
+        if (cleanMsg.isNotEmpty && !cleanMsg.contains('DioException')) {
+          msg = cleanMsg;
+        }
+      }
       if (mounted) {
-        // Điều hướng để người dùng có thể tiếp tục
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => A04OtpScreen(
-              phoneNumber: phone,
-              purpose: 'LOGIN_PHONE',
-            ),
-          ),
-        );
+        setState(() {
+          _errorMessage = msg;
+        });
       }
     } finally {
       if (mounted) {
@@ -646,12 +697,96 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Mật khẩu',
+                                  style: GoogleFonts.beVietnamPro(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: primaryNavy,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.04),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: TextFormField(
+                                    controller: _phonePasswordController,
+                                    obscureText: _obscurePhonePassword,
+                                    style: GoogleFonts.beVietnamPro(
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w500,
+                                      color: textDark,
+                                    ),
+                                    validator: (v) {
+                                      if (v == null || v.isEmpty) return 'Vui lòng nhập mật khẩu';
+                                      if (v.length < 6) return 'Mật khẩu tối thiểu 6 ký tự';
+                                      return null;
+                                    },
+                                    decoration: InputDecoration(
+                                      hintText: 'Nhập mật khẩu của bạn',
+                                      hintStyle: GoogleFonts.beVietnamPro(
+                                        fontSize: 14,
+                                        color: const Color(0xFF94A3B8),
+                                      ),
+                                      prefixIcon: const Icon(Icons.lock_outline_rounded, color: primaryNavy, size: 20),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _obscurePhonePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                          color: textMuted,
+                                          size: 20,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _obscurePhonePassword = !_obscurePhonePassword;
+                                          });
+                                        },
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                                      border: InputBorder.none,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const A03ForgotPasswordScreen(),
+                                        ),
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4),
+                                      child: Text(
+                                        'Quên mật khẩu?',
+                                        style: GoogleFonts.beVietnamPro(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: primaryNavy,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
                                 PrimaryButton(
-                                  text: 'Tiếp tục',
+                                  text: 'Đăng nhập',
                                   backgroundColor: ctaGreen,
                                   isLoading: _isLoading,
-                                  onPressed: _handlePhoneContinue,
+                                  onPressed: _handlePhoneLogin,
                                 ),
                               ],
                             ),

@@ -331,22 +331,25 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const { identifier, password, fcmToken } = loginDto;
     const cleanId = identifier.trim();
+    let normPhone = cleanId.replace(/[^\d+]/g, '');
+    if (normPhone.startsWith('+84')) normPhone = '0' + normPhone.substring(3);
+    else if (normPhone.startsWith('84')) normPhone = '0' + normPhone.substring(2);
+    else if (!normPhone.startsWith('0') && !normPhone.includes('@') && /^\d+$/.test(normPhone)) normPhone = '0' + normPhone;
+    const plusPhone = normPhone.startsWith('0') ? '+84' + normPhone.substring(1) : normPhone;
 
-    // 1. Tìm user theo số điện thoại hoặc email trong bảng users
     let { data: user } = await this.supabaseService.adminClient
       .from('users')
       .select('id, phone, email, password_hash, full_name, role, is_active, avatar_url, referral_code')
-      .or(`phone.eq.${cleanId},email.eq.${cleanId.toLowerCase()}`)
+      .or(`phone.eq.${normPhone},phone.eq.${plusPhone},phone.eq.${cleanId},email.eq.${cleanId.toLowerCase()}`)
       .maybeSingle();
 
     let passwordHashToCompare = user?.password_hash;
 
-    // 1.1. Nếu không thấy trong users, tìm tiếp trong bảng auth_identities (hỗ trợ đa định danh Email/SĐT)
     if (!user) {
       const { data: identity } = await this.supabaseService.adminClient
         .from('auth_identities')
         .select('user_id, password_hash')
-        .eq('identifier', cleanId.toLowerCase())
+        .or(`identifier.eq.${cleanId.toLowerCase()},identifier.eq.${normPhone},identifier.eq.${plusPhone}`)
         .maybeSingle();
 
       if (identity && identity.user_id) {
