@@ -2426,7 +2426,7 @@ export const W18_PortalContent: React.FC = () => {
                         {log.recipientName ? `${log.recipientName} (${log.recipientEmail})` : log.recipientEmail}
                       </td>
                       <td className="py-3 px-3 text-[#554B42] max-w-xs truncate">{log.subject}</td>
-                      <td className="py-3 px-3 font-semibold text-[11px] text-[#8A4F23]">{TEMPLATE_NAMES[log.templateId] || log.templateId || 'Tùy biến'}</td>
+                      <td className="py-3 px-3 font-semibold text-[11px] text-[#8A4F23]">{(log.templateId && TEMPLATE_NAMES[log.templateId]) || log.templateId || 'Tùy biến'}</td>
                       <td className="py-3 px-3 text-center">
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                           {log.status}
