@@ -39,20 +39,26 @@ class AdminRepository {
     try {
       final now = DateTime.now();
       final todayStr = DateFormat('yyyy-MM-dd').format(now);
+      final monthStartStr = DateFormat('yyyy-MM-01').format(now);
 
-      // A. Doanh thu hôm nay (tổng từ hóa đơn đã thanh toán hôm nay)
+      // A. Doanh thu hôm nay & tháng này (tổng từ hóa đơn đã thanh toán)
       double todayRev = 0.0;
+      double monthRev = 0.0;
       try {
         final branchParam = (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
             ? '&branch_id=eq.$branchId'
             : '';
         final invRes = await _apiClient.dio.get(
-          '/rest/v1/invoices?select=total_amount,payment_status,created_at&payment_status=eq.PAID&created_at=gte.$todayStr$branchParam',
+          '/rest/v1/invoices?select=total_amount,payment_status,created_at&payment_status=eq.PAID&created_at=gte.$monthStartStr$branchParam',
         );
         if (invRes.data is List) {
           for (final inv in invRes.data) {
             final amt = double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
-            todayRev += amt;
+            final createdAt = inv['created_at']?.toString() ?? '';
+            monthRev += amt;
+            if (createdAt.startsWith(todayStr)) {
+              todayRev += amt;
+            }
           }
         }
       } catch (_) {}
@@ -107,6 +113,7 @@ class AdminRepository {
 
       return AdminKpiMetrics(
         todayRevenue: todayRev,
+        monthRevenue: monthRev,
         todayBookingsCount: todayBk,
         checkedInBookingsCount: checkedInBk,
         waitingBatchStudentsCount: waitingBatchCount,
@@ -314,6 +321,24 @@ class AdminRepository {
     }
   }
 
+  /// 4.5. Từ chối / Hủy lịch hẹn (PENDING/CONFIRMED -> CANCELLED)
+  Future<bool> cancelBooking(String bookingId, {String? reason}) async {
+    try {
+      final res = await _apiClient.dio.patch(
+        '/rest/v1/bookings?id=eq.$bookingId',
+        data: {
+          'status': 'CANCELLED',
+          'cancelled_at': DateTime.now().toIso8601String(),
+          if (reason != null && reason.trim().isNotEmpty) 'cancellation_reason': reason.trim(),
+        },
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      debugPrint('[AdminRepository] cancelBooking error: $e');
+      return false;
+    }
+  }
+
   /// 5. Quản lý Tuyển sinh (Enrollments)
   Future<List<AdminCandidateModel>> fetchCandidates({String? statusFilter}) async {
     try {
@@ -372,11 +397,11 @@ class AdminRepository {
     }
   }
 
-  /// 6. Quản lý & Duyệt Dịch vụ Spa (Services)
+  /// 6. Quản lý & Duyệt Dịch vụ Spa (Services) - Sắp xếp theo Thời lượng / Thứ tự chuẩn Web
   Future<List<AdminServiceModel>> fetchServices({String? categoryId}) async {
     try {
       String query =
-          '/rest/v1/services?select=*,service_categories(name)&order=created_at.desc';
+          '/rest/v1/services?select=*,service_categories(name)&order=duration_minutes.asc,created_at.asc';
       if (categoryId != null && categoryId.isNotEmpty && categoryId != 'ALL') {
         query += '&category_id=eq.$categoryId';
       }
@@ -389,6 +414,20 @@ class AdminRepository {
       return [];
     } catch (e) {
       debugPrint('[AdminRepository] fetchServices error: $e');
+      return [];
+    }
+  }
+
+  /// 6.0. Tải danh mục dịch vụ (Service Categories)
+  Future<List<Map<String, dynamic>>> fetchServiceCategories() async {
+    try {
+      final res = await _apiClient.dio.get('/rest/v1/service_categories?select=id,name&order=display_order.asc');
+      if (res.data is List) {
+        return List<Map<String, dynamic>>.from(res.data);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchServiceCategories error: $e');
       return [];
     }
   }

@@ -592,7 +592,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => const A03ForgotPasswordScreen(),
+                                          builder: (_) => const A03ForgotPasswordScreen(initialTabIndex: 0),
                                         ),
                                       );
                                     },
@@ -764,7 +764,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => const A03ForgotPasswordScreen(),
+                                          builder: (_) => const A03ForgotPasswordScreen(initialTabIndex: 1),
                                         ),
                                       );
                                     },
@@ -811,7 +811,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => const A03EmailRegisterScreen(),
+                                    builder: (_) => A03EmailRegisterScreen(initialTabIndex: _selectedTabIndex),
                                   ),
                                 );
                               },

@@ -431,15 +431,28 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
             borderRadius: BorderRadius.circular(16),
             child: Row(
               children: [
-                // Icon / Thumbnail
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF1F2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.spa_rounded, color: Color(0xFFE11D48), size: 24),
+                // Thumbnail Ảnh thật dịch vụ (Fallback Icon nếu không có ảnh)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: s.imageUrl.isNotEmpty
+                      ? Image.network(
+                          s.imageUrl,
+                          width: 54,
+                          height: 54,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 54,
+                            height: 54,
+                            color: const Color(0xFFFFF1F2),
+                            child: const Icon(Icons.spa_rounded, color: Color(0xFFE11D48), size: 24),
+                          ),
+                        )
+                      : Container(
+                          width: 54,
+                          height: 54,
+                          color: const Color(0xFFFFF1F2),
+                          child: const Icon(Icons.spa_rounded, color: Color(0xFFE11D48), size: 24),
+                        ),
                 ),
                 const SizedBox(width: 12),
 
@@ -556,15 +569,28 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
             borderRadius: BorderRadius.circular(16),
             child: Row(
               children: [
-                // Icon / Thumbnail
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8F6ED),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.school_rounded, color: Color(0xFF00693F), size: 24),
+                // Thumbnail Ảnh thật khóa học (Fallback Icon nếu không có ảnh)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: c.imageUrl.isNotEmpty
+                      ? Image.network(
+                          c.imageUrl,
+                          width: 54,
+                          height: 54,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 54,
+                            height: 54,
+                            color: const Color(0xFFE8F6ED),
+                            child: const Icon(Icons.school_rounded, color: Color(0xFF00693F), size: 24),
+                          ),
+                        )
+                      : Container(
+                          width: 54,
+                          height: 54,
+                          color: const Color(0xFFE8F6ED),
+                          child: const Icon(Icons.school_rounded, color: Color(0xFF00693F), size: 24),
+                        ),
                 ),
                 const SizedBox(width: 12),
 

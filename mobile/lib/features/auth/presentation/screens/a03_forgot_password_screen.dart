@@ -2,19 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/utils/validators.dart';
 import '../../widgets/primary_button.dart';
 import 'a04_otp_screen.dart';
 
 class A03ForgotPasswordScreen extends StatefulWidget {
-  const A03ForgotPasswordScreen({super.key});
+  final int initialTabIndex;
+
+  const A03ForgotPasswordScreen({
+    super.key,
+    this.initialTabIndex = 0,
+  });
 
   @override
   State<A03ForgotPasswordScreen> createState() => _A03ForgotPasswordScreenState();
 }
 
 class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
+  int _selectedTabIndex = 0;
+
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -26,47 +35,108 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    _selectedTabIndex = widget.initialTabIndex;
+    final lastEmail = AuthService.instance.lastLoginEmail;
+    if (lastEmail != null && lastEmail.isNotEmpty) {
+      _emailController.text = lastEmail;
+    }
+    final lastPhone = AuthService.instance.lastLoginPhone;
+    if (lastPhone != null && lastPhone.isNotEmpty) {
+      final clean = lastPhone.startsWith('0') ? lastPhone.substring(1) : lastPhone;
+      _phoneController.text = clean;
+    }
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
+    _phoneController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleSendOtp() async {
-    final emailError = AppValidators.email(_emailController.text.trim());
-    if (emailError != null) {
-      setState(() => _errorMessage = emailError);
-      return;
-    }
-
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final email = _emailController.text.trim();
-      await ApiClient.instance.post(
-        ApiEndpoints.authForgotPassword,
-        data: {'email': email},
-      );
+      if (_selectedTabIndex == 0) {
+        final emailError = AppValidators.email(_emailController.text.trim());
+        if (emailError != null) {
+          setState(() {
+            _errorMessage = emailError;
+            _isLoading = false;
+          });
+          return;
+        }
 
-      if (mounted) {
-        final otp = await Navigator.push<String>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => A04OtpScreen(
-              email: email,
-              purpose: 'RESET_PASSWORD',
-            ),
-          ),
+        final email = _emailController.text.trim();
+        await ApiClient.instance.post(
+          ApiEndpoints.authForgotPassword,
+          data: {'email': email},
         );
 
-        if (otp != null && otp.isNotEmpty) {
+        if (mounted) {
+          final otp = await Navigator.push<String>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => A04OtpScreen(
+                email: email,
+                purpose: 'RESET_PASSWORD',
+              ),
+            ),
+          );
+
+          if (otp != null && otp.isNotEmpty) {
+            setState(() {
+              _verifiedOtp = otp;
+            });
+          }
+        }
+      } else {
+        final raw = _phoneController.text.trim().replaceAll(' ', '');
+        if (raw.isEmpty) {
           setState(() {
-            _verifiedOtp = otp;
+            _errorMessage = 'Vui lòng nhập số điện thoại';
+            _isLoading = false;
           });
+          return;
+        }
+        final phone = raw.startsWith('0') ? raw : '0$raw';
+        if (phone.length < 10) {
+          setState(() {
+            _errorMessage = 'Số điện thoại không hợp lệ';
+            _isLoading = false;
+          });
+          return;
+        }
+
+        await ApiClient.instance.post(
+          ApiEndpoints.authForgotPassword,
+          data: {'phone': phone},
+        );
+
+        if (mounted) {
+          final otp = await Navigator.push<String>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => A04OtpScreen(
+                phoneNumber: phone,
+                purpose: 'RESET_PASSWORD',
+              ),
+            ),
+          );
+
+          if (otp != null && otp.isNotEmpty) {
+            setState(() {
+              _verifiedOtp = otp;
+            });
+          }
         }
       }
     } catch (e) {
@@ -100,13 +170,21 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
     });
 
     try {
+      final Map<String, dynamic> payload = {
+        'otp': _verifiedOtp,
+        'newPassword': _newPasswordController.text,
+      };
+
+      if (_selectedTabIndex == 0) {
+        payload['email'] = _emailController.text.trim();
+      } else {
+        final raw = _phoneController.text.trim().replaceAll(' ', '');
+        payload['phone'] = raw.startsWith('0') ? raw : '0$raw';
+      }
+
       await ApiClient.instance.post(
         ApiEndpoints.authResetPassword,
-        data: {
-          'email': _emailController.text.trim(),
-          'otp': _verifiedOtp,
-          'newPassword': _newPasswordController.text,
-        },
+        data: payload,
       );
 
       if (mounted) {
@@ -148,7 +226,6 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Back button
               Align(
                 alignment: Alignment.centerLeft,
                 child: InkWell(
@@ -190,8 +267,12 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
               const SizedBox(height: 6),
               Text(
                 _verifiedOtp == null
-                    ? 'Nhập địa chỉ email của bạn để nhận mã xác thực OTP khôi phục mật khẩu.'
-                    : 'Nhập mật khẩu mới cho tài khoản email ${_emailController.text.trim()}.',
+                    ? (_selectedTabIndex == 0
+                        ? 'Nhập địa chỉ email của bạn để nhận mã xác thực OTP khôi phục mật khẩu.'
+                        : 'Nhập số điện thoại của bạn để nhận mã xác thực OTP qua SMS.')
+                    : (_selectedTabIndex == 0
+                        ? 'Nhập mật khẩu mới cho tài khoản email ${_emailController.text.trim()}.'
+                        : 'Nhập mật khẩu mới cho tài khoản số điện thoại ${_phoneController.text.trim()}.'),
                 style: GoogleFonts.beVietnamPro(
                   fontSize: 13.5,
                   color: textMuted,
@@ -199,29 +280,154 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               if (_verifiedOtp == null) ...[
-                // Bước 1: Nhập Email
-                Text(
-                  'Địa chỉ Email',
-                  style: GoogleFonts.beVietnamPro(fontSize: 13.5, fontWeight: FontWeight.w600, color: primaryNavy),
-                ),
-                const SizedBox(height: 8),
-                _buildInputContainer(
-                  child: TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    style: GoogleFonts.beVietnamPro(fontSize: 14.5, fontWeight: FontWeight.w500, color: textDark),
-                    decoration: InputDecoration(
-                      hintText: 'example@email.com',
-                      hintStyle: GoogleFonts.beVietnamPro(fontSize: 14, color: const Color(0xFF94A3B8)),
-                      prefixIcon: const Icon(Icons.mail_outline_rounded, color: primaryNavy, size: 20),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-                      border: InputBorder.none,
-                    ),
+                Container(
+                  height: 48,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedTabIndex = 0;
+                              _errorMessage = null;
+                            });
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: _selectedTabIndex == 0 ? Colors.white : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: _selectedTabIndex == 0
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Email',
+                              style: GoogleFonts.beVietnamPro(
+                                fontSize: 14,
+                                fontWeight: _selectedTabIndex == 0 ? FontWeight.w700 : FontWeight.w500,
+                                color: _selectedTabIndex == 0 ? primaryNavy : textMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedTabIndex = 1;
+                              _errorMessage = null;
+                            });
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: _selectedTabIndex == 1 ? Colors.white : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: _selectedTabIndex == 1
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Số điện thoại',
+                              style: GoogleFonts.beVietnamPro(
+                                fontSize: 14,
+                                fontWeight: _selectedTabIndex == 1 ? FontWeight.w700 : FontWeight.w500,
+                                color: _selectedTabIndex == 1 ? primaryNavy : textMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+
+                const SizedBox(height: 20),
+
+                if (_selectedTabIndex == 0) ...[
+                  Text(
+                    'Địa chỉ Email',
+                    style: GoogleFonts.beVietnamPro(fontSize: 13.5, fontWeight: FontWeight.w600, color: primaryNavy),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildInputContainer(
+                    child: TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      style: GoogleFonts.beVietnamPro(fontSize: 14.5, fontWeight: FontWeight.w500, color: textDark),
+                      decoration: InputDecoration(
+                        hintText: 'example@email.com',
+                        hintStyle: GoogleFonts.beVietnamPro(fontSize: 14, color: const Color(0xFF94A3B8)),
+                        prefixIcon: const Icon(Icons.mail_outline_rounded, color: primaryNavy, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  Text(
+                    'Số điện thoại',
+                    style: GoogleFonts.beVietnamPro(fontSize: 13.5, fontWeight: FontWeight.w600, color: primaryNavy),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildInputContainer(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              right: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                            ),
+                          ),
+                          child: Text(
+                            '+84',
+                            style: GoogleFonts.beVietnamPro(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: primaryNavy,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            style: GoogleFonts.beVietnamPro(fontSize: 14.5, fontWeight: FontWeight.w500, color: textDark),
+                            decoration: InputDecoration(
+                              hintText: '912 345 678',
+                              hintStyle: GoogleFonts.beVietnamPro(fontSize: 14, color: const Color(0xFF94A3B8)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 28),
 
@@ -232,7 +438,6 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
                   onPressed: _handleSendOtp,
                 ),
               ] else ...[
-                // Bước 2: Nhập Mật khẩu mới
                 Form(
                   key: _formKey,
                   child: Column(

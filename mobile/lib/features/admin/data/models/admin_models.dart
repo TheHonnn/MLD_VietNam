@@ -4,6 +4,7 @@
 /// 1. Chỉ số KPI Dashboard
 class AdminKpiMetrics {
   final double todayRevenue;
+  final double monthRevenue;
   final int todayBookingsCount;
   final int checkedInBookingsCount;
   final int waitingBatchStudentsCount;
@@ -11,6 +12,7 @@ class AdminKpiMetrics {
 
   const AdminKpiMetrics({
     this.todayRevenue = 0.0,
+    this.monthRevenue = 0.0,
     this.todayBookingsCount = 0,
     this.checkedInBookingsCount = 0,
     this.waitingBatchStudentsCount = 0,
@@ -97,6 +99,7 @@ class AdminBookingModel {
   final String? serviceStartedAt;
   final String? checkedOutAt;
   final String? notes;
+  final String? cancellationReason;
 
   const AdminBookingModel({
     required this.id,
@@ -118,13 +121,14 @@ class AdminBookingModel {
     this.serviceStartedAt,
     this.checkedOutAt,
     this.notes,
+    this.cancellationReason,
   });
 
   factory AdminBookingModel.fromJson(Map<String, dynamic> json) {
-    final branchObj = json['branches'];
-    final techObj = json['technicians'];
-    final roomObj = json['branch_rooms'];
-    final userObj = json['users'];
+    final branchObj = json['branches'] ?? json['branch'];
+    final techObj = json['technicians'] ?? json['technician'];
+    final roomObj = json['branch_rooms'] ?? json['branch_room'] ?? json['room'];
+    final userObj = json['users'] ?? json['user'];
 
     String custName = json['booked_for_name']?.toString() ?? json['customer_name']?.toString() ?? '';
     if (custName.isEmpty && userObj is Map) {
@@ -159,6 +163,7 @@ class AdminBookingModel {
       serviceStartedAt: json['service_started_at']?.toString(),
       checkedOutAt: json['checked_out_at']?.toString(),
       notes: json['notes']?.toString(),
+      cancellationReason: json['cancellation_reason']?.toString() ?? json['cancel_reason']?.toString(),
     );
   }
 
@@ -167,6 +172,7 @@ class AdminBookingModel {
     String? checkedInAt,
     String? serviceStartedAt,
     String? checkedOutAt,
+    String? cancellationReason,
   }) {
     return AdminBookingModel(
       id: id,
@@ -188,6 +194,7 @@ class AdminBookingModel {
       serviceStartedAt: serviceStartedAt ?? this.serviceStartedAt,
       checkedOutAt: checkedOutAt ?? this.checkedOutAt,
       notes: notes,
+      cancellationReason: cancellationReason ?? this.cancellationReason,
     );
   }
 }

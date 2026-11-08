@@ -6,11 +6,13 @@ import '../../data/repositories/admin_repository.dart';
 
 class ServiceFormSheet extends StatefulWidget {
   final AdminServiceModel? service;
+  final List<Map<String, dynamic>>? categories;
   final VoidCallback onSaved;
 
   const ServiceFormSheet({
     super.key,
     this.service,
+    this.categories,
     required this.onSaved,
   });
 
@@ -27,9 +29,13 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
   late final TextEditingController _discountPriceController;
   late final TextEditingController _durationController;
   late final TextEditingController _descController;
+  late final TextEditingController _imageUrlController;
   late bool _isActive;
   late bool _isFeatured;
   bool _isSaving = false;
+
+  List<Map<String, dynamic>> _categories = [];
+  String? _selectedCategoryId;
 
   bool get isEdit => widget.service != null;
 
@@ -43,8 +49,28 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
         text: s?.discountPrice != null ? s!.discountPrice!.toInt().toString() : '');
     _durationController = TextEditingController(text: s != null ? s.durationMinutes.toString() : '60');
     _descController = TextEditingController(text: s?.shortDescription ?? '');
+    _imageUrlController = TextEditingController(text: s?.imageUrl ?? '');
     _isActive = s?.isActive ?? true;
     _isFeatured = s?.isFeatured ?? false;
+    _selectedCategoryId = s?.categoryId.isNotEmpty == true ? s!.categoryId : null;
+
+    if (widget.categories != null) {
+      _categories = widget.categories!;
+    } else {
+      _loadCategories();
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    final list = await _repository.fetchServiceCategories();
+    if (mounted) {
+      setState(() {
+        _categories = list;
+        if ((_selectedCategoryId == null || _selectedCategoryId!.isEmpty) && list.isNotEmpty) {
+          _selectedCategoryId = list.first['id']?.toString();
+        }
+      });
+    }
   }
 
   @override
@@ -54,6 +80,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
     _discountPriceController.dispose();
     _durationController.dispose();
     _descController.dispose();
+    _imageUrlController.dispose();
     super.dispose();
   }
 
@@ -82,6 +109,9 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
     final discount = discountText.isNotEmpty ? double.tryParse(discountText) : null;
     final duration = int.tryParse(_durationController.text.trim()) ?? 60;
     final slug = widget.service?.slug.isNotEmpty == true ? widget.service!.slug : _toSlug(name);
+    final imageUrl = _imageUrlController.text.trim().isNotEmpty
+        ? _imageUrlController.text.trim()
+        : 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&q=80';
 
     final data = <String, dynamic>{
       'name': name,
@@ -91,6 +121,10 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
       'is_active': _isActive,
       'is_featured': _isFeatured,
       'short_description': _descController.text.trim(),
+      'full_description': _descController.text.trim(),
+      'image_url': imageUrl,
+      if (_selectedCategoryId != null && _selectedCategoryId!.isNotEmpty)
+        'category_id': _selectedCategoryId,
     };
 
     if (discount != null && discount > 0) {
@@ -172,6 +206,31 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
               const Divider(color: Color(0xFFE5E7EB)),
               const SizedBox(height: 12),
 
+              // Danh mục dịch vụ
+              if (_categories.isNotEmpty) ...[
+                Text(
+                  'Danh mục dịch vụ',
+                  style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                ),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: _categories.any((c) => c['id']?.toString() == _selectedCategoryId)
+                      ? _selectedCategoryId
+                      : _categories.first['id']?.toString(),
+                  decoration: _inputDecoration('Chọn danh mục dịch vụ'),
+                  items: _categories.map((cat) {
+                    return DropdownMenuItem<String>(
+                      value: cat['id']?.toString(),
+                      child: Text(cat['name']?.toString() ?? '', style: GoogleFonts.montserrat(fontSize: 12.5)),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _selectedCategoryId = val);
+                  },
+                ),
+                const SizedBox(height: 14),
+              ],
+
               // Tên dịch vụ
               Text(
                 'Tên dịch vụ trị liệu *',
@@ -182,6 +241,100 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                 controller: _nameController,
                 decoration: _inputDecoration('VD: Trị liệu cổ vai gáy chuyên sâu'),
                 validator: (val) => val == null || val.trim().isEmpty ? 'Vui lòng nhập tên dịch vụ' : null,
+              ),
+              const SizedBox(height: 14),
+
+              // Ảnh đại diện dịch vụ (URL + Live Preview)
+              Text(
+                'Ảnh đại diện dịch vụ (URL)',
+                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: _imageUrlController.text.trim().isNotEmpty
+                          ? Image.network(
+                              _imageUrlController.text.trim(),
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.broken_image_outlined,
+                                size: 26,
+                                color: Color(0xFF9CA3AF),
+                              ),
+                            )
+                          : const Icon(
+                              Icons.add_photo_alternate_outlined,
+                              size: 26,
+                              color: Color(0xFF9CA3AF),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: _imageUrlController,
+                          decoration: _inputDecoration('https://images.unsplash.com/...'),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _imageUrlController.text =
+                                      'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&q=80';
+                                });
+                              },
+                              child: Text(
+                                'Dùng ảnh mẫu',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                            if (_imageUrlController.text.isNotEmpty) ...[
+                              const SizedBox(width: 12),
+                              InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _imageUrlController.clear();
+                                  });
+                                },
+                                child: Text(
+                                  'Xóa link',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFFDC2626),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 14),
 

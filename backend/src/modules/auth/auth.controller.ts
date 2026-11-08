@@ -13,6 +13,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RegisterPhoneDto, VerifyPhoneRegisterDto } from './dto/register-phone.dto';
 import { EmailRegisterDto } from './dto/email-register.dto';
 import { EmailLoginDto } from './dto/email-login.dto';
 import { RequestLoginOtpDto } from './dto/request-login-otp.dto';
@@ -46,6 +47,22 @@ export class AuthController {
   @ApiResponse({ status: 201, description: 'Đã gửi mã OTP xác nhận về Email' })
   async registerEmail(@Body() dto: EmailRegisterDto) {
     return this.authService.registerEmail(dto);
+  }
+
+  @Post('register/phone')
+  @UseGuards(BruteForceGuard)
+  @ApiOperation({ summary: 'Đăng ký tài khoản bằng Số điện thoại (Gửi mã OTP qua tin nhắn SMS)' })
+  @ApiResponse({ status: 201, description: 'Đã gửi mã OTP xác nhận về Số điện thoại' })
+  async registerPhone(@Body() dto: RegisterPhoneDto) {
+    return this.authService.registerPhone(dto);
+  }
+
+  @Post('verify-phone-register')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Xác thực mã OTP SMS để kích hoạt tài khoản & nhận Tokens' })
+  @ApiResponse({ status: 200, description: 'Kích hoạt thành công, trả về Access Token & Refresh Token' })
+  async verifyPhoneRegister(@Body() dto: VerifyPhoneRegisterDto) {
+    return this.authService.verifyPhoneRegister(dto);
   }
 
   @Post('verify-email-otp')

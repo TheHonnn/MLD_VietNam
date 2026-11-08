@@ -285,50 +285,167 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 2. Lưới 4 Thẻ KPI nóng trong ngày
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 1.25,
+                  // 2. Thống kê Doanh thu (Ngày & Tháng đặt ngang nhau)
+                  Row(
                     children: [
-                      AdminKpiCard(
-                        title: 'Doanh thu hôm nay',
-                        value: _formatCurrency(_metrics.todayRevenue),
-                        subtitle: 'Hóa đơn đã thu',
-                        icon: Icons.account_balance_wallet_rounded,
-                        iconColor: const Color(0xFF00693F),
-                        iconBgColor: const Color(0xFFE8F6ED),
+                      Expanded(
+                        child: AdminKpiCard(
+                          title: 'Doanh thu hôm nay',
+                          value: _formatCurrency(_metrics.todayRevenue),
+                          subtitle: 'Hóa đơn đã thu',
+                          icon: Icons.account_balance_wallet_rounded,
+                          iconColor: const Color(0xFF00693F),
+                          iconBgColor: const Color(0xFFE8F6ED),
+                        ),
                       ),
-                      AdminKpiCard(
-                        title: 'Lịch hẹn hôm nay',
-                        value: '${_metrics.todayBookingsCount} ca',
-                        subtitle: '${_metrics.checkedInBookingsCount} đã check-in',
-                        icon: Icons.calendar_today_rounded,
-                        iconColor: AppColors.primary,
-                        iconBgColor: AppColors.primaryLight,
-                        onTap: () => widget.onNavigateTab?.call(1),
-                      ),
-                      AdminKpiCard(
-                        title: 'Học viện chờ lớp',
-                        value: '${_metrics.waitingBatchStudentsCount} học viên',
-                        subtitle: 'Đã đóng tiền cọc/học phí',
-                        icon: Icons.school_rounded,
-                        iconColor: const Color(0xFFD97706),
-                        iconBgColor: const Color(0xFFFEF3C7),
-                        onTap: () => widget.onNavigateTab?.call(2, subTab: 'PAID_WAITING_CLASS'),
-                      ),
-                      AdminKpiCard(
-                        title: 'Việc cần duyệt gấp',
-                        value: '${_metrics.pendingActionsCount} mục',
-                        subtitle: 'Yêu cầu xử lý ngay',
-                        icon: Icons.warning_amber_rounded,
-                        iconColor: const Color(0xFFE11D48),
-                        iconBgColor: const Color(0xFFFFE4E6),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: AdminKpiCard(
+                          title: 'Doanh thu tháng ${now.month}',
+                          value: _formatCurrency(_metrics.monthRevenue),
+                          subtitle: 'Tháng ${now.month}/${now.year}',
+                          icon: Icons.trending_up_rounded,
+                          iconColor: const Color(0xFF1E40AF),
+                          iconBgColor: const Color(0xFFEFF6FF),
+                        ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 3. Thống kê Lịch hẹn & Học viện (Đặt ngang nhau)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AdminKpiCard(
+                          title: 'Lịch hẹn hôm nay',
+                          value: '${_metrics.todayBookingsCount} ca',
+                          subtitle: '${_metrics.checkedInBookingsCount} đã check-in',
+                          icon: Icons.calendar_today_rounded,
+                          iconColor: AppColors.primary,
+                          iconBgColor: AppColors.primaryLight,
+                          onTap: () => widget.onNavigateTab?.call(1),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: AdminKpiCard(
+                          title: 'Học viện chờ lớp',
+                          value: '${_metrics.waitingBatchStudentsCount} học viên',
+                          subtitle: 'Đã đóng tiền cọc/học phí',
+                          icon: Icons.school_rounded,
+                          iconColor: const Color(0xFFD97706),
+                          iconBgColor: const Color(0xFFFEF3C7),
+                          onTap: () => widget.onNavigateTab?.call(2, subTab: 'PAID_WAITING_CLASS'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 4. Khung Dashboard Thứ 4: Việc cần duyệt gấp (Bấm vào map đến màn duyệt)
+                  InkWell(
+                    onTap: () => widget.onNavigateTab?.call(1, subTab: 'PENDING'),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: _metrics.pendingActionsCount > 0 ? const Color(0xFFFFF1F2) : const Color(0xFFE8F6ED),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _metrics.pendingActionsCount > 0 ? const Color(0xFFFECDD3) : const Color(0xFFC6F6D5),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: _metrics.pendingActionsCount > 0 ? const Color(0xFFFFE4E6) : Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _metrics.pendingActionsCount > 0
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.check_circle_outline_rounded,
+                              color: _metrics.pendingActionsCount > 0
+                                  ? const Color(0xFFE11D48)
+                                  : const Color(0xFF0D6832),
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'VIỆC CẦN DUYỆT GẤP',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.5,
+                                        color: _metrics.pendingActionsCount > 0
+                                            ? const Color(0xFFBE123C)
+                                            : const Color(0xFF0D6832),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: _metrics.pendingActionsCount > 0
+                                            ? const Color(0xFFE11D48)
+                                            : const Color(0xFF0D6832),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '${_metrics.pendingActionsCount} mục',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _metrics.pendingActionsCount > 0
+                                      ? 'Có lịch hẹn/hồ sơ đang chờ bạn duyệt. Bấm để vào duyệt ngay →'
+                                      : 'Đã hoàn tất tất cả việc duyệt. Hệ thống đang thông suốt.',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: _metrics.pendingActionsCount > 0
+                                        ? const Color(0xFF9F1239)
+                                        : const Color(0xFF166534),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_metrics.pendingActionsCount > 0)
+                            const Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 14,
+                              color: Color(0xFFE11D48),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 20),
 

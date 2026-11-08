@@ -29,6 +29,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
   late final TextEditingController _hoursController;
   late final TextEditingController _lessonsController;
   late final TextEditingController _descController;
+  late final TextEditingController _imageUrlController;
   late String _level;
   late bool _isActive;
   bool _isSaving = false;
@@ -53,6 +54,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
     _hoursController = TextEditingController(text: c != null ? c.totalHours.toString() : '144');
     _lessonsController = TextEditingController(text: c != null ? c.totalLessons.toString() : '20');
     _descController = TextEditingController(text: c?.shortDescription ?? '');
+    _imageUrlController = TextEditingController(text: c?.imageUrl ?? '');
     _level = c?.level ?? 'BEGINNER';
     _isActive = c?.isActive ?? true;
   }
@@ -66,6 +68,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
     _hoursController.dispose();
     _lessonsController.dispose();
     _descController.dispose();
+    _imageUrlController.dispose();
     super.dispose();
   }
 
@@ -91,6 +94,9 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
     final deposit = double.tryParse(_depositController.text.replaceAll(',', '').replaceAll('.', '')) ?? 0.0;
     final hours = int.tryParse(_hoursController.text.trim()) ?? 144;
     final lessons = int.tryParse(_lessonsController.text.trim()) ?? 20;
+    final imageUrl = _imageUrlController.text.trim().isNotEmpty
+        ? _imageUrlController.text.trim()
+        : 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1200&q=80';
 
     final data = <String, dynamic>{
       'title': title,
@@ -102,6 +108,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
       'total_lessons': lessons,
       'is_active': _isActive,
       'short_description': _descController.text.trim(),
+      'image_url': imageUrl,
     };
 
     final success = await _repository.saveCourse(
@@ -192,6 +199,100 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                     _codeController.text = _generateCode(val);
                   }
                 },
+              ),
+              const SizedBox(height: 14),
+
+              // Ảnh đại diện khóa học (URL + Live Preview)
+              Text(
+                'Ảnh bìa khóa học (URL)',
+                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F6ED),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFC6F6D5)),
+                      ),
+                      child: _imageUrlController.text.trim().isNotEmpty
+                          ? Image.network(
+                              _imageUrlController.text.trim(),
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.broken_image_outlined,
+                                size: 26,
+                                color: Color(0xFF9CA3AF),
+                              ),
+                            )
+                          : const Icon(
+                              Icons.school_rounded,
+                              size: 26,
+                              color: Color(0xFF00693F),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: _imageUrlController,
+                          decoration: _inputDecoration('https://images.unsplash.com/...'),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _imageUrlController.text =
+                                      'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1200&q=80';
+                                });
+                              },
+                              child: Text(
+                                'Dùng ảnh mẫu',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF00693F),
+                                ),
+                              ),
+                            ),
+                            if (_imageUrlController.text.isNotEmpty) ...[
+                              const SizedBox(width: 12),
+                              InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _imageUrlController.clear();
+                                  });
+                                },
+                                child: Text(
+                                  'Xóa link',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFFDC2626),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 14),
 

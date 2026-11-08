@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/features/admin/data/models/admin_models.dart';
-import 'package:medical_healthcare_app/features/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:medical_healthcare_app/features/admin/presentation/widgets/admin_kpi_card.dart';
 import 'package:medical_healthcare_app/features/admin/presentation/widgets/admin_action_card.dart';
 
@@ -9,9 +8,10 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Admin Dashboard & Models Tests', () {
-    test('AdminKpiMetrics creates correctly', () {
+    test('AdminKpiMetrics creates correctly with monthRevenue', () {
       const metrics = AdminKpiMetrics(
         todayRevenue: 15000000,
+        monthRevenue: 45000000,
         todayBookingsCount: 8,
         checkedInBookingsCount: 4,
         waitingBatchStudentsCount: 3,
@@ -19,10 +19,27 @@ void main() {
       );
 
       expect(metrics.todayRevenue, 15000000);
+      expect(metrics.monthRevenue, 45000000);
       expect(metrics.todayBookingsCount, 8);
       expect(metrics.checkedInBookingsCount, 4);
       expect(metrics.waitingBatchStudentsCount, 3);
       expect(metrics.pendingActionsCount, 5);
+    });
+
+    test('AdminBookingModel handles cancellationReason', () {
+      final booking = AdminBookingModel.fromJson({
+        'id': 'bk_cancel_01',
+        'status': 'CANCELLED',
+        'booking_date': '2026-11-09',
+        'start_time': '14:00',
+        'cancellation_reason': 'Khách bận việc đột xuất',
+        'user': {'full_name': 'Lê Thị Thu', 'phone': '0912345678'},
+        'service': {'name': 'Trị liệu MLD 60p', 'duration_minutes': 60, 'price': 500000},
+      });
+
+      expect(booking.status, 'CANCELLED');
+      expect(booking.cancellationReason, 'Khách bận việc đột xuất');
+      expect(booking.customerName, 'Lê Thị Thu');
     });
 
     test('AdminActionItem creates correctly', () {
