@@ -1527,6 +1527,9 @@ class SupabaseService {
         paymentStatus: inv.payment_status,
         gatewayTransactionId: inv.gateway_transaction_id,
         refundAmount: Number(inv.refund_amount || 0),
+        receiptCustomerName: inv.receipt_customer_name,
+        receiptDescription: inv.receipt_description,
+        receiptNotes: inv.receipt_notes,
         paidAt: inv.paid_at,
         customer: inv.customer ? {
           id: inv.customer.id,
@@ -1672,6 +1675,33 @@ class SupabaseService {
       console.warn('[SupabaseService] createInvoice error:', err);
       return null;
     }
+  }
+
+  async editInvoiceReceipt(data: {
+    invoiceId: string;
+    customerName: string;
+    description: string;
+    notes: string;
+    reason: string;
+  }): Promise<boolean> {
+    const result = await this.query<any[]>('rpc/fn_edit_invoice_receipt', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_invoice_id: data.invoiceId,
+        p_customer_name: data.customerName,
+        p_description: data.description,
+        p_notes: data.notes,
+        p_reason: data.reason,
+      }),
+    });
+    return result !== null;
+  }
+
+  async getInvoiceEditHistory(invoiceId: string): Promise<any[]> {
+    return (await this.query<any[]>(
+      `invoice_edit_history?select=*,actor:users!actor_id(full_name)&invoice_id=eq.${encodeURIComponent(invoiceId)}&order=created_at.desc&limit=10`,
+      { cache: 'no-store' } as RequestInit,
+    )) || [];
   }
 
   // 12. LỚP HỌC THEO KHÓA (COURSE BATCHES)
@@ -1829,6 +1859,12 @@ class SupabaseService {
       extensionReason: e.extension_reason,
       lastExpiryNotifiedAt: e.last_expiry_notified_at,
     }));
+  }
+
+  async getStudentAcademicRecords(): Promise<any[] | null> {
+    return this.query<any[]>(
+      'student_academic_records?select=enrollment_id,theory_score,practical_score,attendance_rate,attended_sessions,total_batch_sessions&order=created_at.desc',
+    );
   }
 
   async extendEnrollment(

@@ -787,6 +787,9 @@ export interface Invoice {
   refundAmount: number;
   refundedAt?: string | null;
   refundReason?: string | null;
+  receiptCustomerName?: string | null;
+  receiptDescription?: string | null;
+  receiptNotes?: string | null;
   paidAt: string;
   customer?: User;
   branch?: Branch;

@@ -421,7 +421,7 @@ export class AdminService {
     table: string,
     actor: AdminActor,
     operation: 'create' | 'update' | 'delete',
-    body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string },
+    body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string; reason?: string },
   ) {
     this.resource(table, actor, true);
     if (table === 'user_packages' && operation === 'create') {
@@ -554,6 +554,29 @@ export class AdminService {
         operation === 'delete' ? null : result,
         previous,
       );
+      if (table === 'student_academic_records' && operation !== 'delete') {
+        const gradeFields = [
+          'theory_score', 'practical_score', 'attended_sessions',
+          'total_batch_sessions', 'attendance_rate', 'feedback_theory',
+          'feedback_practical', 'feedback_attendance', 'feedback_attitude',
+        ];
+        const changed = operation === 'create' || gradeFields.some((field) =>
+          data[field] !== undefined && String(data[field] ?? '') !== String(previous?.[field] ?? ''),
+        );
+        if (changed) {
+          await client.query(
+            `INSERT INTO student_academic_record_history(academic_record_id,actor_id,reason,before_data,after_data)
+             VALUES($1,$2,$3,$4::jsonb,$5::jsonb)`,
+            [
+              result.id,
+              actor.id,
+              body.reason?.trim() || (operation === 'create' ? 'Tạo bảng điểm' : 'Cập nhật điểm thủ công'),
+              JSON.stringify(previous || {}),
+              JSON.stringify(result),
+            ],
+          );
+        }
+      }
       await this.audit(
         client,
         actor,

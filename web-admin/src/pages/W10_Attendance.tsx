@@ -21,7 +21,7 @@ import {
   GraduationCap,
   Layers,
 } from 'lucide-react';
-import { academyService, customerService, staffService, StaffWithProfile } from '../services';
+import { academyService, customerService, staffService, supabaseService, StaffWithProfile } from '../services';
 import {
   CourseEnrollment,
   CourseBatch,
@@ -119,18 +119,24 @@ export const W10_Attendance: React.FC = () => {
   const [liveEnrollments, setLiveEnrollments] = useState<CourseEnrollment[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
+  const [academicRecords, setAcademicRecords] = useState<Record<string, {
+    theoryScore: number | null;
+    practicalScore: number | null;
+    attendanceRate: number | null;
+  }>>({});
   const [customers, setCustomers] = useState<User[]>([]);
   const [instructors, setInstructors] = useState<StaffWithProfile[]>([]);
 
   useEffect(() => {
     const fetchAttendanceData = async () => {
       try {
-        const [enrRes, batRes, crsRes, custRes, instRes] = await Promise.all([
+        const [enrRes, batRes, crsRes, custRes, instRes, academicRes] = await Promise.all([
           academyService.getEnrollments(),
           academyService.getCourseBatches(),
           academyService.getCourses(),
           customerService.getCustomers(),
           staffService.getInstructors(),
+          supabaseService.getStudentAcademicRecords(),
         ]);
         if (enrRes.success) {
           setLiveEnrollments(enrRes.data);
@@ -142,6 +148,14 @@ export const W10_Attendance: React.FC = () => {
         if (crsRes.success) setLiveCourses(crsRes.data);
         if (custRes.success) setCustomers(custRes.data);
         if (instRes.success) setInstructors(instRes.data);
+        setAcademicRecords(Object.fromEntries((academicRes || []).map((record: any) => [
+          record.enrollment_id,
+          {
+            theoryScore: record.theory_score == null ? null : Number(record.theory_score),
+            practicalScore: record.practical_score == null ? null : Number(record.practical_score),
+            attendanceRate: record.attendance_rate == null ? null : Number(record.attendance_rate),
+          },
+        ])));
       } catch (err) {
         console.error('Failed to load attendance data:', err);
       }
@@ -369,6 +383,7 @@ export const W10_Attendance: React.FC = () => {
       const crs = crsMap.get(enr.courseId);
       const bat = batMap.get(enr.batchId || '');
       const inst = instMap.get(bat?.instructorId || '');
+      const academic = academicRecords[enr.id];
 
       const custName = cust?.fullName || `Học viên ${idx + 1}`;
       const nameParts = custName.trim().split(' ');
@@ -403,9 +418,9 @@ export const W10_Attendance: React.FC = () => {
                 courseCode: crs?.code || `KTV-${idx + 1}`,
                 completionDate: new Date(enr.enrolledAt).toLocaleDateString('vi-VN'),
                 completionRate: `100% · ${totalLessons}/${totalLessons}`,
-                theoryScore: '9,0 / 10',
-                practiceScore: '9,5 / 10',
-                attendanceRate: `${attPercent}%`,
+                theoryScore: academic?.theoryScore == null ? 'Chưa nhập' : `${academic.theoryScore.toLocaleString('vi-VN')} / 10`,
+                practiceScore: academic?.practicalScore == null ? 'Chưa nhập' : `${academic.practicalScore.toLocaleString('vi-VN')} / 10`,
+                attendanceRate: academic?.attendanceRate == null ? 'Chưa có dữ liệu' : `${academic.attendanceRate}%`,
               },
             ]
           : [];
@@ -444,7 +459,7 @@ export const W10_Attendance: React.FC = () => {
         completedCourses,
       };
     });
-  }, [liveEnrollments, customers, liveCourses, liveBatches, instructors]);
+  }, [liveEnrollments, customers, liveCourses, liveBatches, instructors, academicRecords]);
 
   // Modals state
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);

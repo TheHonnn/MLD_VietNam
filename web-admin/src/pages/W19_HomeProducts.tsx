@@ -29,6 +29,7 @@ interface HomeProduct {
   details: string[];
   sort_order: number;
   image_url?: string | null;
+  image_urls?: string[];
 }
 
 const groups = ['Tất cả', 'Dụng cụ tập luyện', 'Băng ép', 'Chăm sóc da', 'Tài liệu'] as const;
@@ -57,6 +58,7 @@ export const W19_HomeProducts: React.FC = () => {
   const [editing, setEditing] = useState<HomeProduct | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [gallery, setGallery] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -73,6 +75,7 @@ export const W19_HomeProducts: React.FC = () => {
           price_max: Number(row.price_max),
           details: Array.isArray(row.details) ? row.details : [],
           image_url: row.image_url || null,
+          image_urls: Array.isArray(row.image_urls) ? row.image_urls : (row.image_url ? [row.image_url] : []),
         }))
       );
     } catch (error: any) {
@@ -96,6 +99,7 @@ export const W19_HomeProducts: React.FC = () => {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
+    setGallery([]);
     setShowForm(true);
   };
 
@@ -111,6 +115,7 @@ export const W19_HomeProducts: React.FC = () => {
       sort_order: String(product.sort_order),
       image_url: product.image_url || '',
     });
+    setGallery(product.image_urls?.length ? product.image_urls : (product.image_url ? [product.image_url] : []));
     setShowForm(true);
   };
 
@@ -133,20 +138,24 @@ export const W19_HomeProducts: React.FC = () => {
 
     // Hiển thị xem trước ngay lập tức bằng Object URL
     const localPreviewUrl = URL.createObjectURL(file);
-    update('image_url', localPreviewUrl);
+    setGallery((current) => [...current, localPreviewUrl]);
+    setForm((current) => ({ ...current, image_url: current.image_url || localPreviewUrl }));
     setUploadingImage(true);
 
     try {
       const fileName = nameHint || (file as File).name || `product_${Date.now()}.png`;
       const publicUrl = await portalService.uploadFileToStorage(file, fileName);
-      update('image_url', publicUrl);
+      setGallery((current) => current.map((url) => url === localPreviewUrl ? publicUrl : url));
+      setForm((current) => ({ ...current, image_url: current.image_url === localPreviewUrl ? publicUrl : current.image_url }));
       toast.success('Tải ảnh thành công', 'Ảnh sản phẩm đã được nạp và hiển thị xem trước.');
     } catch (err: any) {
       console.warn('Lỗi tải ảnh lên đám mây, chuyển sang lưu Base64 Data URL:', err);
       const reader = new FileReader();
       reader.onload = () => {
         if (reader.result) {
-          update('image_url', String(reader.result));
+          const dataUrl = String(reader.result);
+          setGallery((current) => current.map((url) => url === localPreviewUrl ? dataUrl : url));
+          setForm((current) => ({ ...current, image_url: current.image_url === localPreviewUrl ? dataUrl : current.image_url }));
           toast.success('Dán ảnh thành công', 'Ảnh đã được lưu tạm dạng Base64.');
         }
       };
@@ -158,10 +167,7 @@ export const W19_HomeProducts: React.FC = () => {
   };
 
   const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      void handleProcessImageFile(file);
-    }
+    for (const file of Array.from(event.target.files || [])) void handleProcessImageFile(file);
   };
 
   /**
@@ -216,7 +222,8 @@ export const W19_HomeProducts: React.FC = () => {
       const text = await navigator.clipboard.readText();
       const trimmed = text ? text.trim() : '';
       if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
-        update('image_url', trimmed);
+        setGallery((current) => [...current, trimmed]);
+        setForm((current) => ({ ...current, image_url: current.image_url || trimmed }));
         toast.success('Dán link thành công', 'Đã lưu đường dẫn hình ảnh.');
         return;
       }
@@ -242,14 +249,13 @@ export const W19_HomeProducts: React.FC = () => {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      void handleProcessImageFile(file);
-    }
+    for (const file of Array.from(e.dataTransfer.files || [])) void handleProcessImageFile(file);
   };
 
-  const handleRemoveImage = () => {
-    update('image_url', '');
+  const handleRemoveImage = (url: string) => {
+    const remaining = gallery.filter((image) => image !== url);
+    setGallery(remaining);
+    setForm((current) => ({ ...current, image_url: current.image_url === url ? (remaining[0] || '') : current.image_url }));
     if (fileInputRef.current) fileInputRef.current.value = '';
     toast.info('Đã xóa ảnh sản phẩm');
   };
@@ -275,6 +281,7 @@ export const W19_HomeProducts: React.FC = () => {
         details: form.details.split('\n').map((item) => item.trim()).filter(Boolean),
         sort_order: Number(form.sort_order) || 100,
         image_url: form.image_url ? form.image_url.trim() : null,
+        image_urls: gallery.filter((url) => !url.startsWith('blob:')),
       };
 
       if (editing) {
@@ -493,6 +500,7 @@ export const W19_HomeProducts: React.FC = () => {
                   type="file"
                   ref={fileInputRef}
                   accept="image/*"
+                  multiple
                   className="hidden"
                   onChange={handleFileInputChange}
                 />
@@ -543,7 +551,7 @@ export const W19_HomeProducts: React.FC = () => {
                         <button
                           type="button"
                           disabled={uploadingImage}
-                          onClick={handleRemoveImage}
+                          onClick={() => handleRemoveImage(form.image_url)}
                           className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 shadow-2xs"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -605,6 +613,21 @@ export const W19_HomeProducts: React.FC = () => {
                         <span>Dán từ bộ nhớ tạm (Ctrl+V)</span>
                       </button>
                     </div>
+                  </div>
+                )}
+                {gallery.length > 0 && (
+                  <div className="flex flex-wrap gap-3 pt-2" aria-label="Ảnh sản phẩm đã tải">
+                    {gallery.map((url, index) => (
+                      <div key={`${url}-${index}`} className={`relative border rounded-md p-1 ${form.image_url === url ? 'border-rose-600 ring-1 ring-rose-600' : 'border-gray-200'}`}>
+                        <button type="button" onClick={() => update('image_url', url)} aria-label={`Chọn ảnh ${index + 1} làm ảnh đại diện`} title={form.image_url === url ? 'Ảnh đại diện' : 'Chọn làm ảnh đại diện'}>
+                          <img src={url} alt={`Ảnh sản phẩm ${index + 1}`} className="h-16 w-16 rounded object-cover" />
+                        </button>
+                        <button type="button" onClick={() => handleRemoveImage(url)} aria-label={`Xóa ảnh ${index + 1}`} title="Xóa ảnh" className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-red-700 shadow">
+                          <X className="h-3 w-3" />
+                        </button>
+                        {form.image_url === url && <span className="block text-[9px] text-center font-semibold text-rose-700">Đại diện</span>}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
