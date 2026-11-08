@@ -329,6 +329,8 @@ const AppContent: React.FC = () => {
 
             <Route path="manage/branch_rooms" element={<Navigate to="/branches?tab=rooms" replace />} />
             <Route path="manage/consultation_surveys" element={<Navigate to="/customers" replace />} />
+            <Route path="manage/services" element={<Navigate to="/services-catalog?tab=services" replace />} />
+            <Route path="manage/treatment_packages" element={<Navigate to="/services-catalog?tab=packages" replace />} />
             <Route path="manage/:table" element={<div className="admin-module"><ResourcePage /></div>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

@@ -103,6 +103,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           subItems: [
             { name: 'Hồ sơ Khách hàng', path: '/customers' },
             { name: 'Đánh giá từ khách', path: '/manage/reviews' },
+            { name: 'Yêu cầu hỗ trợ', path: '/manage/support_tickets' },
+            { name: 'Câu hỏi thường gặp', path: '/manage/support_faqs' },
           ],
         },
         {
@@ -111,8 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           icon: Leaf,
           subItems: [
             { name: 'Hồ sơ phác đồ MLD', path: '/medical-records' },
-            { name: 'Bảng giá & Gói liệu trình', path: '/services-catalog' },
-            { name: 'Gói liệu trình Spa (CSDL)', path: '/manage/treatment_packages' },
+            { name: 'Bảng giá & Gói liệu trình', path: '/services-catalog?tab=packages' },
             { name: 'Liệu trình khách hàng', path: '/manage/user_packages' },
             { name: 'Nhật ký điều trị', path: '/manage/treatment_journal' },
             { name: 'Hướng dẫn chăm sóc tại nhà', path: '/manage/home_care_guidelines' },
@@ -124,7 +125,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           icon: Sparkles,
           subItems: [
             { name: 'Bảng giá niêm yết MLD', path: '/services-catalog' },
-            { name: 'Dịch vụ lẻ (CSDL)', path: '/manage/services' },
             { name: 'Danh mục nhóm dịch vụ', path: '/manage/service_categories' },
             { name: 'Định mức tiêu hao vật tư (BOM)', path: '/manage/service_materials' },
             { name: 'Xuất kho vật tư tiêu hao (BOM)', path: '/manage/inventory_consumption_logs' },
@@ -137,6 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           subItems: [
             { name: 'Lịch trực & Điều phối ca', path: '/staff-schedule' },
             { name: 'Hồ sơ nhân viên', path: '/manage/staff_profiles' },
+            { name: 'Bộ phận', path: '/manage/departments' },
             { name: 'Đội ngũ Chuyên viên KTV', path: '/manage/technicians' },
             { name: 'Ca làm việc', path: '/manage/technician_shifts' },
             { name: 'Khung giờ chuyên viên', path: '/manage/technician_slots' },
@@ -184,6 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           subItems: [
             { name: 'Điểm danh & Sổ theo dõi', path: '/attendance' },
             { name: 'Lớp học đang mở', path: '/manage/course_batches' },
+            { name: 'Trợ giảng theo lớp', path: '/manage/course_batch_assistants' },
             { name: 'Thời khóa biểu', path: '/manage/batch_schedules' },
             { name: 'Bảng điểm học viên', path: '/manage/student_academic_records' },
           ],

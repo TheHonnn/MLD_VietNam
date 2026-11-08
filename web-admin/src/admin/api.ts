@@ -1512,6 +1512,9 @@ export async function adminApi<T>(
     localBackendAvailable = true;
     return json.data as T;
   } catch (err) {
+    // Screen cleanup (including React StrictMode) is not a backend failure.
+    // Preserve cancellation instead of changing the data source for later calls.
+    if (signal?.aborted) throw err;
     // If backend is not running or unreachable, remember to avoid delay on subsequent calls
     localBackendChecked = true;
     localBackendAvailable = false;

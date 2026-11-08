@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { toast } from '../components/common';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { matchSearch } from '../utils/searchUtils';
 
 interface ServiceItem {
@@ -67,7 +67,26 @@ interface TreatmentPackageItem {
 
 export const W06_ServicesCatalog: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'matrix' | 'services' | 'packages'>('matrix');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'matrix' | 'services' | 'packages'>(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'services' || tabParam === 'packages' || tabParam === 'matrix') {
+      return tabParam;
+    }
+    return 'matrix';
+  });
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'services' || tabParam === 'packages' || tabParam === 'matrix') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: 'matrix' | 'services' | 'packages') => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [packages, setPackages] = useState<TreatmentPackageItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -445,7 +464,7 @@ export const W06_ServicesCatalog: React.FC = () => {
       <div className="no-print flex flex-wrap items-center gap-2 border-b border-[#EFE4D9] pb-3">
         <button
           type="button"
-          onClick={() => setActiveTab('matrix')}
+          onClick={() => handleTabChange('matrix')}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'matrix'
               ? 'bg-[#985018] text-white shadow-xs'
@@ -458,7 +477,7 @@ export const W06_ServicesCatalog: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveTab('services')}
+          onClick={() => handleTabChange('services')}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'services'
               ? 'bg-[#985018] text-white shadow-xs'
@@ -471,7 +490,7 @@ export const W06_ServicesCatalog: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveTab('packages')}
+          onClick={() => handleTabChange('packages')}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'packages'
               ? 'bg-[#985018] text-white shadow-xs'
@@ -506,11 +525,11 @@ export const W06_ServicesCatalog: React.FC = () => {
             <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
               <button
                 type="button"
-                onClick={() => navigate('/manage/treatment_packages')}
+                onClick={() => handleTabChange('packages')}
                 className="text-xs font-bold text-[#8A4F23] hover:text-[#5C3214] hover:underline flex items-center gap-1 cursor-pointer"
               >
-                <span>Xem bảng CSDL</span>
-                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Xem danh sách 9 gói liệu trình</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>

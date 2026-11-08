@@ -134,6 +134,7 @@ export function SidebarItem({
     if (path === '/zalo-zns' && (currentPath.startsWith('/zalo-zns') || currentPath.startsWith('/crm-zns')))
       return true;
     if (path === '/branches' && currentPath.startsWith('/branches')) return true;
+    if (path === '/services-catalog' && currentPath.startsWith('/services-catalog')) return true;
     return false;
   })();
 

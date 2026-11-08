@@ -530,7 +530,7 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
                 </div>
               </div>
               <a
-                href={`/manage/treatment_packages?search=${encodeURIComponent(serviceName)}`}
+                href="/services-catalog?tab=packages"
                 className="text-xs font-bold text-[#985018] hover:underline inline-flex items-center gap-0.5"
               >
                 <span>Xem tất cả</span>
@@ -573,7 +573,7 @@ export const ServiceDetailSheet: React.FC<ServiceDetailSheetProps> = ({
               <div className="py-6 text-center space-y-2">
                 <p className="text-xs text-[#8C7A6B]">Chưa tạo gói combo cho dịch vụ này.</p>
                 <a
-                  href={`/manage/treatment_packages`}
+                  href="/services-catalog?tab=packages"
                   className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] hover:bg-[#F3E2CE] transition-colors"
                 >
                   <span>+ Tạo gói liệu trình mới</span>
