@@ -1672,8 +1672,8 @@ export class AdminService {
         if (!booking) throw new NotFoundException('Không tìm thấy lịch hẹn.');
         if (booking.branch_id !== shift.branch_id)
           throw new BadRequestException('Ca thu ngân không khớp chi nhánh của lịch hẹn.');
-        if (['COMPLETED','CANCELLED','NO_SHOW'].includes(booking.status))
-          throw new ConflictException('Lịch đã kết thúc hoặc bị hủy.');
+        if (['CANCELLED','NO_SHOW'].includes(booking.status))
+          throw new ConflictException('Lịch hẹn đã bị hủy hoặc khách không đến.');
         if (booking.payment_status === 'PAID')
           throw new ConflictException('Lịch hẹn đã được thanh toán.');
         const items = await client.query(
@@ -1710,7 +1710,7 @@ export class AdminService {
           );
         }
         await client.query(
-          "UPDATE bookings SET payment_status='PAID',payment_method=$2,updated_at=now() WHERE id=$1",
+          "UPDATE bookings SET payment_status='PAID',status='COMPLETED',payment_method=$2,updated_at=now() WHERE id=$1",
           [booking.id,paymentMethod],
         );
         const paidInvoice = (await client.query(

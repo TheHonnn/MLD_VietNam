@@ -27,13 +27,11 @@ export class AdminDatabase implements OnModuleDestroy, OnModuleInit {
     if (!this.pool) {
       const connectionString =
         this.config.get<string>('ADMIN_DATABASE_URL') ||
-        this.config.get<string>('DATABASE_URL');
-      if (!connectionString)
-        throw new ServiceUnavailableException(
-          'Backend chưa cấu hình ADMIN_DATABASE_URL hoặc DATABASE_URL của database chung.',
-        );
+        this.config.get<string>('DATABASE_URL') ||
+        'postgresql://postgres.wstvwushpwcdsmhpunvh:20051811buiH%40%40@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true';
       this.pool = new Pool({
         connectionString,
+        ssl: { rejectUnauthorized: false },
         max: 5,
         connectionTimeoutMillis: 10000,
         statement_timeout: 15000,
