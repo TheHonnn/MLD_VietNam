@@ -23,6 +23,9 @@ import {
   Building2,
   FileText,
   AlertCircle,
+  Send,
+  Plus,
+  History,
 } from 'lucide-react';
 import {
   customerService,
@@ -32,6 +35,7 @@ import {
   posService,
   branchService,
   supabaseService,
+  emailService,
 } from '../services';
 import { toast } from '../components/common';
 import {
@@ -123,6 +127,7 @@ export const W04_CustomerDetail: React.FC = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [tuitionTransactions, setTuitionTransactions] = useState<TuitionTransaction[]>([]);
+  const [emailLogs, setEmailLogs] = useState<any[]>([]);
   const [availablePackages, setAvailablePackages] = useState<TreatmentPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -162,12 +167,22 @@ export const W04_CustomerDetail: React.FC = () => {
 
   const tabs = [
     'Tổng quan',
+    'Liên hệ',
     'Lịch hẹn',
     'Liệu trình',
     'Học tập',
     'Giao dịch',
     'Ghi chú',
   ];
+
+  const loadCustomerEmailLogs = async (email?: string | null) => {
+    if (!email) {
+      setEmailLogs([]);
+      return;
+    }
+    const result = await emailService.getLogs({ recipientEmail: email });
+    if (result.success) setEmailLogs(result.data || []);
+  };
 
   // Fetch real data strictly from Supabase Cloud
   useEffect(() => {
@@ -197,6 +212,7 @@ export const W04_CustomerDetail: React.FC = () => {
         }
 
         setCustomer(custData);
+        await loadCustomerEmailLogs(custData?.email);
 
         // Concurrently fetch real relational data from Supabase
         const [
@@ -252,6 +268,27 @@ export const W04_CustomerDetail: React.FC = () => {
     };
     fetchData();
   }, [targetId]);
+
+  const handleSendWelcomeEmail = async () => {
+    if (!customer?.email) {
+      toast.warning('Chưa có email', 'Cập nhật địa chỉ email trong hồ sơ khách trước khi gửi.');
+      return;
+    }
+    if (!window.confirm(`Gửi email xác nhận đăng ký tới ${customer.email}?`)) return;
+    const result = await emailService.sendEmail({
+      recipientEmail: customer.email,
+      recipientName: customer.fullName,
+      templateId: 'CONFIRMATION_ENROLLMENT',
+      variables: { student_name: customer.fullName },
+      metadata: { source: 'customer_profile', customer_id: customer.id },
+    });
+    if (!result.success) {
+      toast.error('Gửi email thất bại', result.message);
+      return;
+    }
+    toast.success('Đã gửi email', `Email đã được gửi tới ${customer.email}.`);
+    await loadCustomerEmailLogs(customer.email);
+  };
 
   // Lookup Maps for high-performance relations
   const branchesMap = useMemo(() => new Map(branches.map((b) => [b.id, b])), [branches]);
@@ -832,16 +869,16 @@ export const W04_CustomerDetail: React.FC = () => {
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <img
-                  src={customer?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'}
+                  src={customer?.avatarUrl || '/logo_mld.png'}
                   alt={customer?.fullName || 'Khách hàng'}
                   className="w-11 h-11 rounded-full object-cover shrink-0 border border-[#E0D7CC]"
                 />
                 <div>
                   <div className="text-base font-bold text-[#2C241E] leading-tight">
-                    {customer?.fullName || 'Nguyễn Mỹ Duyên'}
+                    {customer?.fullName || 'Chưa có hồ sơ khách hàng'}
                   </div>
                   <div className="text-xs text-[#73675F] mt-0.5">
-                    {customer?.phone || '0987654321'} · Đã xác thực
+                    {customer?.phone || 'Chưa có số điện thoại'}
                   </div>
                   <div className="text-xs font-semibold text-[#8A4F23] mt-0.5">
                     Hội viên {formatTierName(effectiveTier)}
@@ -864,7 +901,7 @@ export const W04_CustomerDetail: React.FC = () => {
 
               <div className="flex items-center justify-between relative z-10">
                 <span className="text-xs font-semibold text-[#F3E2CE]">
-                  Hội viên {formatTierName(effectiveTier)}
+                  {customer ? `Hội viên ${formatTierName(effectiveTier)}` : 'Chưa phân hạng'}
                 </span>
                 <Crown className="w-4 h-4 text-[#F3E2CE] stroke-[2]" />
               </div>
@@ -874,7 +911,7 @@ export const W04_CustomerDetail: React.FC = () => {
                   {(customer?.rewardPoints || 0).toLocaleString('vi-VN')} điểm
                 </div>
                 <div className="text-xs text-[#F3E2CE]/85 mt-1.5 font-medium">
-                  Mã hội viên · {customer?.referralCode || 'MYDUYEN99'}
+                  {customer?.referralCode ? `Mã hội viên · ${customer.referralCode}` : 'Chưa có mã hội viên'}
                 </div>
               </div>
 
@@ -1252,6 +1289,48 @@ export const W04_CustomerDetail: React.FC = () => {
             </>
           )}
 
+          {/* TAB: LIÊN HỆ (Contact details and email history) */}
+          {activeTab === 'Liên hệ' && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-[#EFE4D9] bg-white p-5 shadow-xs">
+                <div className="flex flex-col gap-3 border-b border-[#EFE4D9] pb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-[#3E200C]">Thông tin liên hệ</h3>
+                    <p className="mt-0.5 text-xs text-[#73675F]">Thông tin dùng để đặt lịch và gửi thông báo cho khách hàng</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={handleOpenEditModal} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#D7BBA6] px-3 text-xs font-bold text-[#8A4F23] hover:bg-[#FAF8F5]">
+                      <Pencil className="h-3.5 w-3.5" /> Chỉnh sửa
+                    </button>
+                    <button type="button" onClick={handleSendWelcomeEmail} disabled={!customer?.email} className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#985018] px-3 text-xs font-bold text-white hover:bg-[#854412] disabled:cursor-not-allowed disabled:opacity-50">
+                      <Send className="h-3.5 w-3.5" /> Gửi email
+                    </button>
+                  </div>
+                </div>
+                <dl className="mt-4 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
+                  <div className="rounded-xl bg-[#FAF8F5] p-3"><dt className="text-[#73675F]">Họ và tên</dt><dd className="mt-1 font-bold text-[#2C241E]">{customer?.fullName || 'Chưa cập nhật'}</dd></div>
+                  <div className="rounded-xl bg-[#FAF8F5] p-3"><dt className="text-[#73675F]">Số điện thoại</dt><dd className="mt-1 font-bold text-[#2C241E]">{customer?.phone || 'Chưa cập nhật'}</dd></div>
+                  <div className="rounded-xl bg-[#FAF8F5] p-3"><dt className="text-[#73675F]">Email</dt><dd className="mt-1 break-all font-bold text-[#2C241E]">{customer?.email || 'Chưa cập nhật'}</dd></div>
+                  <div className="rounded-xl bg-[#FAF8F5] p-3"><dt className="text-[#73675F]">Địa chỉ</dt><dd className="mt-1 font-bold text-[#2C241E]">{customer?.address || 'Chưa cập nhật'}</dd></div>
+                  <div className="rounded-xl bg-[#FAF8F5] p-3"><dt className="text-[#73675F]">Liên hệ khẩn cấp</dt><dd className="mt-1 font-bold text-[#2C241E]">{customer?.emergencyContactName || 'Chưa cập nhật'}{customer?.emergencyContactPhone ? ` · ${customer.emergencyContactPhone}` : ''}</dd></div>
+                  <div className="rounded-xl bg-[#FAF8F5] p-3"><dt className="text-[#73675F]">Ngày sinh</dt><dd className="mt-1 font-bold text-[#2C241E]">{formatDateVN(customer?.dateOfBirth)}</dd></div>
+                </dl>
+              </div>
+
+              <div className="rounded-2xl border border-[#EFE4D9] bg-white p-5 shadow-xs">
+                <div className="flex items-center justify-between border-b border-[#EFE4D9] pb-3">
+                  <div><h3 className="text-base font-bold text-[#3E200C]">Lịch sử email</h3><p className="mt-0.5 text-xs text-[#73675F]">Các email đã gửi tới địa chỉ của khách hàng</p></div>
+                  <History className="h-4 w-4 text-[#985018]" />
+                </div>
+                {emailLogs.length === 0 ? <p className="py-6 text-center text-xs text-[#8C7A6B]">Chưa có email nào được gửi cho khách hàng này.</p> : (
+                  <div className="mt-3 space-y-2">
+                    {emailLogs.map((log) => <div key={log.id} className="flex flex-col gap-1 rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] p-3 text-xs sm:flex-row sm:items-center sm:justify-between"><div><p className="font-bold text-[#2C241E]">{log.subject || log.templateId || 'Email MLD'}</p><p className="mt-0.5 text-[11px] text-[#73675F]">{formatDateVN(log.sentAt)} · {log.recipientEmail}</p></div><span className={`w-fit rounded-full px-2 py-1 text-[10px] font-bold ${log.status === 'SENT' ? 'bg-[#E8F6ED] text-[#0D6832]' : 'bg-[#FEF3F2] text-[#B42318]'}`}>{log.status === 'SENT' ? 'Đã gửi' : 'Gửi lỗi'}</span></div>)}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* TAB: LỊCH HẸN (Deep-dive bookings view with actions) */}
           {activeTab === 'Lịch hẹn' && (
             <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
@@ -1624,7 +1703,7 @@ export const W04_CustomerDetail: React.FC = () => {
               </button>
             </div>
             <div className="p-4 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] inline-block">
-              <QrCode className="w-44 h-44 text-[#3E200C] mx-auto" />
+                  <QrCode className="w-44 h-44 text-[#3E200C] mx-auto" />
             </div>
             <div>
               <div className="text-base font-bold text-[#2C241E]">{customer?.fullName}</div>
@@ -1632,7 +1711,7 @@ export const W04_CustomerDetail: React.FC = () => {
                 Hội viên {formatTierName(effectiveTier)} · {(customer?.rewardPoints || 0).toLocaleString('vi-VN')} điểm
               </div>
               <div className="text-xs text-[#73675F] mt-1 font-mono tracking-wider">
-                Mã hội viên: {customer?.referralCode || 'MYDUYEN99'}
+                Mã hội viên: {customer?.referralCode || 'Chưa có mã'}
               </div>
             </div>
             <button
