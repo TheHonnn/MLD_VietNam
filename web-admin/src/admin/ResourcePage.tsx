@@ -2235,6 +2235,24 @@ function formatCell(row: Row, c: Column, table?: string): React.ReactNode {
     if (val === "OTHER") return "🧑 Khác";
     return display(row[c.name]);
   }
+  if (c.name === "description" || c.name === "short_description") {
+    const val = String(row[c.name] || "");
+    if (!val || val === "null" || val === "undefined") return <span className="text-[#A69788]">—</span>;
+    return (
+      <span className="truncate max-w-[280px] block text-xs text-[#5C4F44]" title={val}>
+        {val}
+      </span>
+    );
+  }
+  if (c.name === "code") {
+    const val = String(row[c.name] || "");
+    if (!val || val === "null") return <span className="text-[#A69788]">—</span>;
+    return (
+      <span className="font-mono text-[11px] text-[#7A6A5E] bg-[#F7F2EB] px-2 py-0.5 rounded border border-[#E8DFD3] inline-block font-semibold">
+        {val}
+      </span>
+    );
+  }
   if (c.name === "avatar_url" && row[c.name]) {
     return (
       <div className="flex items-center gap-2">
@@ -6462,7 +6480,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                                     </span>
                                   )}
                                   {table === "course_categories" && c.name === "name" && (
-                                    <div className="mt-1 flex flex-wrap gap-1">
+                                    <div className="mt-1 flex items-center gap-1.5">
                                       {(() => {
                                         const matched = coursesForFilter.filter(
                                           (crs) => crs.category_id === row.id
@@ -6476,10 +6494,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                                         }
                                         return (
                                           <span
-                                            className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#8A4F23] bg-[#FAF3EA] border border-[#EAD8C7] px-2 py-0.5 rounded-md"
-                                            title={matched.map((m) => m.title).join(", ")}
+                                            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#8A4F23] bg-[#FAF3EA] border border-[#EAD8C7] px-2.5 py-0.5 rounded-full cursor-help hover:bg-[#F3E7D8] transition-colors"
+                                            title={`Danh sách khóa học thuộc danh mục (${matched.length}):\n${matched.map((m, idx) => `${idx + 1}. ${m.title}`).join("\n")}`}
                                           >
-                                            📚 {matched.length} khóa: {matched.map((m) => m.title).join(", ")}
+                                            <span>📚</span>
+                                            <span>{matched.length} khóa học</span>
                                           </span>
                                         );
                                       })()}
