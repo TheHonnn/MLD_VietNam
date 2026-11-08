@@ -35,7 +35,7 @@ export class EmailService {
     if (this.transporter) return this.transporter;
 
     let host = this.configService.get<string>('SMTP_HOST') || process.env.SMTP_HOST || 'smtp-relay.brevo.com';
-    let port = Number(this.configService.get<number>('SMTP_PORT') || process.env.SMTP_PORT) || 587;
+    let port = Number(this.configService.get<number>('SMTP_PORT') || process.env.SMTP_PORT) || 2525;
     let user = this.configService.get<string>('SMTP_USER') || process.env.SMTP_USER || 'c152de001@smtp-brevo.com';
     let pass = this.configService.get<string>('SMTP_PASS') || process.env.SMTP_PASS || Buffer.from('eHNtdHBzaWItYjBkOTEzMTg5NWVkNDY0Njk0YTQ0NDA2NjBmNGUzNGE4YjUyOWRkNzQ2N2ZmNWI4MGNkN2FkNzZhZDE5MTdiMi1mOHFjRTZNUjJvY2NTR2NR', 'base64').toString('utf8');
 
@@ -44,7 +44,7 @@ export class EmailService {
         const { data: smtpData } = await this.supabaseService.adminClient.rpc('get_smtp_credentials');
         if (smtpData && smtpData.user && smtpData.pass) {
           host = smtpData.host || host || 'smtp-relay.brevo.com';
-          port = Number(smtpData.port) || port || 587;
+          port = Number(smtpData.port) || port || 2525;
           user = smtpData.user;
           pass = smtpData.pass;
           if (smtpData.from_address) this.fromAddress = smtpData.from_address.replace(/["\s<>]/g, '').trim();
@@ -63,9 +63,7 @@ export class EmailService {
           secure: false,
           auth: { user, pass },
           tls: {
-            rejectUnauthorized:
-              (this.configService.get<string>('NODE_ENV') || process.env.NODE_ENV) === 'production' &&
-              this.configService.get<string>('SMTP_TLS_REJECT_UNAUTHORIZED') !== 'false',
+            rejectUnauthorized: false,
           },
           connectionTimeout: 15000,
           greetingTimeout: 15000,
@@ -83,7 +81,7 @@ export class EmailService {
 
   private initTransporter(): void {
     const host = this.configService.get<string>('SMTP_HOST') || process.env.SMTP_HOST || 'smtp-relay.brevo.com';
-    const port = Number(this.configService.get<number>('SMTP_PORT')) || 587;
+    const port = Number(this.configService.get<number>('SMTP_PORT')) || 2525;
     const user = this.configService.get<string>('SMTP_USER') || process.env.SMTP_USER || 'c152de001@smtp-brevo.com';
     const pass = this.configService.get<string>('SMTP_PASS') || process.env.SMTP_PASS || Buffer.from('eHNtdHBzaWItYjBkOTEzMTg5NWVkNDY0Njk0YTQ0NDA2NjBmNGUzNGE4YjUyOWRkNzQ2N2ZmNWI4MGNkN2FkNzZhZDE5MTdiMi1mOHFjRTZNUjJvY2NTR2NR', 'base64').toString('utf8');
     const secure = this.configService.get<string>('SMTP_SECURE') === 'true';
@@ -468,6 +466,29 @@ export class EmailService {
         return true;
       } catch (err: any) {
         this.logger.error(`❌ Gửi email SMTP thất bại: ${err.message}`);
+        try {
+          const pass = this.configService.get<string>('SMTP_PASS') || process.env.SMTP_PASS || Buffer.from('eHNtdHBzaWItYjBkOTEzMTg5NWVkNDY0Njk0YTQ0NDA2NjBmNGUzNGE4YjUyOWRkNzQ2N2ZmNWI4MGNkN2FkNzZhZDE5MTdiMi1mOHFjRTZNUjJvY2NTR2NR', 'base64').toString('utf8');
+          const user = this.configService.get<string>('SMTP_USER') || process.env.SMTP_USER || 'c152de001@smtp-brevo.com';
+          const host = this.configService.get<string>('SMTP_HOST') || process.env.SMTP_HOST || 'smtp-relay.brevo.com';
+          const fallbackTransporter = nodemailer.createTransport({
+            host,
+            port: 2525,
+            secure: false,
+            auth: { user, pass },
+            tls: { rejectUnauthorized: false },
+            connectionTimeout: 15000,
+          });
+          const info = await fallbackTransporter.sendMail({
+            from: `"${(this.fromName || 'MLD Việt Nam').replace(/["\\]/g, '').trim()}" <${(this.fromAddress || 'xuantruong.dev26@gmail.com').replace(/["\s<>]/g, '').trim()}>`,
+            to,
+            subject,
+            html: htmlContent,
+          });
+          this.logger.log(`📨 [SMTP Brevo Port 2525] Đã gửi thành công email tới ${to} (MessageId: ${info?.messageId || 'OK'})`);
+          return true;
+        } catch (retryErr: any) {
+          this.logger.error(`❌ Gửi email SMTP Port 2525 thất bại: ${retryErr.message}`);
+        }
       }
     }
 
