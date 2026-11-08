@@ -102,33 +102,6 @@ export interface PosCartItem {
   packageId?: string;
 }
 
-const HOMECARE_PRODUCTS: PosCartItem[] = [
-  {
-    id: 'prod-organic-drainage-oil-50ml',
-    name: 'Tinh dầu dẫn lưu bạch huyết Organic MLD 50ml',
-    type: 'PRODUCT',
-    unitPrice: 450000,
-    quantity: 1,
-    imageUrl: '/spa_massage_banner.png',
-  },
-  {
-    id: 'prod-cooling-gel-200ml',
-    name: 'Gel làm mát dịu mô & giảm phù nề sau trị liệu MLD 200ml',
-    type: 'PRODUCT',
-    unitPrice: 350000,
-    quantity: 1,
-    imageUrl: '/spa_massage_banner.png',
-  },
-  {
-    id: 'prod-compression-bandage-mld',
-    name: 'Băng quấn định hình áp lực y tế MLD Lymph-Bandage',
-    type: 'PRODUCT',
-    unitPrice: 550000,
-    quantity: 1,
-    imageUrl: '/spa_massage_banner.png',
-  },
-];
-
 const GUEST_CUSTOMER: User = {
   id: 'bbbbbbbb-0001-0001-0001-000000000001',
   fullName: 'Khách hàng Vãng lai (Guest)',
@@ -276,6 +249,7 @@ export const W07_CashierPOS: React.FC = () => {
   const [allCustomers, setAllCustomers] = useState<User[]>([]);
   const [treatmentPackages, setTreatmentPackages] = useState<TreatmentPackage[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
+  const [homeProducts, setHomeProducts] = useState<any[]>([]);
   const [allTechnicians, setAllTechnicians] = useState<Technician[]>([]);
   const [commissionStaff, setCommissionStaff] = useState<StaffWithProfile[]>([]);
   const [booking, setBooking] = useState<Booking | undefined>(undefined);
@@ -390,6 +364,8 @@ export const W07_CashierPOS: React.FC = () => {
         setAllServices(srvRes);
         setWalkInServiceId((prev) => prev || srvRes[0].id);
       }
+      const productRows = await supabaseService.query<any[]>('home_products?order=sort_order.asc');
+      setHomeProducts(productRows || []);
       if (techRes && techRes.length > 0) setAllTechnicians(techRes);
       if (bkRes.success && bkRes.data) setAllBookings(bkRes.data);
     } catch (err) {
@@ -1359,21 +1335,21 @@ export const W07_CashierPOS: React.FC = () => {
     });
 
     // Sản phẩm bổ trợ Homecare
-    HOMECARE_PRODUCTS.forEach((pr) => {
+    homeProducts.forEach((pr) => {
       items.push({
         id: pr.id,
         name: pr.name,
         type: 'PRODUCT',
-        price: pr.unitPrice,
+        price: Number(pr.price_min || 0),
         description: 'Sản phẩm bổ trợ chăm sóc phục hồi mô tế bào tại nhà',
-        badgeText: 'Homecare',
-        imageUrl: pr.imageUrl,
-        searchTokens: `${pr.name} san pham my pham homecare ${pr.unitPrice} ${Math.round(pr.unitPrice / 1000)}k`,
+        badgeText: pr.unit || pr.category || 'Sản phẩm bổ trợ',
+        imageUrl: pr.image_url || pr.image_urls?.[0],
+        searchTokens: `${pr.name} ${pr.category || ''} san pham my pham homecare ${pr.price_min} ${Math.round(Number(pr.price_min || 0) / 1000)}k`,
       });
     });
 
     return items;
-  }, [allServices, treatmentPackages]);
+  }, [allServices, treatmentPackages, homeProducts]);
 
   // 2. Thống kê số lượng kết quả tìm kiếm theo từng tab
   const catalogCounts = useMemo(() => {
@@ -1858,6 +1834,9 @@ export const W07_CashierPOS: React.FC = () => {
                   >
                     {/* Top Tag & Type */}
                     <div>
+                      {item.type === 'PRODUCT' && item.imageUrl && (
+                        <img src={item.imageUrl} alt={item.name} className="mb-3 h-36 w-full rounded-lg object-cover bg-[#F8F5F0]" />
+                      )}
                       <div className="flex items-center justify-between gap-1 mb-2">
                         <span
                           className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
@@ -2182,6 +2161,9 @@ export const W07_CashierPOS: React.FC = () => {
                       key={item.id}
                       className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#EFE4D9] flex items-center justify-between gap-2 text-xs"
                     >
+                      {item.type === 'PRODUCT' && item.imageUrl && (
+                        <img src={item.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-[#2C241E] truncate" title={item.name}>
                           {item.name}
@@ -3683,6 +3665,11 @@ export const W07_CashierPOS: React.FC = () => {
                     <div key={entry.id} className="text-xs bg-[#FAF8F5] rounded p-2">
                       <div className="font-semibold">{entry.actor?.full_name || 'Nhân viên'} · {new Date(entry.created_at).toLocaleString('vi-VN')}</div>
                       <div className="text-[#73675F]">Lý do: {entry.reason}</div>
+                      {['receipt_customer_name', 'receipt_description', 'receipt_notes'].map((field) => {
+                        const before = entry.before_data?.[field] || '(trống)';
+                        const after = entry.after_data?.[field] || '(trống)';
+                        return before === after ? null : <div key={field} className="mt-1"><span className="font-medium">{field === 'receipt_customer_name' ? 'Tên khách' : field === 'receipt_description' ? 'Diễn giải' : 'Ghi chú'}:</span> <span className="text-red-700">{before}</span> <span aria-hidden="true">→</span> <span className="text-green-800">{after}</span></div>;
+                      })}
                     </div>
                   ))}
                 </section>

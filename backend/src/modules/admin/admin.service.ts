@@ -290,6 +290,19 @@ export class AdminService {
         where.push(`${expression(name)}=$${values.length}`);
       }
     }
+    if (actor.role === 'INSTRUCTOR' && ['course_batches', 'course_batch_assistants', 'student_academic_records', 'student_attendance'].includes(table)) {
+      values.push(actor.id);
+      const actorParam = `$${values.length}`;
+      if (table === 'course_batches') {
+        where.push(`(EXISTS (SELECT 1 FROM public.instructors i WHERE i.id=course_batches.instructor_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=course_batches.id AND i.user_id=${actorParam}))`);
+      } else if (table === 'course_batch_assistants') {
+        where.push(`(EXISTS (SELECT 1 FROM public.instructors i WHERE i.id=course_batch_assistants.instructor_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=course_batch_assistants.batch_id AND i.user_id=${actorParam}))`);
+      } else if (table === 'student_academic_records') {
+        where.push(`EXISTS (SELECT 1 FROM public.course_enrollments e WHERE e.id=student_academic_records.enrollment_id AND (EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=e.batch_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=e.batch_id AND a.can_enter_grades AND i.user_id=${actorParam})))`);
+      } else if (table === 'student_attendance') {
+        where.push(`EXISTS (SELECT 1 FROM public.batch_schedules s WHERE s.id=student_attendance.schedule_id AND (EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=s.batch_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=s.batch_id AND a.can_mark_attendance AND i.user_id=${actorParam})))`);
+      }
+    }
     const clause = where.length ? ' WHERE ' + where.join(' AND ') : '';
     const order =
       columns.find((c) => c.name === query.sort) ||
@@ -424,6 +437,16 @@ export class AdminService {
     body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string; reason?: string },
   ) {
     this.resource(table, actor, true);
+    if ((table === 'invoices' || table === 'invoice_items') && operation !== 'create')
+      throw new ForbiddenException('Không sửa trực tiếp hóa đơn hoặc dòng hàng. Dùng thao tác thanh toán/hoàn tiền và luồng sửa mô tả biên lai có lưu lịch sử.');
+    if (table === 'departments' && !['ADMIN', 'SUPER_ADMIN'].includes(actor.role))
+      throw new ForbiddenException('Chỉ quản trị viên được tạo hoặc quản lý bộ phận.');
+    if (table === 'departments' && operation === 'delete')
+      throw new ConflictException('Không xóa bộ phận có lịch sử; hãy chuyển trạng thái sang ngừng hoạt động.');
+    if (table === 'course_batch_assistants' && !['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(actor.role))
+      throw new ForbiddenException('Chỉ quản trị viên hoặc quản lý chi nhánh được phân công trợ giảng.');
+    if (table === 'student_academic_records' && operation === 'delete')
+      throw new ConflictException('Không xóa bảng điểm đã lưu; hãy cập nhật điểm với lý do để giữ lịch sử.');
     if (table === 'user_packages' && operation === 'create') {
       throw new BadRequestException('Chỉ luồng POS mới được kích hoạt gói cho khách hàng.');
     }
@@ -512,6 +535,7 @@ export class AdminService {
       if (table === 'roles' && previous?.is_system)
         throw new ConflictException('Không được sửa/xóa vai trò hệ thống.');
       await this.businessRules(client, table, data, previous, operation, actor);
+      await this.authorizeAcademyWrite(client, table, data, previous, operation, actor);
       let result: Record<string, unknown>;
       const names = Object.keys(data);
       const values = names.map((name) =>
@@ -605,6 +629,12 @@ export class AdminService {
     actor: AdminActor,
   ) {
     const next = { ...previous, ...data };
+    if (table === 'home_care_guidelines' && operation !== 'delete' && data.is_published === true) {
+      if (!['ADMIN', 'SUPER_ADMIN'].includes(actor.role))
+        throw new ForbiddenException('Chỉ quản trị viên được duyệt và xuất bản hướng dẫn chăm sóc.');
+      data.approved_by_id = actor.id;
+      data.approved_at = new Date().toISOString();
+    }
     if (table === 'course_quizzes' && operation === 'create')
       data.total_questions = 0;
     if (
@@ -1018,6 +1048,55 @@ export class AdminService {
       data.approved_by = actor.id;
       data.approved_at = new Date().toISOString();
     }
+  }
+
+  private async authorizeAcademyWrite(
+    client: PoolClient,
+    table: string,
+    data: Record<string, any>,
+    previous: Record<string, any> | null,
+    operation: string,
+    actor: AdminActor,
+  ) {
+    if (!['student_academic_records', 'student_attendance'].includes(table)) return;
+    if (['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(actor.role)) return;
+    if (actor.role !== 'INSTRUCTOR')
+      throw new ForbiddenException('Chỉ quản trị viên hoặc giảng viên được phân công mới được sửa điểm danh và bảng điểm.');
+
+    const record = operation === 'delete' ? previous : { ...previous, ...data };
+    let allowed = false;
+    if (table === 'student_academic_records' && record?.enrollment_id) {
+      allowed = (await client.query(
+        `SELECT EXISTS (
+           SELECT 1 FROM course_enrollments e
+           JOIN course_batches b ON b.id=e.batch_id
+           JOIN instructors primary_teacher ON primary_teacher.id=b.instructor_id
+           WHERE e.id=$1 AND primary_teacher.user_id=$2
+           UNION ALL
+           SELECT 1 FROM course_enrollments e
+           JOIN course_batch_assistants a ON a.batch_id=e.batch_id AND a.can_enter_grades=TRUE
+           JOIN instructors assistant ON assistant.id=a.instructor_id
+           WHERE e.id=$1 AND assistant.user_id=$2
+         ) AS allowed`,
+        [record.enrollment_id, actor.id],
+      )).rows[0]?.allowed === true;
+    } else if (table === 'student_attendance' && record?.schedule_id) {
+      allowed = (await client.query(
+        `SELECT EXISTS (
+           SELECT 1 FROM batch_schedules s
+           JOIN course_batches b ON b.id=s.batch_id
+           JOIN instructors primary_teacher ON primary_teacher.id=b.instructor_id
+           WHERE s.id=$1 AND primary_teacher.user_id=$2
+           UNION ALL
+           SELECT 1 FROM batch_schedules s
+           JOIN course_batch_assistants a ON a.batch_id=s.batch_id AND a.can_mark_attendance=TRUE
+           JOIN instructors assistant ON assistant.id=a.instructor_id
+           WHERE s.id=$1 AND assistant.user_id=$2
+         ) AS allowed`,
+        [record.schedule_id, actor.id],
+      )).rows[0]?.allowed === true;
+    }
+    if (!allowed) throw new ForbiddenException('Chỉ giảng viên/trợ giảng được phân công cho lớp mới được thao tác điểm danh hoặc điểm số.');
   }
 
   private async syncRelated(

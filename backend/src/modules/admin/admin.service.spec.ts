@@ -31,6 +31,25 @@ describe('Admin shared-schema integration', () => {
       .replace(/^CREATE EXTENSION[^\n]*$/gm, '')
       .replace(/^CREATE INDEX[^\n]*gin_trgm_ops[^\n]*$/gm, '');
     await pg.exec(schema);
+    await pg.exec(`
+      CREATE TABLE departments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(), code VARCHAR(40) UNIQUE NOT NULL,
+        name VARCHAR(120) UNIQUE NOT NULL, description TEXT, is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        sort_order INT NOT NULL DEFAULT 100, created_by_id UUID, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      ALTER TABLE staff_profiles ADD COLUMN department_id UUID REFERENCES departments(id);
+      CREATE TABLE course_batch_assistants (
+        batch_id UUID NOT NULL REFERENCES course_batches(id), instructor_id UUID NOT NULL REFERENCES instructors(id),
+        can_mark_attendance BOOLEAN NOT NULL DEFAULT TRUE, can_enter_grades BOOLEAN NOT NULL DEFAULT TRUE,
+        assigned_by_id UUID, assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY(batch_id,instructor_id)
+      );
+      CREATE TABLE student_academic_record_history (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(), academic_record_id UUID NOT NULL,
+        actor_id UUID, reason TEXT NOT NULL, before_data JSONB NOT NULL, after_data JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
     await pg.query(
       "INSERT INTO users(id,phone,full_name,role,referral_code) VALUES($1,'0900000001','Test operator','SUPER_ADMIN','TESTADMIN')",
       [actor.id],
@@ -62,6 +81,72 @@ describe('Admin shared-schema integration', () => {
         table,
       ).toBe(false);
     }
+  });
+  it('scopes instructor class and grade listings to assigned teaching roles', async () => {
+    const teacherUser = (await pg.query<any>(
+      "INSERT INTO users(phone,full_name,role,referral_code) VALUES('0900000091','Assigned teacher','INSTRUCTOR','TEACHER91') RETURNING id",
+    )).rows[0];
+    const studentOne = (await pg.query<any>(
+      "INSERT INTO users(phone,full_name,role,referral_code) VALUES('0900000092','Student one','STUDENT','STUDENT92') RETURNING id",
+    )).rows[0];
+    const studentTwo = (await pg.query<any>(
+      "INSERT INTO users(phone,full_name,role,referral_code) VALUES('0900000093','Student two','STUDENT','STUDENT93') RETURNING id",
+    )).rows[0];
+    const branch = (await pg.query<any>(
+      "INSERT INTO branches(name,code,phone,address,district,latitude,longitude,image_url) VALUES('Scoped branch','SCOPED','0900000094','Test','Test',10,106,'https://example.invalid/branch.png') RETURNING id",
+    )).rows[0];
+    const category = (await pg.query<any>(
+      "INSERT INTO course_categories(name,code,icon_url) VALUES('Scoped courses','SCOPED','https://example.invalid/icon.png') RETURNING id",
+    )).rows[0];
+    const instructor = (await pg.query<any>(
+      "INSERT INTO instructors(user_id,full_name,avatar_url,bio) VALUES($1,'Assigned teacher','https://example.invalid/teacher.png','Test') RETURNING id",
+      [teacherUser.id],
+    )).rows[0];
+    const course = (await pg.query<any>(
+      "INSERT INTO courses(category_id,title,code,short_description,full_description,image_url) VALUES($1,'Scoped course','SCOPED','Test','Test','https://example.invalid/course.png') RETURNING id",
+      [category.id],
+    )).rows[0];
+    const batchOne = (await pg.query<any>(
+      "INSERT INTO course_batches(course_id,branch_id,batch_code,instructor_id,start_date,end_date,schedule_text) VALUES($1,$2,'SCOPED-1',$3,'2026-01-01','2026-12-31','Test') RETURNING id",
+      [course.id, branch.id, instructor.id],
+    )).rows[0];
+    const otherInstructor = (await pg.query<any>(
+      "INSERT INTO instructors(full_name,avatar_url,bio) VALUES('Other teacher','https://example.invalid/other.png','Test') RETURNING id",
+    )).rows[0];
+    const batchTwo = (await pg.query<any>(
+      "INSERT INTO course_batches(course_id,branch_id,batch_code,instructor_id,start_date,end_date,schedule_text) VALUES($1,$2,'SCOPED-2',$3,'2026-01-01','2026-12-31','Test') RETURNING id",
+      [course.id, branch.id, otherInstructor.id],
+    )).rows[0];
+    await pg.query(
+      'INSERT INTO course_batch_assistants(batch_id,instructor_id,can_enter_grades) VALUES($1,$2,false)',
+      [batchTwo.id, instructor.id],
+    );
+    const enrollmentOne = (await pg.query<any>(
+      'INSERT INTO course_enrollments(student_id,course_id,batch_id) VALUES($1,$2,$3) RETURNING id',
+      [studentOne.id, course.id, batchOne.id],
+    )).rows[0];
+    const enrollmentTwo = (await pg.query<any>(
+      'INSERT INTO course_enrollments(student_id,course_id,batch_id) VALUES($1,$2,$3) RETURNING id',
+      [studentTwo.id, course.id, batchTwo.id],
+    )).rows[0];
+    await pg.query(
+      'INSERT INTO student_academic_records(enrollment_id,theory_score,practical_score) VALUES($1,8,8),($2,7,7)',
+      [enrollmentOne.id, enrollmentTwo.id],
+    );
+
+    const teacher = { id: teacherUser.id, role: 'INSTRUCTOR' };
+    const batches = await service.list('course_batches', teacher, {});
+    expect(batches.rows.map((row) => row.id).sort()).toEqual([batchOne.id, batchTwo.id].sort());
+    const grades = await service.list('student_academic_records', teacher, {});
+    expect(grades.rows.map((row) => row.enrollment_id)).toEqual([enrollmentOne.id]);
+    await pg.query('DELETE FROM course_enrollments WHERE id=ANY($1::uuid[])', [[enrollmentOne.id, enrollmentTwo.id]]);
+    await pg.query('DELETE FROM course_batch_assistants WHERE batch_id=ANY($1::uuid[])', [[batchOne.id, batchTwo.id]]);
+    await pg.query('DELETE FROM course_batches WHERE id=ANY($1::uuid[])', [[batchOne.id, batchTwo.id]]);
+    await pg.query('DELETE FROM courses WHERE id=$1', [course.id]);
+    await pg.query('DELETE FROM instructors WHERE id=ANY($1::uuid[])', [[instructor.id, otherInstructor.id]]);
+    await pg.query('DELETE FROM course_categories WHERE id=$1', [category.id]);
+    await pg.query('DELETE FROM users WHERE id=ANY($1::uuid[])', [[teacherUser.id, studentOne.id, studentTwo.id]]);
+    await pg.query('DELETE FROM branches WHERE id=$1', [branch.id]);
   });
   it('rejects arbitrary tables, privilege module access and unknown fields', async () => {
     expect(() => service.resource('users; DROP TABLE users', actor)).toThrow();

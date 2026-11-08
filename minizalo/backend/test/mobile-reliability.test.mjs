@@ -61,7 +61,7 @@ test('mobile reliability regressions use an isolated database only',async t=>{
       assert.equal((await row('SELECT count(*)::int AS n FROM student_certificates')).n,0);
       assert.equal((await request(`${course}/quiz/start`,{method:'POST',body:scope,owner:2})).status,403);
     });
-    await t.test('attempt deadlines and three-attempt limit survive reconnecting',async()=>{
+    await t.test('attempt deadlines survive reconnecting and the default allows unlimited retries',async()=>{
       await seedCompletedReadings(db,id(32));
       const body={...scope,enrollmentId:id(32)};
       for(let i=0;i<3;i++){
@@ -71,8 +71,8 @@ test('mobile reliability regressions use an isolated database only',async t=>{
         const expired=await request(`${course}/quiz/submit`,{method:'POST',body:{...body,attemptId:started.data.attempt.id,answers}});
         assert.equal(expired.status,409);assert.equal(expired.code,'ATTEMPT_EXPIRED');
       }
-      const exhausted=await request(`${course}/quiz/start`,{method:'POST',body});
-      assert.equal(exhausted.status,409);assert.equal(exhausted.code,'ATTEMPTS_EXHAUSTED');
+      const retry=await request(`${course}/quiz/start`,{method:'POST',body});
+      assert.equal(retry.status,200,JSON.stringify(retry));
     });
     await t.test('fabricated video seconds and seeks grant no completion; real elapsed segments are credited once',async()=>{
       await db.query("INSERT INTO course_lessons(id,chapter_id,title,lesson_type,video_url,duration_minutes) VALUES($1,$2,'Actual video','VIDEO','https://example.test/video.mp4',1)",[id(70),id(23)]);

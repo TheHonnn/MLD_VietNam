@@ -3,7 +3,8 @@ import type {Store,Row} from './store.js';
 import {ApiError} from './errors.js';
 import {assertLessonMedia} from './lesson-media.js';
 
-export const MAX_QUIZ_ATTEMPTS = 3;
+// Zero means unlimited; enrollment-specific overrides may still impose a cap.
+export const MAX_QUIZ_ATTEMPTS = 0;
 export async function assertLessonUnlocked(store:Store,enrollment:Row,lessonId:string) {
   const lessons=await store.query(Prisma.sql`SELECT l.id,l.title,COALESCE(p.is_completed,false) AS is_completed
     FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id
@@ -96,7 +97,7 @@ export async function startQuiz(store:Store,userId:string,courseId:string,quizId
     let [attempt]=await tx.query(Prisma.sql`SELECT * FROM miniapp_quiz_attempts WHERE enrollment_id=${enrollment.id}::uuid AND quiz_id=${quizId}::uuid AND submission_id IS NULL AND expires_at>clock_timestamp() ORDER BY started_at DESC LIMIT 1`);
     if(!attempt) {
       const [{count}]=await tx.query(Prisma.sql`SELECT count(*)::int FROM miniapp_quiz_attempts WHERE enrollment_id=${enrollment.id}::uuid AND quiz_id=${quizId}::uuid`);
-      if(count>=maxAttempts) throw new ApiError(409,'Đã hết lượt thi. Vui lòng liên hệ giảng viên.',{code:'ATTEMPTS_EXHAUSTED',maxAttempts});
+      if(maxAttempts > 0 && count >= maxAttempts) throw new ApiError(409,'Đã hết lượt thi. Vui lòng liên hệ giảng viên.',{code:'ATTEMPTS_EXHAUSTED',maxAttempts});
       const questions=await tx.query(Prisma.sql`SELECT id,question_number,question_text,options,correct_option,explanation FROM quiz_questions WHERE quiz_id=${quizId}::uuid ORDER BY question_number,id`);
       if(!questions.length) throw new ApiError(409,'Quiz has no questions');
       if(!Number.isInteger(quiz.time_limit_minutes)||quiz.time_limit_minutes<=0) throw new ApiError(409,'Quiz duration is not configured');
