@@ -194,15 +194,26 @@ export class AcademyService {
 
     // 1. Kiểm tra tài khoản người dùng hoặc tìm theo SĐT/Email
       if (studentId) {
-        await this.supabaseService.adminClient
+        const { data: existingUser } = await this.supabaseService.adminClient
           .from('users')
-          .update({
-            phone: studentPhone,
-            full_name: studentName,
-            is_phone_verified: true,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', studentId);
+          .select('id, phone, full_name, email')
+          .eq('id', studentId)
+          .maybeSingle();
+
+        const updateFields: any = { updated_at: new Date().toISOString() };
+        if (!existingUser?.phone && studentPhone) {
+          updateFields.phone = studentPhone;
+          updateFields.is_phone_verified = true;
+        }
+        if (!existingUser?.full_name && studentName) {
+          updateFields.full_name = studentName;
+        }
+        if (Object.keys(updateFields).length > 1) {
+          await this.supabaseService.adminClient
+            .from('users')
+            .update(updateFields)
+            .eq('id', studentId);
+        }
       } else {
         // Tìm theo số điện thoại
         if (studentPhone) {
