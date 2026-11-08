@@ -73,6 +73,13 @@ class ApiException implements Exception {
               statusCode: 404,
               data: responseData,
             );
+          case 409:
+            return ApiException(
+              message: serverMessage ?? 'Dữ liệu đã tồn tại trong hệ thống.',
+              statusCode: 409,
+              data: responseData,
+              errors: fieldErrors,
+            );
           case 422:
             return ApiException(
               message: serverMessage ?? 'Dữ liệu gửi lên không hợp lệ.',
@@ -126,10 +133,5 @@ class ApiException implements Exception {
   }
 
   @override
-  String toString() {
-    if (statusCode != null) {
-      return 'ApiException [$statusCode]: $message';
-    }
-    return 'ApiException: $message';
-  }
+  String toString() => message;
 }

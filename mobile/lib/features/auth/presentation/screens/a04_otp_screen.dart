@@ -407,7 +407,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
         if (e is ApiException) {
           msg = e.message;
         } else {
-          msg = e.toString().replaceFirst('Exception: ', '').replaceAll('ApiException: ', '');
+          msg = e.toString().replaceAll(RegExp(r'^(ApiException\s*(\[\d+\])?:\s*|Exception:\s*)'), '').trim();
         }
         setState(() {
           _errorMessage = msg;
