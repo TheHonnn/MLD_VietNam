@@ -3490,7 +3490,7 @@ function RecordDialog({
       className={`admin-dialog ${
         resource.name === "certificate_templates"
           ? "certificate-template-dialog"
-          : ["staff_profiles", "courses", "course_enrollments", "course_chapters", "course_lessons", "course_quizzes", "quiz_questions"].includes(resource.name)
+          : ["staff_profiles", "courses", "course_enrollments", "course_chapters", "course_lessons", "course_quizzes", "quiz_questions", "treatment_packages", "services"].includes(resource.name)
           ? "!max-w-[880px] !w-[min(880px,calc(100%-32px))]"
           : ""
       }`}

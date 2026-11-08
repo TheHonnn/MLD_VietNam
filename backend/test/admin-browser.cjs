@@ -5,6 +5,9 @@ const { Test } = require('@nestjs/testing');
 const { ConfigModule } = require('@nestjs/config');
 const { ValidationPipe } = require('@nestjs/common');
 const { chromium } = require('@playwright/test');
+const { DatabaseModule } = require('../dist/database/database.module');
+const { SupabaseService } = require('../dist/database/supabase.service');
+const { RedisService } = require('../dist/database/redis.service');
 const { AdminModule } = require('../dist/modules/admin/admin.module');
 const { AdminDatabase } = require('../dist/modules/admin/admin.database');
 const { ADMIN_RESOURCES } = require('../dist/modules/admin/admin.resources');
@@ -15,7 +18,10 @@ const fs = require('node:fs'),
   path = require('node:path'),
   assert = require('node:assert/strict'),
   bcrypt = require('bcrypt');
-const output = path.resolve(__dirname, '../../.local-archive/admin-review');
+const output = path.resolve(
+  process.env.ADMIN_BROWSER_OUTPUT_DIR ||
+    path.resolve(__dirname, '../../.local-archive/admin-review'),
+);
 async function main() {
   fs.mkdirSync(output, { recursive: true });
   const pg = new PGlite();
@@ -30,10 +36,10 @@ async function main() {
         .replace(/^CREATE EXTENSION[^\n]*$/gm, '')
         .replace(/^CREATE INDEX[^\n]*gin_trgm_ops[^\n]*$/gm, ''),
     );
-    await pg.query(
-      "INSERT INTO users(phone,full_name,role,referral_code,password_hash) VALUES('0900000099','Kiểm thử giao diện','SUPER_ADMIN','BROWSERTEST',$1)",
+    const browserAdmin = (await pg.query(
+      "INSERT INTO users(phone,full_name,email,role,referral_code,password_hash) VALUES('0900000099','Kiểm thử giao diện','browser-test@mld.local','SUPER_ADMIN','BROWSERTEST',$1) RETURNING id",
       [await bcrypt.hash('Browser-test-only-123', 10)],
-    );
+    )).rows[0];
     const branch=(await pg.query("INSERT INTO branches(name,code,phone,address,district,latitude,longitude,image_url) VALUES('Test branch','TESTBR','0900000011','Test','Test',10,106,'https://example.invalid/branch.png') RETURNING id")).rows[0];
     await pg.query("INSERT INTO staff_profiles(user_id,branch_id,employee_code,position) SELECT id,$1,'TESTEMP','Test position' FROM users WHERE phone='0900000099'",[branch.id]);
     const client = {
@@ -60,14 +66,22 @@ async function main() {
           load: [
             () => ({
               JWT_SECRET: 'browser-test-only-isolated-jwt-secret-12345',
+              ADMIN_LOCAL_NO_AUTH: 'true',
+              NODE_ENV: 'test',
+              CORS_ORIGIN: 'http://127.0.0.1:5173',
             }),
           ],
         }),
+        DatabaseModule,
         AdminModule,
       ],
     })
       .overrideProvider(AdminDatabase)
       .useValue({ connection: { ...client, connect } })
+      .overrideProvider(SupabaseService)
+      .useValue({ adminClient: { auth: { getUser: async () => ({ data: { user: null }, error: null }) } } })
+      .overrideProvider(RedisService)
+      .useValue({})
       .compile();
     app = module.createNestApplication({ logger: false });
     app.setGlobalPrefix('api/v1');
@@ -92,6 +106,52 @@ async function main() {
     });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
+    await page.route('**/*', async (route) => {
+      const requestUrl = new URL(route.request().url());
+      if (['127.0.0.1', 'localhost'].includes(requestUrl.hostname)) {
+        return route.continue();
+      }
+      if (requestUrl.hostname.endsWith('.supabase.co')) {
+        if (requestUrl.pathname.endsWith('/auth/v1/token')) {
+          return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              access_token: 'isolated-browser-test-token',
+              token_type: 'bearer',
+              expires_in: 3600,
+              refresh_token: 'isolated-browser-test-refresh-token',
+              user: {
+                id: browserAdmin.id,
+                aud: 'authenticated',
+                role: 'authenticated',
+                email: 'browser-test@mld.local',
+                app_metadata: { provider: 'email', providers: ['email'] },
+                user_metadata: {},
+                created_at: new Date().toISOString(),
+              },
+            }),
+          });
+        }
+        if (requestUrl.pathname === '/rest/v1/users') {
+          return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              id: browserAdmin.id,
+              full_name: 'Kiểm thử giao diện',
+              email: 'browser-test@mld.local',
+              phone: '0900000099',
+              role: 'SUPER_ADMIN',
+              is_active: true,
+              avatar_url: null,
+            }),
+          });
+        }
+        return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+      }
+      return route.abort();
+    });
     await page.route(/^http:\/\/(?:localhost|127\.0\.0\.1):3000\/api\/v1\//, async (route) => {
       const response = await route.fetch({
         url: route.request().url().replace(/^http:\/\/(?:localhost|127\.0\.0\.1):3000/, target),
@@ -99,27 +159,23 @@ async function main() {
       await route.fulfill({ response });
     });
     await page.goto('http://127.0.0.1:5173/');
-    await page
-      .getByRole('heading', { name: 'Đăng nhập', exact: true })
-      .waitFor();
+    await page.getByRole('heading', { name: 'Đăng nhập tài khoản', exact: true }).waitFor();
     await page.screenshot({ path: path.join(output, 'login-desktop.png') });
-    await page.getByLabel('Tài khoản', { exact: true }).fill('0900000099');
-    await page
-      .getByLabel('Mật khẩu', { exact: true })
-      .fill('Browser-test-only-123');
-    await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+    await page.locator('input[autocomplete="username"]').fill('browser-test@mld.local');
+    await page.locator('input[autocomplete="current-password"]').fill('Browser-test-only-123');
+    await page.getByRole('button', { name: 'Đăng nhập hệ thống', exact: true }).click();
     await page
       .getByRole('heading', { name: 'Tổng quan vận hành', exact: true })
       .waitFor();
     await page.screenshot({ path: path.join(output, 'dashboard-desktop.png') });
-    const legacyLinks = [['Tổng quan','/'],['Chi nhánh','/branches'],['Khách hàng','/customers'],['Lịch kỹ thuật viên','/staff-schedule'],['Liệu trình','/medical-records'],['Thu ngân','/cashier-pos'],['Tuyển sinh','/academy-enrollment'],['Giảng viên','/instructors'],['Học viên','/attendance'],['Vận hành đào tạo','/curriculum'],['Báo cáo doanh thu','/reports']];
+    const legacyLinks = [['Tổng quan','/'],['Chi nhánh & Phòng ốc','/branches'],['Khách hàng (CRM)','/customers'],['Nhân sự & Kỹ thuật viên','/staff-schedule'],['Quản lý Liệu trình','/medical-records'],['Thu ngân & Tiếp đón','/cashier-pos'],['Tuyển sinh & Ghi danh','/academy-enrollment'],['Đội ngũ Giảng viên','/instructors'],['Học viên & Lớp học','/attendance'],['Chương trình đào tạo','/curriculum'],['Báo cáo doanh thu','/reports']];
     for(const [name,href] of legacyLinks) assert.equal(await page.getByRole('navigation').getByRole('link',{name,exact:true}).getAttribute('href'),href);
     const sidebar=page.locator('aside');
     assert.equal(await sidebar.getByText('QUẢN TRỊ BỔ SUNG',{exact:true}).count(),0);
-    await sidebar.getByRole('button',{name:'Mở Chi nhánh',exact:true}).click();
-    await sidebar.getByRole('link',{name:'Phòng dịch vụ',exact:true}).waitFor();
-    assert.equal(await sidebar.getByRole('link',{name:'Phòng dịch vụ',exact:true}).getAttribute('href'),'/manage/branch_rooms');
-    await sidebar.getByRole('button',{name:'Thu gọn Chi nhánh',exact:true}).click();
+    await sidebar.getByRole('button',{name:'Mở Chi nhánh & Phòng ốc',exact:true}).click();
+    await sidebar.getByRole('link',{name:'Phòng & Giường trị liệu',exact:true}).waitFor();
+    assert.equal(await sidebar.getByRole('link',{name:'Phòng & Giường trị liệu',exact:true}).getAttribute('href'),'/branches?tab=rooms');
+    await sidebar.getByRole('button',{name:'Thu gọn Chi nhánh & Phòng ốc',exact:true}).click();
     const resourceLinks=await sidebar.locator('a[href^="/manage/"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
     assert.equal(new Set(resourceLinks).size,Object.keys(ADMIN_RESOURCES).length,'Every resource assigned to a business menu');
     while(await sidebar.getByRole('button',{name:/^Mở /}).count())await sidebar.getByRole('button',{name:/^Mở /}).first().click();
