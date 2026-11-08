@@ -839,6 +839,12 @@ export const W04_CustomerDetail: React.FC = () => {
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E] pb-8">
+      <section className="grid grid-cols-2 gap-2 rounded-xl border border-[#EFE4D9] bg-white p-3 sm:grid-cols-4" aria-label="Tóm tắt khách hàng">
+        <div className="px-2 py-1"><p className="text-[11px] text-[#73675F]">Lịch hẹn</p><p className="mt-1 text-sm font-bold">{bookings.length}</p><p className="text-[11px] text-[#73675F]">{bookings.filter((item) => ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(String(item.status))).length} đang xử lý</p></div>
+        <div className="px-2 py-1"><p className="text-[11px] text-[#73675F]">Chi tiêu đã ghi nhận</p><p className="mt-1 text-sm font-bold">{totalActualSpent.toLocaleString('vi-VN')}đ</p></div>
+        <div className="px-2 py-1"><p className="text-[11px] text-[#73675F]">Còn phải thu</p><p className="mt-1 text-sm font-bold text-amber-800">{financialStats.totalDueImmediately.toLocaleString('vi-VN')}đ</p></div>
+        <div className="px-2 py-1"><p className="text-[11px] text-[#73675F]">Khóa học</p><p className="mt-1 text-sm font-bold">{enrollments.length}</p><p className="text-[11px] text-[#73675F]">{enrollments.filter((item) => ['STUDYING', 'IN_PROGRESS'].includes(String(item.status))).length} đang học</p></div>
+      </section>
       {/* 1. Horizontal Sub-Navigation Tabs matching media_1792570156063.png */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs whitespace-nowrap border-b border-[#EFE4D9]/60">
         {tabs.map((tab) => {

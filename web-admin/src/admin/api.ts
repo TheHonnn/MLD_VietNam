@@ -180,6 +180,7 @@ const TABLE_SELECTS: Record<string, string> = {
   service_materials: "*,services(name)",
   tuition_transactions: "*,student:users!student_id(full_name,phone),courses(title,code),branches(name,code)",
   course_batches: "*,courses(title,code),branches(name,code),instructor:instructors!instructor_id(full_name)",
+  student_academic_records: "*,course_enrollments(id,batch_id,course_id,student:users!student_id(full_name,phone),courses(title,code),course_batches(batch_code))",
   batch_schedules: "*,course_batches(batch_code),assigned_room:branch_rooms!assigned_room_id(name)",
   course_chapters: "*,courses(title,code)",
   course_lessons: "*,course_chapters(title,course_id,courses(title,code))",
@@ -689,6 +690,10 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
           if (val !== undefined && val !== null && val !== "" && val !== "__ALL__") {
             if (table === "student_attendance" && col === "batch_id") {
               url += `&batch_schedules.batch_id=eq.${encodeURIComponent(String(val))}`;
+            } else if (table === "student_academic_records" && col === "batch_id") {
+              url += `&course_enrollments.batch_id=eq.${encodeURIComponent(String(val))}`;
+            } else if (table === "student_academic_records" && col === "course_id") {
+              url += `&course_enrollments.course_id=eq.${encodeURIComponent(String(val))}`;
             } else if (table === "course_lessons" && col === "course_id") {
               url += `&course_chapters.course_id=eq.${encodeURIComponent(String(val))}`;
             } else {
@@ -703,6 +708,8 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     if (directBatchId && directBatchId !== "__ALL__" && !url.includes("batch_id=")) {
       if (table === "student_attendance") {
         url += `&batch_schedules.batch_id=eq.${encodeURIComponent(directBatchId)}`;
+      } else if (table === "student_academic_records") {
+        url += `&course_enrollments.batch_id=eq.${encodeURIComponent(directBatchId)}`;
       } else {
         url += `&batch_id=eq.${encodeURIComponent(directBatchId)}`;
       }
@@ -715,6 +722,8 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     if (directCourseId && directCourseId !== "__ALL__" && !url.includes("course_id=")) {
       if (table === "course_lessons") {
         url += `&course_chapters.course_id=eq.${encodeURIComponent(directCourseId)}`;
+      } else if (table === "student_academic_records") {
+        url += `&course_enrollments.course_id=eq.${encodeURIComponent(directCourseId)}`;
       } else {
         url += `&course_id=eq.${encodeURIComponent(directCourseId)}`;
       }

@@ -63,6 +63,7 @@ import {
   FileEdit,
   FileSpreadsheet,
   Share2,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   adminApi,
@@ -900,7 +901,85 @@ function ServiceImageInput({
   );
 }
 
-function formatCell(row: Row, c: Column): React.ReactNode {
+function formatCell(row: Row, c: Column, table?: string): React.ReactNode {
+  // Gói liệu trình Spa: Gộp Thumbnail + Tên gói + Dịch vụ đẹp mắt
+  if ((table === "treatment_packages" || (row.total_sessions !== undefined && row.validity_months !== undefined && row.price !== undefined)) && c.name === "name") {
+    const serviceName = row.service_name || row.services?.name;
+    const imageUrl = row.image_url;
+    return (
+      <div className="flex items-center gap-3 py-1 min-w-[260px] max-w-[380px]">
+        <div className="relative shrink-0 w-11 h-11 rounded-xl overflow-hidden bg-[#FAF4ED] border border-[#EAD8C7] shadow-xs">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={row.name || "Gói liệu trình"}
+              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+              onError={(e) => {
+                (e.currentTarget as HTMLElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-[#FAF3EA] to-[#F5E6D3] text-[#985018]">
+              <Sparkles size={18} className="opacity-70" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div
+            className="font-bold text-[#2C241E] text-xs leading-snug line-clamp-2 hover:text-[#985018] transition-colors"
+            title={row.name}
+          >
+            {row.name || "—"}
+          </div>
+          {serviceName ? (
+            <div className="mt-1 flex items-center">
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#FAF3EA] text-[#8A4F23] border border-[#EAD8C7] max-w-[220px] truncate"
+                title={serviceName}
+              >
+                <span>💆</span>
+                <span className="truncate">{serviceName}</span>
+              </span>
+            </div>
+          ) : (
+            row.description && (
+              <div className="text-[10.5px] text-[#8C7A6B] truncate mt-0.5" title={row.description}>
+                {row.description}
+              </div>
+            )
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Định dạng số buổi & thời hạn cho gói liệu trình
+  if (c.name === "total_sessions") {
+    const val = Number(row[c.name] || 0);
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#FAF3EA] text-[#8A4F23] border border-[#EAD8C7]">
+        <Sparkles size={12} className="text-[#985018]" />
+        <span>{val} buổi</span>
+      </span>
+    );
+  }
+  if (c.name === "validity_months") {
+    const val = Number(row[c.name] || 0);
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#F7F3EE] text-[#5C4F44] border border-[#E8DFD8]">
+        <Calendar size={12} className="text-[#8C7A6B]" />
+        <span>{val > 0 ? `${val} tháng` : "Vô thời hạn"}</span>
+      </span>
+    );
+  }
+  if (c.name === "price" || c.name === "original_price" || c.name === "tuition_fee") {
+    const val = Number(row[c.name] ?? 0);
+    return (
+      <div className="font-bold text-[#985018] text-[13px] tabular-nums whitespace-nowrap">
+        {val.toLocaleString("vi-VN")} ₫
+      </div>
+    );
+  }
   if (c.name === "branch_id") {
     const branchName =
       row.branch_name ||
@@ -4257,6 +4336,27 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const [shareJournalItem, setShareJournalItem] = useState<ShareJournalItem | null>(null);
   const [certificateTemplatePreview, setCertificateTemplatePreview] = useState<Row | null>(null);
   const [isExportingTemplatePdf, setIsExportingTemplatePdf] = useState(false);
+  const [activeRowMenu, setActiveRowMenu] = useState<{
+    row: Row;
+    top: number;
+    right: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!activeRowMenu) return;
+    const handleClose = () => setActiveRowMenu(null);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActiveRowMenu(null);
+    };
+    window.addEventListener("click", handleClose);
+    window.addEventListener("scroll", handleClose, true);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("click", handleClose);
+      window.removeEventListener("scroll", handleClose, true);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeRowMenu]);
   const confirmDialog = useRef<HTMLDialogElement>(null);
   const page = Number(params.get("page")) || 1;
   const resource = resources.find((r) => r.name === table);
@@ -4286,6 +4386,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       instructor?: { id?: string; full_name?: string };
     }>
   >([]);
+  const [coursesForBatchFilter, setCoursesForBatchFilter] = useState<Array<{ id: string; title: string; code?: string }>>([]);
 
   // Dữ liệu thời khóa biểu / buổi học phục vụ bộ lọc và timeline lớp học
   const [schedulesForFilter, setSchedulesForFilter] = useState<
@@ -4329,6 +4430,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const [markingEnrollmentId, setMarkingEnrollmentId] = useState<string | null>(null);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [inlineNotes, setInlineNotes] = useState<Record<string, string>>({});
+  const [gradeDrafts, setGradeDrafts] = useState<Record<string, { theory_score: string; practical_score: string }>>({});
+  const [savingGradeId, setSavingGradeId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -4350,7 +4453,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           if (active && Array.isArray(data)) setCategoriesForFilter(data);
         })
         .catch(() => {});
-    } else if (table === "course_enrollments" || table === "student_attendance") {
+    } else if (table === "course_enrollments" || table === "student_attendance" || table === "student_academic_records") {
       fetch(
         `${SUPABASE_URL}/rest/v1/course_batches?select=*,courses(id,title,code),branches(id,name,code),instructor:instructors!instructor_id(id,full_name)&order=start_date.desc,created_at.desc`,
         {
@@ -4382,14 +4485,22 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     };
   }, [table, version]);
   useEffect(() => {
+    let active = true;
     const c = new AbortController();
     adminApi<Resource[]>("resources", undefined, c.signal)
       .then((res) => {
         if (Array.isArray(res) && res.length > 0) setResources(res);
       })
       .catch(() => {});
-    return () => c.abort();
-  }, []);
+
+      if (table === "student_academic_records") {
+        fetch(`${SUPABASE_URL}/rest/v1/courses?select=id,title,code&order=title.asc`, { headers: getSupabaseHeaders() })
+          .then((r) => r.json())
+          .then((data) => { if (active && Array.isArray(data)) setCoursesForBatchFilter(data); })
+          .catch(() => {});
+      }
+    return () => { active = false; c.abort(); };
+  }, [table]);
   useEffect(() => {
     setSearch(params.get("search") || "");
   }, [params]);
@@ -4684,6 +4795,33 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     if (name !== "page") next.delete("page");
     setParams(next);
   };
+
+  const saveInlineGrade = async (row: Row) => {
+    const draft = gradeDrafts[String(row.id)];
+    if (!draft) return;
+    const theory = Number(draft.theory_score);
+    const practical = Number(draft.practical_score);
+    if (![theory, practical].every((score) => Number.isFinite(score) && score >= 0 && score <= 10)) {
+      setError("Điểm lý thuyết và thực hành phải nằm trong khoảng 0 đến 10.");
+      return;
+    }
+    setSavingGradeId(String(row.id));
+    setError("");
+    try {
+      await adminApi(`${table}/update`, {
+        values: { theory_score: theory, practical_score: practical },
+        key: { id: row.id },
+        expectedUpdatedAt: row.updated_at,
+      });
+      setGradeDrafts((current) => { const next = { ...current }; delete next[String(row.id)]; return next; });
+      setNotice("Đã lưu điểm lý thuyết và thực hành.");
+      setVersion((current) => current + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể lưu điểm.");
+    } finally {
+      setSavingGradeId(null);
+    }
+  };
   const filterColumns =
     listing?.columns.filter(
       (c) => (c.options.length || c.type === "bool") && !(table === "users" && c.name === "role")
@@ -4738,9 +4876,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "is_active",
     ],
     treatment_packages: [
-      "image_url",
       "name",
-      "service_id",
       "total_sessions",
       "validity_months",
       "price",
@@ -4997,6 +5133,77 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     );
   }
 
+  const handleTriggerAction = (actionKey: string, row: Row) => {
+    if (actionKey === "share-journal") {
+      setShareJournalItem({
+        id: row.id,
+        sessionNumber: row.session_number,
+        sessionDate: row.session_date,
+        customerName: row.customer?.full_name || row.customer_name || 'Khách hàng',
+        customerPhone: row.customer?.phone || row.phone,
+        customerEmail: row.customer?.email || row.email,
+        serviceName: row.treatment_notes,
+      });
+      return;
+    }
+    if (actionKey === "open-schedule") {
+      const bCode =
+        row.booking_code ||
+        row.bookings?.booking_code ||
+        (typeof row.booking_id === "string"
+          ? row.booking_id
+          : "");
+      window.location.href = `/staff-schedule?booking=${encodeURIComponent(bCode)}`;
+      return;
+    }
+    if (actionKey === "open-pos") {
+      if (table === "treatment_packages") {
+        window.location.href = `/cashier-pos?packageId=${encodeURIComponent(row.id)}&packageName=${encodeURIComponent(row.name || "")}`;
+        return;
+      }
+      const sName = row.name || "";
+      window.location.href = `/cashier-pos?serviceName=${encodeURIComponent(sName)}`;
+      return;
+    }
+    if (actionKey === "open-treatment") {
+      window.location.href = `/treatment-management?packageId=${encodeURIComponent(row.id)}`;
+      return;
+    }
+    if (actionKey === "view-schedule") {
+      window.location.href = "/staff-schedule";
+      return;
+    }
+    if (actionKey === "toggle-active") {
+      (async () => {
+        try {
+          setPending(true);
+          await adminApi(`${table}/action`, {
+            key: rowKey(listing!.columns, row),
+            action: "toggle-active",
+            currentActive: row.is_active,
+          });
+          setVersion((v) => v + 1);
+          setNotice(
+            row.is_active
+              ? `Đã tạm ngừng phục vụ "${row.name || "dịch vụ"}".`
+              : `Đã kích hoạt kinh doanh "${row.name || "dịch vụ"}".`
+          );
+        } catch (err: any) {
+          setError(err.message || "Lỗi thay đổi trạng thái.");
+        } finally {
+          setPending(false);
+        }
+      })();
+      return;
+    }
+    setReason("");
+    setConfirmation({
+      row,
+      action: actionKey,
+      title: availableActions(table, row).find((x) => x.key === actionKey)?.title || "Xác nhận thao tác",
+    });
+  };
+
   return (
     <section className="admin-resource">
       <div className="admin-page-heading">
@@ -5109,7 +5316,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        {(table === "course_enrollments" || table === "student_attendance") && (
+        {(table === "course_enrollments" || table === "student_attendance" || table === "student_academic_records") && (
           <select
             aria-label="Chọn Lớp học"
             className="font-bold text-[#8A4F23] bg-[#FFFDF9] border-[#EAD8C7]"
@@ -5141,6 +5348,17 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                 {b.batch_code} · {b.courses?.title || "Khóa học"} {b.branches?.name ? `(${b.branches.name})` : ""}
               </option>
             ))}
+          </select>
+        )}
+        {table === "student_academic_records" && (
+          <select
+            aria-label="Lọc bảng điểm theo khóa học"
+            className="font-bold text-[#2C241E] bg-[#FFFDF9] border-[#EAD8C7]"
+            value={params.get("course_id") || ""}
+            onChange={(e) => updateParam("course_id", e.target.value)}
+          >
+            <option value="">Tất cả khóa học</option>
+            {coursesForBatchFilter.map((course) => <option key={course.id} value={course.id}>{course.title}{course.code ? ` (${course.code})` : ""}</option>)}
           </select>
         )}
         {table === "student_attendance" && selectedBatchId && selectedBatchId !== "__ALL__" && (
@@ -6169,209 +6387,243 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   </div>
                 )}
                 <div className="admin-table-wrap">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    {visible.map((c) => (
-                      <th key={c.name}>
-                        <button
-                          onClick={() => {
-                            const next = new URLSearchParams(params);
-                            next.set("sort", c.name);
-                            next.set(
-                              "direction",
-                              params.get("sort") === c.name &&
-                                params.get("direction") === "asc"
-                                ? "desc"
-                                : "asc",
-                            );
-                            next.delete("page");
-                            setParams(next);
-                          }}
-                        >
-                          {label(c.name)}
-                          {params.get("sort") === c.name
-                            ? params.get("direction") === "asc"
-                              ? " ↑"
-                              : " ↓"
-                            : ""}
-                        </button>
-                      </th>
-                    ))}
-                    <th className="admin-row-actions">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {listing.rows.map((row, i) => (
-                    <tr key={JSON.stringify(rowKey(listing.columns, row)) || i}>
-                      {visible.map((c, j) => (
-                        <td key={c.name}>
-                          {j === 0 ? (
-                            <button
-                              className="admin-record-link"
-                              onClick={() => openRecordPreview(row)}
-                            >
-                              {formatCell(row, c)}
-                            </button>
-                          ) : (
-                            <span
-                              className={
-                                c.name === "status" ||
-                                c.name === "payment_status"
-                                  ? "admin-status"
-                                  : ""
-                              }
-                            >
-                              {formatCell(row, c)}
-                            </span>
-                          )}
-                          {table === "course_categories" && c.name === "name" && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {(() => {
-                                const matched = coursesForFilter.filter(
-                                  (crs) => crs.category_id === row.id
-                                );
-                                if (matched.length === 0) {
-                                  return (
-                                    <span className="text-[10px] text-[#A69788] italic">
-                                      Chưa có khóa học
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            {visible.map((c) => (
+                              <th key={c.name}>
+                                <button
+                                  onClick={() => {
+                                    const next = new URLSearchParams(params);
+                                    next.set("sort", c.name);
+                                    next.set(
+                                      "direction",
+                                      params.get("sort") === c.name &&
+                                        params.get("direction") === "asc"
+                                        ? "desc"
+                                        : "asc",
+                                    );
+                                    next.delete("page");
+                                    setParams(next);
+                                  }}
+                                >
+                                  {label(c.name, table)}
+                                  {params.get("sort") === c.name
+                                    ? params.get("direction") === "asc"
+                                      ? " ↑"
+                                      : " ↓"
+                                    : ""}
+                                </button>
+                              </th>
+                            ))}
+                            <th className="admin-row-actions">Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {listing.rows.map((row, i) => (
+                            <tr key={JSON.stringify(rowKey(listing.columns, row)) || i}>
+                              {visible.map((c, j) => (
+                                <td key={c.name}>
+                                  {table === "student_academic_records" && (c.name === "theory_score" || c.name === "practical_score") ? (
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={10}
+                                      step={0.1}
+                                      aria-label={`${c.name === "theory_score" ? "Điểm lý thuyết" : "Điểm thực hành"} ${row.course_enrollments?.student?.full_name || row.id}`}
+                                      value={gradeDrafts[String(row.id)]?.[c.name] ?? String(row[c.name] ?? "")}
+                                      onChange={(event) => setGradeDrafts((current) => ({
+                                        ...current,
+                                        [String(row.id)]: {
+                                          theory_score: current[String(row.id)]?.theory_score ?? String(row.theory_score ?? ""),
+                                          practical_score: current[String(row.id)]?.practical_score ?? String(row.practical_score ?? ""),
+                                          [c.name]: event.target.value,
+                                        },
+                                      }))}
+                                      className="w-20 rounded-md border border-[#CBD5E1] px-2 py-1 text-xs"
+                                    />
+                                  ) : j === 0 ? (
+                                    <button
+                                      className="admin-record-link"
+                                      onClick={() => openRecordPreview(row)}
+                                    >
+                                      {formatCell(row, c, table)}
+                                    </button>
+                                  ) : (
+                                    <span
+                                      className={
+                                        c.name === "status" ||
+                                        c.name === "payment_status"
+                                          ? "admin-status"
+                                          : ""
+                                      }
+                                    >
+                                      {formatCell(row, c, table)}
                                     </span>
-                                  );
-                                }
-                                return (
-                                  <span
-                                    className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#8A4F23] bg-[#FAF3EA] border border-[#EAD8C7] px-2 py-0.5 rounded-md"
-                                    title={matched.map((m) => m.title).join(", ")}
+                                  )}
+                                  {table === "course_categories" && c.name === "name" && (
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {(() => {
+                                        const matched = coursesForFilter.filter(
+                                          (crs) => crs.category_id === row.id
+                                        );
+                                        if (matched.length === 0) {
+                                          return (
+                                            <span className="text-[10px] text-[#A69788] italic">
+                                              Chưa có khóa học
+                                            </span>
+                                          );
+                                        }
+                                        return (
+                                          <span
+                                            className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#8A4F23] bg-[#FAF3EA] border border-[#EAD8C7] px-2 py-0.5 rounded-md"
+                                            title={matched.map((m) => m.title).join(", ")}
+                                          >
+                                            📚 {matched.length} khóa: {matched.map((m) => m.title).join(", ")}
+                                          </span>
+                                        );
+                                      })()}
+                                    </div>
+                                  )}
+                                </td>
+                              ))}
+                              <td>
+                                <div className="admin-row-actions">
+                                  {table === "student_academic_records" && gradeDrafts[String(row.id)] && (
+                                    <button
+                                      className="admin-icon"
+                                      title="Lưu điểm đã nhập"
+                                      aria-label="Lưu điểm đã nhập"
+                                      disabled={savingGradeId === String(row.id)}
+                                      onClick={() => saveInlineGrade(row)}
+                                    >
+                                      <Save size={16} />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    className="admin-icon"
+                                    title={table === "certificate_templates" ? "Xem & chỉnh sửa phôi chứng nhận A4" : "Xem chi tiết"}
+                                    onClick={() => openRecordPreview(row)}
                                   >
-                                    📚 {matched.length} khóa: {matched.map((m) => m.title).join(", ")}
-                                  </span>
-                                );
-                              })()}
-                            </div>
-                          )}
-                        </td>
-                      ))}
-                      <td>
-                        <div className="admin-row-actions">
+                                    <Eye size={16} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`admin-icon ${activeRowMenu?.row.id === row.id ? "bg-[#FAF3EA] text-[#985018] border-[#EAD8C7]" : ""}`}
+                                    title="Tùy chọn thao tác"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      if (activeRowMenu && activeRowMenu.row.id === row.id) {
+                                        setActiveRowMenu(null);
+                                      } else {
+                                        setActiveRowMenu({
+                                          row,
+                                          top: rect.bottom + 6,
+                                          right: window.innerWidth - rect.right,
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <MoreHorizontal size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      {activeRowMenu && (
+                        <div
+                          className="fixed z-50 min-w-[230px] rounded-2xl border border-[#EAD8C7] bg-white p-1.5 shadow-2xl font-['Plus_Jakarta_Sans',sans-serif] animate-in fade-in zoom-in-95 duration-100"
+                          style={{
+                            top: `${activeRowMenu.top}px`,
+                            right: `${activeRowMenu.right}px`,
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="px-3 py-1.5 text-[10.5px] font-bold text-[#8C7A6B] uppercase tracking-wider border-b border-[#F0E5D9] mb-1 flex items-center justify-between">
+                            <span>Tùy chọn thao tác</span>
+                            <span className="font-mono text-[10px] text-[#A69788]">
+                              #{String(activeRowMenu.row.id || "").slice(0, 6)}
+                            </span>
+                          </div>
+
                           <button
-                            className="admin-icon"
-                            title={table === "certificate_templates" ? "Xem & chỉnh sửa phôi chứng nhận A4" : "Xem chi tiết"}
-                            onClick={() => openRecordPreview(row)}
+                            type="button"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#2C241E] hover:bg-[#FAF4ED] hover:text-[#985018] rounded-xl transition-colors text-left cursor-pointer"
+                            onClick={() => {
+                              const targetRow = activeRowMenu.row;
+                              setActiveRowMenu(null);
+                              openRecordPreview(targetRow);
+                            }}
                           >
-                            <Eye size={16} />
+                            <Eye size={14} className="text-[#985018]" />
+                            <span>Xem hồ sơ chi tiết</span>
                           </button>
+
                           {resource?.actions?.includes("update") && (
                             <button
-                              className="admin-icon"
-                              title="Chỉnh sửa"
-                              onClick={() => setEdit({ row, mode: "update" })}
-                            >
-                              <Pencil size={16} />
-                            </button>
-                          )}
-                          {resource?.actions?.includes("delete") && (
-                            <button
-                              className="admin-icon admin-danger"
-                              title="Xóa"
+                              type="button"
+                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#2C241E] hover:bg-[#FAF4ED] hover:text-[#985018] rounded-xl transition-colors text-left cursor-pointer"
                               onClick={() => {
-                                setReason("");
-                                setConfirmation({
-                                  row,
-                                  action: "delete",
-                                  title: "Xóa bản ghi",
-                                });
+                                const targetRow = activeRowMenu.row;
+                                setActiveRowMenu(null);
+                                setEdit({ row: targetRow, mode: "update" });
                               }}
                             >
-                              <Trash2 size={16} />
+                              <Pencil size={14} className="text-[#985018]" />
+                              <span>Chỉnh sửa thông tin</span>
                             </button>
                           )}
+
                           {resource?.actions?.includes("action") &&
-                            availableActions(table, row).map((a) => (
+                            availableActions(table, activeRowMenu.row).map((a) => {
+                              const ActionIcon = a.icon;
+                              return (
+                                <button
+                                  key={a.key}
+                                  type="button"
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[#2C241E] hover:bg-[#FAF4ED] hover:text-[#985018] rounded-xl transition-colors text-left cursor-pointer"
+                                  onClick={() => {
+                                    const targetRow = activeRowMenu.row;
+                                    setActiveRowMenu(null);
+                                    handleTriggerAction(a.key, targetRow);
+                                  }}
+                                >
+                                  <ActionIcon size={14} className="text-[#8A4F23]" />
+                                  <span>{a.title}</span>
+                                </button>
+                              );
+                            })}
+
+                          {resource?.actions?.includes("delete") && (
+                            <>
+                              <div className="my-1 border-t border-[#F0E5D9]" />
                               <button
-                                key={a.key}
-                                className="admin-icon"
-                                title={a.title}
+                                type="button"
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors text-left cursor-pointer"
                                 onClick={() => {
-                                  if (a.key === "share-journal") {
-                                    setShareJournalItem({
-                                      id: row.id,
-                                      sessionNumber: row.session_number,
-                                      sessionDate: row.session_date,
-                                      customerName: row.customer?.full_name || row.customer_name || 'Khách hàng',
-                                      customerPhone: row.customer?.phone || row.phone,
-                                      customerEmail: row.customer?.email || row.email,
-                                      serviceName: row.treatment_notes,
-                                    });
-                                    return;
-                                  }
-                                  if (a.key === "open-schedule") {
-                                    const bCode =
-                                      row.booking_code ||
-                                      row.bookings?.booking_code ||
-                                      (typeof row.booking_id === "string"
-                                        ? row.booking_id
-                                        : "");
-                                    window.location.href = `/staff-schedule?booking=${encodeURIComponent(bCode)}`;
-                                    return;
-                                  }
-                                  if (a.key === "open-pos") {
-                                    if (table === "treatment_packages") {
-                                      window.location.href = `/cashier-pos?packageId=${encodeURIComponent(row.id)}&packageName=${encodeURIComponent(row.name || "")}`;
-                                      return;
-                                    }
-                                    const sName = row.name || "";
-                                    window.location.href = `/cashier-pos?serviceName=${encodeURIComponent(sName)}`;
-                                    return;
-                                  }
-                                  if (a.key === "open-treatment") {
-                                    window.location.href = `/treatment-management?packageId=${encodeURIComponent(row.id)}`;
-                                    return;
-                                  }
-                                  if (a.key === "view-schedule") {
-                                    window.location.href = "/staff-schedule";
-                                    return;
-                                  }
-                                  if (a.key === "toggle-active") {
-                                    (async () => {
-                                      try {
-                                        setPending(true);
-                                        await adminApi(`${table}/action`, {
-                                          key: rowKey(listing.columns, row),
-                                          action: "toggle-active",
-                                          currentActive: row.is_active,
-                                        });
-                                        setVersion((v) => v + 1);
-                                        setNotice(
-                                          row.is_active
-                                            ? `Đã tạm ngừng phục vụ "${row.name || "dịch vụ"}".`
-                                            : `Đã kích hoạt kinh doanh "${row.name || "dịch vụ"}".`
-                                        );
-                                      } catch (err: any) {
-                                        setError(err.message || "Lỗi thay đổi trạng thái.");
-                                      } finally {
-                                        setPending(false);
-                                      }
-                                    })();
-                                    return;
-                                  }
+                                  const targetRow = activeRowMenu.row;
+                                  setActiveRowMenu(null);
                                   setReason("");
                                   setConfirmation({
-                                    row,
-                                    action: a.key,
-                                    title: a.title,
+                                    row: targetRow,
+                                    action: "delete",
+                                    title: "Xóa bản ghi",
                                   });
                                 }}
                               >
-                                <a.icon size={16} />
+                                <Trash2 size={14} className="text-rose-600" />
+                                <span>Xóa bản ghi này</span>
                               </button>
-                            ))}
+                            </>
+                          )}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {!listing.rows.length && (
+                      )}
+                      {!listing.rows.length && (
                 <div className="admin-empty py-10 text-center">
                   {table === "course_enrollments" && selectedBatch ? (
                     <div className="max-w-md mx-auto space-y-3 font-['Plus_Jakarta_Sans',sans-serif]">

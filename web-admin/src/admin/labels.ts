@@ -60,9 +60,9 @@ export const labels: Record<string, string> = {
   completed_sessions: "Buổi đã hoàn thành",
   expires_at: "Hết hạn",
   purchased_at: "Ngày mua",
-  image_url: "Ảnh đại diện (URL)",
-  avatar_url: "Ảnh chân dung (URL)",
-  icon_url: "Biểu tượng (URL)",
+  image_url: "Hình ảnh",
+  avatar_url: "Ảnh đại diện",
+  icon_url: "Biểu tượng",
   gallery_urls: "Bộ ảnh",
   steps: "Các bước",
   benefits: "Lợi ích",
@@ -90,9 +90,9 @@ export const labels: Record<string, string> = {
   title_text: "Tiêu đề chứng nhận",
   signer_name: "Người ký",
   signer_title: "Chức danh người ký",
-  background_image_url: "Ảnh phôi (URL)",
-  signature_image_url: "Ảnh chữ ký (URL)",
-  seal_image_url: "Ảnh dấu (URL)",
+  background_image_url: "Ảnh phôi chứng nhận",
+  signature_image_url: "Chữ ký người ký",
+  seal_image_url: "Con dấu xác nhận",
   certificate_code: "Mã chứng nhận",
   qr_verification_code: "Mã xác minh",
   student_name: "Tên học viên trên chứng nhận",
@@ -101,7 +101,7 @@ export const labels: Record<string, string> = {
   practical_score: "Điểm thực hành",
   final_grade: "Xếp loại",
   issue_date: "Ngày phát hành",
-  certificate_pdf_url: "Chứng nhận PDF (URL)",
+  certificate_pdf_url: "File chứng nhận PDF",
   revocation_reason: "Lý do thu hồi",
   experience_years: "Kinh nghiệm (năm)",
   bio: "Giới thiệu",
@@ -152,7 +152,7 @@ export const labels: Record<string, string> = {
   transaction_code: "Mã giao dịch",
   transaction_type: "Loại giao dịch",
   receipt_number: "Số biên nhận",
-  receipt_pdf_url: "Biên nhận PDF (URL)",
+  receipt_pdf_url: "File biên nhận PDF",
   due_date: "Hạn thanh toán",
   notes: "Ghi chú",
   paid_at: "Thời điểm thanh toán",
@@ -183,7 +183,7 @@ export const labels: Record<string, string> = {
   chapter_order: "Thứ tự chương",
   lesson_order: "Thứ tự bài",
   lesson_type: "Loại bài học",
-  video_url: "Video (URL)",
+  video_url: "Video hướng dẫn",
   content_text: "Nội dung",
   attachments: "Tài liệu đính kèm",
   learning_goals: "Mục tiêu",
@@ -216,7 +216,7 @@ export const labels: Record<string, string> = {
   before_photos: "Ảnh trước",
   after_photos: "Ảnh sau",
   specialist_advice: "Lời dặn chuyên viên",
-  customer_signature_url: "Chữ ký khách hàng (URL)",
+  customer_signature_url: "Chữ ký khách hàng",
   category: "Chuyên mục",
   summary: "Tóm tắt",
   content: "Nội dung",
@@ -453,7 +453,16 @@ export const enums: Record<string, string> = {
   PROBATION: "Thử việc",
   INTERN: "Thực tập sinh",
 };
-export const label = (name: string) => labels[name] || name.replace(/_/g, " ");
+export const label = (name: string, table?: string) => {
+  if (table === "treatment_packages") {
+    if (name === "name") return "Gói liệu trình & Dịch vụ";
+    if (name === "total_sessions") return "Số buổi";
+    if (name === "validity_months") return "Thời hạn";
+    if (name === "price") return "Giá niêm yết";
+    if (name === "is_active") return "Trạng thái kinh doanh";
+  }
+  return labels[name] || name.replace(/_/g, " ");
+};
 export const display = (value: any) =>
   value === null || value === undefined || value === ""
     ? "—"

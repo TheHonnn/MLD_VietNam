@@ -22,6 +22,11 @@ import { commissionService, branchService, staffService } from '../services';
 import { StaffCommission, Branch, User } from '../types/shared_types';
 import { toast } from '../components/common';
 
+const currentMonthKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
 export const W13_StaffCommissions: React.FC = () => {
   const [commissions, setCommissions] = useState<StaffCommission[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -30,7 +35,7 @@ export const W13_StaffCommissions: React.FC = () => {
 
   // Filters
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
   const [selectedStaff, setSelectedStaff] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -156,7 +161,12 @@ export const W13_StaffCommissions: React.FC = () => {
     const pendingTotal = filteredCommissions
       .filter((c) => pendingIds.includes(c.id))
       .reduce((total, c) => total + c.commissionAmount, 0);
-    if (!window.confirm(`Duyệt ${pendingIds.length} khoản hoa hồng, tổng ${formatVND(pendingTotal)}?`)) return;
+    const scope = [
+      selectedMonth === 'all' ? 'tất cả tháng' : selectedMonth,
+      selectedBranch === 'all' ? 'tất cả chi nhánh' : branches.find((b) => b.id === selectedBranch)?.name || 'chi nhánh đã chọn',
+      selectedStaff === 'all' ? 'tất cả nhân viên' : staffList.find((s) => s.id === selectedStaff)?.fullName || 'nhân viên đã chọn',
+    ].join(' · ');
+    if (!window.confirm(`Duyệt ${pendingIds.length} khoản hoa hồng, tổng ${formatVND(pendingTotal)}?\nPhạm vi: ${scope}`)) return;
 
     setIsProcessing(true);
     try {
@@ -314,9 +324,13 @@ export const W13_StaffCommissions: React.FC = () => {
             className="bg-transparent text-xs text-[#0F172A] focus:outline-none cursor-pointer"
           >
             <option value="all">Tất cả tháng</option>
-            <option value="2026-10">Tháng 10/2026</option>
-            <option value="2026-09">Tháng 09/2026</option>
-            <option value="2026-08">Tháng 08/2026</option>
+            {Array.from({ length: 12 }, (_, index) => {
+              const date = new Date();
+              date.setDate(1);
+              date.setMonth(date.getMonth() - index);
+              const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+              return <option key={value} value={value}>{date.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}</option>;
+            })}
           </select>
         </div>
 
@@ -368,6 +382,13 @@ export const W13_StaffCommissions: React.FC = () => {
             <option value="PAID">Đã thanh toán</option>
           </select>
         </div>
+        <button
+          type="button"
+          onClick={() => { setSelectedMonth(currentMonthKey()); setSelectedBranch('all'); setSelectedStaff('all'); setSelectedStatus('all'); setSearchTerm(''); }}
+          className="px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-50 rounded-xl"
+        >
+          Xóa bộ lọc
+        </button>
       </div>
 
       {/* Main Table */}

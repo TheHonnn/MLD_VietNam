@@ -261,6 +261,7 @@ export const W07_CashierPOS: React.FC = () => {
   const [shiftOpeningCash, setShiftOpeningCash] = useState<number>(1000000);
   const [shiftClosingCash, setShiftClosingCash] = useState<number>(0);
   const [shiftNotes, setShiftNotes] = useState('');
+  const [shiftVarianceReason, setShiftVarianceReason] = useState('');
 
   // UI Processing & Modals
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1552,7 +1553,8 @@ export const W07_CashierPOS: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                setShiftClosingCash(currentShift.systemCash || currentShift.openingCash);
+                setShiftClosingCash(currentShift.systemCash ?? currentShift.openingCash);
+                setShiftVarianceReason('');
                 setShowCloseShiftModal(true);
               }}
               className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
@@ -3687,6 +3689,22 @@ export const W07_CashierPOS: React.FC = () => {
               <button type="button" onClick={() => setEditingReceipt(null)} className="p-2 hover:bg-slate-100 rounded" aria-label="Đóng"><X size={16} /></button>
             </div>
             <div className="p-5 space-y-4 text-sm">
+              {receiptEditHistory.length > 0 && (
+                <section className="rounded-xl border border-sky-200 bg-sky-50 p-3 space-y-2">
+                  <h4 className="font-semibold text-sky-950">Lịch sử chỉnh sửa gần đây</h4>
+                  {receiptEditHistory.slice(0, 5).map((entry) => (
+                    <div key={entry.id} className="text-xs bg-white rounded-lg p-2">
+                      <div className="font-semibold">{entry.actor?.full_name || 'Nhân viên'} · {new Date(entry.created_at).toLocaleString('vi-VN')}</div>
+                      <div className="text-[#73675F]">Lý do: {entry.reason}</div>
+                      {['receipt_customer_name', 'receipt_description', 'receipt_notes'].map((field) => {
+                        const before = entry.before_data?.[field] || '(trống)';
+                        const after = entry.after_data?.[field] || '(trống)';
+                        return before === after ? null : <div key={field} className="mt-1"><span className="font-medium">{field === 'receipt_customer_name' ? 'Tên khách' : field === 'receipt_description' ? 'Diễn giải' : 'Ghi chú'}:</span> <span className="text-red-700">{before}</span> <span aria-hidden="true">→</span> <span className="text-green-800">{after}</span></div>;
+                      })}
+                    </div>
+                  ))}
+                </section>
+              )}
               <label className="block space-y-1">
                 <span className="font-semibold text-[#4A3E31]">Tên khách trên biên lai</span>
                 <input value={receiptCustomerName} onChange={(e) => setReceiptCustomerName(e.target.value)} maxLength={150} required className="w-full border border-[#D8D0C7] rounded-md px-3 py-2" />
@@ -3704,22 +3722,6 @@ export const W07_CashierPOS: React.FC = () => {
                 <span className="font-semibold text-[#4A3E31]">Lý do sửa <span className="text-red-600">*</span></span>
                 <input value={receiptEditReason} onChange={(e) => setReceiptEditReason(e.target.value)} minLength={3} maxLength={500} required className="w-full border border-[#D8D0C7] rounded-md px-3 py-2" placeholder="Ví dụ: Sửa tên khách theo yêu cầu" />
               </label>
-              {receiptEditHistory.length > 0 && (
-                <section className="border-t border-[#EFE4D9] pt-3 space-y-2">
-                  <h4 className="font-semibold text-[#4A3E31]">Lịch sử chỉnh sửa gần đây</h4>
-                  {receiptEditHistory.slice(0, 5).map((entry) => (
-                    <div key={entry.id} className="text-xs bg-[#FAF8F5] rounded p-2">
-                      <div className="font-semibold">{entry.actor?.full_name || 'Nhân viên'} · {new Date(entry.created_at).toLocaleString('vi-VN')}</div>
-                      <div className="text-[#73675F]">Lý do: {entry.reason}</div>
-                      {['receipt_customer_name', 'receipt_description', 'receipt_notes'].map((field) => {
-                        const before = entry.before_data?.[field] || '(trống)';
-                        const after = entry.after_data?.[field] || '(trống)';
-                        return before === after ? null : <div key={field} className="mt-1"><span className="font-medium">{field === 'receipt_customer_name' ? 'Tên khách' : field === 'receipt_description' ? 'Diễn giải' : 'Ghi chú'}:</span> <span className="text-red-700">{before}</span> <span aria-hidden="true">→</span> <span className="text-green-800">{after}</span></div>;
-                      })}
-                    </div>
-                  ))}
-                </section>
-              )}
             </div>
             <div className="px-5 py-4 border-t border-[#EFE4D9] flex justify-end gap-2">
               <button type="button" onClick={() => setEditingReceipt(null)} className="px-4 py-2 border rounded-md">Hủy</button>
@@ -3899,9 +3901,10 @@ export const W07_CashierPOS: React.FC = () => {
                 </strong>
               </div>
               {cashDifference !== 0 && (
-                <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2">
-                  Vui lòng kiểm tra chênh lệch trước khi xác nhận kết ca.
-                </p>
+                <label className="block space-y-1 text-amber-900">
+                  <span className="font-bold">Lý do chênh lệch <span className="text-rose-600">*</span></span>
+                  <textarea value={shiftVarianceReason} onChange={(event) => setShiftVarianceReason(event.target.value)} minLength={5} maxLength={500} rows={2} required className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs text-slate-800" placeholder="Nhập nguyên nhân chênh lệch để lưu vào ghi chú ca" />
+                </label>
               )}
                   </>
                 );
@@ -3918,10 +3921,15 @@ export const W07_CashierPOS: React.FC = () => {
               <button
                 type="button"
                 onClick={async () => {
+                  const expectedCash = currentShift.systemCash ?? currentShift.openingCash;
+                  if (shiftClosingCash !== expectedCash && shiftVarianceReason.trim().length < 5) {
+                    toast.error('Thiếu lý do chênh lệch', 'Vui lòng nhập lý do ít nhất 5 ký tự.');
+                    return;
+                  }
                   try {
                     const result = await posService.closeShift(currentShift.id, {
                       closingCash: shiftClosingCash,
-                      notes: shiftNotes,
+                      notes: [shiftNotes.trim(), shiftVarianceReason.trim() ? `Chênh lệch tiền mặt: ${shiftVarianceReason.trim()}` : ''].filter(Boolean).join('\n'),
                       systemCash: currentShift.systemCash,
                       totalSales: currentShift.totalSales,
                       transferSales: currentShift.transferSales,
@@ -3938,7 +3946,8 @@ export const W07_CashierPOS: React.FC = () => {
                     toast.error('Không thể kết ca', e?.message || 'Đã xảy ra lỗi khi lưu kết ca.');
                   }
                 }}
-                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-xs"
+                disabled={shiftClosingCash !== (currentShift.systemCash ?? currentShift.openingCash) && shiftVarianceReason.trim().length < 5}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Xác nhận kết ca
               </button>
