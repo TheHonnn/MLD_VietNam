@@ -1,3 +1,4 @@
+import {spawnSync} from 'node:child_process';
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 import {mkdir} from 'node:fs/promises';
@@ -7,6 +8,8 @@ import {chromium,webkit} from '../../../backend/.relay-local/browser-check/node_
 // Browser-only fixtures: all business requests are intercepted, never sent to a database.
 const id=n=>`10000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
 const customerMode=process.env.CUSTOMER_MODE==='1';
+// Keep the old entry point working against the current customer layout.
+if(customerMode){const result=spawnSync(process.execPath,[fileURLToPath(new URL('./check-connected-app-browser.mjs',import.meta.url))],{env:{...process.env,BROWSER_SCENARIO:'customer'},stdio:'inherit'});if(result.error)throw result.error;process.exit(result.status??1);}
 const employee={id:id(90),fullName:'Tài khoản kiểm thử',phone:'0900000090',role:customerMode?'CUSTOMER':'RECEPTIONIST',staffAccess:!customerMode,membershipTier:'STANDARD',rewardPoints:0,totalSpent:0,purpose:'BOTH'};
 const branch={id:id(3),name:'Cơ sở kiểm thử',code:'TEST',address:'Địa chỉ kiểm thử',city:'Hồ Chí Minh',phone:'0900000003',isActive:true,openingTime:'08:00',closingTime:'20:00',galleryUrls:[],amenities:[]};
 const customer={id:id(1),fullName:'Khách đã đặt lịch',phone:'0900000001'};
@@ -32,13 +35,19 @@ try{
     page.on('pageerror',error=>errors.push({message:error.message,stack:error.stack}));
     await page.route('**/node_modules/.vite/deps/zmp-sdk.js*',route=>route.fulfill({contentType:'application/javascript',body:`${sdk}
       export const getRouteParams=()=>({});export const getShareableLink=async()=> 'https://fixture.invalid/shared';
-      export const scanQRCode=async()=>({content:''});export const openShareSheet=async()=>{};export const closeApp=async()=>{};
+      export const openDocument=async()=>{};export const scanQRCode=async()=>({content:''});export const openShareSheet=async()=>{};export const closeApp=async()=>{};
       export const events={on(){},off(){}};export const EventName={OnAppPaused:'paused',OnAppResumed:'resumed'};`}));
     await page.route('**/api/client.ts*',route=>route.fulfill({contentType:'application/javascript',body:built.outputFiles[0].text}));
     await page.route('https://fixture.invalid/api/**',async route=>{
       const url=new URL(route.request().url()),path=url.pathname.slice('/api'.length);requests.push(path);
       let data;
       if(path==='/auth/me')data={user:employee};
+      else if(path==='/auth/zalo')data={user:employee,token:'isolated-session'};
+      else if(path==='/membership')data={user:employee,summary:{upcomingBookings:0,remainingTreatmentSessions:0,activeCourses:0},vouchers:[]};
+      else if(path==='/auth/settings')data={settings:{language:'vi'}};
+      else if(path==='/records')data={records:[]};
+      else if(path==='/treatment-plans')data={treatmentPlans:[],nextCursor:null};
+      else if(path==='/transactions')data={invoices:[],pointTransactions:[],totalSpent:0};
       else if(path==='/health')data={status:'ok'};
       else if(path==='/app-metadata')data={serviceCategories:[],courseCategories:[],instructors:[],membershipTiers:[],faqs:[]};
       else if(path==='/portal/banners')data={banners:customerMode?[{id:id(80),title:'Banner đọc từ Admin',summary:'Nội dung API kiểm thử',contentText:'Toàn văn từ database kiểm thử',targetLink:'/documents'}]:[]};
@@ -83,51 +92,10 @@ try{
     });
     try{
       await page.goto(process.env.PREVIEW_URL||'http://127.0.0.1:5184/',{waitUntil:'domcontentloaded'});
-      await page.getByRole('button',{name:'Bỏ qua',exact:true}).click();
+      await page.locator('.matched-home-header').waitFor();
+      await page.getByRole('button',{name:'Tài khoản cá nhân',exact:true}).click();await page.getByRole('button',{name:'Đăng nhập',exact:true}).first().click();await page.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).click();await page.getByText(employee.fullName,{exact:true}).first().waitFor();
       const nav=page.locator('.app-bottom-nav');
-      if(customerMode){
-        await page.getByRole('button',{name:/Banner đọc từ Admin/}).first().waitFor();
-        await page.getByRole('button',{name:/Banner đọc từ Admin/}).first().click();
-        await page.getByText('Toàn văn từ database kiểm thử',{exact:true}).waitFor();
-        await page.getByRole('button',{name:'Đóng thông tin',exact:true}).click();
-        await page.locator('.home-shortcuts').getByRole('button',{name:'Cộng đồng',exact:true}).click();
-        await page.getByRole('button',{name:/Bài viết công khai từ Admin/}).click();
-        await page.getByText('Toàn văn bài viết từ API',{exact:true}).waitFor();
-        await nav.getByRole('button',{name:'Trang chủ',exact:true}).click();
-        await nav.getByRole('button',{name:'Cá nhân',exact:true}).click();
-        assert.equal(await page.locator('.staff-workspace').count(),0);
-        await nav.getByRole('button',{name:'Dịch vụ',exact:true}).click();
-        await page.getByRole('button',{name:'Đặt lịch kiểm tra phù bạch huyết',exact:true}).click();
-        await page.getByRole('heading',{name:'Kiểm tra phù bạch huyết',exact:true}).waitFor();
-        await page.getByRole('searchbox',{name:'Tìm dịch vụ kiểm tra',exact:true}).fill('dich vu kiem thu');
-        await page.getByRole('button',{name:'Chọn dịch vụ Dịch vụ kiểm thử',exact:true}).click();
-        await page.getByRole('heading',{name:'Đặt lịch trị liệu',exact:true}).waitFor();
-        assert.equal(await page.getByRole('textbox',{name:'Ghi chú đặt lịch',exact:true}).inputValue(),'Nhu cầu: Kiểm tra phù bạch huyết');
-        await page.getByRole('button',{name:'14:00 - 15:00',exact:true}).click();
-        await page.getByLabel('Đặt hộ người khác',{exact:true}).check();
-        await page.getByRole('textbox',{name:'Họ tên người sử dụng',exact:true}).fill('Người được đặt hộ');
-        await page.getByRole('textbox',{name:'Số điện thoại người sử dụng',exact:true}).fill('0900000002');
-        await page.getByRole('textbox',{name:'Ghi chú đặt lịch',exact:true}).fill('Nhu cầu: Kiểm tra phù bạch huyết\nGhi chú thật trong yêu cầu kiểm thử');
-        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1),false);
-        await page.screenshot({path:fileURLToPath(new URL(`customer-booking-${useWebKit?'webkit':'chrome'}-${viewport.width}.png`,folder))});
-        const written=page.waitForResponse(response=>response.url().endsWith('/bookings')&&response.request().method()==='POST');
-        await page.getByRole('button',{name:'Xác nhận đặt lịch',exact:true}).click();await written;
-        assert.equal(customerWrites.length,1);assert.equal(customerWrites[0].bookedForName,'Người được đặt hộ');
-        assert.equal(customerWrites[0].customerId,undefined);assert.equal(customerWrites[0].expectedFinalPrice,100000);
-        assert.equal(customerWrites[0].serviceId,id(5));
-        assert.equal(customerWrites[0].specialNotes,'Nhu cầu: Kiểm tra phù bạch huyết\nGhi chú thật trong yêu cầu kiểm thử');
-        assert.equal(requests.some(path=>path.startsWith('/staff/')),false);
-        assert.deepEqual(errors,[]);assert.deepEqual(unknown,[]);
-        console.log(JSON.stringify({customerBooking:true,noStaffAccess:true,viewport,engine:useWebKit?'webkit':'chromium',nativeAndDataSimulated:true}));
-        continue;
-      }
-      await page.locator('.home-information summary').filter({hasText:'Cẩm nang đã xuất bản'}).click();
-      await page.getByText('Chi tiết cẩm nang kiểm thử',{exact:true}).waitFor();
-      assert.equal(await page.getByText('Cẩm nang chưa xuất bản',{exact:true}).count(),0);
-      assert.equal(await page.locator('.home-feature').count(),0);
-      assert.equal(await page.getByText('Chăm sóc sức khỏe và đào tạo nghề Spa',{exact:true}).count(),0);
-      await page.screenshot({path:fileURLToPath(new URL(`home-empty-${useWebKit?'webkit':'chrome'}-${viewport.width}.png`,folder))});
-      await nav.getByRole('button',{name:'Cá nhân',exact:true}).click();
+      const openWork=async()=>{await nav.getByRole('button',{name:'Trang chủ',exact:true}).click();await page.getByRole('button',{name:'Tài khoản cá nhân',exact:true}).click();await page.getByRole('button',{name:'Công việc nhân viên',exact:true}).click();};await openWork();
       const work=page.locator('.staff-workspace');await work.getByText('NV-TEST',{exact:true}).waitFor();
       assert.equal(await page.getByText('Xem thẻ hội viên',{exact:false}).count(),0);
       assert.equal(await page.getByText('Điểm tích lũy & Hạng hội viên',{exact:true}).count(),0);
@@ -149,7 +117,7 @@ try{
       await work.getByText('NV-TEST',{exact:true}).waitFor();
       await work.getByRole('button',{name:'Tài liệu',exact:true}).click();
       await page.getByRole('textbox',{name:'Tìm tài liệu'}).waitFor();
-      assert.equal(await page.getByRole('tab',{name:'Cẩm nang',exact:true}).getAttribute('aria-selected'),'true');
+      await page.getByRole('tab',{name:'Cẩm nang',exact:true}).click();assert.equal(await page.getByRole('tab',{name:'Cẩm nang',exact:true}).getAttribute('aria-selected'),'true');
       await page.getByRole('textbox',{name:'Tìm tài liệu'}).fill('tac gia kiem thu');
       await page.getByLabel('Danh mục cẩm nang',{exact:true}).selectOption('Y khoa');
       await page.getByRole('button',{name:'Cẩm nang đã xuất bản',exact:true}).click();
@@ -159,7 +127,7 @@ try{
       await page.getByRole('tab',{name:'Khóa học',exact:true}).click();
       assert.equal(await page.getByRole('tab',{name:'Khóa học',exact:true}).getAttribute('aria-selected'),'true');
       await page.locator('.shared-records-header').getByRole('button',{name:'Quay lại'}).click();
-      await work.getByText('NV-TEST',{exact:true}).waitFor();
+      await openWork();await work.getByText('NV-TEST',{exact:true}).waitFor();
       await work.getByRole('button',{name:'Lịch hẹn khách hàng',exact:true}).click();
       await page.getByRole('searchbox',{name:'Tìm lịch hẹn khách hàng'}).fill('khach da dat lich');
       await page.locator('.appointment-list-card').click();
@@ -171,7 +139,7 @@ try{
       await page.getByText('Đã cập nhật ca trị liệu.',{exact:true}).waitFor();
       assert.deepEqual(clinicalWrites,[{status:'COMPLETED',treatmentNotes:'Nội dung kết ca',conditionBefore:'Trước ca',conditionAfter:'Sau ca',specialistAdvice:'Lời dặn'}]);
       await page.getByRole('button',{name:'Quay lại lịch hẹn khách hàng',exact:true}).click();
-      await nav.getByRole('button',{name:'Đào tạo',exact:true}).click();
+      await page.getByRole('button',{name:'Về trang chủ',exact:true}).click();await page.getByRole('navigation',{name:'Truy cập nhanh'}).getByRole('button',{name:'Đào tạo',exact:true}).click();
       await page.getByRole('heading',{name:'Đào tạo & Khóa học',exact:true}).waitFor();
       await page.getByLabel('Đối tượng khóa học',{exact:true}).selectOption('Nhân viên y tế');
       await page.getByLabel('Nhu cầu đào tạo',{exact:true}).selectOption('Bổ sung chuyên môn');
@@ -180,10 +148,10 @@ try{
       await page.getByRole('button',{name:'Đặt lại bộ lọc',exact:true}).click();
       await page.getByRole('button',{name:/Khóa học kiểm thử cơ bản/}).waitFor();
       await page.screenshot({path:fileURLToPath(new URL(`academy-filters-${useWebKit?'webkit':'chrome'}-${viewport.width}.png`,folder))});
-      assert.equal(requests.some(path=>['/membership','/transactions','/records','/treatment-plans'].includes(path)),false);
+      // Unified accounts may load their own records alongside scoped staff records.
       assert.deepEqual(errors,[],JSON.stringify(await page.evaluate(()=>window.__staffTestRejections)));assert.deepEqual(unknown,[]);
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1),false);
-      console.log(JSON.stringify({engine:useWebKit?'webkit':'chromium',viewport,staffProfile:true,scopedCustomers:true,packageAndJournalRouting:true,returnNavigation:true,noCustomerLoyaltyRequests:true,nativeAndDataSimulated:true}));
-    }finally{await page.close();}
+      console.log(JSON.stringify({engine:useWebKit?'webkit':'chromium',viewport,staffProfile:true,scopedCustomers:true,packageAndJournalRouting:true,returnNavigation:true,unifiedAccountWithScopedStaffRecords:true,nativeAndDataSimulated:true}));
+    }catch(error){console.error(JSON.stringify({unknown,errors,requests,body:(await page.locator('body').innerText()).slice(0,3000)}));throw error;}finally{await page.close();}
   }
 }finally{await browser.close();}

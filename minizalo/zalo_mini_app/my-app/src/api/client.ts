@@ -1,5 +1,5 @@
 import { getAccessToken, getPhoneNumber, getUserInfo, nativeStorage } from 'zmp-sdk';
-import { adaptPayload, profileToCanonical } from './adapters';
+import { adaptPayload, adaptService, profileToCanonical } from './adapters';
 import { ReadCache } from './read-cache';
 import { preloadCatalogImages } from './preload-images';
 import {bookingRequest,completeBookingRequest} from './booking-request';
@@ -22,11 +22,13 @@ let localeRevision=0;
 let authController: AbortController | null = null;
 type ReadResponse = { status: number; payload: Record<string, any>; cacheable?: boolean };
 const readCache = new ReadCache<ReadResponse>(60000, 256, value => value.status === 200 && !value.payload.error && value.cacheable === true);
-const publicReads = new Set(['/app-metadata','/services','/doctors','/branches','/courses','/care-guidelines','/support-faqs','/search/popular','/portal/banners']);
+const publicReads = new Set(['/app-metadata','/services','/doctors','/branches','/courses','/care-guidelines','/support-faqs','/search/popular','/portal/banners','/portal/products','/portal/pricing']);
 const isPublicRead = (path: string) => publicReads.has(path) || ['/health','/slots','/slots/dates'].includes(path) || /^\/portal\/content(?:\/[^/]+)?$/.test(path) || /^\/(services|doctors|courses)\/[^/]+$/.test(path);
 const privateReads = new Set(['/auth/settings','/bookings','/records','/membership','/notifications','/treatment-plans','/transactions','/course-enrollments','/support-tickets','/consultation-surveys','/reviews/mine','/search/history']);
 const pagedCollections:Record<string,string>={'/bookings':'bookings','/support-tickets':'tickets','/consultation-surveys':'surveys','/treatment-plans':'treatmentPlans'};
 const validReadPayload = (path: string, payload: Record<string,any>) => {
+  if(path==='/portal/products')return Array.isArray(payload.products)&&Array.isArray(payload.categories);
+  if(path==='/portal/pricing')return Array.isArray(payload.pricingServices)&&Array.isArray(payload.packages);
   if(path==='/portal/banners')return Array.isArray(payload.banners);
   const listFields: Record<string,string> = {'/services':'services','/doctors':'doctors','/branches':'branches','/courses':'courses','/care-guidelines':'guidelines','/support-faqs':'faqs','/search/popular':'popularSearches','/bookings':'bookings','/records':'records','/notifications':'notifications','/treatment-plans':'treatmentPlans','/course-enrollments':'enrollments','/support-tickets':'tickets','/consultation-surveys':'surveys','/reviews/mine':'reviews','/search/history':'history'};
   if (listFields[path]) return Array.isArray(payload[listFields[path]]);
@@ -192,6 +194,18 @@ export const apiClient = {
   async checkInClass(courseId:string,enrollmentId:string,content:string,signal?:AbortSignal){
     try{return await responseJson(await fetch(`${API_BASE_URL}/courses/${encodeURIComponent(courseId)}/attendance`,{method:'POST',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({enrollmentId,content})}));}
     catch{return {error:'Chưa xác nhận được điểm danh. Vui lòng kiểm tra lịch học hoặc thử lại.'};}
+  },
+  async getHomeProducts(params:Record<string,string>={},signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/portal/products?${new URLSearchParams(params)}`,{signal,cache:'no-store'}));}catch{return {error:'Không thể tải sản phẩm. Vui lòng thử lại.'};}
+  },
+  async getHomeProduct(id:string,signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/portal/products/${encodeURIComponent(id)}`,{signal,cache:'no-store'}));}catch{return {error:'Không thể tải sản phẩm. Vui lòng thử lại.'};}
+  },
+  async getServicePricing(signal?:AbortSignal){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/portal/pricing`,{signal,cache:'no-store'}));}catch{return {error:'Không thể tải bảng giá. Vui lòng thử lại.'};}
+  },
+  async getCatalogService(id:string,signal?:AbortSignal){
+    try{const result=await responseJson(await fetch(`${API_BASE_URL}/services/${encodeURIComponent(id)}`,{signal,cache:'no-store'}));return result.service?{...result,service:adaptService(result.service)}:result;}catch{return {error:'Không thể tải dịch vụ. Vui lòng thử lại.'};}
   },
   getSessionDiagnostics(){return {nativeStorageAvailable:nativeSessionStorageAvailable,verifiedZaloSessionThisPage};},
   certificateVerificationUrl(path:unknown){return verificationLink(path,API_BASE_URL);},
