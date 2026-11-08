@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { ToastContainer } from '../common';
+import { AdminReadiness } from '../../admin/AdminReadiness';
 
 export const Layout: React.FC = () => {
   const content = useRef<HTMLElement>(null);
@@ -35,6 +36,7 @@ export const Layout: React.FC = () => {
           className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain bg-[#F8F1E8] p-3 sm:p-5 md:p-6"
         >
           <div className="max-w-[1440px] w-full mx-auto">
+            <AdminReadiness />
             <Outlet />
           </div>
         </main>

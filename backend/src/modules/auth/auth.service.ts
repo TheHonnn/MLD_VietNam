@@ -5,6 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -14,10 +15,15 @@ import { RedisService } from '../../database/redis.service';
 import { PasswordHasherService } from './services/password-hasher.service';
 import { OtpService } from './services/otp.service';
 import { EmailService } from './services/email.service';
+import { SmsService } from './services/sms.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { EmailRegisterDto } from './dto/email-register.dto';
 import { EmailLoginDto } from './dto/email-login.dto';
+import { RequestLoginOtpDto } from './dto/request-login-otp.dto';
+import { VerifyLoginOtpDto } from './dto/verify-login-otp.dto';
+import { RequestPhoneOtpDto } from './dto/request-phone-otp.dto';
+import { VerifyPhoneOtpDto } from './dto/verify-phone-otp.dto';
 import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
@@ -29,6 +35,10 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly refreshTtlSeconds = 30 * 24 * 3600; // 30 ngày
 
+  private shouldExposeOtp(): boolean {
+    return false; // Tuyệt đối không bao giờ để lộ OTP trong API response để bảo mật và gửi thật 100%
+  }
+
   constructor(
     private supabaseService: SupabaseService,
     private redisService: RedisService,
@@ -37,6 +47,7 @@ export class AuthService {
     private passwordHasherService: PasswordHasherService,
     private otpService: OtpService,
     private emailService: EmailService,
+    @Optional() private smsService?: SmsService,
   ) {}
 
   /**
@@ -172,7 +183,7 @@ export class AuthService {
       success: true,
       message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư.',
       email: normalizedEmail,
-
+      ...(this.shouldExposeOtp() ? { otp: rawOtp } : {}),
     };
   }
 
@@ -189,6 +200,18 @@ export class AuthService {
         fullName = pending.fullName;
       } catch (_) {}
     }
+    if (!fullName) {
+      try {
+        const { data: user } = await this.supabaseService.adminClient
+          .from('users')
+          .select('full_name')
+          .eq('email', normalizedEmail)
+          .maybeSingle();
+        if (user?.full_name) {
+          fullName = user.full_name;
+        }
+      } catch (_) {}
+    }
 
     const rawOtp = await this.otpService.generateAndSaveOtp(normalizedEmail, purpose);
     this.emailService.sendOtpEmail({
@@ -202,7 +225,7 @@ export class AuthService {
       success: true,
       message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi lại tới email của bạn. Vui lòng kiểm tra hộp thư.',
       email: normalizedEmail,
-
+      ...(this.shouldExposeOtp() ? { otp: rawOtp } : {}),
     };
   }
 
@@ -362,6 +385,200 @@ export class AuthService {
       password: dto.password,
       fcmToken: dto.fcmToken,
     });
+  }
+
+  /**
+   * Yêu cầu gửi mã OTP ngẫu nhiên về Email để đăng nhập không cần mật khẩu (Passwordless Login)
+   */
+  async requestLoginOtp(dto: RequestLoginOtpDto) {
+    const normalizedEmail = dto.email.toLowerCase().trim();
+
+    // 1. Kiểm tra tài khoản trong bảng users
+    const { data: user, error } = await this.supabaseService.adminClient
+      .from('users')
+      .select('id, email, phone, full_name, is_active, role')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if (error || !user) {
+      throw new NotFoundException('Không tìm thấy tài khoản với email này. Vui lòng kiểm tra lại hoặc đăng ký mới.');
+    }
+
+    if (!user.is_active) {
+      throw new UnauthorizedException('Tài khoản này đã bị tạm khóa. Vui lòng liên hệ ban quản trị.');
+    }
+
+    // 2. Sinh mã OTP ngẫu nhiên 6 chữ số (CSPRNG), mã hóa SHA-256 + secret salt lưu vào Redis & DB
+    const rawOtp = await this.otpService.generateAndSaveOtp(normalizedEmail, 'LOGIN');
+
+    // 3. Gửi Email thật qua Brevo SMTP Relay
+    this.emailService.sendOtpEmail({
+      to: normalizedEmail,
+      otp: rawOtp,
+      purpose: 'LOGIN',
+      fullName: user.full_name,
+    }).catch(err => this.logger.error(`[Login OTP] Lỗi gửi email: ${err.message}`));
+
+    return {
+      success: true,
+      message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư.',
+      email: normalizedEmail,
+      ...(this.shouldExposeOtp() ? { otp: rawOtp } : {}),
+    };
+  }
+
+  /**
+   * Xác thực mã OTP ngẫu nhiên để hoàn tất đăng nhập -> Cấp Access & Refresh Tokens
+   */
+  async verifyLoginOtp(dto: VerifyLoginOtpDto) {
+    const normalizedEmail = dto.email.toLowerCase().trim();
+
+    // 1. Xác thực OTP đã băm qua OtpService (chống brute force, kiểm tra TTL 5 phút)
+    await this.otpService.verifyOtp(normalizedEmail, 'LOGIN', dto.otp);
+
+    // 2. Lấy thông tin user
+    const { data: user, error } = await this.supabaseService.adminClient
+      .from('users')
+      .select('id, phone, email, full_name, role, is_active, avatar_url, referral_code')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if (error || !user) {
+      throw new NotFoundException('Không tìm thấy tài khoản người dùng.');
+    }
+
+    if (!user.is_active) {
+      throw new UnauthorizedException('Tài khoản này đã bị tạm khóa.');
+    }
+
+    // 3. Cập nhật FCM token thiết bị nếu có
+    if (dto.fcmToken) {
+      await this.supabaseService.adminClient
+        .from('users')
+        .update({ fcm_device_token: dto.fcmToken })
+        .eq('id', user.id);
+    }
+
+    // 4. Sinh bộ Token (Access Token 30m, Refresh Token 30d)
+    const tokens = await this.generateTokens(user.id, user.phone || user.email, user.role);
+
+    return {
+      message: 'Đăng nhập bằng mã OTP thành công',
+      user,
+      ...tokens,
+    };
+  }
+
+  /**
+   * Yêu cầu gửi mã OTP ngẫu nhiên qua tin nhắn SMS tới số điện thoại
+   */
+  async requestPhoneOtp(dto: RequestPhoneOtpDto) {
+    const cleanPhone = dto.phone.trim().replace(/\D/g, '');
+    const normalizedPhone = cleanPhone.startsWith('84') ? `0${cleanPhone.substring(2)}` : cleanPhone;
+
+    // 1. Sinh mã OTP ngẫu nhiên 6 chữ số an toàn (CSPRNG), mã hóa SHA-256 + secret salt lưu vào Redis & DB
+    const rawOtp = await this.otpService.generateAndSaveOtp(normalizedPhone, 'LOGIN');
+
+    // 2. Gửi tin nhắn SMS thật qua SmsService (eSMS) bất đồng bộ (Non-blocking để App phản hồi ngay lập tức)
+    if (this.smsService) {
+      const sent = await this.smsService.sendOtpSms({
+        to: normalizedPhone,
+        otp: rawOtp,
+        purpose: 'LOGIN_PHONE',
+      });
+      if (!sent) {
+        throw new BadRequestException(
+          'Không thể gửi tin nhắn SMS lúc này (cổng eSMS tạm hết số dư hoặc nhà mạng chặn lặp tin trong 5 phút). Quý khách vui lòng thử đăng nhập bằng Email hoặc thử lại sau 5 phút.',
+        );
+      }
+    } else {
+      this.logger.log(`📱 [SMS OTP Simulator] ${normalizedPhone}: ${rawOtp}`);
+    }
+
+    return {
+      success: true,
+      message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi qua tin nhắn SMS tới số điện thoại của bạn.',
+      phone: normalizedPhone,
+    };
+  }
+
+  /**
+   * Xác thực mã OTP SMS để đăng nhập hoặc tự động tạo tài khoản nhanh
+   */
+  async verifyPhoneOtp(dto: VerifyPhoneOtpDto) {
+    const cleanPhone = dto.phone.trim().replace(/\D/g, '');
+    const normalizedPhone = cleanPhone.startsWith('84') ? `0${cleanPhone.substring(2)}` : cleanPhone;
+
+    // 1. Xác thực OTP qua OtpService (chống brute force, kiểm tra TTL 5 phút)
+    await this.otpService.verifyOtp(normalizedPhone, 'LOGIN', dto.otp);
+
+    // 2. Kiểm tra tài khoản trong bảng users
+    const { data: existingUser } = await this.supabaseService.adminClient
+      .from('users')
+      .select('id, phone, email, full_name, role, is_active, avatar_url, referral_code')
+      .eq('phone', normalizedPhone)
+      .maybeSingle();
+
+    let userRecord = existingUser;
+
+    if (!userRecord) {
+      // Khách hàng mới đăng nhập lần đầu bằng SĐT -> Tự động khởi tạo tài khoản CUSTOMER
+      const referralCode = `MLD${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const defaultName = `Khách hàng ${normalizedPhone.substring(normalizedPhone.length - 4)}`;
+      const { data: newUser, error } = await this.supabaseService.adminClient
+        .from('users')
+        .insert({
+          phone: normalizedPhone,
+          full_name: defaultName,
+          role: 'CUSTOMER',
+          referral_code: referralCode,
+          is_phone_verified: true,
+          is_active: true,
+        })
+        .select('id, phone, email, full_name, role, is_active, avatar_url, referral_code')
+        .maybeSingle();
+
+      if (error || !newUser) {
+        throw new Error(`Không thể khởi tạo tài khoản qua SMS OTP: ${error?.message}`);
+      }
+      userRecord = newUser;
+
+      // Ghi nhận auth identity
+      try {
+        await this.supabaseService.adminClient.from('auth_identities').upsert({
+          user_id: userRecord.id,
+          provider: 'PHONE_OTP',
+          identifier: normalizedPhone,
+          is_verified: true,
+        }, { onConflict: 'provider,identifier' });
+      } catch (_) {}
+    } else {
+      if (!userRecord.is_active) {
+        throw new UnauthorizedException('Tài khoản này đã bị tạm khóa.');
+      }
+      // Cập nhật trạng thái phone verified nếu chưa
+      await this.supabaseService.adminClient
+        .from('users')
+        .update({ is_phone_verified: true })
+        .eq('id', userRecord.id);
+    }
+
+    // 3. Cập nhật FCM token nếu có
+    if (dto.fcmToken) {
+      await this.supabaseService.adminClient
+        .from('users')
+        .update({ fcm_device_token: dto.fcmToken })
+        .eq('id', userRecord.id);
+    }
+
+    // 4. Sinh bộ Token (Access Token 30m, Refresh Token 30d)
+    const tokens = await this.generateTokens(userRecord.id, userRecord.phone, userRecord.role || 'CUSTOMER');
+
+    return {
+      message: 'Xác thực OTP số điện thoại thành công',
+      user: userRecord,
+      ...tokens,
+    };
   }
 
   /**

@@ -1527,6 +1527,9 @@ class SupabaseService {
         paymentStatus: inv.payment_status,
         gatewayTransactionId: inv.gateway_transaction_id,
         refundAmount: Number(inv.refund_amount || 0),
+        receiptCustomerName: inv.receipt_customer_name,
+        receiptDescription: inv.receipt_description,
+        receiptNotes: inv.receipt_notes,
         paidAt: inv.paid_at,
         customer: inv.customer ? {
           id: inv.customer.id,
@@ -1546,7 +1549,14 @@ class SupabaseService {
         } as any : undefined,
         items: parsedItems,
         serviceTitle: parsedItems.length > 0 ? parsedItems.map((i: { itemName: string }) => i.itemName).join(', ') : undefined,
-        serviceCategory: inv.enrollment_id ? 'ACADEMY' : inv.user_package_id ? 'PACKAGE' : 'SERVICE',
+        serviceCategory: (() => {
+          const code = (inv.invoice_code || '').toUpperCase();
+          if (inv.enrollment_id || code.startsWith('HD-HP-')) return 'ACADEMY';
+          if (inv.user_package_id || code.startsWith('HD-LT-')) return 'PACKAGE';
+          if (inv.booking_id || code.startsWith('HD-SPA-') || code.startsWith('HD-DV-')) return 'SERVICE';
+          if (parsedItems.some((it: { itemType?: string }) => it.itemType === 'PRODUCT')) return 'OTHER';
+          return 'SERVICE';
+        })(),
       };
     });
   }
@@ -1665,6 +1675,35 @@ class SupabaseService {
       console.warn('[SupabaseService] createInvoice error:', err);
       return null;
     }
+  }
+
+  async editInvoiceReceipt(data: {
+    invoiceId: string;
+    customerName: string;
+    description: string;
+    notes: string;
+    reason: string;
+    items?: Array<{ id: string; itemName: string }>;
+  }): Promise<boolean> {
+    const result = await this.query<any[]>('rpc/fn_edit_invoice_receipt_complete', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_invoice_id: data.invoiceId,
+        p_customer_name: data.customerName,
+        p_description: data.description,
+        p_notes: data.notes,
+        p_reason: data.reason,
+        p_items: data.items || [],
+      }),
+    });
+    return result !== null;
+  }
+
+  async getInvoiceEditHistory(invoiceId: string): Promise<any[]> {
+    return (await this.query<any[]>(
+      `invoice_edit_history?select=*,actor:users!actor_id(full_name)&invoice_id=eq.${encodeURIComponent(invoiceId)}&order=created_at.desc&limit=10`,
+      { cache: 'no-store' } as RequestInit,
+    )) || [];
   }
 
   // 12. LỚP HỌC THEO KHÓA (COURSE BATCHES)
@@ -1822,6 +1861,12 @@ class SupabaseService {
       extensionReason: e.extension_reason,
       lastExpiryNotifiedAt: e.last_expiry_notified_at,
     }));
+  }
+
+  async getStudentAcademicRecords(): Promise<any[] | null> {
+    return this.query<any[]>(
+      'student_academic_records?select=enrollment_id,theory_score,practical_score,attendance_rate,attended_sessions,total_batch_sessions&order=created_at.desc',
+    );
   }
 
   async extendEnrollment(
@@ -2826,9 +2871,60 @@ class SupabaseService {
     return null;
   }
 
-  public async seedBatchSchedules(batchId: string, startDateStr?: string): Promise<BatchSchedule[]> {
+  public async seedBatchSchedules(batchId: string, startDateStr?: string, scheduleText?: string): Promise<BatchSchedule[]> {
     if (!batchId || !isUuid(batchId)) return [];
-    const baseDate = startDateStr ? new Date(startDateStr) : new Date();
+
+    let schedText = scheduleText;
+    let baseDateStr = startDateStr;
+
+    // Lấy thông tin lớp học nếu chưa truyền đủ lịch hoặc ngày bắt đầu
+    if (!schedText || !baseDateStr) {
+      try {
+        const batchRows = await this.query<any[]>(`course_batches?id=eq.${batchId}&select=schedule_text,start_date`);
+        if (batchRows && batchRows.length > 0) {
+          schedText = schedText || batchRows[0].schedule_text;
+          baseDateStr = baseDateStr || batchRows[0].start_date;
+        }
+      } catch (_) {}
+    }
+
+    // Tách các thứ trong tuần từ chuỗi lịch học (0=CN, 1=T2, 2=T3, 3=T4, 4=T5, 5=T6, 6=T7)
+    const parseDaysOfWeek = (text?: string): number[] => {
+      if (!text) return [1, 3, 5];
+      const lower = text.toLowerCase();
+      const days: number[] = [];
+      if (lower.includes('thứ 2') || lower.includes('thứ hai') || lower.includes('t2')) days.push(1);
+      if (lower.includes('thứ 3') || lower.includes('thứ ba') || lower.includes('t3')) days.push(2);
+      if (lower.includes('thứ 4') || lower.includes('thứ tư') || lower.includes('t4')) days.push(3);
+      if (lower.includes('thứ 5') || lower.includes('thứ năm') || lower.includes('t5')) days.push(4);
+      if (lower.includes('thứ 6') || lower.includes('thứ sáu') || lower.includes('t6')) days.push(5);
+      if (lower.includes('thứ 7') || lower.includes('thứ bảy') || lower.includes('t7')) days.push(6);
+      if (lower.includes('chủ nhật') || lower.includes('cn')) days.push(0);
+      return days.length > 0 ? days.sort((a, b) => a - b) : [1, 3, 5];
+    };
+
+    const targetDays = parseDaysOfWeek(schedText);
+
+    // Tách khung giờ (VD: 18:00 - 21:00)
+    const timeMatch = (schedText || '').match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/);
+    const startTimeStr = timeMatch ? `${timeMatch[1].padStart(5, '0')}:00` : '18:00:00';
+    const endTimeStr = timeMatch ? `${timeMatch[2].padStart(5, '0')}:00` : '21:00:00';
+
+    // Tạo danh sách 8 ngày học đúng các thứ trong tuần
+    const sessionDates: string[] = [];
+    let curDate = baseDateStr ? new Date(`${baseDateStr}T00:00:00`) : new Date();
+    if (isNaN(curDate.getTime())) curDate = new Date();
+
+    while (sessionDates.length < 8) {
+      if (targetDays.includes(curDate.getDay())) {
+        const yyyy = curDate.getFullYear();
+        const mm = String(curDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(curDate.getDate()).padStart(2, '0');
+        sessionDates.push(`${yyyy}-${mm}-${dd}`);
+      }
+      curDate.setDate(curDate.getDate() + 1);
+    }
+
     const curriculumTopics = [
       { topic: 'Buổi 1: Nhập môn & Giải phẫu hệ bạch huyết Vodder chuẩn Y khoa', lab: false },
       { topic: 'Buổi 2: Kỹ thuật thao tác dẫn lưu mặt & cổ (Thực hành Vodder)', lab: true },
@@ -2840,37 +2936,40 @@ class SupabaseService {
       { topic: 'Buổi 8: Thi sát hạch tay nghề lâm sàng & đánh giá chứng chỉ', lab: true },
     ];
 
-    const records = curriculumTopics.map((item, idx) => {
-      const sessionDate = new Date(baseDate.getTime() + idx * 3 * 86400000);
-      const dateStr = sessionDate.toISOString().split('T')[0];
-      return {
-        batch_id: batchId,
-        session_date: dateStr,
-        start_time: '13:30:00',
-        end_time: '17:00:00',
-        topic: item.topic,
-        is_practice_lab: item.lab,
-      };
-    });
+    // Cập nhật lại lịch đã có nếu đã khởi tạo trước đó
+    const existing = await this.getBatchSchedules(batchId);
+    if (existing.length > 0) {
+      const sortedExisting = [...existing].sort((a, b) => (a.sessionDate || '').localeCompare(b.sessionDate || ''));
+      for (let i = 0; i < existing.length && i < sessionDates.length; i++) {
+        await this.query(`batch_schedules?id=eq.${sortedExisting[i].id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            session_date: sessionDates[i],
+            start_time: startTimeStr,
+            end_time: endTimeStr,
+            topic: curriculumTopics[i]?.topic || sortedExisting[i].topic,
+            is_practice_lab: curriculumTopics[i]?.lab !== undefined ? curriculumTopics[i].lab : sortedExisting[i].isPracticeLab,
+          }),
+        });
+      }
+      return this.getBatchSchedules(batchId);
+    }
+
+    const records = curriculumTopics.map((item, idx) => ({
+      batch_id: batchId,
+      session_date: sessionDates[idx],
+      start_time: startTimeStr,
+      end_time: endTimeStr,
+      topic: item.topic,
+      is_practice_lab: item.lab,
+    }));
 
     try {
-      const res = await this.query<any[]>('batch_schedules', {
+      await this.query<any[]>('batch_schedules', {
         method: 'POST',
         headers: { Prefer: 'return=representation' },
         body: JSON.stringify(records),
       });
-      if (Array.isArray(res)) {
-        return res.map((r) => ({
-          id: r.id,
-          batchId: r.batch_id,
-          assignedRoomId: r.assigned_room_id,
-          sessionDate: r.session_date,
-          startTime: (r.start_time || '').slice(0, 5),
-          endTime: (r.end_time || '').slice(0, 5),
-          topic: r.topic,
-          isPracticeLab: Boolean(r.is_practice_lab),
-        }));
-      }
     } catch (err) {
       console.warn('[SupabaseService] seedBatchSchedules error:', err);
     }

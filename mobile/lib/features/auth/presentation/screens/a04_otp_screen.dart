@@ -176,61 +176,138 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
         if (mounted) {
           Navigator.pop(context, code);
         }
-      } else {
-        // Luồng đăng nhập bằng Số điện thoại (Phone OTP)
-        try {
-          final res = await ApiClient.instance.post(
-            ApiEndpoints.verifyOtp,
-            data: {
-              'phone': widget.phoneNumber,
-              'token': code,
-              'type': 'sms',
-            },
-          );
-          final session = res.data['session'];
-          final accessToken = session?['access_token'] ?? 'mld_token_${DateTime.now().millisecondsSinceEpoch}';
-          final refreshToken = session?['refresh_token'];
-          final user = res.data['user'];
-          final userName = (user?['full_name'] ?? user?['fullName']) as String?;
-          final userAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
-          final userEmail = user?['email'] as String?;
+      } else if (widget.purpose == 'LOGIN_EMAIL') {
+        // Gọi API xác thực mã OTP ngẫu nhiên đăng nhập qua Email
+        final res = await ApiClient.instance.post(
+          ApiEndpoints.authVerifyLoginOtp,
+          data: {
+            'email': widget.email!.trim(),
+            'otp': code,
+          },
+        );
 
+        final body = res.data;
+        final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
+        final accessToken = data['accessToken'] as String?;
+        final refreshToken = data['refreshToken'] as String?;
+        final user = data['user'] as Map<String, dynamic>?;
+
+        if (accessToken != null && accessToken.isNotEmpty) {
+          final loggedInName = (user?['full_name'] ?? user?['fullName']) as String?;
+          final userAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
+          final userPhone = user?['phone'] as String?;
           await AuthService.instance.saveSession(
             accessToken: accessToken,
             refreshToken: refreshToken,
-            phone: widget.phoneNumber,
             userId: user?['id'] as String?,
-            displayName: userName,
+            phone: userPhone,
+            displayName: loggedInName,
             avatarUrl: userAvatar,
           );
+
           await AuthService.instance.saveLastLogin(
-            phone: widget.phoneNumber,
-            method: 'phone',
+            email: widget.email?.trim(),
+            method: 'email',
           );
+
           MembershipRepository.instance.syncUserSession(
-            fullName: userName,
-            phone: widget.phoneNumber,
-            email: userEmail,
+            fullName: loggedInName,
+            phone: userPhone,
+            email: widget.email?.trim(),
             avatarUrl: userAvatar,
             memberCode: user?['referral_code']?.toString() ?? user?['referralCode']?.toString(),
           );
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đăng nhập thành công! Đang vào ứng dụng...'),
+              backgroundColor: AppColors.primary,
+            ),
+          );
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const MainLayoutScreen(),
+            ),
+            (route) => false,
+          );
+        }
+      } else {
+        // Luồng đăng nhập bằng Số điện thoại (Phone OTP qua Gateway)
+        try {
+          final res = await ApiClient.instance.post(
+            ApiEndpoints.authVerifyPhoneOtp,
+            data: {
+              'phone': widget.phoneNumber,
+              'otp': code,
+            },
+          );
+          final body = res.data;
+          final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
+          final accessToken = data['accessToken'] as String?;
+          final refreshToken = data['refreshToken'] as String?;
+          final user = data['user'] as Map<String, dynamic>?;
+
+          if (accessToken != null && accessToken.isNotEmpty) {
+            final userName = (user?['full_name'] ?? user?['fullName']) as String?;
+            final userAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
+            final userPhone = user?['phone'] as String? ?? widget.phoneNumber;
+            await AuthService.instance.saveSession(
+              accessToken: accessToken,
+              refreshToken: refreshToken,
+              userId: user?['id'] as String?,
+              phone: userPhone,
+              displayName: userName,
+              avatarUrl: userAvatar,
+            );
+            await AuthService.instance.saveLastLogin(
+              phone: userPhone,
+              method: 'phone',
+            );
+            MembershipRepository.instance.syncUserSession(
+              fullName: userName,
+              phone: userPhone,
+              avatarUrl: userAvatar,
+              memberCode: user?['referral_code']?.toString() ?? user?['referralCode']?.toString(),
+            );
+          }
         } catch (_) {
-          await AuthService.instance.saveSession(
-            accessToken: 'mld_session_${DateTime.now().millisecondsSinceEpoch}',
-            phone: widget.phoneNumber,
-            displayName: null,
-            avatarUrl: null,
-          );
-          await AuthService.instance.saveLastLogin(
-            phone: widget.phoneNumber,
-            method: 'phone',
-          );
-          MembershipRepository.instance.syncUserSession(
-            fullName: '',
-            phone: widget.phoneNumber,
-            email: '',
-            avatarUrl: '',
-          );
+          // Fallback sang Supabase Verify Otp nếu gateway gặp sự cố
+          try {
+            final res = await ApiClient.instance.post(
+              ApiEndpoints.verifyOtp,
+              data: {
+                'phone': widget.phoneNumber,
+                'token': code,
+                'type': 'sms',
+              },
+            );
+            final session = res.data['session'];
+            final accessToken = session?['access_token'] ?? 'mld_token_${DateTime.now().millisecondsSinceEpoch}';
+            final refreshToken = session?['refresh_token'];
+            final user = res.data['user'];
+
+            await AuthService.instance.saveSession(
+              accessToken: accessToken,
+              refreshToken: refreshToken,
+              phone: widget.phoneNumber,
+              userId: user?['id'],
+            );
+            await AuthService.instance.saveLastLogin(
+              phone: widget.phoneNumber,
+              method: 'phone',
+            );
+            MembershipRepository.instance.syncUserSession(
+              fullName: (user?['full_name'] ?? user?['fullName']) as String? ?? '',
+              phone: widget.phoneNumber,
+            );
+          } catch (fbErr) {
+            // Re-throw để hiển thị thông báo lỗi chính xác
+            rethrow;
+          }
+        }
         }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -281,41 +358,44 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
 
     try {
       if (_isEmail) {
+        String purpose = 'REGISTER';
+        if (widget.purpose == 'RESET_PASSWORD') purpose = 'RESET_PASSWORD';
+        if (widget.purpose == 'LOGIN_EMAIL') purpose = 'LOGIN';
+
         final res = await ApiClient.instance.post(
           ApiEndpoints.authResendOtp,
           data: {
             'email': widget.email,
-            'purpose': widget.purpose == 'RESET_PASSWORD' ? 'RESET_PASSWORD' : 'REGISTER',
+            'purpose': purpose,
           },
         );
         final body = res.data;
         final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
-        final newOtp = (data is Map) ? data['otp']?.toString() : null;
-        if (newOtp != null && newOtp.length == 6) {
-          for (int i = 0; i < 6; i++) {
-            _controllers[i].text = newOtp[i];
-          }
-        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(newOtp != null
-                  ? 'Mã OTP mới: $newOtp (Đã tự động điền)'
-                  : 'Đã gửi lại mã xác thực OTP mới'),
+            const SnackBar(
+              content: Text('Đã gửi lại mã xác thực OTP mới. Vui lòng kiểm tra hộp thư (kể cả thư mục Thư rác/Spam).'),
               backgroundColor: AppColors.primary,
-              duration: const Duration(seconds: 8),
+              duration: Duration(seconds: 5),
             ),
           );
         }
       } else {
-        await ApiClient.instance.post(
-          ApiEndpoints.sendOtp,
-          data: {'phone': widget.phoneNumber},
-        );
+        try {
+          await ApiClient.instance.post(
+            ApiEndpoints.authRequestPhoneOtp,
+            data: {'phone': widget.phoneNumber},
+          );
+        } catch (_) {
+          await ApiClient.instance.post(
+            ApiEndpoints.sendOtp,
+            data: {'phone': widget.phoneNumber},
+          );
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Đã gửi lại mã xác thực OTP mới'),
+              content: Text('Đã gửi lại mã xác thực OTP qua SMS'),
               backgroundColor: AppColors.primary,
             ),
           );
@@ -440,7 +520,19 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                             ),
                           ),
 
-                          const SizedBox(height: 28),
+                          if (_isEmail) ...[
+                            const SizedBox(height: 8),
+                            const Text(
+                              '💡 Lưu ý: Vui lòng kiểm tra cả mục Thư rác (Spam) hoặc Quảng cáo nếu không thấy thư trong Hộp thư đến.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+const SizedBox(height: 28),
 
                           // 4. Hàng 6 ô nhập mã OTP
                           Row(

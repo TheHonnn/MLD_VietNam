@@ -26,6 +26,7 @@ import {
 
 import { supabaseService } from './supabaseService';
 import { legacyRead, legacyWrite } from './adminAdapter';
+import { commissionService } from './commission.service';
 
 export const academyService = {
   // --- Khóa học LMS ---
@@ -699,17 +700,28 @@ export const academyService = {
 
       if (ok) {
         try {
-          await supabaseService.recordTuitionPayment({
+          const batches = await supabaseService.getCourseBatches();
+          const payment = await supabaseService.recordTuitionPayment({
             transactionCode: `HP-${enr.orderCode || Date.now().toString().slice(-6)}`,
             enrollmentId,
             studentId: enr.studentId,
             courseId: enr.courseId,
-            branchId: enr.batchId || 'aaaaaaaa-0001-0001-0001-000000000001',
+            branchId: batches?.find((batch) => batch.id === enr.batchId)?.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
             amount,
             paymentMethod: options?.paymentMethod || PaymentMethod.BANK_TRANSFER,
             paymentStatus: PaymentStatus.PAID,
             notes: options?.notes || `Thanh toán học phí cho hồ sơ ${enr.orderCode || ''}`,
           });
+          if (payment && enr.assignedStaffId) {
+            await commissionService.createCommission({
+              staffId: enr.assignedStaffId,
+              branchId: payment.branch_id,
+              tuitionTransactionId: payment.id,
+              commissionType: 'COURSE_ENROLLMENT',
+              baseAmount: amount,
+              notes: `Hoa hồng tư vấn khóa học từ giao dịch ${payment.transaction_code}`,
+            });
+          }
         } catch (_) {}
       }
 
@@ -1108,9 +1120,9 @@ export const academyService = {
     }
   },
 
-  async seedBatchSchedules(batchId: string, startDate?: string): Promise<ApiResponse<BatchSchedule[]>> {
+  async seedBatchSchedules(batchId: string, startDate?: string, scheduleText?: string): Promise<ApiResponse<BatchSchedule[]>> {
     try {
-      const seeded = await supabaseService.seedBatchSchedules(batchId, startDate);
+      const seeded = await supabaseService.seedBatchSchedules(batchId, startDate, scheduleText);
       return {
         success: true,
         statusCode: 201,

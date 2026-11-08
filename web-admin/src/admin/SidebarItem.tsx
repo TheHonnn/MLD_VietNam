@@ -10,18 +10,17 @@ export interface SubMenuItem {
 }
 
 export const menuResources: Record<string, string[]> = {
-  '/customers': ['users', 'consultation_surveys', 'reviews'],
+  '/customers': ['users', 'reviews'],
   '/staff-schedule': ['technician_shifts', 'technician_slots'],
   '/medical-records': ['treatment_packages', 'user_packages', 'treatment_journal', 'home_care_guidelines'],
   '/cashier-pos': ['bookings', 'booking_items', 'invoices', 'invoice_items'],
   '/academy-enrollment': ['course_enrollments', 'tuition_transactions'],
   '/instructors': ['instructors'],
   '/attendance': ['student_attendance', 'student_academic_records'],
-  '/curriculum': ['course_categories', 'courses', 'course_batches', 'batch_schedules', 'course_chapters', 'course_lessons', 'course_quizzes', 'quiz_questions', 'quiz_submissions', 'user_lesson_progress'],
+  '/curriculum': ['course_categories', 'courses', 'course_batches', 'course_chapters', 'course_lessons', 'course_quizzes', 'quiz_questions', 'quiz_submissions', 'user_lesson_progress'],
   '/manage/services': ['service_categories', 'services', 'service_materials'],
   '/manage/staff_profiles': ['staff_profiles', 'technicians', 'staff_leaves'],
   '/manage/coupons': ['coupons', 'voucher_distribution_rules', 'user_vouchers', 'membership_tier_rules', 'loyalty_point_settings', 'point_transactions'],
-  '/manage/student_certificates': ['certificate_templates', 'student_certificates'],
   '/manage/roles': ['roles', 'permissions', 'role_permissions', 'user_roles', 'audit_logs'],
 };
 
@@ -134,6 +133,7 @@ export function SidebarItem({
     if (path === '/zalo-zns' && (currentPath.startsWith('/zalo-zns') || currentPath.startsWith('/crm-zns')))
       return true;
     if (path === '/branches' && currentPath.startsWith('/branches')) return true;
+    if (path === '/services-catalog' && currentPath.startsWith('/services-catalog')) return true;
     return false;
   })();
 

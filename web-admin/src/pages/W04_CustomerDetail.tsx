@@ -23,6 +23,9 @@ import {
   Building2,
   FileText,
   AlertCircle,
+  Send,
+  Plus,
+  History,
 } from 'lucide-react';
 import {
   customerService,
@@ -31,6 +34,8 @@ import {
   academyService,
   posService,
   branchService,
+  supabaseService,
+  emailService,
 } from '../services';
 import { toast } from '../components/common';
 import {
@@ -122,12 +127,20 @@ export const W04_CustomerDetail: React.FC = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [tuitionTransactions, setTuitionTransactions] = useState<TuitionTransaction[]>([]);
+  const [emailLogs, setEmailLogs] = useState<any[]>([]);
   const [availablePackages, setAvailablePackages] = useState<TreatmentPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modals
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [isCareGuideModalOpen, setIsCareGuideModalOpen] = useState(false);
+  const [careGuides, setCareGuides] = useState<any[]>([]);
+  const [careGuideHistory, setCareGuideHistory] = useState<any[]>([]);
+  const [selectedCareGuideId, setSelectedCareGuideId] = useState('');
+  const [selectedCareBookingId, setSelectedCareBookingId] = useState('');
+  const [careGuideRequestKey, setCareGuideRequestKey] = useState('');
+  const [isSendingCareGuide, setIsSendingCareGuide] = useState(false);
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
   const [isProcessingSession, setIsProcessingSession] = useState(false);
 
@@ -154,12 +167,22 @@ export const W04_CustomerDetail: React.FC = () => {
 
   const tabs = [
     'Tổng quan',
+    'Liên hệ',
     'Lịch hẹn',
     'Liệu trình',
     'Học tập',
     'Giao dịch',
     'Ghi chú',
   ];
+
+  const loadCustomerEmailLogs = async (email?: string | null) => {
+    if (!email) {
+      setEmailLogs([]);
+      return;
+    }
+    const result = await emailService.getLogs({ recipientEmail: email });
+    if (result.success) setEmailLogs(result.data || []);
+  };
 
   // Fetch real data strictly from Supabase Cloud
   useEffect(() => {
@@ -189,6 +212,7 @@ export const W04_CustomerDetail: React.FC = () => {
         }
 
         setCustomer(custData);
+        await loadCustomerEmailLogs(custData?.email);
 
         // Concurrently fetch real relational data from Supabase
         const [
@@ -244,6 +268,27 @@ export const W04_CustomerDetail: React.FC = () => {
     };
     fetchData();
   }, [targetId]);
+
+  const handleSendWelcomeEmail = async () => {
+    if (!customer?.email) {
+      toast.warning('Chưa có email', 'Cập nhật địa chỉ email trong hồ sơ khách trước khi gửi.');
+      return;
+    }
+    if (!window.confirm(`Gửi email xác nhận đăng ký tới ${customer.email}?`)) return;
+    const result = await emailService.sendEmail({
+      recipientEmail: customer.email,
+      recipientName: customer.fullName,
+      templateId: 'CONFIRMATION_ENROLLMENT',
+      variables: { student_name: customer.fullName },
+      metadata: { source: 'customer_profile', customer_id: customer.id },
+    });
+    if (!result.success) {
+      toast.error('Gửi email thất bại', result.message);
+      return;
+    }
+    toast.success('Đã gửi email', `Email đã được gửi tới ${customer.email}.`);
+    await loadCustomerEmailLogs(customer.email);
+  };
 
   // Lookup Maps for high-performance relations
   const branchesMap = useMemo(() => new Map(branches.map((b) => [b.id, b])), [branches]);
@@ -666,6 +711,49 @@ export const W04_CustomerDetail: React.FC = () => {
     }
   };
 
+  const openCareGuideModal = async () => {
+    if (!customer?.id) return;
+    setCareGuideRequestKey(crypto.randomUUID());
+    setIsCareGuideModalOpen(true);
+    try {
+      const [guides, history] = await Promise.all([
+        supabaseService.query<any[]>('home_care_guidelines?select=id,title,summary,content,steps,media,image_url,is_published&is_published=eq.true&order=title.asc', { cache: 'no-store' } as RequestInit),
+        supabaseService.query<any[]>(`home_care_deliveries?select=id,guideline_id,booking_id,sent_at,status,content_snapshot&customer_id=eq.${encodeURIComponent(customer.id)}&order=sent_at.desc&limit=50`, { cache: 'no-store' } as RequestInit),
+      ]);
+      setCareGuides(guides || []);
+      setCareGuideHistory(history || []);
+      setSelectedCareGuideId((current) => current || guides?.[0]?.id || '');
+    } catch (error: any) {
+      toast.error('Không tải được hướng dẫn', error?.message || 'Kiểm tra migration và quyền truy cập.');
+    }
+  };
+
+  const sendCareGuide = async () => {
+    if (!customer?.id || !selectedCareGuideId || !careGuideRequestKey) return;
+    setIsSendingCareGuide(true);
+    try {
+      const result = await supabaseService.query<any>('rpc/fn_send_home_care_guideline', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_customer_id: customer.id,
+          p_guideline_id: selectedCareGuideId,
+          p_booking_id: selectedCareBookingId || null,
+          p_treatment_journal_id: null,
+          p_request_key: careGuideRequestKey,
+        }),
+      });
+      if (!result) throw new Error('Cơ sở dữ liệu chưa xác nhận gửi hướng dẫn.');
+      toast.success('Đã gửi hướng dẫn chăm sóc', 'Khách hàng sẽ nhận được thông báo trong ứng dụng.');
+      setCareGuideRequestKey(crypto.randomUUID());
+      const history = await supabaseService.query<any[]>(`home_care_deliveries?select=id,guideline_id,booking_id,sent_at,status,content_snapshot&customer_id=eq.${encodeURIComponent(customer.id)}&order=sent_at.desc&limit=50`, { cache: 'no-store' } as RequestInit);
+      setCareGuideHistory(history || []);
+    } catch (error: any) {
+      toast.error('Không gửi được hướng dẫn', error?.message || 'Vui lòng thử lại.');
+    } finally {
+      setIsSendingCareGuide(false);
+    }
+  };
+
   const tierInfo = getNextTierInfo(effectiveTier, totalActualSpent);
 
   // Status Badge for Bookings
@@ -751,6 +839,12 @@ export const W04_CustomerDetail: React.FC = () => {
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E] pb-8">
+      <section className="grid grid-cols-2 gap-2 rounded-xl border border-[#EFE4D9] bg-white p-3 sm:grid-cols-4" aria-label="Tóm tắt khách hàng">
+        <div className="px-2 py-1"><p className="text-[11px] text-[#73675F]">Lịch hẹn</p><p className="mt-1 text-sm font-bold">{bookings.length}</p><p className="text-[11px] text-[#73675F]">{bookings.filter((item) => ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(String(item.status))).length} đang xử lý</p></div>
+        <div className="px-2 py-1"><p className="text-[11px] text-[#73675F]">Chi tiêu đã ghi nhận</p><p className="mt-1 text-sm font-bold">{totalActualSpent.toLocaleString('vi-VN')}đ</p></div>
+        <div className="px-2 py-1"><p className="text-[11px] text-[#73675F]">Còn phải thu</p><p className="mt-1 text-sm font-bold text-amber-800">{financialStats.totalDueImmediately.toLocaleString('vi-VN')}đ</p></div>
+        <div className="px-2 py-1"><p className="text-[11px] text-[#73675F]">Khóa học</p><p className="mt-1 text-sm font-bold">{enrollments.length}</p><p className="text-[11px] text-[#73675F]">{enrollments.filter((item) => ['STUDYING', 'IN_PROGRESS'].includes(String(item.status))).length} đang học</p></div>
+      </section>
       {/* 1. Horizontal Sub-Navigation Tabs matching media_1792570156063.png */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs whitespace-nowrap border-b border-[#EFE4D9]/60">
         {tabs.map((tab) => {
@@ -781,16 +875,16 @@ export const W04_CustomerDetail: React.FC = () => {
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <img
-                  src={customer?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'}
+                  src={customer?.avatarUrl || '/logo_mld.png'}
                   alt={customer?.fullName || 'Khách hàng'}
                   className="w-11 h-11 rounded-full object-cover shrink-0 border border-[#E0D7CC]"
                 />
                 <div>
                   <div className="text-base font-bold text-[#2C241E] leading-tight">
-                    {customer?.fullName || 'Nguyễn Mỹ Duyên'}
+                    {customer?.fullName || 'Chưa có hồ sơ khách hàng'}
                   </div>
                   <div className="text-xs text-[#73675F] mt-0.5">
-                    {customer?.phone || '0987654321'} · Đã xác thực
+                    {customer?.phone || 'Chưa có số điện thoại'}
                   </div>
                   <div className="text-xs font-semibold text-[#8A4F23] mt-0.5">
                     Hội viên {formatTierName(effectiveTier)}
@@ -813,7 +907,7 @@ export const W04_CustomerDetail: React.FC = () => {
 
               <div className="flex items-center justify-between relative z-10">
                 <span className="text-xs font-semibold text-[#F3E2CE]">
-                  Hội viên {formatTierName(effectiveTier)}
+                  {customer ? `Hội viên ${formatTierName(effectiveTier)}` : 'Chưa phân hạng'}
                 </span>
                 <Crown className="w-4 h-4 text-[#F3E2CE] stroke-[2]" />
               </div>
@@ -823,7 +917,7 @@ export const W04_CustomerDetail: React.FC = () => {
                   {(customer?.rewardPoints || 0).toLocaleString('vi-VN')} điểm
                 </div>
                 <div className="text-xs text-[#F3E2CE]/85 mt-1.5 font-medium">
-                  Mã hội viên · {customer?.referralCode || 'MYDUYEN99'}
+                  {customer?.referralCode ? `Mã hội viên · ${customer.referralCode}` : 'Chưa có mã hội viên'}
                 </div>
               </div>
 
@@ -1201,6 +1295,48 @@ export const W04_CustomerDetail: React.FC = () => {
             </>
           )}
 
+          {/* TAB: LIÊN HỆ (Contact details and email history) */}
+          {activeTab === 'Liên hệ' && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-[#EFE4D9] bg-white p-5 shadow-xs">
+                <div className="flex flex-col gap-3 border-b border-[#EFE4D9] pb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-[#3E200C]">Thông tin liên hệ</h3>
+                    <p className="mt-0.5 text-xs text-[#73675F]">Thông tin dùng để đặt lịch và gửi thông báo cho khách hàng</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={handleOpenEditModal} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#D7BBA6] px-3 text-xs font-bold text-[#8A4F23] hover:bg-[#FAF8F5]">
+                      <Pencil className="h-3.5 w-3.5" /> Chỉnh sửa
+                    </button>
+                    <button type="button" onClick={handleSendWelcomeEmail} disabled={!customer?.email} className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#985018] px-3 text-xs font-bold text-white hover:bg-[#854412] disabled:cursor-not-allowed disabled:opacity-50">
+                      <Send className="h-3.5 w-3.5" /> Gửi email
+                    </button>
+                  </div>
+                </div>
+                <dl className="mt-4 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
+                  <div className="rounded-xl bg-[#FAF8F5] p-3"><dt className="text-[#73675F]">Họ và tên</dt><dd className="mt-1 font-bold text-[#2C241E]">{customer?.fullName || 'Chưa cập nhật'}</dd></div>
+                  <div className="rounded-xl bg-[#FAF8F5] p-3"><dt className="text-[#73675F]">Số điện thoại</dt><dd className="mt-1 font-bold text-[#2C241E]">{customer?.phone || 'Chưa cập nhật'}</dd></div>
+                  <div className="rounded-xl bg-[#FAF8F5] p-3"><dt className="text-[#73675F]">Email</dt><dd className="mt-1 break-all font-bold text-[#2C241E]">{customer?.email || 'Chưa cập nhật'}</dd></div>
+                  <div className="rounded-xl bg-[#FAF8F5] p-3"><dt className="text-[#73675F]">Địa chỉ</dt><dd className="mt-1 font-bold text-[#2C241E]">{customer?.address || 'Chưa cập nhật'}</dd></div>
+                  <div className="rounded-xl bg-[#FAF8F5] p-3"><dt className="text-[#73675F]">Liên hệ khẩn cấp</dt><dd className="mt-1 font-bold text-[#2C241E]">{customer?.emergencyContactName || 'Chưa cập nhật'}{customer?.emergencyContactPhone ? ` · ${customer.emergencyContactPhone}` : ''}</dd></div>
+                  <div className="rounded-xl bg-[#FAF8F5] p-3"><dt className="text-[#73675F]">Ngày sinh</dt><dd className="mt-1 font-bold text-[#2C241E]">{formatDateVN(customer?.dateOfBirth)}</dd></div>
+                </dl>
+              </div>
+
+              <div className="rounded-2xl border border-[#EFE4D9] bg-white p-5 shadow-xs">
+                <div className="flex items-center justify-between border-b border-[#EFE4D9] pb-3">
+                  <div><h3 className="text-base font-bold text-[#3E200C]">Lịch sử email</h3><p className="mt-0.5 text-xs text-[#73675F]">Các email đã gửi tới địa chỉ của khách hàng</p></div>
+                  <History className="h-4 w-4 text-[#985018]" />
+                </div>
+                {emailLogs.length === 0 ? <p className="py-6 text-center text-xs text-[#8C7A6B]">Chưa có email nào được gửi cho khách hàng này.</p> : (
+                  <div className="mt-3 space-y-2">
+                    {emailLogs.map((log) => <div key={log.id} className="flex flex-col gap-1 rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] p-3 text-xs sm:flex-row sm:items-center sm:justify-between"><div><p className="font-bold text-[#2C241E]">{log.subject || log.templateId || 'Email MLD'}</p><p className="mt-0.5 text-[11px] text-[#73675F]">{formatDateVN(log.sentAt)} · {log.recipientEmail}</p></div><span className={`w-fit rounded-full px-2 py-1 text-[10px] font-bold ${log.status === 'SENT' ? 'bg-[#E8F6ED] text-[#0D6832]' : 'bg-[#FEF3F2] text-[#B42318]'}`}>{log.status === 'SENT' ? 'Đã gửi' : 'Gửi lỗi'}</span></div>)}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* TAB: LỊCH HẸN (Deep-dive bookings view with actions) */}
           {activeTab === 'Lịch hẹn' && (
             <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
@@ -1298,6 +1434,9 @@ export const W04_CustomerDetail: React.FC = () => {
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>+ Đăng ký gói mới</span>
                 </button>
+                <button type="button" onClick={() => void openCareGuideModal()} className="px-3 py-2 border border-[#D7BBA6] text-[#8A4F23] text-xs font-bold rounded-xl hover:bg-[#FAF8F5] flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5" /> Gửi hướng dẫn
+                </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1392,6 +1531,15 @@ export const W04_CustomerDetail: React.FC = () => {
                     ))
                   )}
                 </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 space-y-3">
+                <h3 className="text-sm font-bold text-[#3E200C]">Lịch sử hướng dẫn chăm sóc đã gửi</h3>
+                {careGuideHistory.length ? careGuideHistory.map((item) => (
+                  <div key={item.id} className="border-t border-[#EFE4D9] pt-2 text-xs">
+                    <div className="font-semibold text-[#2C241E]">{item.content_snapshot?.title || item.guideline_id}</div>
+                    <div className="text-[#73675F]">{formatDateVN(item.sent_at)} · {item.status === 'SENT' ? 'Đã gửi trong ứng dụng' : item.status}</div>
+                  </div>
+                )) : <p className="text-xs text-[#8C7A6B]">Chưa gửi hướng dẫn chăm sóc nào.</p>}
               </div>
             </div>
           )}
@@ -1561,7 +1709,7 @@ export const W04_CustomerDetail: React.FC = () => {
               </button>
             </div>
             <div className="p-4 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] inline-block">
-              <QrCode className="w-44 h-44 text-[#3E200C] mx-auto" />
+                  <QrCode className="w-44 h-44 text-[#3E200C] mx-auto" />
             </div>
             <div>
               <div className="text-base font-bold text-[#2C241E]">{customer?.fullName}</div>
@@ -1569,7 +1717,7 @@ export const W04_CustomerDetail: React.FC = () => {
                 Hội viên {formatTierName(effectiveTier)} · {(customer?.rewardPoints || 0).toLocaleString('vi-VN')} điểm
               </div>
               <div className="text-xs text-[#73675F] mt-1 font-mono tracking-wider">
-                Mã hội viên: {customer?.referralCode || 'MYDUYEN99'}
+                Mã hội viên: {customer?.referralCode || 'Chưa có mã'}
               </div>
             </div>
             <button
@@ -1645,6 +1793,38 @@ export const W04_CustomerDetail: React.FC = () => {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {isCareGuideModalOpen && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+          <section className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <header className="px-5 py-4 border-b border-[#EFE4D9] flex items-center justify-between">
+              <div><h3 className="font-bold text-[#2C241E]">Gửi hướng dẫn chăm sóc tại nhà</h3><p className="text-xs text-[#73675F] mt-1">Người nhận: {customer?.fullName}</p></div>
+              <button type="button" onClick={() => setIsCareGuideModalOpen(false)} className="p-2 hover:bg-slate-100 rounded" aria-label="Đóng"><X size={16} /></button>
+            </header>
+            <div className="p-5 grid gap-4 sm:grid-cols-2 text-sm">
+              <div className="space-y-3">
+                <label className="block space-y-1"><span className="font-semibold">Bài hướng dẫn đã duyệt</span>
+                  <select value={selectedCareGuideId} onChange={(event) => setSelectedCareGuideId(event.target.value)} className="w-full border border-[#D8D0C7] rounded-md px-3 py-2">
+                    <option value="">Chọn bài hướng dẫn</option>{careGuides.map((guide) => <option key={guide.id} value={guide.id}>{guide.title}</option>)}
+                  </select>
+                </label>
+                <label className="block space-y-1"><span className="font-semibold">Gắn với lịch hẹn (không bắt buộc)</span>
+                  <select value={selectedCareBookingId} onChange={(event) => setSelectedCareBookingId(event.target.value)} className="w-full border border-[#D8D0C7] rounded-md px-3 py-2">
+                    <option value="">Không gắn lịch hẹn</option>{bookings.map((booking) => <option key={booking.id} value={booking.id}>{booking.bookingCode} · {formatDateVN(booking.bookingDate)}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="rounded-lg border border-[#EFE4D9] bg-[#FAF8F5] p-4 space-y-2">
+                {(() => { const guide = careGuides.find((item) => item.id === selectedCareGuideId); return guide ? <><h4 className="font-bold">{guide.title}</h4><p className="text-xs text-[#73675F]">{guide.summary}</p><div className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">{guide.content}</div>{(guide.media || []).map((media: any, index: number) => media.url?.match(/\.(png|jpe?g|webp|gif)(\?|$)/i) ? <img key={index} src={media.url} alt={media.alt || guide.title} className="max-h-32 rounded object-contain" /> : media.url ? <a key={index} href={media.url} target="_blank" rel="noreferrer" className="block text-[#985018] underline">{media.title || 'Mở nội dung đính kèm'}</a> : null)}</> : <p className="text-xs text-[#8C7A6B]">Chọn hướng dẫn để xem trước nội dung.</p>; })()}
+              </div>
+            </div>
+            <footer className="px-5 py-4 border-t border-[#EFE4D9] flex justify-end gap-2">
+              <button type="button" onClick={() => setIsCareGuideModalOpen(false)} className="px-4 py-2 border rounded-md">Hủy</button>
+              <button type="button" onClick={() => void sendCareGuide()} disabled={!selectedCareGuideId || isSendingCareGuide} className="px-4 py-2 rounded-md bg-[#985018] text-white font-semibold disabled:opacity-50">{isSendingCareGuide ? 'Đang gửi…' : 'Gửi trong ứng dụng'}</button>
+            </footer>
+          </section>
         </div>
       )}
 

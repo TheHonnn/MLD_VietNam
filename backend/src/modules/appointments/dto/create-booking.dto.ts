@@ -56,6 +56,12 @@ export class CreateBookingDto {
   @IsString()
   bookedForPhone?: string;
 
+  @ApiProperty({ description: 'Email người đặt/sử dụng dịch vụ để nhận thư xác nhận', required: false })
+  @IsOptional()
+  @IsString()
+  bookedForEmail?: string;
+
+
   @ApiProperty({ description: 'Ghi chú đặc biệt của khách hàng', required: false })
   @IsOptional()
   @IsString()

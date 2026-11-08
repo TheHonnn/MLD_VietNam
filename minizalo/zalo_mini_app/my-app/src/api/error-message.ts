@@ -1,4 +1,6 @@
 const messages:Record<string,string>={
+  'Invalid product filter':'Bộ lọc sản phẩm không hợp lệ.',
+  'Product is unavailable':'Sản phẩm không còn khả dụng.',
   'Instructor review access is required':'Tài khoản chưa có quyền nhận xét bài kiểm tra.',
   'Instructor feedback is required':'Vui lòng nhập nhận xét giảng viên hợp lệ.',
   'Submission is unavailable':'Bài làm không còn khả dụng hoặc ngoài phạm vi giảng dạy.',

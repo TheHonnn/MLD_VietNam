@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
@@ -56,6 +57,119 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     super.dispose();
   }
 
+  // Luồng đăng nhập SĐT qua mã OTP SMS
+  Future<void> _handlePhoneContinue() async {
+    if (!(_phoneFormKey.currentState?.validate() ?? false)) return;
+    final phone = _phoneController.text.trim();
+    AuthService.instance.saveLastLogin(phone: phone, method: 'phone');
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final res = await ApiClient.instance.post(
+        ApiEndpoints.authRequestPhoneOtp,
+        data: {'phone': phone},
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mã OTP đã được gửi qua tin nhắn SMS tới số điện thoại của bạn!'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => A04OtpScreen(
+              phoneNumber: phone,
+              purpose: 'LOGIN_PHONE',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        // Điều hướng để người dùng có thể tiếp tục
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => A04OtpScreen(
+              phoneNumber: phone,
+              purpose: 'LOGIN_PHONE',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Luồng đăng nhập bằng mã OTP ngẫu nhiên gửi về Email (Passwordless Login)
+  Future<void> _handleRequestLoginOtp() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      setState(() {
+        _errorMessage = 'Vui lòng nhập địa chỉ email hợp lệ để nhận mã OTP';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final res = await ApiClient.instance.post(
+        ApiEndpoints.authRequestLoginOtp,
+        data: {'email': email},
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mã OTP đăng nhập đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư (kể cả mục Thư rác/Spam)!'),
+            backgroundColor: AppColors.primary,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => A04OtpScreen(
+              email: email,
+              purpose: 'LOGIN_EMAIL',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        String msg = 'Không thể gửi mã OTP. Vui lòng kiểm tra lại địa chỉ email.';
+        if (e is ApiException) {
+          msg = e.message;
+        } else {
+          msg = e.toString().replaceFirst('Exception: ', '').replaceAll('ApiException: ', '');
+        }
+        setState(() {
+          _errorMessage = msg;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
   // Luồng đăng nhập Email + Mật khẩu
   Future<void> _handleEmailLogin() async {
     if (!(_emailFormKey.currentState?.validate() ?? false)) return;
@@ -144,34 +258,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     }
   }
 
-  // Luồng đăng nhập SĐT
-  void _handlePhoneContinue() {
-    if (_phoneFormKey.currentState?.validate() ?? false) {
-      final phone = _phoneController.text.trim();
-      AuthService.instance.saveLastLogin(phone: phone, method: 'phone');
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
 
-      Future.delayed(const Duration(milliseconds: 400), () {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => A04OtpScreen(
-                phoneNumber: _phoneController.text.trim(),
-                purpose: 'LOGIN_PHONE',
-              ),
-            ),
-          );
-        }
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -529,6 +616,24 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                   backgroundColor: ctaGreen,
                                   isLoading: _isLoading,
                                   onPressed: _handleEmailLogin,
+                                ),
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    side: const BorderSide(color: AppColors.secondary, width: 1.2),
+                                  ),
+                                  icon: const Icon(Icons.mark_email_read_outlined, size: 18, color: AppColors.primary),
+                                  label: const Text(
+                                    'Đăng nhập bằng mã OTP qua Email',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  onPressed: _isLoading ? null : _handleRequestLoginOtp,
                                 ),
                               ],
                             ),

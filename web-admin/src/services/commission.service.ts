@@ -25,6 +25,8 @@ export const commissionService = {
         branchId: r.branch_id,
         bookingId: r.booking_id,
         invoiceId: r.invoice_id,
+        tuitionTransactionId: r.tuition_transaction_id,
+        userPackageId: r.user_package_id,
         commissionType: r.commission_type,
         baseAmount: Number(r.base_amount),
         percentage: Number(r.percentage),
@@ -117,9 +119,11 @@ export const commissionService = {
     branchId: string;
     bookingId?: string | null;
     invoiceId?: string | null;
-    commissionType: 'SERVICE_DIRECT' | 'PACKAGE_UPSELL' | 'CSAT_BONUS';
+    tuitionTransactionId?: string | null;
+    userPackageId?: string | null;
+    commissionType: 'SERVICE_DIRECT' | 'PACKAGE_UPSELL' | 'CSAT_BONUS' | 'COURSE_ENROLLMENT' | 'TREATMENT_PATHWAY';
     baseAmount: number;
-    percentage: number;
+    percentage?: number;
     notes?: string;
   }): Promise<ApiResponse<StaffCommission | null>> {
     try {
@@ -127,12 +131,25 @@ export const commissionService = {
       const validBranchId = isUuid(data.branchId) ? data.branchId : 'aaaaaaaa-0001-0001-0001-000000000001';
       const validBookingId = isUuid(data.bookingId) ? data.bookingId : null;
       const validInvoiceId = isUuid(data.invoiceId) ? data.invoiceId : null;
+      const validTuitionTransactionId = isUuid(data.tuitionTransactionId) ? data.tuitionTransactionId : null;
+      const validUserPackageId = isUuid(data.userPackageId) ? data.userPackageId : null;
 
       if (!validStaffId) {
         return { success: false, statusCode: 400, message: 'ID nhân viên không hợp lệ', data: null };
       }
 
-      const commissionAmount = Math.round((data.baseAmount * data.percentage) / 100);
+      let percentage = data.percentage;
+      if (percentage === undefined) {
+        const profile = await supabaseService.query<any[]>(
+          `staff_profiles?select=commission_rate&user_id=eq.${validStaffId}&is_active=eq.true`,
+        );
+        percentage = Number(profile?.[0]?.commission_rate || 0);
+      }
+      if (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
+        return { success: false, statusCode: 400, message: 'Nhân viên chưa được cấu hình tỷ lệ hoa hồng hợp lệ', data: null };
+      }
+
+      const commissionAmount = Math.round((data.baseAmount * percentage) / 100);
       const now = new Date();
       const cycleMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
@@ -141,11 +158,13 @@ export const commissionService = {
         branch_id: validBranchId,
         booking_id: validBookingId,
         invoice_id: validInvoiceId,
+        tuition_transaction_id: validTuitionTransactionId,
+        user_package_id: validUserPackageId,
         commission_type: data.commissionType,
         base_amount: data.baseAmount,
-        percentage: data.percentage,
+        percentage,
         commission_amount: commissionAmount,
-        status: 'APPROVED',
+        status: data.commissionType === 'COURSE_ENROLLMENT' || data.commissionType === 'TREATMENT_PATHWAY' ? 'PENDING' : 'APPROVED',
         cycle_month: cycleMonth,
         notes: data.notes || '',
       };
@@ -167,6 +186,8 @@ export const commissionService = {
           branchId: res[0].branch_id,
           bookingId: res[0].booking_id,
           invoiceId: res[0].invoice_id,
+          tuitionTransactionId: res[0].tuition_transaction_id,
+          userPackageId: res[0].user_package_id,
           commissionType: res[0].commission_type,
           baseAmount: Number(res[0].base_amount),
           percentage: Number(res[0].percentage),

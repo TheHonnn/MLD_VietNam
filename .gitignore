@@ -18,6 +18,10 @@ Thumbs.db
 !.env.example
 *.env.local
 
+# Node modules
+node_modules/
+package-lock.json
+
 # Scratch & Temporary Testing Folders
 .local-archive/
 scratch/
@@ -102,6 +106,8 @@ minizalo/node_modules/
 minizalo/dist/
 minizalo/.env
 minizalo/.env.local
+minizalo/**/www/
+minizalo/**/www*/
 
 # ==============================================================================
 # FIGMA RAW DUMPS & SCRAPED ASSETS (Heavy binary files)

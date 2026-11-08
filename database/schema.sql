@@ -971,6 +971,19 @@ CREATE TABLE IF NOT EXISTS certificate_templates (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Bảng 46A: home_products (Danh mục sản phẩm bổ trợ tại nhà)
+CREATE TABLE IF NOT EXISTS home_products (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL UNIQUE,
+    category VARCHAR(100) NOT NULL,
+    price_min NUMERIC(12, 0) NOT NULL CHECK (price_min >= 0),
+    price_max NUMERIC(12, 0) NOT NULL CHECK (price_max >= price_min),
+    unit VARCHAR(100) NOT NULL,
+    details TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Bảng 47: student_certificates (Chứng chỉ điện tử cấp cho học viên kèm mã tra cứu QR)
 CREATE TABLE IF NOT EXISTS student_certificates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

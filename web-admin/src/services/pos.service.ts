@@ -9,11 +9,16 @@ import {
 import { supabaseService } from './supabaseService';
 
 export interface CashierCollection {
-  kind: 'BOOKING' | 'TUITION' | 'PACKAGE';
+  kind: 'BOOKING' | 'TUITION' | 'PACKAGE' | 'CART';
+  requestId?: string;
+  expectedTotal?: number;
+  discountAmount?: number;
+  items?: Array<{ id: string; type: 'SERVICE' | 'PACKAGE' | 'PRODUCT'; quantity: number; serviceId?: string; packageId?: string }>;
   bookingId?: string;
   enrollmentId?: string;
   packageId?: string;
   customerId?: string;
+  commissionStaffId?: string;
   branchId?: string;
   amount?: number;
   vatRate?: number;
@@ -81,7 +86,14 @@ export const posService = {
 
   async collectPayment(data: CashierCollection): Promise<ApiResponse<any>> {
     try {
-      const result = await adminCommand<any>('cashier/collect', data);
+      const payload = JSON.stringify(data);
+      const saved = sessionStorage.getItem('mld_admin_cashier_request');
+      let prior: {payload: string; requestId: string} | null = null;
+      try { prior = saved ? JSON.parse(saved) : null; } catch {}
+      const requestId = data.requestId || (prior?.payload === payload ? prior.requestId : crypto.randomUUID());
+      sessionStorage.setItem('mld_admin_cashier_request', JSON.stringify({payload,requestId}));
+      const result = await adminCommand<any>('cashier/collect', { ...data, requestId });
+      sessionStorage.removeItem('mld_admin_cashier_request');
       return {
         success: true,
         statusCode: 200,

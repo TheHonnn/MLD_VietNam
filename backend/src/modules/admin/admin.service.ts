@@ -14,6 +14,8 @@ import { PoolClient } from 'pg';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, randomUUID } from 'crypto';
 import { AdminDatabase } from './admin.database';
+import { inspectAdminSchema } from './admin.schema';
+import { allowedBranches, branchPredicate, assertRowScope, assertCashierBranch } from './admin.scope';
 import {
   ADMIN_RESOURCES,
   COMPUTED_COLUMNS,
@@ -40,6 +42,7 @@ export interface AdminActor {
   role: string;
   full_name?: string;
   permissions?: string[];
+  scopes?: Array<{ permission: string; branchId: string | null }>;
 }
 
 @Injectable()
@@ -50,6 +53,10 @@ export class AdminService {
     private readonly config: ConfigService,
     private readonly jwt: JwtService,
   ) {}
+
+  async schemaStatus() {
+    return inspectAdminSchema(this.db.connection);
+  }
 
   resource(table: string, actor: AdminActor, write = false) {
     const resource =
@@ -252,6 +259,11 @@ export class AdminService {
       throw new BadRequestException('Phân trang không hợp lệ.');
     const values: unknown[] = [];
     const where: string[] = [];
+    const scopedBranches = allowedBranches(actor, `${table}.read`);
+    if (scopedBranches !== null) {
+      values.push(scopedBranches);
+      where.push(branchPredicate(table, quote(table), `$${values.length}`, columns.map(column => column.name)));
+    }
     if (query.search?.trim()) {
       const text = columns.filter((c) =>
         ['varchar', 'text', 'uuid'].includes(c.type),
@@ -284,10 +296,27 @@ export class AdminService {
       if (!filters || typeof filters !== 'object' || Array.isArray(filters))
         throw new BadRequestException('Bộ lọc không hợp lệ.');
       for (const [name, value] of Object.entries(filters)) {
+        // The class selector uses this sentinel for an unfiltered listing,
+        // including attendance/grades whose batch relation is indirect.
+        if (name === 'batch_id' && value === '__ALL__' &&
+          ['course_enrollments', 'student_attendance', 'student_academic_records'].includes(table)) continue;
         if (!columns.some((c) => c.name === name) || typeof value === 'object')
           throw new BadRequestException('Trường lọc không hợp lệ.');
         values.push(value);
         where.push(`${expression(name)}=$${values.length}`);
+      }
+    }
+    if (actor.role === 'INSTRUCTOR' && ['course_batches', 'course_batch_assistants', 'student_academic_records', 'student_attendance'].includes(table)) {
+      values.push(actor.id);
+      const actorParam = `$${values.length}`;
+      if (table === 'course_batches') {
+        where.push(`(EXISTS (SELECT 1 FROM public.instructors i WHERE i.id=course_batches.instructor_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=course_batches.id AND i.user_id=${actorParam}))`);
+      } else if (table === 'course_batch_assistants') {
+        where.push(`(EXISTS (SELECT 1 FROM public.instructors i WHERE i.id=course_batch_assistants.instructor_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=course_batch_assistants.batch_id AND i.user_id=${actorParam}))`);
+      } else if (table === 'student_academic_records') {
+        where.push(`EXISTS (SELECT 1 FROM public.course_enrollments e WHERE e.id=student_academic_records.enrollment_id AND (EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=e.batch_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=e.batch_id AND a.can_enter_grades AND i.user_id=${actorParam})))`);
+      } else if (table === 'student_attendance') {
+        where.push(`EXISTS (SELECT 1 FROM public.batch_schedules s WHERE s.id=student_attendance.schedule_id AND (EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=s.batch_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=s.batch_id AND a.can_mark_attendance AND i.user_id=${actorParam})))`);
       }
     }
     const clause = where.length ? ' WHERE ' + where.join(' AND ') : '';
@@ -421,9 +450,19 @@ export class AdminService {
     table: string,
     actor: AdminActor,
     operation: 'create' | 'update' | 'delete',
-    body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string },
+    body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string; reason?: string },
   ) {
     this.resource(table, actor, true);
+    if ((table === 'invoices' || table === 'invoice_items') && operation !== 'create')
+      throw new ForbiddenException('Không sửa trực tiếp hóa đơn hoặc dòng hàng. Dùng thao tác thanh toán/hoàn tiền và luồng sửa mô tả biên lai có lưu lịch sử.');
+    if (table === 'departments' && !['ADMIN', 'SUPER_ADMIN'].includes(actor.role))
+      throw new ForbiddenException('Chỉ quản trị viên được tạo hoặc quản lý bộ phận.');
+    if (table === 'departments' && operation === 'delete')
+      throw new ConflictException('Không xóa bộ phận có lịch sử; hãy chuyển trạng thái sang ngừng hoạt động.');
+    if (table === 'course_batch_assistants' && !['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(actor.role))
+      throw new ForbiddenException('Chỉ quản trị viên hoặc quản lý chi nhánh được phân công trợ giảng.');
+    if (table === 'student_academic_records' && operation === 'delete')
+      throw new ConflictException('Không xóa bảng điểm đã lưu; hãy cập nhật điểm với lý do để giữ lịch sử.');
     if (table === 'user_packages' && operation === 'create') {
       throw new BadRequestException('Chỉ luồng POS mới được kích hoạt gói cho khách hàng.');
     }
@@ -469,6 +508,8 @@ export class AdminService {
         : null;
       if (key && !previous)
         throw new NotFoundException('Bản ghi không còn tồn tại.');
+      if (previous) await assertRowScope(client, table, previous, columns.map(column => column.name), actor, operation);
+      if (operation !== 'delete') await assertRowScope(client, table, { ...previous, ...data }, columns.map(column => column.name), actor, operation);
       if (
         previous?.updated_at &&
         (!body.expectedUpdatedAt ||
@@ -512,6 +553,7 @@ export class AdminService {
       if (table === 'roles' && previous?.is_system)
         throw new ConflictException('Không được sửa/xóa vai trò hệ thống.');
       await this.businessRules(client, table, data, previous, operation, actor);
+      await this.authorizeAcademyWrite(client, table, data, previous, operation, actor);
       let result: Record<string, unknown>;
       const names = Object.keys(data);
       const values = names.map((name) =>
@@ -554,6 +596,29 @@ export class AdminService {
         operation === 'delete' ? null : result,
         previous,
       );
+      if (table === 'student_academic_records' && operation !== 'delete') {
+        const gradeFields = [
+          'theory_score', 'practical_score', 'attended_sessions',
+          'total_batch_sessions', 'attendance_rate', 'feedback_theory',
+          'feedback_practical', 'feedback_attendance', 'feedback_attitude',
+        ];
+        const changed = operation === 'create' || gradeFields.some((field) =>
+          data[field] !== undefined && String(data[field] ?? '') !== String(previous?.[field] ?? ''),
+        );
+        if (changed) {
+          await client.query(
+            `INSERT INTO student_academic_record_history(academic_record_id,actor_id,reason,before_data,after_data)
+             VALUES($1,$2,$3,$4::jsonb,$5::jsonb)`,
+            [
+              result.id,
+              actor.id,
+              body.reason?.trim() || (operation === 'create' ? 'Tạo bảng điểm' : 'Cập nhật điểm thủ công'),
+              JSON.stringify(previous || {}),
+              JSON.stringify(result),
+            ],
+          );
+        }
+      }
       await this.audit(
         client,
         actor,
@@ -582,6 +647,12 @@ export class AdminService {
     actor: AdminActor,
   ) {
     const next = { ...previous, ...data };
+    if (table === 'home_care_guidelines' && operation !== 'delete' && data.is_published === true) {
+      if (!['ADMIN', 'SUPER_ADMIN'].includes(actor.role))
+        throw new ForbiddenException('Chỉ quản trị viên được duyệt và xuất bản hướng dẫn chăm sóc.');
+      data.approved_by_id = actor.id;
+      data.approved_at = new Date().toISOString();
+    }
     if (table === 'course_quizzes' && operation === 'create')
       data.total_questions = 0;
     if (
@@ -997,6 +1068,55 @@ export class AdminService {
     }
   }
 
+  private async authorizeAcademyWrite(
+    client: PoolClient,
+    table: string,
+    data: Record<string, any>,
+    previous: Record<string, any> | null,
+    operation: string,
+    actor: AdminActor,
+  ) {
+    if (!['student_academic_records', 'student_attendance'].includes(table)) return;
+    if (['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(actor.role)) return;
+    if (actor.role !== 'INSTRUCTOR')
+      throw new ForbiddenException('Chỉ quản trị viên hoặc giảng viên được phân công mới được sửa điểm danh và bảng điểm.');
+
+    const record = operation === 'delete' ? previous : { ...previous, ...data };
+    let allowed = false;
+    if (table === 'student_academic_records' && record?.enrollment_id) {
+      allowed = (await client.query(
+        `SELECT EXISTS (
+           SELECT 1 FROM course_enrollments e
+           JOIN course_batches b ON b.id=e.batch_id
+           JOIN instructors primary_teacher ON primary_teacher.id=b.instructor_id
+           WHERE e.id=$1 AND primary_teacher.user_id=$2
+           UNION ALL
+           SELECT 1 FROM course_enrollments e
+           JOIN course_batch_assistants a ON a.batch_id=e.batch_id AND a.can_enter_grades=TRUE
+           JOIN instructors assistant ON assistant.id=a.instructor_id
+           WHERE e.id=$1 AND assistant.user_id=$2
+         ) AS allowed`,
+        [record.enrollment_id, actor.id],
+      )).rows[0]?.allowed === true;
+    } else if (table === 'student_attendance' && record?.schedule_id) {
+      allowed = (await client.query(
+        `SELECT EXISTS (
+           SELECT 1 FROM batch_schedules s
+           JOIN course_batches b ON b.id=s.batch_id
+           JOIN instructors primary_teacher ON primary_teacher.id=b.instructor_id
+           WHERE s.id=$1 AND primary_teacher.user_id=$2
+           UNION ALL
+           SELECT 1 FROM batch_schedules s
+           JOIN course_batch_assistants a ON a.batch_id=s.batch_id AND a.can_mark_attendance=TRUE
+           JOIN instructors assistant ON assistant.id=a.instructor_id
+           WHERE s.id=$1 AND assistant.user_id=$2
+         ) AS allowed`,
+        [record.schedule_id, actor.id],
+      )).rows[0]?.allowed === true;
+    }
+    if (!allowed) throw new ForbiddenException('Chỉ giảng viên/trợ giảng được phân công cho lớp mới được thao tác điểm danh hoặc điểm số.');
+  }
+
   private async syncRelated(
     client: PoolClient,
     table: string,
@@ -1115,6 +1235,7 @@ export class AdminService {
         )
       ).rows[0];
       if (!row) throw new NotFoundException('Không tìm thấy bản ghi.');
+      await assertRowScope(client, table, row, columns.map(column => column.name), actor, 'action');
       if (table === 'bookings') {
         const transitions = {
           checkin: ['CONFIRMED', 'CHECKED_IN'],
@@ -1356,6 +1477,7 @@ export class AdminService {
 
   async activeCashierShift(actor: AdminActor, branchId?: string) {
     this.requireCashier(actor);
+    if (branchId) assertCashierBranch(actor, branchId, 'cashier.shifts');
     if (branchId && !this.isUuid(branchId))
       throw new BadRequestException('Chi nhánh không hợp lệ.');
     const values: unknown[] = [actor.id];
@@ -1376,6 +1498,7 @@ export class AdminService {
     this.requireCashier(actor);
     const branchId = String(body.branchId || '');
     const openingCash = Number(body.openingCash);
+    assertCashierBranch(actor, branchId, 'cashier.shifts');
     if (!this.isUuid(branchId) || !Number.isFinite(openingCash) || openingCash < 0)
       throw new BadRequestException('Chi nhánh hoặc tiền đầu ca không hợp lệ.');
     const client = await this.db.connection.connect();
@@ -1423,6 +1546,7 @@ export class AdminService {
         'SELECT * FROM cashier_shifts WHERE id=$1 FOR UPDATE', [id],
       )).rows[0];
       if (!shift) throw new NotFoundException('Không tìm thấy ca thu ngân.');
+      assertCashierBranch(actor, shift.branch_id, 'cashier.shifts');
       if (shift.cashier_id !== actor.id && !['ADMIN', 'SUPER_ADMIN'].includes(actor.role))
         throw new ForbiddenException('Bạn không được phép đóng ca này.');
       if (shift.status !== 'OPEN')
@@ -1451,22 +1575,37 @@ export class AdminService {
     const paymentMethod = String(body.paymentMethod || '');
     const shiftId = String(body.shiftId || '');
     const vatRate = Number(body.vatRate ?? 0);
-    if (!['BOOKING', 'TUITION', 'PACKAGE'].includes(String(kind)))
+    if (!['BOOKING', 'TUITION', 'PACKAGE', 'CART'].includes(String(kind)))
       throw new BadRequestException('Loại khoản thu không hợp lệ.');
     if (!['CASH_AT_SPA', 'BANK_TRANSFER'].includes(String(paymentMethod)))
       throw new BadRequestException('POS hiện chỉ nhận tiền mặt hoặc chuyển khoản đã xác nhận.');
     if (!this.isUuid(shiftId) || ![0, 8, 10].includes(vatRate))
       throw new BadRequestException('Ca thu ngân hoặc mức thuế không hợp lệ.');
+    if (body.requestId !== undefined && !this.isUuid(String(body.requestId)))
+      throw new BadRequestException('Mã yêu cầu thanh toán không hợp lệ.');
 
     const client = await this.db.connection.connect();
     try {
       await client.query('BEGIN');
+      if (body.requestId) {
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`cashier:${actor.id}:${body.requestId}`]);
+        const prior = (await client.query(
+          'SELECT result,payload=$3::jsonb AS matches FROM admin_payment_requests WHERE actor_id=$1 AND request_id=$2',
+          [actor.id,body.requestId,JSON.stringify(body)],
+        )).rows[0];
+        if (prior) {
+          if (!prior.matches) throw new ConflictException('Mã thanh toán đã được dùng cho nội dung khác.');
+          await client.query('COMMIT');
+          return prior.result;
+        }
+      }
       const shift = (await client.query(
         "SELECT * FROM cashier_shifts WHERE id=$1 FOR UPDATE",
         [shiftId],
       )).rows[0];
       if (!shift || shift.cashier_id !== actor.id || shift.status !== 'OPEN')
         throw new ConflictException('Hãy mở ca thu ngân của bạn trước khi thu tiền.');
+      assertCashierBranch(actor, shift.branch_id, 'cashier.collect');
 
       if (kind === 'TUITION') {
         const enrollmentId = String(body.enrollmentId || '');
@@ -1496,6 +1635,20 @@ export class AdminService {
            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PAID',$1,$11,now()) RETURNING *`,
           [transactionCode,enrollment.id,enrollment.student_id,enrollment.course_id,branchId,actor.id,shiftId,transactionType,amount,paymentMethod,typeof body.notes === 'string' ? body.notes.trim().slice(0, 1000) : null],
         )).rows[0];
+        if (enrollment.assigned_staff_id) {
+          const commissionRate = Number((await client.query(
+            'SELECT commission_rate FROM staff_profiles WHERE user_id=$1 AND is_active=true',
+            [enrollment.assigned_staff_id],
+          )).rows[0]?.commission_rate || 0);
+          if (commissionRate > 0 && commissionRate <= 100) {
+            await client.query(
+              `INSERT INTO staff_commissions(staff_id,branch_id,tuition_transaction_id,commission_type,base_amount,percentage,commission_amount,status,cycle_month,notes)
+               VALUES($1,$2,$3,'COURSE_ENROLLMENT',$4,$5,round($4*$5/100),'PENDING',to_char(now(),'YYYY-MM'),$6)
+               ON CONFLICT (tuition_transaction_id) WHERE tuition_transaction_id IS NOT NULL DO NOTHING`,
+              [enrollment.assigned_staff_id,branchId,transaction.id,amount,commissionRate,`Hoa hồng tư vấn khóa học từ giao dịch ${transactionCode}`],
+            );
+          }
+        }
         await client.query(
           `UPDATE course_enrollments SET amount_paid=$2,
            approval_status=CASE WHEN $2>=tuition_total THEN 'APPROVED' ELSE approval_status END,
@@ -1507,8 +1660,7 @@ export class AdminService {
         );
         await this.updateCashierShiftTotals(client, shiftId, paymentMethod, amount);
         await this.audit(client, actor, 'tuition_transactions', 'COLLECT', transaction.id);
-        await client.query('COMMIT');
-        return { kind, amount, transactionCode, paymentStatus: 'PAID', paidTotal: nextPaid, tuitionTotal: tuition };
+        return await this.finishCollection(client, actor, body, { kind, amount, transactionCode, paymentStatus: 'PAID', paidTotal: nextPaid, tuitionTotal: tuition });
       }
 
       if (kind === 'BOOKING') {
@@ -1543,6 +1695,8 @@ export class AdminService {
         const vatAmount = Math.round(preTax * vatRate) / 100;
         const total = preTax + vatAmount;
         if (total <= 0) throw new BadRequestException('Tổng thanh toán phải lớn hơn 0.');
+        if (body.expectedTotal !== undefined && Number(body.expectedTotal) !== total)
+          throw new ConflictException('Số tiền trên màn hình đã thay đổi. Tải lại lịch hẹn trước khi thu.');
         const invoiceCode = `POS-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
         const invoice = (await client.query(
           `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,shift_id,booking_id,subtotal,discount_amount,points_redeemed_amount,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status,paid_at)
@@ -1564,14 +1718,21 @@ export class AdminService {
         )).rows[0];
         await this.updateCashierShiftTotals(client, shiftId, paymentMethod, total);
         await this.audit(client, actor, 'invoices', 'COLLECT', invoice.id);
-        await client.query('COMMIT');
-        return { kind, amount: total, invoice: paidInvoice, paymentStatus: 'PAID' };
+        return await this.finishCollection(client, actor, body, { kind, amount: total, invoice: paidInvoice, paymentStatus: 'PAID' });
+      }
+
+      if (kind === 'CART') {
+        const result = await this.collectCart(client, actor, shift, body, paymentMethod, vatRate);
+        return await this.finishCollection(client, actor, body, result);
       }
 
       const packageId = String(body.packageId || '');
       const customerId = String(body.customerId || '');
+      const commissionStaffId = String(body.commissionStaffId || '');
       if (!this.isUuid(packageId) || !this.isUuid(customerId))
         throw new BadRequestException('Gói liệu trình hoặc khách hàng không hợp lệ.');
+      if (commissionStaffId && !this.isUuid(commissionStaffId))
+        throw new BadRequestException('Nhân viên phụ trách gói liệu trình không hợp lệ.');
       const treatmentPackage = (await client.query(
         `SELECT tp.*,s.is_active AS service_is_active
          FROM treatment_packages tp
@@ -1597,9 +1758,9 @@ export class AdminService {
       const total = subtotal + vatAmount;
       if (total <= 0) throw new BadRequestException('Tổng thanh toán phải lớn hơn 0.');
       const packageOwner = (await client.query(
-        `INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,purchased_at,expires_at)
-         VALUES($1,$2,$3,0,'ACTIVE',now(),now()+($4::int * interval '1 month')) RETURNING *`,
-        [customerId,packageId,treatmentPackage.total_sessions,treatmentPackage.validity_months],
+        `INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,purchased_at,expires_at,commission_staff_id)
+         VALUES($1,$2,$3,0,'ACTIVE',now(),now()+($4::int * interval '1 month'),$5) RETURNING *`,
+        [customerId,packageId,treatmentPackage.total_sessions,treatmentPackage.validity_months,commissionStaffId || null],
       )).rows[0];
       const invoiceCode = `POS-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
       const invoice = (await client.query(
@@ -1614,16 +1775,88 @@ export class AdminService {
       const paidInvoice = (await client.query(
         "UPDATE invoices SET payment_status='PAID',paid_at=now() WHERE id=$1 RETURNING *", [invoice.id],
       )).rows[0];
+      if (commissionStaffId) {
+        const commissionRate = Number((await client.query(
+          'SELECT commission_rate FROM staff_profiles WHERE user_id=$1 AND is_active=true',
+          [commissionStaffId],
+        )).rows[0]?.commission_rate || 0);
+        if (commissionRate > 0 && commissionRate <= 100) {
+          await client.query(
+            `INSERT INTO staff_commissions(staff_id,branch_id,invoice_id,user_package_id,commission_type,base_amount,percentage,commission_amount,status,cycle_month,notes)
+             VALUES($1,$2,$3,$4,'TREATMENT_PATHWAY',$5,$6,round($5*$6/100),'PENDING',to_char(now(),'YYYY-MM'),$7)
+             ON CONFLICT (user_package_id) WHERE user_package_id IS NOT NULL DO NOTHING`,
+            [commissionStaffId,shift.branch_id,paidInvoice.id,packageOwner.id,subtotal,commissionRate,`Hoa hồng bán lộ trình ${treatmentPackage.name} từ hóa đơn ${invoiceCode}`],
+          );
+        }
+      }
       await this.updateCashierShiftTotals(client, shiftId, paymentMethod, total);
       await this.audit(client, actor, 'invoices', 'PACKAGE_SALE', invoice.id);
-      await client.query('COMMIT');
-      return { kind, amount: total, invoice: paidInvoice, userPackage: packageOwner, paymentStatus: 'PAID' };
+      return await this.finishCollection(client, actor, body, { kind, amount: total, invoice: paidInvoice, userPackage: packageOwner, paymentStatus: 'PAID' });
     } catch (error) {
       await client.query('ROLLBACK');
       this.fail(error);
     } finally {
       client.release();
     }
+  }
+
+  private async finishCollection(client: PoolClient, actor: AdminActor, body: Record<string, unknown>, result: any) {
+    if (body.requestId) await client.query(
+      'INSERT INTO admin_payment_requests(actor_id,request_id,payload,result) VALUES($1,$2,$3::jsonb,$4::jsonb)',
+      [actor.id,body.requestId,JSON.stringify(body),JSON.stringify(result)],
+    );
+    await client.query('COMMIT');
+    return result;
+  }
+
+  private async collectCart(client: PoolClient, actor: AdminActor, shift: any, body: Record<string, unknown>, paymentMethod: string, vatRate: number) {
+    const customerId = String(body.customerId || '');
+    if (!this.isUuid(customerId) || !(await client.query('SELECT id FROM users WHERE id=$1 AND is_active=true', [customerId])).rowCount)
+      throw new BadRequestException('Chọn khách hàng có hồ sơ hợp lệ trước khi thu tiền.');
+    if (!Array.isArray(body.items) || !body.items.length || body.items.length > 100)
+      throw new BadRequestException('Giỏ hàng không hợp lệ.');
+    const lines: Array<{ name: string; type: string; quantity: number; price: number; package?: any }> = [];
+    for (const item of body.items) {
+      if (!item || typeof item !== 'object' || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 100)
+        throw new BadRequestException('Số lượng phải là số nguyên từ 1 đến 100.');
+      const table = { SERVICE: 'services', PACKAGE: 'treatment_packages', PRODUCT: 'home_products' }[item.type];
+      const id = item.serviceId || item.packageId || item.productId || item.id;
+      if (!table || !this.isUuid(String(id))) throw new BadRequestException('Mặt hàng không hợp lệ.');
+      const row = (await client.query(`SELECT * FROM ${quote(table)} WHERE id=$1 FOR SHARE`, [id])).rows[0];
+      if (!row || row.is_active === false) throw new ConflictException('Mặt hàng đã ngừng kinh doanh.');
+      const base = Number(item.type === 'PRODUCT' ? row.price_min : row.price);
+      const price = Number(row.discount_price) > 0 && Number(row.discount_price) < base ? Number(row.discount_price) : base;
+      if (!Number.isFinite(price) || price < 0) throw new ConflictException('Giá mặt hàng không hợp lệ.');
+      if (item.type === 'PACKAGE' && (!row.service_id || !(await client.query('SELECT id FROM services WHERE id=$1 AND is_active=true', [row.service_id])).rowCount))
+        throw new ConflictException('Gói phải có dịch vụ đang hoạt động.');
+      lines.push({ name: row.name, type: item.type, quantity: item.quantity, price, ...(item.type === 'PACKAGE' ? { package: row } : {}) });
+    }
+    const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
+    const discount = Number(body.discountAmount || 0);
+    if (!Number.isFinite(discount) || discount < 0 || discount > subtotal)
+      throw new BadRequestException('Giảm giá không hợp lệ.');
+    const preTax = subtotal - discount;
+    const vat = Math.round(preTax * vatRate) / 100;
+    const total = preTax + vat;
+    if (total <= 0 || (body.expectedTotal !== undefined && Number(body.expectedTotal) !== total))
+      throw new ConflictException('Giá hoặc tổng tiền đã thay đổi. Tải lại giỏ hàng trước khi thu tiền.');
+    const invoice = (await client.query(
+      `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,shift_id,subtotal,discount_amount,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'PENDING') RETURNING *`,
+      [`POS-${randomUUID()}`,shift.branch_id,customerId,actor.id,shift.id,subtotal,discount,preTax,vatRate,vat,total,paymentMethod],
+    )).rows[0];
+    for (const line of lines) {
+      await client.query('INSERT INTO invoice_items(invoice_id,item_name,item_type,quantity,unit_price,amount) VALUES($1,$2,$3,$4,$5,$6)', [invoice.id,line.name,line.type,line.quantity,line.price,line.price * line.quantity]);
+      if (line.package) for (let index = 0; index < line.quantity; index++) await client.query(
+        `INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,purchased_at,expires_at)
+         VALUES($1,$2,$3,0,'ACTIVE',now(),now()+($4::int * interval '1 month'))`,
+        [customerId,line.package.id,line.package.total_sessions,line.package.validity_months],
+      );
+    }
+    const paid = (await client.query("UPDATE invoices SET payment_status='PAID',paid_at=now() WHERE id=$1 RETURNING *", [invoice.id])).rows[0];
+    await this.updateCashierShiftTotals(client, shift.id, paymentMethod, total);
+    await this.audit(client, actor, 'invoices', 'COLLECT', invoice.id);
+    return { kind: 'CART', amount: total, invoice: paid, paymentStatus: 'PAID' };
   }
 
   private requireCashier(actor: AdminActor) {

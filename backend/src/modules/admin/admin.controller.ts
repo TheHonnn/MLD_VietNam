@@ -1,6 +1,7 @@
 import {
   Body,
   BadRequestException,
+  BadGatewayException,
   ForbiddenException,
   NotFoundException,
   Controller,
@@ -23,6 +24,7 @@ import { AdminService } from './admin.service';
 import { AdminExceptionFilter } from './admin.filter';
 import { SupabaseService } from '../../database/supabase.service';
 import { createHash, randomBytes, randomUUID } from 'crypto';
+import { EmailService } from '../auth/services/email.service';
 
 @ApiTags('Web Admin')
 @Controller('admin')
@@ -31,7 +33,44 @@ export class AdminController {
   constructor(
     private readonly service: AdminService,
     private readonly supabase: SupabaseService,
+    private readonly emailService: EmailService,
   ) {}
+
+  @Post('email/test')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  async sendTestEmail(
+    @Body() body: { recipientEmail?: string; recipientName?: string; templateId?: string; variables?: Record<string, string> },
+    @Req() req,
+  ) {
+    const permissions: string[] = req.admin?.permissions || [];
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(req.admin?.role) && !permissions.some((permission) => ['email_templates.read', 'email_templates.update'].includes(permission))) {
+      throw new ForbiddenException('Tài khoản chưa được cấp quyền gửi thử mẫu Email.');
+    }
+    const recipientEmail = typeof body?.recipientEmail === 'string' ? body.recipientEmail.trim() : '';
+    const templateId = typeof body?.templateId === 'string' ? body.templateId.trim() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail) || recipientEmail.length > 254) {
+      throw new BadRequestException('Địa chỉ email người nhận không hợp lệ.');
+    }
+    if (!/^[A-Z0-9_]{1,100}$/.test(templateId)) {
+      throw new BadRequestException('Mã mẫu Email không hợp lệ.');
+    }
+    const variables = Object.fromEntries(
+      Object.entries(body?.variables || {})
+        .filter(([key]) => /^[A-Za-z0-9_]{1,100}$/.test(key))
+        .slice(0, 50)
+        .map(([key, value]) => [key, typeof value === 'string' ? value.slice(0, 2000) : '']),
+    );
+    const sent = await this.emailService.sendTemplateEmail({
+      to: recipientEmail,
+      recipientName: typeof body.recipientName === 'string' ? body.recipientName.slice(0, 150) : '',
+      templateId,
+      variables,
+      metadata: { is_test: true, trigger_screen: 'W18_PortalContent', requested_by: req.admin?.id },
+    });
+    if (!sent) throw new BadGatewayException('Gửi email thất bại. Kiểm tra cấu hình Brevo/SMTP và nhật ký Email.');
+    return { success: true, statusCode: 200, message: `Đã gửi email mẫu tới ${recipientEmail}.`, data: true };
+  }
   @Post('login')
   login(
     @Body() body: { identifier?: string; password?: string },
@@ -208,6 +247,13 @@ export class AdminController {
     @Req() req,
   ) {
     return this.service.closeCashierShift(req.admin, id, body);
+  }
+  @Get('schema/status')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  schemaStatus(@Req() req) {
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(req.admin.role)) throw new ForbiddenException('Chỉ quản trị viên được kiểm tra cấu hình hệ thống.');
+    return this.service.schemaStatus();
   }
   @Get('resources')
   @UseGuards(AdminGuard)

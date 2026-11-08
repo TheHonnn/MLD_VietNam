@@ -173,6 +173,9 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
     if ((activeTab === 'packages' || activeTab === 'journal') && suppliedBookings === undefined && user.id) void load('bookings', () => apiClient.getBookings('personal'), 'bookings', setLoadedBookings);
     return () => { cancelled = true; };
   }, [activeTab, suppliedRecords, suppliedBookings, user.id, resourceRetry]);
+  useEffect(() => {
+    if (activeTab === 'care_guide' && initialEntityId) setArticleId(initialEntityId);
+  }, [activeTab, initialEntityId]);
 
   const mutate = async (key: string, request: () => Promise<any>, accept: (result: any) => boolean, success: (result: any) => void) => {
     if (busy.current) { error(key,'Đang gửi dữ liệu. Vui lòng chờ thao tác hiện tại hoàn tất.'); return; }

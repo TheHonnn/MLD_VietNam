@@ -5,6 +5,8 @@ export function portalTarget(value?:string|null) {
     return null;
   }
   const routes:Record<string,string>={
+    '/products':'home-products','/home/products':'home-products','/home-products':'home-products',
+    '/services/pricing':'pricing','/services/packages':'pricing','/pricing':'pricing',
     '/academy':'academy','/academy/courses':'academy','/academy/my-courses':'learning','/academy/enrollment':'academy',
     '/services':'services','/services/vodder':'services','/treatment/packages':'packages','/treatment/journal':'journal',
     '/treatment/lymph-examination':'examination',

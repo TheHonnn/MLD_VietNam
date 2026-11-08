@@ -43,5 +43,10 @@
   "Đã thưởng {0} điểm": "Awarded {0} points",
   "Ảnh {0} của {1}": "Photo {0} of {1}",
   "Email liên hệ: {0}": "Contact email: {0}",
-  "Địa chỉ liên hệ: {0}": "Contact address: {0}"
+  "Địa chỉ liên hệ: {0}": "Contact address: {0}",
+  "Tôi muốn được tư vấn về sản phẩm: {0}": "I would like advice about this product: {0}",
+  "Tôi muốn được tư vấn về gói: {0}": "I would like advice about this package: {0}",
+  " · {0} tháng": " · {0} months",
+  "Giới hạn {0} lượt thi.": "Limit: {0} attempts.",
+  " · Hoàn {0}": " · Refunded {0}"
 }

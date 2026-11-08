@@ -13,6 +13,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { AcademyService } from './academy.service';
 import { EnrollCourseDto } from './dto/enroll-course.dto';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Học Viện Đào Tạo Nghề (Group E — Academy)')
@@ -68,11 +69,11 @@ export class AcademyController {
   }
 
   @Get('results')
-  @UseGuards(OptionalJwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'E12: Kết quả học tập & Chứng chỉ tốt nghiệp' })
   async getMyResults(@CurrentUser('id') userId: string) {
-    return this.academyService.getMyResults(userId || 'default-user');
+    return this.academyService.getMyResults(userId);
   }
 
   @Get('enrollments/:id/check-payment')

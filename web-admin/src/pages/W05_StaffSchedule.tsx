@@ -2198,12 +2198,12 @@ export const W05_StaffSchedule: React.FC = () => {
                       type="button"
                       onClick={() =>
                         navigate(
-                          `/manage/consultation_surveys?search=${encodeURIComponent(selectedApp.customer)}`
+                          `/customers?search=${encodeURIComponent(selectedApp.customer)}`
                         )
                       }
                       className="text-[11px] font-bold text-[#985018] hover:underline cursor-pointer flex items-center gap-0.5"
                     >
-                      <span>Xem phiếu</span>
+                      <span>Xem hồ sơ</span>
                       <ArrowUpRight className="w-3 h-3" />
                     </button>
                   </div>

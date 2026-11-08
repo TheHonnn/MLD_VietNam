@@ -63,6 +63,7 @@ import {
   FileEdit,
   FileSpreadsheet,
   Share2,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   adminApi,
@@ -900,7 +901,85 @@ function ServiceImageInput({
   );
 }
 
-function formatCell(row: Row, c: Column): React.ReactNode {
+function formatCell(row: Row, c: Column, table?: string): React.ReactNode {
+  // Gói liệu trình Spa: Gộp Thumbnail + Tên gói + Dịch vụ đẹp mắt
+  if ((table === "treatment_packages" || (row.total_sessions !== undefined && row.validity_months !== undefined && row.price !== undefined)) && c.name === "name") {
+    const serviceName = row.service_name || row.services?.name;
+    const imageUrl = row.image_url;
+    return (
+      <div className="flex items-center gap-3 py-1 min-w-[260px] max-w-[380px]">
+        <div className="relative shrink-0 w-11 h-11 rounded-xl overflow-hidden bg-[#FAF4ED] border border-[#EAD8C7] shadow-xs">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={row.name || "Gói liệu trình"}
+              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+              onError={(e) => {
+                (e.currentTarget as HTMLElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-[#FAF3EA] to-[#F5E6D3] text-[#985018]">
+              <Sparkles size={18} className="opacity-70" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div
+            className="font-bold text-[#2C241E] text-xs leading-snug line-clamp-2 hover:text-[#985018] transition-colors"
+            title={row.name}
+          >
+            {row.name || "—"}
+          </div>
+          {serviceName ? (
+            <div className="mt-1 flex items-center">
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#FAF3EA] text-[#8A4F23] border border-[#EAD8C7] max-w-[220px] truncate"
+                title={serviceName}
+              >
+                <span>💆</span>
+                <span className="truncate">{serviceName}</span>
+              </span>
+            </div>
+          ) : (
+            row.description && (
+              <div className="text-[10.5px] text-[#8C7A6B] truncate mt-0.5" title={row.description}>
+                {row.description}
+              </div>
+            )
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Định dạng số buổi & thời hạn cho gói liệu trình
+  if (c.name === "total_sessions") {
+    const val = Number(row[c.name] || 0);
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#FAF3EA] text-[#8A4F23] border border-[#EAD8C7]">
+        <Sparkles size={12} className="text-[#985018]" />
+        <span>{val} buổi</span>
+      </span>
+    );
+  }
+  if (c.name === "validity_months") {
+    const val = Number(row[c.name] || 0);
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#F7F3EE] text-[#5C4F44] border border-[#E8DFD8]">
+        <Calendar size={12} className="text-[#8C7A6B]" />
+        <span>{val > 0 ? `${val} tháng` : "Vô thời hạn"}</span>
+      </span>
+    );
+  }
+  if (c.name === "price" || c.name === "original_price" || c.name === "tuition_fee") {
+    const val = Number(row[c.name] ?? 0);
+    return (
+      <div className="font-bold text-[#985018] text-[13px] tabular-nums whitespace-nowrap">
+        {val.toLocaleString("vi-VN")} ₫
+      </div>
+    );
+  }
   if (c.name === "branch_id") {
     const branchName =
       row.branch_name ||
@@ -1044,10 +1123,42 @@ function formatCell(row: Row, c: Column): React.ReactNode {
     );
   }
   if (c.name === "user_id") {
-    return row.full_name || row.users?.full_name || display(row[c.name]);
+    const uName = row.full_name || row.user?.full_name || row.users?.full_name;
+    const phone = row.phone || row.user?.phone || row.users?.phone;
+    const email = row.email || row.user?.email || row.users?.email;
+    const avatar = row.avatar_url || row.user?.avatar_url || row.users?.avatar_url;
+    const rawVal = String(row[c.name] || "");
+    const isRawUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawVal.trim());
+    const displayName = uName || (isRawUuid ? `Người dùng #${rawVal.slice(0, 8)}` : rawVal || "—");
+
+    return (
+      <div className="flex items-center gap-2.5">
+        {avatar ? (
+          <img
+            src={avatar}
+            alt=""
+            className="w-7 h-7 rounded-full object-cover border border-[#EFE4D9] shrink-0"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = "none";
+            }}
+          />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-[#FAF0E4] text-[#985018] font-bold text-xs flex items-center justify-center shrink-0 border border-[#E8DFD8]">
+            {uName ? uName.slice(0, 1).toUpperCase() : "👤"}
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="font-bold text-[#2C241E] truncate leading-tight" title={rawVal}>{displayName}</div>
+          {(phone || email) && <div className="text-[10px] text-[#73675F] truncate">{phone || email}</div>}
+        </div>
+      </div>
+    );
   }
   if (c.name === "customer_id") {
-    const custName = row.customer_name || row.customer?.full_name || row.users?.full_name || display(row[c.name]);
+    const rawVal = String(row[c.name] || "");
+    const rawCust = row.customer_name || row.customer?.full_name || row.users?.full_name;
+    const isRawUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(rawCust || rawVal).trim());
+    const custName = rawCust || (isRawUuid ? `Khách hàng #${rawVal.slice(0, 8)}` : display(row[c.name]));
     const phone = row.customer_phone || row.customer?.phone || row.users?.phone;
     const avatar = row.customer_avatar || row.customer?.avatar_url || row.users?.avatar_url;
     return (
@@ -1063,21 +1174,233 @@ function formatCell(row: Row, c: Column): React.ReactNode {
           />
         ) : (
           <div className="w-7 h-7 rounded-full bg-[#FAF0E4] text-[#985018] font-bold text-xs flex items-center justify-center shrink-0 border border-[#E8DFD8]">
-            {String(custName || "K").slice(0, 1)}
+            {rawCust ? String(rawCust).slice(0, 1).toUpperCase() : "👤"}
           </div>
         )}
         <div className="min-w-0">
-          <div className="font-bold text-[#2C241E] truncate leading-tight">{custName}</div>
+          <div className="font-bold text-[#2C241E] truncate leading-tight" title={rawVal}>{custName}</div>
           {phone && <div className="text-[10px] text-[#73675F]">{phone}</div>}
         </div>
       </div>
     );
   }
+  if (c.name === "package_id") {
+    const pkgName =
+      row.package_name ||
+      row.package?.name ||
+      row.treatment_packages?.name;
+    const rawVal = String(row[c.name] || "");
+    const price = row.package_price ?? row.package?.price ?? row.treatment_packages?.price;
+    const totalSess = row.package_total_sessions ?? row.package?.total_sessions ?? row.treatment_packages?.total_sessions;
+
+    if (pkgName) {
+      return (
+        <div className="min-w-0 max-w-[260px]">
+          <div className="font-bold text-[#2C241E] text-xs truncate flex items-center gap-1.5" title={pkgName}>
+            <span>💆</span>
+            <span className="truncate">{pkgName}</span>
+          </div>
+          {(price !== undefined || totalSess !== undefined) && (
+            <div className="text-[10.5px] text-[#8A4F23] mt-0.5 flex items-center gap-2">
+              {totalSess !== undefined && <span className="font-semibold">{totalSess} buổi</span>}
+              {price !== undefined && price > 0 && <span>{Number(price).toLocaleString("vi-VN")} ₫</span>}
+            </div>
+          )}
+        </div>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono inline-flex items-center gap-1" title={rawVal}>
+        <span>💆</span>
+        <span>Gói #{rawVal.slice(0, 8)}</span>
+      </span>
+    );
+  }
+  if (c.name === "user_package_id") {
+    const pkgName =
+      row.package_name ||
+      row.user_packages?.package?.name ||
+      row.user_packages?.treatment_packages?.name;
+    const custName =
+      row.customer_name ||
+      row.user_packages?.customer?.full_name ||
+      row.user_packages?.users?.full_name;
+    const rawVal = String(row[c.name] || "");
+
+    if (pkgName || custName) {
+      return (
+        <div className="min-w-0 max-w-[240px]">
+          {pkgName && (
+            <div className="font-bold text-[#2C241E] text-xs truncate flex items-center gap-1.5" title={pkgName}>
+              <span>💆</span>
+              <span className="truncate">{pkgName}</span>
+            </div>
+          )}
+          {custName && (
+            <div className="text-[10.5px] text-[#73675F] mt-0.5 flex items-center gap-1 truncate">
+              <span>👤</span>
+              <span className="truncate">{custName}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono inline-flex items-center gap-1" title={rawVal}>
+        <span>💆</span>
+        <span>Liệu trình #{rawVal.slice(0, 8)}</span>
+      </span>
+    );
+  }
+  if (c.name === "invoice_id" || c.name === "used_in_invoice_id") {
+    const invCode =
+      row.invoice_code ||
+      row.invoices?.invoice_code;
+    const rawVal = String(row[c.name] || "");
+    if (!invCode && !rawVal) return <span className="text-[#A69788] text-xs">—</span>;
+    const displayCode = invCode || (rawVal.startsWith("INV-") || rawVal.startsWith("HD-") ? rawVal : `HD-${rawVal.slice(0, 8)}`);
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#EBF3FC] text-[#1E40AF] border border-[#BFDBFE]" title={rawVal}>
+        <span>🧾</span>
+        <span>{displayCode}</span>
+      </span>
+    );
+  }
+  if (c.name === "coupon_id") {
+    const cCode = row.coupon_code || row.coupons?.code;
+    const rawVal = String(row[c.name] || "");
+    if (cCode) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#FFF7ED] text-[#C2410C] border border-[#FFEDD5]">
+          <span>🎟️</span>
+          <span>{cCode}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Voucher #{rawVal.slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "role_id") {
+    const rName = row.role_name || row.roles?.name;
+    const rawVal = String(row[c.name] || "");
+    if (rName) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+          <span>🛡️</span>
+          <span>{rName}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Vai trò #{rawVal.slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "permission_id") {
+    const pCode = row.permission_code || row.permissions?.code || row.permissions?.description;
+    const rawVal = String(row[c.name] || "");
+    if (pCode) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold bg-[#F5F2ED] text-[#5C4D42] border border-[#E8DFD8]">
+          <span>🔑</span>
+          <span>{pCode}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Quyền #{rawVal.slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "chapter_id") {
+    const chTitle = row.chapter_title || row.course_chapters?.title;
+    const rawVal = String(row[c.name] || "");
+    if (chTitle) {
+      return (
+        <span className="font-medium text-[#2C241E] text-xs inline-flex items-center gap-1.5" title={chTitle}>
+          <span>📖</span>
+          <span className="truncate max-w-[200px]">{chTitle}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Chương #{rawVal.slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "lesson_id") {
+    const lTitle = row.lesson_title || row.course_lessons?.title;
+    const rawVal = String(row[c.name] || "");
+    if (lTitle) {
+      return (
+        <span className="font-medium text-[#2C241E] text-xs inline-flex items-center gap-1.5" title={lTitle}>
+          <span>🎬</span>
+          <span className="truncate max-w-[200px]">{lTitle}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Bài học #{rawVal.slice(0, 8)}
+      </span>
+    );
+  }
+  if (c.name === "quiz_id") {
+    const qTitle = row.quiz_title || row.course_quizzes?.title;
+    const rawVal = String(row[c.name] || "");
+    if (qTitle) {
+      return (
+        <span className="font-medium text-[#2C241E] text-xs inline-flex items-center gap-1.5" title={qTitle}>
+          <span>📝</span>
+          <span className="truncate max-w-[200px]">{qTitle}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Đề thi #{rawVal.slice(0, 8)}
+      </span>
+    );
+  }
   if (c.name === "technician_id") {
-    return row.technician_name || row.technicians?.full_name || display(row[c.name]);
+    const tName = row.technician_name || row.technicians?.full_name;
+    const rawVal = String(row[c.name] || "");
+    if (tName) {
+      return (
+        <span className="font-semibold text-[#8A4F23] text-xs inline-flex items-center gap-1.5" title={rawVal}>
+          <span>👩‍⚕️</span>
+          <span>{tName}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        KTV #{rawVal.slice(0, 8)}
+      </span>
+    );
   }
   if (c.name === "service_id") {
-    return row.service_name || row.services?.name || display(row[c.name]);
+    const sName = row.service_name || row.services?.name;
+    const rawVal = String(row[c.name] || "");
+    if (sName) {
+      return (
+        <span className="font-bold text-[#2C241E] text-xs inline-flex items-center gap-1.5" title={sName}>
+          <span>💆</span>
+          <span className="truncate max-w-[200px]">{sName}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={rawVal}>
+        Dịch vụ #{rawVal.slice(0, 8)}
+      </span>
+    );
   }
   if (c.name === "category_id") {
     const catName =
@@ -1407,6 +1730,112 @@ function formatCell(row: Row, c: Column): React.ReactNode {
         <span className={`w-1.5 h-1.5 rounded-full ${opt?.dot || "bg-[#8A4F23]"}`} />
         <span>{opt?.label || enums[s] || s}</span>
       </span>
+    );
+  }
+  if (
+    c.name === "status" &&
+    (row.completed_sessions !== undefined || row.package_id !== undefined)
+  ) {
+    const s = String(row[c.name] || "ACTIVE").toUpperCase();
+    const pkgStatusMap: Record<string, { label: string; badge: string; dot: string }> = {
+      ACTIVE: {
+        label: "Đang sử dụng",
+        badge: "bg-[#E8F6ED] text-[#0D6832] border-[#BDE8CD]",
+        dot: "bg-[#0D6832]",
+      },
+      COMPLETED: {
+        label: "Đã hoàn thành",
+        badge: "bg-[#EBF3FC] text-[#1E40AF] border-[#BFDBFE]",
+        dot: "bg-[#2563EB]",
+      },
+      PAUSED: {
+        label: "Tạm dừng",
+        badge: "bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]",
+        dot: "bg-[#D97706]",
+      },
+      EXPIRED: {
+        label: "Hết hạn",
+        badge: "bg-[#F3F4F6] text-[#4B5563] border-[#E5E7EB]",
+        dot: "bg-[#9CA3AF]",
+      },
+      CANCELLED: {
+        label: "Đã hủy",
+        badge: "bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]",
+        dot: "bg-[#DC2626]",
+      },
+    };
+    const opt = pkgStatusMap[s];
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+          opt?.badge || "bg-[#FAF0E4] text-[#8A4F23] border-[#E8DFD8]"
+        }`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full ${opt?.dot || "bg-[#8A4F23]"}`} />
+        <span>{opt?.label || enums[s] || s}</span>
+      </span>
+    );
+  }
+  if (
+    c.name === "status" &&
+    (row.coupon_id !== undefined || row.claimed_at !== undefined)
+  ) {
+    const s = String(row[c.name] || "AVAILABLE").toUpperCase();
+    const vStatusMap: Record<string, { label: string; badge: string; dot: string }> = {
+      ACTIVE: {
+        label: "Có thể dùng",
+        badge: "bg-[#E8F6ED] text-[#0D6832] border-[#BDE8CD]",
+        dot: "bg-[#0D6832]",
+      },
+      AVAILABLE: {
+        label: "Có thể dùng",
+        badge: "bg-[#E8F6ED] text-[#0D6832] border-[#BDE8CD]",
+        dot: "bg-[#0D6832]",
+      },
+      USED: {
+        label: "Đã sử dụng",
+        badge: "bg-[#F3F4F6] text-[#4B5563] border-[#E5E7EB]",
+        dot: "bg-[#9CA3AF]",
+      },
+      EXPIRED: {
+        label: "Hết hạn",
+        badge: "bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]",
+        dot: "bg-[#DC2626]",
+      },
+    };
+    const opt = vStatusMap[s];
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+          opt?.badge || "bg-[#FAF0E4] text-[#8A4F23] border-[#E8DFD8]"
+        }`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full ${opt?.dot || "bg-[#8A4F23]"}`} />
+        <span>{opt?.label || enums[s] || s}</span>
+      </span>
+    );
+  }
+  if (c.name === "completed_sessions" && row.total_sessions !== undefined) {
+    const done = Number(row.completed_sessions || 0);
+    const total = Number(row.total_sessions || 1);
+    const pct = Math.min(100, Math.round((done / Math.max(1, total)) * 100));
+    return (
+      <div className="min-w-[105px] max-w-[145px]">
+        <div className="flex items-center justify-between text-xs font-bold mb-1">
+          <span className={done >= total ? "text-[#0D6832]" : "text-[#2C241E]"}>
+            {done} / {total} buổi
+          </span>
+          <span className="text-[10px] text-[#8C7A6B]">{pct}%</span>
+        </div>
+        <div className="w-full h-1.5 bg-[#FAF0E4] rounded-full overflow-hidden border border-[#E8DFD8]">
+          <div
+            className={`h-full rounded-full transition-all ${
+              done >= total ? "bg-[#0D6832]" : "bg-[#985018]"
+            }`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
     );
   }
   if (c.name === "tuition_total") {
@@ -2723,44 +3152,54 @@ function CertificateTemplateFormPreview({
 }) {
   return (
     <section className="admin-field-wide border-t border-gray-200 px-4 py-5 sm:px-6" aria-label="Bản xem trước chứng nhận">
+      <style>{`.certificate-form-preview-header{background:linear-gradient(180deg,rgba(180,222,248,.82),rgba(255,255,255,.25))}.certificate-form-preview-footer{isolation:isolate}.certificate-form-preview-footer:before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.04) 42%)}.certificate-form-preview-mountain{position:absolute;inset-inline:-2%;bottom:-1px;z-index:0;height:88%;pointer-events:none;filter:blur(1.5px)}.certificate-form-preview-mountain-back{opacity:.72;background:linear-gradient(180deg,#e6f7fb,#a6e0ea);clip-path:polygon(0 28%,8% 25%,16% 5%,23% 12%,31% 35%,43% 28%,54% 7%,64% 23%,73% 31%,82% 10%,91% 23%,100% 19%,100% 100%,0 100%)}.certificate-form-preview-mountain-mid{opacity:.86;background:linear-gradient(180deg,#8bd6e2,#5caec4);clip-path:polygon(0 47%,11% 42%,19% 28%,30% 45%,39% 53%,51% 31%,62% 48%,74% 34%,84% 48%,95% 37%,100% 41%,100% 100%,0 100%)}.certificate-form-preview-mountain-front{background:linear-gradient(180deg,#4eaa76,#126274);clip-path:polygon(0 72%,12% 61%,25% 74%,38% 57%,50% 63%,63% 43%,76% 58%,87% 68%,100% 54%,100% 100%,0 100%)}.certificate-form-preview-org{font-size:clamp(6px,1.02vw,10.5px);letter-spacing:-0.015em;white-space:nowrap}.certificate-form-preview-inst{font-size:clamp(5.5px,0.95vw,9.8px);letter-spacing:-0.015em;white-space:nowrap}`}</style>
       <h3 className="mb-3 text-sm font-bold text-gray-800">Bản xem trước chứng nhận</h3>
       <div className="mx-auto w-full max-w-[560px]">
         <article
-          className="relative flex aspect-[210/297] w-full flex-col overflow-hidden border border-sky-200 bg-white px-[7.5%] pb-[5%] pt-[5%] text-gray-900 shadow-lg"
+          className="relative flex aspect-[210/297] w-full flex-col overflow-hidden border border-sky-200 bg-white px-[7.5%] pb-[3.5%] pt-[3.5%] font-sans text-gray-900 shadow-lg"
           style={backgroundUrl ? { backgroundImage: `url("${backgroundUrl.replace(/["\\]/g, "")}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
         >
-          <div className="relative flex items-center justify-center border-b-2 border-sky-100 px-2 pb-[3%] pt-2 text-center text-[#0b43a8]">
-            <div>
-              <p className="text-[clamp(7px,1.5vw,12px)] font-extrabold leading-tight">VIỆN NGHIÊN CỨU VÀ PHÁT TRIỂN CÔNG NGHỆ CSSK CỘNG ĐỒNG</p>
-              <p className="mt-1 text-[clamp(7px,1.4vw,11px)] font-bold leading-tight">TRUNG TÂM ỨNG DỤNG KHOA HỌC BẠCH HUYẾT VIỆT NAM</p>
+          <div className="pointer-events-none absolute inset-x-[8%] top-[24%] flex h-[48%] items-center justify-center opacity-[0.055]" aria-hidden="true"><img src="/logo_mld.png" alt="" className="h-full w-full object-contain" /></div>
+          <div className="certificate-form-preview-header relative flex items-center gap-2 sm:gap-3 px-2 py-[1.5%] text-[#0b43a8]">
+            <img src="/logo_mld.png" alt="Logo MLD Việt Nam" className="h-auto max-h-11 w-[15%] max-w-[68px] shrink-0 object-contain object-left" />
+            <div className="min-w-0 flex-1 text-center">
+              <p className="certificate-form-preview-org font-extrabold uppercase leading-tight tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                VIỆN NGHIÊN CỨU VÀ PHÁT TRIỂN CÔNG NGHỆ CSSK CỘNG&nbsp;ĐỒNG
+              </p>
+              <p className="certificate-form-preview-inst mt-0.5 font-bold uppercase leading-tight tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                TRUNG TÂM ỨNG DỤNG KHOA HỌC BẠCH HUYẾT VIỆT NAM
+              </p>
             </div>
           </div>
-          <div className="relative mt-[6%] text-center text-[#0b43a8]">
-            <h1 className="font-serif text-[clamp(24px,5vw,42px)] font-bold leading-none">{title || "CHỨNG NHẬN"}</h1>
-            <p className="mt-[2%] text-[clamp(9px,1.8vw,15px)] font-extrabold">HOÀN THÀNH ĐÀO TẠO</p>
-            <p className="mt-[1%] text-[clamp(8px,1.5vw,13px)] font-bold uppercase">{name || "TÊN CHƯƠNG TRÌNH ĐÀO TẠO"}</p>
+          <div className="relative mt-[3.5%] text-center text-[#0b43a8]">
+            <h1 className="font-serif text-[clamp(34px,6vw,56px)] font-bold leading-none">{title || "CHỨNG NHẬN"}</h1>
+            <p className="mt-[1.6%] text-[clamp(10px,1.8vw,16px)] font-extrabold">HOÀN THÀNH ĐÀO TẠO</p>
+            <p className="mt-[0.6%] text-[clamp(8px,1.5vw,13px)] font-bold uppercase">{name || "TÊN CHƯƠNG TRÌNH ĐÀO TẠO"}</p>
           </div>
-          <div className="relative mt-[7%] space-y-2 text-[clamp(8px,1.55vw,13px)] font-semibold leading-snug">
+          <div className="relative mt-[6%] space-y-[0.7%] text-[clamp(9px,1.65vw,14px)] font-semibold leading-snug">
             <p>Chứng nhận này xác nhận rằng, học viên:</p>
             <p>Họ và tên: <strong className="font-extrabold uppercase">HỌ VÀ TÊN HỌC VIÊN</strong></p>
-            <p>Số hiệu chứng nhận: <strong>{code || "MÃ CHỨNG NHẬN"}</strong></p>
+            <p>Ngày sinh: <strong>__/__/____</strong></p>
+            <p>Mã học viên: <strong>{code || "MÃ HỌC VIÊN"}</strong></p>
             <p>Ngày cấp: <strong>__/__/____</strong></p>
-            <p className="pt-2">Đã hoàn thành xuất sắc chương trình đào tạo:</p>
-            <p className="font-extrabold text-[#0b43a8]">{name || "Tên khóa học"} <span className="font-semibold">thuộc Khung đào tạo chuyên môn của MLD Việt Nam tại Thành phố Hồ Chí Minh.</span></p>
+            <p className="pt-[1%]">Đã hoàn thành xuất sắc chương trình đào tạo:</p>
+            <p className="font-extrabold uppercase leading-snug text-[#0b43a8]">{name || "TÊN CHƯƠNG TRÌNH ĐÀO TẠO"} <span className="font-semibold">thuộc Khung đào tạo số 4 của MLD Việt Nam tại Thành phố Hồ Chí Minh.</span></p>
           </div>
-          <div className="relative mt-auto flex min-h-[19%] items-end justify-between gap-2 pb-[3%]">
-            {sealUrl ? <img src={sealUrl} alt="Con dấu" className="h-[18%] max-h-16 w-[18%] object-contain" /> : <span className="w-[18%]" />}
-            <div className="w-[54%] pb-[2%] text-center">
+          <div className="relative mt-[2%] flex min-h-[14%] justify-end pb-[1%] pr-[5%] text-center">
+            <div className="w-[42%]">
               <p className="text-[clamp(8px,1.45vw,12px)] font-extrabold uppercase">{signerTitle || "GIÁM ĐỐC"}</p>
               {signatureUrl ? <img src={signatureUrl} alt="Chữ ký" className="mx-auto h-[clamp(35px,7vw,62px)] max-w-full object-contain" /> : <div className="h-[clamp(35px,7vw,62px)]" />}
               <p className="text-[clamp(8px,1.4vw,12px)] font-bold">{signerName || "HỌ TÊN NGƯỜI KÝ"}</p>
             </div>
-            <span className="w-[18%]" />
           </div>
-          <footer className="relative -mx-[9.2%] mt-[1%] min-h-[17%] bg-gradient-to-b from-[#dff4fa] to-[#55b5cc] px-[9.2%] pb-[4%] pt-[4%] text-[clamp(6px,1.05vw,9px)] leading-[1.35] text-gray-900">
+          <footer className="certificate-form-preview-footer relative -mx-[9.2%] mt-auto min-h-[27%] px-[9.2%] pb-[4%] pt-[5%] text-[clamp(6px,1.05vw,9px)] leading-[1.3] text-gray-900">
+            <div className="certificate-form-preview-mountain certificate-form-preview-mountain-back" />
+            <div className="certificate-form-preview-mountain certificate-form-preview-mountain-mid" />
+            <div className="certificate-form-preview-mountain certificate-form-preview-mountain-front" />
             <ul className="relative z-10 list-disc space-y-1 pl-4">
               <li>Chứng nhận này xác nhận học viên đã hoàn thành đầy đủ các yêu cầu đào tạo của cấp độ tương ứng theo quy định của chương trình.</li>
-              <li>Chứng nhận này không đồng nghĩa với việc được phép giảng dạy, đào tạo hoặc chuyển giao phương pháp.</li>
+              <li>Chứng nhận này không đồng nghĩa với việc được phép giảng dạy, đào tạo, cấp chứng nhận hoặc chuyển giao phương pháp Dẫn lưu Bạch huyết Thủ công (MLD) cho người khác.</li>
+              <li>Quyền giảng dạy và tư cách giảng viên chỉ được công nhận qua chương trình đào tạo giảng viên chính thức và phải được phê duyệt bằng văn bản.</li>
             </ul>
           </footer>
         </article>
@@ -3049,7 +3488,9 @@ function RecordDialog({
   return (
     <dialog
       className={`admin-dialog ${
-        ["staff_profiles", "courses", "course_enrollments", "course_chapters", "course_lessons", "course_quizzes", "quiz_questions"].includes(resource.name)
+        resource.name === "certificate_templates"
+          ? "certificate-template-dialog"
+          : ["staff_profiles", "courses", "course_enrollments", "course_chapters", "course_lessons", "course_quizzes", "quiz_questions", "treatment_packages", "services"].includes(resource.name)
           ? "!max-w-[880px] !w-[min(880px,calc(100%-32px))]"
           : ""
       }`}
@@ -3246,8 +3687,8 @@ function RecordDialog({
             />
           </div>
         ) : (
-          <>
-          <div className="admin-form-grid">
+          <div className={resource.name === "certificate_templates" && mode !== "view" ? "certificate-template-form-layout" : "certificate-template-form-layout--plain"}>
+          <div className={resource.name === "certificate_templates" && mode !== "view" ? "admin-form-grid certificate-template-fields" : "admin-form-grid"}>
             {fields.map((c) => {
               const value = current(c),
                 structured =
@@ -3725,7 +4166,7 @@ function RecordDialog({
             sealUrl={String(values.seal_image_url ?? (columns.find((x) => x.name === "seal_image_url") ? current(columns.find((x) => x.name === "seal_image_url")!) : ""))}
           />
         )}
-          </>
+          </div>
         )}
         {error && (
           <p role="alert" className="admin-error">
@@ -3895,6 +4336,27 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const [shareJournalItem, setShareJournalItem] = useState<ShareJournalItem | null>(null);
   const [certificateTemplatePreview, setCertificateTemplatePreview] = useState<Row | null>(null);
   const [isExportingTemplatePdf, setIsExportingTemplatePdf] = useState(false);
+  const [activeRowMenu, setActiveRowMenu] = useState<{
+    row: Row;
+    top: number;
+    right: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!activeRowMenu) return;
+    const handleClose = () => setActiveRowMenu(null);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActiveRowMenu(null);
+    };
+    window.addEventListener("click", handleClose);
+    window.addEventListener("scroll", handleClose, true);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("click", handleClose);
+      window.removeEventListener("scroll", handleClose, true);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeRowMenu]);
   const confirmDialog = useRef<HTMLDialogElement>(null);
   const page = Number(params.get("page")) || 1;
   const resource = resources.find((r) => r.name === table);
@@ -3924,6 +4386,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       instructor?: { id?: string; full_name?: string };
     }>
   >([]);
+  const [coursesForBatchFilter, setCoursesForBatchFilter] = useState<Array<{ id: string; title: string; code?: string }>>([]);
 
   // Dữ liệu thời khóa biểu / buổi học phục vụ bộ lọc và timeline lớp học
   const [schedulesForFilter, setSchedulesForFilter] = useState<
@@ -3967,6 +4430,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const [markingEnrollmentId, setMarkingEnrollmentId] = useState<string | null>(null);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [inlineNotes, setInlineNotes] = useState<Record<string, string>>({});
+  const [gradeDrafts, setGradeDrafts] = useState<Record<string, { theory_score: string; practical_score: string }>>({});
+  const [savingGradeId, setSavingGradeId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -3988,7 +4453,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           if (active && Array.isArray(data)) setCategoriesForFilter(data);
         })
         .catch(() => {});
-    } else if (table === "course_enrollments" || table === "student_attendance") {
+    } else if (table === "course_enrollments" || table === "student_attendance" || table === "student_academic_records") {
       fetch(
         `${SUPABASE_URL}/rest/v1/course_batches?select=*,courses(id,title,code),branches(id,name,code),instructor:instructors!instructor_id(id,full_name)&order=start_date.desc,created_at.desc`,
         {
@@ -4020,14 +4485,22 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     };
   }, [table, version]);
   useEffect(() => {
+    let active = true;
     const c = new AbortController();
     adminApi<Resource[]>("resources", undefined, c.signal)
       .then((res) => {
         if (Array.isArray(res) && res.length > 0) setResources(res);
       })
       .catch(() => {});
-    return () => c.abort();
-  }, []);
+
+      if (table === "student_academic_records") {
+        fetch(`${SUPABASE_URL}/rest/v1/courses?select=id,title,code&order=title.asc`, { headers: getSupabaseHeaders() })
+          .then((r) => r.json())
+          .then((data) => { if (active && Array.isArray(data)) setCoursesForBatchFilter(data); })
+          .catch(() => {});
+      }
+    return () => { active = false; c.abort(); };
+  }, [table]);
   useEffect(() => {
     setSearch(params.get("search") || "");
   }, [params]);
@@ -4322,6 +4795,33 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     if (name !== "page") next.delete("page");
     setParams(next);
   };
+
+  const saveInlineGrade = async (row: Row) => {
+    const draft = gradeDrafts[String(row.id)];
+    if (!draft) return;
+    const theory = Number(draft.theory_score);
+    const practical = Number(draft.practical_score);
+    if (![theory, practical].every((score) => Number.isFinite(score) && score >= 0 && score <= 10)) {
+      setError("Điểm lý thuyết và thực hành phải nằm trong khoảng 0 đến 10.");
+      return;
+    }
+    setSavingGradeId(String(row.id));
+    setError("");
+    try {
+      await adminApi(`${table}/update`, {
+        values: { theory_score: theory, practical_score: practical },
+        key: { id: row.id },
+        expectedUpdatedAt: row.updated_at,
+      });
+      setGradeDrafts((current) => { const next = { ...current }; delete next[String(row.id)]; return next; });
+      setNotice("Đã lưu điểm lý thuyết và thực hành.");
+      setVersion((current) => current + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể lưu điểm.");
+    } finally {
+      setSavingGradeId(null);
+    }
+  };
   const filterColumns =
     listing?.columns.filter(
       (c) => (c.options.length || c.type === "bool") && !(table === "users" && c.name === "role")
@@ -4376,9 +4876,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "is_active",
     ],
     treatment_packages: [
-      "image_url",
       "name",
-      "service_id",
       "total_sessions",
       "validity_months",
       "price",
@@ -4635,6 +5133,77 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     );
   }
 
+  const handleTriggerAction = (actionKey: string, row: Row) => {
+    if (actionKey === "share-journal") {
+      setShareJournalItem({
+        id: row.id,
+        sessionNumber: row.session_number,
+        sessionDate: row.session_date,
+        customerName: row.customer?.full_name || row.customer_name || 'Khách hàng',
+        customerPhone: row.customer?.phone || row.phone,
+        customerEmail: row.customer?.email || row.email,
+        serviceName: row.treatment_notes,
+      });
+      return;
+    }
+    if (actionKey === "open-schedule") {
+      const bCode =
+        row.booking_code ||
+        row.bookings?.booking_code ||
+        (typeof row.booking_id === "string"
+          ? row.booking_id
+          : "");
+      window.location.href = `/staff-schedule?booking=${encodeURIComponent(bCode)}`;
+      return;
+    }
+    if (actionKey === "open-pos") {
+      if (table === "treatment_packages") {
+        window.location.href = `/cashier-pos?packageId=${encodeURIComponent(row.id)}&packageName=${encodeURIComponent(row.name || "")}`;
+        return;
+      }
+      const sName = row.name || "";
+      window.location.href = `/cashier-pos?serviceName=${encodeURIComponent(sName)}`;
+      return;
+    }
+    if (actionKey === "open-treatment") {
+      window.location.href = `/treatment-management?packageId=${encodeURIComponent(row.id)}`;
+      return;
+    }
+    if (actionKey === "view-schedule") {
+      window.location.href = "/staff-schedule";
+      return;
+    }
+    if (actionKey === "toggle-active") {
+      (async () => {
+        try {
+          setPending(true);
+          await adminApi(`${table}/action`, {
+            key: rowKey(listing!.columns, row),
+            action: "toggle-active",
+            currentActive: row.is_active,
+          });
+          setVersion((v) => v + 1);
+          setNotice(
+            row.is_active
+              ? `Đã tạm ngừng phục vụ "${row.name || "dịch vụ"}".`
+              : `Đã kích hoạt kinh doanh "${row.name || "dịch vụ"}".`
+          );
+        } catch (err: any) {
+          setError(err.message || "Lỗi thay đổi trạng thái.");
+        } finally {
+          setPending(false);
+        }
+      })();
+      return;
+    }
+    setReason("");
+    setConfirmation({
+      row,
+      action: actionKey,
+      title: availableActions(table, row).find((x) => x.key === actionKey)?.title || "Xác nhận thao tác",
+    });
+  };
+
   return (
     <section className="admin-resource">
       <div className="admin-page-heading">
@@ -4657,6 +5226,15 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
               <Eye size={15} />
               Xem mẫu mới
             </button>
+          )}
+          {["services", "treatment_packages"].includes(table) && (
+            <Link
+              to="/services-catalog"
+              className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 transition hover:bg-amber-100 shadow-xs"
+            >
+              <Sparkles size={15} className="text-amber-600" />
+              Xem Ma Trận Bảng Giá Niêm Yết MLD ↗
+            </Link>
           )}
           <button
             className="admin-icon"
@@ -4738,7 +5316,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        {(table === "course_enrollments" || table === "student_attendance") && (
+        {(table === "course_enrollments" || table === "student_attendance" || table === "student_academic_records") && (
           <select
             aria-label="Chọn Lớp học"
             className="font-bold text-[#8A4F23] bg-[#FFFDF9] border-[#EAD8C7]"
@@ -4770,6 +5348,17 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                 {b.batch_code} · {b.courses?.title || "Khóa học"} {b.branches?.name ? `(${b.branches.name})` : ""}
               </option>
             ))}
+          </select>
+        )}
+        {table === "student_academic_records" && (
+          <select
+            aria-label="Lọc bảng điểm theo khóa học"
+            className="font-bold text-[#2C241E] bg-[#FFFDF9] border-[#EAD8C7]"
+            value={params.get("course_id") || ""}
+            onChange={(e) => updateParam("course_id", e.target.value)}
+          >
+            <option value="">Tất cả khóa học</option>
+            {coursesForBatchFilter.map((course) => <option key={course.id} value={course.id}>{course.title}{course.code ? ` (${course.code})` : ""}</option>)}
           </select>
         )}
         {table === "student_attendance" && selectedBatchId && selectedBatchId !== "__ALL__" && (
@@ -5798,209 +6387,243 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   </div>
                 )}
                 <div className="admin-table-wrap">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    {visible.map((c) => (
-                      <th key={c.name}>
-                        <button
-                          onClick={() => {
-                            const next = new URLSearchParams(params);
-                            next.set("sort", c.name);
-                            next.set(
-                              "direction",
-                              params.get("sort") === c.name &&
-                                params.get("direction") === "asc"
-                                ? "desc"
-                                : "asc",
-                            );
-                            next.delete("page");
-                            setParams(next);
-                          }}
-                        >
-                          {label(c.name)}
-                          {params.get("sort") === c.name
-                            ? params.get("direction") === "asc"
-                              ? " ↑"
-                              : " ↓"
-                            : ""}
-                        </button>
-                      </th>
-                    ))}
-                    <th className="admin-row-actions">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {listing.rows.map((row, i) => (
-                    <tr key={JSON.stringify(rowKey(listing.columns, row)) || i}>
-                      {visible.map((c, j) => (
-                        <td key={c.name}>
-                          {j === 0 ? (
-                            <button
-                              className="admin-record-link"
-                              onClick={() => openRecordPreview(row)}
-                            >
-                              {formatCell(row, c)}
-                            </button>
-                          ) : (
-                            <span
-                              className={
-                                c.name === "status" ||
-                                c.name === "payment_status"
-                                  ? "admin-status"
-                                  : ""
-                              }
-                            >
-                              {formatCell(row, c)}
-                            </span>
-                          )}
-                          {table === "course_categories" && c.name === "name" && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {(() => {
-                                const matched = coursesForFilter.filter(
-                                  (crs) => crs.category_id === row.id
-                                );
-                                if (matched.length === 0) {
-                                  return (
-                                    <span className="text-[10px] text-[#A69788] italic">
-                                      Chưa có khóa học
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            {visible.map((c) => (
+                              <th key={c.name}>
+                                <button
+                                  onClick={() => {
+                                    const next = new URLSearchParams(params);
+                                    next.set("sort", c.name);
+                                    next.set(
+                                      "direction",
+                                      params.get("sort") === c.name &&
+                                        params.get("direction") === "asc"
+                                        ? "desc"
+                                        : "asc",
+                                    );
+                                    next.delete("page");
+                                    setParams(next);
+                                  }}
+                                >
+                                  {label(c.name, table)}
+                                  {params.get("sort") === c.name
+                                    ? params.get("direction") === "asc"
+                                      ? " ↑"
+                                      : " ↓"
+                                    : ""}
+                                </button>
+                              </th>
+                            ))}
+                            <th className="admin-row-actions">Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {listing.rows.map((row, i) => (
+                            <tr key={JSON.stringify(rowKey(listing.columns, row)) || i}>
+                              {visible.map((c, j) => (
+                                <td key={c.name}>
+                                  {table === "student_academic_records" && (c.name === "theory_score" || c.name === "practical_score") ? (
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={10}
+                                      step={0.1}
+                                      aria-label={`${c.name === "theory_score" ? "Điểm lý thuyết" : "Điểm thực hành"} ${row.course_enrollments?.student?.full_name || row.id}`}
+                                      value={gradeDrafts[String(row.id)]?.[c.name] ?? String(row[c.name] ?? "")}
+                                      onChange={(event) => setGradeDrafts((current) => ({
+                                        ...current,
+                                        [String(row.id)]: {
+                                          theory_score: current[String(row.id)]?.theory_score ?? String(row.theory_score ?? ""),
+                                          practical_score: current[String(row.id)]?.practical_score ?? String(row.practical_score ?? ""),
+                                          [c.name]: event.target.value,
+                                        },
+                                      }))}
+                                      className="w-20 rounded-md border border-[#CBD5E1] px-2 py-1 text-xs"
+                                    />
+                                  ) : j === 0 ? (
+                                    <button
+                                      className="admin-record-link"
+                                      onClick={() => openRecordPreview(row)}
+                                    >
+                                      {formatCell(row, c, table)}
+                                    </button>
+                                  ) : (
+                                    <span
+                                      className={
+                                        c.name === "status" ||
+                                        c.name === "payment_status"
+                                          ? "admin-status"
+                                          : ""
+                                      }
+                                    >
+                                      {formatCell(row, c, table)}
                                     </span>
-                                  );
-                                }
-                                return (
-                                  <span
-                                    className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#8A4F23] bg-[#FAF3EA] border border-[#EAD8C7] px-2 py-0.5 rounded-md"
-                                    title={matched.map((m) => m.title).join(", ")}
+                                  )}
+                                  {table === "course_categories" && c.name === "name" && (
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {(() => {
+                                        const matched = coursesForFilter.filter(
+                                          (crs) => crs.category_id === row.id
+                                        );
+                                        if (matched.length === 0) {
+                                          return (
+                                            <span className="text-[10px] text-[#A69788] italic">
+                                              Chưa có khóa học
+                                            </span>
+                                          );
+                                        }
+                                        return (
+                                          <span
+                                            className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#8A4F23] bg-[#FAF3EA] border border-[#EAD8C7] px-2 py-0.5 rounded-md"
+                                            title={matched.map((m) => m.title).join(", ")}
+                                          >
+                                            📚 {matched.length} khóa: {matched.map((m) => m.title).join(", ")}
+                                          </span>
+                                        );
+                                      })()}
+                                    </div>
+                                  )}
+                                </td>
+                              ))}
+                              <td>
+                                <div className="admin-row-actions">
+                                  {table === "student_academic_records" && gradeDrafts[String(row.id)] && (
+                                    <button
+                                      className="admin-icon"
+                                      title="Lưu điểm đã nhập"
+                                      aria-label="Lưu điểm đã nhập"
+                                      disabled={savingGradeId === String(row.id)}
+                                      onClick={() => saveInlineGrade(row)}
+                                    >
+                                      <Save size={16} />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    className="admin-icon"
+                                    title={table === "certificate_templates" ? "Xem & chỉnh sửa phôi chứng nhận A4" : "Xem chi tiết"}
+                                    onClick={() => openRecordPreview(row)}
                                   >
-                                    📚 {matched.length} khóa: {matched.map((m) => m.title).join(", ")}
-                                  </span>
-                                );
-                              })()}
-                            </div>
-                          )}
-                        </td>
-                      ))}
-                      <td>
-                        <div className="admin-row-actions">
+                                    <Eye size={16} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`admin-icon ${activeRowMenu?.row.id === row.id ? "bg-[#FAF3EA] text-[#985018] border-[#EAD8C7]" : ""}`}
+                                    title="Tùy chọn thao tác"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      if (activeRowMenu && activeRowMenu.row.id === row.id) {
+                                        setActiveRowMenu(null);
+                                      } else {
+                                        setActiveRowMenu({
+                                          row,
+                                          top: rect.bottom + 6,
+                                          right: window.innerWidth - rect.right,
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <MoreHorizontal size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      {activeRowMenu && (
+                        <div
+                          className="fixed z-50 min-w-[230px] rounded-2xl border border-[#EAD8C7] bg-white p-1.5 shadow-2xl font-['Plus_Jakarta_Sans',sans-serif] animate-in fade-in zoom-in-95 duration-100"
+                          style={{
+                            top: `${activeRowMenu.top}px`,
+                            right: `${activeRowMenu.right}px`,
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="px-3 py-1.5 text-[10.5px] font-bold text-[#8C7A6B] uppercase tracking-wider border-b border-[#F0E5D9] mb-1 flex items-center justify-between">
+                            <span>Tùy chọn thao tác</span>
+                            <span className="font-mono text-[10px] text-[#A69788]">
+                              #{String(activeRowMenu.row.id || "").slice(0, 6)}
+                            </span>
+                          </div>
+
                           <button
-                            className="admin-icon"
-                            title={table === "certificate_templates" ? "Xem & chỉnh sửa phôi chứng nhận A4" : "Xem chi tiết"}
-                            onClick={() => openRecordPreview(row)}
+                            type="button"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#2C241E] hover:bg-[#FAF4ED] hover:text-[#985018] rounded-xl transition-colors text-left cursor-pointer"
+                            onClick={() => {
+                              const targetRow = activeRowMenu.row;
+                              setActiveRowMenu(null);
+                              openRecordPreview(targetRow);
+                            }}
                           >
-                            <Eye size={16} />
+                            <Eye size={14} className="text-[#985018]" />
+                            <span>Xem hồ sơ chi tiết</span>
                           </button>
+
                           {resource?.actions?.includes("update") && (
                             <button
-                              className="admin-icon"
-                              title="Chỉnh sửa"
-                              onClick={() => setEdit({ row, mode: "update" })}
-                            >
-                              <Pencil size={16} />
-                            </button>
-                          )}
-                          {resource?.actions?.includes("delete") && (
-                            <button
-                              className="admin-icon admin-danger"
-                              title="Xóa"
+                              type="button"
+                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#2C241E] hover:bg-[#FAF4ED] hover:text-[#985018] rounded-xl transition-colors text-left cursor-pointer"
                               onClick={() => {
-                                setReason("");
-                                setConfirmation({
-                                  row,
-                                  action: "delete",
-                                  title: "Xóa bản ghi",
-                                });
+                                const targetRow = activeRowMenu.row;
+                                setActiveRowMenu(null);
+                                setEdit({ row: targetRow, mode: "update" });
                               }}
                             >
-                              <Trash2 size={16} />
+                              <Pencil size={14} className="text-[#985018]" />
+                              <span>Chỉnh sửa thông tin</span>
                             </button>
                           )}
+
                           {resource?.actions?.includes("action") &&
-                            availableActions(table, row).map((a) => (
+                            availableActions(table, activeRowMenu.row).map((a) => {
+                              const ActionIcon = a.icon;
+                              return (
+                                <button
+                                  key={a.key}
+                                  type="button"
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[#2C241E] hover:bg-[#FAF4ED] hover:text-[#985018] rounded-xl transition-colors text-left cursor-pointer"
+                                  onClick={() => {
+                                    const targetRow = activeRowMenu.row;
+                                    setActiveRowMenu(null);
+                                    handleTriggerAction(a.key, targetRow);
+                                  }}
+                                >
+                                  <ActionIcon size={14} className="text-[#8A4F23]" />
+                                  <span>{a.title}</span>
+                                </button>
+                              );
+                            })}
+
+                          {resource?.actions?.includes("delete") && (
+                            <>
+                              <div className="my-1 border-t border-[#F0E5D9]" />
                               <button
-                                key={a.key}
-                                className="admin-icon"
-                                title={a.title}
+                                type="button"
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors text-left cursor-pointer"
                                 onClick={() => {
-                                  if (a.key === "share-journal") {
-                                    setShareJournalItem({
-                                      id: row.id,
-                                      sessionNumber: row.session_number,
-                                      sessionDate: row.session_date,
-                                      customerName: row.customer?.full_name || row.customer_name || 'Khách hàng',
-                                      customerPhone: row.customer?.phone || row.phone,
-                                      customerEmail: row.customer?.email || row.email,
-                                      serviceName: row.treatment_notes,
-                                    });
-                                    return;
-                                  }
-                                  if (a.key === "open-schedule") {
-                                    const bCode =
-                                      row.booking_code ||
-                                      row.bookings?.booking_code ||
-                                      (typeof row.booking_id === "string"
-                                        ? row.booking_id
-                                        : "");
-                                    window.location.href = `/staff-schedule?booking=${encodeURIComponent(bCode)}`;
-                                    return;
-                                  }
-                                  if (a.key === "open-pos") {
-                                    if (table === "treatment_packages") {
-                                      window.location.href = `/cashier-pos?packageId=${encodeURIComponent(row.id)}&packageName=${encodeURIComponent(row.name || "")}`;
-                                      return;
-                                    }
-                                    const sName = row.name || "";
-                                    window.location.href = `/cashier-pos?serviceName=${encodeURIComponent(sName)}`;
-                                    return;
-                                  }
-                                  if (a.key === "open-treatment") {
-                                    window.location.href = `/treatment-management?packageId=${encodeURIComponent(row.id)}`;
-                                    return;
-                                  }
-                                  if (a.key === "view-schedule") {
-                                    window.location.href = "/staff-schedule";
-                                    return;
-                                  }
-                                  if (a.key === "toggle-active") {
-                                    (async () => {
-                                      try {
-                                        setPending(true);
-                                        await adminApi(`${table}/action`, {
-                                          key: rowKey(listing.columns, row),
-                                          action: "toggle-active",
-                                          currentActive: row.is_active,
-                                        });
-                                        setVersion((v) => v + 1);
-                                        setNotice(
-                                          row.is_active
-                                            ? `Đã tạm ngừng phục vụ "${row.name || "dịch vụ"}".`
-                                            : `Đã kích hoạt kinh doanh "${row.name || "dịch vụ"}".`
-                                        );
-                                      } catch (err: any) {
-                                        setError(err.message || "Lỗi thay đổi trạng thái.");
-                                      } finally {
-                                        setPending(false);
-                                      }
-                                    })();
-                                    return;
-                                  }
+                                  const targetRow = activeRowMenu.row;
+                                  setActiveRowMenu(null);
                                   setReason("");
                                   setConfirmation({
-                                    row,
-                                    action: a.key,
-                                    title: a.title,
+                                    row: targetRow,
+                                    action: "delete",
+                                    title: "Xóa bản ghi",
                                   });
                                 }}
                               >
-                                <a.icon size={16} />
+                                <Trash2 size={14} className="text-rose-600" />
+                                <span>Xóa bản ghi này</span>
                               </button>
-                            ))}
+                            </>
+                          )}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {!listing.rows.length && (
+                      )}
+                      {!listing.rows.length && (
                 <div className="admin-empty py-10 text-center">
                   {table === "course_enrollments" && selectedBatch ? (
                     <div className="max-w-md mx-auto space-y-3 font-['Plus_Jakarta_Sans',sans-serif]">
@@ -6119,7 +6742,6 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         <CertificateTemplateEditor
           certificate={makeTemplatePreviewCertificate(certificateTemplatePreview)}
           templateName={certificateTemplatePreview.name || "Mẫu chứng nhận hoàn thành khóa học MLD"}
-          qrDataUrl=""
           isExporting={isExportingTemplatePdf}
           onClose={() => setCertificateTemplatePreview(null)}
           onExportingChange={setIsExportingTemplatePdf}

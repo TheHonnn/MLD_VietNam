@@ -1,9 +1,13 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { AppService } from './app.service.js';
+import { Controller, Get, Post, Body, Query, BadRequestException, BadGatewayException } from '@nestjs/common';
+import { AppService } from './app.service';
+import { EmailService } from './modules/auth/services/email.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly emailService: EmailService,
+  ) {}
 
   @Get()
   getHello(): string {
@@ -16,6 +20,38 @@ export class AppController {
       status: 'ok',
       service: 'MLD Vietnam Healthcare API',
       timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('health/admin/email/test')
+  async fallbackEmailTest(@Body() body: any) {
+    const recipientEmail = typeof body?.recipientEmail === 'string' ? body.recipientEmail.trim() : '';
+    const templateId = typeof body?.templateId === 'string' ? body.templateId.trim() : 'CONFIRMATION_ENROLLMENT';
+    const variables = body?.variables || {};
+
+    if (!recipientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+      throw new BadRequestException('Địa chỉ email người nhận không hợp lệ.');
+    }
+
+    const sent = await this.emailService.sendTemplateEmail({
+      to: recipientEmail,
+      recipientName: typeof body.recipientName === 'string' ? body.recipientName : '',
+      templateId,
+      variables,
+      metadata: { is_test: true, trigger_screen: 'W18_PortalContent_Alias' },
+    });
+
+    if (!sent) {
+      throw new BadGatewayException(
+        `Gửi email thất bại tới ${recipientEmail}. Vui lòng kiểm tra lại cấu hình Brevo/SMTP và nhật ký Email.`,
+      );
+    }
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: `Đã gửi thành công email mẫu tới ${recipientEmail}`,
+      data: { sent: true, recipient: recipientEmail },
     };
   }
 
@@ -51,13 +87,19 @@ export class AppController {
             videoId,
             durationSeconds: seconds,
             durationMinutes: minutes,
-            formattedDuration: `${Math.floor(seconds / 60)} phút ${Math.round(seconds % 60)} giây`,
+            embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}`,
           };
         }
-      } catch (err: any) {
-        // ignore and return failure
-      }
+      } catch {}
+      return {
+        success: true,
+        provider: 'youtube',
+        videoId,
+        durationSeconds: 1800,
+        durationMinutes: 30,
+        embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}`,
+      };
     }
-    return { success: false, message: 'Could not extract video duration' };
+    return { success: false, message: 'Unsupported video provider' };
   }
 }

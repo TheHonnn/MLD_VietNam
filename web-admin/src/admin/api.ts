@@ -31,9 +31,40 @@ export interface Listing {
   total: number;
 }
 
-const base = (
-  (import.meta as any).env?.VITE_API_BASE_URL || "http://127.0.0.1:3000/api/v1"
-).replace(/\/$/, "");
+function cleanApiBase(url: string): string {
+  if (!url || typeof url !== 'string') return '';
+  let clean = url.trim().replace(/\/+$/, '');
+  // Strip trailing /health if user pasted the healthcheck path into VITE_API_BASE_URL
+  clean = clean.replace(/\/health$/, '');
+  // If user passed a bare domain like https://something.onrender.com, append /api/v1
+  if (!clean.endsWith('/api/v1') && !clean.endsWith('/api')) {
+    clean = `${clean}/api/v1`;
+  }
+  return clean.replace(/\/+$/, '');
+}
+
+function resolveApiBase(): string {
+  if (typeof window !== "undefined") {
+    const rawEnv = (import.meta as any).env?.VITE_API_BASE_URL;
+    if (rawEnv && typeof rawEnv === "string" && rawEnv.trim()) {
+      const sanitized = cleanApiBase(rawEnv);
+      if (window.location.protocol === "https:") {
+        if (sanitized.startsWith("https://")) {
+          return sanitized;
+        }
+        return `${window.location.origin}/api`;
+      }
+      return sanitized.replace("localhost", "127.0.0.1");
+    }
+
+    if (window.location.protocol === "https:") {
+      return `${window.location.origin}/api`;
+    }
+  }
+  return "http://127.0.0.1:3000/api/v1";
+}
+
+const base = resolveApiBase();
 
 import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
 
@@ -137,25 +168,40 @@ const TABLE_SELECTS: Record<string, string> = {
   staff_profiles: "*,users(full_name,phone,email,role),branches(name,code)",
   technicians: "*,branches(name)",
   bookings: "*,customer:users!customer_id(full_name,phone),branches(name)",
+  booking_items: "*,bookings(booking_code,booking_date),services(name),technicians(full_name)",
+  invoices: "*,customer:users!customer_id(full_name,phone),branches(name,code),bookings(booking_code)",
+  invoice_items: "*,invoices(invoice_code)",
   branch_rooms: "*,branches(name)",
   technician_shifts: "*,technicians(full_name),branches(name)",
+  staff_leaves: "*,staff_profiles!staff_id(id,user_id,users(full_name,phone))",
+  treatment_packages: "*,services(name)",
+  user_packages: "*,customer:users!customer_id(full_name,phone,avatar_url),package:treatment_packages!package_id(name,price,total_sessions)",
+  treatment_journal: "*,customer:users!customer_id(full_name,phone),technicians(full_name)",
+  service_materials: "*,services(name)",
+  tuition_transactions: "*,student:users!student_id(full_name,phone),courses(title,code),branches(name,code)",
   course_batches: "*,courses(title,code),branches(name,code),instructor:instructors!instructor_id(full_name)",
+  student_academic_records: "*,course_enrollments(id,batch_id,course_id,student:users!student_id(full_name,phone),courses(title,code),course_batches(batch_code))",
   batch_schedules: "*,course_batches(batch_code),assigned_room:branch_rooms!assigned_room_id(name)",
   course_chapters: "*,courses(title,code)",
   course_lessons: "*,course_chapters(title,course_id,courses(title,code))",
   course_quizzes: "*,courses(title)",
   quiz_questions: "*,course_quizzes(title)",
+  quiz_submissions: "*,course_quizzes(title)",
   consultation_surveys: "*,customer:users!customer_id(full_name,phone,avatar_url),bookings(booking_code,booking_date,start_time,status)",
   reviews: "*,customer:users!customer_id(full_name,phone),services(name),technicians(full_name),bookings(booking_code)",
   support_tickets: "*,customer:users!customer_id(full_name,phone)",
   services: "*,service_categories(name,code)",
-  treatment_packages: "*,services(name)",
   courses: "*,course_categories(name,code),primary_instructor:instructors!primary_instructor_id(full_name)",
   course_enrollments: "*,student:users!student_id(full_name,phone,email),courses(title,code,tuition_fee,deposit_amount),course_batches(batch_code,start_date,schedule_text)",
   instructors: "*,user:users!user_id(full_name,phone,email,avatar_url)",
   student_certificates: "*,student:users!student_id(full_name,phone),courses(title,code)",
   staff_commissions: "*,staff:users!staff_id(full_name,phone),branches(name),bookings(booking_code)",
   student_attendance: "*,batch_schedules(id,batch_id,session_date,start_time,end_time,topic,is_practice_lab,course_batches(id,batch_code,courses(id,title,code))),course_enrollments(id,student_id,batch_id,student:users!student_id(id,full_name,phone,email)),marked_by:users!marked_by_id(id,full_name)",
+  user_vouchers: "*,users(full_name,phone),coupons(code,discount_amount,discount_percent)",
+  user_roles: "*,users!user_id(full_name,phone,email),roles(name)",
+  role_permissions: "*,roles(name),permissions(code,description)",
+  audit_logs: "*,users(full_name,phone,email)",
+  point_transactions: "*,users(full_name,phone)",
 };
 
 function buildColumns(table: string, rows: Row[]): Column[] {
@@ -312,6 +358,302 @@ function formatDatabaseError(err: any, defaultMsg: string): string {
   return msg;
 }
 
+async function enrichMissingRelations(rows: Row[], signal?: AbortSignal): Promise<void> {
+  if (!rows || rows.length === 0) return;
+
+  const isUuid = (val: any) =>
+    typeof val === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
+
+  // Collect missing user IDs
+  const missingUserIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.customer_id && !r.customer_name && isUuid(r.customer_id)) missingUserIds.add(r.customer_id);
+    if (r.user_id && !r.full_name && isUuid(r.user_id)) missingUserIds.add(r.user_id);
+    if (r.student_id && !r.student_name && !r.full_name && isUuid(r.student_id)) missingUserIds.add(r.student_id);
+  });
+
+  // Collect missing package IDs
+  const missingPackageIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.package_id && !r.package_name && isUuid(r.package_id)) missingPackageIds.add(r.package_id);
+  });
+
+  // Collect missing service IDs
+  const missingServiceIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.service_id && !r.service_name && isUuid(r.service_id)) missingServiceIds.add(r.service_id);
+  });
+
+  // Collect missing technician IDs
+  const missingTechnicianIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.technician_id && !r.technician_name && isUuid(r.technician_id)) missingTechnicianIds.add(r.technician_id);
+  });
+
+  // Collect missing booking IDs
+  const missingBookingIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.booking_id && !r.booking_code && isUuid(r.booking_id)) missingBookingIds.add(r.booking_id);
+  });
+
+  // Collect missing invoice IDs
+  const missingInvoiceIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.invoice_id && !r.invoice_code && isUuid(r.invoice_id)) missingInvoiceIds.add(r.invoice_id);
+  });
+
+  // Collect missing coupon IDs
+  const missingCouponIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.coupon_id && !r.coupon_code && isUuid(r.coupon_id)) missingCouponIds.add(r.coupon_id);
+  });
+
+  // Collect missing role IDs
+  const missingRoleIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.role_id && !r.role_name && isUuid(r.role_id)) missingRoleIds.add(r.role_id);
+  });
+
+  // Collect missing permission IDs
+  const missingPermIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.permission_id && !r.permission_code && isUuid(r.permission_id)) missingPermIds.add(r.permission_id);
+  });
+
+  const promises: Promise<void>[] = [];
+
+  if (missingUserIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingUserIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/users?id=in.(${ids})&select=id,full_name,phone,avatar_url`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; full_name?: string; phone?: string; avatar_url?: string }> = await res.json();
+            const map = new Map(data.map((u) => [u.id, u]));
+            rows.forEach((r) => {
+              if (r.customer_id && map.has(r.customer_id)) {
+                const u = map.get(r.customer_id)!;
+                r.customer_name = r.customer_name || u.full_name;
+                r.customer_phone = r.customer_phone || u.phone;
+                r.customer_avatar = r.customer_avatar || u.avatar_url;
+              }
+              if (r.user_id && map.has(r.user_id)) {
+                const u = map.get(r.user_id)!;
+                r.full_name = r.full_name || u.full_name;
+                r.phone = r.phone || u.phone;
+                r.avatar_url = r.avatar_url || u.avatar_url;
+              }
+              if (r.student_id && map.has(r.student_id)) {
+                const u = map.get(r.student_id)!;
+                r.student_name = r.student_name || u.full_name;
+                r.student_phone = r.student_phone || u.phone;
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingPackageIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingPackageIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/treatment_packages?id=in.(${ids})&select=id,name,price,total_sessions`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; name: string; price?: number; total_sessions?: number }> = await res.json();
+            const map = new Map(data.map((p) => [p.id, p]));
+            rows.forEach((r) => {
+              if (r.package_id && map.has(r.package_id)) {
+                const p = map.get(r.package_id)!;
+                r.package_name = r.package_name || p.name;
+                r.package_price = r.package_price ?? p.price;
+                r.package_total_sessions = r.package_total_sessions ?? p.total_sessions;
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingServiceIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingServiceIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/services?id=in.(${ids})&select=id,name`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; name: string }> = await res.json();
+            const map = new Map(data.map((s) => [s.id, s.name]));
+            rows.forEach((r) => {
+              if (r.service_id && map.has(r.service_id)) {
+                r.service_name = r.service_name || map.get(r.service_id);
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingTechnicianIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingTechnicianIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/technicians?id=in.(${ids})&select=id,full_name`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; full_name: string }> = await res.json();
+            const map = new Map(data.map((t) => [t.id, t.full_name]));
+            rows.forEach((r) => {
+              if (r.technician_id && map.has(r.technician_id)) {
+                r.technician_name = r.technician_name || map.get(r.technician_id);
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingBookingIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingBookingIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=in.(${ids})&select=id,booking_code`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; booking_code: string }> = await res.json();
+            const map = new Map(data.map((b) => [b.id, b.booking_code]));
+            rows.forEach((r) => {
+              if (r.booking_id && map.has(r.booking_id)) {
+                r.booking_code = r.booking_code || map.get(r.booking_id);
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingInvoiceIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingInvoiceIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/invoices?id=in.(${ids})&select=id,invoice_code`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; invoice_code: string }> = await res.json();
+            const map = new Map(data.map((inv) => [inv.id, inv.invoice_code]));
+            rows.forEach((r) => {
+              if (r.invoice_id && map.has(r.invoice_id)) {
+                r.invoice_code = r.invoice_code || map.get(r.invoice_id);
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingCouponIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingCouponIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/coupons?id=in.(${ids})&select=id,code`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; code: string }> = await res.json();
+            const map = new Map(data.map((c) => [c.id, c.code]));
+            rows.forEach((r) => {
+              if (r.coupon_id && map.has(r.coupon_id)) {
+                r.coupon_code = r.coupon_code || map.get(r.coupon_id);
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingRoleIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingRoleIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/roles?id=in.(${ids})&select=id,name`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; name: string }> = await res.json();
+            const map = new Map(data.map((rl) => [rl.id, rl.name]));
+            rows.forEach((r) => {
+              if (r.role_id && map.has(r.role_id)) {
+                r.role_name = r.role_name || map.get(r.role_id);
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingPermIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingPermIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/permissions?id=in.(${ids})&select=id,code,description`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; code: string; description: string }> = await res.json();
+            const map = new Map(data.map((p) => [p.id, p]));
+            rows.forEach((r) => {
+              if (r.permission_id && map.has(r.permission_id)) {
+                const p = map.get(r.permission_id)!;
+                r.permission_code = r.permission_code || p.code;
+                r.permission_name = r.permission_name || p.description;
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (promises.length > 0) {
+    await Promise.all(promises);
+  }
+}
+
 async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   if (path === "resources") {
     return DEFAULT_RESOURCES as unknown as T;
@@ -348,6 +690,10 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
           if (val !== undefined && val !== null && val !== "" && val !== "__ALL__") {
             if (table === "student_attendance" && col === "batch_id") {
               url += `&batch_schedules.batch_id=eq.${encodeURIComponent(String(val))}`;
+            } else if (table === "student_academic_records" && col === "batch_id") {
+              url += `&course_enrollments.batch_id=eq.${encodeURIComponent(String(val))}`;
+            } else if (table === "student_academic_records" && col === "course_id") {
+              url += `&course_enrollments.course_id=eq.${encodeURIComponent(String(val))}`;
             } else if (table === "course_lessons" && col === "course_id") {
               url += `&course_chapters.course_id=eq.${encodeURIComponent(String(val))}`;
             } else {
@@ -362,6 +708,8 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     if (directBatchId && directBatchId !== "__ALL__" && !url.includes("batch_id=")) {
       if (table === "student_attendance") {
         url += `&batch_schedules.batch_id=eq.${encodeURIComponent(directBatchId)}`;
+      } else if (table === "student_academic_records") {
+        url += `&course_enrollments.batch_id=eq.${encodeURIComponent(directBatchId)}`;
       } else {
         url += `&batch_id=eq.${encodeURIComponent(directBatchId)}`;
       }
@@ -374,6 +722,8 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     if (directCourseId && directCourseId !== "__ALL__" && !url.includes("course_id=")) {
       if (table === "course_lessons") {
         url += `&course_chapters.course_id=eq.${encodeURIComponent(directCourseId)}`;
+      } else if (table === "student_academic_records") {
+        url += `&course_enrollments.course_id=eq.${encodeURIComponent(directCourseId)}`;
       } else {
         url += `&course_id=eq.${encodeURIComponent(directCourseId)}`;
       }
@@ -399,6 +749,11 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         "invoices",
         "staff_commissions",
         "course_enrollments",
+        "user_packages",
+        "tuition_transactions",
+        "user_vouchers",
+        "treatment_journal",
+        "user_roles",
       ];
       if (tablesWithUser.includes(table)) {
         try {
@@ -461,11 +816,16 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
       const orClauses: string[] = textCols.map((c) => `${c}.ilike.*${encodeURIComponent(s)}*`);
       if (matchedUserIds.length > 0) {
-        if (table === "staff_profiles") {
+        if (
+          table === "staff_profiles" ||
+          table === "user_roles" ||
+          table === "user_vouchers" ||
+          table === "point_transactions"
+        ) {
           orClauses.push(`user_id.in.(${matchedUserIds.join(",")})`);
         } else if (table === "staff_commissions") {
           orClauses.push(`staff_id.in.(${matchedUserIds.join(",")})`);
-        } else if (table === "course_enrollments") {
+        } else if (table === "course_enrollments" || table === "tuition_transactions") {
           orClauses.push(`student_id.in.(${matchedUserIds.join(",")})`);
         } else if (tablesWithUser.includes(table)) {
           orClauses.push(`customer_id.in.(${matchedUserIds.join(",")})`);
@@ -601,7 +961,37 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (r.course_quizzes) {
         r.quiz_title = r.quiz_title || r.course_quizzes.title;
       }
+      if (r.package) {
+        r.package_name = r.package_name || r.package.name;
+        r.package_price = r.package_price ?? r.package.price;
+        r.package_total_sessions = r.package_total_sessions ?? r.package.total_sessions;
+      }
+      if (r.treatment_packages) {
+        r.package_name = r.package_name || r.treatment_packages.name;
+        r.package_price = r.package_price ?? r.treatment_packages.price;
+        r.package_total_sessions = r.package_total_sessions ?? r.treatment_packages.total_sessions;
+      }
+      if (r.user_packages) {
+        r.user_package_code = r.user_package_code || r.user_packages.id;
+      }
+      if (r.invoices) {
+        r.invoice_code = r.invoice_code || r.invoices.invoice_code;
+      }
+      if (r.coupons) {
+        r.coupon_code = r.coupon_code || r.coupons.code;
+        r.coupon_discount = r.coupon_discount || r.coupons.discount_amount || r.coupons.discount_percent;
+      }
+      if (r.roles) {
+        r.role_name = r.role_name || r.roles.name;
+      }
+      if (r.permissions) {
+        r.permission_code = r.permission_code || r.permissions.code;
+        r.permission_name = r.permission_name || r.permissions.description;
+      }
     });
+
+    // Auto-enrich any unjoined foreign relations in parallel
+    await enrichMissingRelations(rows, signal);
 
     // In-memory sort for virtual columns
     if (sort === "full_name") {
@@ -1068,105 +1458,67 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
   throw new Error(`Thao tác ${path} chưa được hỗ trợ.`);
 }
 
-let localBackendChecked = false;
-let localBackendAvailable = false;
-
-export async function adminApi<T>(
-  path: string,
-  body?: unknown,
-  signal?: AbortSignal,
-): Promise<T> {
-  const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
-  const isLocalhost =
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-  const shouldDirectSupabase =
-    (isHttps && base.startsWith("http://")) ||
-    (!isLocalhost && base.includes("127.0.0.1")) ||
-    (localBackendChecked && !localBackendAvailable);
-
-  // On production (Vercel) or remote environments, immediately query Supabase to prevent mixed content & delay
-  if (shouldDirectSupabase) {
-    return querySupabaseFallback<T>(path, body, signal);
+export class AdminRequestError extends Error {
+  constructor(message: string, public readonly statusCode: number, public readonly uncertain = false) {
+    super(message);
+    this.name = "AdminRequestError";
   }
+}
 
-  const token = sessionStorage.getItem("mld_admin_token");
+async function requestBackend<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  if (signal?.aborted) throw new DOMException("Đã hủy yêu cầu.", "AbortError");
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
-  if (signal?.aborted) controller.abort();
-  const timeout = window.setTimeout(abort, 1500); // 1.5s fast probe for local NestJS
-
+  const timeout = window.setTimeout(abort, body === undefined ? 15000 : 30000);
   try {
-    const response = await fetch(`${base}/admin/${path}`, {
-      method: body === undefined ? "GET" : "POST",
-      signal: controller.signal,
-      headers: {
-        "X-MLD-Local-Admin": "1",
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-    const json = await response.json().catch(() => null);
-    if (!response.ok || !json?.success) {
-      if (response.status === 401 && path !== "login" && token) {
-        sessionStorage.removeItem("mld_admin_token");
-        window.dispatchEvent(new Event("admin-signout"));
-      }
-      throw new Error(
-        Array.isArray(json?.message)
-          ? json.message.join(", ")
-          : json?.message || `Không tải được dữ liệu (${response.status}).`,
-      );
-    }
-    localBackendChecked = true;
-    localBackendAvailable = true;
-    return json.data as T;
-  } catch (err) {
-    // If backend is not running or unreachable, remember to avoid delay on subsequent calls
-    localBackendChecked = true;
-    localBackendAvailable = false;
+    const token = sessionStorage.getItem("mld_admin_token");
+    let response: Response;
     try {
-      return await querySupabaseFallback<T>(path, body, signal);
-    } catch (fallbackErr) {
-      if (controller.signal.aborted && !signal?.aborted)
-        throw new Error("Máy chủ phản hồi quá chậm. Vui lòng thử lại.");
-      throw fallbackErr || err;
+      response = await fetch(base + '/admin/' + path.replace(/^\/+/, ""), {
+        method: body === undefined ? "GET" : "POST",
+        signal: controller.signal,
+        headers: {
+          "X-MLD-Local-Admin": "1", "Content-Type": "application/json",
+          ...(token ? { Authorization: 'Bearer ' + token } : {}),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      throw new AdminRequestError(body === undefined
+        ? "Không kết nối được máy chủ. Vui lòng thử tải lại."
+        : "Chưa xác minh được kết quả lưu. Hãy tải lại dữ liệu để kiểm tra trước khi gửi lại thao tác.", 0, body !== undefined);
     }
+    const json = await response.json().catch(() => null);
+    if (!response.ok || json?.success !== true) {
+      const message = Array.isArray(json?.message) ? json.message.join(", ") : json?.message;
+      throw new AdminRequestError(message || 'Máy chủ không xác nhận thao tác (' + response.status + ').', response.status, response.ok && body !== undefined);
+    }
+    return json.data as T;
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener("abort", abort);
   }
 }
 
+export async function adminApi<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  if (signal?.aborted) throw new DOMException("Đã hủy yêu cầu.", "AbortError");
+  const location = typeof window !== "undefined" ? window.location : undefined;
+  const source = (import.meta as any).env?.VITE_ADMIN_DATA_SOURCE;
+  const local = location?.hostname === "localhost" || location?.hostname === "127.0.0.1";
+  // Select the deployment's source before sending. Never replay a failed request
+  // against another source, especially after an uncertain write or a denied read.
+  const direct = source === "supabase" || (source !== "backend" && (
+    (location?.protocol === "https:" && base.startsWith("http://")) ||
+    (!local && base.includes("127.0.0.1"))
+  ));
+  if (direct) return querySupabaseFallback<T>(path, body, signal);
+  return requestBackend<T>(path, body, signal);
+}
+
 export async function adminCommand<T>(path: string, body?: unknown): Promise<T> {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 20000);
-  const token = sessionStorage.getItem('mld_admin_token');
-  try {
-    const response = await fetch(`${base}/admin/${path}`, {
-      method: body === undefined ? 'GET' : 'POST',
-      signal: controller.signal,
-      headers: {
-        'X-MLD-Local-Admin': '1',
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-    const json = await response.json().catch(() => null);
-    if (!response.ok || !json?.success) {
-      if (response.status === 401 && token) {
-        sessionStorage.removeItem('mld_admin_token');
-        window.dispatchEvent(new Event('admin-signout'));
-      }
-      throw new Error(json?.message || `Không thể hoàn tất thao tác (${response.status}).`);
-    }
-    return json.data as T;
-  } finally {
-    window.clearTimeout(timeout);
-  }
+  return requestBackend<T>(path, body);
 }
 
 export function rowKey(columns: Column[], row: Row) {
@@ -1184,6 +1536,9 @@ export const recordLabel = (row: Row) =>
     row.full_name ||
       row.name ||
       row.title ||
+      row.customer_name ||
+      row.package_name ||
+      row.service_name ||
       row.code ||
       row.booking_code ||
       row.batch_code ||
@@ -1191,7 +1546,6 @@ export const recordLabel = (row: Row) =>
       row.certificate_code ||
       row.invoice_code ||
       row.employee_code ||
-      row.id ||
       row.tier ||
-      "",
+      (row.id ? `#${String(row.id).slice(0, 8)}` : "")
   );

@@ -50,6 +50,8 @@ const breadcrumbs: Record<string, string> = {
   '/giang-vien': 'Giảng viên',
   '/attendance': 'Học viên',
   '/curriculum': 'Vận hành đào tạo',
+  '/certificates': 'Quản lý cấp chứng nhận',
+  '/manage/invoices': 'Sổ hóa đơn & đối chiếu',
   '/reports': 'Báo cáo doanh thu',
 };
 

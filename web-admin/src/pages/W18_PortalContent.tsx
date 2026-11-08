@@ -86,14 +86,18 @@ const MediaUploadInput: React.FC<MediaUploadInputProps> = ({
   const handleProcessFile = async (file: File | Blob, nameHint?: string) => {
     setUploading(true);
     try {
-      const publicUrl = await portalService.uploadFileToStorage(
-        file,
-        nameHint || (file as File).name || (isDocument ? 'document.pdf' : 'image.png')
-      );
+      const fileName = nameHint || (file as File).name || (isDocument ? 'document.pdf' : 'image.png');
       const size = (file as File).size || 0;
+      const publicUrl = await portalService.uploadFileToStorage(file, fileName);
       onChange(publicUrl, size);
-      toast.success('Tải tệp thành công', isDocument ? 'Tài liệu đã được lưu trữ an toàn.' : 'Ảnh đã được lưu lên đám mây.');
+      toast.success(
+        'Tải tệp thành công',
+        isDocument
+          ? `Tài liệu "${fileName}" (${(size / 1024).toFixed(0)} KB) đã nạp thành công.`
+          : 'Ảnh đã được lưu lên đám mây.'
+      );
     } catch (err: any) {
+      console.error('[MediaUploadInput] Upload error:', err);
       toast.error('Lỗi tải tệp', err.message || 'Không thể tải tệp lên.');
     } finally {
       setUploading(false);
@@ -246,25 +250,63 @@ const MediaUploadInput: React.FC<MediaUploadInputProps> = ({
 
         {/* Input & Actions */}
         <div className="flex-1 w-full space-y-2">
-          <div className="flex items-center gap-1.5">
-            <input
-              type="url"
-              value={value || ''}
-              placeholder={isDocument ? "Đường dẫn tải tài liệu PDF (URL) hoặc tải từ máy..." : "Dán link ảnh (URL) hoặc bấm Ctrl+V..."}
-              onChange={(e) => onChange(e.target.value)}
-              className="flex-1 text-xs px-3 py-2 rounded-xl border border-[#E8DFD8] bg-white text-[#2C241E] focus:outline-none focus:border-[#985018] shadow-2xs"
-            />
-            {value && (
-              <button
-                type="button"
-                onClick={() => onChange('')}
-                className="p-2 rounded-xl text-[#8C7A6B] hover:text-[#DC2626] hover:bg-white border border-[#E8DFD8] transition-colors"
-                title="Xóa link"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
+          {isDocument && value && value.startsWith('data:') ? (
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs">
+              <div className="flex items-center gap-2 text-emerald-800 font-bold truncate">
+                <FileCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="truncate">Tệp PDF đính kèm từ thiết bị (Đã nạp sẵn sàng)</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const a = document.createElement('a');
+                    a.href = value;
+                    a.download = 'tai_lieu_xem_thu.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-bold bg-white text-emerald-700 border border-emerald-300 rounded-lg hover:bg-emerald-100 transition-colors shadow-2xs"
+                >
+                  Tải xem thử
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChange('')}
+                  className="p-1 rounded-lg text-emerald-700 hover:text-[#DC2626] hover:bg-red-50 transition-colors"
+                  title="Gỡ file này"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={value || ''}
+                placeholder={
+                  isDocument
+                    ? 'Dán link PDF (Google Drive, Cloud...) hoặc tải từ máy...'
+                    : 'Dán link ảnh (URL) hoặc bấm Ctrl+V...'
+                }
+                onChange={(e) => onChange(e.target.value)}
+                className="flex-1 text-xs px-3 py-2 rounded-xl border border-[#E8DFD8] bg-white text-[#2C241E] focus:outline-none focus:border-[#985018] shadow-2xs"
+              />
+              {value && (
+                <button
+                  type="button"
+                  onClick={() => onChange('')}
+                  className="p-2 rounded-xl text-[#8C7A6B] hover:text-[#DC2626] hover:bg-white border border-[#E8DFD8] transition-colors"
+                  title="Xóa link"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
@@ -273,7 +315,13 @@ const MediaUploadInput: React.FC<MediaUploadInputProps> = ({
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#985018] text-white hover:bg-[#804213] cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
             >
               <Upload size={13} />
-              <span>{isDocument ? 'Tải PDF từ máy' : 'Tải ảnh từ máy'}</span>
+              <span>
+                {isDocument
+                  ? value && value.startsWith('data:')
+                    ? 'Chọn file PDF khác từ máy'
+                    : 'Tải PDF từ máy'
+                  : 'Tải ảnh từ máy'}
+              </span>
             </button>
             {!isDocument && (
               <button
@@ -1079,6 +1127,10 @@ export const W18_PortalContent: React.FC = () => {
       toast.warning('Thiếu thông tin', 'Vui lòng nhập tên tài liệu giáo trình.');
       return;
     }
+    if (!editingDoc.fileUrl?.trim() && !editingDoc.targetLink?.trim()) {
+      toast.warning('Thiếu tệp tài liệu', 'Vui lòng tải lên tệp PDF từ máy hoặc dán liên kết tài liệu.');
+      return;
+    }
 
     setIsSavingDoc(true);
     try {
@@ -1114,11 +1166,22 @@ export const W18_PortalContent: React.FC = () => {
         prev.map((d) => (d.id === doc.id ? { ...d, downloadCount: (d.downloadCount || 0) + 1 } : d))
       );
       toast.success('Bắt đầu tải file', `Tài liệu "${doc.title}" đang được tải xuống.`);
-      if (doc.fileUrl || doc.targetLink) {
-        window.open(doc.fileUrl || doc.targetLink, '_blank');
+      const url = doc.fileUrl || doc.targetLink;
+      if (url) {
+        if (url.startsWith('data:')) {
+          const a = document.createElement('a');
+          a.href = url;
+          const cleanTitle = (doc.title || 'tai_lieu_mld').replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF\s]/g, '_');
+          a.download = cleanTitle.toLowerCase().endsWith('.pdf') ? cleanTitle : `${cleanTitle}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } else {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
       }
-    } catch {
-      toast.error('Lỗi', 'Không thể cập nhật lượt tải.');
+    } catch (err: any) {
+      toast.error('Lỗi', err.message || 'Không thể tải xuống tài liệu.');
     }
   };
 
@@ -2979,6 +3042,32 @@ export const W18_PortalContent: React.FC = () => {
                   {previewingDoc.summary || previewingDoc.contentText || 'Giáo trình đào tạo chuyên sâu phương pháp dẫn lưu bạch huyết.'}
                 </p>
               </div>
+
+              {/* PDF Viewer Embed if available */}
+              {(previewingDoc.fileUrl || previewingDoc.targetLink) && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#73675F]">
+                      Xem trước tệp tài liệu
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadDoc(previewingDoc)}
+                      className="text-[#985018] hover:underline font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+                    >
+                      <ExternalLink size={12} />
+                      <span>Mở / Tải tệp gốc</span>
+                    </button>
+                  </div>
+                  <div className="w-full h-72 rounded-2xl overflow-hidden border border-[#E8DFD8] bg-slate-50 relative shadow-2xs">
+                    <iframe
+                      src={previewingDoc.fileUrl || previewingDoc.targetLink}
+                      className="w-full h-full border-0"
+                      title={previewingDoc.title}
+                    />
+                  </div>
+                </div>
+              )}
 
               {previewingDoc.allowDownload ? (
                 <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">

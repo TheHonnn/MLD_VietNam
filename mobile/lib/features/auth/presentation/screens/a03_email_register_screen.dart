@@ -61,17 +61,11 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
       );
 
       if (mounted) {
-        final body = res.data;
-        final message = (body is Map && body['message'] is String)
-            ? body['message'] as String
-            : ((body is Map && body['data'] is Map && body['data']['message'] is String)
-                ? body['data']['message'] as String
-                : 'Mã xác thực OTP đã được gửi đến email của bạn.');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: const Color(0xFF003876),
-            duration: const Duration(seconds: 4),
+          const SnackBar(
+            content: Text('Mã xác thực OTP gồm 6 chữ số đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư (kể cả mục Thư rác/Spam).'),
+            backgroundColor: Color(0xFF003876),
+            duration: Duration(seconds: 5),
           ),
         );
 

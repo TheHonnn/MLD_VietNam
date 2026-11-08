@@ -15,6 +15,10 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { EmailRegisterDto } from './dto/email-register.dto';
 import { EmailLoginDto } from './dto/email-login.dto';
+import { RequestLoginOtpDto } from './dto/request-login-otp.dto';
+import { VerifyLoginOtpDto } from './dto/verify-login-otp.dto';
+import { RequestPhoneOtpDto } from './dto/request-phone-otp.dto';
+import { VerifyPhoneOtpDto } from './dto/verify-phone-otp.dto';
 import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
@@ -77,6 +81,42 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Đăng nhập thành công' })
   async loginEmail(@Body() dto: EmailLoginDto) {
     return this.authService.loginEmail(dto);
+  }
+
+  @Post('login/request-otp')
+  @UseGuards(BruteForceGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Yêu cầu gửi mã OTP ngẫu nhiên về Email để đăng nhập (Passwordless Login)' })
+  @ApiResponse({ status: 200, description: 'Đã gửi mã OTP đăng nhập về Email' })
+  async requestLoginOtp(@Body() dto: RequestLoginOtpDto) {
+    return this.authService.requestLoginOtp(dto);
+  }
+
+  @Post('login/verify-otp')
+  @UseGuards(BruteForceGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Xác thực mã OTP ngẫu nhiên để đăng nhập & nhận Tokens' })
+  @ApiResponse({ status: 200, description: 'Đăng nhập thành công, trả về Access Token & Refresh Token' })
+  async verifyLoginOtp(@Body() dto: VerifyLoginOtpDto) {
+    return this.authService.verifyLoginOtp(dto);
+  }
+
+  @Post('phone/request-otp')
+  @UseGuards(BruteForceGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Yêu cầu gửi mã OTP ngẫu nhiên qua tin nhắn SMS tới Số điện thoại' })
+  @ApiResponse({ status: 200, description: 'Đã gửi mã OTP qua SMS' })
+  async requestPhoneOtp(@Body() dto: RequestPhoneOtpDto) {
+    return this.authService.requestPhoneOtp(dto);
+  }
+
+  @Post('phone/verify-otp')
+  @UseGuards(BruteForceGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Xác thực mã OTP SMS để đăng nhập hoặc tự động tạo tài khoản' })
+  @ApiResponse({ status: 200, description: 'Xác thực thành công, trả về Access Token & Refresh Token' })
+  async verifyPhoneOtp(@Body() dto: VerifyPhoneOtpDto) {
+    return this.authService.verifyPhoneOtp(dto);
   }
 
   @Post('refresh')

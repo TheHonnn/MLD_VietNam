@@ -56,6 +56,8 @@ describe('EmailService Security & Resilience Tests', () => {
     });
 
     const emailService = new EmailService(config);
+    (emailService as any).transporter = null;
+    vi.spyOn(emailService as any, 'ensureTransporter').mockResolvedValue(null);
 
     // No transporter configured, no RESEND_API_KEY
     const result = await emailService.sendOtpEmail({

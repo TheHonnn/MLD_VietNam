@@ -70,6 +70,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
   const [batches, setBatches] = useState<Row[]>([]);
   const [loadingLookups, setLoadingLookups] = useState(false);
   const [enrollmentSearch, setEnrollmentSearch] = useState("");
+  const [batchFilter, setBatchFilter] = useState("");
 
   // Tải danh sách hồ sơ ghi danh, học viên, khóa học và lớp học
   useEffect(() => {
@@ -112,6 +113,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
 
   // Lọc danh sách hồ sơ ghi danh phục vụ tìm kiếm
   const filteredEnrollments = enrollments.filter((e) => {
+    if (batchFilter && String(e.batch_id || '') !== batchFilter) return false;
     if (!enrollmentSearch.trim()) return true;
     const term = enrollmentSearch.toLowerCase().trim();
     const u = users.find((x) => String(x.id) === String(e.student_id));
@@ -192,6 +194,20 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
             className="w-full text-xs pl-8 pr-3 py-2 bg-[#FAF6F2] border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58] focus:bg-white transition-all"
           />
         </div>
+
+        <select
+          aria-label="Lọc học viên theo lớp"
+          value={batchFilter}
+          onChange={(e) => setBatchFilter(e.target.value)}
+          className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58]"
+        >
+          <option value="">Tất cả lớp học ({batches.length})</option>
+          {batches.map((batch) => (
+            <option key={batch.id} value={String(batch.id)}>
+              {batch.batch_code || batch.code || batch.title || `Lớp ${String(batch.id).slice(0, 8)}`}
+            </option>
+          ))}
+        </select>
 
         {/* Enrollment Dropdown */}
         <select

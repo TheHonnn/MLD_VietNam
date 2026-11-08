@@ -22,6 +22,11 @@ import { commissionService, branchService, staffService } from '../services';
 import { StaffCommission, Branch, User } from '../types/shared_types';
 import { toast } from '../components/common';
 
+const currentMonthKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
 export const W13_StaffCommissions: React.FC = () => {
   const [commissions, setCommissions] = useState<StaffCommission[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -30,7 +35,7 @@ export const W13_StaffCommissions: React.FC = () => {
 
   // Filters
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
   const [selectedStaff, setSelectedStaff] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -57,7 +62,7 @@ export const W13_StaffCommissions: React.FC = () => {
         setBranches(branchRes.data);
       }
       if (staffRes.success && staffRes.data) {
-        setStaffList(staffRes.data.filter((s) => s.role === 'TECHNICIAN' || s.role === 'INSTRUCTOR'));
+        setStaffList(staffRes.data.filter((s) => s.staffProfile.isActive));
       }
     } catch (err) {
       console.error('Error loading commissions data:', err);
@@ -106,10 +111,12 @@ export const W13_StaffCommissions: React.FC = () => {
     return { total, pending, approved, paid, count: filteredCommissions.length };
   }, [filteredCommissions]);
 
-  const handleApprove = async (id: string, staffName?: string) => {
+  const handleApprove = async (commission: StaffCommission) => {
+    const staffName = commission.staffName || 'KTV';
+    if (!window.confirm(`Duyệt hoa hồng ${formatVND(commission.commissionAmount)} cho ${staffName}?`)) return;
     setIsProcessing(true);
     try {
-      const res = await commissionService.approveCommission(id);
+      const res = await commissionService.approveCommission(commission.id);
       if (res.success) {
         toast.success('Duyệt thành công', `Đã duyệt khoản hoa hồng cho ${staffName || 'KTV'}.`);
         loadData();
@@ -123,10 +130,12 @@ export const W13_StaffCommissions: React.FC = () => {
     }
   };
 
-  const handleMarkPaid = async (id: string, staffName?: string) => {
+  const handleMarkPaid = async (commission: StaffCommission) => {
+    const staffName = commission.staffName || 'KTV';
+    if (!window.confirm(`Xác nhận đã chi ${formatVND(commission.commissionAmount)} cho ${staffName}?`)) return;
     setIsProcessing(true);
     try {
-      const res = await commissionService.markPaid(id);
+      const res = await commissionService.markPaid(commission.id);
       if (res.success) {
         toast.success('Thanh toán hoàn tất', `Đã chuyển trạng thái Đã chi trả cho ${staffName || 'KTV'}.`);
         loadData();
@@ -149,6 +158,15 @@ export const W13_StaffCommissions: React.FC = () => {
       toast.info('Thông báo', 'Không có khoản hoa hồng nào đang chờ duyệt.');
       return;
     }
+    const pendingTotal = filteredCommissions
+      .filter((c) => pendingIds.includes(c.id))
+      .reduce((total, c) => total + c.commissionAmount, 0);
+    const scope = [
+      selectedMonth === 'all' ? 'tất cả tháng' : selectedMonth,
+      selectedBranch === 'all' ? 'tất cả chi nhánh' : branches.find((b) => b.id === selectedBranch)?.name || 'chi nhánh đã chọn',
+      selectedStaff === 'all' ? 'tất cả nhân viên' : staffList.find((s) => s.id === selectedStaff)?.fullName || 'nhân viên đã chọn',
+    ].join(' · ');
+    if (!window.confirm(`Duyệt ${pendingIds.length} khoản hoa hồng, tổng ${formatVND(pendingTotal)}?\nPhạm vi: ${scope}`)) return;
 
     setIsProcessing(true);
     try {
@@ -176,6 +194,10 @@ export const W13_StaffCommissions: React.FC = () => {
         return { label: 'Tư vấn bán gói Combo', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
       case 'CSAT_BONUS':
         return { label: 'Thưởng CSAT 5 Sao', bg: 'bg-amber-50 text-amber-700 border-amber-200' };
+      case 'COURSE_ENROLLMENT':
+        return { label: 'Tư vấn ghi danh khóa học', bg: 'bg-cyan-50 text-cyan-700 border-cyan-200' };
+      case 'TREATMENT_PATHWAY':
+        return { label: 'Tư vấn bán lộ trình', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
       default:
         return { label: type, bg: 'bg-gray-50 text-gray-700 border-gray-200' };
     }
@@ -302,9 +324,13 @@ export const W13_StaffCommissions: React.FC = () => {
             className="bg-transparent text-xs text-[#0F172A] focus:outline-none cursor-pointer"
           >
             <option value="all">Tất cả tháng</option>
-            <option value="2026-10">Tháng 10/2026</option>
-            <option value="2026-09">Tháng 09/2026</option>
-            <option value="2026-08">Tháng 08/2026</option>
+            {Array.from({ length: 12 }, (_, index) => {
+              const date = new Date();
+              date.setDate(1);
+              date.setMonth(date.getMonth() - index);
+              const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+              return <option key={value} value={value}>{date.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}</option>;
+            })}
           </select>
         </div>
 
@@ -356,6 +382,13 @@ export const W13_StaffCommissions: React.FC = () => {
             <option value="PAID">Đã thanh toán</option>
           </select>
         </div>
+        <button
+          type="button"
+          onClick={() => { setSelectedMonth(currentMonthKey()); setSelectedBranch('all'); setSelectedStaff('all'); setSelectedStatus('all'); setSearchTerm(''); }}
+          className="px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-50 rounded-xl"
+        >
+          Xóa bộ lọc
+        </button>
       </div>
 
       {/* Main Table */}
@@ -450,7 +483,7 @@ export const W13_StaffCommissions: React.FC = () => {
                         <div className="flex items-center justify-center gap-1.5">
                           {(row.status === 'PENDING_APPROVAL' || row.status === 'PENDING') && (
                             <button
-                              onClick={() => handleApprove(row.id, row.staffName)}
+                              onClick={() => handleApprove(row)}
                               disabled={isProcessing}
                               className="px-2.5 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
                               title="Phê duyệt hoa hồng này"
@@ -461,7 +494,7 @@ export const W13_StaffCommissions: React.FC = () => {
 
                           {row.status === 'APPROVED' && (
                             <button
-                              onClick={() => handleMarkPaid(row.id, row.staffName)}
+                              onClick={() => handleMarkPaid(row)}
                               disabled={isProcessing}
                               className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
                               title="Xác nhận đã chi trả tiền cho KTV"

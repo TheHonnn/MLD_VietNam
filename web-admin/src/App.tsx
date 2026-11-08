@@ -12,6 +12,7 @@ const W03_Customers = lazy(() => import('./pages/W03_Customers').then((m) => ({ 
 const W04_CustomerDetail = lazy(() => import('./pages/W04_CustomerDetail').then((m) => ({ default: m.W04_CustomerDetail })));
 const W05_StaffSchedule = lazy(() => import('./pages/W05_StaffSchedule').then((m) => ({ default: m.W05_StaffSchedule })));
 const W06_TreatmentManagement = lazy(() => import('./pages/W06_TreatmentManagement').then((m) => ({ default: m.W06_TreatmentManagement })));
+const W06_ServicesCatalog = lazy(() => import('./pages/W06_ServicesCatalog').then((m) => ({ default: m.W06_ServicesCatalog })));
 const W07_CashierPOS = lazy(() => import('./pages/W07_CashierPOS').then((m) => ({ default: m.W07_CashierPOS })));
 const W08_Enrollment = lazy(() => import('./pages/W08_Enrollment').then((m) => ({ default: m.W08_Enrollment })));
 const W09_Instructors = lazy(() => import('./pages/W09_Instructors').then((m) => ({ default: m.W09_Instructors })));
@@ -22,6 +23,7 @@ const W13_StaffCommissions = lazy(() => import('./pages/W13_StaffCommissions').t
 const W14_ZaloZNS = lazy(() => import('./pages/W14_ZaloZNS').then((m) => ({ default: m.W14_ZaloZNS })));
 const W16_Certificates = lazy(() => import('./pages/W16_Certificates').then((m) => ({ default: m.W16_Certificates })));
 const W18_PortalContent = lazy(() => import('./pages/W18_PortalContent').then((m) => ({ default: m.W18_PortalContent })));
+const W19_HomeProducts = lazy(() => import('./pages/W19_HomeProducts').then((m) => ({ default: m.W19_HomeProducts })));
 const ResourcePage = lazy(() => import('./admin/ResourcePage').then((m) => ({ default: m.ResourcePage })));
 const PublicTreatmentJournal = lazy(() => import('./pages/PublicTreatmentJournal').then((m) => ({ default: m.PublicTreatmentJournal })));
 
@@ -66,7 +68,12 @@ const PageLoadingFallback: React.FC = () => (
 
 const InvoicesRedirect: React.FC = () => {
   const location = useLocation();
-  return <Navigate to={`/cashier-pos${location.search}`} replace />;
+  const search = location.search
+    ? location.search.includes('tab=')
+      ? location.search
+      : `${location.search}&tab=receipts`
+    : '?tab=receipts';
+  return <Navigate to={`/cashier-pos${search}`} replace />;
 };
 
 const RoleRoute: React.FC<{ allowedRoles: string[]; children: React.ReactNode }> = ({
@@ -147,12 +154,21 @@ const AppContent: React.FC = () => {
             <Route path="treatment-management" element={<W06_TreatmentManagement />} />
             <Route path="staff-schedule" element={<W05_StaffSchedule />} />
             <Route path="technician-schedule" element={<W05_StaffSchedule />} />
-            <Route path="services-catalog" element={<Navigate to="/manage/services" replace />} />
+            <Route path="services-catalog" element={<W06_ServicesCatalog />} />
+            <Route path="pricing" element={<W06_ServicesCatalog />} />
             <Route
               path="cashier-pos"
               element={
                 <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST']}>
                   <W07_CashierPOS />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="home-products"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST']}>
+                  <W19_HomeProducts />
                 </RoleRoute>
               }
             />
@@ -304,7 +320,6 @@ const AppContent: React.FC = () => {
             />
             <Route path="edema-assessments" element={<Navigate to="/medical-records" replace />} />
             <Route path="kham-phu" element={<Navigate to="/medical-records" replace />} />
-            <Route path="manage/student_certificates" element={<Navigate to="/certificates" replace />} />
             <Route
               path="portal-content"
               element={
@@ -315,8 +330,13 @@ const AppContent: React.FC = () => {
             />
             <Route path="portal" element={<Navigate to="/portal-content" replace />} />
             <Route path="manage/branches" element={<Navigate to="/branches" replace />} />
-
             <Route path="manage/branch_rooms" element={<Navigate to="/branches?tab=rooms" replace />} />
+            <Route path="manage/consultation_surveys" element={<Navigate to="/customers" replace />} />
+            <Route path="manage/invoices" element={<Navigate to="/cashier-pos?tab=receipts" replace />} />
+            <Route path="manage/student_certificates" element={<Navigate to="/certificates?tab=list" replace />} />
+            <Route path="manage/certificate_templates" element={<Navigate to="/certificates?tab=template" replace />} />
+            <Route path="manage/services" element={<Navigate to="/services-catalog?tab=services" replace />} />
+            <Route path="manage/treatment_packages" element={<Navigate to="/services-catalog?tab=packages" replace />} />
             <Route path="manage/:table" element={<div className="admin-module"><ResourcePage /></div>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

@@ -33,6 +33,7 @@ import {portalContent,portalContentDetail} from './portal-content.js';
 import {createJournalShare,sharedJournal,journalPage,journalPdf} from './journal-sharing.js';
 import {academyCandidates,approveCandidate} from './staff-academy.js';
 import {staffCatalog,saveStaffCatalog} from './staff-catalog.js';
+import {homeProducts,homeProduct,servicePricing} from './customer-catalog.js';
 import {assessmentSubmissions,reviewSubmission} from './staff-assessments.js';
 import {staffClassSchedules,attendanceCode,recordAttendance} from './attendance.js';
 export { ApiError } from './errors.js';
@@ -309,7 +310,7 @@ export function createApp(store: Store, options: AppOptions) {
 
   app.get('/api/health', route(async (_req, res) => {
     await store.query(Prisma.sql`SELECT 1 AS ready`);
-    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['admin-document-policy-v1','journal-sharing-v1','staff-academy-approval-v1','staff-catalog-v1','mobile-parity-v2','approval-gated-learning-v1','class-attendance-v1','unified-zalo-login-v1','personal-booking-resources-v1','personal-group-booking-v1','booking-pagination-v1','consultation-inbox-v1','portal-content-v1','staff-workspace-v1','staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1','certificate-verification-v1','youtube-lessons-v1'] });
+    return success(res, { status: 'ok', schema: 'database/schema.sql', authFlow: 'zalo-phone-registration', contentContract: 'shared-admin-v1',features:['customer-catalog-v1','admin-document-policy-v1','journal-sharing-v1','staff-academy-approval-v1','staff-catalog-v1','mobile-parity-v2','approval-gated-learning-v1','class-attendance-v1','unified-zalo-login-v1','personal-booking-resources-v1','personal-group-booking-v1','booking-pagination-v1','consultation-inbox-v1','portal-content-v1','staff-workspace-v1','staff-booking-v1','staff-booking-resources-v1','learning-access-v1','academy-records-v1','shared-records-v1','shared-content-v1','account-sessions-v1','booking-group-actions-v1','single-learning-player-v1','certificate-verification-v1','youtube-lessons-v1'] });
   }));
 
   app.get('/api/app-metadata', route(async (_req,res) => {
@@ -323,6 +324,9 @@ export function createApp(store: Store, options: AppOptions) {
   }));
   app.get('/api/support-faqs', route(async (_req,res) => success(res,{faqs:await store.query(Prisma.sql`SELECT id,category,question,answer,display_order FROM support_faqs WHERE is_active ORDER BY display_order`)})));
   app.get('/api/care-guidelines',route(async(_req,res)=>success(res,{guidelines:await store.query(Prisma.sql`SELECT * FROM home_care_guidelines WHERE is_published ORDER BY is_featured DESC,created_at DESC`)})));
+  app.get('/api/portal/products',route(async(req,res)=>success(res,await homeProducts(store,req.query))));
+  app.get('/api/portal/products/:id',route(async(req,res)=>success(res,{product:await homeProduct(store,uuid(req.params.id))})));
+  app.get('/api/portal/pricing',route(async(_req,res)=>success(res,await servicePricing(store))));
   app.get('/api/portal/content',route(async(req,res)=>{const page=await portalContent(store,req.query);return success(res,{items:page.rows,nextCursor:page.nextCursor});}));
   app.get('/api/portal/content/:id',route(async(req,res)=>success(res,{item:await portalContentDetail(store,uuid(req.params.id))})));
   app.get('/api/portal/banners',route(async(_req,res)=>success(res,{banners:await store.query(Prisma.sql`
@@ -808,7 +812,7 @@ export function createApp(store: Store, options: AppOptions) {
     const [course] = await courseList(store,courseId);
     if (!course) throw new ApiError(404,'Course is unavailable');
     course.access_expires_at=enrollment.access_expires_at;
-    const quizLimits=await store.query(Prisma.sql`SELECT q.id,COALESCE(l.max_attempts,3) AS max_attempts,(SELECT count(*)::int FROM miniapp_quiz_attempts a WHERE a.enrollment_id=${enrollment.id}::uuid AND a.quiz_id=q.id) AS attempts_used
+    const quizLimits=await store.query(Prisma.sql`SELECT q.id,COALESCE(l.max_attempts,0) AS max_attempts,(SELECT count(*)::int FROM miniapp_quiz_attempts a WHERE a.enrollment_id=${enrollment.id}::uuid AND a.quiz_id=q.id) AS attempts_used
       FROM course_quizzes q LEFT JOIN miniapp_quiz_limits l ON l.quiz_id=q.id AND l.enrollment_id=${enrollment.id}::uuid WHERE q.course_id=${courseId}::uuid`);
     course.quizzes=course.quizzes.map((q:Row)=>({...q,...quizLimits.find(limit=>limit.id===q.id)}));
     course.lessons = (await store.query(Prisma.sql`SELECT l.*,policy.allow_public_embed,policy.media_url AS policy_media_url,COALESCE(p.is_completed,false) AS is_completed,p.watched_seconds,p.student_notes FROM course_lessons l JOIN course_chapters ch ON ch.id = l.chapter_id LEFT JOIN miniapp_lesson_media_policy policy ON policy.lesson_id=l.id LEFT JOIN user_lesson_progress p ON p.lesson_id = l.id AND p.enrollment_id = ${enrollment.id}::uuid WHERE ch.course_id = ${courseId}::uuid ORDER BY ch.chapter_order,l.lesson_order,l.id`)).map(lessonMedia);
@@ -824,7 +828,7 @@ export function createApp(store: Store, options: AppOptions) {
     [course.academicRecord] = await store.query(Prisma.sql`SELECT * FROM student_academic_records WHERE enrollment_id=${enrollment.id}::uuid`);
     [course.certificate] = await store.query(Prisma.sql`SELECT cert.*,to_char(u.date_of_birth,'YYYY-MM-DD') AS student_date_of_birth FROM student_certificates cert JOIN users u ON u.id=cert.student_id WHERE cert.student_id=${customerId}::uuid AND cert.enrollment_id=${enrollment.id}::uuid AND cert.status='ISSUED' ORDER BY cert.issue_date DESC LIMIT 1`);
     course.quizSubmissions = await store.query(Prisma.sql`SELECT s.id,s.quiz_id,s.score,s.correct_count,s.passed,s.submitted_at,s.submitted_answers,s.instructor_feedback,
-      (SELECT jsonb_agg(jsonb_build_object('id',q->'id','questionText',q->'question_text','options',q->'options','correctOption',CASE WHEN s.passed OR (SELECT count(*) FROM miniapp_quiz_attempts all_attempts WHERE all_attempts.enrollment_id=s.enrollment_id AND all_attempts.quiz_id=s.quiz_id)>=COALESCE((SELECT max_attempts FROM miniapp_quiz_limits lim WHERE lim.enrollment_id=s.enrollment_id AND lim.quiz_id=s.quiz_id),3) THEN q->'correct_option' ELSE NULL END,'explanation',CASE WHEN s.passed OR (SELECT count(*) FROM miniapp_quiz_attempts all_attempts WHERE all_attempts.enrollment_id=s.enrollment_id AND all_attempts.quiz_id=s.quiz_id)>=COALESCE((SELECT max_attempts FROM miniapp_quiz_limits lim WHERE lim.enrollment_id=s.enrollment_id AND lim.quiz_id=s.quiz_id),3) THEN q->'explanation' ELSE NULL END)) FROM miniapp_quiz_attempts a CROSS JOIN jsonb_array_elements(a.questions) q WHERE a.submission_id=s.id) AS questions
+      (SELECT jsonb_agg(jsonb_build_object('id',q->'id','questionText',q->'question_text','options',q->'options','correctOption',CASE WHEN s.passed OR (COALESCE((SELECT max_attempts FROM miniapp_quiz_limits lim WHERE lim.enrollment_id=s.enrollment_id AND lim.quiz_id=s.quiz_id),0)>0 AND (SELECT count(*) FROM miniapp_quiz_attempts all_attempts WHERE all_attempts.enrollment_id=s.enrollment_id AND all_attempts.quiz_id=s.quiz_id)>=(SELECT max_attempts FROM miniapp_quiz_limits lim WHERE lim.enrollment_id=s.enrollment_id AND lim.quiz_id=s.quiz_id)) THEN q->'correct_option' ELSE NULL END,'explanation',CASE WHEN s.passed OR (COALESCE((SELECT max_attempts FROM miniapp_quiz_limits lim WHERE lim.enrollment_id=s.enrollment_id AND lim.quiz_id=s.quiz_id),0)>0 AND (SELECT count(*) FROM miniapp_quiz_attempts all_attempts WHERE all_attempts.enrollment_id=s.enrollment_id AND all_attempts.quiz_id=s.quiz_id)>=(SELECT max_attempts FROM miniapp_quiz_limits lim WHERE lim.enrollment_id=s.enrollment_id AND lim.quiz_id=s.quiz_id)) THEN q->'explanation' ELSE NULL END)) FROM miniapp_quiz_attempts a CROSS JOIN jsonb_array_elements(a.questions) q WHERE a.submission_id=s.id) AS questions
       FROM quiz_submissions s WHERE s.enrollment_id=${enrollment.id}::uuid ORDER BY s.submitted_at DESC`);
     return success(res,{course});
   }));

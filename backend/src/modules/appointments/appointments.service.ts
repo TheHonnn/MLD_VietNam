@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Optional,
   ConflictException,
   NotFoundException,
   BadRequestException,
@@ -15,6 +16,7 @@ import { RedisService } from '../../database/redis.service';
 import { HoldSlotDto } from './dto/hold-slot.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
+import { EmailService } from '../auth/services/email.service';
 
 @Injectable()
 export class AppointmentsService {
@@ -23,6 +25,7 @@ export class AppointmentsService {
   constructor(
     private supabaseService: SupabaseService,
     private redisService: RedisService,
+    @Optional() private emailService?: EmailService,
   ) {}
 
   /**
@@ -318,7 +321,79 @@ export class AppointmentsService {
       }
     }
 
-    return {
+        // 4. Tự động gửi Email xác nhận đặt lịch hẹn (CONFIRMATION_BOOKING)
+    if (createdBooking && this.emailService) {
+      (async () => {
+        try {
+          let customerEmail = dto.bookedForEmail?.trim();
+          if (!customerEmail && createdBooking.special_notes) {
+            const match = createdBooking.special_notes.match(/Email:\s*([^\s|]+)/i);
+            if (match && match[1]) customerEmail = match[1].trim();
+          }
+          if (!customerEmail && effectiveUserId) {
+            const { data: u } = await this.supabaseService.adminClient
+              .from('users')
+              .select('email, full_name')
+              .eq('id', effectiveUserId)
+              .maybeSingle();
+            if (u?.email) customerEmail = u.email;
+          }
+
+          if (customerEmail && customerEmail.includes('@')) {
+            let branchName = 'Chi nhánh Spa MLD';
+            let branchAddress = 'Hệ thống MLD Việt Nam';
+            try {
+              const { data: br } = await this.supabaseService.adminClient
+                .from('branches')
+                .select('name, address')
+                .eq('id', targetBranchId)
+                .maybeSingle();
+              if (br) {
+                branchName = br.name || branchName;
+                branchAddress = br.address || branchAddress;
+              }
+            } catch (_) {}
+
+            let specialistName = 'Chuyên viên chỉ định MLD';
+            if (assignedTechnicianId) {
+              try {
+                const { data: tech } = await this.supabaseService.adminClient
+                  .from('technicians')
+                  .select('full_name')
+                  .eq('id', assignedTechnicianId)
+                  .maybeSingle();
+                if (tech?.full_name) specialistName = tech.full_name;
+              } catch (_) {}
+            }
+
+            await this.emailService.sendBookingConfirmationEmail({
+              to: customerEmail,
+              customerName: createdBooking.booked_for_name || 'Quý khách',
+              bookingCode: createdBooking.booking_code,
+              serviceName: srv.name,
+              branchName,
+              branchAddress,
+              bookingDate: createdBooking.booking_date,
+              bookingTime: createdBooking.start_time,
+              specialistName,
+              price: createdBooking.final_price,
+              paymentMethod: createdBooking.payment_method || paymentMethod || "CASH_AT_SPA",
+              specialNotes: createdBooking.special_notes,
+              metadata: {
+                booking_id: createdBooking.id,
+                booking_code: createdBooking.booking_code,
+                source: 'API_CREATE_BOOKING',
+              },
+            });
+            this.logger.log(`📧 [Auto-Email] Đã gửi thư xác nhận đặt lịch hẹn ${createdBooking.booking_code} tới ${customerEmail}`);
+          }
+        } catch (emailErr: any) {
+          this.logger.warn(`Lỗi dispatch email xác nhận booking ${createdBooking.id}: ${emailErr.message}`);
+        }
+      })().catch(() => {});
+    }
+
+return {
       success: true,
       message: 'Đặt lịch hẹn thành công',
       data: createdBooking,

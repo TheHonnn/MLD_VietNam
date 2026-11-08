@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Optional,
   Logger,
   BadRequestException,
   NotFoundException,
@@ -9,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../../database/supabase.service';
 import { RedisService } from '../../database/redis.service';
 import { CreatePaymentLinkDto } from './dto/create-payment-link.dto';
+import { EmailService } from '../auth/services/email.service';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { PayOS } = require('@payos/node');
@@ -40,6 +42,7 @@ export class PaymentsService {
     private configService: ConfigService,
     private supabaseService: SupabaseService,
     private redisService: RedisService,
+    @Optional() private emailService?: EmailService,
   ) {
     const clientId = this.configService.get<string>('PAYOS_CLIENT_ID');
     const apiKey = this.configService.get<string>('PAYOS_API_KEY');
@@ -380,6 +383,40 @@ export class PaymentsService {
           this.logger.warn(`[Invoice Insert Warning]: ${invErr.message}`);
         } else {
           this.logger.log(`[Invoice Created] ${invoiceCode} for booking ${targetBookingId}`);
+
+        if (this.emailService && bkgData?.customer_id) {
+          (async () => {
+            try {
+              const { data: cust } = await this.supabaseService.adminClient
+                .from('users')
+                .select('email, full_name, membership_tier, loyalty_points')
+                .eq('id', bkgData.customer_id)
+                .maybeSingle();
+              if (cust?.email && cust.email.includes('@')) {
+                await this.emailService.sendPaymentReceiptEmail({
+                  to: cust.email,
+                  customerName: cust.full_name || mapping?.customerName || 'Quý khách',
+                  invoiceCode: invoiceCode,
+                  amount: amountPaid,
+                  paymentMethod: 'VietQR MBBank (PayOS)',
+                  paidAt: new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
+                  description: mapping?.description || `Thanh toán thành công ${mapping?.bookingCode || ''}`,
+                  tierName: cust.membership_tier || 'MLD Member',
+                  pointsEarned: Math.round(amountPaid / 100000),
+                  metadata: {
+                    invoice_code: invoiceCode,
+                    booking_id: targetBookingId,
+                    source: 'PAYOS_PAYMENT_SUCCESS',
+                  },
+                });
+                this.logger.log(`📧 [Auto-Email] Đã gửi biên lai thanh toán ${invoiceCode} tới ${cust.email}`);
+              }
+            } catch (err: any) {
+              this.logger.warn(`Lỗi dispatch email biên lai PayOS: ${err.message}`);
+            }
+          })().catch(() => {});
+        }
+
         }
       } catch (invErr) {
         this.logger.warn(`[Invoice Insert Catch]: ${invErr}`);
@@ -433,11 +470,109 @@ export class PaymentsService {
           })
           .eq('id', targetEnrollmentId);
 
+        await this.ensureEnrollmentPayment(
+          targetEnrollmentId,
+          amountPaid,
+          `TX-PAYOS-${orderCode}`,
+          undefined,
+          `Đối soát PayOS cho mã ${orderCode}`,
+        );
+
         this.logger.log(`[Auto-Approve] Enrollment ${targetEnrollmentId} đã được tự động duyệt vào khóa học thành công!`);
       }
     } catch (enrErr) {
       this.logger.warn(`[Auto-Approve Warning]: ${enrErr}`);
     }
+  }
+
+  private async ensureEnrollmentPayment(
+    enrollmentId: string,
+    amount: number,
+    transactionCode: string,
+    preferredBranchId?: string,
+    notes?: string,
+  ) {
+    const client = this.supabaseService.adminClient;
+    const { data: enrollment, error: enrollmentError } = await client
+      .from('course_enrollments')
+      .select('student_id, course_id, batch_id, assigned_staff_id')
+      .eq('id', enrollmentId)
+      .maybeSingle();
+    if (enrollmentError || !enrollment) return;
+
+    let branchId = preferredBranchId;
+    if (!branchId && enrollment.batch_id) {
+      const { data: batch } = await client
+        .from('course_batches')
+        .select('branch_id')
+        .eq('id', enrollment.batch_id)
+        .maybeSingle();
+      branchId = batch?.branch_id;
+    }
+    branchId ||= 'aaaaaaaa-0001-0001-0001-000000000001';
+
+    let { data: transaction } = await client
+      .from('tuition_transactions')
+      .select('id')
+      .eq('transaction_code', transactionCode)
+      .maybeSingle();
+    if (!transaction) {
+      const { data, error } = await client
+        .from('tuition_transactions')
+        .insert({
+          transaction_code: transactionCode,
+          enrollment_id: enrollmentId,
+          student_id: enrollment.student_id,
+          course_id: enrollment.course_id,
+          branch_id: branchId,
+          transaction_type: 'FULL_PAYMENT',
+          amount,
+          payment_method: 'BANK_TRANSFER',
+          payment_status: 'PAID',
+          notes: notes || 'Thanh toán học phí đã được xác nhận',
+          paid_at: new Date().toISOString(),
+        })
+        .select('id')
+        .maybeSingle();
+      if (error) {
+        this.logger.warn(`[Tuition Transaction] ${error.message}`);
+        return;
+      }
+      transaction = data;
+    }
+
+    if (!enrollment.assigned_staff_id || !transaction?.id) return;
+    const { data: profile } = await client
+      .from('staff_profiles')
+      .select('commission_rate')
+      .eq('user_id', enrollment.assigned_staff_id)
+      .eq('is_active', true)
+      .maybeSingle();
+    const percentage = Number(profile?.commission_rate || 0);
+    if (percentage <= 0 || percentage > 100) return;
+
+    const { error: commissionError } = await client.from('staff_commissions').insert({
+      staff_id: enrollment.assigned_staff_id,
+      branch_id: branchId,
+      tuition_transaction_id: transaction.id,
+      commission_type: 'COURSE_ENROLLMENT',
+      base_amount: amount,
+      percentage,
+      commission_amount: Math.round((amount * percentage) / 100),
+      status: 'PENDING',
+      cycle_month: new Date().toISOString().slice(0, 7),
+      notes: notes || 'Hoa hồng tư vấn khóa học sau khi thanh toán thành công',
+    });
+    if (commissionError && commissionError.code !== '23505') {
+      this.logger.warn(`[Course Commission] ${commissionError.message}`);
+    }
+  }
+
+  private bankTransactionCode(referenceCode: string, fallbackCode: string) {
+    const suffix = String(referenceCode || fallbackCode || Date.now())
+      .replace(/[^A-Za-z0-9_-]/g, '')
+      .slice(-40);
+    return `TX-BANK-${suffix || Date.now()}`;
   }
 
   /**
@@ -558,6 +693,40 @@ export class PaymentsService {
                 gateway_transaction_id: referenceCode || 'BANK_TRANSFER_WEBHOOK',
               })
               .eq('id', inv.id);
+
+          if (this.emailService && inv.customer_id) {
+            (async () => {
+              try {
+                const { data: cust } = await this.supabaseService.adminClient
+                  .from('users')
+                  .select('email, full_name, membership_tier, loyalty_points')
+                  .eq('id', inv.customer_id)
+                  .maybeSingle();
+                if (cust?.email && cust.email.includes('@')) {
+                  await this.emailService.sendPaymentReceiptEmail({
+                    to: cust.email,
+                    customerName: cust.full_name || 'Quý khách',
+                    invoiceCode: inv.invoice_code,
+                    amount: amount,
+                    paymentMethod: 'Chuyển khoản Ngân hàng (VietQR)',
+                    paidAt: new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
+                    description: `Thanh toán thành công hóa đơn ${inv.invoice_code}`,
+                    tierName: cust.membership_tier || 'MLD Member',
+                    pointsEarned: Math.round(amount / 100000),
+                    metadata: {
+                      invoice_id: inv.id,
+                      invoice_code: inv.invoice_code,
+                      source: 'BANK_TRANSFER_WEBHOOK',
+                    },
+                  });
+                  this.logger.log(`📧 [Auto-Email] Đã gửi biên lai hóa đơn ${inv.invoice_code} tới ${cust.email}`);
+                }
+              } catch (err: any) {
+                this.logger.warn(`Lỗi dispatch email hóa đơn: ${err.message}`);
+              }
+            })().catch(() => {});
+          }
+
             results.push({ matchedCode, status: 'PARTIAL', amountPaid: amount, required: inv.total_amount });
             continue;
           }
@@ -588,6 +757,13 @@ export class PaymentsService {
                 approval_notes: `[Tự động đối soát Webhook Ngân hàng] Nhận ${amount.toLocaleString('vi-VN')}đ khớp ${matchedCode}`,
               })
               .eq('id', inv.enrollment_id);
+            await this.ensureEnrollmentPayment(
+              inv.enrollment_id,
+              amount,
+              this.bankTransactionCode(referenceCode, matchedCode),
+              inv.branch_id,
+              `Đối soát Webhook ngân hàng cho hóa đơn ${matchedCode}`,
+            );
           }
 
           if (inv.booking_id) {
@@ -633,35 +809,50 @@ export class PaymentsService {
               })
               .eq('id', enr.id);
 
-            await this.supabaseService.adminClient
-              .from('tuition_transactions')
-              .insert({
-                transaction_code: `TX-BANK-${Date.now().toString().slice(-6)}`,
-                enrollment_id: enr.id,
-                student_id: enr.student_id,
-                course_id: enr.course_id,
-                amount: amount,
-                payment_method: 'BANK_TRANSFER',
-                payment_status: 'PAID',
-                notes: `Đối soát tự động qua Webhook Ngân hàng (Mã GD: ${referenceCode || 'WEBHOOK'})`,
-                paid_at: new Date().toISOString(),
-              });
-
-            if (enr.assigned_staff_id) {
-              const admissionCommissionAmt = Math.round((amount * 5.0) / 100);
-              await this.supabaseService.adminClient
-                .from('staff_commissions')
-                .insert({
-                  staff_id: enr.assigned_staff_id,
-                  commission_type: 'PACKAGE_UPSELL',
-                  base_amount: amount,
-                  percentage: 5.0,
-                  commission_amount: admissionCommissionAmt,
-                  status: 'APPROVED',
-                  cycle_month: new Date().toISOString().slice(0, 7),
-                  notes: `Hoa hồng tư vấn tuyển sinh 5% tự động trích qua Webhook khớp ${matchedCode}`,
-                });
+            if (this.emailService && enr.student_id) {
+              (async () => {
+                try {
+                  const { data: student } = await this.supabaseService.adminClient
+                    .from('users')
+                    .select('email, full_name')
+                    .eq('id', enr.student_id)
+                    .maybeSingle();
+                  const { data: crs } = await this.supabaseService.adminClient
+                    .from('courses')
+                    .select('title')
+                    .eq('id', enr.course_id)
+                    .maybeSingle();
+                  const studentEmail = (enr as any).student_email || student?.email;
+                  if (studentEmail && studentEmail.includes('@')) {
+                    await this.emailService.sendEnrollmentConfirmationEmail({
+                      to: studentEmail,
+                      studentName: student?.full_name || (enr as any).student_name || 'Học viên',
+                      studentCode: enr.order_code || `HV-${enr.id.slice(0, 6)}`,
+                      courseName: crs?.title || 'Khóa đào tạo chuyên sâu MLD',
+                      branchAddress: (enr as any).selected_branch || 'Trụ sở MLD Việt Nam - 260/271 Bùi Xương Trạch, Hà Nội',
+                      paidAmount: amount,
+                      metadata: {
+                        enrollment_id: enr.id,
+                        order_code: enr.order_code,
+                        source: 'BANK_TRANSFER_ENROLLMENT_PAID',
+                      },
+                    });
+                    this.logger.log(`📧 [Auto-Email] Đã gửi xác nhận học phí cho học viên ${studentEmail}`);
+                  }
+                } catch (err: any) {
+                  this.logger.warn(`Lỗi dispatch email học viên: ${err.message}`);
+                }
+              })().catch(() => {});
             }
+
+
+            await this.ensureEnrollmentPayment(
+              enr.id,
+              amount,
+              this.bankTransactionCode(referenceCode, matchedCode),
+              undefined,
+              `Đối soát tự động qua Webhook ngân hàng khớp ${matchedCode}`,
+            );
           }
         }
       }

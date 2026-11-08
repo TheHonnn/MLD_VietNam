@@ -279,7 +279,7 @@ async function runE2EAcceptanceSuite() {
         base_total, final_price, technician_id, qr_code_hash
       ) VALUES (
         $1, $2, $3, 'Khách ca sáng', '0967786399',
-        (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::DATE, '08:00:00', '09:00:00',
+        CASE WHEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::TIME >= '09:00:00'::TIME THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::DATE ELSE ((NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') - INTERVAL '1 day')::DATE END, '08:00:00', '09:00:00',
         'CONFIRMED', 'PAID', 'CASH_AT_SPA',
         700000, 700000, $4, $5
       ) RETURNING id;

@@ -787,6 +787,9 @@ export interface Invoice {
   refundAmount: number;
   refundedAt?: string | null;
   refundReason?: string | null;
+  receiptCustomerName?: string | null;
+  receiptDescription?: string | null;
+  receiptNotes?: string | null;
   paidAt: string;
   customer?: User;
   branch?: Branch;
@@ -882,7 +885,9 @@ export interface StaffCommission {
   branchId: string;
   bookingId?: string | null;
   invoiceId?: string | null;
-  commissionType: 'SERVICE_DIRECT' | 'PACKAGE_UPSELL' | 'CSAT_BONUS';
+  tuitionTransactionId?: string | null;
+  userPackageId?: string | null;
+  commissionType: 'SERVICE_DIRECT' | 'PACKAGE_UPSELL' | 'CSAT_BONUS' | 'COURSE_ENROLLMENT' | 'TREATMENT_PATHWAY';
   baseAmount: number;
   percentage: number;
   commissionAmount: number;
@@ -910,6 +915,8 @@ export interface InventoryConsumptionLog {
   serviceId?: string | null;
   bookingId?: string | null;
   invoiceId?: string | null;
+  tuitionTransactionId?: string | null;
+  userPackageId?: string | null;
   technicianId?: string | null;
   materialName: string;
   quantityDeducted: number;

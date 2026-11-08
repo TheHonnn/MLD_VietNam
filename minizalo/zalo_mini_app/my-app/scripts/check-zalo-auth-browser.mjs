@@ -50,8 +50,8 @@ try{
         await route.fulfill({status,contentType:'application/json',body:JSON.stringify({success:status===200,statusCode:status,message,data})});
       });
       await page.goto(process.env.PREVIEW_URL||'http://127.0.0.1:5184/',{waitUntil:'domcontentloaded'});
-      await page.getByRole('button',{name:'Bỏ qua',exact:true}).click();
-      const consent=page.locator('.zalo-consent-screen');await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).waitFor();
+      await page.getByRole('button',{name:'Tài khoản cá nhân',exact:true}).click();await page.getByRole('button',{name:'Đăng nhập',exact:true}).first().click();
+      const consent=page.getByRole('dialog',{name:'Kết nối tài khoản Zalo',exact:true});await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).waitFor();
       assert.equal(await consent.getByRole('radio').count(),0);
       assert.equal(await page.evaluate(()=>window.authFixture.phones),0);
       await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).evaluate(button=>{button.click();button.click();});
@@ -73,10 +73,9 @@ try{
       assert.equal(await consent.evaluate(el=>el.scrollWidth>el.clientWidth+1),false);
       allowLogin=true;await page.evaluate(()=>{window.authFixture.delay=false;});
       await consent.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).click();
-      await page.locator('.home-greeting h1').filter({hasText:account.fullName}).waitFor();
+      await page.getByText(account.fullName,{exact:true}).first().waitFor();
       await consent.waitFor({state:'detached'});
       assert.equal(await page.getByRole('radio',{name:'Nhân viên',exact:true}).count(),0);
-      await page.locator('.app-bottom-nav').getByRole('button',{name:'Cá nhân',exact:true}).click();
       await page.getByText('Dịch vụ của tôi',{exact:true}).waitFor();
       assert.equal(await page.locator('.staff-workspace').count(),0);assert.equal(staffRequests,0);
       await page.screenshot({path:fileURLToPath(new URL(`unified-login-${useWebKit?'webkit':'chrome'}-${viewport.width}.png`,folder))});

@@ -22,6 +22,9 @@ import {
   BookOpen,
   UserCheck,
   Users,
+  Plus,
+  UserPlus,
+  ClipboardCheck,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -357,6 +360,17 @@ export const W01_Dashboard: React.FC = () => {
   // 1. FILTERED ENTITIES (By Branch and Date Range)
   const filteredInvoices = useMemo(() => {
     return invoices.filter((inv) => {
+      // Loại trừ các hóa đơn tạo từ kịch bản kiểm thử tự động (TEST/UAT/E2E/SEC/EXPIRY)
+      const code = (inv.invoiceCode || '').toUpperCase();
+      if (
+        code.includes('TEST') ||
+        code.includes('UAT') ||
+        code.includes('E2E') ||
+        code.includes('SEC') ||
+        code.includes('EXPIRY')
+      ) {
+        return false;
+      }
       const matchBranch = selectedBranchId === 'ALL' || inv.branchId === selectedBranchId;
       if (!matchBranch) return false;
       if (datePreset === 'ALL') return true;
@@ -485,6 +499,48 @@ export const W01_Dashboard: React.FC = () => {
     0
   );
   const totalNeedToCollect = pendingBookingAmount + pendingTuitionAmount;
+
+  const todayBookingsCount = useMemo(() => {
+    return bookings.filter((booking) => {
+      const sameBranch = selectedBranchId === 'ALL' || booking.branchId === selectedBranchId;
+      return sameBranch && booking.bookingDate === realDates.todayIso && booking.status !== 'CANCELLED';
+    }).length;
+  }, [bookings, realDates.todayIso, selectedBranchId]);
+
+  const actionItems = [
+    {
+      label: 'Lịch hẹn hôm nay',
+      detail: todayBookingsCount > 0 ? `${todayBookingsCount} lịch cần theo dõi` : 'Không có lịch cần xử lý',
+      count: todayBookingsCount,
+      icon: Calendar,
+      route: '/staff-schedule',
+      tone: 'blue',
+    },
+    {
+      label: 'Chờ thu tiền dịch vụ',
+      detail: pendingBookings.length > 0 ? `${pendingBookingAmount.toLocaleString('vi-VN')}đ cần thu` : 'Đã thu đủ',
+      count: pendingBookings.length,
+      icon: Receipt,
+      route: '/cashier-pos?tab=queue',
+      tone: 'amber',
+    },
+    {
+      label: 'Học phí còn thiếu',
+      detail: pendingEnrollments.length > 0 ? `${pendingTuitionAmount.toLocaleString('vi-VN')}đ còn thiếu` : 'Không có khoản còn thiếu',
+      count: pendingEnrollments.length,
+      icon: GraduationCap,
+      route: '/academy-enrollment',
+      tone: 'violet',
+    },
+    {
+      label: 'Khách hàng cần chăm sóc',
+      detail: 'Mở hồ sơ để xem lịch sử và ghi chú',
+      count: 0,
+      icon: ClipboardCheck,
+      route: '/customers',
+      tone: 'green',
+    },
+  ] as const;
 
   // 3-Pillar Revenue Structure (1 Đào tạo, 2 Dịch vụ trị liệu, 3 Sản phẩm mang về)
   const trainingRevenue = useMemo(() => {
@@ -1295,6 +1351,48 @@ export const W01_Dashboard: React.FC = () => {
           </button>
         </div>
       )}
+
+      <section aria-labelledby="dashboard-actions-title" className="space-y-2.5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 id="dashboard-actions-title" className="text-sm font-extrabold text-[#3E200C]">Việc cần xử lý</h2>
+            <p className="mt-0.5 text-[11px] font-medium text-[#73675F]">Các mục đang cần nhân viên kiểm tra hoặc hoàn tất</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => navigate('/customers?action=create')} className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[#D7BBA6] bg-white px-2.5 text-[11px] font-bold text-[#985018] hover:bg-[#FAF4EE]">
+              <UserPlus className="h-3.5 w-3.5" /> Thêm khách hàng
+            </button>
+            <button type="button" onClick={() => navigate('/staff-schedule?action=create')} className="inline-flex h-8 items-center gap-1.5 rounded-xl bg-[#985018] px-2.5 text-[11px] font-bold text-white hover:bg-[#854412]">
+              <Plus className="h-3.5 w-3.5" /> Tạo lịch hẹn
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+          {actionItems.map((item) => {
+            const Icon = item.icon;
+            const tone = item.tone === 'blue'
+              ? 'bg-blue-50 text-blue-700 border-blue-100'
+              : item.tone === 'amber'
+                ? 'bg-amber-50 text-amber-700 border-amber-100'
+                : item.tone === 'violet'
+                  ? 'bg-violet-50 text-violet-700 border-violet-100'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-100';
+            return (
+              <button key={item.label} type="button" onClick={() => navigate(item.route)} className="group flex min-h-[78px] items-center gap-3 rounded-2xl border border-[#EFE4D9] bg-white p-3 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-[#D7BBA6] hover:shadow-md">
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${tone}`}><Icon className="h-4.5 w-4.5" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs font-extrabold text-[#2C241E]">{item.label}</span>
+                    {item.count > 0 && <span className="rounded-full bg-[#FFF1E5] px-2 py-0.5 text-[10px] font-extrabold text-[#985018]">{item.count}</span>}
+                  </span>
+                  <span className="mt-1 block truncate text-[10.5px] font-medium text-[#8C7E72]">{item.detail}</span>
+                </span>
+                <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-[#B49C89] transition group-hover:text-[#985018]" />
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
       {/* 3. Seven KPI Cards Row - Responsive: 1-2 on mobile, 3 on tablet, 4 on small laptop, 7 on desktop */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 sm:gap-3">
