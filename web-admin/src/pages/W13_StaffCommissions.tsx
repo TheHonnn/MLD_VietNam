@@ -106,10 +106,12 @@ export const W13_StaffCommissions: React.FC = () => {
     return { total, pending, approved, paid, count: filteredCommissions.length };
   }, [filteredCommissions]);
 
-  const handleApprove = async (id: string, staffName?: string) => {
+  const handleApprove = async (commission: StaffCommission) => {
+    const staffName = commission.staffName || 'KTV';
+    if (!window.confirm(`Duyệt hoa hồng ${formatVND(commission.commissionAmount)} cho ${staffName}?`)) return;
     setIsProcessing(true);
     try {
-      const res = await commissionService.approveCommission(id);
+      const res = await commissionService.approveCommission(commission.id);
       if (res.success) {
         toast.success('Duyệt thành công', `Đã duyệt khoản hoa hồng cho ${staffName || 'KTV'}.`);
         loadData();
@@ -123,10 +125,12 @@ export const W13_StaffCommissions: React.FC = () => {
     }
   };
 
-  const handleMarkPaid = async (id: string, staffName?: string) => {
+  const handleMarkPaid = async (commission: StaffCommission) => {
+    const staffName = commission.staffName || 'KTV';
+    if (!window.confirm(`Xác nhận đã chi ${formatVND(commission.commissionAmount)} cho ${staffName}?`)) return;
     setIsProcessing(true);
     try {
-      const res = await commissionService.markPaid(id);
+      const res = await commissionService.markPaid(commission.id);
       if (res.success) {
         toast.success('Thanh toán hoàn tất', `Đã chuyển trạng thái Đã chi trả cho ${staffName || 'KTV'}.`);
         loadData();
@@ -149,6 +153,10 @@ export const W13_StaffCommissions: React.FC = () => {
       toast.info('Thông báo', 'Không có khoản hoa hồng nào đang chờ duyệt.');
       return;
     }
+    const pendingTotal = filteredCommissions
+      .filter((c) => pendingIds.includes(c.id))
+      .reduce((total, c) => total + c.commissionAmount, 0);
+    if (!window.confirm(`Duyệt ${pendingIds.length} khoản hoa hồng, tổng ${formatVND(pendingTotal)}?`)) return;
 
     setIsProcessing(true);
     try {
@@ -454,7 +462,7 @@ export const W13_StaffCommissions: React.FC = () => {
                         <div className="flex items-center justify-center gap-1.5">
                           {(row.status === 'PENDING_APPROVAL' || row.status === 'PENDING') && (
                             <button
-                              onClick={() => handleApprove(row.id, row.staffName)}
+                              onClick={() => handleApprove(row)}
                               disabled={isProcessing}
                               className="px-2.5 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
                               title="Phê duyệt hoa hồng này"
@@ -465,7 +473,7 @@ export const W13_StaffCommissions: React.FC = () => {
 
                           {row.status === 'APPROVED' && (
                             <button
-                              onClick={() => handleMarkPaid(row.id, row.staffName)}
+                              onClick={() => handleMarkPaid(row)}
                               disabled={isProcessing}
                               className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
                               title="Xác nhận đã chi trả tiền cho KTV"
