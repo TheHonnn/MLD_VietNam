@@ -57,7 +57,6 @@ export const DEFAULT_RESOURCES: Resource[] = [
   // 10. Học viên & Lớp học
   { name: 'course_batches', title: 'Lớp học đang mở', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'course_batch_assistants', title: 'Trợ giảng theo lớp', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete'] },
-  { name: 'batch_schedules', title: 'Thời khóa biểu', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'student_attendance', title: 'Điểm danh', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'student_academic_records', title: 'Bảng điểm học viên', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete', 'action'] },
 

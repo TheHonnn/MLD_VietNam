@@ -185,7 +185,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             { name: 'Điểm danh & Sổ theo dõi', path: '/attendance' },
             { name: 'Lớp học đang mở', path: '/manage/course_batches' },
             { name: 'Trợ giảng theo lớp', path: '/manage/course_batch_assistants' },
-            { name: 'Thời khóa biểu', path: '/manage/batch_schedules' },
             { name: 'Bảng điểm học viên', path: '/manage/student_academic_records' },
           ],
         },
