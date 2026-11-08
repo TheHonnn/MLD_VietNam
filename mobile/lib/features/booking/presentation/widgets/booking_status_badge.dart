@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../data/models/booking_models.dart';
 
-/// ComponentFamily / BookingStatusBadge [8111:28882]
-/// 5 trạng thái lịch hẹn theo Figma:
-/// - Chờ xác nhận: fill=#F3E2CE, text=#985018
-/// - Đã xác nhận: fill=#F3E2CE, text=#236B42
-/// - Đang phục vụ: fill=#F3E2CE, text=#985018
-/// - Hoàn thành: fill=#F3E2CE, text=#236B42
-/// - Đã hủy: fill=#F8F1E8, text=#B63131
 class BookingStatusBadge extends StatelessWidget {
   final AppointmentStatus status;
   final bool isSimulated;
@@ -16,7 +11,7 @@ class BookingStatusBadge extends StatelessWidget {
   const BookingStatusBadge({
     super.key,
     required this.status,
-    this.isSimulated = true,
+    this.isSimulated = false,
   });
 
   @override
@@ -27,28 +22,28 @@ class BookingStatusBadge extends StatelessWidget {
 
     switch (status) {
       case AppointmentStatus.pending:
-        bg = const Color(0xFFE8F5F1);
-        textColor = const Color(0xFF168477);
+        bg = AppColors.iceBlue;
+        textColor = AppColors.primary;
         label = 'Chờ xác nhận';
         break;
       case AppointmentStatus.confirmed:
-        bg = const Color(0xFFE8F5F1);
-        textColor = const Color(0xFF145B55);
+        bg = AppColors.mintBackground;
+        textColor = AppColors.accent;
         label = isSimulated ? 'Đã xác nhận' : 'Đã xác nhận';
         break;
       case AppointmentStatus.inService:
-        bg = const Color(0xFFE8F5F1);
-        textColor = const Color(0xFF168477);
+        bg = AppColors.mintBackground;
+        textColor = AppColors.accent;
         label = 'Đang phục vụ';
         break;
       case AppointmentStatus.completed:
-        bg = const Color(0xFFE8F5F1);
-        textColor = const Color(0xFF145B55);
+        bg = AppColors.mintBackground;
+        textColor = AppColors.accent;
         label = 'Hoàn thành';
         break;
       case AppointmentStatus.cancelled:
-        bg = const Color(0xFFF1F5F9);
-        textColor = const Color(0xFFB63131);
+        bg = AppColors.surfaceDisabled;
+        textColor = AppColors.errorDark;
         label = 'Đã hủy';
         break;
     }
@@ -63,8 +58,7 @@ class BookingStatusBadge extends StatelessWidget {
       ),
       child: Text(
         label.tr(context),
-        style: TextStyle(
-          
+        style: GoogleFonts.beVietnamPro(
           fontSize: 12,
           fontWeight: FontWeight.w600,
           color: textColor,

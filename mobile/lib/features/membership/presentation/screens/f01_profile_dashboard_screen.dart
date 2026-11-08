@@ -592,7 +592,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       'Phiên bản 1.0.0 · Hotline: 096.7786.399',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFF94A3B8),
+                        color: AppColors.textPlaceholder,
                       ),
                     ),
                   ],
@@ -732,7 +732,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
           ? const Icon(
               Icons.chevron_right_rounded,
               size: 20,
-              color: Color(0xFF94A3B8),
+              color: AppColors.textPlaceholder,
             )
           : null,
       onTap: onTap,
@@ -749,7 +749,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: AppColors.iceBlue,
         borderRadius: BorderRadius.circular(16),
         // BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
         boxShadow: [

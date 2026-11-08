@@ -376,7 +376,7 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
           width: 26,
           height: 26,
           decoration: BoxDecoration(
-            color: isCompleted ? AppColors.primary : const Color(0xFFF3F4F6),
+            color: isCompleted ? AppColors.primary : AppColors.surfaceDisabled,
             shape: BoxShape.circle,
             border: Border.all(
               color: isCompleted ? AppColors.primary : AppColors.border,

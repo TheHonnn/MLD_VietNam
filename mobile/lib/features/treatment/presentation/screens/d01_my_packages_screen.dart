@@ -114,7 +114,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                                 width: 44,
                                 height: 44,
                                 decoration: const BoxDecoration(
-                                  color: Color(0xFFEFF4FE),
+                                  color: AppColors.mintBackground,
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Center(
@@ -323,7 +323,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
             width: 56,
             height: 56,
             decoration: const BoxDecoration(
-              color: Color(0xFFEFF4FE),
+              color: AppColors.mintBackground,
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 28, color: AppColors.primary),
@@ -405,12 +405,12 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
     Color statusTextColor;
     String statusLabel;
     if (package.status == PackageStatus.active) {
-      statusBg = const Color(0xFFEFF4FE);
+      statusBg = AppColors.mintBackground;
       statusTextColor = AppColors.primary;
       statusLabel = context.tr('Đang điều trị', 'In Treatment');
     } else if (package.status == PackageStatus.completed || package.completedSessions >= package.totalSessions) {
-      statusBg = const Color(0xFFF0FDF4);
-      statusTextColor = const Color(0xFF16A34A);
+      statusBg = AppColors.mintBackground;
+      statusTextColor = AppColors.accent;
       statusLabel = context.tr('Hoàn thành', 'Completed');
     } else {
       statusBg = const Color(0xFFF3F4F6);
@@ -447,7 +447,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF4FE),
+                        color: AppColors.mintBackground,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                       ),
@@ -604,7 +604,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                   child: LinearProgressIndicator(
                     value: package.progressPercent,
                     minHeight: 7,
-                    backgroundColor: const Color(0xFFEFF4FE),
+                    backgroundColor: AppColors.mintBackground,
                     valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
                   ),
                 ),
@@ -726,12 +726,12 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
           Widget icon;
 
           if (isDone) {
-            bgColor = const Color(0xFFF0FDF4);
-            borderColor = const Color(0xFF86EFAC);
-            textColor = const Color(0xFF16A34A);
-            icon = const Icon(Icons.check_rounded, size: 14, color: Color(0xFF16A34A));
+            bgColor = AppColors.mintBackground;
+            borderColor = AppColors.sageGreen;
+            textColor = AppColors.accent;
+            icon = const Icon(Icons.check_rounded, size: 14, color: AppColors.accent);
           } else if (isCurrent) {
-            bgColor = const Color(0xFFEFF4FE);
+            bgColor = AppColors.mintBackground;
             borderColor = AppColors.primary;
             textColor = AppColors.primary;
             icon = const Icon(Icons.play_arrow_rounded, size: 14, color: AppColors.primary);

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
-import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../../services/presentation/screens/b02_service_listing_screen.dart';
 import '../../data/models/treatment_models.dart';
@@ -132,7 +131,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                         width: 48,
                         height: 48,
                         decoration: const BoxDecoration(
-                          color: Color(0xFFEFF4FE),
+                          color: AppColors.mintBackground,
                           shape: BoxShape.circle,
                         ),
                         child: const Center(
@@ -180,7 +179,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFEFF4FE), Color(0xFFF0FDF4)],
+                      colors: [AppColors.mintBackground, AppColors.mintBackground],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -374,7 +373,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
             width: 56,
             height: 56,
             decoration: const BoxDecoration(
-              color: Color(0xFFEFF4FE),
+              color: AppColors.mintBackground,
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.timeline_rounded, size: 28, color: AppColors.primary),
@@ -469,7 +468,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF4FE),
+                    color: AppColors.mintBackground,
                     shape: BoxShape.circle,
                     border: Border.all(color: AppColors.primary, width: 2),
                   ),
@@ -531,7 +530,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF4FE),
+                              color: AppColors.mintBackground,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -698,7 +697,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF4FE),
+                        color: AppColors.mintBackground,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: const Color(0xFFBFDBFE)),
                       ),
@@ -753,7 +752,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
 
   Widget _buildFallbackImage() {
     return Container(
-      color: const Color(0xFFEFF4FE),
+      color: AppColors.mintBackground,
       child: const Center(
         child: Icon(Icons.image_not_supported_outlined, color: AppColors.primary, size: 24),
       ),

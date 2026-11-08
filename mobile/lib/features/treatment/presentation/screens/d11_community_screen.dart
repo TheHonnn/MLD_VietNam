@@ -542,7 +542,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                 
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1E293B),
+                color: AppColors.textHeading,
                 height: 1.4,
               ),
             ),
@@ -558,7 +558,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                 
                 fontSize: 14.5,
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF334155),
+                color: AppColors.textPrimary,
                 height: 1.65,
               ),
             ),
@@ -825,7 +825,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                 
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF0F172A),
+                color: AppColors.textHeading,
                 height: 1.35,
               ),
             ),

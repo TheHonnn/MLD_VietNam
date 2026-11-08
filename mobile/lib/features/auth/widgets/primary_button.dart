@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/constants/app_colors.dart';
 
 class PrimaryButton extends StatelessWidget {
   final String text;
@@ -24,9 +25,9 @@ class PrimaryButton extends StatelessWidget {
       height: 52,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? const Color(0xFF16A34A),
+          backgroundColor: backgroundColor ?? AppColors.accent,
           foregroundColor: textColor ?? Colors.white,
-          disabledBackgroundColor: const Color(0xFFCBD5E1),
+          disabledBackgroundColor: AppColors.border,
           disabledForegroundColor: Colors.white70,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
