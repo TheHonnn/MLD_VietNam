@@ -140,6 +140,21 @@ export const LoginPage: React.FC = () => {
                 <span>Đăng nhập hệ thống</span>
               )}
             </button>
+
+            {/* Quick Demo Credentials Autofill */}
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIdentifier('admin@mldvietnam.vn');
+                  setPassword('Password@123');
+                  setErrorMessage('');
+                }}
+                className="text-[11px] text-[#BA7E4C] hover:text-[#8A4F23] hover:underline cursor-pointer transition-colors font-medium"
+              >
+                Nhập nhanh tài khoản Quản trị mẫu
+              </button>
+            </div>
           </form>
         </div>
 
