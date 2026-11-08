@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
@@ -20,16 +20,13 @@ class A03LoginScreen extends StatefulWidget {
 }
 
 class _A03LoginScreenState extends State<A03LoginScreen> {
-  // Tab index: 0 = Email, 1 = SĐT (Mặc định Email chuẩn theo yêu cầu)
   int _selectedTabIndex = 0;
 
-  // Controllers cho Email
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final GlobalKey<FormState> _emailFormKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
 
-  // Controllers cho SĐT
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _phonePasswordController = TextEditingController();
   final GlobalKey<FormState> _phoneFormKey = GlobalKey<FormState>();
@@ -163,7 +160,6 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     }
   }
 
-  // Luồng đăng nhập Email + Mật khẩu
   Future<void> _handleEmailLogin() async {
     if (!(_emailFormKey.currentState?.validate() ?? false)) return;
 
@@ -281,7 +277,6 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // --- 1. LOGO & NÚT QUAY LẠI (NẾU CÓ) ---
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -335,13 +330,12 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 42), // Cân đối layout
+                            const SizedBox(width: 42),
                           ],
                         ),
 
                         const SizedBox(height: 28),
 
-                        // --- 2. TIÊU ĐỀ & LỜI CHÀO ---
                         Text(
                           'Chào mừng bạn!',
                           style: GoogleFonts.beVietnamPro(
@@ -362,7 +356,6 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
 
                         const SizedBox(height: 24),
 
-                        // --- 3. TAB CHUYỂN ĐỔI: EMAIL & SỐ ĐIỆN THOẠI ---
                         Container(
                           height: 46,
                           padding: const EdgeInsets.all(4),
@@ -372,7 +365,6 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                           ),
                           child: Row(
                             children: [
-                              // Tab 0: Email
                               Expanded(
                                 child: GestureDetector(
                                   onTap: () {
@@ -407,7 +399,6 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                   ),
                                 ),
                               ),
-                              // Tab 1: Số điện thoại
                               Expanded(
                                 child: GestureDetector(
                                   onTap: () {
@@ -448,7 +439,6 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
 
                         const SizedBox(height: 20),
 
-                        // Error Banner nếu có
                         if (_errorMessage != null)
                           Container(
                             margin: const EdgeInsets.only(bottom: 16),
@@ -475,9 +465,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                             ),
                           ),
 
-                        // --- 4. FORM THEO TAB HIỆN TẠI ---
                         if (_selectedTabIndex == 0)
-                          // === TAB EMAIL & MẬT KHẨU ===
                           Form(
                             key: _emailFormKey,
                             child: Column(
@@ -620,7 +608,6 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                             ),
                           )
                         else
-                          // === TAB SỐ ĐIỆN THOẠI ===
                           Form(
                             key: _phoneFormKey,
                             child: Column(
@@ -794,7 +781,6 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
 
                         const SizedBox(height: 20),
 
-                        // --- 5. ĐĂNG KÝ TÀI KHOẢN MỚI ---
                         Wrap(
                           alignment: WrapAlignment.center,
                           crossAxisAlignment: WrapCrossAlignment.center,
@@ -831,7 +817,6 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
 
                         const SizedBox(height: 20),
 
-                        // --- 6. NÚT KHÁM PHÁ APP DÀNH CHO KHÁCH ---
                         InkWell(
                           onTap: () {
                             if (Navigator.canPop(context)) {
@@ -878,7 +863,6 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                         const Spacer(),
                         const SizedBox(height: 24),
 
-                        // --- 7. TRỢ GIÚP & ĐIỀU KHOẢN ---
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
