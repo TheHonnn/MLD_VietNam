@@ -1683,8 +1683,9 @@ class SupabaseService {
     description: string;
     notes: string;
     reason: string;
+    items?: Array<{ id: string; itemName: string }>;
   }): Promise<boolean> {
-    const result = await this.query<any[]>('rpc/fn_edit_invoice_receipt', {
+    const result = await this.query<any[]>('rpc/fn_edit_invoice_receipt_complete', {
       method: 'POST',
       body: JSON.stringify({
         p_invoice_id: data.invoiceId,
@@ -1692,6 +1693,7 @@ class SupabaseService {
         p_description: data.description,
         p_notes: data.notes,
         p_reason: data.reason,
+        p_items: data.items || [],
       }),
     });
     return result !== null;

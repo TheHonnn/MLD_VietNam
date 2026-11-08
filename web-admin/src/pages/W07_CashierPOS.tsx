@@ -269,6 +269,7 @@ export const W07_CashierPOS: React.FC = () => {
   const [receiptCustomerName, setReceiptCustomerName] = useState('');
   const [receiptDescription, setReceiptDescription] = useState('');
   const [receiptNotes, setReceiptNotes] = useState('');
+  const [receiptItems, setReceiptItems] = useState<Array<{id:string;itemName:string;quantity:number;unitPrice:number;amount:number}>>([]);
   const [receiptEditReason, setReceiptEditReason] = useState('');
   const [receiptEditHistory, setReceiptEditHistory] = useState<any[]>([]);
   const [isSavingReceipt, setIsSavingReceipt] = useState(false);
@@ -1143,6 +1144,7 @@ export const W07_CashierPOS: React.FC = () => {
     setReceiptCustomerName(invoice.receiptCustomerName || receipt.customerName);
     setReceiptDescription(invoice.receiptDescription || receipt.content);
     setReceiptNotes(invoice.receiptNotes || '');
+    setReceiptItems(invoice.items || []);
     setReceiptEditReason('');
     void supabaseService.getInvoiceEditHistory(invoice.id).then(setReceiptEditHistory);
   };
@@ -1158,6 +1160,7 @@ export const W07_CashierPOS: React.FC = () => {
         description: receiptDescription,
         notes: receiptNotes,
         reason: receiptEditReason.trim(),
+        items: receiptItems.map(({id,itemName})=>({id,itemName})),
       });
       if (!saved) throw new Error('Database từ chối cập nhật biên lai.');
       toast.success('Đã cập nhật thông tin biên lai', 'Lịch sử sửa đã được lưu.');
@@ -3637,7 +3640,7 @@ export const W07_CashierPOS: React.FC = () => {
             <div className="px-5 py-4 border-b border-[#EFE4D9] flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-[#2C241E]">Sửa thông tin biên lai</h3>
-                <p className="text-xs text-[#73675F] mt-1">{editingReceipt.invoiceCode} · Không thay đổi số tiền hoặc trạng thái thanh toán</p>
+                <p className="text-xs text-[#73675F] mt-1">{editingReceipt.invoiceCode} · Chỉ sửa tên dòng hàng; giá, số lượng và thanh toán được giữ nguyên</p>
               </div>
               <button type="button" onClick={() => setEditingReceipt(null)} className="p-2 hover:bg-slate-100 rounded" aria-label="Đóng"><X size={16} /></button>
             </div>
@@ -3650,6 +3653,7 @@ export const W07_CashierPOS: React.FC = () => {
                 <span className="font-semibold text-[#4A3E31]">Nội dung dịch vụ / hàng hóa</span>
                 <textarea value={receiptDescription} onChange={(e) => setReceiptDescription(e.target.value)} maxLength={2000} rows={2} required className="w-full border border-[#D8D0C7] rounded-md px-3 py-2 resize-y" />
               </label>
+              {receiptItems.length > 0 && <fieldset className="space-y-2"><legend className="font-semibold text-[#4A3E31]">Tên dịch vụ / hàng hóa trên hóa đơn</legend>{receiptItems.map((item,index)=><label key={item.id} className="grid grid-cols-[1fr_auto] items-center gap-3"><input aria-label={`Tên dòng hàng ${index+1}`} value={item.itemName} maxLength={250} required onChange={(event)=>setReceiptItems(current=>current.map(row=>row.id===item.id?{...row,itemName:event.target.value}:row))} className="w-full border border-[#D8D0C7] rounded-md px-3 py-2"/><span className="whitespace-nowrap text-xs text-[#73675F]">{item.quantity} × {Number(item.unitPrice).toLocaleString('vi-VN')} đ</span></label>)}</fieldset>}
               <label className="block space-y-1">
                 <span className="font-semibold text-[#4A3E31]">Ghi chú</span>
                 <textarea value={receiptNotes} onChange={(e) => setReceiptNotes(e.target.value)} maxLength={2000} rows={2} className="w-full border border-[#D8D0C7] rounded-md px-3 py-2 resize-y" />

@@ -16,7 +16,7 @@ test('staff customer dossier only exposes canonical branch-scoped history and re
     await t.test('appointments paginate and journal fields match shared records without private account fields',async()=>{
       const first=await read('appointments',90,'&limit=1');assert.equal(first.status,200,JSON.stringify(first));assert.equal(first.data.records.length,1);assert.ok(first.data.nextCursor);
       const next=await read('appointments',90,'&limit=1&cursor='+first.data.nextCursor);assert.notEqual(next.data.records[0].id,first.data.records[0].id);
-      assert.deepEqual(Object.keys(first.data.customer).sort(),['dateOfBirth','fullName','id','phone']);
+      assert.deepEqual(Object.keys(first.data.customer).sort(),['address','dateOfBirth','email','emergencyContactName','emergencyContactPhone','fullName','gender','id','phone']);
       const journals=await read('treatments');assert.equal(journals.data.records.length,1);assert.equal(journals.data.records[0].treatmentNotes,'Actual care notes');assert.equal(journals.data.records[0].conditionBefore,'Before condition');
       const packages=await read('packages');assert.equal(packages.data.records[0].remainingSessions,3);assert.equal(packages.data.records[0].completedSessions,1);
       assert.equal(packages.data.records[0].serviceName,'Workflow service');assert.equal(packages.data.records[0].serviceSteps[0].title,'Assessment');
@@ -24,6 +24,25 @@ test('staff customer dossier only exposes canonical branch-scoped history and re
       await db.query("UPDATE user_packages SET expires_at='2000-01-01' WHERE id=$1",[id(10)]);
       assert.equal((await read('packages')).data.records[0].status,'EXPIRED');
       await db.query("UPDATE user_packages SET expires_at='2099-12-31' WHERE id=$1",[id(10)]);
+    });
+    await t.test('customer dossier includes contact details, payments and care notes within staff branch scope',async()=>{
+      await db.query("UPDATE users SET email='customer@example.test',address='Actual customer address',emergency_contact_name='Emergency contact',emergency_contact_phone='0900000001' WHERE id=$1",[id(1)]);
+      await db.query("INSERT INTO invoices(id,invoice_code,branch_id,customer_id,subtotal,total_amount) VALUES($1,'WF-INVOICE',$2,$3,100000,100000)",[id(600),id(3),id(1)]);
+      await db.query("INSERT INTO support_tickets(id,customer_id,subject,message,admin_reply) VALUES($1,$2,'Care note','Actual care notes','Follow-up reply')",[id(601),id(1)]);
+      const contact=await read('contact');
+      assert.equal(contact.status,200);
+      assert.equal(contact.data.customer.email,'customer@example.test');
+      assert.equal(contact.data.customer.address,'Actual customer address');
+      assert.equal(contact.data.customer.emergencyContactName,'Emergency contact');
+      const payments=await read('payments');
+      assert.equal(payments.status,200);
+      assert.equal(payments.data.records[0].title,'WF-INVOICE');
+      assert.equal(Number(payments.data.records[0].amount),100000);
+      const care=await read('care-notes');
+      assert.equal(care.status,200);
+      assert.equal(care.data.records[0].notes,'Actual care notes');
+      assert.equal(care.data.records[0].reply,'Follow-up reply');
+      assert.equal((await read('payments',91)).status,404);
     });
     await t.test('a relationship in another branch does not expose this branch clinical notes',async()=>{
       await db.query("INSERT INTO bookings(id,booking_code,customer_id,branch_id,booking_date,start_time,end_time,status,base_total,final_price,qr_code_hash) VALUES($1,'OTHER-DOSSIER',$2,$3,'2020-01-01','12:00','13:00','COMPLETED',0,0,'OTHER-DOSSIER-QR')",[id(501),id(1),id(104)]);
