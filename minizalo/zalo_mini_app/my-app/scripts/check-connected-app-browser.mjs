@@ -107,6 +107,7 @@ try{for(const scenario of (process.env.BROWSER_SCENARIO?[process.env.BROWSER_SCE
     await page.screenshot({path:fileURLToPath(new URL(`${engine}-${scenario}-${viewport.width}-home.png`,folder))});
     const nav=()=>page.getByRole('navigation',{name:'Điều hướng chính'});
     const quick=async name=>{await nav().getByRole('button',{name:'Trang chủ',exact:true}).click();await page.getByRole('navigation',{name:'Truy cập nhanh'}).getByRole('button',{name,exact:true}).click();};
+    await quick('Dịch vụ');await page.getByRole('heading',{name:'Dịch vụ trị liệu',exact:true}).waitFor();assert.equal(await page.locator('.mobile-connected-content').evaluate(el=>el.scrollTop),0);
     await quick('Cá nhân');await page.getByRole('button',{name:'Khóa học của tôi',exact:true}).click();
     await page.getByRole('button',{name:'Tiếp tục với Zalo',exact:true}).click();await page.getByRole('heading',{name:'Khóa học của tôi',exact:true}).waitFor();
     assert.equal(await page.locator('.academy-enrollment').count(),0);assert.deepEqual(learningReads,[]);

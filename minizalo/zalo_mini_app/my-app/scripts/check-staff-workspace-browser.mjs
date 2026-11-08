@@ -81,7 +81,7 @@ try{
       else if(path==='/staff/customers/directory')data={customers:url.searchParams.get('search')==='không khớp'?[]:[customer],nextCursor:null};
       else if(path===`/staff/customers/${customer.id}/records`){
         const section=url.searchParams.get('section');
-        data={customer,records:section==='packages'?[{id:id(10),title:'Liệu trình của khách',serviceId:id(5),serviceName:'Dịch vụ kiểm thử',serviceDescription:'Mô tả từ database kiểm thử',serviceSteps:[{title:'Bước đánh giá',description:'Thông tin đánh giá'}],status:'ACTIVE',totalSessions:5,completedSessions:1,reservedSessions:1,remainingSessions:3,expiresAt:'2099-12-31T00:00:00.000Z'}]:section==='treatments'?[{id:id(12),bookingId:appointment.id,sessionNumber:1,treatmentNotes:'Nội dung trị liệu đã ghi',conditionBefore:'Trước trị liệu',conditionAfter:'Sau trị liệu',specialistAdvice:'Lời dặn thực tế'}]:[],nextCursor:null};
+        data={customer:{...customer,email:'contact-detail@example.test',emergencyContactName:'Người liên hệ từ hồ sơ'},records:section==='packages'?[{id:id(10),title:'Liệu trình của khách',serviceId:id(5),serviceName:'Dịch vụ kiểm thử',serviceDescription:'Mô tả từ database kiểm thử',serviceSteps:[{title:'Bước đánh giá',description:'Thông tin đánh giá'}],status:'ACTIVE',totalSessions:5,completedSessions:1,reservedSessions:1,remainingSessions:3,expiresAt:'2099-12-31T00:00:00.000Z'}]:section==='treatments'?[{id:id(12),bookingId:appointment.id,sessionNumber:1,treatmentNotes:'Nội dung trị liệu đã ghi',conditionBefore:'Trước trị liệu',conditionAfter:'Sau trị liệu',specialistAdvice:'Lời dặn thực tế'}]:[],nextCursor:null};
       }
       else if(path==='/documents')data={documents:[],nextCursor:null};
       else if(path==='/shared-content')data={items:[],nextCursor:null};
@@ -109,6 +109,7 @@ try{
       await page.getByText('Bước đánh giá',{exact:true}).waitFor();
       await page.getByRole('tab',{name:'Trị liệu',exact:true}).click();
       await page.getByText('Nội dung trị liệu đã ghi',{exact:true}).waitFor();
+      await page.getByRole('tab',{name:'Liên hệ',exact:true}).click();await page.getByText('Email: contact-detail@example.test',{exact:true}).waitFor();await page.getByText('Liên hệ khẩn cấp: Người liên hệ từ hồ sơ',{exact:true}).waitFor();
       await page.locator('.shared-records-header').getByRole('button',{name:'Quay lại'}).click();
       await page.getByRole('textbox',{name:'Tìm hồ sơ khách'}).fill('không khớp');
       await page.waitForTimeout(450);
