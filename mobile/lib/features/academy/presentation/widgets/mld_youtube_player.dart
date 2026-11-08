@@ -287,7 +287,7 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
                 child: Text(
                   _getWatermarkText(),
                   style: TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 8.5,
                     fontWeight: FontWeight.w700,
                     color: Colors.white.withValues(alpha: 0.35),
@@ -317,7 +317,7 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
                       child: Text(
                         _getWatermarkText(),
                         style: TextStyle(
-                          fontFamily: 'Montserrat',
+                          
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           color: Colors.white.withValues(alpha: 0.65),

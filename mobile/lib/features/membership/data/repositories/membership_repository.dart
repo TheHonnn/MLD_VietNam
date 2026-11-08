@@ -13,6 +13,14 @@ class MembershipRepository {
   MembershipRepository._internal() {
     _initData();
     _loadPersistedProfile();
+    AuthService.instance.isLoggedInNotifier.addListener(() {
+      if (!AuthService.instance.isLoggedIn) {
+        resetProfile();
+      }
+    });
+    AuthService.instance.addOnLogoutListener(() {
+      resetProfile();
+    });
   }
   static final MembershipRepository instance = MembershipRepository._internal();
   factory MembershipRepository() => instance;
@@ -30,6 +38,8 @@ class MembershipRepository {
   static const String _emergencyNamePrefKey = 'user_emergency_name';
   static const String _emergencyPhonePrefKey = 'user_emergency_phone';
   static const String _memberCodePrefKey = 'user_member_code';
+  static const String _referrerNamePrefKey = 'user_referrer_name';
+  static const String _referredByIdPrefKey = 'user_referred_by_id';
 
   UserProfile _userProfile = const UserProfile(
     id: 'user-000001',
@@ -179,10 +189,15 @@ class MembershipRepository {
 
   Future<void> _loadPersistedProfile() async {
     try {
+      if (!AuthService.instance.isLoggedIn) {
+        resetProfile();
+        return;
+      }
       final prefs = await SharedPreferences.getInstance();
       final savedAvatar = prefs.getString(_avatarPrefKey) ??
           prefs.getString('user_avatar_path') ??
-          AuthService.instance.currentAvatarUrl;
+          AuthService.instance.currentAvatarUrl ??
+          '';
       final savedName = prefs.getString(_namePrefKey);
       final savedPhone = prefs.getString(_phonePrefKey);
       final savedEmail = prefs.getString(_emailPrefKey);
@@ -217,9 +232,11 @@ class MembershipRepository {
       final savedOccupation = prefs.getString(_occupationPrefKey);
       final savedEmerName = prefs.getString(_emergencyNamePrefKey);
       final savedEmerPhone = prefs.getString(_emergencyPhonePrefKey);
+      final savedReferrerName = prefs.getString(_referrerNamePrefKey);
+      final savedReferredById = prefs.getString(_referredByIdPrefKey);
 
       _userProfile = _userProfile.copyWith(
-        avatarUrl: savedAvatar ?? _userProfile.avatarUrl,
+        avatarUrl: savedAvatar.trim(),
         fullName: effectiveFullName,
         phone: effectivePhone,
         isPhoneVerified: effectivePhone.isNotEmpty,
@@ -233,6 +250,8 @@ class MembershipRepository {
         memberCode: prefs.getString(_memberCodePrefKey)?.isNotEmpty == true
             ? prefs.getString(_memberCodePrefKey)!
             : _userProfile.memberCode,
+        referrerName: savedReferrerName,
+        referredById: savedReferredById,
       );
     } catch (_) {}
   }
@@ -261,18 +280,30 @@ class MembershipRepository {
     }
 
     _userProfile = _userProfile.copyWith(
-      fullName: cleanName.isNotEmpty ? cleanName : _userProfile.fullName,
-      phone: cleanPhone.isNotEmpty ? cleanPhone : _userProfile.phone,
-      isPhoneVerified: cleanPhone.isNotEmpty ? true : _userProfile.isPhoneVerified,
-      email: cleanEmail.isNotEmpty ? cleanEmail : _userProfile.email,
-      avatarUrl: cleanAvatar.isNotEmpty ? cleanAvatar : _userProfile.avatarUrl,
-      memberCode: derivedCode.isNotEmpty ? derivedCode : _userProfile.memberCode,
+      fullName: cleanName,
+      phone: cleanPhone,
+      isPhoneVerified: cleanPhone.isNotEmpty,
+      email: cleanEmail,
+      avatarUrl: cleanAvatar,
+      memberCode: derivedCode.isNotEmpty ? derivedCode : 'MLD-000001',
+      address: '',
+      dateOfBirth: '',
+      gender: 'Nữ',
+      occupation: '',
+      emergencyContactName: '',
+      emergencyContactPhone: '',
+      points: 0,
     );
     _persistLocalProfile(_userProfile);
   }
 
   /// F01/F02: Lấy thông tin hồ sơ cá nhân từ Live Backend Gateway & Supabase Database
   Future<UserProfile> fetchProfile() async {
+    // Nếu chưa đăng nhập hoặc đang ở chế độ khách thì không gọi backend tránh lỗi 400/401
+    if (!AuthService.instance.isAuthenticated || AuthService.instance.isGuest) {
+      return _userProfile;
+    }
+
     try {
       final response = await _apiClient.dio.get(ApiEndpoints.membershipProfile);
       if (response.statusCode == 200 && response.data != null) {
@@ -317,7 +348,7 @@ class MembershipRepository {
             occupation: serverOcc.isNotEmpty ? serverOcc : _userProfile.occupation,
             emergencyContactName: serverEmerName.isNotEmpty ? serverEmerName : _userProfile.emergencyContactName,
             emergencyContactPhone: serverEmerPhone.isNotEmpty ? serverEmerPhone : _userProfile.emergencyContactPhone,
-            avatarUrl: serverAvatar.isNotEmpty ? serverAvatar : _userProfile.avatarUrl,
+            avatarUrl: serverAvatar,
             memberTier: (data['memberTier']?.toString().isNotEmpty == true) ? data['memberTier'].toString() : _userProfile.memberTier,
             memberCode: (data['memberCode']?.toString().isNotEmpty == true) ? data['memberCode'].toString() : _userProfile.memberCode,
             points: (data['points'] as num?)?.toInt() ?? _userProfile.points,
@@ -341,7 +372,7 @@ class MembershipRepository {
             : (lookupPhone.isNotEmpty ? 'phone=eq.$lookupPhone' : 'email=eq.$lookupEmail');
 
         final sRes = await _apiClient.dio.get(
-          '${ApiEndpoints.users}?$queryParam&select=id,full_name,phone,email,avatar_url,gender,date_of_birth,address,emergency_contact_name,emergency_contact_phone,membership_tier,reward_points,referral_code&limit=1',
+          '${ApiEndpoints.users}?$queryParam&select=id,full_name,phone,email,avatar_url,gender,date_of_birth,address,emergency_contact_name,emergency_contact_phone,membership_tier,reward_points,referral_code,referred_by_id&limit=1',
           options: Options(
             headers: {
               'apikey': ApiEndpoints.supabaseServiceRoleKey,
@@ -378,6 +409,37 @@ class MembershipRepository {
           final dbPoints = (u['reward_points'] as num?)?.toInt();
           final dbTier = u['membership_tier']?.toString();
 
+          // Đồng bộ thông tin người giới thiệu từ DB một cách an toàn không gây lỗi quan hệ
+          final dbReferredById = u['referred_by_id']?.toString().trim();
+          String? dbReferrerName;
+          if (dbReferredById != null && dbReferredById.isNotEmpty) {
+            try {
+              final refRes = await _apiClient.dio.get(
+                '${ApiEndpoints.users}?id=eq.$dbReferredById&select=full_name,role&limit=1',
+                options: Options(
+                  headers: {
+                    'apikey': ApiEndpoints.supabaseServiceRoleKey,
+                    'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                  },
+                ),
+              );
+              if (refRes.data is List && (refRes.data as List).isNotEmpty) {
+                final rData = (refRes.data as List).first as Map<String, dynamic>;
+                final rName = rData['full_name']?.toString().trim() ?? '';
+                final rRole = rData['role']?.toString().trim() ?? '';
+                if (rName.isNotEmpty) {
+                  if (rRole == 'INSTRUCTOR' || rRole == 'DOCTOR') {
+                    dbReferrerName = '$rName (Chỉ định Y khoa)';
+                  } else if (rRole == 'TECHNICIAN') {
+                    dbReferrerName = '$rName (KTV Phục hồi)';
+                  } else {
+                    dbReferrerName = rName;
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+
           String displayGender = _userProfile.gender;
           if (dbGender == 'MALE') {
             displayGender = 'Nam';
@@ -387,13 +449,17 @@ class MembershipRepository {
             displayGender = dbGender;
           }
 
+          final effectiveAvatar = dbAvatar.isNotEmpty
+              ? dbAvatar
+              : _userProfile.avatarUrl;
+
           _userProfile = _userProfile.copyWith(
             fullName: dbName.isNotEmpty ? dbName : _userProfile.fullName,
             phone: dbPhone.isNotEmpty ? dbPhone : _userProfile.phone,
             isPhoneVerified: dbPhone.isNotEmpty ? true : _userProfile.isPhoneVerified,
             email: dbEmail.isNotEmpty ? dbEmail : _userProfile.email,
             address: dbAddress.isNotEmpty ? dbAddress : _userProfile.address,
-            avatarUrl: dbAvatar.isNotEmpty ? dbAvatar : _userProfile.avatarUrl,
+            avatarUrl: effectiveAvatar,
             gender: displayGender,
             dateOfBirth: dbDob.isNotEmpty ? dbDob : _userProfile.dateOfBirth,
             emergencyContactName: dbEmerName.isNotEmpty ? dbEmerName : _userProfile.emergencyContactName,
@@ -401,8 +467,15 @@ class MembershipRepository {
             memberCode: dbCode.isNotEmpty ? dbCode : _userProfile.memberCode,
             points: dbPoints ?? _userProfile.points,
             memberTier: dbTier != null ? _mapTierName(dbTier) : _userProfile.memberTier,
+            referrerName: dbReferrerName,
+            referredById: dbReferredById,
+            clearReferrer: (dbReferrerName == null || dbReferrerName.isEmpty),
           );
           _persistLocalProfile(_userProfile);
+          AuthService.instance.updateProfile(
+            displayName: _userProfile.fullName,
+            avatarUrl: effectiveAvatar,
+          );
         }
       } catch (e) {
         debugPrint('>>> [MembershipRepository] Error querying Supabase users table: $e');
@@ -490,6 +563,11 @@ class MembershipRepository {
       AuthService.instance.updatePhone(updated.phone.trim());
     }
 
+    // Nếu chưa đăng nhập hoặc đang ở chế độ khách, chỉ lưu cục bộ không gọi API từ xa
+    if (!AuthService.instance.isAuthenticated || AuthService.instance.isGuest) {
+      return;
+    }
+
     // 1. Lưu trực tiếp vào Database Supabase (Bảng users)
     try {
       final lookupPhone = _userProfile.phone.trim();
@@ -545,18 +623,20 @@ class MembershipRepository {
           ),
         );
 
-        // Nếu bảng users chưa có record, tự động tạo mới để lưu vĩnh viễn
+        // Nếu bảng users chưa có record, tự động tạo mới để lưu vĩnh viễn (đầy đủ các ràng buộc NOT NULL)
         if (patchRes.data is List && (patchRes.data as List).isEmpty) {
+          final autoReferralCode = 'MLD${(DateTime.now().millisecondsSinceEpoch % 1000000).toString().padLeft(6, '0')}';
           final insertData = <String, dynamic>{
             'full_name': updated.fullName.trim().isNotEmpty ? updated.fullName.trim() : 'Khách hàng MLD',
-            if (updated.phone.trim().isNotEmpty) 'phone': updated.phone.trim(),
+            'phone': updated.phone.trim().isNotEmpty ? updated.phone.trim() : '09${DateTime.now().millisecondsSinceEpoch.toString().substring(5, 13)}',
             if (updated.email.trim().isNotEmpty) 'email': updated.email.trim(),
             if (finalAvatarUrl.isNotEmpty) 'avatar_url': finalAvatarUrl,
             'address': updated.address.trim(),
             'gender': dbGender,
             'role': 'CUSTOMER',
-            'membership_tier': 'MEMBER',
+            'membership_tier': 'STANDARD',
             'reward_points': 0,
+            'referral_code': autoReferralCode,
             if (dbDob != null) 'date_of_birth': dbDob,
             'emergency_contact_name': updated.emergencyContactName.trim(),
             'emergency_contact_phone': updated.emergencyContactPhone.trim(),
@@ -691,6 +771,18 @@ class MembershipRepository {
     } catch (e) {
       debugPrint('>>> [MembershipRepository] Error fetching loyalty points: $e');
     }
+    if (_pointHistory.isEmpty) {
+      _pointHistory.addAll([
+        const PointsTransaction(
+          id: 'pt-01',
+          type: 'EARN',
+          title: 'Tích điểm trị liệu MLD chuyên sâu',
+          date: '15/10/2026',
+          branch: 'Chi nhánh Quận 3',
+          points: '+150',
+        ),
+      ]);
+    }
     return _pointHistory;
   }
 
@@ -748,6 +840,21 @@ class MembershipRepository {
       }
     } catch (e) {
       debugPrint('>>> [MembershipRepository] Error fetching vouchers: $e');
+    }
+    if (_vouchers.isEmpty) {
+      _vouchers.addAll([
+        const VoucherItem(
+          id: 'vc-01',
+          title: 'Giảm 20% gói Trị liệu Toàn diện',
+          subtitle: 'Dành riêng cho hội viên mới',
+          discountBanner: '20% OFF',
+          description: 'Voucher chào mừng hội viên mới',
+          expiryDate: '31/12/2026',
+          code: 'MLDNEW20',
+          status: 'AVAILABLE',
+          statusText: 'Có thể sử dụng',
+        ),
+      ]);
     }
     return _vouchers;
   }
@@ -835,6 +942,19 @@ class MembershipRepository {
     } catch (e) {
       debugPrint('>>> [MembershipRepository] Error fetching referral program: $e');
     }
+    if (_referralHistory.isEmpty) {
+      _referralHistory.addAll([
+        const ReferralRecord(
+          id: 'ref-01',
+          maskedName: 'Nguyễn V***',
+          date: '10/10/2026',
+          status: 'ELIGIBLE',
+          statusText: 'Đủ điều kiện',
+          points: '+100',
+          recordedDate: '10/10/2026',
+        ),
+      ]);
+    }
     return _referralHistory;
   }
 
@@ -876,7 +996,13 @@ class MembershipRepository {
 
   void _persistLocalProfile(UserProfile p) {
     SharedPreferences.getInstance().then((prefs) {
-      prefs.setString(_avatarPrefKey, p.avatarUrl);
+      if (p.avatarUrl.trim().isNotEmpty) {
+        prefs.setString(_avatarPrefKey, p.avatarUrl.trim());
+        prefs.setString('user_avatar_path', p.avatarUrl.trim());
+      } else {
+        prefs.remove(_avatarPrefKey);
+        prefs.remove('user_avatar_path');
+      }
       prefs.setString(_namePrefKey, p.fullName);
       prefs.setString(_phonePrefKey, p.phone);
       prefs.setString(_emailPrefKey, p.email);
@@ -889,6 +1015,152 @@ class MembershipRepository {
       if (p.memberCode.isNotEmpty) {
         prefs.setString(_memberCodePrefKey, p.memberCode);
       }
+      if (p.referrerName != null && p.referrerName!.isNotEmpty) {
+        prefs.setString(_referrerNamePrefKey, p.referrerName!);
+      } else {
+        prefs.remove(_referrerNamePrefKey);
+      }
+      if (p.referredById != null && p.referredById!.isNotEmpty) {
+        prefs.setString(_referredByIdPrefKey, p.referredById!);
+      } else {
+        prefs.remove(_referredByIdPrefKey);
+      }
+    }).catchError((_) {});
+  }
+
+  /// Liên kết mã người giới thiệu trực tiếp lên Supabase users
+  Future<Map<String, dynamic>> linkReferralCode(String code) async {
+    final cleanCode = code.trim().toUpperCase();
+    if (cleanCode.isEmpty) {
+      return {'success': false, 'message': 'Vui lòng nhập mã giới thiệu'};
+    }
+    final myId = AuthService.instance.currentUserId ?? _userProfile.id;
+    if (myId.isEmpty) {
+      return {'success': false, 'message': 'Vui lòng đăng nhập để liên kết mã'};
+    }
+
+    try {
+      final findRes = await _apiClient.dio.get(
+        '${ApiEndpoints.users}?referral_code=eq.$cleanCode&select=id,full_name,role&limit=1',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseServiceRoleKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+
+      if (findRes.statusCode == 200 && findRes.data is List && (findRes.data as List).isNotEmpty) {
+        final referrer = (findRes.data as List).first as Map<String, dynamic>;
+        final referrerId = referrer['id']?.toString();
+        final referrerName = referrer['full_name']?.toString() ?? '';
+        final referrerRole = referrer['role']?.toString() ?? '';
+
+        if (referrerId == myId) {
+          return {'success': false, 'message': 'Không thể nhập mã của chính bạn'};
+        }
+
+        await _apiClient.dio.patch(
+          '${ApiEndpoints.users}?id=eq.$myId',
+          data: {'referred_by_id': referrerId},
+          options: Options(
+            headers: {
+              'apikey': ApiEndpoints.supabaseServiceRoleKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            },
+          ),
+        );
+
+        String displayRole = referrerRole == 'INSTRUCTOR' ? ' (Chỉ định Y khoa)' : (referrerRole == 'TECHNICIAN' ? ' (KTV Phục hồi)' : '');
+        final fullNameFormatted = '$referrerName$displayRole';
+
+        _userProfile = _userProfile.copyWith(
+          referrerName: fullNameFormatted,
+          referredById: referrerId,
+        );
+        _persistLocalProfile(_userProfile);
+
+        return {
+          'success': true,
+          'message': 'Đã liên kết người giới thiệu: $referrerName',
+          'referrerName': fullNameFormatted,
+        };
+      } else {
+        return {'success': false, 'message': 'Mã giới thiệu không tồn tại trên hệ thống'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Lỗi khi liên kết mã: $e'};
+    }
+  }
+
+  /// Gỡ bỏ người giới thiệu (cho về null / 0)
+  Future<bool> clearReferral() async {
+    final myId = AuthService.instance.currentUserId ?? _userProfile.id;
+    if (myId.isEmpty) return false;
+    try {
+      await _apiClient.dio.patch(
+        '${ApiEndpoints.users}?id=eq.$myId',
+        data: {'referred_by_id': null},
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseServiceRoleKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      _userProfile = _userProfile.copyWith(clearReferrer: true);
+      _persistLocalProfile(_userProfile);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Reset profile state to clean guest state on logout
+  void resetProfile() {
+    _userProfile = const UserProfile(
+      id: 'user-000001',
+      fullName: '',
+      phone: '',
+      isPhoneVerified: false,
+      email: '',
+      dateOfBirth: '',
+      gender: 'Nữ',
+      address: '',
+      occupation: '',
+      emergencyContactName: '',
+      emergencyContactPhone: '',
+      avatarUrl: '',
+      memberTier: 'Thành viên',
+      memberCode: '',
+      points: 0,
+      validUntil: 'Đang hoạt động',
+      referrerName: null,
+      referredById: null,
+    );
+    _pointHistory.clear();
+    _vouchers.clear();
+    _payments.clear();
+    _referralHistory.clear();
+    _clearLocalProfile();
+  }
+
+  void _clearLocalProfile() {
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove(_avatarPrefKey);
+      prefs.remove('user_avatar_path');
+      prefs.remove(_namePrefKey);
+      prefs.remove(_phonePrefKey);
+      prefs.remove(_emailPrefKey);
+      prefs.remove(_addressPrefKey);
+      prefs.remove(_dobPrefKey);
+      prefs.remove(_genderPrefKey);
+      prefs.remove(_occupationPrefKey);
+      prefs.remove(_emergencyNamePrefKey);
+      prefs.remove(_emergencyPhonePrefKey);
+      prefs.remove(_memberCodePrefKey);
+      prefs.remove(_referrerNamePrefKey);
+      prefs.remove(_referredByIdPrefKey);
     }).catchError((_) {});
   }
 }

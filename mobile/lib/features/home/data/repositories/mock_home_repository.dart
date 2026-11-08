@@ -14,7 +14,7 @@ class MockHomeRepository {
       BannerPromoModel(
         id: 'promo-2',
         title: 'Khóa Đào Tạo Kỹ Thuật Viên Spa',
-        subtitle: 'Học viện MLD cấp giấy chứng nhận thực hành quốc tế',
+        subtitle: 'Học viện MLD cấp giấy chứng nhận thực hành chuyên nghiệp',
         tag: 'TUYỂN SINH K26',
         ctaText: 'Đăng ký tư vấn',
         imageUrl: 'assets/images/banner_promo_2.png',
@@ -216,17 +216,40 @@ class MockHomeRepository {
 
   static List<SpaServiceModel> getFeaturedServices() {
     return const [
-      // Dịch vụ gốc duy nhất trên CSDL Supabase
+      SpaServiceModel(
+        id: '11111111-2222-3333-4444-000000000001',
+        name: "Chăm sóc khu trú (45')",
+        categoryName: '3 Chương Trình Chăm Sóc Hệ Bạch Huyết',
+        shortDescription: 'Chăm sóc khu trú 45 phút tập trung vào vùng chỉ định, giải tỏa ứ trệ và kích hoạt hệ bạch huyết nông & sâu.',
+        fullDescription: 'Chương trình chăm sóc khu trú 45 phút áp dụng kỹ thuật dẫn lưu bạch huyết Vodder...',
+        durationMinutes: 45,
+        price: 500000,
+        vatRate: 0.08,
+        imageUrl: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&q=80',
+        isFeatured: true,
+      ),
       SpaServiceModel(
         id: '235166f2-66c9-4231-bbe1-af91b48fc67c',
-        name: 'Lưu phù bạch huyết',
-        categoryName: 'Dẫn lưu bạch huyết MLD',
-        shortDescription: 'Phương pháp chuẩn Y khoa Quốc tế kích hoạt hệ tuần hoàn bạch huyết, tiêu phù nề sau phẫu thuật và giảm đau nhức.',
-        fullDescription: 'Ứng dụng kỹ thuật Vodder MLD nhẹ nhàng kích hoạt hệ mao mạch bạch huyết dưới bề mặt da, hỗ trợ giải phóng dịch ứ đọng, tăng cường miễn dịch và thải độc tế bào.',
+        name: "Chăm sóc mở rộng (60')",
+        categoryName: '3 Chương Trình Chăm Sóc Hệ Bạch Huyết',
+        shortDescription: 'Chăm sóc mở rộng 60 phút tăng cường phạm vi dẫn lưu nhiều vùng liên kết, tối ưu hóa hệ miễn dịch và tiêu sưng.',
+        fullDescription: 'Chương trình chăm sóc mở rộng 60 phút bao quát phạm vi liên kết rộng hơn trên cơ thể...',
         durationMinutes: 60,
-        price: 700000,
-        vatRate: 0.0,
-        imageUrl: 'assets/images/service_luu_phu_bach_huyet.png',
+        price: 900000,
+        vatRate: 0.08,
+        imageUrl: 'https://images.unsplash.com/photo-1519823551278-64ac92734fb1?auto=format&fit=crop&w=1200&q=80',
+        isFeatured: true,
+      ),
+      SpaServiceModel(
+        id: '11111111-2222-3333-4444-000000000003',
+        name: "Chăm sóc toàn diện (90')",
+        categoryName: '3 Chương Trình Chăm Sóc Hệ Bạch Huyết',
+        shortDescription: 'Chăm sóc toàn diện 90 phút toàn thân cao cấp, dẫn lưu triệt để toàn bộ hệ bạch huyết sâu và nông từ gốc đến ngọn.',
+        fullDescription: 'Chương trình chăm sóc toàn diện 90 phút là phác đồ đỉnh cao của MLD Vietnam...',
+        durationMinutes: 90,
+        price: 1700000,
+        vatRate: 0.08,
+        imageUrl: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1200&q=80',
         isFeatured: true,
       ),
     ];

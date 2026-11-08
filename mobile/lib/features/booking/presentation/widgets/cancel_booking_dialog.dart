@@ -186,13 +186,6 @@ class _CancelBookingDialogState extends State<CancelBookingDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-
-            // Ghi chú chuẩn Figma
-            const IllustrationNoteCard(
-              text:
-                  'Xác nhận cuối rõ ràng; hoàn tiền chỉ chờ xem xét, không tự động hoàn cọc hoặc ghi giảm / trả buổi.',
-            ),
             const SizedBox(height: 18),
 
             Row(

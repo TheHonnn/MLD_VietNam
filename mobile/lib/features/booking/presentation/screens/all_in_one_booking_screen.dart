@@ -53,16 +53,14 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     '09:00 - 10:00',
     '10:00 - 11:00',
     '11:00 - 12:00',
-    '12:00 - 13:00',
+    // '12:00 - 13:00',
     '13:00 - 14:00',
     '14:00 - 15:00',
     '15:00 - 16:00',
     '16:00 - 17:00',
     '17:00 - 18:00',
     '18:00 - 19:00',
-    '19:00 - 20:00',
-    '20:00 - 21:00',
-    '21:00 - 22:00',
+
   ];
   
   // 4. Thông tin người đặt: Bản thân vs Đặt hộ
@@ -80,15 +78,24 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   void initState() {
     super.initState();
     _selectedDate = DateTime.now().add(const Duration(days: 1));
+    if (widget.initialService != null) {
+      _serviceId = widget.initialService!.id;
+      _serviceTitle = widget.initialService!.name;
+      _serviceDuration = widget.initialService!.durationMinutes;
+      _pricePerPerson = widget.initialService!.displayPrice;
+    }
+    if (widget.initialBranch != null) {
+      _selectedBranch = widget.initialBranch;
+    }
     if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
       final List<BranchModel> mockBranches = BranchRepository.instance.cachedBranches.isNotEmpty
           ? BranchRepository.instance.cachedBranches
           : MockHomeRepository.getBranches();
       _branches = mockBranches;
-      _selectedBranch = mockBranches.first;
-      _serviceTitle = ServiceRepository.defaultCoreVodderService.name;
-      _serviceDuration = ServiceRepository.defaultCoreVodderService.durationMinutes;
-      _pricePerPerson = ServiceRepository.defaultCoreVodderService.displayPrice;
+      _selectedBranch = widget.initialBranch ?? mockBranches.first;
+      _serviceTitle = widget.initialService?.name ?? ServiceRepository.defaultCoreVodderService.name;
+      _serviceDuration = widget.initialService?.durationMinutes ?? ServiceRepository.defaultCoreVodderService.durationMinutes;
+      _pricePerPerson = widget.initialService?.displayPrice ?? ServiceRepository.defaultCoreVodderService.displayPrice;
       _nameController.text = 'Khách hàng MLD';
       _phoneController.text = '0967786399';
       _emailController.text = 'khachhang@mldvietnam.vn';
@@ -99,7 +106,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   }
 
   Future<void> _loadBranchesAndUser() async {
-    final coreService = await ServiceRepository.instance.getCoreVodderService();
+    final coreService = widget.initialService ?? await ServiceRepository.instance.getCoreVodderService();
     final branches = await BranchRepository.instance.getBranches();
     final profile = await MembershipRepository.instance.fetchProfile();
     final userName = profile.fullName.isNotEmpty ? profile.fullName : 'Khách hàng MLD';
@@ -113,7 +120,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
         _serviceDuration = coreService.durationMinutes;
         _pricePerPerson = coreService.displayPrice;
         _branches = branches;
-        _selectedBranch = BranchRepository.instance.activeBranch ?? (branches.isNotEmpty ? branches.first : (BranchRepository.instance.cachedBranches.isNotEmpty ? BranchRepository.instance.cachedBranches.first : null));
+        _selectedBranch = widget.initialBranch ?? BranchRepository.instance.activeBranch ?? (branches.isNotEmpty ? branches.first : (BranchRepository.instance.cachedBranches.isNotEmpty ? BranchRepository.instance.cachedBranches.first : null));
         if (_isBookingForSelf) {
           _nameController.text = (userName != 'Khách hàng' && userName != 'Khách hàng MLD')
               ? userName
@@ -507,11 +514,10 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
@@ -708,13 +714,19 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
               // ==========================================
               InkWell(
                 onTap: _showBranchSelector,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
@@ -920,7 +932,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontFamily: 'Montserrat',
+                                        
                                         fontSize: 12.5,
                                         fontWeight: _isBookingForSelf ? FontWeight.w700 : FontWeight.w500,
                                         color: _isBookingForSelf ? AppColors.primary : AppColors.textSecondary,
@@ -961,7 +973,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontFamily: 'Montserrat',
+                                        
                                         fontSize: 12.5,
                                         fontWeight: !_isBookingForSelf ? FontWeight.w700 : FontWeight.w500,
                                         color: !_isBookingForSelf ? AppColors.primary : AppColors.textSecondary,

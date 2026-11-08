@@ -59,6 +59,46 @@ import {
 } from '../types/shared_types';
 import { toast } from '../components/common';
 
+const EMAIL_VARIABLE_LABELS: Record<string, string> = {
+  student_name: 'Tên học viên',
+  course_name: 'Tên khóa học',
+  student_code: 'Mã số học viên',
+  start_date: 'Thời gian khai giảng',
+  branch_address: 'Địa điểm đào tạo',
+  paid_amount: 'Số tiền nộp / cọc (VNĐ)',
+  class_title: 'Tên buổi học thực hành',
+  study_date: 'Ngày diễn ra buổi học',
+  time_slot: 'Khung giờ học',
+  room_name: 'Phòng học / thực hành',
+  instructor_name: 'Giảng viên đứng lớp',
+  theory_score: 'Điểm thi lý thuyết',
+  practice_score: 'Điểm thi thực hành',
+  certificate_code: 'Mã số chứng nhận',
+  verification_url: 'Link tra cứu chứng nhận',
+  days_left: 'Số ngày học còn lại',
+  valid_until_date: 'Thời hạn hoàn thành khóa học',
+  progress_percent: 'Tiến độ học tập (%)',
+  completed_lessons: 'Số bài giảng đã học',
+  total_lessons: 'Tổng số bài trong khóa',
+  attended_sessions: 'Số buổi thực hành',
+  expiry_date: 'Ngày hết hạn truy cập',
+  account_email: 'Email tài khoản học viên',
+  login_url: 'Đường dẫn đăng nhập',
+};
+
+const getVariableLabel = (key: string): string => {
+  return EMAIL_VARIABLE_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+const TEMPLATE_NAMES: Record<string, string> = {
+  CONFIRMATION_ENROLLMENT: 'Xác nhận đăng ký & cọc',
+  REMINDER_CLASS_SESSION: 'Nhắc lịch học & thi',
+  EXAM_RESULTS_NOTIFICATION: 'Thông báo kết quả thi',
+  CERTIFICATE_ISSUED_VERIFICATION: 'Cấp chứng nhận điện tử',
+  ENROLLMENT_PROGRESS_MONTHLY: 'Báo cáo tiến độ học tập',
+  ENROLLMENT_EXPIRY_WARNING: 'Cảnh báo hết hạn khóa học',
+};
+
 // ==========================================
 // UPLOAD IMAGE / FILE INPUT COMPONENT
 // ==========================================
@@ -2321,8 +2361,8 @@ export const W18_PortalContent: React.FC = () => {
                   {/* Variables pills */}
                   <div className="flex items-center gap-1.5 flex-wrap pt-1">
                     {template.variables?.map((v) => (
-                      <span key={v} className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-neutral-100 text-[#554B42]">
-                        {`{{${v}}}`}
+                      <span key={v} className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#FAF0E4] text-[#8A4F23] border border-[#EAD8C7]">
+                        {getVariableLabel(v)}
                       </span>
                     ))}
                   </div>
@@ -2386,7 +2426,7 @@ export const W18_PortalContent: React.FC = () => {
                         {log.recipientName ? `${log.recipientName} (${log.recipientEmail})` : log.recipientEmail}
                       </td>
                       <td className="py-3 px-3 text-[#554B42] max-w-xs truncate">{log.subject}</td>
-                      <td className="py-3 px-3 font-mono text-[10px] text-[#985018]">{log.templateId || 'Tùy biến'}</td>
+                      <td className="py-3 px-3 font-semibold text-[11px] text-[#8A4F23]">{TEMPLATE_NAMES[log.templateId] || log.templateId || 'Tùy biến'}</td>
                       <td className="py-3 px-3 text-center">
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                           {log.status}
@@ -3367,7 +3407,7 @@ export const W18_PortalContent: React.FC = () => {
 
               {/* Clickable Variables List */}
               <div className="p-3 bg-white rounded-2xl border border-[#E8DFD8] space-y-1.5">
-                <span className="text-[11px] font-bold text-[#73675F] block">Biến số có sẵn (bấm để copy):</span>
+                <span className="text-[11px] font-bold text-[#73675F] block">Thông tin tự động điền (bấm để sao chép mã):</span>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {editingTemplate.variables?.map((v) => (
                     <button
@@ -3375,11 +3415,13 @@ export const W18_PortalContent: React.FC = () => {
                       type="button"
                       onClick={() => {
                         navigator.clipboard.writeText(`{{${v}}}`);
-                        toast.success('Đã sao chép', `Biến {{${v}}} đã được lưu vào bộ nhớ tạm.`);
+                        toast.success('Đã sao chép', `Đã chép mã {{${v}}} (${getVariableLabel(v)}) vào bộ nhớ tạm.`);
                       }}
-                      className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-[#FAF0E4] text-[#8A4F23] hover:bg-[#985018] hover:text-white transition-colors cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-medium bg-[#FAF0E4] text-[#8A4F23] hover:bg-[#985018] hover:text-white transition-colors cursor-pointer border border-[#EAD8C7] flex items-center gap-1"
+                      title={`Bấm để copy mã {{${v}}}`}
                     >
-                      {`{{${v}}}`}
+                      <span>{getVariableLabel(v)}</span>
+                      <span className="text-[9px] font-mono opacity-70">({`{{${v}}}`})</span>
                     </button>
                   ))}
                 </div>
@@ -3500,13 +3542,16 @@ export const W18_PortalContent: React.FC = () => {
               <div className="p-4 bg-white rounded-2xl border border-[#E8DFD8] space-y-3">
                 <span className="text-xs font-bold text-[#8A4F23] flex items-center gap-1.5">
                   <Sparkles size={13} />
-                  <span>Tùy chỉnh biến số nội suy cho email này:</span>
+                  <span>Dữ liệu mẫu điền vào email:</span>
                 </span>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {selectedTemplateForTest.variables?.slice(0, 6).map((variable) => (
                     <div key={variable}>
-                      <label className="block text-[11px] font-mono text-[#73675F] mb-0.5">{`{{${variable}}}`}</label>
+                      <label className="block text-xs font-semibold text-[#2C241E] mb-1">
+                        <span>{getVariableLabel(variable)}</span>
+                        <span className="ml-1 text-[10px] font-mono font-normal text-[#8C7A6B]">({`{{${variable}}}`})</span>
+                      </label>
                       <input
                         type="text"
                         value={testVariables[variable] || ''}
@@ -3523,7 +3568,7 @@ export const W18_PortalContent: React.FC = () => {
               <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-start gap-2 text-[11px] text-amber-900 leading-relaxed">
                 <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                 <span>
-                  Hệ thống tự động thay thế toàn bộ biến số trên, gửi và ghi nhận lịch sử vào bảng Nhật ký Email.
+                  Hệ thống tự động điền các thông tin trên vào mẫu email, gửi tới người nhận và lưu lại vào Nhật ký Email.
                 </span>
               </div>
 

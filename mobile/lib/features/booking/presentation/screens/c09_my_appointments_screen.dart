@@ -108,7 +108,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
         title: Text(
           context.tr('Lịch hẹn của tôi', 'My Appointments'),
           style: const TextStyle(
-            fontFamily: 'Montserrat',
+            
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -193,7 +193,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
         child: Text(
           label,
           style: TextStyle(
-            fontFamily: 'Montserrat',
+            
             fontSize: 13.5,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             color: isSelected ? Colors.white : AppColors.textSecondary,
@@ -233,7 +233,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                   app.bookingCode,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textSecondary,
@@ -248,7 +248,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
           Text(
             app.serviceName.tr(context),
             style: const TextStyle(
-              fontFamily: 'Montserrat',
+              
               fontSize: 15.5,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -267,7 +267,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                   '${app.timeSlot} · ${_formatDate(app.appointmentDate)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textPrimary),
+                  style: const TextStyle( fontSize: 13, color: AppColors.textPrimary),
                 ),
               ),
             ],
@@ -284,7 +284,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                   app.branchName.tr(context),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textSecondary),
+                  style: const TextStyle( fontSize: 13, color: AppColors.textSecondary),
                 ),
               ),
             ],
@@ -302,13 +302,13 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                   children: [
                     Text(
                       context.tr('Chi phí dịch vụ', 'Service Cost'),
-                      style: const TextStyle(fontFamily: 'Montserrat', fontSize: 11, color: AppColors.textSecondary),
+                      style: const TextStyle( fontSize: 11, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       _formatCurrency(app.totalAmount),
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: AppColors.servicePrice,
@@ -336,7 +336,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                         child: Text(
                           context.tr('Hủy lịch', 'Cancel'),
                           style: const TextStyle(
-                            fontFamily: 'Montserrat',
+                            
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFFEF4444),
@@ -367,7 +367,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                       child: Text(
                         context.tr('Xem chi tiết', 'View Details'),
                         style: const TextStyle(
-                          fontFamily: 'Montserrat',
+                          
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primary,
@@ -405,7 +405,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
               Text(
                 context.tr('Chưa có lịch hẹn nào sắp tới', 'No upcoming appointments'),
                 style: const TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
@@ -415,7 +415,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
               Text(
                 context.tr('Đặt lịch để được chăm sóc và phục hồi chức năng hệ bạch huyết chuyên sâu.', 'Book a session for intensive lymphatic care and recovery.'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+                style: const TextStyle( fontSize: 13, color: AppColors.textSecondary, height: 1.4),
               ),
               const SizedBox(height: 20),
               SizedBox(
@@ -436,7 +436,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                   ),
                   child: Text(
                     context.tr('Đặt lịch ngay', 'Book Now'),
-                    style: const TextStyle(fontFamily: 'Montserrat', fontSize: 14, fontWeight: FontWeight.w600),
+                    style: const TextStyle( fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -456,7 +456,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
               Text(
                 context.tr('Chưa có lịch hẹn hoàn thành', 'No completed appointments'),
                 style: const TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
@@ -466,7 +466,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
               Text(
                 context.tr('Các buổi trị liệu sau khi hoàn thành sẽ được lưu trữ tại đây.', 'Your completed therapy sessions will be stored here.'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textSecondary),
+                style: const TextStyle( fontSize: 13, color: AppColors.textSecondary),
               ),
             ],
           ),

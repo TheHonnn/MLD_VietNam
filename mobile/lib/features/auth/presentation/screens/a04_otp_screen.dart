@@ -266,6 +266,12 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
               phone: userPhone,
               method: 'phone',
             );
+            MembershipRepository.instance.syncUserSession(
+              fullName: userName,
+              phone: userPhone,
+              avatarUrl: userAvatar,
+              memberCode: user?['referral_code']?.toString() ?? user?['referralCode']?.toString(),
+            );
           }
         } catch (_) {
           // Fallback sang Supabase Verify Otp nếu gateway gặp sự cố
@@ -293,12 +299,15 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
               phone: widget.phoneNumber,
               method: 'phone',
             );
+            MembershipRepository.instance.syncUserSession(
+              fullName: (user?['full_name'] ?? user?['fullName']) as String? ?? '',
+              phone: widget.phoneNumber,
+            );
           } catch (fbErr) {
             // Re-throw để hiển thị thông báo lỗi chính xác
             rethrow;
           }
         }
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -352,15 +361,13 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
         if (widget.purpose == 'RESET_PASSWORD') purpose = 'RESET_PASSWORD';
         if (widget.purpose == 'LOGIN_EMAIL') purpose = 'LOGIN';
 
-        final res = await ApiClient.instance.post(
+        await ApiClient.instance.post(
           ApiEndpoints.authResendOtp,
           data: {
             'email': widget.email,
             'purpose': purpose,
           },
         );
-        final body = res.data;
-        final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

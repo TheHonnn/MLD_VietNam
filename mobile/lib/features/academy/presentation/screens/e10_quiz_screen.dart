@@ -192,7 +192,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
               Text(
                 sub.passed ? context.tr('CHÚC MỪNG: ĐẠT TIÊU CHUẨN', 'CONGRATULATIONS: PASSED') : context.tr('KẾT QUẢ: CHƯA ĐẠT', 'RESULT: FAILED'),
                 style: TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                   color: sub.passed ? const Color(0xFF047857) : const Color(0xFFDC2626),
@@ -226,7 +226,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                         Text(
                           '${sub.score.toStringAsFixed(1)} / 10.0',
                           style: TextStyle(
-                            fontFamily: 'Montserrat',
+                            
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                             color: sub.passed ? const Color(0xFF047857) : const Color(0xFFDC2626),
@@ -244,7 +244,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                         Text(
                           context.isEn ? '${sub.correctCount} / ${sub.totalQuestions} questions' : '${sub.correctCount} / ${sub.totalQuestions} câu',
                           style: const TextStyle(
-                            fontFamily: 'Montserrat',
+                            
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: AcademyColors.heading,
@@ -262,7 +262,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                         Text(
                           context.isEn ? '≥ ${_passingScore.toStringAsFixed(1)} / 10 pts (≥ 80%)' : '≥ ${_passingScore.toStringAsFixed(1)} / 10 điểm (≥ 80%)',
                           style: const TextStyle(
-                            fontFamily: 'Montserrat',
+                            
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primary,
@@ -364,7 +364,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(context.tr('Xác nhận nộp bài', 'Confirm Submission'), style: const TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w700)),
+        title: Text(context.tr('Xác nhận nộp bài', 'Confirm Submission'), style: const TextStyle( fontWeight: FontWeight.w700)),
         content: Text(
           answeredCount < total
               ? (context.isEn ? 'You have only completed $answeredCount/$total questions. Are you sure you want to submit now?' : 'Bạn mới hoàn thành $answeredCount/$total câu hỏi. Bạn có chắc chắn muốn nộp bài ngay bây giờ?')
@@ -421,7 +421,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
               child: Text(
                 context.isEn ? 'Answered: ${_selectedAnswers.length} / ${_questions.length} questions' : 'Đã làm: ${_selectedAnswers.length} / ${_questions.length} câu',
                 style: const TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: AcademyColors.textPrimary,
@@ -442,7 +442,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                 ),
                 child: Text(
                   context.tr('Nộp bài', 'Submit'),
-                  style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13.5, fontWeight: FontWeight.w700),
+                  style: const TextStyle( fontSize: 13.5, fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -459,7 +459,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
             Text(
               _courseTitle.tr(context),
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: AppColors.primary,
@@ -469,7 +469,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
             Text(
               _quizTitle.tr(context),
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 color: AcademyColors.heading,
@@ -493,7 +493,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                     Text(
                       _previousSubmission!.passed ? context.tr('Lần làm gần nhất: ĐẠT', 'Latest Attempt: PASSED') : context.tr('Lần làm gần nhất: CHƯA ĐẠT', 'Latest Attempt: FAILED'),
                       style: TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: _previousSubmission!.passed ? const Color(0xFF047857) : const Color(0xFFDC2626),
@@ -502,7 +502,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                     Text(
                       '${_previousSubmission!.score.toStringAsFixed(1)} / 10.0',
                       style: TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 12.5,
                         fontWeight: FontWeight.bold,
                         color: _previousSubmission!.passed ? const Color(0xFF047857) : const Color(0xFFDC2626),
@@ -531,7 +531,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                   Text(
                     context.isEn ? 'Question ${_currentQuestionIndex + 1} / ${_questions.length}' : 'Câu ${_currentQuestionIndex + 1} / ${_questions.length}',
                     style: const TextStyle(
-                      fontFamily: 'Montserrat',
+                      
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: AcademyColors.heading,
@@ -546,7 +546,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                     child: Text(
                       context.isEn ? 'Time: ${_formatTimer(_remainingSeconds)}' : 'Thời gian: ${_formatTimer(_remainingSeconds)}',
                       style: TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: _remainingSeconds < 180 ? const Color(0xFFDC2626) : AppColors.primary,
@@ -596,7 +596,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                       child: Text(
                         '${idx + 1}',
                         style: TextStyle(
-                          fontFamily: 'Montserrat',
+                          
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: textCol,
@@ -624,7 +624,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                   Text(
                     context.isEn ? 'Question ${_currentQuestionIndex + 1}:' : 'Câu hỏi ${_currentQuestionIndex + 1}:',
                     style: const TextStyle(
-                      fontFamily: 'Montserrat',
+                      
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
@@ -634,7 +634,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                   Text(
                     currentQ.questionText.tr(context),
                     style: const TextStyle(
-                      fontFamily: 'Montserrat',
+                      
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: AcademyColors.heading,
@@ -704,7 +704,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                           child: Text(
                             key,
                             style: TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: isChosen ? Colors.white : AcademyColors.heading,
@@ -716,7 +716,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                           child: Text(
                             text.tr(context),
                             style: TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 13,
                               fontWeight: isChosen ? FontWeight.w700 : FontWeight.w500,
                               color: AcademyColors.textPrimary,
@@ -748,7 +748,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                     Text(
                       context.tr('Giải thích y khoa chuyên môn:', 'Expert Medical Explanation:'),
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF166534),
@@ -758,7 +758,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                     Text(
                       currentQ.explanation!.tr(context),
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 12.5,
                         color: Color(0xFF14532D),
                         height: 1.4,
@@ -785,7 +785,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                         side: const BorderSide(color: AcademyColors.cardBorder),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: Text(context.tr('Câu trước', 'Previous'), style: const TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w600)),
+                      child: Text(context.tr('Câu trước', 'Previous'), style: const TextStyle( fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ),
@@ -805,7 +805,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
                       ),
                       child: Text(
                         isLastQuestion ? context.tr('Hoàn tất & Nộp bài', 'Complete & Submit') : context.tr('Câu tiếp theo', 'Next Question'),
-                        style: const TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w700),
+                        style: const TextStyle( fontWeight: FontWeight.w700),
                       ),
                     ),
                   ),

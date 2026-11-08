@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/localization/app_translation.dart';
@@ -173,11 +174,10 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
         scrolledUnderElevation: 0,
         title: Text(
           context.tr('Đào tạo & Khóa học', 'Academy & Courses'),
-          style: const TextStyle(
-            fontFamily: 'Montserrat',
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textHeading,
+          style: GoogleFonts.beVietnamPro(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF003876),
           ),
         ),
         centerTitle: false,
@@ -203,32 +203,36 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // 1. Ô tìm kiếm khóa học
+            // 1. Ô tìm kiếm khóa học - BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.border),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: TextField(
                   controller: _searchController,
                   onChanged: (_) => setState(() {}),
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
                     fontSize: 14,
                     color: AppColors.textPrimary,
                   ),
                   decoration: InputDecoration(
                     hintText: context.tr('Tìm kiếm khóa học dẫn lưu...', 'Search drainage courses...'),
                     hintStyle: const TextStyle(
-                      fontFamily: 'Montserrat',
                       fontSize: 14,
                       color: AppColors.textPlaceholder,
                     ),
-                    prefixIcon: const Icon(Icons.search, color: AppColors.primary, size: 20),
+                    prefixIcon: const Icon(Icons.search, color: Color(0xFF003876), size: 20),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, size: 18, color: AppColors.textSecondary),
@@ -239,7 +243,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                           )
                         : null,
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
               ),
@@ -256,68 +260,6 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                     child: InkWell(
                       onTap: () {
                         setState(() {
-                          if (_expandedFilter == AcademyFilterExpanded.audience) {
-                            _expandedFilter = null; // Thu gọn
-                          } else {
-                            _expandedFilter = AcademyFilterExpanded.audience; // Mở ra
-                          }
-                        });
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                        decoration: BoxDecoration(
-                          color: _expandedFilter == AcademyFilterExpanded.audience
-                              ? AppColors.primaryLight
-                              : AppColors.surfaceMuted,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: _expandedFilter == AcademyFilterExpanded.audience ||
-                                    (_selectedAudience != 'Tất cả đối tượng' && _selectedAudience != 'Tất cả')
-                                ? AppColors.primary
-                                : AppColors.border,
-                            width: 1.2,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _selectedAudience == 'Tất cả đối tượng' || _selectedAudience == 'Tất cả'
-                                    ? context.tr('Đối tượng', 'Target Audience')
-                                    : _selectedAudience.tr(context),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: _expandedFilter == AcademyFilterExpanded.audience ||
-                                          (_selectedAudience != 'Tất cả đối tượng' && _selectedAudience != 'Tất cả')
-                                      ? AppColors.primary
-                                      : AppColors.textPrimary,
-                                ),
-                              ),
-                            ),
-                            Icon(
-                              _expandedFilter == AcademyFilterExpanded.audience
-                                  ? Icons.keyboard_arrow_up_rounded
-                                  : Icons.keyboard_arrow_down_rounded,
-                              size: 18,
-                              color: _expandedFilter == AcademyFilterExpanded.audience
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        setState(() {
                           if (_expandedFilter == AcademyFilterExpanded.need) {
                             _expandedFilter = null; // Thu gọn
                           } else {
@@ -325,21 +267,21 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                           }
                         });
                       },
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(14),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
                           color: _expandedFilter == AcademyFilterExpanded.need
-                              ? AppColors.primaryLight
-                              : AppColors.surfaceMuted,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: _expandedFilter == AcademyFilterExpanded.need ||
-                                    (_selectedNeed != 'Tất cả nhu cầu' && _selectedNeed != 'Tất cả')
-                                ? AppColors.primary
-                                : AppColors.border,
-                            width: 1.2,
-                          ),
+                              ? const Color(0xFFEFF6FF)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Row(
                           children: [
@@ -351,7 +293,6 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontFamily: 'Montserrat',
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                   color: _expandedFilter == AcademyFilterExpanded.need ||
@@ -367,6 +308,67 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                   : Icons.keyboard_arrow_down_rounded,
                               size: 18,
                               color: _expandedFilter == AcademyFilterExpanded.need
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          if (_expandedFilter == AcademyFilterExpanded.audience) {
+                            _expandedFilter = null; // Thu gọn
+                          } else {
+                            _expandedFilter = AcademyFilterExpanded.audience; // Mở ra
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _expandedFilter == AcademyFilterExpanded.audience
+                              ? const Color(0xFFEFF6FF)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _selectedAudience == 'Tất cả đối tượng' || _selectedAudience == 'Tất cả'
+                                    ? context.tr('Đối tượng', 'Target Audience')
+                                    : _selectedAudience.tr(context),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: _expandedFilter == AcademyFilterExpanded.audience ||
+                                          (_selectedAudience != 'Tất cả đối tượng' && _selectedAudience != 'Tất cả')
+                                      ? AppColors.primary
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              _expandedFilter == AcademyFilterExpanded.audience
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              size: 18,
+                              color: _expandedFilter == AcademyFilterExpanded.audience
                                   ? AppColors.primary
                                   : AppColors.textSecondary,
                             ),
@@ -402,7 +404,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                 ? context.tr('Chọn đối tượng đào tạo:', 'Select target audience:')
                                 : context.tr('Chọn nhu cầu học tập:', 'Select learning need:'),
                             style: const TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textSecondary,
@@ -429,20 +431,24 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                     }
                                   });
                                 },
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(16),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: isSelected ? AppColors.primary : Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: isSelected ? AppColors.primary : AppColors.border,
-                                    ),
+                                    color: isSelected ? const Color(0xFF003876) : Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.04),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
                                   child: Text(
                                     cat.tr(context),
                                     style: TextStyle(
-                                      fontFamily: 'Montserrat',
+                                      
                                       fontSize: 12.5,
                                       fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                       color: isSelected ? Colors.white : AppColors.textPrimary,
@@ -456,7 +462,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                       ),
                     ),
             ),
-            const Divider(height: 1, color: AppColors.border),
+            const SizedBox(height: 10),
 
             // 4. Danh sách khóa học
             Expanded(
@@ -480,7 +486,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                       Text(
                                         context.tr('Không tìm thấy khóa học phù hợp', 'No matching courses found'),
                                         style: const TextStyle(
-                                          fontFamily: 'Montserrat',
+                                          
                                           fontSize: 15,
                                           fontWeight: FontWeight.w700,
                                           color: AppColors.textHeading,
@@ -490,7 +496,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                       Text(
                                         context.tr('Vui lòng thử từ khóa khác hoặc chọn danh mục khác', 'Please try another keyword or category'),
                                         style: const TextStyle(
-                                          fontFamily: 'Montserrat',
+                                          
                                           fontSize: 13,
                                           color: AppColors.textPlaceholder,
                                         ),
@@ -514,7 +520,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
                                         child: Text(
                                           context.tr('Đặt lại bộ lọc', 'Reset filter'),
                                           style: const TextStyle(
-                                            fontFamily: 'Montserrat',
+                                            
                                             color: Colors.white,
                                             fontSize: 13,
                                           ),
@@ -660,7 +666,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
               child: Text(
                 context.tr('Khóa học đang chờ duyệt', 'Course Pending Approval'),
                 style: TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 16.5,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF0F172A),
@@ -742,24 +748,24 @@ class _CourseCardItemState extends State<_CourseCardItem> {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        // BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: _navigateToDetail,
           onTapDown: (_) => setState(() => _isPressed = true),
           onTapCancel: () => setState(() => _isPressed = false),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -811,7 +817,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                             Text(
                               context.tr('ĐÃ ĐĂNG KÝ', 'ENROLLED'),
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 color: Colors.white,
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w800,
@@ -829,7 +835,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                 child: Text(
                                   context.tr('CHỜ DUYỆT', 'PENDING APPROVAL'),
                                   style: TextStyle(
-                                    fontFamily: 'Montserrat',
+                                    
                                     color: Colors.white,
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.w800,
@@ -856,7 +862,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                         child: Text(
                           '-$discount%',
                           style: const TextStyle(
-                            fontFamily: 'Montserrat',
+                            
                             color: Colors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -883,7 +889,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                           Text(
                             '$totalVideos ${context.tr('video', 'videos')}',
                             style: const TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               color: Colors.white,
                               fontSize: 11.5,
                               fontWeight: FontWeight.w700,
@@ -906,7 +912,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                     Text(
                       course.title.tr(context),
                       style: TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 15.5,
                         fontWeight: FontWeight.w700,
                         color: _isPressed ? AppColors.primary : const Color(0xFF0F172A),
@@ -934,7 +940,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                     TextSpan(
                                       text: '${_formatCurrency(course.tuitionFee)} ',
                                       style: const TextStyle(
-                                        fontFamily: 'Montserrat',
+                                        
                                         fontSize: 19,
                                         fontWeight: FontWeight.w700,
                                         color: AppColors.coursePrice,
@@ -943,7 +949,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                     const TextSpan(
                                       text: 'đ',
                                       style: TextStyle(
-                                        fontFamily: 'Montserrat',
+                                        
                                         fontSize: 19,
                                         fontWeight: FontWeight.w700,
                                         color: AppColors.coursePrice,
@@ -958,7 +964,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                 Text(
                                   '${_formatCurrency(course.originalPrice!)} đ',
                                   style: const TextStyle(
-                                    fontFamily: 'Montserrat',
+                                    
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w500,
                                     color: Color(0xFF94A3B8),
@@ -1022,17 +1028,10 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                             curve: Curves.easeInOut,
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
-                              gradient: !isEnrolled && _isButtonPressed ? AppColors.greenActionGradient : null,
                               color: isEnrolled
-                                  ? (isApproved ? const Color(0xFF059669) : const Color(0xFFD97706))
-                                  : (_isButtonPressed ? null : const Color(0xFFF1F5F9)),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isEnrolled
-                                    ? (isApproved ? const Color(0xFF059669) : const Color(0xFFD97706))
-                                    : (_isButtonPressed ? const Color(0xFF00693F) : const Color(0xFFE2E8F0)),
-                                width: 1.0,
-                              ),
+                                  ? (isApproved ? const Color(0xFF003876) : const Color(0xFFD97706))
+                                  : const Color(0xFF16A34A), // 10% CTA Green chuẩn 6-3-1
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1041,21 +1040,20 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                                   isEnrolled
                                       ? context.tr('Đã đăng ký', 'Enrolled')
                                       : context.tr('Đăng ký học', 'Enroll Now'),
-                                  style: TextStyle(
-                                    fontFamily: 'Montserrat',
+                                  style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    color: isEnrolled || _isButtonPressed ? Colors.white : const Color(0xFF0F172A),
+                                    color: Colors.white,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  isEnrolled
-                                      ? (isApproved ? Icons.check_circle_rounded : Icons.hourglass_top_rounded)
-                                      : Icons.arrow_forward_rounded,
-                                  size: isEnrolled ? 16 : 14,
-                                  color: isEnrolled || _isButtonPressed ? Colors.white : const Color(0xFF0F172A),
-                                ),
+                                if (isEnrolled) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    isApproved ? Icons.check_circle_rounded : Icons.hourglass_top_rounded,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                                ],
                               ],
                             ),
                           ),

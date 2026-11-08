@@ -1,5 +1,5 @@
-import '../../../membership/presentation/screens/legal_document_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
@@ -8,6 +8,7 @@ import '../../../../core/services/auth_service.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
+import '../../../membership/presentation/screens/legal_document_screen.dart';
 import '../../widgets/primary_button.dart';
 import 'a03_email_register_screen.dart';
 import 'a03_forgot_password_screen.dart';
@@ -21,12 +22,8 @@ class A03LoginScreen extends StatefulWidget {
 }
 
 class _A03LoginScreenState extends State<A03LoginScreen> {
-  // Tab index: 0 = SĐT, 1 = Email
+  // Tab index: 0 = Email, 1 = SĐT (Mặc định Email chuẩn theo yêu cầu)
   int _selectedTabIndex = 0;
-
-  // Controllers cho SĐT
-  final TextEditingController _phoneController = TextEditingController();
-  final GlobalKey<FormState> _phoneFormKey = GlobalKey<FormState>();
 
   // Controllers cho Email
   final TextEditingController _emailController = TextEditingController();
@@ -34,34 +31,29 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
   final GlobalKey<FormState> _emailFormKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
 
+  // Controllers cho SĐT
+  final TextEditingController _phoneController = TextEditingController();
+  final GlobalKey<FormState> _phoneFormKey = GlobalKey<FormState>();
+
   bool _isLoading = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    final lastPhone = AuthService.instance.lastLoginPhone;
     final lastEmail = AuthService.instance.lastLoginEmail;
-    final lastMethod = AuthService.instance.lastLoginMethod;
-
-    if (lastPhone != null && lastPhone.isNotEmpty) {
-      _phoneController.text = lastPhone;
-    }
     if (lastEmail != null && lastEmail.isNotEmpty) {
       _emailController.text = lastEmail;
     }
-    if (lastMethod == 'email') {
-      _selectedTabIndex = 1;
-    } else if (lastMethod == 'phone') {
-      _selectedTabIndex = 0;
-    }
+    // Luôn luôn mặc định tab Email khi vào trang Đăng nhập
+    _selectedTabIndex = 0;
   }
 
   @override
   void dispose() {
-    _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -77,7 +69,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     });
 
     try {
-      final res = await ApiClient.instance.post(
+      await ApiClient.instance.post(
         ApiEndpoints.authRequestPhoneOtp,
         data: {'phone': phone},
       );
@@ -136,7 +128,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     });
 
     try {
-      final res = await ApiClient.instance.post(
+      await ApiClient.instance.post(
         ApiEndpoints.authRequestLoginOtp,
         data: {'email': email},
       );
@@ -178,7 +170,6 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
       }
     }
   }
-
   // Luồng đăng nhập Email + Mật khẩu
   Future<void> _handleEmailLogin() async {
     if (!(_emailFormKey.currentState?.validate() ?? false)) return;
@@ -267,10 +258,17 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
     }
   }
 
+
+
   @override
   Widget build(BuildContext context) {
+    const primaryNavy = Color(0xFF003876);
+    const ctaGreen = Color(0xFF16A34A);
+    const textDark = Color(0xFF0F172A);
+    const textMuted = Color(0xFF64748B);
+
     return Scaffold(
-      backgroundColor: AppColors.background, // #F8F1E8
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -280,125 +278,102 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Padding(
-                    padding: const EdgeInsets.only(
-                      top: 32.0,
-                      bottom: 24.0,
-                      left: 20.0,
-                      right: 20.0,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // --- 1. LOGO THƯƠNG HIỆU & NÚT KHÁM PHÁ NGAY ---
+                        // --- 1. LOGO & NÚT QUAY LẠI (NẾU CÓ) ---
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
+                            if (Navigator.canPop(context))
+                              InkWell(
+                                onTap: () => Navigator.pop(context),
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: primaryNavy),
+                                ),
+                              )
+                            else
+                              const SizedBox(width: 42),
                             Container(
-                              width: 116,
-                              height: 54,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              height: 48,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: AppColors.secondary,
-                                  width: 1.0,
-                                ),
+                                borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.secondary.withValues(alpha: 0.12),
+                                    color: Colors.black.withValues(alpha: 0.04),
                                     blurRadius: 8,
-                                    offset: const Offset(0, 3),
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
                               child: Image.asset(
                                 'assets/images/logo.webp',
                                 fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => const Center(
-                                  child: Text(
-                                    'MLD Vietnam',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                    ),
+                                errorBuilder: (_, __, ___) => Text(
+                                  'MLD VIETNAM',
+                                  style: GoogleFonts.beVietnamPro(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: primaryNavy,
                                   ),
                                 ),
                               ),
                             ),
-                            InkWell(
-                              onTap: () {
-                                Navigator.pushAndRemoveUntil(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const MainLayoutScreen(initialIndex: 4)),
-                                  (route) => false,
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(20),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'Khám phá ngay',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                    SizedBox(width: 4),
-                                    Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.primary),
-                                  ],
-                                ),
-                              ),
-                            ),
+                            const SizedBox(width: 42), // Cân đối layout
                           ],
                         ),
 
                         const SizedBox(height: 28),
 
-                        // --- 2. TIÊU ĐỀ & MÔ TẢ ---
-                        const Text(
+                        // --- 2. TIÊU ĐỀ & LỜI CHÀO ---
+                        Text(
                           'Chào mừng bạn!',
-                          style: TextStyle(
-                            fontSize: 28,
+                          style: GoogleFonts.beVietnamPro(
+                            fontSize: 26,
                             fontWeight: FontWeight.w700,
-                            height: 1.25,
-                            color: AppColors.textHeading,
+                            color: primaryNavy,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Đăng nhập để trải nghiệm dịch vụ chăm sóc sức khỏe và các khóa đào tạo nghề.',
-                          style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w400,
+                        const SizedBox(height: 6),
+                        Text(
+                          'Đăng nhập để trải nghiệm dịch vụ chăm sóc và đào tạo nghề.',
+                          style: GoogleFonts.beVietnamPro(
+                            fontSize: 13.5,
+                            color: textMuted,
                             height: 1.45,
-                            color: AppColors.textSecondary,
                           ),
                         ),
 
                         const SizedBox(height: 24),
 
-                        // --- 3. TAB CHUYỂN ĐỔI: SỐ ĐIỆN THOẠI & EMAIL ---
+                        // --- 3. TAB CHUYỂN ĐỔI: EMAIL & SỐ ĐIỆN THOẠI ---
                         Container(
-                          height: 48,
+                          height: 46,
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: AppColors.mintBackground,
+                            color: const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Row(
                             children: [
+                              // Tab 0: Email
                               Expanded(
                                 child: GestureDetector(
                                   onTap: () {
@@ -414,8 +389,8 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                       boxShadow: _selectedTabIndex == 0
                                           ? [
                                               BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.05),
-                                                blurRadius: 4,
+                                                color: Colors.black.withValues(alpha: 0.06),
+                                                blurRadius: 6,
                                                 offset: const Offset(0, 2),
                                               ),
                                             ]
@@ -423,16 +398,17 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                     ),
                                     alignment: Alignment.center,
                                     child: Text(
-                                      'Số điện thoại',
-                                      style: TextStyle(
-                                        fontSize: 14,
+                                      'Email & Mật khẩu',
+                                      style: GoogleFonts.beVietnamPro(
+                                        fontSize: 13.5,
                                         fontWeight: _selectedTabIndex == 0 ? FontWeight.w700 : FontWeight.w500,
-                                        color: _selectedTabIndex == 0 ? AppColors.primary : AppColors.textSecondary,
+                                        color: _selectedTabIndex == 0 ? primaryNavy : textMuted,
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
+                              // Tab 1: Số điện thoại
                               Expanded(
                                 child: GestureDetector(
                                   onTap: () {
@@ -448,8 +424,8 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                       boxShadow: _selectedTabIndex == 1
                                           ? [
                                               BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.05),
-                                                blurRadius: 4,
+                                                color: Colors.black.withValues(alpha: 0.06),
+                                                blurRadius: 6,
                                                 offset: const Offset(0, 2),
                                               ),
                                             ]
@@ -457,11 +433,11 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                     ),
                                     alignment: Alignment.center,
                                     child: Text(
-                                      'Email & Mật khẩu',
-                                      style: TextStyle(
-                                        fontSize: 14,
+                                      'Số điện thoại',
+                                      style: GoogleFonts.beVietnamPro(
+                                        fontSize: 13.5,
                                         fontWeight: _selectedTabIndex == 1 ? FontWeight.w700 : FontWeight.w500,
-                                        color: _selectedTabIndex == 1 ? AppColors.primary : AppColors.textSecondary,
+                                        color: _selectedTabIndex == 1 ? primaryNavy : textMuted,
                                       ),
                                     ),
                                   ),
@@ -480,18 +456,17 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFEF2F2),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFFFECACA)),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                                const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 20),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     _errorMessage!,
-                                    style: const TextStyle(
-                                      color: AppColors.errorDark,
+                                    style: GoogleFonts.beVietnamPro(
+                                      color: const Color(0xFF991B1B),
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -503,192 +478,110 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
 
                         // --- 4. FORM THEO TAB HIỆN TẠI ---
                         if (_selectedTabIndex == 0)
-                          // === TAB 1: SỐ ĐIỆN THOẠI ===
-                          Form(
-                            key: _phoneFormKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                const Text(
-                                  'Số điện thoại',
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Container(
-                                  height: 56,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surface,
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: AppColors.border,
-                                      width: 1.0,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                    children: [
-                                      const Text(
-                                        '+84',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.textPrimary,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Container(
-                                        width: 1,
-                                        height: 24,
-                                        color: AppColors.border,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _phoneController,
-                                          keyboardType: TextInputType.phone,
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w500,
-                                            color: AppColors.textPrimary,
-                                          ),
-                                          validator: (value) {
-                                            if (value == null || value.trim().isEmpty) {
-                                              return 'Vui lòng nhập số điện thoại';
-                                            }
-                                            final clean = value.trim().replaceAll(' ', '');
-                                            final fullNumber = clean.startsWith('0') ? clean : '0$clean';
-                                            return AppValidators.phone(fullNumber);
-                                          },
-                                          decoration: const InputDecoration(
-                                            hintText: '912 345 678',
-                                            hintStyle: TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w400,
-                                              color: AppColors.textPlaceholder,
-                                            ),
-                                            contentPadding: EdgeInsets.zero,
-                                            border: InputBorder.none,
-                                            enabledBorder: InputBorder.none,
-                                            focusedBorder: InputBorder.none,
-                                            errorBorder: InputBorder.none,
-                                            focusedErrorBorder: InputBorder.none,
-                                            filled: false,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'Chúng tôi sẽ gửi mã OTP để xác thực số điện thoại của bạn.',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w400,
-                                    height: 1.4,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                PrimaryButton(
-                                  text: 'Tiếp tục',
-                                  isLoading: _isLoading,
-                                  onPressed: _handlePhoneContinue,
-                                ),
-                              ],
-                            ),
-                          )
-                        else
-                          // === TAB 2: EMAIL & MẬT KHẨU ===
+                          // === TAB EMAIL & MẬT KHẨU ===
                           Form(
                             key: _emailFormKey,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                const Text(
+                                Text(
                                   'Địa chỉ Email',
-                                  style: TextStyle(
+                                  style: GoogleFonts.beVietnamPro(
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
+                                    color: primaryNavy,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: _emailController,
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: AppValidators.email,
-                                  decoration: InputDecoration(
-                                    hintText: 'example@mldvietnam.vn',
-                                    prefixIcon: const Icon(Icons.email_outlined, color: AppColors.textSecondary),
-                                    filled: true,
-                                    fillColor: AppColors.surface,
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(color: AppColors.border),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.04),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: TextFormField(
+                                    controller: _emailController,
+                                    keyboardType: TextInputType.emailAddress,
+                                    style: GoogleFonts.beVietnamPro(
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w500,
+                                      color: textDark,
                                     ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(color: AppColors.border),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                                    validator: AppValidators.email,
+                                    decoration: InputDecoration(
+                                      hintText: 'example@mldvietnam.vn',
+                                      hintStyle: GoogleFonts.beVietnamPro(
+                                        fontSize: 14,
+                                        color: const Color(0xFF94A3B8),
+                                      ),
+                                      prefixIcon: const Icon(Icons.email_outlined, color: primaryNavy, size: 20),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                                      border: InputBorder.none,
                                     ),
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                const Text(
+                                Text(
                                   'Mật khẩu',
-                                  style: TextStyle(
+                                  style: GoogleFonts.beVietnamPro(
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
+                                    color: primaryNavy,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: _passwordController,
-                                  obscureText: _obscurePassword,
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty) return 'Vui lòng nhập mật khẩu';
-                                    if (v.length < 6) return 'Mật khẩu tối thiểu 6 ký tự';
-                                    return null;
-                                  },
-                                  decoration: InputDecoration(
-                                    hintText: 'Nhập mật khẩu của bạn',
-                                    prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textSecondary),
-                                    suffixIcon: IconButton(
-                                      icon: Icon(
-                                        _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                        color: AppColors.textSecondary,
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.04),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
                                       ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _obscurePassword = !_obscurePassword;
-                                        });
-                                      },
+                                    ],
+                                  ),
+                                  child: TextFormField(
+                                    controller: _passwordController,
+                                    obscureText: _obscurePassword,
+                                    style: GoogleFonts.beVietnamPro(
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w500,
+                                      color: textDark,
                                     ),
-                                    filled: true,
-                                    fillColor: AppColors.surface,
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(color: AppColors.border),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(color: AppColors.border),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                                    validator: (v) {
+                                      if (v == null || v.isEmpty) return 'Vui lòng nhập mật khẩu';
+                                      if (v.length < 6) return 'Mật khẩu tối thiểu 6 ký tự';
+                                      return null;
+                                    },
+                                    decoration: InputDecoration(
+                                      hintText: 'Nhập mật khẩu của bạn',
+                                      hintStyle: GoogleFonts.beVietnamPro(
+                                        fontSize: 14,
+                                        color: const Color(0xFF94A3B8),
+                                      ),
+                                      prefixIcon: const Icon(Icons.lock_outline_rounded, color: primaryNavy, size: 20),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                          color: textMuted,
+                                          size: 20,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _obscurePassword = !_obscurePassword;
+                                          });
+                                        },
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                                      border: InputBorder.none,
                                     ),
                                   ),
                                 ),
@@ -704,22 +597,23 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                         ),
                                       );
                                     },
-                                    child: const Padding(
-                                      padding: EdgeInsets.symmetric(vertical: 4),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4),
                                       child: Text(
                                         'Quên mật khẩu?',
-                                        style: TextStyle(
+                                        style: GoogleFonts.beVietnamPro(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
-                                          color: AppColors.primary,
+                                          color: primaryNavy,
                                         ),
                                       ),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 18),
                                 PrimaryButton(
                                   text: 'Đăng nhập',
+                                  backgroundColor: ctaGreen,
                                   isLoading: _isLoading,
                                   onPressed: _handleEmailLogin,
                                 ),
@@ -743,6 +637,94 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                 ),
                               ],
                             ),
+                          )
+                        else
+                          // === TAB SỐ ĐIỆN THOẠI ===
+                          Form(
+                            key: _phoneFormKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  'Số điện thoại',
+                                  style: GoogleFonts.beVietnamPro(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: primaryNavy,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  height: 54,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.04),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        '+84',
+                                        style: GoogleFonts.beVietnamPro(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: primaryNavy,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Container(
+                                        width: 1,
+                                        height: 22,
+                                        color: const Color(0xFFE2E8F0),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _phoneController,
+                                          keyboardType: TextInputType.phone,
+                                          style: GoogleFonts.beVietnamPro(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w500,
+                                            color: textDark,
+                                          ),
+                                          validator: (value) {
+                                            if (value == null || value.trim().isEmpty) {
+                                              return 'Vui lòng nhập số điện thoại';
+                                            }
+                                            final clean = value.trim().replaceAll(' ', '');
+                                            final fullNumber = clean.startsWith('0') ? clean : '0$clean';
+                                            return AppValidators.phone(fullNumber);
+                                          },
+                                          decoration: InputDecoration(
+                                            hintText: '912 345 678',
+                                            hintStyle: GoogleFonts.beVietnamPro(
+                                              fontSize: 14.5,
+                                              color: const Color(0xFF94A3B8),
+                                            ),
+                                            contentPadding: EdgeInsets.zero,
+                                            border: InputBorder.none,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                PrimaryButton(
+                                  text: 'Tiếp tục',
+                                  backgroundColor: ctaGreen,
+                                  isLoading: _isLoading,
+                                  onPressed: _handlePhoneContinue,
+                                ),
+                              ],
+                            ),
                           ),
 
                         const SizedBox(height: 20),
@@ -752,14 +734,14 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                           alignment: WrapAlignment.center,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            const Text(
+                            Text(
                               'Chưa có tài khoản? ',
-                              style: TextStyle(
+                              style: GoogleFonts.beVietnamPro(
                                 fontSize: 13.5,
-                                color: AppColors.textSecondary,
+                                color: textMuted,
                               ),
                             ),
-                            GestureDetector(
+                            InkWell(
                               onTap: () {
                                 Navigator.push(
                                   context,
@@ -768,25 +750,25 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                   ),
                                 );
                               },
-                              child: const Text(
-                                'Đăng ký bằng Email',
-                                style: TextStyle(
+                              child: Text(
+                                'Đăng ký ngay',
+                                style: GoogleFonts.beVietnamPro(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.primary,
+                                  color: primaryNavy,
                                   decoration: TextDecoration.underline,
-                                  decorationColor: AppColors.primary,
+                                  decorationColor: primaryNavy,
                                 ),
                               ),
                             ),
                           ],
                         ),
 
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 20),
 
-                        // --- NÚT KHÁM PHÁ APP DÀNH CHO KHÁCH (GUEST MODE) ---
-                        OutlinedButton.icon(
-                          onPressed: () {
+                        // --- 6. NÚT KHÁM PHÁ APP DÀNH CHO KHÁCH ---
+                        InkWell(
+                          onTap: () {
                             if (Navigator.canPop(context)) {
                               Navigator.pop(context);
                             } else {
@@ -796,31 +778,42 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                               );
                             }
                           },
-                          icon: const Icon(Icons.explore_outlined, size: 20, color: AppColors.primary),
-                          label: const Text(
-                            'Khám phá ứng dụng (Không cần đăng nhập)',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4), width: 1.2),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            backgroundColor: Colors.white,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.explore_outlined, size: 20, color: primaryNavy),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Khám phá ứng dụng',
+                                  style: GoogleFonts.beVietnamPro(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: primaryNavy,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
 
+                        const Spacer(),
                         const SizedBox(height: 24),
 
-
-
-                        const Spacer(),
-                        const SizedBox(height: 28),
-
-                        // --- 7. PHẦN DƯỚI: TRỢ GIÚP & ĐIỀU KHOẢN DỊCH VỤ ---
+                        // --- 7. TRỢ GIÚP & ĐIỀU KHOẢN ---
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
@@ -828,32 +821,23 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                               onTap: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Hotline hỗ trợ MLD: 1900 6868'),
-                                    backgroundColor: AppColors.primary,
+                                    content: Text('Hotline hỗ trợ MLD: 0987 186 399'),
+                                    backgroundColor: primaryNavy,
                                     duration: Duration(seconds: 2),
                                   ),
                                 );
                               },
                               borderRadius: BorderRadius.circular(8),
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                                 child: Text(
                                   'Cần hỗ trợ?',
-                                  style: TextStyle(
-                                    fontSize: 15,
+                                  style: GoogleFonts.beVietnamPro(
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w700,
-                                    color: AppColors.primary,
+                                    color: primaryNavy,
                                   ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Bằng việc tiếp tục, bạn đồng ý với',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                color: AppColors.textSecondary,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -870,22 +854,21 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                       ),
                                     );
                                   },
-                                  child: const Text(
+                                  child: Text(
                                     'Điều khoản sử dụng',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
+                                    style: GoogleFonts.beVietnamPro(
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w500,
-                                      color: AppColors.primary,
+                                      color: primaryNavy,
                                       decoration: TextDecoration.underline,
-                                      decorationColor: AppColors.primary,
                                     ),
                                   ),
                                 ),
                                 Container(
-                                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                                  margin: const EdgeInsets.symmetric(horizontal: 10),
                                   width: 1,
                                   height: 12,
-                                  color: AppColors.border,
+                                  color: const Color(0xFFCBD5E1),
                                 ),
                                 GestureDetector(
                                   onTap: () {
@@ -896,14 +879,13 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                       ),
                                     );
                                   },
-                                  child: const Text(
+                                  child: Text(
                                     'Chính sách bảo mật',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
+                                    style: GoogleFonts.beVietnamPro(
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w500,
-                                      color: AppColors.primary,
+                                      color: primaryNavy,
                                       decoration: TextDecoration.underline,
-                                      decorationColor: AppColors.primary,
                                     ),
                                   ),
                                 ),

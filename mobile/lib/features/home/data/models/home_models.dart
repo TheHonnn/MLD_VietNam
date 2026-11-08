@@ -201,7 +201,7 @@ class BranchModel {
   factory BranchModel.fromJson(Map<String, dynamic> json) {
     final opening = (json['opening_time'] != null && json['closing_time'] != null)
         ? '${json['opening_time']} - ${json['closing_time']}'
-        : '08:30 - 21:00';
+        : '08:00 - 17:30';
     final district = json['district']?.toString() ?? 'Quận 3';
     final city = json['city']?.toString() ?? 'TP. Hồ Chí Minh';
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class PrimaryButton extends StatelessWidget {
   final String text;
@@ -21,13 +21,13 @@ class PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 52,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? AppColors.primary,
-          foregroundColor: textColor ?? AppColors.textInverse,
-          disabledBackgroundColor: AppColors.surfaceDisabled,
-          disabledForegroundColor: AppColors.textSecondary,
+          backgroundColor: backgroundColor ?? const Color(0xFF16A34A),
+          foregroundColor: textColor ?? Colors.white,
+          disabledBackgroundColor: const Color(0xFFCBD5E1),
+          disabledForegroundColor: Colors.white70,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -36,8 +36,8 @@ class PrimaryButton extends StatelessWidget {
         onPressed: isLoading ? null : onPressed,
         child: isLoading
             ? const SizedBox(
-                height: 24,
-                width: 24,
+                height: 22,
+                width: 22,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
@@ -45,10 +45,10 @@ class PrimaryButton extends StatelessWidget {
               )
             : Text(
                 text,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: textColor ?? (onPressed == null ? AppColors.textSecondary : AppColors.textInverse),
+                style: GoogleFonts.beVietnamPro(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w700,
+                  color: textColor ?? (onPressed == null ? Colors.white70 : Colors.white),
                 ),
               ),
       ),

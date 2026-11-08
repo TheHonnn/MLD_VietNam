@@ -112,7 +112,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                   context.tr('Khóa học chưa được Admin duyệt', 'Course Not Yet Approved by Admin'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: AcademyColors.heading,
@@ -123,7 +123,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                   context.isEn ? 'You cannot watch video lecture "${widget.lesson?.title.tr(context) ?? ""}" because your enrollment is pending Board approval.' : 'Bạn chưa thể xem video bài học "${widget.lesson?.title ?? ""}" do hồ sơ đăng ký khóa học đang chờ Ban Quản Trị đối soát và phê duyệt.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 13.5,
                     color: AcademyColors.textSecondary,
                     height: 1.45,
@@ -180,7 +180,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                   context.tr('Chưa mở khóa bài học này', 'Lesson Not Yet Unlocked'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: AcademyColors.heading,
@@ -193,7 +193,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                       : 'Hệ thống áp dụng cơ chế học tuần tự chống gian lận. Bạn cần xem và hoàn thành bài học trước đó theo đúng lộ trình để mở khóa bài học này.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 13.5,
                     color: AcademyColors.textSecondary,
                     height: 1.45,
@@ -252,7 +252,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
             Text(
               '${context.tr("Video Bài", "Lesson")} ${widget.lesson?.lessonOrder ?? 1} · ${widget.lesson?.formattedDuration ?? "94:48"}',
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: AppColors.primary,
@@ -264,7 +264,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
             Text(
               widget.lesson?.title.tr(context) ?? 'Bài 1: Nhận biết sớm dấu hiệu phù - chủ động giảm nguy cơ phù tay sau phẫu thuật',
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: AcademyColors.heading,
@@ -277,7 +277,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
             Text(
               widget.courseTitle?.tr(context) ?? 'Học viện MLD Việt Nam',
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 13.5,
                 color: AcademyColors.textSecondary,
               ),
@@ -300,7 +300,7 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                     ? context.tr('Bạn đã hoàn thành bài học này. Bài học kế tiếp đã được mở khóa.', 'You have completed this lesson. The next lesson has been unlocked.')
                     : context.tr('Hệ thống tự động ghi nhớ vị trí xem. Bạn cần xem hết video để mở khóa bài tiếp theo.', 'The system automatically remembers playback progress. Complete the full video to unlock the next lesson.'),
                 style: TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                   color: _isCompleted ? const Color(0xFF15803D) : const Color(0xFF1E40AF),

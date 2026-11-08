@@ -70,14 +70,20 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               // --- 1. BACK BUTTON ---
               InkWell(
                 onTap: () => Navigator.pop(context),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 child: Container(
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.border),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   alignment: Alignment.center,
                   child: const Icon(
@@ -94,7 +100,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               Text(
                 context.tr('Bạn đang tìm kiếm\nđiều gì?', 'What are you\nlooking for?'),
                 style: const TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 26,
                   fontWeight: FontWeight.w700,
                   height: 1.3,
@@ -104,55 +110,43 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
 
               const SizedBox(height: 20),
 
-              // --- 3. SEARCH BAR ---
-              Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF4FE),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.border),
+              // --- 3. SEARCH BAR - BỎ VIỀN, NỔI BẬT KHỐI ---
+              Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
-                    alignment: Alignment.center,
-                    child: const Icon(
+                  ],
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                alignment: Alignment.centerLeft,
+                child: TextField(
+                  controller: _searchController,
+                  onSubmitted: _onSearchSubmit,
+                  style: const TextStyle(fontSize: 14),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(
                       Icons.search_rounded,
-                      color: AppColors.primary,
+                      color: Color(0xFF003876),
                       size: 22,
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Container(
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      alignment: Alignment.centerLeft,
-                      child: TextField(
-                        controller: _searchController,
-                        onSubmitted: _onSearchSubmit,
-                        style: const TextStyle(fontFamily: 'Montserrat', fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: context.tr('Tìm dịch vụ, khóa học, chuyên viên...', 'Search services, courses, specialists...'),
-                          hintStyle: const TextStyle(
-                            fontFamily: 'Montserrat',
-                            fontSize: 13.5,
-                            color: AppColors.textPlaceholder,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
+                    hintText: context.tr('Tìm dịch vụ, khóa học, chuyên viên...', 'Search services, courses, specialists...'),
+                    hintStyle: const TextStyle(
+                      fontSize: 13.5,
+                      color: AppColors.textPlaceholder,
+                      fontWeight: FontWeight.w400,
                     ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                ],
+                ),
               ),
 
               const SizedBox(height: 12),
@@ -169,7 +163,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                   child: Text(
                     context.tr('Xóa tìm kiếm', 'Clear search'),
                     style: const TextStyle(
-                      fontFamily: 'Montserrat',
+                      
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primary,
@@ -202,20 +196,23 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const B02ServiceListingScreen()));
                       }
                     },
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(20),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary : const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isSelected ? AppColors.primary : AppColors.border,
-                        ),
+                        color: isSelected ? const Color(0xFF003876) : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Text(
                         _typeChips[index].tr(context),
                         style: TextStyle(
-                          fontFamily: 'Montserrat',
                           fontSize: 13,
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                           color: isSelected ? Colors.white : AppColors.textPrimary,
@@ -233,7 +230,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                 Text(
                   context.tr('Tìm kiếm gần đây', 'Recent Searches'),
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -259,7 +256,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                               Text(
                                 search.tr(context),
                                 style: const TextStyle(
-                                  fontFamily: 'Montserrat',
+                                  
                                   fontSize: 14,
                                   color: AppColors.textPrimary,
                                 ),
@@ -286,7 +283,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               Text(
                 context.tr('Tìm kiếm phổ biến', 'Popular Searches'),
                 style: const TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
@@ -299,18 +296,24 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                 children: _popularSearches.map((query) {
                   return InkWell(
                     onTap: () => _onSearchSubmit(query),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(20),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Text(
                         query.tr(context),
                         style: const TextStyle(
-                          fontFamily: 'Montserrat',
+                          
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: AppColors.textPrimary,
@@ -327,7 +330,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               Text(
                 context.tr('Khám phá theo nhu cầu', 'Explore by Category'),
                 style: const TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
@@ -375,7 +378,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                   context.tr('Tìm kiếm dịch vụ, chuyên viên hoặc chi nhánh', 'Search services, specialists or branches'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: AppColors.textSecondary,
@@ -411,7 +414,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
               child: Text(
                 title,
                 style: const TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 14.5,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textPrimary,

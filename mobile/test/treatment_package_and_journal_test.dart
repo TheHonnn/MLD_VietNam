@@ -20,7 +20,7 @@ Widget _buildTestApp(Widget child) {
     ],
     theme: ThemeData(
       primaryColor: AppColors.primary,
-      fontFamily: 'Montserrat',
+      
     ),
     home: child,
   );

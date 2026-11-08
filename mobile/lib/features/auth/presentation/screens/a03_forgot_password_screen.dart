@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/utils/validators.dart';
@@ -63,7 +63,7 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
           ),
         );
 
-        if (otp != null && otp.length == 6) {
+        if (otp != null && otp.isNotEmpty) {
           setState(() {
             _verifiedOtp = otp;
           });
@@ -88,7 +88,9 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     if (_newPasswordController.text != _confirmPasswordController.text) {
-      setState(() => _errorMessage = 'Mật khẩu xác nhận không khớp');
+      setState(() {
+        _errorMessage = 'Mật khẩu xác nhận không khớp.';
+      });
       return;
     }
 
@@ -111,7 +113,7 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Đặt lại mật khẩu thành công! Vui lòng đăng nhập.'),
-            backgroundColor: Colors.green,
+            backgroundColor: Color(0xFF16A34A),
           ),
         );
         Navigator.pop(context);
@@ -133,11 +135,16 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const primaryNavy = Color(0xFF003876);
+    const ctaGreen = Color(0xFF16A34A);
+    const textDark = Color(0xFF0F172A);
+    const textMuted = Color(0xFF64748B);
+
     return Scaffold(
-      backgroundColor: AppColors.background, // #F8F1E8
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -148,17 +155,23 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
                   onTap: () => Navigator.pop(context),
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    width: 44,
-                    height: 44,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border, width: 1.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: const Icon(
-                      Icons.arrow_back_rounded,
-                      size: 20,
-                      color: AppColors.textPrimary,
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 18,
+                      color: primaryNavy,
                     ),
                   ),
                 ),
@@ -168,44 +181,45 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
 
               Text(
                 _verifiedOtp == null ? 'Khôi phục mật khẩu' : 'Thiết lập mật khẩu mới',
-                style: const TextStyle(
-                  fontSize: 28,
+                style: GoogleFonts.beVietnamPro(
+                  fontSize: 26,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textHeading,
+                  color: primaryNavy,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 _verifiedOtp == null
                     ? 'Nhập địa chỉ email của bạn để nhận mã xác thực OTP khôi phục mật khẩu.'
                     : 'Nhập mật khẩu mới cho tài khoản email ${_emailController.text.trim()}.',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
+                style: GoogleFonts.beVietnamPro(
+                  fontSize: 13.5,
+                  color: textMuted,
+                  height: 1.45,
                 ),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
               if (_verifiedOtp == null) ...[
                 // Bước 1: Nhập Email
-                const Text(
+                Text(
                   'Địa chỉ Email',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                  style: GoogleFonts.beVietnamPro(fontSize: 13.5, fontWeight: FontWeight.w600, color: primaryNavy),
                 ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    hintText: 'example@email.com',
-                    prefixIcon: const Icon(Icons.mail_outline_rounded, color: AppColors.textSecondary, size: 20),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                const SizedBox(height: 8),
+                _buildInputContainer(
+                  child: TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: GoogleFonts.beVietnamPro(fontSize: 14.5, fontWeight: FontWeight.w500, color: textDark),
+                    decoration: InputDecoration(
+                      hintText: 'example@email.com',
+                      hintStyle: GoogleFonts.beVietnamPro(fontSize: 14, color: const Color(0xFF94A3B8)),
+                      prefixIcon: const Icon(Icons.mail_outline_rounded, color: primaryNavy, size: 20),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                      border: InputBorder.none,
+                    ),
                   ),
                 ),
 
@@ -213,6 +227,7 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
 
                 PrimaryButton(
                   text: 'Gửi mã xác thực',
+                  backgroundColor: ctaGreen,
                   isLoading: _isLoading,
                   onPressed: _handleSendOtp,
                 ),
@@ -223,59 +238,65 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
+                      Text(
                         'Mật khẩu mới',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                        style: GoogleFonts.beVietnamPro(fontSize: 13.5, fontWeight: FontWeight.w600, color: primaryNavy),
                       ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: _newPasswordController,
-                        obscureText: _obscureNew,
-                        validator: (val) {
-                          if (val == null || val.length < 6) {
-                            return 'Mật khẩu phải có tối thiểu 6 ký tự';
-                          }
-                          return null;
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Tối thiểu 6 ký tự',
-                          prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textSecondary, size: 20),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                            onPressed: () => setState(() => _obscureNew = !_obscureNew),
+                      const SizedBox(height: 8),
+                      _buildInputContainer(
+                        child: TextFormField(
+                          controller: _newPasswordController,
+                          obscureText: _obscureNew,
+                          validator: (val) {
+                            if (val == null || val.length < 6) {
+                              return 'Mật khẩu phải có tối thiểu 6 ký tự';
+                            }
+                            return null;
+                          },
+                          style: GoogleFonts.beVietnamPro(fontSize: 14.5, fontWeight: FontWeight.w500, color: textDark),
+                          decoration: InputDecoration(
+                            hintText: 'Tối thiểu 6 ký tự',
+                            hintStyle: GoogleFonts.beVietnamPro(fontSize: 14, color: const Color(0xFF94A3B8)),
+                            prefixIcon: const Icon(Icons.lock_outline_rounded, color: primaryNavy, size: 20),
+                            suffixIcon: IconButton(
+                              icon: Icon(_obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: textMuted, size: 20),
+                              onPressed: () => setState(() => _obscureNew = !_obscureNew),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                            border: InputBorder.none,
                           ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
                         ),
                       ),
 
                       const SizedBox(height: 16),
 
-                      const Text(
+                      Text(
                         'Xác nhận mật khẩu mới',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                        style: GoogleFonts.beVietnamPro(fontSize: 13.5, fontWeight: FontWeight.w600, color: primaryNavy),
                       ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: _confirmPasswordController,
-                        obscureText: _obscureConfirm,
-                        validator: (val) {
-                          if (val == null || val.isEmpty) {
-                            return 'Vui lòng xác nhận mật khẩu';
-                          }
-                          return null;
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Nhập lại mật khẩu mới',
-                          prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textSecondary, size: 20),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                            onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                      const SizedBox(height: 8),
+                      _buildInputContainer(
+                        child: TextFormField(
+                          controller: _confirmPasswordController,
+                          obscureText: _obscureConfirm,
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return 'Vui lòng xác nhận mật khẩu';
+                            }
+                            return null;
+                          },
+                          style: GoogleFonts.beVietnamPro(fontSize: 14.5, fontWeight: FontWeight.w500, color: textDark),
+                          decoration: InputDecoration(
+                            hintText: 'Nhập lại mật khẩu mới',
+                            hintStyle: GoogleFonts.beVietnamPro(fontSize: 14, color: const Color(0xFF94A3B8)),
+                            prefixIcon: const Icon(Icons.lock_outline_rounded, color: primaryNavy, size: 20),
+                            suffixIcon: IconButton(
+                              icon: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: textMuted, size: 20),
+                              onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                            border: InputBorder.none,
                           ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
                         ),
                       ),
 
@@ -283,6 +304,7 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
 
                       PrimaryButton(
                         text: 'Cập nhật mật khẩu',
+                        backgroundColor: ctaGreen,
                         isLoading: _isLoading,
                         onPressed: _handleResetPassword,
                       ),
@@ -294,15 +316,22 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
               if (_errorMessage != null) ...[
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.shade200),
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(fontSize: 13, color: Colors.red.shade800),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: GoogleFonts.beVietnamPro(fontSize: 13, color: const Color(0xFF991B1B)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -312,5 +341,21 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
       ),
     );
   }
-}
 
+  Widget _buildInputContainer({required Widget child}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}

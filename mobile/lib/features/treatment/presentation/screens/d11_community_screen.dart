@@ -320,7 +320,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                                 Text(
                                   title,
                                   style: const TextStyle(
-                                    fontFamily: 'Montserrat',
+                                    
                                     fontSize: 22,
                                     fontWeight: FontWeight.w800,
                                     color: Color(0xFF1F2937),
@@ -516,7 +516,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
                     caption,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontFamily: 'Montserrat',
+                      
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
                       color: Color(0xFF64748B),
@@ -539,7 +539,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
             child: Text(
               trimmed,
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF1E293B),
@@ -555,7 +555,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
             child: Text(
               trimmed,
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 14.5,
                 fontWeight: FontWeight.w400,
                 color: Color(0xFF334155),
@@ -822,7 +822,7 @@ class _D11CommunityScreenState extends State<D11CommunityScreen> {
             Text(
               title,
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF0F172A),

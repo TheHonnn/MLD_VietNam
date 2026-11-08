@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../data/models/home_models.dart';
 
 /// Thẻ Dịch vụ Chuẩn Y khoa MLD Việt Nam:
-/// - Thiết kế mới chuẩn Figma: Ảnh chụp thực tế Lưu phù bạch huyết
-/// - Tiêu đề: Lưu phù bạch huyết
-/// - Giá tiền: 700.000đ (màu đỏ đậm), 60 phút / ca
-/// - Nút Đặt lịch: Màu Dark Teal #0F766E kèm icon lịch
+/// - Thiết kế chuẩn 6-3-1: Nền trắng 60%, Nhận diện Navy 30%, CTA Xanh lá 10%
+/// - Bỏ viền, nổi bật khối bằng bóng mờ mỏng
+/// - Phông chữ Be Vietnam Pro đồng bộ toàn app
 class VodderServiceCard extends StatefulWidget {
   final SpaServiceModel? service;
   final VoidCallback onBooking;
@@ -30,25 +30,53 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
     return str.replaceAllMapped(reg, (Match m) => '${m[1]}.');
   }
 
+  Widget _buildImage(String? imageUrl) {
+    final img = imageUrl?.trim() ?? '';
+    if (img.startsWith('http://') || img.startsWith('https://')) {
+      return Image.network(
+        img,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _fallbackImage(),
+      );
+    }
+    return Image.asset(
+      img.isNotEmpty ? img : 'assets/images/service_luu_phu_bach_huyet.png',
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _fallbackImage(),
+    );
+  }
+
+  Widget _fallbackImage() {
+    return Image.asset(
+      'assets/images/service_luu_phu_bach_huyet.png',
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Container(
+        color: const Color(0xFFEFF6FF),
+        child: const Center(
+          child: Icon(Icons.spa_rounded, size: 48, color: Color(0xFF003876)),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final service = widget.service;
     final price = service?.displayPrice ?? 700000.0;
-    final rawTitle = service?.name ?? 'Lưu phù bạch huyết';
-    final title = (rawTitle.toLowerCase().contains('bạch huyết') || rawTitle.toLowerCase().contains('vodder'))
-        ? (rawTitle.contains(' - ') ? 'Lưu phù bạch huyết - ${rawTitle.split(' - ').last}' : 'Lưu phù bạch huyết')
-        : context.tr(rawTitle);
+    final rawTitle = service?.name?.trim() ?? '';
+    final title = rawTitle.isNotEmpty ? rawTitle : context.tr('Lưu phù bạch huyết');
+    final duration = service?.durationMinutes ?? 60;
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
+        // BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -57,23 +85,14 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Ảnh minh họa dịch vụ Lưu phù bạch huyết (Không dùng icon)
+            // 1. Ảnh minh họa dịch vụ chuẩn Y khoa MLD
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: widget.onBooking,
               child: SizedBox(
                 width: double.infinity,
                 height: 195,
-                child: Image.asset(
-                  'assets/images/service_luu_phu_bach_huyet.png',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: AppColors.primaryLight,
-                    child: const Center(
-                      child: Icon(Icons.spa_rounded, size: 48, color: AppColors.primary),
-                    ),
-                  ),
-                ),
+                child: _buildImage(service?.imageUrl),
               ),
             ),
 
@@ -89,11 +108,10 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                     onTap: widget.onBooking,
                     child: Text(
                       title,
-                      style: const TextStyle(
-                        fontFamily: 'Montserrat',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F2942),
+                      style: GoogleFonts.beVietnamPro(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF003876),
                         letterSpacing: -0.2,
                       ),
                     ),
@@ -109,51 +127,49 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                           children: [
                             Text(
                               '${_formatCurrency(price)}đ',
-                              style: const TextStyle(
-                                fontFamily: 'Montserrat',
-                                fontSize: 20,
+                              style: GoogleFonts.beVietnamPro(
+                                fontSize: 19,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFFDC2626), // red
+                                color: const Color(0xFFDC2626), // red
                               ),
                             ),
                             const SizedBox(height: 2),
-                            const Text(
-                              '60 phút / ca',
-                              style: TextStyle(
-                                fontFamily: 'Montserrat',
+                            Text(
+                              '$duration phút / ca',
+                              style: GoogleFonts.beVietnamPro(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: Color(0xFF64748B),
+                                color: const Color(0xFF64748B),
                               ),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(width: 8),
+                      // Nút Đặt lịch: 10% CTA Green #16A34A chuẩn 6-3-1
                       ElevatedButton(
                         onPressed: widget.onBooking,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F766E), // Dark Teal #0F766E
+                          backgroundColor: const Color(0xFF16A34A),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               'Đặt lịch',
-                              style: TextStyle(
-                                fontFamily: 'Montserrat',
-                                fontSize: 14,
+                              style: GoogleFonts.beVietnamPro(
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            SizedBox(width: 6),
-                            Icon(Icons.calendar_month_outlined, size: 18),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.calendar_month_outlined, size: 17),
                           ],
                         ),
                       ),

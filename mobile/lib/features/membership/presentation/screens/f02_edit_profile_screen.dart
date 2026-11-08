@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/utils/validators.dart';
@@ -160,22 +161,21 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
     final p = _repo.profile;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF0F172A)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           context.tr('Thông tin cá nhân', 'Personal Information'),
-          style: const TextStyle(
-            fontFamily: 'Montserrat',
-            fontSize: 18,
+          style: GoogleFonts.beVietnamPro(
+            fontSize: 17.5,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            color: const Color(0xFF0F172A),
           ),
         ),
         centerTitle: true,
@@ -188,54 +188,75 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                 key: _formKey,
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // --- 1. AVATAR LỚN & ĐỔI ẢNH ---
-                      Center(
-                        child: Column(
-                          children: [
-                            AppProfileAvatar(
-                              avatarUrl: _currentAvatarUrl,
-                              size: 88,
-                              isEditable: true,
-                              borderWidth: 2,
-                              onEditTap: _pickAvatar,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              p.fullName.isNotEmpty ? p.fullName : context.tr('Học viên MLD', 'MLD Student'),
-                              style: const TextStyle(
-                                fontFamily: 'Montserrat',
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              p.phone.isNotEmpty
-                                  ? '${p.phone} · ${context.tr('Đã xác thực', 'Verified')}'
-                                  : (AuthService.instance.currentPhone ?? context.tr('Chưa cập nhật số điện thoại', 'No phone set')),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
+                      // --- 1. AVATAR LỚN & ĐỔI ẢNH (BỎ VIỀN, NỔI BẬT KHỐI) ---
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
                             ),
                           ],
                         ),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              AppProfileAvatar(
+                                avatarUrl: _currentAvatarUrl,
+                                size: 88,
+                                isEditable: true,
+                                borderWidth: 0,
+                                onEditTap: _pickAvatar,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                p.fullName.isNotEmpty ? p.fullName : context.tr('Khách hàng MLD', 'MLD Customer'),
+                                style: GoogleFonts.beVietnamPro(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                p.phone.isNotEmpty
+                                    ? '${p.phone} · ${context.tr('Đã xác thực', 'Verified')}'
+                                    : (AuthService.instance.currentPhone ?? context.tr('Chưa cập nhật số điện thoại', 'No phone set')),
+                                style: GoogleFonts.beVietnamPro(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF003876),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
 
                       // --- 2. BIỂU MẪU HỒ SƠ ---
                       _buildTextField(
                         label: '${context.tr('Họ và tên', 'Full Name')} *',
                         controller: _fullNameController,
                         hint: context.tr('Nhập họ và tên', 'Enter full name'),
-                        validator: AppValidators.fullName,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Vui lòng nhập họ và tên';
+                          }
+                          if (val.trim().length < 2) {
+                            return 'Họ và tên phải có ít nhất 2 ký tự';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 14),
 
@@ -245,10 +266,10 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                         children: [
                           Text(
                             context.tr('Số điện thoại tài khoản', 'Account Phone Number'),
-                            style: const TextStyle(
+                            style: GoogleFonts.beVietnamPro(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                              color: const Color(0xFF0F172A),
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -259,15 +280,21 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                                 setState(() {});
                               }
                             },
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                             child: Container(
                               height: 52,
                               padding: const EdgeInsets.symmetric(horizontal: 14),
                               alignment: Alignment.centerLeft,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.border, width: 1.0),
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.04),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
                               child: Row(
                                 children: [
@@ -276,12 +303,12 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                                       (AuthService.instance.currentPhone != null && AuthService.instance.currentPhone!.isNotEmpty)
                                           ? AuthService.instance.currentPhone!
                                           : (p.phone.isNotEmpty ? p.phone : context.tr('Chưa cập nhật — Nhấn để thêm', 'Not set — Tap to add')),
-                                      style: TextStyle(
-                                        fontSize: 15,
+                                      style: GoogleFonts.beVietnamPro(
+                                        fontSize: 14.5,
                                         fontWeight: FontWeight.w500,
                                         color: (p.phone.isNotEmpty || (AuthService.instance.currentPhone?.isNotEmpty ?? false))
-                                            ? AppColors.textPrimary
-                                            : AppColors.primary,
+                                            ? const Color(0xFF0F172A)
+                                            : const Color(0xFF003876),
                                       ),
                                     ),
                                   ),
@@ -291,8 +318,8 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                                         : Icons.edit_outlined,
                                     size: 18,
                                     color: (p.phone.isNotEmpty || (AuthService.instance.currentPhone?.isNotEmpty ?? false))
-                                        ? const Color(0xFF059669)
-                                        : AppColors.primary,
+                                        ? const Color(0xFF16A34A)
+                                        : const Color(0xFF003876),
                                   ),
                                 ],
                               ),
@@ -318,7 +345,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                         hint: context.tr('Chọn ngày sinh (Ngày/Tháng/Năm)', 'Select date of birth (DD/MM/YYYY)'),
                         readOnly: true,
                         onTap: _pickDob,
-                        suffixIcon: const Icon(Icons.calendar_month_rounded, size: 20, color: AppColors.primary),
+                        suffixIcon: const Icon(Icons.calendar_month_rounded, size: 20, color: Color(0xFF003876)),
                       ),
                       const SizedBox(height: 14),
 
@@ -328,10 +355,10 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                         children: [
                           Text(
                             context.tr('Giới tính', 'Gender'),
-                            style: const TextStyle(
+                            style: GoogleFonts.beVietnamPro(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                              color: const Color(0xFF0F172A),
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -340,14 +367,25 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 14),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border, width: 1.0),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
                                 value: _gender,
                                 isExpanded: true,
-                                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+                                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
+                                style: GoogleFonts.beVietnamPro(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF0F172A),
+                                ),
                                 items: [
                                   DropdownMenuItem(value: 'Nữ', child: Text(context.tr('Nữ', 'Female'))),
                                   DropdownMenuItem(value: 'Nam', child: Text(context.tr('Nam', 'Male'))),
@@ -383,11 +421,10 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                       // --- 3. THÔNG TIN LIÊN HỆ KHẨN CẤP ---
                       Text(
                         context.tr('Liên hệ khẩn cấp', 'Emergency Contact'),
-                        style: const TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontSize: 16,
+                        style: GoogleFonts.beVietnamPro(
+                          fontSize: 15.5,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                          color: const Color(0xFF0F172A),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -407,7 +444,6 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                         validator: (val) => val == null || val.trim().isEmpty ? null : AppValidators.phone(val),
                       ),
 
-
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -415,25 +451,29 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
               ),
             ),
 
-            // --- 5. NÚT LƯU THAY ĐỔI DƯỚI CÙNG ---
+            // --- 5. NÚT LƯU THAY ĐỔI DƯỚI CÙNG (6-3-1 DESIGN, SHADOW MỎNG) ---
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: AppColors.border, width: 1.0),
-                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -3),
+                  ),
+                ],
               ),
               child: SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: const Color(0xFF003876), // 30% Dark Navy
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                   onPressed: _isLoading ? null : _handleSave,
@@ -448,10 +488,10 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                         )
                       : Text(
                           context.tr('Lưu thay đổi', 'Save Changes'),
-                          style: const TextStyle(
-                            fontFamily: 'Montserrat',
+                          style: GoogleFonts.beVietnamPro(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
                           ),
                         ),
                 ),
@@ -479,10 +519,10 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: GoogleFonts.beVietnamPro(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+            color: const Color(0xFF0F172A),
           ),
         ),
         const SizedBox(height: 6),
@@ -490,8 +530,14 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border, width: 1.0),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: TextFormField(
             controller: controller,
@@ -500,16 +546,16 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
             validator: validator,
             readOnly: readOnly,
             onTap: onTap,
-            style: const TextStyle(
+            style: GoogleFonts.beVietnamPro(
               fontSize: 14.5,
               fontWeight: FontWeight.w500,
-              color: AppColors.textPrimary,
+              color: const Color(0xFF0F172A),
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(
+              hintStyle: GoogleFonts.beVietnamPro(
                 fontSize: 14,
-                color: AppColors.textPlaceholder,
+                color: const Color(0xFF94A3B8),
               ),
               suffixIcon: suffixIcon,
               border: InputBorder.none,
@@ -517,7 +563,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
               focusedBorder: InputBorder.none,
               errorBorder: InputBorder.none,
               disabledBorder: InputBorder.none,
-              errorStyle: const TextStyle(fontSize: 11.5),
+              errorStyle: GoogleFonts.beVietnamPro(fontSize: 11.5, color: const Color(0xFFDC2626)),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 14),
             ),

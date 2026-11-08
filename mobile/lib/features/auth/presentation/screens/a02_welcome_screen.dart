@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
+import '../../../../core/motion/app_page_transitions.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
 import 'a03_login_screen.dart';
 
@@ -52,8 +53,8 @@ class A02WelcomeScreen extends StatelessWidget {
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const MainLayoutScreen(initialIndex: 4),
+                      AppPageTransitions.pureCrossFade(
+                        page: const MainLayoutScreen(initialIndex: 0),
                       ),
                     );
                   },
@@ -84,7 +85,9 @@ class A02WelcomeScreen extends StatelessWidget {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+                      AppPageTransitions.modalSlideUp(
+                        page: const A03LoginScreen(),
+                      ),
                     );
                   },
                   child: Text(

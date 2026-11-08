@@ -22,6 +22,9 @@ class AcademyRepository {
     _loadEnrolledCourses();
     _loadLessonProgress();
     _loadQuizSubmissions();
+    AuthService.instance.addOnLogoutListener(() {
+      clearEnrolledCourses();
+    });
   }
   static final AcademyRepository instance = AcademyRepository._internal();
   factory AcademyRepository() => instance;

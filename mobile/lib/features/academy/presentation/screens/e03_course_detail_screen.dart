@@ -161,7 +161,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             Text(
               context.tr('Đăng ký để học', 'Enroll to Learn'),
               style: TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textPrimary,
@@ -172,7 +172,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
               context.isEn ? 'You need to enroll in course "${widget.course.title.tr(context)}" to watch this lecture.' : 'Bạn cần đăng ký khóa học "${widget.course.title}" để xem bài giảng này.',
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 13.5,
                 color: AppColors.textSecondary,
                 height: 1.5,
@@ -211,7 +211,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                 child: Text(
                   context.tr('Đăng ký khóa học ngay', 'Enroll in Course Now'),
                   style: TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 14.5,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -225,7 +225,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
               child: Text(
                 context.tr('Để sau', 'Later'),
                 style: TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   color: AppColors.textSecondary,
                   fontSize: 13.5,
                 ),
@@ -316,7 +316,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                           Text(
                             'Khóa học đang chờ Admin xét duyệt',
                             style: TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF92400E),
@@ -339,7 +339,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             Text(
               course.title.tr(context),
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
                 color: AcademyColors.heading,
@@ -385,7 +385,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                   Text(
                     '$_totalLessonsCount ${context.tr("bài", "lessons")}',
                     style: const TextStyle(
-                      fontFamily: 'Montserrat',
+                      
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: AcademyColors.heading,
@@ -395,7 +395,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                   Text(
                     '${course.totalHours} ${context.tr("giờ", "hours")}',
                     style: const TextStyle(
-                      fontFamily: 'Montserrat',
+                      
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: AcademyColors.heading,
@@ -411,7 +411,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                     child: Text(
                       _isEnrolled ? context.tr('Đã đăng ký', 'Enrolled') : context.tr('Chưa đăng ký', 'Not Enrolled'),
                       style: TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: _isEnrolled ? const Color(0xFF15803D) : const Color(0xFFE11D48),
@@ -455,7 +455,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                         child: Text(
                           '${context.tr("Video bài học", "Video Lessons")} ($_totalLessonsCount)',
                           style: TextStyle(
-                            fontFamily: 'Montserrat',
+                            
                             fontSize: 13,
                             fontWeight: _selectedTab == 0 ? FontWeight.bold : FontWeight.w600,
                             color: _selectedTab == 0 ? AppColors.primary : AppColors.textSecondary,
@@ -486,7 +486,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                         child: Text(
                           context.tr('Thông tin khóa học', 'Course Info'),
                           style: TextStyle(
-                            fontFamily: 'Montserrat',
+                            
                             fontSize: 13,
                             fontWeight: _selectedTab == 1 ? FontWeight.bold : FontWeight.w600,
                             color: _selectedTab == 1 ? AppColors.primary : AppColors.textSecondary,
@@ -520,7 +520,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                         child: Text(
                           'Bấm vào video để mở xem clip. Đăng ký để mở khóa toàn bộ khóa học.',
                           style: TextStyle(
-                            fontFamily: 'Montserrat',
+                            
                             fontSize: 12,
                             color: Color(0xFF92400E),
                             fontWeight: FontWeight.w500,
@@ -554,7 +554,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                     child: Text(
                       'Đang cập nhật danh sách video bài giảng...',
                       style: TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 13,
                         color: AppColors.textSecondary,
                       ),
@@ -625,7 +625,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                     child: Text(
                       '$chapterNum',
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -637,7 +637,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                     child: Text(
                       chapter.title.tr(context),
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 13.5,
                         fontWeight: FontWeight.bold,
                         color: AcademyColors.heading,
@@ -653,7 +653,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                     child: Text(
                       '${chapter.lessons.length} ${context.tr("video", "videos")}',
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primary,
@@ -801,7 +801,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                             Text(
                               '${context.tr("Video Bài", "Lesson")} ${lesson.lessonOrder}:',
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.primary,
@@ -813,7 +813,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: isUnlocked ? AcademyColors.textPrimary : Colors.grey[600],
@@ -825,7 +825,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                               Text(
                                 context.tr('Đã xem hết ✓', 'Completed ✓'),
                                 style: TextStyle(
-                                  fontFamily: 'Montserrat',
+                                  
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF15803D),
@@ -835,7 +835,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                               Text(
                                 lesson.isFreePreview ? context.tr('Học thử miễn phí ▶', 'Free Preview ▶') : context.tr('Xem ngay ▶', 'Watch Now ▶'),
                                 style: const TextStyle(
-                                  fontFamily: 'Montserrat',
+                                  
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.primary,
@@ -845,7 +845,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                               Text(
                                 !_isEnrolled && !lesson.isFreePreview ? context.tr('Cần đăng ký 🔒', 'Enrollment Required 🔒') : context.tr('Cần xem bài trước 🔒', 'Previous Lesson Required 🔒'),
                                 style: TextStyle(
-                                  fontFamily: 'Montserrat',
+                                  
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                   color: Colors.grey[500],
@@ -873,7 +873,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
         Text(
           context.tr('Giới thiệu tổng quan', 'Course Overview'),
           style: TextStyle(
-            fontFamily: 'Montserrat',
+            
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: AcademyColors.heading,
@@ -883,9 +883,9 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
         Text(
           course.description.isNotEmpty
               ? course.description.tr(context)
-              : context.tr('Chương trình đào tạo chuẩn y khoa Quốc tế Vodder MLD, kết hợp lý thuyết giải phẫu tuần hoàn và thực hành lâm sàng.', 'International Vodder MLD medical-grade training combining circulatory anatomy theory and clinical practice.'),
+              : context.tr('Chương trình đào tạo Vodder MLD, kết hợp lý thuyết giải phẫu tuần hoàn và thực hành lâm sàng.', 'Vodder MLD training combining circulatory anatomy theory and clinical practice.'),
           style: const TextStyle(
-            fontFamily: 'Montserrat',
+            
             fontSize: 13.5,
             color: AcademyColors.textPrimary,
             height: 1.5,
@@ -905,12 +905,12 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             children: [
               Row(
                 children: [
-                  Text(context.tr('Đối tượng:', 'Target Audience:'), style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w700, color: AcademyColors.heading)),
+                  Text(context.tr('Đối tượng:', 'Target Audience:'), style: const TextStyle( fontSize: 13, fontWeight: FontWeight.w700, color: AcademyColors.heading)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       course.targetAudience.tr(context),
-                      style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w500, color: AcademyColors.textPrimary),
+                      style: const TextStyle( fontSize: 13, fontWeight: FontWeight.w500, color: AcademyColors.textPrimary),
                     ),
                   ),
                 ],
@@ -918,12 +918,12 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
               const Divider(height: 16, color: AcademyColors.cardBorder),
               Row(
                 children: [
-                  Text(context.tr('Nhu cầu:', 'Learning Needs:'), style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w700, color: AcademyColors.heading)),
+                  Text(context.tr('Nhu cầu:', 'Learning Needs:'), style: const TextStyle( fontSize: 13, fontWeight: FontWeight.w700, color: AcademyColors.heading)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       course.targetNeed.tr(context),
-                      style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, fontWeight: FontWeight.w500, color: AcademyColors.textPrimary),
+                      style: const TextStyle( fontSize: 13, fontWeight: FontWeight.w500, color: AcademyColors.textPrimary),
                     ),
                   ),
                 ],
@@ -937,7 +937,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
         Text(
           context.tr('Bạn sẽ học được gì?', 'What will you learn?'),
           style: TextStyle(
-            fontFamily: 'Montserrat',
+            
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: AcademyColors.heading,
@@ -967,7 +967,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
             child: Text(
               text.tr(context),
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 13.5,
                 color: AcademyColors.textPrimary,
                 height: 1.35,

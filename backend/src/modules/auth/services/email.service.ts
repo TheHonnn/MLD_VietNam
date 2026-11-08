@@ -30,7 +30,7 @@ export class EmailService {
     this.initTransporter();
   }
 
-  
+
   private async ensureTransporter(): Promise<nodemailer.Transporter | null> {
     if (this.transporter) return this.transporter;
 
