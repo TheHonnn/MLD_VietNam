@@ -404,6 +404,30 @@ export const W07_CashierPOS: React.FC = () => {
   }, [searchParams, treatmentPackages]);
 
   useEffect(() => {
+    const productIdParam = searchParams.get('productId');
+    if (productIdParam && homeProducts.length > 0) {
+      const prod = homeProducts.find((p) => p.id === productIdParam);
+      if (prod) {
+        setPosCart((prev) => {
+          if (prev.some((item) => item.id === prod.id)) return prev;
+          return [
+            ...prev,
+            {
+              id: prod.id,
+              name: prod.name,
+              type: 'PRODUCT',
+              unitPrice: Number(prod.price_min),
+              quantity: 1,
+              imageUrl: prod.image_url || prod.image_urls?.[0],
+            },
+          ];
+        });
+        setActiveTab('pos');
+      }
+    }
+  }, [searchParams, homeProducts]);
+
+  useEffect(() => {
     const customerIdParam = searchParams.get('customerId');
     if (customerIdParam && allCustomers.length > 0) {
       const cust = allCustomers.find((c) => c.id === customerIdParam);
@@ -1105,6 +1129,20 @@ export const W07_CashierPOS: React.FC = () => {
       }
     }
 
+    const refundAmount = Number(inv.refundAmount || 0);
+    const netAmount = Math.max(0, Number(inv.totalAmount || 0) - refundAmount);
+    const status = inv.paymentStatus === PaymentStatus.REFUNDED || refundAmount >= Number(inv.totalAmount || 0)
+      ? 'Đã hoàn tiền'
+      : refundAmount > 0
+        ? 'Hoàn tiền một phần'
+        : inv.paymentStatus === PaymentStatus.PAID
+          ? 'Đã thanh toán'
+          : inv.paymentStatus === PaymentStatus.PARTIAL
+            ? 'Thanh toán một phần'
+            : inv.paymentStatus === PaymentStatus.PENDING
+              ? 'Đang chờ thanh toán'
+              : 'Chờ thanh toán';
+
     return {
       id: inv.invoiceCode || inv.id,
       rawId: inv.id,
@@ -1121,12 +1159,14 @@ export const W07_CashierPOS: React.FC = () => {
       category,
       method: methodLabel,
       methodCode: inv.paymentMethod,
-      amount: `${Number(inv.totalAmount || 0).toLocaleString('vi-VN')}đ`,
+      amount: `${netAmount.toLocaleString('vi-VN')}đ`,
       rawAmount: Number(inv.totalAmount || 0),
+      netAmount,
+      refundAmount,
       subtotal: Number(inv.subtotal || inv.totalAmount || 0),
       discountAmount: Number(inv.discountAmount || 0),
-      status: inv.paymentStatus === PaymentStatus.PAID ? 'Đã quyết toán' : 'Chờ thanh toán',
-      statusCode: inv.paymentStatus || PaymentStatus.PAID,
+      status,
+      statusCode: refundAmount > 0 ? (refundAmount >= Number(inv.totalAmount || 0) ? PaymentStatus.REFUNDED : 'PARTIAL_REFUND') : (inv.paymentStatus || PaymentStatus.UNPAID),
     };
   };
 
@@ -1252,12 +1292,12 @@ export const W07_CashierPOS: React.FC = () => {
   }, [tuitionKpiCash]);
 
   // KPI Calculations
-  const kpiPaid = pastReceipts.filter((r) => r.statusCode === PaymentStatus.PAID);
-  const kpiTotalRevenue = kpiPaid.reduce((acc, r) => acc + r.rawAmount, 0);
+  const kpiPaid = pastReceipts.filter((r) => r.statusCode === PaymentStatus.PAID || r.statusCode === 'PARTIAL_REFUND');
+  const kpiTotalRevenue = kpiPaid.reduce((acc, r) => acc + r.netAmount, 0);
   const kpiTransfer = kpiPaid.filter((r) => r.methodCode === PaymentMethod.BANK_TRANSFER);
-  const kpiTransferAmount = kpiTransfer.reduce((acc, r) => acc + r.rawAmount, 0);
+  const kpiTransferAmount = kpiTransfer.reduce((acc, r) => acc + r.netAmount, 0);
   const kpiCash = kpiPaid.filter((r) => r.methodCode === PaymentMethod.CASH_AT_SPA);
-  const kpiCashAmount = kpiCash.reduce((acc, r) => acc + r.rawAmount, 0);
+  const kpiCashAmount = kpiCash.reduce((acc, r) => acc + r.netAmount, 0);
 
   // PDF Export
   const handleDownloadReceiptPdf = async () => {
@@ -3436,6 +3476,8 @@ export const W07_CashierPOS: React.FC = () => {
             >
               <option value="ALL">Tất cả trạng thái</option>
               <option value={PaymentStatus.PAID}>Đã thanh toán</option>
+              <option value="PARTIAL_REFUND">Hoàn tiền một phần</option>
+              <option value={PaymentStatus.REFUNDED}>Đã hoàn tiền</option>
               <option value={PaymentStatus.UNPAID}>Chờ thanh toán</option>
             </select>
           </div>
@@ -3478,7 +3520,7 @@ export const W07_CashierPOS: React.FC = () => {
                         {r.amount}
                       </td>
                       <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E8F6ED] text-[#0D6832]">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.statusCode === PaymentStatus.REFUNDED ? 'bg-[#FEF3F2] text-[#B42318]' : r.statusCode === 'PARTIAL_REFUND' ? 'bg-[#FFF4E5] text-[#B54708]' : r.statusCode === PaymentStatus.PAID ? 'bg-[#E8F6ED] text-[#0D6832]' : 'bg-[#EFF6FF] text-[#1D4ED8]'}`}>
                           {r.status}
                         </span>
                       </td>
@@ -3496,7 +3538,7 @@ export const W07_CashierPOS: React.FC = () => {
                               serviceName: r.content,
                               category: r.category,
                               method: r.method,
-                              amount: r.amount,
+                              amount: `${r.netAmount.toLocaleString('vi-VN')}đ`,
                               subtotal: `${r.subtotal.toLocaleString('vi-VN')}đ`,
                               discount: `${r.discountAmount.toLocaleString('vi-VN')}đ`,
                               date: r.date,
@@ -3595,7 +3637,7 @@ export const W07_CashierPOS: React.FC = () => {
 
               <div className="p-2.5 rounded-xl bg-[#E8F6ED] text-[#0D6832] text-[11px] font-semibold flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 shrink-0" />
-                <span>Trạng thái: Đã quyết toán 100% · Dữ liệu đã đồng bộ kế toán</span>
+                <span>Trạng thái: {selectedReceiptData.status || 'Đã thanh toán'}{selectedReceiptData.status?.includes('hoàn tiền') ? ` · Giá trị thực thu: ${selectedReceiptData.amount}` : ' · Dữ liệu đã đồng bộ kế toán'}</span>
               </div>
             </div>
 
@@ -3819,6 +3861,11 @@ export const W07_CashierPOS: React.FC = () => {
               </button>
             </div>
             <div className="p-5 space-y-3">
+              {(() => {
+                const expectedCash = currentShift.systemCash ?? currentShift.openingCash;
+                const cashDifference = shiftClosingCash - expectedCash;
+                return (
+                  <>
               <div className="bg-[#FAF8F5] p-3 rounded-xl border border-[#EFE4D9] space-y-1.5">
                 <div className="flex justify-between">
                   <span>Mã ca:</span> <strong>{currentShift.shiftCode}</strong>
@@ -3833,7 +3880,7 @@ export const W07_CashierPOS: React.FC = () => {
                   <span>Doanh thu VietQR:</span> <strong className="text-sky-700">{(currentShift.transferSales || 0).toLocaleString('vi-VN')}đ</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span>Tiền mặt hệ thống tính:</span> <strong className="text-slate-800">{(currentShift.systemCash || currentShift.openingCash).toLocaleString('vi-VN')}đ</strong>
+                  <span>Tiền mặt hệ thống tính:</span> <strong className="text-slate-800">{expectedCash.toLocaleString('vi-VN')}đ</strong>
                 </div>
               </div>
               <div>
@@ -3845,6 +3892,20 @@ export const W07_CashierPOS: React.FC = () => {
                   className="w-full h-9 px-3 border border-[#E8DFD8] rounded-xl text-xs font-bold text-[#985018]"
                 />
               </div>
+              <div className="flex justify-between rounded-xl border border-slate-200 px-3 py-2 font-semibold">
+                <span>Chênh lệch tiền mặt:</span>
+                <strong className={cashDifference === 0 ? 'text-emerald-700' : 'text-rose-700'}>
+                  {cashDifference > 0 ? '+' : ''}{cashDifference.toLocaleString('vi-VN')}đ
+                </strong>
+              </div>
+              {cashDifference !== 0 && (
+                <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2">
+                  Vui lòng kiểm tra chênh lệch trước khi xác nhận kết ca.
+                </p>
+              )}
+                  </>
+                );
+              })()}
             </div>
             <div className="p-4 bg-[#FAF8F5] border-t border-[#EFE4D9] flex items-center justify-end gap-2">
               <button
@@ -3858,7 +3919,7 @@ export const W07_CashierPOS: React.FC = () => {
                 type="button"
                 onClick={async () => {
                   try {
-                    await posService.closeShift(currentShift.id, {
+                    const result = await posService.closeShift(currentShift.id, {
                       closingCash: shiftClosingCash,
                       notes: shiftNotes,
                       systemCash: currentShift.systemCash,
@@ -3866,13 +3927,15 @@ export const W07_CashierPOS: React.FC = () => {
                       transferSales: currentShift.transferSales,
                       cardSales: currentShift.cardSales,
                     });
+                    if (!result.success) {
+                      toast.error('Không thể kết ca', result.message || 'Máy chủ chưa ghi nhận kết ca.');
+                      return;
+                    }
                     setCurrentShift(null);
                     setShowCloseShiftModal(false);
                     toast.success('Đã đóng ca', 'Đã kết ca và hoàn tất đối soát doanh thu.');
                   } catch (e: any) {
-                    setCurrentShift(null);
-                    setShowCloseShiftModal(false);
-                    toast.success('Đã đóng ca thành công', 'Ca thu ngân đã được lưu trữ.');
+                    toast.error('Không thể kết ca', e?.message || 'Đã xảy ra lỗi khi lưu kết ca.');
                   }
                 }}
                 className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-xs"
