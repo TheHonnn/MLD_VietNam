@@ -683,33 +683,40 @@ class BookingRepository {
     try {
       final cancellationNote = reason.trim().isNotEmpty ? reason.trim() : 'Khách hàng yêu cầu hủy lịch';
 
-      // 1. Cập nhật trực tiếp lên Database Supabase (bảng bookings)
-      final response = await _apiClient.dio.patch(
-        '${ApiEndpoints.bookings}?id=eq.$id',
-        data: {
-          'status': 'CANCELLED',
-          'cancellation_reason': cancellationNote,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation',
-          },
-        ),
-      );
-
-      // 2. Dự phòng gọi backend trung tâm nếu có
+      // 1. Ưu tiên gọi Backend Trung tâm NestJS (/api/v1/bookings/:id/cancel)
+      // Backend xác thực JWT token của người dùng, kiểm tra quyền sở hữu và giải phóng tài nguyên an toàn
+      bool isSuccess = false;
       try {
-        await _apiClient.dio.patch(
+        final res = await _apiClient.dio.patch(
           ApiEndpoints.bookingCancel(id),
           data: {'reason': cancellationNote},
         );
-      } catch (_) {}
+        isSuccess = res.statusCode == 200 || res.statusCode == 204;
+      } catch (backendError) {
+        debugPrint('>>> [BookingRepository] Backend NestJS cancel fallback to Supabase: $backendError');
+      }
 
-      final isSuccess = response.statusCode == 200 || response.statusCode == 204;
+      // 2. Dự phòng gọi Supabase REST với anon key và RLS (chỉ cho phép khách hàng hủy lịch của chính mình)
+      if (!isSuccess) {
+        final response = await _apiClient.dio.patch(
+          '${ApiEndpoints.bookings}?id=eq.$id',
+          data: {
+            'status': 'CANCELLED',
+            'cancellation_reason': cancellationNote,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          options: Options(
+            headers: {
+              'apikey': ApiEndpoints.supabaseAnonKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation',
+            },
+          ),
+        );
+        isSuccess = response.statusCode == 200 || response.statusCode == 204;
+      }
+
       if (isSuccess) {
         final index = _appointments.indexWhere((a) => a.id == id);
         if (index != -1) {

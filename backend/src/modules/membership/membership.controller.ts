@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Query,
   UseGuards,
@@ -128,6 +129,25 @@ export class MembershipController {
     @Body() dto: UpdateSettingsDto,
   ) {
     return this.membershipService.updateSettings(userId || 'default-user', dto);
+  }
+
+  @Post('referral/link')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'F07: Liên kết người giới thiệu (chuyển qua backend bảo mật)' })
+  async linkReferral(
+    @CurrentUser('id') userId: string,
+    @Body('referralCode') code: string,
+  ) {
+    return this.membershipService.linkReferral(userId || 'default-user', code);
+  }
+
+  @Delete('referral')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'F07: Gỡ người giới thiệu (chuyển qua backend bảo mật)' })
+  async clearReferral(@CurrentUser('id') userId: string) {
+    return this.membershipService.clearReferral(userId || 'default-user');
   }
 }
 

@@ -375,8 +375,8 @@ class MembershipRepository {
           '${ApiEndpoints.users}?$queryParam&select=id,full_name,phone,email,avatar_url,gender,date_of_birth,address,emergency_contact_name,emergency_contact_phone,membership_tier,reward_points,referral_code,referred_by_id&limit=1',
           options: Options(
             headers: {
-              'apikey': ApiEndpoints.supabaseServiceRoleKey,
-              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+              'apikey': ApiEndpoints.supabaseAnonKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
             },
           ),
         );
@@ -418,8 +418,8 @@ class MembershipRepository {
                 '${ApiEndpoints.users}?id=eq.$dbReferredById&select=full_name,role&limit=1',
                 options: Options(
                   headers: {
-                    'apikey': ApiEndpoints.supabaseServiceRoleKey,
-                    'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                    'apikey': ApiEndpoints.supabaseAnonKey,
+                    'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
                   },
                 ),
               );
@@ -516,8 +516,8 @@ class MembershipRepository {
         data: bytes,
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
             'Content-Type': mimeType,
           },
         ),
@@ -615,8 +615,8 @@ class MembershipRepository {
           data: updateData,
           options: Options(
             headers: {
-              'apikey': ApiEndpoints.supabaseServiceRoleKey,
-              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+              'apikey': ApiEndpoints.supabaseAnonKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
               'Content-Type': 'application/json',
               'Prefer': 'return=representation',
             },
@@ -647,8 +647,8 @@ class MembershipRepository {
             data: insertData,
             options: Options(
               headers: {
-                'apikey': ApiEndpoints.supabaseServiceRoleKey,
-                'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                'apikey': ApiEndpoints.supabaseAnonKey,
+                'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation',
               },
@@ -717,8 +717,8 @@ class MembershipRepository {
           },
           options: Options(
             headers: {
-              'apikey': ApiEndpoints.supabaseServiceRoleKey,
-              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+              'apikey': ApiEndpoints.supabaseAnonKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
               'Content-Type': 'application/json',
               'Prefer': 'return=representation',
             },
@@ -1039,13 +1039,39 @@ class MembershipRepository {
       return {'success': false, 'message': 'Vui lòng đăng nhập để liên kết mã'};
     }
 
+    // 1. Ưu tiên gọi qua Backend NestJS (/api/v1/membership/referral/link)
+    try {
+      final bRes = await _apiClient.dio.post(
+        ApiEndpoints.membershipReferralLink,
+        data: {'referralCode': cleanCode},
+      );
+      if (bRes.statusCode == 200 || bRes.statusCode == 201) {
+        final bData = bRes.data is Map ? bRes.data['data'] : null;
+        final rName = bData?['referrerName']?.toString() ?? 'Người giới thiệu';
+        final rId = bData?['referrerId']?.toString();
+        _userProfile = _userProfile.copyWith(
+          referrerName: rName,
+          referredById: rId,
+        );
+        _persistLocalProfile(_userProfile);
+        return {
+          'success': true,
+          'message': bRes.data['message'] ?? 'Đã liên kết người giới thiệu',
+          'referrerName': rName,
+        };
+      }
+    } catch (e) {
+      debugPrint('>>> [MembershipRepository] Backend linkReferral error: $e');
+    }
+
+    // 2. Dự phòng trực tiếp Supabase REST với anon key
     try {
       final findRes = await _apiClient.dio.get(
         '${ApiEndpoints.users}?referral_code=eq.$cleanCode&select=id,full_name,role&limit=1',
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
           },
         ),
       );
@@ -1065,8 +1091,8 @@ class MembershipRepository {
           data: {'referred_by_id': referrerId},
           options: Options(
             headers: {
-              'apikey': ApiEndpoints.supabaseServiceRoleKey,
-              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+              'apikey': ApiEndpoints.supabaseAnonKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
             },
           ),
         );
@@ -1097,14 +1123,26 @@ class MembershipRepository {
   Future<bool> clearReferral() async {
     final myId = AuthService.instance.currentUserId ?? _userProfile.id;
     if (myId.isEmpty) return false;
+
+    // 1. Ưu tiên gọi Backend NestJS (/api/v1/membership/referral)
+    try {
+      final bRes = await _apiClient.dio.delete(ApiEndpoints.membershipReferral);
+      if (bRes.statusCode == 200 || bRes.statusCode == 204) {
+        _userProfile = _userProfile.copyWith(clearReferrer: true);
+        _persistLocalProfile(_userProfile);
+        return true;
+      }
+    } catch (_) {}
+
+    // 2. Dự phòng Supabase REST với anon key
     try {
       await _apiClient.dio.patch(
         '${ApiEndpoints.users}?id=eq.$myId',
         data: {'referred_by_id': null},
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
           },
         ),
       );

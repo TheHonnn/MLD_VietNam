@@ -723,4 +723,70 @@ export class MembershipService {
       data: this.userSettings,
     };
   }
+
+  /**
+   * Liên kết mã người giới thiệu cho hội viên qua Backend NestJS (dùng adminClient, an toàn tuyệt đối)
+   */
+  async linkReferral(userId: string, code: string) {
+    const cleanCode = (code || '').trim().toUpperCase();
+    if (!cleanCode) {
+      throw new BadRequestException('Mã giới thiệu không được để trống');
+    }
+
+    const resolvedId = await this.resolveUserId(userId);
+    if (!resolvedId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để thực hiện');
+    }
+
+    const { data: referrer, error } = await this.supabaseService.adminClient
+      .from('users')
+      .select('id, full_name, role')
+      .eq('referral_code', cleanCode)
+      .maybeSingle();
+
+    if (error || !referrer) {
+      throw new BadRequestException('Mã giới thiệu không tồn tại trên hệ thống');
+    }
+
+    if (referrer.id === resolvedId) {
+      throw new BadRequestException('Không thể nhập mã của chính bạn');
+    }
+
+    await this.supabaseService.adminClient
+      .from('users')
+      .update({ referred_by_id: referrer.id })
+      .eq('id', resolvedId);
+
+    const displayRole = referrer.role === 'INSTRUCTOR' ? ' (Chỉ định Y khoa)' : (referrer.role === 'TECHNICIAN' ? ' (KTV Phục hồi)' : '');
+    const fullNameFormatted = `${referrer.full_name}${displayRole}`;
+
+    return {
+      success: true,
+      message: `Đã liên kết người giới thiệu: ${referrer.full_name}`,
+      data: {
+        referrerId: referrer.id,
+        referrerName: fullNameFormatted,
+      },
+    };
+  }
+
+  /**
+   * Gỡ bỏ người giới thiệu qua Backend NestJS
+   */
+  async clearReferral(userId: string) {
+    const resolvedId = await this.resolveUserId(userId);
+    if (!resolvedId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để thực hiện');
+    }
+
+    await this.supabaseService.adminClient
+      .from('users')
+      .update({ referred_by_id: null })
+      .eq('id', resolvedId);
+
+    return {
+      success: true,
+      message: 'Đã gỡ bỏ người giới thiệu thành công',
+    };
+  }
 }
