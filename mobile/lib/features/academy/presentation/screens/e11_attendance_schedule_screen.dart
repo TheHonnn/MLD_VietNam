@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../widgets/academy_widgets.dart';
 import 'e01_academy_home_screen.dart';
 
 /// Screen E11: Lịch học & điểm danh [8116:26294]
-/// Không sử dụng dữ liệu tĩnh giả mạo. Phản ánh đúng trạng thái thực tế từ CSDL.
+/// Đồng bộ 100% Brand Design System 60-30-10 và Font Be Vietnam Pro
 class E11AttendanceScheduleScreen extends StatefulWidget {
   const E11AttendanceScheduleScreen({super.key});
 
@@ -13,8 +15,6 @@ class E11AttendanceScheduleScreen extends StatefulWidget {
 }
 
 class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScreen> {
-  
-
   Widget _buildEmptyScheduleState() {
     return Container(
       width: double.infinity,
@@ -22,7 +22,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
+        border: Border.all(color: AppColors.border, width: 1.0),
       ),
       child: Column(
         children: [
@@ -30,23 +30,23 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
             width: 64,
             height: 64,
             decoration: const BoxDecoration(
-              color: AcademyColors.cardWarm,
+              color: AppColors.mintBackground,
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.event_note_outlined,
               size: 32,
-              color: AcademyColors.primary,
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(height: 16),
           Text(
             context.tr('Chưa có lịch học thực hành trực tiếp', 'No live practical schedule yet'),
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: GoogleFonts.beVietnamPro(
               fontSize: 17,
               fontWeight: FontWeight.w700,
-              color: AcademyColors.heading,
+              color: AppColors.textHeading,
             ),
           ),
           const SizedBox(height: 8),
@@ -56,9 +56,9 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
               'All 11 MLD courses are currently delivered online via video lectures. When practical training sessions are scheduled at facilities, dates and rooms will appear here.',
             ),
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: GoogleFonts.beVietnamPro(
               fontSize: 13,
-              color: AcademyColors.textSecondary,
+              color: AppColors.textSecondary,
               height: 1.45,
             ),
           ),
@@ -76,7 +76,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AcademyColors.primary,
+                backgroundColor: AppColors.accent,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
@@ -90,7 +90,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                   Flexible(
                     child: Text(
                       context.tr('Xem danh mục 11 khóa học', 'View 11 Courses Catalog'),
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      style: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.w600),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -107,7 +107,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AcademyColors.background,
+      backgroundColor: AppColors.background,
       appBar: const AcademyAppBar(),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -118,20 +118,20 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
             // 1. Giới thiệu [8116:26299]
             Text(
               context.tr('Lịch học & điểm danh', 'Class Schedule & Attendance'),
-              style: const TextStyle(
-                fontSize: 28,
+              style: GoogleFonts.beVietnamPro(
+                fontSize: 26,
                 fontWeight: FontWeight.w700,
-                color: AcademyColors.heading,
+                color: AppColors.textHeading,
                 height: 1.25,
               ),
             ),
             const SizedBox(height: 6),
             Text(
               context.tr('Chủ động theo dõi lịch đào tạo và các buổi thực hành.', 'Track training schedule and practical sessions proactively.'),
-              style: const TextStyle(
-                fontSize: 14,
+              style: GoogleFonts.beVietnamPro(
+                fontSize: 13.5,
                 fontWeight: FontWeight.w400,
-                color: AcademyColors.textSecondary,
+                color: AppColors.textSecondary,
                 height: 1.4,
               ),
             ),

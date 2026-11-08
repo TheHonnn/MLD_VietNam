@@ -795,7 +795,7 @@ class _CourseCardItemState extends State<_CourseCardItem> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: isApproved ? const Color(0xFF2860EB) : const Color(0xFFD97706),
+                          color: isApproved ? AppColors.primary : const Color(0xFFD97706),
                           borderRadius: BorderRadius.circular(6),
                           boxShadow: [
                             BoxShadow(

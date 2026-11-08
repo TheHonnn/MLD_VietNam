@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 
+/// Bảng mã màu Phân hệ Đào tạo - Đồng bộ 100% Brand Design System 60 - 30 - 10
 class AcademyColors {
-  static const Color background = Color(0xFFFFFFFF);
-  static const Color primary = Color(0xFF2860EB);
-  static const Color primaryDark = Color(0xFF1D4ED8);
-  static const Color heading = Color(0xFF1F2937);
-  static const Color textPrimary = Color(0xFF1F2937);
-  static const Color textSecondary = Color(0xFF616161);
-  static const Color cardWarm = Color(0xFFEFF4FE);
-  static const Color cardBorder = Color(0xFFE5E7EB);
-  static const Color cardWhite = Colors.white;
-  static const Color success = Color(0xFF10B981);
-  static const Color price = Color(0xFF00693F); // rgb(0, 105, 63)
+  static const Color background = AppColors.background; // 60% Nền tảng (#FFFFFF)
+  static const Color primary = AppColors.primary; // 30% Cấu trúc chính (#004890)
+  static const Color primaryDark = AppColors.primaryDark; // (#003366)
+  static const Color heading = AppColors.textHeading; // (#004890)
+  static const Color textPrimary = AppColors.textPrimary; // (#344454)
+  static const Color textSecondary = AppColors.textSecondary; // (#607080)
+  static const Color cardWarm = AppColors.mintBackground; // 60% Container (#EFF6EE)
+  static const Color cardBorder = AppColors.border; // (#E2E8F0)
+  static const Color cardWhite = AppColors.surface; // (#FFFFFF)
+  static const Color success = AppColors.accent; // 10% Điểm nhấn (#208C58)
+  static const Color price = AppColors.coursePrice; // 10% Điểm nhấn giá (#208C58)
 }
 
 class AcademyAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -75,9 +78,9 @@ class AcademyAppBar extends StatelessWidget implements PreferredSizeWidget {
             child: Center(
               child: Text(
                 AppTranslation.translate(subtitleTag, isEn: context.isEn),
-                style: const TextStyle(
+                style: GoogleFonts.beVietnamPro(
                   fontSize: 12,
-                  fontWeight: FontWeight.w400,
+                  fontWeight: FontWeight.w500,
                   color: AcademyColors.textSecondary,
                 ),
               ),
@@ -108,7 +111,7 @@ class AcademyHeaderSection extends StatelessWidget {
         if (badgeText != null) ...[
           Text(
             AppTranslation.translate(badgeText, isEn: context.isEn).toUpperCase(),
-            style: const TextStyle(
+            style: GoogleFonts.beVietnamPro(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.5,
@@ -119,9 +122,9 @@ class AcademyHeaderSection extends StatelessWidget {
         ],
         Text(
           title.tr(context),
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w600,
+          style: GoogleFonts.beVietnamPro(
+            fontSize: 26,
+            fontWeight: FontWeight.w700,
             color: AcademyColors.heading,
             height: 1.25,
           ),
@@ -130,11 +133,11 @@ class AcademyHeaderSection extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             subtitle.tr(context),
-            style: const TextStyle(
-              fontSize: 14,
+            style: GoogleFonts.beVietnamPro(
+              fontSize: 13.5,
               fontWeight: FontWeight.w400,
               color: AcademyColors.textPrimary,
-              height: 1.4,
+              height: 1.45,
             ),
           ),
         ],
@@ -183,7 +186,7 @@ class AcademyFixedBottomBar extends StatelessWidget {
                       AppTranslation.translate(summaryText, isEn: context.isEn),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: GoogleFonts.beVietnamPro(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: AcademyColors.primary,
@@ -195,12 +198,12 @@ class AcademyFixedBottomBar extends StatelessWidget {
               ],
               SizedBox(
                 width: double.infinity,
-                height: 56,
+                height: 54,
                 child: ElevatedButton(
                   onPressed: isEnabled ? onPressed : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AcademyColors.primary,
-                    disabledBackgroundColor: AcademyColors.primary.withValues(alpha: 0.5),
+                    backgroundColor: AppColors.accent, // 10% CTA Điểm nhấn hành động chuẩn Brand System
+                    disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.5),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -208,9 +211,9 @@ class AcademyFixedBottomBar extends StatelessWidget {
                   ),
                   child: Text(
                     AppTranslation.translate(buttonText, isEn: context.isEn),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                    style: GoogleFonts.beVietnamPro(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
                       color: Colors.white,
                     ),
                   ),

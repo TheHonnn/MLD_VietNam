@@ -208,10 +208,10 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFFEFF4FE) : Colors.white,
+                        color: isSelected ? AppColors.mintBackground : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isSelected ? const Color(0xFF2860EB) : AppColors.border,
+                          color: isSelected ? AppColors.primary : AppColors.border,
                           width: isSelected ? 1.5 : 1.0,
                         ),
                       ),
@@ -219,7 +219,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                         children: [
                           Icon(
                             isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                            color: isSelected ? const Color(0xFF2860EB) : AppColors.textSecondary,
+                            color: isSelected ? AppColors.primary : AppColors.textSecondary,
                             size: 20,
                           ),
                           const SizedBox(width: 12),
@@ -232,7 +232,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                    color: isSelected ? const Color(0xFF2860EB) : AppColors.textPrimary,
+                                    color: isSelected ? AppColors.primary : AppColors.textPrimary,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
