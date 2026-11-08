@@ -154,9 +154,48 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
     }
   }
 
+  Widget _buildPreviewWidget(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) {
+      return const Icon(
+        Icons.add_photo_alternate_outlined,
+        size: 26,
+        color: Color(0xFF9CA3AF),
+      );
+    }
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return Image.network(
+        trimmed,
+        width: 64,
+        height: 64,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.broken_image_outlined,
+          size: 26,
+          color: Color(0xFF9CA3AF),
+        ),
+      );
+    } else {
+      return Image.asset(
+        trimmed,
+        width: 64,
+        height: 64,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.broken_image_outlined,
+          size: 26,
+          color: Color(0xFF9CA3AF),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
@@ -263,23 +302,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: const Color(0xFFE5E7EB)),
                       ),
-                      child: _imageUrlController.text.trim().isNotEmpty
-                          ? Image.network(
-                              _imageUrlController.text.trim(),
-                              width: 64,
-                              height: 64,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.broken_image_outlined,
-                                size: 26,
-                                color: Color(0xFF9CA3AF),
-                              ),
-                            )
-                          : const Icon(
-                              Icons.add_photo_alternate_outlined,
-                              size: 26,
-                              color: Color(0xFF9CA3AF),
-                            ),
+                      child: _buildPreviewWidget(_imageUrlController.text),
                     ),
                   ),
                   const SizedBox(width: 10),

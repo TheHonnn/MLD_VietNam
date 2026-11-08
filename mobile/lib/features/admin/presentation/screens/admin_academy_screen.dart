@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
@@ -136,6 +138,172 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
           );
           _fetchData();
         },
+      ),
+    );
+  }
+
+  String _formatPrice(double amount) {
+    final formatter = NumberFormat('#,###', 'vi_VN');
+    return '${formatter.format(amount)} ₫';
+  }
+
+  void _showCandidateDetailSheet(AdminCandidateModel c) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Chi tiết học viên ${c.orderCode}',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHeading,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const Divider(color: Color(0xFFE5E7EB)),
+              const SizedBox(height: 8),
+              _buildDetailRow('Họ tên học viên:', c.candidateName),
+              _buildDetailRow('Số điện thoại:', c.candidatePhone),
+              if (c.candidateEmail != null && c.candidateEmail!.isNotEmpty)
+                _buildDetailRow('Email:', c.candidateEmail!),
+              _buildDetailRow('Khóa học:', c.courseTitle),
+              _buildDetailRow('Trạng thái:', c.status),
+              _buildDetailRow('Học phí niêm yết:', _formatPrice(c.tuitionTotal)),
+              _buildDetailRow('Đã thanh toán:', _formatPrice(c.amountPaid)),
+              if (c.tuitionTotal > c.amountPaid)
+                _buildDetailRow(
+                  'Còn lại cần thu:',
+                  _formatPrice(c.tuitionTotal - c.amountPaid),
+                  valueColor: const Color(0xFFDC2626),
+                ),
+              if (c.batchCode != null && c.batchCode!.isNotEmpty)
+                _buildDetailRow('Lớp phân bổ:', c.batchCode!),
+              if (c.createdAt.isNotEmpty)
+                _buildDetailRow('Ngày đăng ký:', c.createdAt),
+              if (c.notes != null && c.notes!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Ghi chú hồ sơ:',
+                  style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: Text(
+                    c.notes!,
+                    style: GoogleFonts.montserrat(fontSize: 12, color: AppColors.textHeading),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  if (c.candidatePhone.isNotEmpty)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final uri = Uri.parse('tel:${c.candidatePhone}');
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri);
+                          }
+                        },
+                        icon: const Icon(Icons.phone_rounded, size: 16),
+                        label: Text('Gọi điện', style: GoogleFonts.montserrat(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0D6832),
+                          side: const BorderSide(color: Color(0xFF0D6832)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  if (c.candidatePhone.isNotEmpty) const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _openAssignBatch(c);
+                      },
+                      icon: const Icon(Icons.group_add_rounded, size: 16),
+                      label: Text(
+                        c.batchId != null ? 'Đổi lớp' : 'Xếp lớp',
+                        style: GoogleFonts.montserrat(fontSize: 12.5, fontWeight: FontWeight.w600),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00693F),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(
+              label,
+              style: GoogleFonts.montserrat(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.montserrat(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: valueColor ?? AppColors.textHeading,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -416,6 +584,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
         final c = _filteredCandidates[index];
         return AdminCandidateCard(
           candidate: c,
+          onViewDetail: () => _showCandidateDetailSheet(c),
           onAssignBatch: () => _openAssignBatch(c),
           onConfirmConsultation: () {
             ScaffoldMessenger.of(context).showSnackBar(

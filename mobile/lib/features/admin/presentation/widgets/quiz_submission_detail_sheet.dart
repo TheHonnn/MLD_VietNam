@@ -64,6 +64,9 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
       padding: EdgeInsets.only(
         left: 20,
         right: 20,

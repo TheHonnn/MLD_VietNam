@@ -63,7 +63,7 @@ class AdminRepository {
         }
       } catch (_) {}
 
-      // B. Thống kê lịch hẹn hôm nay
+      // B. Thống kê lịch hẹn hôm nay & Tất cả ca đang chờ duyệt
       int todayBk = 0;
       int checkedInBk = 0;
       int pendingBk = 0;
@@ -80,10 +80,16 @@ class AdminRepository {
             final st = (b['status']?.toString() ?? '').toUpperCase();
             if (st == 'CHECKED_IN' || st == 'IN_SERVICE') {
               checkedInBk++;
-            } else if (st == 'PENDING') {
-              pendingBk++;
             }
           }
+        }
+
+        // Đếm TẤT CẢ các ca PENDING đang chờ duyệt (mọi ngày)
+        final pendingRes = await _apiClient.dio.get(
+          '/rest/v1/bookings?select=id&status=eq.PENDING$branchParam',
+        );
+        if (pendingRes.data is List) {
+          pendingBk = pendingRes.data.length;
         }
       } catch (_) {}
 
@@ -129,28 +135,30 @@ class AdminRepository {
   Future<List<AdminActionItem>> fetchPendingActionItems({String? branchId}) async {
     final List<AdminActionItem> items = [];
 
-    // A. Lịch hẹn PENDING
+    // A. Lịch hẹn PENDING (Tất cả ngày)
     try {
       String query =
-          '/rest/v1/bookings?select=id,booking_code,booking_date,start_time,customer_name,customer_phone,service_name,branch_id,created_at&status=eq.PENDING&order=created_at.desc&limit=10';
+          '/rest/v1/bookings?select=id,booking_code,booking_date,start_time,booked_for_name,booked_for_phone,final_price,branch_id,created_at,branches(name)&status=eq.PENDING&order=created_at.desc&limit=10';
       if (branchId != null && branchId.isNotEmpty && branchId != 'ALL') {
         query += '&branch_id=eq.$branchId';
       }
       final res = await _apiClient.dio.get(query);
       if (res.data is List) {
         for (final b in res.data) {
-          final custName = b['customer_name']?.toString() ?? 'Khách hàng';
-          final sName = b['service_name']?.toString() ?? 'Dịch vụ MLD';
+          final custName = b['booked_for_name']?.toString() ?? 'Khách hàng';
+          final sName = 'Trị liệu MLD';
           final sTime = b['start_time']?.toString() ?? '';
           final bDate = b['booking_date']?.toString() ?? '';
+          final branchObj = b['branches'];
+          final branchName = branchObj is Map ? branchObj['name']?.toString() : null;
 
           items.add(AdminActionItem(
             id: 'bk_${b['id']}',
             type: AdminActionType.pendingBooking,
             title: '$custName đặt lịch $sName',
-            subtitle: 'Thời gian: $sTime ngày $bDate',
+            subtitle: 'Thời gian: $sTime ngày $bDate${branchName != null ? " · $branchName" : ""}',
             timeAgo: 'Cần duyệt xác nhận',
-            secondaryInfo: b['customer_phone']?.toString(),
+            secondaryInfo: b['booked_for_phone']?.toString(),
             rawId: b['id']?.toString() ?? '',
             rawData: b as Map<String, dynamic>,
           ));
@@ -163,12 +171,13 @@ class AdminRepository {
     // B. Học viên đã nộp tiền chờ xếp lớp
     try {
       final res = await _apiClient.dio.get(
-        '/rest/v1/course_enrollments?select=id,order_code,candidate_name,candidate_phone,course_title,amount_paid,tuition_total,created_at&batch_id=is.null&amount_paid=gt.0&order=created_at.desc&limit=10',
+        '/rest/v1/course_enrollments?select=id,order_code,student_name,student_phone,amount_paid,tuition_total,created_at,courses(title)&batch_id=is.null&amount_paid=gt.0&order=created_at.desc&limit=10',
       );
       if (res.data is List) {
         for (final e in res.data) {
-          final sName = e['candidate_name']?.toString() ?? 'Học viên';
-          final cTitle = e['course_title']?.toString() ?? 'Khóa học MLD';
+          final sName = e['student_name']?.toString() ?? 'Học viên';
+          final courseObj = e['courses'];
+          final cTitle = courseObj is Map ? courseObj['title']?.toString() ?? 'Khóa học MLD' : 'Khóa học MLD';
           final paid = double.tryParse(e['amount_paid']?.toString() ?? '0') ?? 0.0;
           final formatter = NumberFormat('#,###', 'vi_VN');
 
@@ -178,7 +187,7 @@ class AdminRepository {
             title: '$sName đã nộp ${formatter.format(paid)} ₫',
             subtitle: 'Khóa: $cTitle (Đang chờ xếp lớp)',
             timeAgo: 'Chờ xếp lớp',
-            secondaryInfo: e['candidate_phone']?.toString(),
+            secondaryInfo: e['student_phone']?.toString(),
             rawId: e['id']?.toString() ?? '',
             rawData: e as Map<String, dynamic>,
           ));
@@ -191,7 +200,7 @@ class AdminRepository {
     // C. Bài thi học viên nộp gần đây
     try {
       final res = await _apiClient.dio.get(
-        '/rest/v1/quiz_submissions?select=id,score,passed,submitted_at,course_enrollments(candidate_name,course_title)&order=submitted_at.desc&limit=5',
+        '/rest/v1/quiz_submissions?select=id,score,passed,submitted_at,course_enrollments(student_name,courses(title))&order=submitted_at.desc&limit=5',
       );
       if (res.data is List) {
         for (final q in res.data) {
@@ -199,8 +208,11 @@ class AdminRepository {
           String sName = 'Học viên';
           String cTitle = 'Đào tạo MLD';
           if (enr is Map) {
-            sName = enr['candidate_name']?.toString() ?? sName;
-            cTitle = enr['course_title']?.toString() ?? cTitle;
+            sName = enr['student_name']?.toString() ?? sName;
+            final cObj = enr['courses'];
+            if (cObj is Map) {
+              cTitle = cObj['title']?.toString() ?? cTitle;
+            }
           }
           final score = q['score']?.toString() ?? '0';
           final passed = q['passed'] == true;
@@ -229,11 +241,12 @@ class AdminRepository {
     String? bookingDate,
     String? status,
     String? branchId,
+    bool isAllDates = false,
   }) async {
     try {
       String query =
-          '/rest/v1/bookings?select=*,branches(name),technicians(full_name),branch_rooms(name)&order=start_time.asc';
-      if (bookingDate != null && bookingDate.isNotEmpty) {
+          '/rest/v1/bookings?select=*,branches(name),technicians(full_name),branch_rooms(name)&order=booking_date.desc,start_time.asc';
+      if (!isAllDates && bookingDate != null && bookingDate.isNotEmpty) {
         query += '&booking_date=eq.$bookingDate';
       }
       if (status != null && status.isNotEmpty && status != 'ALL') {
