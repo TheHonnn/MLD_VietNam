@@ -3417,11 +3417,10 @@ export const W18_PortalContent: React.FC = () => {
                         navigator.clipboard.writeText(`{{${v}}}`);
                         toast.success('Đã sao chép', `Đã chép mã {{${v}}} (${getVariableLabel(v)}) vào bộ nhớ tạm.`);
                       }}
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-medium bg-[#FAF0E4] text-[#8A4F23] hover:bg-[#985018] hover:text-white transition-colors cursor-pointer border border-[#EAD8C7] flex items-center gap-1"
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-medium bg-[#FAF0E4] text-[#8A4F23] hover:bg-[#985018] hover:text-white transition-colors cursor-pointer border border-[#EAD8C7]"
                       title={`Bấm để copy mã {{${v}}}`}
                     >
-                      <span>{getVariableLabel(v)}</span>
-                      <span className="text-[9px] font-mono opacity-70">({`{{${v}}}`})</span>
+                      {getVariableLabel(v)}
                     </button>
                   ))}
                 </div>
@@ -3549,8 +3548,7 @@ export const W18_PortalContent: React.FC = () => {
                   {selectedTemplateForTest.variables?.slice(0, 6).map((variable) => (
                     <div key={variable}>
                       <label className="block text-xs font-semibold text-[#2C241E] mb-1">
-                        <span>{getVariableLabel(variable)}</span>
-                        <span className="ml-1 text-[10px] font-mono font-normal text-[#8C7A6B]">({`{{${variable}}}`})</span>
+                        {getVariableLabel(variable)}
                       </label>
                       <input
                         type="text"
