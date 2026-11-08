@@ -81,7 +81,9 @@ class ApiEndpoints {
   // --- Backend Central Auth Endpoints ---
   static const String authRegister = '/auth/register';
   static const String authRegisterEmail = '/auth/register/email';
+  static const String authRegisterPhone = '/auth/register/phone';
   static const String authVerifyEmailOtp = '/auth/verify-email-otp';
+  static const String authVerifyPhoneRegister = '/auth/verify-phone-register';
   static const String authResendOtp = '/auth/resend-otp';
   static const String authLogin = '/auth/login';
   static const String authLoginEmail = '/auth/login/email';

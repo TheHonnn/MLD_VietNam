@@ -27,6 +27,7 @@ import { VerifyPhoneOtpDto } from './dto/verify-phone-otp.dto';
 import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
+import { RegisterPhoneDto, VerifyPhoneRegisterDto } from './dto/register-phone.dto';
 import { AccountLinkDto } from './dto/account-link.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
@@ -191,7 +192,31 @@ export class AuthService {
    * Gửi lại mã xác thực OTP tới Email
    */
   async resendEmailOtp(email: string, purpose: 'REGISTER' | 'RESET_PASSWORD' | 'ACCOUNT_LINKING' | 'LOGIN' = 'REGISTER') {
-    const normalizedEmail = email.toLowerCase().trim();
+    const rawId = email.trim();
+    if (!rawId.includes('@')) {
+      let targetPhone = rawId.replace(/[^\d+]/g, '');
+      if (targetPhone.startsWith('+84')) targetPhone = '0' + targetPhone.substring(3);
+      else if (targetPhone.startsWith('84')) targetPhone = '0' + targetPhone.substring(2);
+      else if (!targetPhone.startsWith('0') && /^\d+$/.test(targetPhone)) targetPhone = '0' + targetPhone;
+
+      const rawOtp = await this.otpService.generateAndSaveOtp(targetPhone, purpose);
+      if (this.smsService) {
+        await this.smsService.sendOtpSms({
+          to: targetPhone,
+          otp: rawOtp,
+          purpose: purpose as any,
+        });
+      } else {
+        this.logger.log(`[SMS OTP Simulator] ${targetPhone}: ${rawOtp}`);
+      }
+      return {
+        success: true,
+        message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi lại qua tin nhắn SMS tới số điện thoại của bạn.',
+        phone: targetPhone,
+      };
+    }
+
+    const normalizedEmail = rawId.toLowerCase();
     const pendingJson = await this.redisService.get(`pending_email_reg:${normalizedEmail}`);
     let fullName: string | undefined;
     if (pendingJson) {
@@ -758,8 +783,170 @@ export class AuthService {
   /**
    * Quên mật khẩu: Gửi OTP xác minh về Email
    */
+  async registerPhone(dto: RegisterPhoneDto) {
+    const raw = dto.phone.trim().replace(/[^\d+]/g, '');
+    let targetPhone = raw;
+    if (targetPhone.startsWith('+84')) targetPhone = '0' + targetPhone.substring(3);
+    else if (targetPhone.startsWith('84')) targetPhone = '0' + targetPhone.substring(2);
+    else if (!targetPhone.startsWith('0') && /^\d+$/.test(targetPhone)) targetPhone = '0' + targetPhone;
+    const plusPhone = targetPhone.startsWith('0') ? '+84' + targetPhone.substring(1) : targetPhone;
+
+    const { data: existingUser } = await this.supabaseService.adminClient
+      .from('users')
+      .select('id')
+      .or(`phone.eq.${targetPhone},phone.eq.${plusPhone}`)
+      .maybeSingle();
+
+    if (existingUser) {
+      throw new ConflictException('Số điện thoại này đã được đăng ký tài khoản. Vui lòng đăng nhập.');
+    }
+
+    const passwordHash = await this.passwordHasherService.hashPassword(dto.password);
+    await this.redisService.set(
+      `pending_phone_reg:${targetPhone}`,
+      JSON.stringify({
+        fullName: dto.fullName.trim(),
+        phone: targetPhone,
+        passwordHash,
+      }),
+      600,
+    );
+
+    const rawOtp = await this.otpService.generateAndSaveOtp(targetPhone, 'REGISTER');
+    if (this.smsService) {
+      await this.smsService.sendOtpSms({
+        to: targetPhone,
+        otp: rawOtp,
+        purpose: 'REGISTER_PHONE' as any,
+      });
+    } else {
+      this.logger.log(`[SMS OTP Simulator] ${targetPhone}: ${rawOtp}`);
+    }
+
+    return {
+      success: true,
+      message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi qua tin nhắn SMS tới số điện thoại của bạn.',
+      phone: targetPhone,
+    };
+  }
+
+  async verifyPhoneRegister(dto: VerifyPhoneRegisterDto) {
+    const raw = dto.phone.trim().replace(/[^\d+]/g, '');
+    let targetPhone = raw;
+    if (targetPhone.startsWith('+84')) targetPhone = '0' + targetPhone.substring(3);
+    else if (targetPhone.startsWith('84')) targetPhone = '0' + targetPhone.substring(2);
+    else if (!targetPhone.startsWith('0') && /^\d+$/.test(targetPhone)) targetPhone = '0' + targetPhone;
+
+    await this.otpService.verifyOtp(targetPhone, 'REGISTER', dto.otp);
+
+    const pendingStr = await this.redisService.get(`pending_phone_reg:${targetPhone}`);
+    let pending: any = null;
+    if (pendingStr) {
+      try {
+        pending = JSON.parse(pendingStr);
+      } catch (_) {}
+    }
+
+    const { data: existingUser } = await this.supabaseService.adminClient
+      .from('users')
+      .select('id, phone, email, full_name, role, avatar_url, referral_code')
+      .eq('phone', targetPhone)
+      .maybeSingle();
+
+    if (!pending && !existingUser) {
+      throw new BadRequestException('Phiên đăng ký đã hết hạn. Vui lòng thực hiện lại từ đầu.');
+    }
+
+    let userRecord = existingUser;
+
+    if (!userRecord && pending) {
+      const referralCode = `MLD${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const { data: newUser, error } = await this.supabaseService.adminClient
+        .from('users')
+        .insert({
+          phone: targetPhone,
+          password_hash: pending.passwordHash,
+          full_name: pending.fullName || 'Khách hàng MLD',
+          role: 'CUSTOMER',
+          referral_code: referralCode,
+          is_phone_verified: true,
+          is_active: true,
+        })
+        .select('id, phone, email, full_name, role, avatar_url, referral_code')
+        .single();
+
+      if (error || !newUser) {
+        throw new BadRequestException(`Không thể tạo tài khoản: ${error?.message}`);
+      }
+
+      await this.supabaseService.adminClient.from('auth_identities').insert({
+        user_id: newUser.id,
+        identity_type: 'phone',
+        identifier: targetPhone,
+        password_hash: pending.passwordHash,
+        is_verified: true,
+      });
+
+      userRecord = newUser;
+    }
+
+    await this.redisService.del(`pending_phone_reg:${targetPhone}`);
+    const tokens = await this.generateTokens(userRecord.id, userRecord.phone || '', userRecord.role || 'CUSTOMER');
+    return {
+      user: userRecord,
+      ...tokens,
+    };
+  }
+
   async forgotPassword(dto: ForgotPasswordDto) {
-    const cleanEmail = dto.email.toLowerCase().trim();
+    const rawId = (dto.phone || dto.identifier || dto.email || '').trim();
+    const isEmail = rawId.includes('@');
+
+    if (!isEmail) {
+      let targetPhone = rawId.replace(/[^\d+]/g, '');
+      if (targetPhone.startsWith('+84')) targetPhone = '0' + targetPhone.substring(3);
+      else if (targetPhone.startsWith('84')) targetPhone = '0' + targetPhone.substring(2);
+      else if (!targetPhone.startsWith('0') && /^\d+$/.test(targetPhone)) targetPhone = '0' + targetPhone;
+      const plusPhone = targetPhone.startsWith('0') ? '+84' + targetPhone.substring(1) : targetPhone;
+
+      const { data: user } = await this.supabaseService.adminClient
+        .from('users')
+        .select('id, phone, full_name')
+        .or(`phone.eq.${targetPhone},phone.eq.${plusPhone}`)
+        .maybeSingle();
+
+      if (!user) {
+        const { data: identity } = await this.supabaseService.adminClient
+          .from('auth_identities')
+          .select('user_id')
+          .or(`identifier.eq.${targetPhone},identifier.eq.${plusPhone}`)
+          .maybeSingle();
+        if (!identity) {
+          return {
+            success: true,
+            message: 'Nếu số điện thoại tồn tại trong hệ thống, mã xác thực OTP sẽ được gửi qua tin nhắn SMS tới số của bạn.',
+          };
+        }
+      }
+
+      const rawOtp = await this.otpService.generateAndSaveOtp(targetPhone, 'RESET_PASSWORD');
+      if (this.smsService) {
+        await this.smsService.sendOtpSms({
+          to: targetPhone,
+          otp: rawOtp,
+          purpose: 'RESET_PASSWORD' as any,
+        });
+      } else {
+        this.logger.log(`[SMS OTP Simulator] ${targetPhone}: ${rawOtp}`);
+      }
+
+      return {
+        success: true,
+        message: 'Mã xác thực OTP đã được gửi qua tin nhắn SMS tới số điện thoại của bạn.',
+      };
+    }
+
+    const cleanEmail = rawId.toLowerCase();
     const { data: user } = await this.supabaseService.adminClient
       .from('users')
       .select('id, email, full_name')
@@ -767,7 +954,6 @@ export class AuthService {
       .maybeSingle();
 
     if (!user) {
-      // Để bảo mật thông tin, không tiết lộ email có tồn tại hay không
       return {
         success: true,
         message: 'Nếu địa chỉ email tồn tại trong hệ thống, mã xác thực OTP sẽ được gửi về hộp thư của bạn.',
@@ -788,11 +974,43 @@ export class AuthService {
     };
   }
 
-  /**
-   * Đặt lại mật khẩu mới sau khi xác thực OTP thành công
-   */
   async resetPassword(dto: ResetPasswordDto) {
-    const cleanEmail = dto.email.toLowerCase().trim();
+    const rawId = (dto.phone || dto.identifier || dto.email || '').trim();
+    const isEmail = rawId.includes('@');
+
+    if (!isEmail) {
+      let targetPhone = rawId.replace(/[^\d+]/g, '');
+      if (targetPhone.startsWith('+84')) targetPhone = '0' + targetPhone.substring(3);
+      else if (targetPhone.startsWith('84')) targetPhone = '0' + targetPhone.substring(2);
+      else if (!targetPhone.startsWith('0') && /^\d+$/.test(targetPhone)) targetPhone = '0' + targetPhone;
+      const plusPhone = targetPhone.startsWith('0') ? '+84' + targetPhone.substring(1) : targetPhone;
+
+      await this.otpService.verifyOtp(targetPhone, 'RESET_PASSWORD', dto.otp);
+
+      const newHash = await this.passwordHasherService.hashPassword(dto.newPassword);
+
+      const { data: user } = await this.supabaseService.adminClient
+        .from('users')
+        .update({ password_hash: newHash })
+        .or(`phone.eq.${targetPhone},phone.eq.${plusPhone}`)
+        .select('id')
+        .maybeSingle();
+
+      if (user?.id) {
+        await this.supabaseService.adminClient
+          .from('auth_identities')
+          .update({ password_hash: newHash })
+          .eq('user_id', user.id);
+        await this.revokeAllTokens(user.id);
+      }
+
+      return {
+        success: true,
+        message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.',
+      };
+    }
+
+    const cleanEmail = rawId.toLowerCase();
     await this.otpService.verifyOtp(cleanEmail, 'RESET_PASSWORD', dto.otp);
 
     const newHash = await this.passwordHasherService.hashPassword(dto.newPassword);
@@ -808,14 +1026,12 @@ export class AuthService {
       throw new NotFoundException('Không tìm thấy tài khoản để cập nhật mật khẩu');
     }
 
-    // Cập nhật cả trong auth_identities
     await this.supabaseService.adminClient
       .from('auth_identities')
       .update({ password_hash: newHash })
       .eq('user_id', user.id)
       .eq('identifier', cleanEmail);
 
-    // Thu hồi tất cả các phiên đăng nhập cũ để đảm bảo an toàn
     await this.revokeAllTokens(user.id);
 
     return {

@@ -177,6 +177,67 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
             (route) => false,
           );
         }
+      } else if (widget.purpose == 'REGISTER_PHONE') {
+        final res = await ApiClient.instance.post(
+          ApiEndpoints.authVerifyPhoneRegister,
+          data: {
+            'phone': widget.phoneNumber!.trim(),
+            'otp': code,
+          },
+        );
+
+        final body = res.data;
+        final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
+        final accessToken = data['accessToken'] as String?;
+        final refreshToken = data['refreshToken'] as String?;
+        final user = data['user'] as Map<String, dynamic>?;
+
+        if (accessToken != null && accessToken.isNotEmpty) {
+          final registeredName = (user?['full_name'] ?? user?['fullName']) as String?;
+          final userAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
+          final userPhone = user?['phone'] as String? ?? widget.phoneNumber;
+          final userRole = user?['role']?.toString().toUpperCase();
+          await AuthService.instance.saveSession(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            userId: user?['id'] as String?,
+            phone: userPhone,
+            displayName: registeredName,
+            avatarUrl: userAvatar,
+            role: userRole,
+          );
+
+          await AuthService.instance.saveLastLogin(
+            phone: userPhone,
+            method: 'phone',
+          );
+
+          MembershipRepository.instance.syncUserSession(
+            fullName: registeredName,
+            phone: userPhone,
+            avatarUrl: userAvatar,
+            memberCode: user?['referral_code']?.toString() ?? user?['referralCode']?.toString(),
+          );
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đăng ký tài khoản thành công! Đang vào ứng dụng...'),
+              backgroundColor: AppColors.primary,
+            ),
+          );
+          final targetScreen = AuthService.instance.isAdmin
+              ? const AdminMainLayoutScreen()
+              : const MainLayoutScreen();
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) => targetScreen,
+            ),
+            (route) => false,
+          );
+        }
       } else if (widget.purpose == 'RESET_PASSWORD') {
         // Trả mã OTP về cho luồng Reset Password
         if (mounted) {
@@ -394,16 +455,26 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
           );
         }
       } else {
-        try {
+        if (widget.purpose == 'REGISTER_PHONE' || widget.purpose == 'RESET_PASSWORD') {
           await ApiClient.instance.post(
-            ApiEndpoints.authRequestPhoneOtp,
-            data: {'phone': widget.phoneNumber},
+            ApiEndpoints.authResendOtp,
+            data: {
+              'email': widget.phoneNumber,
+              'purpose': widget.purpose == 'RESET_PASSWORD' ? 'RESET_PASSWORD' : 'REGISTER',
+            },
           );
-        } catch (_) {
-          await ApiClient.instance.post(
-            ApiEndpoints.sendOtp,
-            data: {'phone': widget.phoneNumber},
-          );
+        } else {
+          try {
+            await ApiClient.instance.post(
+              ApiEndpoints.authRequestPhoneOtp,
+              data: {'phone': widget.phoneNumber},
+            );
+          } catch (_) {
+            await ApiClient.instance.post(
+              ApiEndpoints.sendOtp,
+              data: {'phone': widget.phoneNumber},
+            );
+          }
         }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

@@ -9,10 +9,12 @@ import '../widgets/admin_qr_scanner_modal.dart';
 
 class AdminFrontdeskScreen extends StatefulWidget {
   final VoidCallback? onBackToDashboard;
+  final String? initialStatus;
 
   const AdminFrontdeskScreen({
     super.key,
     this.onBackToDashboard,
+    this.initialStatus,
   });
 
   @override
@@ -40,11 +42,15 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
     {'key': 'CHECKED_IN', 'label': 'Đã tiếp đón'},
     {'key': 'IN_SERVICE', 'label': 'Đang phục vụ'},
     {'key': 'COMPLETED', 'label': 'Hoàn thành'},
+    {'key': 'CANCELLED', 'label': 'Đã hủy'},
   ];
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialStatus != null && widget.initialStatus!.isNotEmpty) {
+      _selectedStatus = widget.initialStatus!;
+    }
     _loadBranches();
     _fetchBookings();
   }
@@ -147,6 +153,73 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
         _fetchBookings();
       } else {
         _showToast('Lỗi hoàn thành Check-out. Vui lòng thử lại.', AppColors.error);
+      }
+    }
+  }
+
+  // Luồng Từ chối / Hủy lịch hẹn
+  Future<void> _handleCancel(AdminBookingModel b) async {
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Hủy / Từ chối lịch hẹn',
+          style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Xác nhận từ chối lịch hẹn của khách hàng ${b.customerName}?',
+              style: GoogleFonts.montserrat(fontSize: 13, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: reasonController,
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: 'Nhập lý do từ chối (tùy chọn)...',
+                hintStyle: GoogleFonts.montserrat(fontSize: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding: const EdgeInsets.all(12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Quay lại', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Xác nhận hủy', style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() => _processingBookingId = b.id);
+      final success = await _repository.cancelBooking(
+        b.id,
+        reason: reasonController.text.trim(),
+      );
+      if (mounted) {
+        setState(() => _processingBookingId = null);
+        if (success) {
+          _showToast('Đã hủy lịch hẹn của ${b.customerName}', const Color(0xFFDC2626));
+          _fetchBookings();
+        } else {
+          _showToast('Lỗi khi hủy lịch. Vui lòng thử lại.', AppColors.error);
+        }
       }
     }
   }
@@ -681,6 +754,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                               booking: b,
                               isProcessing: _processingBookingId == b.id,
                               onApprove: () => _handleApprove(b),
+                              onCancel: () => _handleCancel(b),
                               onCheckIn: () => _handleCheckIn(b),
                               onStartService: () => _handleStartService(b),
                               onCheckOut: () => _handleCheckOut(b),

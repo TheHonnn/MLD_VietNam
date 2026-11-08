@@ -115,7 +115,10 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
         onOpenQrScanner: _openQrScanner,
         onLogout: _handleLogout,
       ),
-      const AdminFrontdeskScreen(),
+      AdminFrontdeskScreen(
+        key: ValueKey('frontdesk_$_subTab'),
+        initialStatus: _subTab,
+      ),
       AdminAcademyScreen(
         key: ValueKey('academy_$_subTab'),
         initialWorkflowTab: _subTab,

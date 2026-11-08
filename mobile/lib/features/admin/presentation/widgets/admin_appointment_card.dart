@@ -8,6 +8,7 @@ import '../../data/models/admin_models.dart';
 class AdminAppointmentCard extends StatelessWidget {
   final AdminBookingModel booking;
   final VoidCallback? onApprove;
+  final VoidCallback? onCancel;
   final VoidCallback? onCheckIn;
   final VoidCallback? onStartService;
   final VoidCallback? onCheckOut;
@@ -18,6 +19,7 @@ class AdminAppointmentCard extends StatelessWidget {
     super.key,
     required this.booking,
     this.onApprove,
+    this.onCancel,
     this.onCheckIn,
     this.onStartService,
     this.onCheckOut,
@@ -354,6 +356,27 @@ class AdminAppointmentCard extends StatelessWidget {
                     ],
                   ),
                 ],
+
+                // Dòng lý do hủy nếu bị hủy
+                if (booking.status == 'CANCELLED' && booking.cancellationReason != null && booking.cancellationReason!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.info_outline_rounded, size: 13, color: Color(0xFFDC2626)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'Lý do hủy: ${booking.cancellationReason}',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFFDC2626),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -409,20 +432,42 @@ class AdminAppointmentCard extends StatelessWidget {
 
     switch (booking.status) {
       case 'PENDING':
-        return ElevatedButton.icon(
-          onPressed: onApprove,
-          icon: const Icon(Icons.check_rounded, size: 16),
-          label: Text(
-            'Duyệt lịch',
-            style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onCancel != null) ...[
+              OutlinedButton.icon(
+                onPressed: onCancel,
+                icon: const Icon(Icons.close_rounded, size: 14),
+                label: Text(
+                  'Hủy',
+                  style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFDC2626),
+                  side: const BorderSide(color: Color(0xFFFCA5A5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            ElevatedButton.icon(
+              onPressed: onApprove,
+              icon: const Icon(Icons.check_rounded, size: 16),
+              label: Text(
+                'Duyệt lịch',
+                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
         );
 
       case 'CONFIRMED':
@@ -494,6 +539,30 @@ class AdminAppointmentCard extends StatelessWidget {
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF0D6832),
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case 'CANCELLED':
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEE2E2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cancel_outlined, size: 14, color: Color(0xFFDC2626)),
+              const SizedBox(width: 4),
+              Text(
+                'Đã hủy lịch',
+                style: GoogleFonts.montserrat(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFFDC2626),
                 ),
               ),
             ],

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/core/services/auth_service.dart';
 import 'package:medical_healthcare_app/features/admin/presentation/screens/admin_main_layout_screen.dart';
-import 'package:medical_healthcare_app/features/home/presentation/screens/main_layout_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

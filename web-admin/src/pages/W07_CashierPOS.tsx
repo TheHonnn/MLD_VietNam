@@ -75,6 +75,7 @@ import {
 } from '../types/shared_types';
 import { matchSearch, isUuid } from '../utils/searchUtils';
 import { useAdmin } from '../admin/Auth';
+import { supabase } from '../services/supabaseClient';
 
 export const POS_TIME_SLOTS = [
   { label: '09:00–10:00', startTime: '09:00:00', endTime: '10:00:00' },
@@ -401,6 +402,11 @@ export const W07_CashierPOS: React.FC = () => {
           },
         ]);
         setActiveTab('pos');
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', 'pos');
+          return next;
+        });
       }
     }
   }, [searchParams, treatmentPackages]);
@@ -425,6 +431,11 @@ export const W07_CashierPOS: React.FC = () => {
           ];
         });
         setActiveTab('pos');
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', 'pos');
+          return next;
+        });
       }
     }
   }, [searchParams, homeProducts]);
@@ -591,8 +602,9 @@ export const W07_CashierPOS: React.FC = () => {
   // -------------------------------------------------------------
   const pendingBookings = useMemo(() => {
     return allBookings.filter((b) => {
-      const isUnpaid = b.paymentStatus === PaymentStatus.UNPAID || b.status === BookingStatus.PENDING;
-      if (!isUnpaid) return false;
+      const isUnpaid = b.paymentStatus === PaymentStatus.UNPAID;
+      const isNotCancelled = ![BookingStatus.CANCELLED, BookingStatus.NO_SHOW].includes(b.status);
+      if (!isUnpaid || !isNotCancelled) return false;
       if (selectedBranchId !== 'ALL' && b.branchId && b.branchId !== selectedBranchId) {
         return false;
       }
@@ -654,6 +666,11 @@ export const W07_CashierPOS: React.FC = () => {
 
     setBooking(bk);
     setActiveTab('pos');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', 'pos');
+      return next;
+    });
     toast.success('Đã nạp đơn vào quầy', `${srvName} · ${bk.bookingCode}`);
   };
 
@@ -1572,7 +1589,14 @@ export const W07_CashierPOS: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setActiveTab('queue')}
+                  onClick={() => {
+                    setActiveTab('queue');
+                    setSearchParams((prev) => {
+                      const next = new URLSearchParams(prev);
+                      next.set('tab', 'queue');
+                      return next;
+                    });
+                  }}
                   className="px-3 py-1.5 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
                 >
                   <span>Xem hàng chờ</span>
@@ -3680,23 +3704,41 @@ export const W07_CashierPOS: React.FC = () => {
                       setShowOpenShiftModal(false);
                       toast.success('Đã mở ca', `Mã ca: ${res.data.shiftCode}`);
                     } else {
-                      // Fallback tạo shift cục bộ
-                      const fallbackShift: CashierShift = {
-                        id: `shift-${Date.now()}`,
-                        shiftCode: `CA-${new Date().getHours() < 13 ? 'SANG' : 'CHIEU'}-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}`,
-                        branchId: bId,
-                        cashierId: adminUser?.id || '',
-                        openedAt: new Date().toISOString(),
-                        openingCash: shiftOpeningCash,
-                        status: 'OPEN' as any,
-                        totalSales: 0,
-                        systemCash: shiftOpeningCash,
-                        transferSales: 0,
-                        cardSales: 0,
-                      };
-                      setCurrentShift(fallbackShift);
-                      setShowOpenShiftModal(false);
-                      toast.success('Đã mở ca thu ngân', `Mã ca: ${fallbackShift.shiftCode}`);
+                      // Fallback tạo shift qua Supabase trực tiếp
+                      const shiftCode = `CA-${new Date().getHours() < 13 ? 'SANG' : 'CHIEU'}-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+                      const { data: createdShift, error: shiftErr } = await supabase
+                        .from('cashier_shifts')
+                        .insert({
+                          branch_id: bId,
+                          cashier_id: adminUser?.id || 'f0dc713a-56fc-4347-9fb3-240528726ba3',
+                          shift_code: shiftCode,
+                          opening_cash: shiftOpeningCash,
+                          system_cash: shiftOpeningCash,
+                          notes: shiftNotes || null,
+                          status: 'OPEN',
+                        })
+                        .select()
+                        .maybeSingle();
+
+                      if (createdShift && !shiftErr) {
+                        setCurrentShift({
+                          id: createdShift.id,
+                          shiftCode: createdShift.shift_code,
+                          branchId: createdShift.branch_id,
+                          cashierId: createdShift.cashier_id,
+                          openedAt: createdShift.opened_at,
+                          openingCash: Number(createdShift.opening_cash),
+                          status: createdShift.status,
+                          totalSales: 0,
+                          systemCash: Number(createdShift.system_cash),
+                          transferSales: 0,
+                          cardSales: 0,
+                        });
+                        setShowOpenShiftModal(false);
+                        toast.success('Đã mở ca thu ngân', `Mã ca: ${createdShift.shift_code}`);
+                      } else {
+                        throw new Error(shiftErr?.message || res.message || 'Không thể tạo ca thu ngân.');
+                      }
                     }
                   } catch (e: any) {
                     toast.error('Lỗi mở ca', e?.message || 'Không thể mở ca thu ngân.');
