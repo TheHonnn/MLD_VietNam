@@ -461,6 +461,14 @@ export const label = (name: string, table?: string) => {
     if (name === "price") return "Giá niêm yết";
     if (name === "is_active") return "Trạng thái kinh doanh";
   }
+  if (table === "course_batch_assistants") {
+    if (name === "instructor_id") return "Trợ giảng";
+    if (name === "batch_id") return "Lớp học";
+    if (name === "can_mark_attendance") return "Được điểm danh";
+    if (name === "can_enter_grades") return "Được nhập điểm";
+    if (name === "assigned_by_id") return "Người phân công";
+    if (name === "assigned_at") return "Thời gian phân công";
+  }
   return labels[name] || name.replace(/_/g, " ");
 };
 export const display = (value: any) =>
