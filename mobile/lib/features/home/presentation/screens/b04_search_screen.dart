@@ -133,7 +133,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                   decoration: InputDecoration(
                     prefixIcon: const Icon(
                       Icons.search_rounded,
-                      color: Color(0xFF003876),
+                      color: AppColors.primary,
                       size: 22,
                     ),
                     hintText: context.tr('Tìm dịch vụ, khóa học, chuyên viên...', 'Search services, courses, specialists...'),
@@ -200,7 +200,7 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF003876) : Colors.white,
+                        color: isSelected ? AppColors.primary : Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(

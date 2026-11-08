@@ -179,7 +179,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
           style: GoogleFonts.beVietnamPro(
             fontSize: 20,
             fontWeight: FontWeight.w700,
-            color: const Color(0xFF003876),
+            color: AppColors.primary,
           ),
         ),
         centerTitle: false,
@@ -234,7 +234,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                       fontSize: 14,
                       color: AppColors.textPlaceholder,
                     ),
-                    prefixIcon: const Icon(Icons.search, color: Color(0xFF003876), size: 20),
+                    prefixIcon: const Icon(Icons.search, color: AppColors.primary, size: 20),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, size: 18, color: AppColors.textSecondary),
@@ -274,7 +274,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
                           color: _expandedFilter == ServiceFilterExpanded.service
-                              ? const Color(0xFFEFF6FF)
+                              ? AppColors.iceBlue
                               : Colors.white,
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
@@ -336,7 +336,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
                           color: _expandedFilter == ServiceFilterExpanded.branch
-                              ? const Color(0xFFEFF6FF)
+                              ? AppColors.iceBlue
                               : Colors.white,
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
@@ -395,7 +395,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
                       decoration: const BoxDecoration(
-                        color: Color(0xFFF8FAFC),
+                        color: AppColors.surfaceMuted,
                         border: Border(
                           bottom: BorderSide(color: AppColors.border),
                         ),
@@ -431,7 +431,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                     decoration: BoxDecoration(
-                                      color: isSelected ? const Color(0xFF003876) : Colors.white,
+                                      color: isSelected ? AppColors.primary : Colors.white,
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
@@ -468,7 +468,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                     decoration: BoxDecoration(
-                                      color: _selectedBranch == 'Tất cả cơ sở' ? const Color(0xFF003876) : Colors.white,
+                                      color: _selectedBranch == 'Tất cả cơ sở' ? AppColors.primary : Colors.white,
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
@@ -501,7 +501,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                       decoration: BoxDecoration(
-                                        color: isSelected ? const Color(0xFF003876) : Colors.white,
+                                        color: isSelected ? AppColors.primary : Colors.white,
                                         borderRadius: BorderRadius.circular(16),
                                         boxShadow: [
                                           BoxShadow(

@@ -20,6 +20,7 @@ class AuthService {
   static const String _keyCompletedOnboarding = 'has_completed_onboarding';
   static const String _keyDisplayName = 'user_display_name';
   static const String _keyAvatarUrl = 'user_avatar_path';
+  static const String _keyUserRole = 'user_role';
 
   // Hybrid fallback keys in SharedPreferences
   static const String _keyCachedToken = 'mld_cached_token';
@@ -46,6 +47,7 @@ class AuthService {
   String? _cachedPhone;
   String? _cachedDisplayName;
   String? _cachedAvatarUrl;
+  String? _cachedRole;
   bool _hasCompletedOnboarding = false;
 
   final List<VoidCallback> _onLogoutCallbacks = [];
@@ -72,6 +74,8 @@ class AuthService {
   String? get currentDisplayName => _cachedDisplayName;
   String? get currentAvatarUrl => _cachedAvatarUrl;
   String? get currentUserId => _cachedUserId;
+  String? get currentRole => _cachedRole;
+  bool get isAdmin => _cachedRole == 'ADMIN' || _cachedRole == 'SUPER_ADMIN';
   String? get lastLoginPhone => _prefs?.getString(_keyLastLoginPhone);
   String? get lastLoginEmail => _prefs?.getString(_keyLastLoginEmail);
   String? get lastLoginMethod => _prefs?.getString(_keyLastLoginMethod);
@@ -106,6 +110,7 @@ class AuthService {
     _hasCompletedOnboarding = _prefs?.getBool(_keyCompletedOnboarding) ?? false;
     _cachedDisplayName = _prefs?.getString(_keyDisplayName);
     _cachedAvatarUrl = _prefs?.getString(_keyAvatarUrl);
+    _cachedRole = _prefs?.getString(_keyUserRole);
 
     try {
       _cachedAccessToken = await _secureStorage.read(key: _keyAccessToken);
@@ -167,6 +172,7 @@ class AuthService {
     String? phone,
     String? displayName,
     String? avatarUrl,
+    String? role,
   }) async {
     _cachedAccessToken = accessToken;
     if (refreshToken != null) _cachedRefreshToken = refreshToken;
@@ -177,6 +183,9 @@ class AuthService {
     }
     _cachedDisplayName = (displayName != null && displayName.isNotEmpty) ? displayName : null;
     _cachedAvatarUrl = (avatarUrl != null && avatarUrl.isNotEmpty) ? avatarUrl : null;
+    if (role != null && role.isNotEmpty) {
+      _cachedRole = role.toUpperCase();
+    }
 
     try {
       await _secureStorage.write(key: _keyAccessToken, value: accessToken);
@@ -220,6 +229,11 @@ class AuthService {
       } else {
         await _prefs!.remove(_keyAvatarUrl);
         await _prefs!.remove('user_avatar_url');
+      }
+      if (_cachedRole != null && _cachedRole!.isNotEmpty) {
+        await _prefs!.setString(_keyUserRole, _cachedRole!);
+      } else {
+        await _prefs!.remove(_keyUserRole);
       }
     }
 
@@ -333,6 +347,7 @@ class AuthService {
     _cachedPhone = null;
     _cachedDisplayName = null;
     _cachedAvatarUrl = null;
+    _cachedRole = null;
     phoneNotifier.value = null;
 
     try {
@@ -355,6 +370,7 @@ class AuthService {
       await _prefs!.remove('user_avatar_url');
       await _prefs!.remove(_keyDisplayName);
       await _prefs!.remove(_keyAvatarUrl);
+      await _prefs!.remove(_keyUserRole);
       await _prefs!.remove('user_email');
       await _prefs!.remove('user_address');
       await _prefs!.remove('user_dob');
@@ -400,6 +416,7 @@ class AuthService {
       await _prefs!.remove('user_avatar_url');
       await _prefs!.remove(_keyDisplayName);
       await _prefs!.remove(_keyAvatarUrl);
+      await _prefs!.remove(_keyUserRole);
       await _prefs!.remove(_keyLastLoginPhone);
       await _prefs!.remove(_keyLastLoginEmail);
       await _prefs!.remove(_keyLastLoginMethod);

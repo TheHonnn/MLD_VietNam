@@ -848,7 +848,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: RefreshIndicator(
-        color: const Color(0xFF003876),
+        color: AppColors.primary,
         onRefresh: () async {
           await Future.wait([
             _loadUserProfile(),
@@ -920,7 +920,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF003876),
+                color: AppColors.primary,
                 letterSpacing: 0.5,
               ),
             ),
@@ -998,7 +998,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                   height: 38,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFFEFF6FF),
+                    color: AppColors.iceBlue,
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.08),
@@ -1023,7 +1023,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           placeholder: const Center(
                             child: Icon(
                               Icons.person_rounded,
-                              color: Color(0xFF2563EB),
+                              color: AppColors.primary,
                               size: 20,
                             ),
                           ),
@@ -1032,7 +1032,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                       return const Center(
                         child: Icon(
                           Icons.person_rounded,
-                          color: Color(0xFF2563EB),
+                          color: AppColors.primary,
                           size: 20,
                         ),
                       );
@@ -1186,7 +1186,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                               style: const TextStyle(
                                 fontSize: 21,
                                 fontWeight: FontWeight.w900,
-                                color: Color(0xFF003876), // 60% MLD Blue tăng tương phản
+                                color: AppColors.primary, // 60% MLD Blue tăng tương phản
                                 height: 1.25,
                                 letterSpacing: -0.3,
                               ),
@@ -1219,7 +1219,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                     borderRadius: BorderRadius.circular(26),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: const Color(0xFF16A34A).withValues(alpha: 0.32),
+                                        color: AppColors.accent.withValues(alpha: 0.32),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4),
                                       ),
@@ -1228,7 +1228,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                   child: ElevatedButton(
                                     onPressed: _handleBooking,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF16A34A),
+                                      backgroundColor: AppColors.accent,
                                       foregroundColor: Colors.white,
                                       elevation: 0,
                                       shadowColor: Colors.transparent,
@@ -1266,7 +1266,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                     onPressed: () => _launchExternal('tel:0966838383'),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.white,
-                                      foregroundColor: const Color(0xFF003876),
+                                      foregroundColor: AppColors.primary,
                                       elevation: 0,
                                       shadowColor: Colors.transparent,
                                       side: BorderSide.none,
@@ -1276,11 +1276,11 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                     child: const Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.phone_in_talk_rounded, size: 14, color: Color(0xFF003876)),
+                                        Icon(Icons.phone_in_talk_rounded, size: 14, color: AppColors.primary),
                                         SizedBox(width: 5),
                                         Text(
                                           'Gọi tư vấn',
-                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF003876), letterSpacing: -0.2),
+                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary, letterSpacing: -0.2),
                                         ),
                                       ],
                                     ),
@@ -1303,7 +1303,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                     height: 5,
                                     decoration: BoxDecoration(
                                       color: index == _currentBannerIndex
-                                          ? const Color(0xFF003876)
+                                          ? AppColors.primary
                                           : const Color(0xFF93C5FD),
                                       borderRadius: BorderRadius.circular(index == _currentBannerIndex ? 3 : 2.5),
                                     ),
@@ -1384,12 +1384,12 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: _searchTabIndex == 0 ? const Color(0xFF003876) : Colors.transparent,
+                      color: _searchTabIndex == 0 ? AppColors.primary : Colors.transparent,
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: _searchTabIndex == 0
                           ? [
                               BoxShadow(
-                                color: const Color(0xFF003876).withValues(alpha: 0.2),
+                                color: AppColors.primary.withValues(alpha: 0.2),
                                 blurRadius: 6,
                                 offset: const Offset(0, 2),
                               )
@@ -1416,12 +1416,12 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: _searchTabIndex == 1 ? const Color(0xFF003876) : Colors.transparent,
+                      color: _searchTabIndex == 1 ? AppColors.primary : Colors.transparent,
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: _searchTabIndex == 1
                           ? [
                               BoxShadow(
-                                color: const Color(0xFF003876).withValues(alpha: 0.2),
+                                color: AppColors.primary.withValues(alpha: 0.2),
                                 blurRadius: 6,
                                 offset: const Offset(0, 2),
                               )
@@ -1475,7 +1475,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                   margin: const EdgeInsets.all(5),
                   padding: const EdgeInsets.all(6),
                   decoration: const BoxDecoration(
-                    color: Color(0xFF16A34A), // 30% Green Action
+                    color: AppColors.accent, // 30% Green Action
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
@@ -1510,13 +1510,13 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
+                        color: AppColors.iceBlue,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
                         _searchTabIndex == 0 ? Icons.assignment_outlined : Icons.spa_outlined,
                         size: 18,
-                        color: const Color(0xFF003876),
+                        color: AppColors.primary,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1572,13 +1572,13 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
+                        color: AppColors.iceBlue,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
                         _searchTabIndex == 0 ? Icons.people_outline_rounded : Icons.location_on_outlined,
                         size: 18,
-                        color: const Color(0xFF003876),
+                        color: AppColors.primary,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1641,7 +1641,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
               width: 3.5,
               height: 16,
               decoration: BoxDecoration(
-                color: const Color(0xFF003876),
+                color: AppColors.primary,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1663,13 +1663,13 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                 children: [
                   Text(
                     _isSocialExpanded ? 'Thu gọn' : 'Xem thêm',
-                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF003876)),
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.primary),
                   ),
                   const SizedBox(width: 2),
                   Icon(
                     _isSocialExpanded ? Icons.keyboard_arrow_up_rounded : Icons.arrow_forward_rounded,
                     size: 14,
-                    color: const Color(0xFF003876),
+                    color: AppColors.primary,
                   ),
                 ],
               ),
@@ -1827,7 +1827,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF16A34A),
+                              color: AppColors.accent,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             alignment: Alignment.center,
@@ -1845,7 +1845,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF003876),
+                              color: AppColors.primary,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             alignment: Alignment.center,
@@ -1989,7 +1989,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     width: 3.5,
                     height: 16,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF003876),
+                      color: AppColors.primary,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -2015,10 +2015,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                 children: [
                   Text(
                     'Xem bản đồ',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF16A34A)),
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.accent),
                   ),
                   SizedBox(width: 2),
-                  Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF16A34A)),
+                  Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.accent),
                 ],
               ),
             ),
@@ -2052,10 +2052,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
+                        color: AppColors.mintBackground,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.location_on_rounded, color: Color(0xFF16A34A), size: 22),
+                      child: const Icon(Icons.location_on_rounded, color: AppColors.accent, size: 22),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -2106,7 +2106,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: isOpen ? const Color(0xFFECFDF5) : const Color(0xFFFEE2E2),
+                        color: isOpen ? AppColors.mintBackground : const Color(0xFFFEE2E2),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -2114,7 +2114,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: isOpen ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                          color: isOpen ? AppColors.accent : const Color(0xFFDC2626),
                         ),
                       ),
                     ),

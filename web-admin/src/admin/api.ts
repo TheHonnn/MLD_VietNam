@@ -181,6 +181,7 @@ const TABLE_SELECTS: Record<string, string> = {
   service_materials: "*,services(name)",
   tuition_transactions: "*,student:users!student_id(full_name,phone),courses(title,code),branches(name,code)",
   course_batches: "*,courses(title,code),branches(name,code),instructor:instructors!instructor_id(full_name)",
+  course_batch_assistants: "*,course_batches(batch_code,courses(title)),instructors(full_name,title,phone),assigned_by:users!assigned_by_id(full_name)",
   student_academic_records: "*,course_enrollments(id,batch_id,course_id,student:users!student_id(full_name,phone),courses(title,code),course_batches(batch_code))",
   batch_schedules: "*,course_batches(batch_code),assigned_room:branch_rooms!assigned_room_id(name)",
   course_chapters: "*,courses(title,code)",

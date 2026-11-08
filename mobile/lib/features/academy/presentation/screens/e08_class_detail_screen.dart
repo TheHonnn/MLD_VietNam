@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
@@ -155,10 +156,10 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
             // 1. Tiêu đề trang [8116:26002]
             Text(
               context.tr('Chi tiết lớp học', 'Class Details'),
-              style: TextStyle(
-                fontSize: 28,
+              style: GoogleFonts.beVietnamPro(
+                fontSize: 26,
                 fontWeight: FontWeight.w700,
-                color: AcademyColors.heading,
+                color: AppColors.textHeading,
                 height: 1.25,
               ),
             ),
@@ -170,16 +171,15 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border, width: 1.0),
               ),
               child: Text(
                 AppTranslation.translate(widget.course?.title ?? 'Dẫn lưu bạch huyết Vodder Chuyên Nghiệp', isEn: context.isEn),
-                style: const TextStyle(
-                  
-                  fontSize: 18,
+                style: GoogleFonts.beVietnamPro(
+                  fontSize: 17,
                   fontWeight: FontWeight.w700,
-                  color: AcademyColors.heading,
+                  color: AppColors.textHeading,
                   height: 1.35,
                 ),
               ),
@@ -191,7 +191,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
               height: 48,
               decoration: const BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: AcademyColors.cardBorder, width: 1.0),
+                  bottom: BorderSide(color: AppColors.border, width: 1.0),
                 ),
               ),
               child: Row(
@@ -333,13 +333,12 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                   AppTranslation.translate(lesson.title, isEn: context.isEn),
                                                   maxLines: 2,
                                                   overflow: TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    
+                                                  style: GoogleFonts.beVietnamPro(
                                                     fontSize: 13.5,
-                                                    fontWeight: FontWeight.w700,
+                                                    fontWeight: FontWeight.w600,
                                                     color: isUnlocked
-                                                        ? AcademyColors.heading
-                                                        : AcademyColors.textSecondary,
+                                                        ? AppColors.textHeading
+                                                        : AppColors.textSecondary,
                                                     height: 1.35,
                                                   ),
                                                 ),
@@ -350,16 +349,15 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                       Container(
                                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                         decoration: BoxDecoration(
-                                                          color: const Color(0xFFD1FAE5),
+                                                          color: AppColors.mintBackground,
                                                           borderRadius: BorderRadius.circular(6),
                                                         ),
                                                         child: Text(
                                                           context.tr('Đã học', 'Completed'),
-                                                          style: const TextStyle(
-                                                            
+                                                          style: GoogleFonts.beVietnamPro(
                                                             fontSize: 11,
-                                                            fontWeight: FontWeight.bold,
-                                                            color: Color(0xFF047857),
+                                                            fontWeight: FontWeight.w700,
+                                                            color: AppColors.accent,
                                                           ),
                                                         ),
                                                       )
@@ -367,15 +365,14 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                       Container(
                                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                         decoration: BoxDecoration(
-                                                          color: const Color(0xFFEFF6FF),
+                                                          color: AppColors.iceBlue,
                                                           borderRadius: BorderRadius.circular(6),
                                                         ),
                                                         child: Text(
                                                           context.tr('Vào học', 'Start'),
-                                                          style: const TextStyle(
-                                                            
+                                                          style: GoogleFonts.beVietnamPro(
                                                             fontSize: 11,
-                                                            fontWeight: FontWeight.bold,
+                                                            fontWeight: FontWeight.w700,
                                                             color: AppColors.primary,
                                                           ),
                                                         ),
@@ -384,22 +381,21 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                       Container(
                                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                         decoration: BoxDecoration(
-                                                          color: const Color(0xFFF3F4F6),
+                                                          color: AppColors.surfaceDisabled,
                                                           borderRadius: BorderRadius.circular(6),
-                                                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                                                          border: Border.all(color: AppColors.border),
                                                         ),
                                                         child: Row(
                                                           mainAxisSize: MainAxisSize.min,
                                                           children: [
-                                                            const Icon(Icons.lock_outline_rounded, size: 12, color: Color(0xFF9CA3AF)),
+                                                            const Icon(Icons.lock_outline_rounded, size: 12, color: AppColors.textPlaceholder),
                                                             const SizedBox(width: 4),
                                                             Text(
                                                               context.tr('Chưa mở khóa', 'Locked'),
-                                                              style: const TextStyle(
-                                                                
+                                                              style: GoogleFonts.beVietnamPro(
                                                                 fontSize: 10.5,
                                                                 fontWeight: FontWeight.w600,
-                                                                color: Color(0xFF6B7280),
+                                                                color: AppColors.textSecondary,
                                                               ),
                                                             ),
                                                           ],
@@ -441,9 +437,12 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                     );
                   },
                   icon: const Icon(Icons.calendar_month, color: Colors.white),
-                  label: Text(context.tr('Xem lịch học đầy đủ & điểm danh', 'View full schedule & attendance')),
+                  label: Text(
+                    context.tr('Xem lịch học đầy đủ & điểm danh', 'View full schedule & attendance'),
+                    style: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AcademyColors.primary,
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -465,7 +464,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                     const SizedBox(height: 12),
                     Text(
                       context.tr('Giáo trình & Tài liệu khóa học', 'Course Syllabus & Materials'),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AcademyColors.heading),
+                      style: GoogleFonts.beVietnamPro(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textHeading),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -474,7 +473,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                         'Includes lecture slides, technical documents, and Spa hygiene standards.',
                       ),
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
+                      style: GoogleFonts.beVietnamPro(fontSize: 13, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -503,10 +502,10 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
           ),
           child: Text(
             title,
-            style: TextStyle(
-              fontSize: 15,
+            style: GoogleFonts.beVietnamPro(
+              fontSize: 14.5,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected ? AcademyColors.primary : AcademyColors.textSecondary,
+              color: isSelected ? AppColors.primary : AppColors.textSecondary,
             ),
           ),
         ),
@@ -520,9 +519,9 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFECFDF5),
+          color: AppColors.mintBackground,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFA7F3D0)),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: [
@@ -530,7 +529,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
               width: 40,
               height: 40,
               decoration: const BoxDecoration(
-                color: Color(0xFF10B981),
+                color: AppColors.accent,
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.check_rounded, color: Colors.white, size: 24),
@@ -542,20 +541,18 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                 children: [
                   Text(
                     context.tr('Đã hoàn thành tất cả video!', 'All videos completed!'),
-                    style: TextStyle(
-                      
+                    style: GoogleFonts.beVietnamPro(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF065F46),
+                      color: AppColors.textHeading,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     context.isEn ? 'You have completed $_totalLessonsCount/$_totalLessonsCount video lectures of the course.' : 'Bạn đã hoàn thành $_totalLessonsCount/$_totalLessonsCount bài giảng video của khóa học.',
-                    style: const TextStyle(
-                      
+                    style: GoogleFonts.beVietnamPro(
                       fontSize: 12,
-                      color: Color(0xFF047857),
+                      color: AppColors.accent,
                     ),
                   ),
                 ],
@@ -599,16 +596,16 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: GoogleFonts.beVietnamPro(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: AcademyColors.heading,
+                          color: AppColors.textHeading,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        style: const TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
+                        style: GoogleFonts.beVietnamPro(fontSize: 12, color: AppColors.textSecondary),
                       ),
                     ],
                   ),

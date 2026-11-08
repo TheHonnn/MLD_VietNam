@@ -133,7 +133,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFEFF4FE),
+                                    color: AppColors.mintBackground,
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                                   ),
@@ -268,7 +268,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                             child: LinearProgressIndicator(
                               value: package.progressPercent,
                               minHeight: 8,
-                              backgroundColor: const Color(0xFFEFF4FE),
+                              backgroundColor: AppColors.mintBackground,
                               valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
                             ),
                           ),
@@ -315,7 +315,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEFF4FE),
+                            color: AppColors.mintBackground,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -464,12 +464,12 @@ class D02PackageDetailsScreen extends StatelessWidget {
     Color text;
     String label;
     if (status == PackageStatus.active) {
-      bg = const Color(0xFFEFF4FE);
+      bg = AppColors.mintBackground;
       text = AppColors.primary;
       label = context.tr('Đang điều trị', 'In Treatment');
     } else if (status == PackageStatus.completed) {
-      bg = const Color(0xFFF0FDF4);
-      text = const Color(0xFF16A34A);
+      bg = AppColors.mintBackground;
+      text = AppColors.accent;
       label = context.tr('Hoàn thành', 'Completed');
     } else {
       bg = const Color(0xFFF3F4F6);
@@ -504,11 +504,11 @@ class D02PackageDetailsScreen extends StatelessWidget {
     Color badgeColor;
     String badgeText;
     if (isDone) {
-      badgeBg = const Color(0xFFF0FDF4);
-      badgeColor = const Color(0xFF16A34A);
+      badgeBg = AppColors.mintBackground;
+      badgeColor = AppColors.accent;
       badgeText = context.tr('Đã thực hiện', 'Completed');
     } else if (isCurrent) {
-      badgeBg = const Color(0xFFEFF4FE);
+      badgeBg = AppColors.mintBackground;
       badgeColor = AppColors.primary;
       badgeText = context.tr('Đang điều trị', 'In Progress');
     } else {
@@ -546,15 +546,15 @@ class D02PackageDetailsScreen extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: isDone ? const Color(0xFFF0FDF4) : (isCurrent ? const Color(0xFFEFF4FE) : const Color(0xFFF9FAFB)),
+                  color: isDone ? AppColors.mintBackground : (isCurrent ? AppColors.mintBackground : const Color(0xFFF9FAFB)),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isDone ? const Color(0xFF86EFAC) : (isCurrent ? AppColors.primary : AppColors.border),
+                    color: isDone ? AppColors.sageGreen : (isCurrent ? AppColors.primary : AppColors.border),
                   ),
                 ),
                 child: Center(
                   child: isDone
-                      ? const Icon(Icons.check_rounded, color: Color(0xFF16A34A), size: 22)
+                      ? const Icon(Icons.check_rounded, color: AppColors.accent, size: 22)
                       : Text(
                           '${session.sessionNumber}',
                           style: TextStyle(
@@ -637,7 +637,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF4FE),
+                              color: AppColors.mintBackground,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Row(
@@ -692,11 +692,11 @@ class D02PackageDetailsScreen extends StatelessWidget {
     Color statusTextColor;
     String statusLabel;
     if (session.isCompleted) {
-      statusBg = const Color(0xFFF0FDF4);
-      statusTextColor = const Color(0xFF16A34A);
+      statusBg = AppColors.mintBackground;
+      statusTextColor = AppColors.accent;
       statusLabel = context.tr('Đã thực hiện', 'Completed');
     } else if (session.isInProgress) {
-      statusBg = const Color(0xFFEFF4FE);
+      statusBg = AppColors.mintBackground;
       statusTextColor = AppColors.primary;
       statusLabel = context.tr('Đang điều trị', 'In Progress');
     } else {
@@ -778,7 +778,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF4FE),
+                              color: AppColors.mintBackground,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -1089,7 +1089,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
 
   Widget _buildFallbackImage() {
     return Container(
-      color: const Color(0xFFEFF4FE),
+      color: AppColors.mintBackground,
       child: const Center(
         child: Icon(Icons.image_not_supported_outlined, color: AppColors.primary, size: 24),
       ),

@@ -5,6 +5,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../admin/presentation/screens/admin_main_layout_screen.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../widgets/primary_button.dart';
@@ -133,6 +134,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
           final registeredName = (user?['full_name'] ?? user?['fullName']) as String?;
           final userAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
           final userPhone = user?['phone'] as String?;
+          final userRole = user?['role']?.toString().toUpperCase();
           await AuthService.instance.saveSession(
             accessToken: accessToken,
             refreshToken: refreshToken,
@@ -140,6 +142,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
             phone: userPhone,
             displayName: registeredName,
             avatarUrl: userAvatar,
+            role: userRole,
           );
 
           await AuthService.instance.saveLastLogin(
@@ -163,10 +166,13 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
               backgroundColor: AppColors.primary,
             ),
           );
+          final targetScreen = AuthService.instance.isAdmin
+              ? const AdminMainLayoutScreen()
+              : const MainLayoutScreen();
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
-              builder: (_) => const MainLayoutScreen(),
+              builder: (_) => targetScreen,
             ),
             (route) => false,
           );
@@ -196,6 +202,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
           final loggedInName = (user?['full_name'] ?? user?['fullName']) as String?;
           final userAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
           final userPhone = user?['phone'] as String?;
+          final userRole = user?['role']?.toString().toUpperCase();
           await AuthService.instance.saveSession(
             accessToken: accessToken,
             refreshToken: refreshToken,
@@ -203,6 +210,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
             phone: userPhone,
             displayName: loggedInName,
             avatarUrl: userAvatar,
+            role: userRole,
           );
 
           await AuthService.instance.saveLastLogin(
@@ -226,10 +234,13 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
               backgroundColor: AppColors.primary,
             ),
           );
+          final targetScreen = AuthService.instance.isAdmin
+              ? const AdminMainLayoutScreen()
+              : const MainLayoutScreen();
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
-              builder: (_) => const MainLayoutScreen(),
+              builder: (_) => targetScreen,
             ),
             (route) => false,
           );
@@ -254,6 +265,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
             final userName = (user?['full_name'] ?? user?['fullName']) as String?;
             final userAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
             final userPhone = user?['phone'] as String? ?? widget.phoneNumber;
+            final userRole = user?['role']?.toString().toUpperCase();
             await AuthService.instance.saveSession(
               accessToken: accessToken,
               refreshToken: refreshToken,
@@ -261,6 +273,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
               phone: userPhone,
               displayName: userName,
               avatarUrl: userAvatar,
+              role: userRole,
             );
             await AuthService.instance.saveLastLogin(
               phone: userPhone,
@@ -315,10 +328,13 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
               backgroundColor: AppColors.primary,
             ),
           );
+          final targetScreen = AuthService.instance.isAdmin
+              ? const AdminMainLayoutScreen()
+              : const MainLayoutScreen();
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
-              builder: (_) => const MainLayoutScreen(),
+              builder: (_) => targetScreen,
             ),
             (route) => false,
           );

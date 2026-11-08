@@ -23,10 +23,10 @@ class AppTheme {
       scaffoldBackgroundColor: Colors.white,
       colorScheme: const ColorScheme(
         brightness: Brightness.light,
-        primary: Color(0xFF003876),
+        primary: AppColors.primary,
         onPrimary: AppColors.textInverse,
         primaryContainer: Color(0xFFEFF6FF),
-        onPrimaryContainer: Color(0xFF003876),
+        onPrimaryContainer: AppColors.primary,
         secondary: Color(0xFF0EA5E9),
         onSecondary: AppColors.textInverse,
         secondaryContainer: Color(0xFFDEEAF6),
@@ -39,39 +39,39 @@ class AppTheme {
       ),
       textTheme: baseTextTheme.copyWith(
         displayLarge: baseTextTheme.displayLarge?.copyWith(
-          color: const Color(0xFF003876),
+          color: AppColors.primary,
           fontWeight: FontWeight.w700,
         ),
         displayMedium: baseTextTheme.displayMedium?.copyWith(
-          color: const Color(0xFF003876),
+          color: AppColors.primary,
           fontWeight: FontWeight.w700,
         ),
         displaySmall: baseTextTheme.displaySmall?.copyWith(
-          color: const Color(0xFF003876),
+          color: AppColors.primary,
           fontWeight: FontWeight.w700,
         ),
         headlineLarge: baseTextTheme.headlineLarge?.copyWith(
-          color: const Color(0xFF003876),
+          color: AppColors.primary,
           fontWeight: FontWeight.w700,
           fontSize: 22,
         ),
         headlineMedium: baseTextTheme.headlineMedium?.copyWith(
-          color: const Color(0xFF003876),
+          color: AppColors.primary,
           fontWeight: FontWeight.w700,
           fontSize: 18,
         ),
         headlineSmall: baseTextTheme.headlineSmall?.copyWith(
-          color: const Color(0xFF003876),
+          color: AppColors.primary,
           fontWeight: FontWeight.w700,
           fontSize: 16,
         ),
         titleLarge: baseTextTheme.titleLarge?.copyWith(
-          color: const Color(0xFF003876),
+          color: AppColors.primary,
           fontWeight: FontWeight.w700,
           fontSize: 16,
         ),
         titleMedium: baseTextTheme.titleMedium?.copyWith(
-          color: const Color(0xFF003876),
+          color: AppColors.primary,
           fontWeight: FontWeight.w600,
           fontSize: 14.5,
         ),
@@ -116,16 +116,16 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Color(0xFF003876)),
+        iconTheme: const IconThemeData(color: AppColors.primary),
         titleTextStyle: GoogleFonts.beVietnamPro(
-          color: const Color(0xFF003876),
+          color: AppColors.primary,
           fontSize: 18,
           fontWeight: FontWeight.w700,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF003876), // 30% Brand Navy
+          backgroundColor: AppColors.primary, // 30% Brand Navy
           foregroundColor: Colors.white,
           disabledBackgroundColor: const Color(0xFFCBD5E1),
           disabledForegroundColor: const Color(0xFF94A3B8),
@@ -166,7 +166,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF003876), width: 1.5),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

@@ -2184,17 +2184,23 @@ function formatCell(row: Row, c: Column, table?: string): React.ReactNode {
       row.instructor?.full_name ||
       row.primary_instructor?.full_name ||
       row.instructors?.full_name;
+    const isAssistant = table === "course_batch_assistants";
     if (instName) {
       return (
         <span className="font-semibold text-[#8A4F23] text-xs inline-flex items-center gap-1.5" title={String(row[c.name] || "")}>
-          <span>👨‍🏫</span>
+          <span>{isAssistant ? "🧑‍🏫" : "👨‍🏫"}</span>
           <span>{instName}</span>
+          {isAssistant && (
+            <span className="text-[10px] bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] px-1.5 py-0.2 rounded font-medium">
+              Trợ giảng
+            </span>
+          )}
         </span>
       );
     }
     return (
       <span className="text-xs text-[#8C7A6B] font-mono" title={String(row[c.name] || "")}>
-        Giảng viên #{String(row[c.name] || "").slice(0, 8)}
+        {isAssistant ? "Trợ giảng" : "Giảng viên"} #{String(row[c.name] || "").slice(0, 8)}
       </span>
     );
   }
@@ -2312,11 +2318,13 @@ function ReferenceInput({
   value,
   onChange,
   required,
+  table,
 }: {
   column: Column;
   value: string;
   onChange: (v: string) => void;
   required: boolean;
+  table?: string;
 }) {
   const [rows, setRows] = useState<Row[]>([]),
     [page, setPage] = useState(1),
@@ -2349,16 +2357,17 @@ function ReferenceInput({
       controller.abort();
     };
   }, [column.reference!.table, page]);
+  const isAssistant = table === "course_batch_assistants" && column.name === "instructor_id";
   return (
     <div className="admin-reference">
       <select
-        aria-label={label(column.name)}
+        aria-label={label(column.name, table)}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
         disabled={busy}
       >
-        <option value="">{busy ? "Đang tải…" : "Chưa chọn"}</option>
+        <option value="">{busy ? "Đang tải…" : isAssistant ? "Chọn trợ giảng…" : "Chưa chọn"}</option>
         {value &&
           !rows.some((r) => String(r[column.reference!.column]) === value) && (
             <option value={value}>{value}</option>
@@ -2369,6 +2378,7 @@ function ReferenceInput({
             value={r[column.reference!.column]}
           >
             {recordLabel(r)}
+            {r.title ? " (" + r.title + ")" : ""}
             {r.phone ? " · " + r.phone : ""}
           </option>
         ))}
@@ -3943,7 +3953,7 @@ function RecordDialog({
                 }
               >
                 <span>
-                  {label(c.name)}
+                  {label(c.name, resource.name)}
                   {required && <b className="admin-required"> *</b>}
                   {resource.name === "service_categories" && c.name === "code" && (
                     <span style={{ fontSize: "11px", color: "#8A7968", fontWeight: "normal", marginLeft: "6px" }}>
@@ -4018,6 +4028,7 @@ function RecordDialog({
                     value={String(value)}
                     onChange={(v) => set(c.name, v)}
                     required={required}
+                    table={resource.name}
                   />
                 ) : c.options.length ? (
                   <select

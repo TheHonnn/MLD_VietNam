@@ -183,7 +183,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
       child: Container(
         height: 42,
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : const Color(0xFFF9FAFB),
+          color: isSelected ? AppColors.primary : AppColors.surfaceMuted,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.border,
@@ -327,7 +327,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                       child: OutlinedButton(
                         onPressed: () => _onCancelAppointment(app),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFEF4444)),
+                          side: const BorderSide(color: AppColors.error),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -339,7 +339,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                             
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFFEF4444),
+                            color: AppColors.error,
                           ),
                         ),
                       ),
@@ -396,7 +396,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                 width: 64,
                 height: 64,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFEFF4FE),
+                  color: AppColors.iceBlue,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.calendar_month_outlined, size: 32, color: AppColors.primary),
@@ -451,7 +451,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.history_rounded, size: 48, color: Color(0xFFCBD5E1)),
+              const Icon(Icons.history_rounded, size: 48, color: AppColors.textPlaceholder),
               const SizedBox(height: 12),
               Text(
                 context.tr('Chưa có lịch hẹn hoàn thành', 'No completed appointments'),

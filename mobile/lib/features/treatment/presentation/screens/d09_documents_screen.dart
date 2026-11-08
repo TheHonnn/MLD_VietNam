@@ -514,7 +514,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                       fontSize: 14,
                       color: AppColors.textPlaceholder,
                     ),
-                    prefixIcon: const Icon(Icons.search, color: Color(0xFF003876), size: 20),
+                    prefixIcon: const Icon(Icons.search, color: AppColors.primary, size: 20),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, size: 18, color: AppColors.textSecondary),
@@ -550,7 +550,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFF003876) : Colors.white,
+                          color: isSelected ? AppColors.primary : Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
@@ -565,7 +565,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: isSelected ? Colors.white : const Color(0xFF334155),
+                            color: isSelected ? Colors.white : AppColors.textPrimary,
                           ),
                         ),
                       ),
@@ -661,7 +661,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                                               
                                               fontSize: 17,
                                               fontWeight: FontWeight.w700,
-                                              color: Color(0xFF0F172A),
+                                              color: AppColors.textHeading,
                                               height: 1.35,
                                             ),
                                           ),

@@ -51,9 +51,9 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
       'assets/images/service_luu_phu_bach_huyet.png',
       fit: BoxFit.cover,
       errorBuilder: (_, __, ___) => Container(
-        color: const Color(0xFFEFF6FF),
+        color: AppColors.iceBlue,
         child: const Center(
-          child: Icon(Icons.spa_rounded, size: 48, color: Color(0xFF003876)),
+          child: Icon(Icons.spa_rounded, size: 48, color: AppColors.primary),
         ),
       ),
     );
@@ -111,7 +111,7 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                       style: GoogleFonts.beVietnamPro(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF003876),
+                        color: AppColors.primary,
                         letterSpacing: -0.2,
                       ),
                     ),
@@ -150,7 +150,7 @@ class _VodderServiceCardState extends State<VodderServiceCard> {
                       ElevatedButton(
                         onPressed: widget.onBooking,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF16A34A),
+                          backgroundColor: AppColors.accent,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),

@@ -10,11 +10,13 @@ import '../widgets/admin_action_card.dart';
 class AdminDashboardScreen extends StatefulWidget {
   final Function(int tabIndex, {String? subTab})? onNavigateTab;
   final VoidCallback? onOpenQrScanner;
+  final VoidCallback? onLogout;
 
   const AdminDashboardScreen({
     super.key,
     this.onNavigateTab,
     this.onOpenQrScanner,
+    this.onLogout,
   });
 
   @override
@@ -185,6 +187,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
           ),
+          if (widget.onLogout != null) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Đăng xuất quản trị',
+              onPressed: widget.onLogout,
+              icon: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF1F2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.logout_rounded,
+                  color: Color(0xFFE11D48),
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(width: 8),
         ],
       ),
