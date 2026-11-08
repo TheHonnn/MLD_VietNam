@@ -8,12 +8,20 @@ export function AdminReadiness() {
   const [message, setMessage] = useState('');
   const [checking, setChecking] = useState(false);
   useEffect(() => {
+    // Chỉ kích hoạt kiểm tra schema khi hệ thống chạy ở chế độ backend tập trung
+    const source = (import.meta as any).env?.VITE_ADMIN_DATA_SOURCE;
+    if (source !== 'backend') return;
+
     if (!['ADMIN', 'SUPER_ADMIN'].includes(user?.role || '')) return;
     let active = true;
     setChecking(true);
     adminCommand<{ready: boolean; missing: string[]}>('schema/status').then(status => {
       if (active) setMessage(status.ready ? '' : 'Hệ thống quản trị cần được cập nhật dữ liệu trước khi vận hành. Vui lòng liên hệ người quản trị kỹ thuật.');
-    }).catch(error => { if (active) setMessage(error.message); })
+    }).catch(error => { 
+      if (active && error?.statusCode !== 401 && !error?.message?.includes('đăng nhập')) {
+        setMessage(error.message); 
+      }
+    })
       .finally(() => { if (active) setChecking(false); });
     return () => { active = false; };
   }, [user?.id, user?.role, attempt]);
