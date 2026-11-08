@@ -15,6 +15,8 @@ class UserProfile {
   final String memberCode;
   final int points;
   final String validUntil;
+  final String? referrerName;
+  final String? referredById;
 
   const UserProfile({
     required this.id,
@@ -33,6 +35,8 @@ class UserProfile {
     required this.memberCode,
     required this.points,
     required this.validUntil,
+    this.referrerName,
+    this.referredById,
   });
 
   UserProfile copyWith({
@@ -51,6 +55,9 @@ class UserProfile {
     String? memberCode,
     int? points,
     String? validUntil,
+    String? referrerName,
+    String? referredById,
+    bool clearReferrer = false,
   }) {
     return UserProfile(
       id: id,
@@ -69,6 +76,8 @@ class UserProfile {
       memberCode: memberCode ?? this.memberCode,
       points: points ?? this.points,
       validUntil: validUntil ?? this.validUntil,
+      referrerName: clearReferrer ? null : (referrerName ?? this.referrerName),
+      referredById: clearReferrer ? null : (referredById ?? this.referredById),
     );
   }
 }

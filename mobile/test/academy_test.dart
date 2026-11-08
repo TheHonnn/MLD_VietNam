@@ -69,14 +69,14 @@ void main() {
     await tester.pumpWidget(_buildTestApp(home: const MainLayoutScreen(initialIndex: 3), locale: const Locale('vi')));
     await tester.pump();
     expect(find.byType(D09DocumentsScreen), findsOneWidget);
-    expect(find.text('Tài liệu & Y khoa MLD'), findsWidgets);
+    expect(find.text('Kiến thức Y khoa MLD'), findsWidgets);
   });
 
   testWidgets('Test MainLayoutScreen tab 3 rendering for Documents (English)', (WidgetTester tester) async {
     await tester.pumpWidget(_buildTestApp(home: const MainLayoutScreen(initialIndex: 3), locale: const Locale('en')));
     await tester.pump();
     expect(find.byType(D09DocumentsScreen), findsOneWidget);
-    expect(find.text('Documents & Medical MLD'), findsWidgets);
+    expect(find.text('Medical Knowledge MLD'), findsWidgets);
   });
 
   testWidgets('Test E07MyCoursesScreen: 2 Tabs Đang học & Kiểm tra, bấm vào khóa học hiện danh sách kiểm tra và nút Bắt đầu', (WidgetTester tester) async {

@@ -191,29 +191,47 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
           final accessToken = session?['access_token'] ?? 'mld_token_${DateTime.now().millisecondsSinceEpoch}';
           final refreshToken = session?['refresh_token'];
           final user = res.data['user'];
+          final userName = (user?['full_name'] ?? user?['fullName']) as String?;
+          final userAvatar = (user?['avatar_url'] ?? user?['avatarUrl']) as String?;
+          final userEmail = user?['email'] as String?;
 
           await AuthService.instance.saveSession(
             accessToken: accessToken,
             refreshToken: refreshToken,
             phone: widget.phoneNumber,
-            userId: user?['id'],
+            userId: user?['id'] as String?,
+            displayName: userName,
+            avatarUrl: userAvatar,
           );
           await AuthService.instance.saveLastLogin(
             phone: widget.phoneNumber,
             method: 'phone',
           );
+          MembershipRepository.instance.syncUserSession(
+            fullName: userName,
+            phone: widget.phoneNumber,
+            email: userEmail,
+            avatarUrl: userAvatar,
+            memberCode: user?['referral_code']?.toString() ?? user?['referralCode']?.toString(),
+          );
         } catch (_) {
-          // Fallback an toàn nếu backend OTP server đang chạy test
           await AuthService.instance.saveSession(
             accessToken: 'mld_session_${DateTime.now().millisecondsSinceEpoch}',
             phone: widget.phoneNumber,
+            displayName: null,
+            avatarUrl: null,
           );
           await AuthService.instance.saveLastLogin(
             phone: widget.phoneNumber,
             method: 'phone',
           );
+          MembershipRepository.instance.syncUserSession(
+            fullName: '',
+            phone: widget.phoneNumber,
+            email: '',
+            avatarUrl: '',
+          );
         }
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

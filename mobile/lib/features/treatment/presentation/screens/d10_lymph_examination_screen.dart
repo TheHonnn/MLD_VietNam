@@ -45,9 +45,7 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
     '13:30 - 14:30',
     '14:45 - 15:45',
     '16:00 - 17:00',
-    '17:15 - 18:15',
-    '18:30 - 19:30',
-    '19:45 - 20:45',
+    '16:30 - 17:30',
   ];
 
   @override

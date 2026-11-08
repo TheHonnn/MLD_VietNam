@@ -9,12 +9,20 @@ import '../models/booking_models.dart';
 /// Central Booking Repository connecting Mobile to NestJS Backend Gateway
 /// (/api/v1/bookings/*) with automatic resilient caching.
 class BookingRepository {
-  BookingRepository._internal();
+  BookingRepository._internal() {
+    AuthService.instance.addOnLogoutListener(() {
+      clear();
+    });
+  }
   static final BookingRepository instance = BookingRepository._internal();
   factory BookingRepository() => instance;
 
   final ApiClient _apiClient = ApiClient.instance;
   final List<AppointmentItemModel> _appointments = [];
+
+  void clear() {
+    _appointments.clear();
+  }
 
   // --- GETTERS ĐỒNG BỘ CHO UI ---
   List<AppointmentItemModel> getAppointments({AppointmentStatus? status}) {
@@ -731,9 +739,7 @@ class BookingRepository {
       TimeSlotModel(id: 'slot-1330', time: '13:30 - 14:30', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true),
       TimeSlotModel(id: 'slot-1445', time: '14:45 - 15:45', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true),
       TimeSlotModel(id: 'slot-1600', time: '16:00 - 17:00', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: false),
-      TimeSlotModel(id: 'slot-1715', time: '17:15 - 18:15', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true),
-      TimeSlotModel(id: 'slot-1830', time: '18:30 - 19:30', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true),
-      TimeSlotModel(id: 'slot-1945', time: '19:45 - 20:45', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: false),
+      TimeSlotModel(id: 'slot-1630', time: '16:30 - 17:30', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true),
     ];
   }
 
@@ -774,17 +780,7 @@ class BookingRepository {
         subtext: !isHa ? 'Đã có khách' : 'Còn trống',
         unavailableReason: !isHa ? 'Chuyên viên $specialistName đang thực hiện liệu trình chuyên sâu cho khách khác.' : null,
       ),
-      const TimeSlotModel(id: 'slot-1715', time: '17:15 - 18:15', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true, subtext: 'Còn trống'),
-      TimeSlotModel(
-        id: 'slot-1830',
-        time: '18:30 - 19:30',
-        periodName: 'Tối',
-        period: SlotPeriod.evening,
-        isAvailable: !isPhuong,
-        subtext: isPhuong ? 'Đã có khách' : 'Còn trống',
-        unavailableReason: isPhuong ? 'Chuyên viên $specialistName đã có lịch hẹn phục vụ khách hàng khác.' : null,
-      ),
-      const TimeSlotModel(id: 'slot-1945', time: '19:45 - 20:45', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true, subtext: 'Còn trống'),
+      const TimeSlotModel(id: 'slot-1630', time: '16:30 - 17:30', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'Còn trống'),
     ];
   }
 
@@ -796,9 +792,7 @@ class BookingRepository {
       TimeSlotModel(id: 'slot-1330', time: '13:30 - 14:30', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'NV: Trần Minh Phương'),
       TimeSlotModel(id: 'slot-1445', time: '14:45 - 15:45', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'NV: Nguyễn Thu Hà'),
       TimeSlotModel(id: 'slot-1600', time: '16:00 - 17:00', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'NV: Lê Hoài An'),
-      TimeSlotModel(id: 'slot-1715', time: '17:15 - 18:15', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true, subtext: 'NV: Trần Minh Phương'),
-      TimeSlotModel(id: 'slot-1830', time: '18:30 - 19:30', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: false, subtext: 'Kín lịch tất cả NV', unavailableReason: 'Toàn bộ chuyên viên tại cơ sở đều đang bận phục vụ khách hàng khác vào khung giờ này.'),
-      TimeSlotModel(id: 'slot-1945', time: '19:45 - 20:45', periodName: 'Tối', period: SlotPeriod.evening, isAvailable: true, subtext: 'NV: Lê Hoài An'),
+      TimeSlotModel(id: 'slot-1630', time: '16:30 - 17:30', periodName: 'Chiều', period: SlotPeriod.afternoon, isAvailable: true, subtext: 'NV: Trần Minh Phương'),
     ];
   }
 

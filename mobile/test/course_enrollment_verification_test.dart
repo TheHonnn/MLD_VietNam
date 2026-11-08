@@ -58,7 +58,7 @@ void main() {
       expect(find.text('Họ và tên *'), findsOneWidget);
       expect(find.text('Số điện thoại *'), findsOneWidget);
       expect(find.text('Địa chỉ Email *'), findsOneWidget);
-      expect(find.text('Địa chỉ liên hệ *'), findsOneWidget);
+      expect(find.text('Địa chỉ liên hệ'), findsOneWidget);
     });
 
     test('3. AcademyRepository records course enrollment with real branch and pending status', () async {

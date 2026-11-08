@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/utils/validators.dart';
@@ -66,12 +66,12 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
             ? body['message'] as String
             : ((body is Map && body['data'] is Map && body['data']['message'] is String)
                 ? body['data']['message'] as String
-                : 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.');
+                : 'Mã xác thực OTP đã được gửi đến email của bạn.');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: AppColors.primary,
-            duration: const Duration(seconds: 5),
+            backgroundColor: const Color(0xFF003876),
+            duration: const Duration(seconds: 4),
           ),
         );
 
@@ -102,34 +102,45 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const primaryNavy = Color(0xFF003876);
+    const ctaGreen = Color(0xFF16A34A);
+    const textDark = Color(0xFF0F172A);
+    const textMuted = Color(0xFF64748B);
+
     return Scaffold(
-      backgroundColor: AppColors.background, // #F8F1E8
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. Back button
+                // 1. Nút quay lại
                 Align(
                   alignment: Alignment.centerLeft,
                   child: InkWell(
                     onTap: () => Navigator.pop(context),
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      width: 44,
-                      height: 44,
+                      width: 42,
+                      height: 42,
                       decoration: BoxDecoration(
-                        color: AppColors.surface,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border, width: 1.0),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: const Icon(
-                        Icons.arrow_back_rounded,
-                        size: 20,
-                        color: AppColors.textPrimary,
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 18,
+                        color: primaryNavy,
                       ),
                     ),
                   ),
@@ -137,106 +148,127 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
 
                 const SizedBox(height: 24),
 
-                // 2. Title & Subtitle
-                const Text(
+                // 2. Tiêu đề
+                Text(
                   'Đăng ký tài khoản',
-                  style: TextStyle(
-                    fontSize: 28,
+                  style: GoogleFonts.beVietnamPro(
+                    fontSize: 26,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textHeading,
+                    color: primaryNavy,
                   ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Tạo tài khoản để trải nghiệm dịch vụ chăm sóc và đào tạo MLD.',
+                  style: GoogleFonts.beVietnamPro(
+                    fontSize: 13.5,
+                    color: textMuted,
+                    height: 1.45,
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // 3. Các trường nhập liệu (Hạn chế viền, bóng mờ nhẹ, chuẩn 6-3-1)
+                Text(
+                  'Họ và tên',
+                  style: GoogleFonts.beVietnamPro(fontSize: 13.5, fontWeight: FontWeight.w600, color: primaryNavy),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Tạo tài khoản bằng email để trải nghiệm dịch vụ chăm sóc sắc đẹp & y tế MLD.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-
-                const SizedBox(height: 28),
-
-                // 3. Form fields
-                const Text(
-                  'Họ và tên',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _nameController,
-                  validator: AppValidators.fullName,
-                  decoration: _buildInputDecoration(hint: 'Nguyễn Văn A', prefixIcon: Icons.person_outline_rounded),
-                ),
-
-                const SizedBox(height: 16),
-
-                const Text(
-                  'Địa chỉ Email',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  validator: AppValidators.email,
-                  decoration: _buildInputDecoration(hint: 'example@email.com', prefixIcon: Icons.mail_outline_rounded),
-                ),
-
-                const SizedBox(height: 16),
-
-                const Text(
-                  'Mật khẩu',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  validator: (val) {
-                    if (val == null || val.length < 6) {
-                      return 'Mật khẩu phải có tối thiểu 6 ký tự';
-                    }
-                    return null;
-                  },
-                  decoration: _buildInputDecoration(
-                    hint: 'Tối thiểu 6 ký tự',
-                    prefixIcon: Icons.lock_outline_rounded,
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        color: AppColors.textSecondary,
-                      ),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                _buildInputContainer(
+                  child: TextFormField(
+                    controller: _nameController,
+                    validator: AppValidators.fullName,
+                    style: GoogleFonts.beVietnamPro(fontSize: 14.5, fontWeight: FontWeight.w500, color: textDark),
+                    decoration: _buildInputDecoration(
+                      hint: 'Nguyễn Văn A',
+                      prefixIcon: Icons.person_outline_rounded,
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 16),
 
-                const Text(
-                  'Xác nhận mật khẩu',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                Text(
+                  'Địa chỉ Email',
+                  style: GoogleFonts.beVietnamPro(fontSize: 13.5, fontWeight: FontWeight.w600, color: primaryNavy),
                 ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: _obscureConfirmPassword,
-                  validator: (val) {
-                    if (val == null || val.isEmpty) {
-                      return 'Vui lòng nhập lại mật khẩu';
-                    }
-                    return null;
-                  },
-                  decoration: _buildInputDecoration(
-                    hint: 'Nhập lại mật khẩu',
-                    prefixIcon: Icons.lock_outline_rounded,
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        color: AppColors.textSecondary,
+                const SizedBox(height: 8),
+                _buildInputContainer(
+                  child: TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    validator: AppValidators.email,
+                    style: GoogleFonts.beVietnamPro(fontSize: 14.5, fontWeight: FontWeight.w500, color: textDark),
+                    decoration: _buildInputDecoration(
+                      hint: 'example@email.com',
+                      prefixIcon: Icons.mail_outline_rounded,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                Text(
+                  'Mật khẩu',
+                  style: GoogleFonts.beVietnamPro(fontSize: 13.5, fontWeight: FontWeight.w600, color: primaryNavy),
+                ),
+                const SizedBox(height: 8),
+                _buildInputContainer(
+                  child: TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    validator: (val) {
+                      if (val == null || val.length < 6) {
+                        return 'Mật khẩu phải có tối thiểu 6 ký tự';
+                      }
+                      return null;
+                    },
+                    style: GoogleFonts.beVietnamPro(fontSize: 14.5, fontWeight: FontWeight.w500, color: textDark),
+                    decoration: _buildInputDecoration(
+                      hint: 'Tối thiểu 6 ký tự',
+                      prefixIcon: Icons.lock_outline_rounded,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          color: textMuted,
+                          size: 20,
+                        ),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
-                      onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                Text(
+                  'Xác nhận mật khẩu',
+                  style: GoogleFonts.beVietnamPro(fontSize: 13.5, fontWeight: FontWeight.w600, color: primaryNavy),
+                ),
+                const SizedBox(height: 8),
+                _buildInputContainer(
+                  child: TextFormField(
+                    controller: _confirmPasswordController,
+                    obscureText: _obscureConfirmPassword,
+                    validator: (val) {
+                      if (val == null || val.isEmpty) {
+                        return 'Vui lòng nhập lại mật khẩu';
+                      }
+                      return null;
+                    },
+                    style: GoogleFonts.beVietnamPro(fontSize: 14.5, fontWeight: FontWeight.w500, color: textDark),
+                    decoration: _buildInputDecoration(
+                      hint: 'Nhập lại mật khẩu',
+                      prefixIcon: Icons.lock_outline_rounded,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          color: textMuted,
+                          size: 20,
+                        ),
+                        onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                      ),
                     ),
                   ),
                 ),
@@ -244,47 +276,57 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
                 if (_serverError != null) ...[
                   const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.shade200),
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      _serverError!,
-                      style: TextStyle(fontSize: 13, color: Colors.red.shade800),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _serverError!,
+                            style: GoogleFonts.beVietnamPro(fontSize: 13, color: const Color(0xFF991B1B)),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
 
-                // 4. Submit button
+                // 4. Nút đăng ký (10% CTA Green)
                 PrimaryButton(
                   text: 'Đăng ký tài khoản',
+                  backgroundColor: ctaGreen,
                   isLoading: _isLoading,
                   onPressed: _handleRegister,
                 ),
 
                 const SizedBox(height: 24),
 
-                // 5. Already have account
+                // 5. Đã có tài khoản
                 Wrap(
                   alignment: WrapAlignment.center,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Text(
+                    Text(
                       'Đã có tài khoản? ',
-                      style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                      style: GoogleFonts.beVietnamPro(fontSize: 13.5, color: textMuted),
                     ),
                     InkWell(
                       onTap: () => Navigator.pop(context),
-                      child: const Text(
+                      child: Text(
                         'Đăng nhập ngay',
-                        style: TextStyle(
-                          fontSize: 14,
+                        style: GoogleFonts.beVietnamPro(
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
+                          color: primaryNavy,
+                          decoration: TextDecoration.underline,
+                          decorationColor: primaryNavy,
                         ),
                       ),
                     ),
@@ -298,6 +340,23 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
     );
   }
 
+  Widget _buildInputContainer({required Widget child}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
   InputDecoration _buildInputDecoration({
     required String hint,
     required IconData prefixIcon,
@@ -305,25 +364,11 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
   }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(fontSize: 14, color: AppColors.textPlaceholder),
-      prefixIcon: Icon(prefixIcon, color: AppColors.textSecondary, size: 20),
+      hintStyle: GoogleFonts.beVietnamPro(fontSize: 14, color: const Color(0xFF94A3B8)),
+      prefixIcon: Icon(prefixIcon, color: const Color(0xFF003876), size: 20),
       suffixIcon: suffixIcon,
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+      border: InputBorder.none,
     );
   }
 }
-

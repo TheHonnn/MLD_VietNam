@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../motion/app_page_transitions.dart';
 import '../services/auth_service.dart';
 import '../../features/auth/presentation/screens/a03_login_screen.dart';
 
@@ -71,7 +72,7 @@ class GuestAuthPrompt {
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textHeading,
@@ -84,7 +85,7 @@ class GuestAuthPrompt {
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 14,
                 color: AppColors.textSecondary,
                 height: 1.45,
@@ -101,7 +102,9 @@ class GuestAuthPrompt {
                   Navigator.pop(ctx, true);
                   await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+                    AppPageTransitions.modalSlideUp(
+                      page: const A03LoginScreen(),
+                    ),
                   );
                 },
                 style: ElevatedButton.styleFrom(
@@ -114,7 +117,7 @@ class GuestAuthPrompt {
                 child: const Text(
                   'Đăng nhập / Đăng ký ngay',
                   style: TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -130,7 +133,7 @@ class GuestAuthPrompt {
               child: const Text(
                 'Để sau',
                 style: TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   color: AppColors.textSecondary,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,

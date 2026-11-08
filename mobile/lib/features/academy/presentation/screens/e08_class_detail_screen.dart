@@ -176,7 +176,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
               child: Text(
                 AppTranslation.translate(widget.course?.title ?? 'Dẫn lưu bạch huyết Vodder Chuyên Nghiệp', isEn: context.isEn),
                 style: const TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: AcademyColors.heading,
@@ -312,7 +312,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                     child: Text(
                                                       lesson.formattedDuration,
                                                       style: const TextStyle(
-                                                        fontFamily: 'Montserrat',
+                                                        
                                                         fontSize: 10,
                                                         fontWeight: FontWeight.w700,
                                                         color: Colors.white,
@@ -334,7 +334,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                   maxLines: 2,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
-                                                    fontFamily: 'Montserrat',
+                                                    
                                                     fontSize: 13.5,
                                                     fontWeight: FontWeight.w700,
                                                     color: isUnlocked
@@ -356,7 +356,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                         child: Text(
                                                           context.tr('Đã học', 'Completed'),
                                                           style: const TextStyle(
-                                                            fontFamily: 'Montserrat',
+                                                            
                                                             fontSize: 11,
                                                             fontWeight: FontWeight.bold,
                                                             color: Color(0xFF047857),
@@ -373,7 +373,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                         child: Text(
                                                           context.tr('Vào học', 'Start'),
                                                           style: const TextStyle(
-                                                            fontFamily: 'Montserrat',
+                                                            
                                                             fontSize: 11,
                                                             fontWeight: FontWeight.bold,
                                                             color: AppColors.primary,
@@ -396,7 +396,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                             Text(
                                                               context.tr('Chưa mở khóa', 'Locked'),
                                                               style: const TextStyle(
-                                                                fontFamily: 'Montserrat',
+                                                                
                                                                 fontSize: 10.5,
                                                                 fontWeight: FontWeight.w600,
                                                                 color: Color(0xFF6B7280),
@@ -543,7 +543,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                   Text(
                     context.tr('Đã hoàn thành tất cả video!', 'All videos completed!'),
                     style: TextStyle(
-                      fontFamily: 'Montserrat',
+                      
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF065F46),
@@ -553,7 +553,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                   Text(
                     context.isEn ? 'You have completed $_totalLessonsCount/$_totalLessonsCount video lectures of the course.' : 'Bạn đã hoàn thành $_totalLessonsCount/$_totalLessonsCount bài giảng video của khóa học.',
                     style: const TextStyle(
-                      fontFamily: 'Montserrat',
+                      
                       fontSize: 12,
                       color: Color(0xFF047857),
                     ),

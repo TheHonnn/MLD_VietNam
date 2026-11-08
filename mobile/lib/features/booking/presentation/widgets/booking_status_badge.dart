@@ -64,7 +64,7 @@ class BookingStatusBadge extends StatelessWidget {
       child: Text(
         label.tr(context),
         style: TextStyle(
-          fontFamily: 'Montserrat',
+          
           fontSize: 12,
           fontWeight: FontWeight.w600,
           color: textColor,

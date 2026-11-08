@@ -86,7 +86,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
         title: Text(
           context.tr('Chi tiết gói liệu trình', 'Treatment Package Details'),
           style: const TextStyle(
-            fontFamily: 'Montserrat',
+            
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -146,7 +146,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                                         child: Text(
                                           '#$packageCodeDisplay',
                                           style: const TextStyle(
-                                            fontFamily: 'Montserrat',
+                                            
                                             fontSize: 12,
                                             fontWeight: FontWeight.w700,
                                             color: AppColors.primary,
@@ -168,7 +168,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                           Text(
                             package.packageName.tr(context),
                             style: const TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textPrimary,
@@ -233,7 +233,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                                 child: Text(
                                   context.tr('Tiến độ điều trị:', 'Treatment Progress:'),
                                   style: const TextStyle(
-                                    fontFamily: 'Montserrat',
+                                    
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.textSecondary,
@@ -243,7 +243,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                               const SizedBox(width: 8),
                               RichText(
                                 text: TextSpan(
-                                  style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13.5, color: AppColors.textPrimary),
+                                  style: const TextStyle( fontSize: 13.5, color: AppColors.textPrimary),
                                   children: [
                                     TextSpan(
                                       text: '${package.completedSessions}',
@@ -292,7 +292,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                               Text(
                                 context.tr('LỘ TRÌNH TỪNG BUỔI ĐIỀU TRỊ', 'SESSION SCHEDULE'),
                                 style: const TextStyle(
-                                  fontFamily: 'Montserrat',
+                                  
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textSecondary,
@@ -303,7 +303,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                               Text(
                                 context.tr('Bấm vào từng buổi để xem chi tiết & minh chứng', 'Tap session to view details & evidence'),
                                 style: const TextStyle(
-                                  fontFamily: 'Montserrat',
+                                  
                                   fontSize: 11.5,
                                   color: AppColors.textPlaceholder,
                                 ),
@@ -321,7 +321,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                           child: Text(
                             '${displaySessions.length} ${context.tr("buổi", "sessions")}',
                             style: const TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 11.5,
                               fontWeight: FontWeight.w700,
                               color: AppColors.primary,
@@ -356,7 +356,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                         label: Text(
                           context.tr('Xem xâu chuỗi minh chứng tại Nhật ký trị liệu', 'View Evidence Chain in Care Journal'),
                           style: const TextStyle(
-                            fontFamily: 'Montserrat',
+                            
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primary,
@@ -408,7 +408,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                     child: Text(
                       context.tr('Đặt lịch buổi tiếp theo', 'Book Next Session'),
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
@@ -436,7 +436,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Montserrat',
+            
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: AppColors.textSecondary,
@@ -448,7 +448,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
             value,
             textAlign: TextAlign.end,
             style: TextStyle(
-              fontFamily: 'Montserrat',
+              
               fontSize: 13,
               fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
               color: AppColors.textPrimary,
@@ -486,7 +486,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontFamily: 'Montserrat',
+          
           fontSize: 12,
           fontWeight: FontWeight.w700,
           color: text,
@@ -558,7 +558,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                       : Text(
                           '${session.sessionNumber}',
                           style: TextStyle(
-                            fontFamily: 'Montserrat',
+                            
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: isCurrent ? AppColors.primary : AppColors.textSecondary,
@@ -579,7 +579,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                         Text(
                           '${context.tr("Buổi", "Session")} ${session.sessionNumber}',
                           style: const TextStyle(
-                            fontFamily: 'Montserrat',
+                            
                             fontSize: 14.5,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
@@ -594,7 +594,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                           child: Text(
                             badgeText,
                             style: TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: badgeColor,
@@ -607,7 +607,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                     Text(
                       session.title,
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                         color: AppColors.textPrimary,
@@ -624,7 +624,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                           child: Text(
                             session.treatmentTime.isNotEmpty ? session.treatmentTime : context.tr('Chưa lên lịch', 'Not scheduled'),
                             style: const TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 12,
                               color: AppColors.textSecondary,
                             ),
@@ -648,7 +648,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                                 Text(
                                   '${session.evidenceImages.length} ảnh',
                                   style: const TextStyle(
-                                    fontFamily: 'Montserrat',
+                                    
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.primary,
@@ -747,7 +747,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                       child: Text(
                         context.tr('Chi tiết buổi điều trị', 'Session Details'),
                         style: const TextStyle(
-                          fontFamily: 'Montserrat',
+                          
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
@@ -784,7 +784,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                             child: Text(
                               '#$packageCode',
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.primary,
@@ -800,7 +800,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                             child: Text(
                               statusLabel,
                               style: TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: statusTextColor,
@@ -815,7 +815,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                       Text(
                         packageName.tr(context),
                         style: const TextStyle(
-                          fontFamily: 'Montserrat',
+                          
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
@@ -887,7 +887,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                           Text(
                             context.tr('Nội dung buổi điều trị', 'Session Clinical Content'),
                             style: const TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 14.5,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textPrimary,
@@ -912,7 +912,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                                   'MLD specialists will record clinical notes and progress here upon session completion.',
                                 ),
                           style: const TextStyle(
-                            fontFamily: 'Montserrat',
+                            
                             fontSize: 13,
                             color: AppColors.textPrimary,
                             height: 1.45,
@@ -933,7 +933,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                               Text(
                                 context.tr('Hình ảnh minh chứng', 'Evidence Images'),
                                 style: const TextStyle(
-                                  fontFamily: 'Montserrat',
+                                  
                                   fontSize: 14.5,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textPrimary,
@@ -945,7 +945,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                             Text(
                               '${session.evidenceImages.length} ${context.tr("hình ảnh", "images")}',
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.textSecondary,
@@ -972,7 +972,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                                 context.tr('Chưa có hình ảnh minh chứng cho buổi này', 'No evidence images for this session yet'),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
-                                  fontFamily: 'Montserrat',
+                                  
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.textSecondary,
@@ -986,7 +986,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
                                 ),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
-                                  fontFamily: 'Montserrat',
+                                  
                                   fontSize: 11.5,
                                   color: AppColors.textPlaceholder,
                                 ),
@@ -1045,7 +1045,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Montserrat',
+            
             fontSize: 12.5,
             fontWeight: FontWeight.w500,
             color: AppColors.textSecondary,
@@ -1057,7 +1057,7 @@ class D02PackageDetailsScreen extends StatelessWidget {
             value,
             textAlign: TextAlign.end,
             style: TextStyle(
-              fontFamily: 'Montserrat',
+              
               fontSize: 13,
               fontWeight: isHighlight ? FontWeight.w700 : FontWeight.w600,
               color: valueColor ?? AppColors.textPrimary,

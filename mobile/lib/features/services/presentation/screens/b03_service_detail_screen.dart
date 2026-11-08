@@ -1,4 +1,5 @@
 import '../../../../features/booking/presentation/screens/all_in_one_booking_screen.dart';
+import '../../../../core/widgets/guest_auth_prompt.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../home/data/models/home_models.dart';
@@ -727,6 +728,13 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                               isFeatured: true,
                             );
                           }
+
+                          final ok = await GuestAuthPrompt.ensureLoggedIn(
+                            context,
+                            title: 'Đăng nhập để đặt lịch',
+                            message: 'Quý khách vui lòng đăng nhập để đặt lịch dịch vụ trị liệu.',
+                          );
+                          if (!ok || !context.mounted) return;
 
                           Navigator.push(
                             context,

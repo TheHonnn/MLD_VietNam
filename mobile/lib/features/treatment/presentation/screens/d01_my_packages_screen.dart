@@ -61,7 +61,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
         title: Text(
           context.tr('Gói liệu trình của tôi', 'My Treatment Packages'),
           style: const TextStyle(
-            fontFamily: 'Montserrat',
+            
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -129,7 +129,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                                     Text(
                                       displayName,
                                       style: const TextStyle(
-                                        fontFamily: 'Montserrat',
+                                        
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
                                         color: AppColors.textPrimary,
@@ -140,7 +140,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                                       Text(
                                         phone,
                                         style: const TextStyle(
-                                          fontFamily: 'Montserrat',
+                                          
                                           fontSize: 12.5,
                                           fontWeight: FontWeight.w500,
                                           color: AppColors.textSecondary,
@@ -156,7 +156,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                           Text(
                             '${activePackages.length} ${context.tr("gói đang dùng", "active packages")}   ·   $remainingSessions ${context.tr("buổi còn lại", "sessions left")}   ·   $usedSessions ${context.tr("đã dùng", "used")}',
                             style: const TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 12.5,
                               fontWeight: FontWeight.w500,
                               color: AppColors.textSecondary,
@@ -292,7 +292,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
           child: Text(
             title,
             style: TextStyle(
-              fontFamily: 'Montserrat',
+              
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               color: isSelected ? Colors.white : AppColors.textSecondary,
@@ -333,7 +333,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
             title,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontFamily: 'Montserrat',
+              
               fontSize: 15.5,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -344,7 +344,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
             subtitle,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontFamily: 'Montserrat',
+              
               fontSize: 13,
               color: AppColors.textSecondary,
               height: 1.4,
@@ -371,7 +371,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                 child: Text(
                   context.tr('Khám phá dịch vụ', 'Explore Services'),
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
                   ),
@@ -459,7 +459,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                           Text(
                             '#',
                             style: const TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: AppColors.primary,
@@ -477,7 +477,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                       child: Text(
                         statusLabel,
                         style: TextStyle(
-                          fontFamily: 'Montserrat',
+                          
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: statusTextColor,
@@ -492,7 +492,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                 Text(
                   package.packageName.tr(context),
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 16.5,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -517,7 +517,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                           Expanded(
                             child: RichText(
                               text: TextSpan(
-                                style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textPrimary),
+                                style: const TextStyle( fontSize: 13, color: AppColors.textPrimary),
                                 children: [
                                   TextSpan(
                                     text: ' ',
@@ -541,7 +541,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                           Expanded(
                             child: RichText(
                               text: TextSpan(
-                                style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13, color: AppColors.textPrimary),
+                                style: const TextStyle( fontSize: 13, color: AppColors.textPrimary),
                                 children: [
                                   TextSpan(
                                     text: ' ',
@@ -568,7 +568,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                   children: [
                     RichText(
                       text: TextSpan(
-                        style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13.5, color: AppColors.textPrimary),
+                        style: const TextStyle( fontSize: 13.5, color: AppColors.textPrimary),
                         children: [
                           TextSpan(
                             text: ' ',
@@ -588,7 +588,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                     Text(
                       '%',
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary,
@@ -617,7 +617,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                     Text(
                       context.tr('Chia buổi điều trị:', 'Session Breakdown:'),
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textSecondary,
@@ -633,7 +633,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                   Text(
                     ' ',
                     style: const TextStyle(
-                      fontFamily: 'Montserrat',
+                      
                       fontSize: 12,
                       color: AppColors.textSecondary,
                     ),
@@ -655,7 +655,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                           child: Text(
                             context.tr('Xem chi tiết các buổi', 'View Session Details'),
                             style: const TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: AppColors.primary,
@@ -687,7 +687,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                             child: Text(
                               context.tr('Đặt buổi tiếp', 'Book Next Session'),
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -757,7 +757,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                 Text(
                   ' ',
                   style: TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 12,
                     fontWeight: isDone || isCurrent ? FontWeight.w700 : FontWeight.w500,
                     color: textColor,
@@ -779,7 +779,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
           Text(
             val,
             style: const TextStyle(
-              fontFamily: 'Montserrat',
+              
               fontSize: 19,
               fontWeight: FontWeight.w700,
               color: AppColors.primary,
@@ -789,7 +789,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
           Text(
             label,
             style: const TextStyle(
-              fontFamily: 'Montserrat',
+              
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: AppColors.textSecondary,

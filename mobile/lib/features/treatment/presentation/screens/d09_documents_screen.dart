@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/supabase_data_service.dart';
-import 'd11_community_screen.dart';
 
 /// Screen D09: Trang Tài liệu & Cẩm nang Y khoa MLD
 /// Tối giản giao diện - Tải 100% dữ liệu thực từ Database (home_care_guidelines)
@@ -176,7 +175,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                     caption,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontFamily: 'Montserrat',
+                      
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
                       color: AppColors.textSecondary,
@@ -199,7 +198,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
             child: Text(
               trimmed,
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textHeading,
@@ -215,7 +214,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
             child: Text(
               trimmed,
               style: const TextStyle(
-                fontFamily: 'Montserrat',
+                
                 fontSize: 14.5,
                 fontWeight: FontWeight.w400,
                 color: AppColors.textPrimary,
@@ -297,7 +296,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                     child: Text(
                       category.toUpperCase(),
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: AppColors.primary,
@@ -309,7 +308,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                     Text(
                       date,
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 12,
                         color: AppColors.textSecondary,
                       ),
@@ -322,7 +321,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
               Text(
                 title,
                 style: const TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textHeading,
@@ -335,7 +334,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
               Text(
                 '$readTime · $author',
                 style: const TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary,
@@ -350,7 +349,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                 Text(
                   summary,
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 15.5,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textHeading,
@@ -371,7 +370,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                 const Text(
                   'Các bước thực hiện chuẩn hóa:',
                   style: TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textHeading,
@@ -406,7 +405,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                           child: Text(
                             '$idx',
                             style: const TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 11,
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -422,7 +421,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                                 Text(
                                   stepTitle,
                                   style: const TextStyle(
-                                    fontFamily: 'Montserrat',
+                                    
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.textHeading,
@@ -432,7 +431,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                                 Text(
                                   stepDesc,
                                   style: const TextStyle(
-                                    fontFamily: 'Montserrat',
+                                    
                                     fontSize: 13,
                                     color: AppColors.textPrimary,
                                     height: 1.4,
@@ -467,10 +466,10 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
-          context.tr('Tài liệu & Y khoa MLD', 'Documents & Medical MLD'),
+          context.tr('Kiến thức Y khoa MLD', 'Medical Knowledge MLD'),
           style: const TextStyle(
-            fontFamily: 'Montserrat',
-            fontSize: 22,
+            fontFamily: 'Be Vietnam Pro',
+            fontSize: 20,
             fontWeight: FontWeight.bold,
             color: AppColors.textHeading,
           ),
@@ -486,32 +485,36 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Ô tìm kiếm tài liệu
+            // Ô tìm kiếm tài liệu - BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.border),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: TextField(
                   controller: _searchController,
                   onChanged: (_) => setState(() {}),
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
                     fontSize: 14,
                     color: AppColors.textPrimary,
                   ),
                   decoration: InputDecoration(
                     hintText: context.tr('Tìm tài liệu, nghiên cứu lâm sàng, bài viết...', 'Search documents, clinical studies, articles...'),
                     hintStyle: const TextStyle(
-                      fontFamily: 'Montserrat',
                       fontSize: 14,
                       color: AppColors.textPlaceholder,
                     ),
-                    prefixIcon: const Icon(Icons.search, color: AppColors.primary, size: 20),
+                    prefixIcon: const Icon(Icons.search, color: Color(0xFF003876), size: 20),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, size: 18, color: AppColors.textSecondary),
@@ -522,13 +525,13 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                           )
                         : null,
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
               ),
             ),
 
-            // Thanh lọc danh mục ngang
+            // Thanh lọc danh mục ngang - BỎ VIỀN, NỔI BẬT KHỐI
             if (_categories.length > 1) ...[
               Container(
                 color: Colors.white,
@@ -543,23 +546,26 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                     final isSelected = cat == _selectedCategory;
                     return InkWell(
                       onTap: () => setState(() => _selectedCategory = cat),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(20),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primary : AppColors.surfaceMuted,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isSelected ? AppColors.primary : AppColors.border,
-                          ),
+                          color: isSelected ? const Color(0xFF003876) : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Text(
                           cat.tr(context),
                           style: TextStyle(
-                            fontFamily: 'Montserrat',
-                            fontSize: 13.5,
+                            fontSize: 13,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: isSelected ? Colors.white : AppColors.textSecondary,
+                            color: isSelected ? Colors.white : const Color(0xFF334155),
                           ),
                         ),
                       ),
@@ -567,7 +573,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                   },
                 ),
               ),
-              const Divider(height: 1, color: AppColors.border),
+              const SizedBox(height: 10),
             ],
 
             // Danh sách tài liệu (RefreshIndicator hỗ trợ kéo để làm mới)
@@ -592,7 +598,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                                       Text(
                                         context.tr('Không tìm thấy tài liệu phù hợp', 'No matching documents found'),
                                         style: const TextStyle(
-                                          fontFamily: 'Montserrat',
+                                          
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
                                           color: AppColors.textSecondary,
@@ -602,7 +608,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                                       Text(
                                         context.tr('Vui lòng thử từ khóa khác hoặc chọn danh mục khác', 'Please try another keyword or category'),
                                         style: const TextStyle(
-                                          fontFamily: 'Montserrat',
+                                          
                                           fontSize: 13,
                                           color: AppColors.textPlaceholder,
                                         ),
@@ -623,17 +629,17 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
 
                                 return InkWell(
                                   onTap: () => _showDocumentDetail(doc),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(16),
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: AppColors.border),
+                                      borderRadius: BorderRadius.circular(16),
+                                      // BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.04),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
+                                          color: Colors.black.withValues(alpha: 0.05),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 3),
                                         ),
                                       ],
                                     ),
@@ -642,7 +648,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                                       children: [
                                         // 1. Ảnh tài liệu
                                         ClipRRect(
-                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                                           child: _buildDocImage(imageUrl, height: 185),
                                         ),
 
@@ -652,7 +658,7 @@ class _D09DocumentsScreenState extends State<D09DocumentsScreen> {
                                           child: Text(
                                             title.tr(context),
                                             style: const TextStyle(
-                                              fontFamily: 'Montserrat',
+                                              
                                               fontSize: 17,
                                               fontWeight: FontWeight.w700,
                                               color: Color(0xFF0F172A),

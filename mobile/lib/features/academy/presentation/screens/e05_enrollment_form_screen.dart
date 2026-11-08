@@ -567,16 +567,11 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               ),
               const SizedBox(height: 12),
               _buildInputField(
-                label: context.tr('Địa chỉ liên hệ *', 'Address *'),
+                label: context.tr('Địa chỉ liên hệ', 'Address'),
                 controller: _addressController,
-                hint: context.tr('Nhập địa chỉ thường trú / tạm trú của bạn', 'Enter your address'),
+                hint: context.tr('Nhập địa chỉ thường trú / tạm trú của bạn (không bắt buộc)', 'Enter your address (optional)'),
                 prefixIcon: Icons.home_outlined,
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return context.tr('Vui lòng nhập địa chỉ', 'Please enter your address');
-                  }
-                  return null;
-                },
+                validator: null,
               ),
               const SizedBox(height: 22),
 

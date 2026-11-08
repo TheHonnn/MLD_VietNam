@@ -35,22 +35,17 @@ void main() {
     await tester.pump();
     expect(profileNavigated, isTrue);
 
-    // 2. Verify Quick Access has 'Cá nhân'
-    expect(find.text('Bạn muốn tìm gì?'), findsOneWidget);
-    expect(find.text('Dịch vụ'), findsWidgets);
-    expect(find.text('Tài liệu'), findsWidgets);
-    expect(find.text('Đào tạo'), findsWidgets);
-    expect(find.text('Cá nhân'), findsWidgets);
+    // 2. Verify Legacy sales nagging elements were deleted completely
+    expect(find.text('Bạn muốn tìm gì?'), findsNothing);
+    expect(find.text('ĐĂNG KÝ TRONG 30 GIÂY'), findsNothing);
+    expect(find.text('Bác sĩ gọi lại tư vấn miễn phí'), findsNothing);
 
-    profileNavigated = false;
-    await tester.tap(find.text('Cá nhân').first);
-    await tester.pump();
-    expect(profileNavigated, isTrue);
-
-    // 3. Verify TikTok channel in direct messaging
-    expect(find.text('TikTok'), findsWidgets);
-    expect(find.text('Xem video'), findsWidgets);
-    expect(find.byIcon(Icons.music_note_rounded), findsWidgets);
+    // 3. Verify Search & Filter Tabs and Direct Messaging Section exist as wireframe
+    expect(find.text('TÌM KHÓA HỌC'), findsOneWidget);
+    expect(find.text('TÌM DỊCH VỤ & CƠ SỞ'), findsOneWidget);
+    expect(find.text('Kết nối với chúng tôi'), findsOneWidget);
+    expect(find.text('Zalo'), findsOneWidget);
+    expect(find.text('TikTok'), findsOneWidget);
 
     // 4. Verify "GẦN BẠN HƠN" was removed, while "Hệ thống cơ sở" remains
     expect(find.text('GẦN BẠN HƠN'), findsNothing);

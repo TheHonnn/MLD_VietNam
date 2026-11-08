@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
+import '../../../../core/motion/app_page_transitions.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/profile_image_picker.dart';
 import '../../../auth/presentation/screens/a03_login_screen.dart';
@@ -47,22 +49,48 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
   void initState() {
     super.initState();
     _profile = _repo.profile;
+    AuthService.instance.isLoggedInNotifier.addListener(_onAuthStatusChanged);
+
+    if (AuthService.instance.isAuthenticated && !AuthService.instance.isGuest) {
+      _loadData();
+    }
+  }
+
+  @override
+  void dispose() {
+    AuthService.instance.isLoggedInNotifier.removeListener(_onAuthStatusChanged);
+    super.dispose();
+  }
+
+  void _onAuthStatusChanged() {
+    if (!mounted) return;
+    _refreshProfile();
+    if (AuthService.instance.isAuthenticated && !AuthService.instance.isGuest) {
+      _loadData();
+    }
+    setState(() {});
+  }
+
+  void _loadData() {
     MembershipRepository.instance.fetchProfile().then((p) {
       if (mounted) {
         setState(() {
           _profile = p;
         });
       }
-    });
+    }).catchError((_) {});
+
     BookingRepository.instance.fetchMyAppointments().then((_) {
       if (mounted) setState(() {});
-    });
+    }).catchError((_) {});
+
     TreatmentRepository.instance.fetchPackages().then((_) {
       if (mounted) setState(() {});
-    });
+    }).catchError((_) {});
+
     AcademyRepository.instance.getMyCourses().then((_) {
       if (mounted) setState(() {});
-    });
+    }).catchError((_) {});
   }
 
   void _refreshProfile() {
@@ -99,6 +127,10 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             ),
             onPressed: () async {
               Navigator.pop(ctx);
+              BookingRepository.instance.clear();
+              TreatmentRepository.instance.clear();
+              AcademyRepository.instance.clearEnrolledCourses();
+              MembershipRepository.instance.resetProfile();
               await AuthService.instance.logout();
               if (mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
@@ -139,24 +171,37 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final displayName = (_profile.fullName.trim().isNotEmpty && _profile.fullName != "Khách hàng MLD")
-        ? _profile.fullName
-        : ((AuthService.instance.currentDisplayName?.trim().isNotEmpty ?? false)
-            ? AuthService.instance.currentDisplayName!
-            : "Khách hàng MLD");
+    final isUserLoggedIn = AuthService.instance.isAuthenticated && !AuthService.instance.isGuest;
 
-    final displayPhone = _profile.phone.trim().isNotEmpty
-        ? _profile.phone
-        : (AuthService.instance.lastLoginPhone ?? 'Chưa cập nhật số điện thoại');
+    final displayName = isUserLoggedIn
+        ? ((_profile.fullName.trim().isNotEmpty && _profile.fullName != "Khách hàng MLD")
+            ? _profile.fullName
+            : ((AuthService.instance.currentDisplayName?.trim().isNotEmpty ?? false)
+                ? AuthService.instance.currentDisplayName!
+                : "Khách hàng MLD"))
+        : "Khách hàng MLD";
+
+    final displayPhone = isUserLoggedIn
+        ? (_profile.phone.trim().isNotEmpty
+            ? _profile.phone
+            : (AuthService.instance.lastLoginPhone ?? 'Chưa cập nhật số điện thoại'))
+        : 'Chưa đăng nhập';
 
     // Dữ liệu thực từ database / repository (không fallback mock)
-    final upcomingAppointmentsCount = BookingRepository.instance.getUpcomingAppointments().length;
-    final remainingSessions = TreatmentRepository.instance.packages
-        .where((p) => p.status == PackageStatus.active)
-        .fold<int>(0, (acc, p) => acc + (p.totalSessions - p.completedSessions));
-    final myCoursesCount = AcademyRepository.instance.enrolledCourses
-        .where((c) => AcademyRepository.instance.isCourseApproved(c.id, c.title))
-        .length;
+    // Khi chưa đăng nhập / khách thì số liệu tài khoản về 0 triệt để!
+    final upcomingAppointmentsCount = isUserLoggedIn
+        ? BookingRepository.instance.getUpcomingAppointments().length
+        : 0;
+    final remainingSessions = isUserLoggedIn
+        ? TreatmentRepository.instance.packages
+            .where((p) => p.status == PackageStatus.active)
+            .fold<int>(0, (acc, p) => acc + (p.totalSessions - p.completedSessions))
+        : 0;
+    final myCoursesCount = isUserLoggedIn
+        ? AcademyRepository.instance.enrolledCourses
+            .where((c) => AcademyRepository.instance.isCourseApproved(c.id, c.title))
+            .length
+        : 0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -194,14 +239,14 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    // BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
@@ -210,10 +255,9 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       Container(
                         width: 56,
                         height: 56,
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: AppColors.mintBackground,
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                         ),
                         child: const Icon(Icons.person_rounded, size: 30, color: AppColors.primary),
                       ),
@@ -245,7 +289,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                         onPressed: () async {
                           await Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+                            AppPageTransitions.modalSlideUp(page: const A03LoginScreen()),
                           );
                           _refreshProfile();
                           if (mounted) setState(() {});
@@ -272,14 +316,14 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    // BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
@@ -288,13 +332,13 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       AppProfileAvatar(
                         avatarUrl: _profile.avatarUrl,
                         size: 60,
-                        onEditTap: () async {
+                        onEditTap: () => _requireLoginAndRun(() async {
                           await Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => const F02EditProfileScreen()),
                           );
                           _refreshProfile();
-                        },
+                        }, title: 'Thông tin cá nhân', message: 'Vui lòng đăng nhập để cập nhật hồ sơ cá nhân.'),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -322,13 +366,13 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.primary),
-                        onPressed: () async {
+                        onPressed: () => _requireLoginAndRun(() async {
                           await Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => const F02EditProfileScreen()),
                           );
                           _refreshProfile();
-                        },
+                        }, title: 'Thông tin cá nhân', message: 'Vui lòng đăng nhập để cập nhật hồ sơ cá nhân.'),
                       ),
                     ],
                   ),
@@ -388,7 +432,16 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ],
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+
+              // ==========================================
+              // 2.5. THÔNG TIN NGƯỜI GIỚI THIỆU (ATTRIBUTION & REFERRAL)
+              // Chỉ hiển thị khi đã đăng nhập tài khoản thực
+              // ==========================================
+              if (isUserLoggedIn) ...[
+                _buildReferralCard(),
+                const SizedBox(height: 24),
+              ],
 
               // ==========================================
               // 3. NHÓM 1: DỊCH VỤ TRỊ LIỆU (ĐƯA LÊN TRÊN)
@@ -500,7 +553,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     onTap: () async {
                       await Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+                        AppPageTransitions.modalSlideUp(page: const A03LoginScreen()),
                       );
                       _refreshProfile();
                       if (mounted) setState(() {});
@@ -527,7 +580,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 child: Column(
                   children: [
                     Text(
-                      'MLD Việt Nam · Chuẩn Y khoa Vodder Quốc tế',
+                      'MLD Việt Nam',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -574,17 +627,17 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          // BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 6,
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
@@ -627,14 +680,14 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
   Widget _buildCardContainer(List<Widget> children) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        // BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -683,6 +736,215 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             )
           : null,
       onTap: onTap,
+    );
+  }
+
+  Widget _buildReferralCard() {
+    final String myReferralCode = _profile.memberCode.isNotEmpty
+        ? _profile.memberCode
+        : (AuthService.instance.currentUserId != null
+            ? 'MLD-${AuthService.instance.currentUserId!.substring(0, 6).toUpperCase()}'
+            : 'MLD-KHACH');
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(16),
+        // BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.iceBlue,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.handshake_outlined, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Người giới thiệu của bạn',
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
+                          ? _profile.referrerName!
+                          : 'Chưa có (0)',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
+                            ? AppColors.accent
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: _showEnterReferralCodeDialog,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
+                      ? 'Đổi mã'
+                      : 'Nhập mã',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.secondary),
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 20, color: AppColors.border),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Mã giới thiệu của tôi', style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                    const SizedBox(height: 2),
+                    Text(
+                      myReferralCode,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textHeading, letterSpacing: 0.5),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.copy_rounded, size: 14, color: AppColors.primary),
+                label: const Text('Sao chép', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: myReferralCode));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Đã sao chép mã giới thiệu vào bộ nhớ tạm!'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEnterReferralCodeDialog() {
+    final ctrl = TextEditingController();
+    final bool hasExistingReferrer = _profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          hasExistingReferrer ? 'Đổi mã người giới thiệu' : 'Nhập mã người giới thiệu',
+          style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppColors.textHeading),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Nhập mã của Bác sĩ hoặc Kỹ thuật viên đã giới thiệu bạn:', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(
+                hintText: 'Ví dụ: REF_TRUONG_MLD_01',
+                filled: true,
+                fillColor: AppColors.surfaceDisabled,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (hasExistingReferrer)
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await MembershipRepository.instance.clearReferral();
+                if (mounted) {
+                  setState(() {
+                    _profile = MembershipRepository.instance.profile;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Đã gỡ người giới thiệu (cho về 0)!'),
+                      backgroundColor: AppColors.primary,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Gỡ mã (về 0)', style: TextStyle(color: Colors.red)),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              final code = ctrl.text.trim();
+              if (code.isNotEmpty) {
+                Navigator.pop(ctx);
+                final res = await MembershipRepository.instance.linkReferralCode(code);
+                if (mounted) {
+                  setState(() {
+                    _profile = MembershipRepository.instance.profile;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(res['message'] as String),
+                      backgroundColor: (res['success'] == true) ? AppColors.accent : Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Xác nhận'),
+          ),
+        ],
+      ),
     );
   }
 }

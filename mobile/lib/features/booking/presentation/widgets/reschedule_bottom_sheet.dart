@@ -550,13 +550,13 @@ class _RescheduleBottomSheetState extends State<RescheduleBottomSheet> {
 
                 // Sáng
                 if (morningSlots.isNotEmpty) ...[
-                  _buildPeriodSection('Sáng (08:30 – 11:30)', morningSlots),
+                  _buildPeriodSection('Sáng (08:00 – 11:30)', morningSlots),
                   const SizedBox(height: 12),
                 ],
 
                 // Chiều
                 if (afternoonSlots.isNotEmpty) ...[
-                  _buildPeriodSection('Chiều (13:30 – 17:00)', afternoonSlots),
+                  _buildPeriodSection('Chiều (13:30 – 17:30)', afternoonSlots),
                   const SizedBox(height: 12),
                 ],
 

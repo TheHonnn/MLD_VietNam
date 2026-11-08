@@ -48,6 +48,15 @@ class AuthService {
   String? _cachedAvatarUrl;
   bool _hasCompletedOnboarding = false;
 
+  final List<VoidCallback> _onLogoutCallbacks = [];
+
+  /// Register callback to be executed synchronously upon user logout
+  void addOnLogoutListener(VoidCallback callback) {
+    if (!_onLogoutCallbacks.contains(callback)) {
+      _onLogoutCallbacks.add(callback);
+    }
+  }
+
   /// Reactive notifier for authentication status changes
   final ValueNotifier<bool> isLoggedInNotifier = ValueNotifier<bool>(false);
 
@@ -55,6 +64,8 @@ class AuthService {
   final ValueNotifier<String?> phoneNotifier = ValueNotifier<String?>(null);
 
   bool get isLoggedIn => isLoggedInNotifier.value;
+  bool get isAuthenticated => isLoggedIn;
+  bool get isGuest => !isLoggedIn;
   bool get hasCompletedOnboarding => _hasCompletedOnboarding;
   String? get currentPhone => _cachedPhone;
   bool get hasPhoneNumber => _cachedPhone != null && _cachedPhone!.trim().isNotEmpty;
@@ -164,8 +175,8 @@ class AuthService {
       _cachedPhone = phone;
       phoneNotifier.value = phone;
     }
-    if (displayName != null) _cachedDisplayName = displayName;
-    if (avatarUrl != null) _cachedAvatarUrl = avatarUrl;
+    _cachedDisplayName = (displayName != null && displayName.isNotEmpty) ? displayName : null;
+    _cachedAvatarUrl = (avatarUrl != null && avatarUrl.isNotEmpty) ? avatarUrl : null;
 
     try {
       await _secureStorage.write(key: _keyAccessToken, value: accessToken);
@@ -196,13 +207,19 @@ class AuthService {
         await _prefs!.setString('user_phone', phone);
         await saveLastLogin(phone: phone, method: 'phone');
       }
-      if (displayName != null) {
+      if (displayName != null && displayName.isNotEmpty) {
         await _prefs!.setString(_keyDisplayName, displayName);
         await _prefs!.setString('user_full_name', displayName);
+      } else {
+        await _prefs!.remove(_keyDisplayName);
+        await _prefs!.remove('user_full_name');
       }
-      if (avatarUrl != null) {
+      if (avatarUrl != null && avatarUrl.isNotEmpty) {
         await _prefs!.setString(_keyAvatarUrl, avatarUrl);
         await _prefs!.setString('user_avatar_url', avatarUrl);
+      } else {
+        await _prefs!.remove(_keyAvatarUrl);
+        await _prefs!.remove('user_avatar_url');
       }
     }
 
@@ -246,12 +263,26 @@ class AuthService {
     String? avatarUrl,
   }) async {
     if (displayName != null) {
-      _cachedDisplayName = displayName;
-      await _prefs?.setString(_keyDisplayName, displayName);
+      final cleanName = displayName.trim();
+      _cachedDisplayName = cleanName.isNotEmpty ? cleanName : null;
+      if (cleanName.isNotEmpty) {
+        await _prefs?.setString(_keyDisplayName, cleanName);
+        await _prefs?.setString('user_full_name', cleanName);
+      } else {
+        await _prefs?.remove(_keyDisplayName);
+        await _prefs?.remove('user_full_name');
+      }
     }
     if (avatarUrl != null) {
-      _cachedAvatarUrl = avatarUrl;
-      await _prefs?.setString(_keyAvatarUrl, avatarUrl);
+      final cleanAvatar = avatarUrl.trim();
+      _cachedAvatarUrl = cleanAvatar.isNotEmpty ? cleanAvatar : null;
+      if (cleanAvatar.isNotEmpty) {
+        await _prefs?.setString(_keyAvatarUrl, cleanAvatar);
+        await _prefs?.setString('user_avatar_url', cleanAvatar);
+      } else {
+        await _prefs?.remove(_keyAvatarUrl);
+        await _prefs?.remove('user_avatar_url');
+      }
     }
   }
 
@@ -300,6 +331,8 @@ class AuthService {
     _cachedRefreshToken = null;
     _cachedUserId = null;
     _cachedPhone = null;
+    _cachedDisplayName = null;
+    _cachedAvatarUrl = null;
     phoneNotifier.value = null;
 
     try {
@@ -317,10 +350,33 @@ class AuthService {
       await _prefs!.remove(_keyCachedRefreshToken);
       await _prefs!.remove(_keyCachedUserId);
       await _prefs!.remove(_keyCachedPhone);
-      // Keep _keyCompletedOnboarding, _keyLastLoginPhone, _keyLastLoginEmail, _keyLastLoginMethod
+      await _prefs!.remove('user_phone');
+      await _prefs!.remove('user_full_name');
+      await _prefs!.remove('user_avatar_url');
+      await _prefs!.remove(_keyDisplayName);
+      await _prefs!.remove(_keyAvatarUrl);
+      await _prefs!.remove('user_email');
+      await _prefs!.remove('user_address');
+      await _prefs!.remove('user_dob');
+      await _prefs!.remove('user_gender');
+      await _prefs!.remove('user_occupation');
+      await _prefs!.remove('user_emergency_name');
+      await _prefs!.remove('user_emergency_phone');
+      await _prefs!.remove('user_member_code');
+      await _prefs!.remove(_keyLastLoginPhone);
+      await _prefs!.remove(_keyLastLoginMethod);
+      // Keep _keyCompletedOnboarding, _keyLastLoginEmail
     }
 
     isLoggedInNotifier.value = false;
+
+    for (final cb in _onLogoutCallbacks) {
+      try {
+        cb();
+      } catch (e) {
+        debugPrint('Error in onLogout callback: ');
+      }
+    }
   }
 
   /// Delete user account permanently and clear all stored data

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../models/treatment_models.dart';
@@ -8,6 +9,9 @@ import '../models/treatment_models.dart';
 class TreatmentRepository {
   TreatmentRepository._internal() {
     _initData();
+    AuthService.instance.addOnLogoutListener(() {
+      clear();
+    });
   }
   static final TreatmentRepository instance = TreatmentRepository._internal();
   factory TreatmentRepository() => instance;
@@ -20,6 +24,14 @@ class TreatmentRepository {
   final List<HomeCareArticleModel> _guidelineArticles = [];
   final List<ChatMessageModel> _chatMessages = [];
   final List<TreatmentNotificationModel> _notifications = [];
+
+  void clear() {
+    _packages.clear();
+    _suggestedPackages.clear();
+    _journalEntries.clear();
+    _chatMessages.clear();
+    _notifications.clear();
+  }
   ConsultationPreferenceModel _latestConsultation = const ConsultationPreferenceModel(
     selectedGoals: ['Thư giãn cơ thể.', 'Giảm cảm giác căng thẳng.'],
   );

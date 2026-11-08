@@ -54,7 +54,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
       SnackBar(
         content: Text(
           context.tr('Đã lưu ghi chú vào nhật ký trị liệu!', 'Note saved to care journal!'),
-          style: const TextStyle(fontFamily: 'Montserrat'),
+          style: const TextStyle(),
         ),
         backgroundColor: AppColors.primary,
       ),
@@ -90,7 +90,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
         title: Text(
           context.tr('Nhật ký trị liệu', 'Care Journal'),
           style: const TextStyle(
-            fontFamily: 'Montserrat',
+            
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -147,7 +147,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                             Text(
                               customerDisplayName,
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
@@ -157,7 +157,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                             Text(
                               '${_repo.journalEntries.length} ${context.tr("buổi điều trị đã ghi nhận", "recorded sessions")}',
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w500,
                                 color: AppColors.primary,
@@ -209,7 +209,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                             Text(
                               context.tr('Xâu chuỗi minh chứng tiến trình', 'Evidence Transformation Chain'),
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
@@ -222,7 +222,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                                 'Track bodily transformation, edema reduction, and recovery outcomes across consecutive therapy sessions.',
                               ),
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 12.5,
                                 color: AppColors.textSecondary,
                                 height: 1.4,
@@ -243,7 +243,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                 Text(
                   context.tr('TIẾN TRÌNH & MINH CHỨNG TỪNG BUỔI', 'SESSION EVIDENCE TIMELINE'),
                   style: const TextStyle(
-                    fontFamily: 'Montserrat',
+                    
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textSecondary,
@@ -291,7 +291,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                             child: Text(
                               context.tr('Ghi chú cảm nhận cá nhân', 'Personal Feeling Notes'),
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
@@ -304,13 +304,13 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                       TextField(
                         controller: _noteController,
                         maxLines: 3,
-                        style: const TextStyle(fontFamily: 'Montserrat', fontSize: 13),
+                        style: const TextStyle( fontSize: 13),
                         decoration: InputDecoration(
                           hintText: context.tr(
                             'Ghi lại cảm nhận cơ thể, mức độ nhẹ nhàng hoặc điều muốn trao đổi với chuyên viên ở buổi tiếp theo...',
                             'Record your body sensation, lightness, or notes for the specialist in the next session...',
                           ),
-                          hintStyle: const TextStyle(fontFamily: 'Montserrat', fontSize: 12.5, color: AppColors.textPlaceholder),
+                          hintStyle: const TextStyle( fontSize: 12.5, color: AppColors.textPlaceholder),
                           filled: true,
                           fillColor: const Color(0xFFF9FAFB),
                           border: OutlineInputBorder(
@@ -341,7 +341,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                           ),
                           child: Text(
                             context.tr('Lưu ghi chú', 'Save Note'),
-                            style: const TextStyle(fontFamily: 'Montserrat', color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                            style: const TextStyle( color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
                           ),
                         ),
                       ),
@@ -384,7 +384,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
             context.tr('Chưa có nhật ký & minh chứng trị liệu', 'No care journal entries yet'),
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontFamily: 'Montserrat',
+              
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -398,7 +398,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
             ),
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontFamily: 'Montserrat',
+              
               fontSize: 13,
               color: AppColors.textSecondary,
               height: 1.45,
@@ -423,7 +423,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
               child: Text(
                 context.tr('Khám phá dịch vụ trị liệu', 'Explore Therapy Services'),
                 style: const TextStyle(
-                  fontFamily: 'Montserrat',
+                  
                   color: Colors.white,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
@@ -477,7 +477,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                     child: Text(
                       'B${item.sessionNumber}',
                       style: const TextStyle(
-                        fontFamily: 'Montserrat',
+                        
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary,
@@ -537,7 +537,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                             child: Text(
                               '${context.tr("Buổi", "Session")} ${item.sessionNumber}',
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.primary,
@@ -547,7 +547,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                           Text(
                             item.treatmentTime,
                             style: const TextStyle(
-                              fontFamily: 'Montserrat',
+                              
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textSecondary,
@@ -566,7 +566,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                             child: Text(
                               item.serviceName.tr(context),
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
@@ -579,7 +579,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                       Text(
                         '${context.tr("Kỹ thuật viên:", "Specialist:")} ${item.specialistName.tr(context)} · ${item.branchName.tr(context)}',
                         style: const TextStyle(
-                          fontFamily: 'Montserrat',
+                          
                           fontSize: 12,
                           color: AppColors.textSecondary,
                         ),
@@ -601,7 +601,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                             Text(
                               context.tr('Nội dung điều trị:', 'Clinical Notes:'),
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.textSecondary,
@@ -611,7 +611,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                             Text(
                               item.content.tr(context),
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 13,
                                 color: AppColors.textPrimary,
                                 height: 1.4,
@@ -631,7 +631,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                             Text(
                               '${context.tr("Hình ảnh minh chứng Buổi", "Evidence Images Session")} ${item.sessionNumber} (${item.evidenceImages.length})',
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
@@ -677,7 +677,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                               child: Text(
                                 '${context.tr("Chăm sóc tại nhà:", "Home Care:")} ${item.postCareSuggestion!}',
                                 style: const TextStyle(
-                                  fontFamily: 'Montserrat',
+                                  
                                   fontSize: 11.5,
                                   color: Color(0xFF92400E),
                                   height: 1.35,
@@ -711,7 +711,7 @@ class _D03CareJournalScreenState extends State<D03CareJournalScreen> {
                             child: Text(
                               '${context.tr("Tiến triển phục hồi", "Recovery progress")} ➔ ${context.tr("Xâu chuỗi sang Buổi", "Chained into Session")} $nextSessionNumber',
                               style: const TextStyle(
-                                fontFamily: 'Montserrat',
+                                
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.primary,
