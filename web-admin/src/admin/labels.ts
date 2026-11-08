@@ -15,6 +15,8 @@ export const labels: Record<string, string> = {
   student_id: "Học viên",
   technician_id: "Chuyên viên",
   instructor_id: "Giảng viên",
+  assistant_instructor_id: "Trợ giảng",
+  exam_type: "Loại kỳ thi",
   primary_instructor_id: "Giảng viên chính",
   staff_profile_id: "Hồ sơ nhân viên",
   staff_id: "Nhân viên",
@@ -332,6 +334,9 @@ export const labels: Record<string, string> = {
   user_agent: "Trình duyệt / Thiết bị",
 };
 export const enums: Record<string, string> = {
+  ENTRY: "Thi đầu vào",
+  EXIT: "Thi đầu ra",
+  REGULAR: "Kiểm tra thường kỳ",
   CUSTOMER: "Khách hàng",
   STUDENT: "Học viên",
   TECHNICIAN: "Chuyên viên",

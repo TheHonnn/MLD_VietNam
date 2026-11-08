@@ -5022,6 +5022,20 @@ export const SCHEMA_COLUMNS: Record<string, Column[]> = {
       }
     },
     {
+      "name": "assistant_instructor_id",
+      "type": "varchar",
+      "required": false,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": {
+        "table": "instructors",
+        "column": "id"
+      }
+    },
+    {
       "name": "start_date",
       "type": "date",
       "required": true,
@@ -5351,6 +5365,17 @@ export const SCHEMA_COLUMNS: Record<string, Column[]> = {
       "hasDefault": false,
       "maxLength": null,
       "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "exam_type",
+      "type": "varchar",
+      "required": true,
+      "hasDefault": true,
+      "maxLength": 20,
+      "options": ["ENTRY", "EXIT", "REGULAR"],
       "primary": false,
       "writable": true,
       "reference": null
