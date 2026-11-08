@@ -140,7 +140,11 @@ export function MainLayout(){
     if(destination==='vouchers'){visit('vouchers');return;}
     if(['home-products','pricing','packages','journal','community','branches','specialists','notifications','support','schedule','certificates','care_guide','consultation','review'].includes(destination))visit(destination as View);
   };
+<<<<<<< HEAD
   const openNotification=async(item:AppNotification)=>{const target=item.data?.target;if(!target){setNotice(item.message);return;}if(target.screen==='booking'){setBookingId(target.bookingId||target.entityId);visit('appointments',{work:Boolean(item.data?.staffBranchId)});}else if(target.screen==='academy'){setAcademyTarget({id:item.id,enrollmentId:target.enrollmentId||'',tab:target.tab||'content',quizId:target.quizId,certificateId:target.entityId});setView('my-courses');}else if(target.screen==='treatment'){setTreatmentEntityId(target.entityId);visit(target.tab==='support'?'support':target.tab==='journal'?'journal':'packages');}else if(target.screen==='profile'&&['vouchers','points','payments'].includes(target.tab||'')){setProfileEntityId(target.entityId);visit(target.tab as View);}else{setTab('profile');close();setNotice(item.message);}};
+=======
+  const openNotification=async(item:AppNotification)=>{const target=item.data?.target;if(!target){setNotice(item.message);return;}if(target.screen==='booking'){setBookingId(target.bookingId||target.entityId);visit('appointments',{work:Boolean(item.data?.staffBranchId)});}else if(target.screen==='academy'){setAcademyTarget({id:item.id,enrollmentId:target.enrollmentId||'',tab:target.tab||'content',quizId:target.quizId,certificateId:target.entityId});setView('my-courses');}else if(target.screen==='treatment'){setTreatmentEntityId(target.entityId);visit(target.tab==='support'?'support':target.tab==='journal'?'journal':target.tab==='care_guide'?'care_guide':'packages');}else{setTab('profile');close();}};
+>>>>>>> b7efb511bb925461d11cd9e0e81abb3139cf57f3
   const showCourse=(item:Course)=>{setCourseId(item.id);setTab('academy');setView(null);};
   const openBranch=(item:Branch)=>{setSelectedBranch(item);setView('branch-detail');};
   const openSpecialist=(item:Doctor)=>{setDoctor(item);setView('specialist-detail');};

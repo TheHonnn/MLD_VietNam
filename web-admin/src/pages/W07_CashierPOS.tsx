@@ -35,6 +35,7 @@ import {
   Tag,
   Copy,
   Check,
+  Pencil,
 } from 'lucide-react';
 import { exportElementToPdf } from '../utils/pdfExport';
 import {
@@ -100,33 +101,6 @@ export interface PosCartItem {
   serviceId?: string;
   packageId?: string;
 }
-
-const HOMECARE_PRODUCTS: PosCartItem[] = [
-  {
-    id: 'prod-organic-drainage-oil-50ml',
-    name: 'Tinh dầu dẫn lưu bạch huyết Organic MLD 50ml',
-    type: 'PRODUCT',
-    unitPrice: 450000,
-    quantity: 1,
-    imageUrl: '/spa_massage_banner.png',
-  },
-  {
-    id: 'prod-cooling-gel-200ml',
-    name: 'Gel làm mát dịu mô & giảm phù nề sau trị liệu MLD 200ml',
-    type: 'PRODUCT',
-    unitPrice: 350000,
-    quantity: 1,
-    imageUrl: '/spa_massage_banner.png',
-  },
-  {
-    id: 'prod-compression-bandage-mld',
-    name: 'Băng quấn định hình áp lực y tế MLD Lymph-Bandage',
-    type: 'PRODUCT',
-    unitPrice: 550000,
-    quantity: 1,
-    imageUrl: '/spa_massage_banner.png',
-  },
-];
 
 const GUEST_CUSTOMER: User = {
   id: 'bbbbbbbb-0001-0001-0001-000000000001',
@@ -275,6 +249,7 @@ export const W07_CashierPOS: React.FC = () => {
   const [allCustomers, setAllCustomers] = useState<User[]>([]);
   const [treatmentPackages, setTreatmentPackages] = useState<TreatmentPackage[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
+  const [homeProducts, setHomeProducts] = useState<any[]>([]);
   const [allTechnicians, setAllTechnicians] = useState<Technician[]>([]);
   const [commissionStaff, setCommissionStaff] = useState<StaffWithProfile[]>([]);
   const [booking, setBooking] = useState<Booking | undefined>(undefined);
@@ -290,6 +265,14 @@ export const W07_CashierPOS: React.FC = () => {
   // UI Processing & Modals
   const [isProcessing, setIsProcessing] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [editingReceipt, setEditingReceipt] = useState<Invoice | null>(null);
+  const [receiptCustomerName, setReceiptCustomerName] = useState('');
+  const [receiptDescription, setReceiptDescription] = useState('');
+  const [receiptNotes, setReceiptNotes] = useState('');
+  const [receiptItems, setReceiptItems] = useState<Array<{id:string;itemName:string;quantity:number;unitPrice:number;amount:number}>>([]);
+  const [receiptEditReason, setReceiptEditReason] = useState('');
+  const [receiptEditHistory, setReceiptEditHistory] = useState<any[]>([]);
+  const [isSavingReceipt, setIsSavingReceipt] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -382,6 +365,8 @@ export const W07_CashierPOS: React.FC = () => {
         setAllServices(srvRes);
         setWalkInServiceId((prev) => prev || srvRes[0].id);
       }
+      const productRows = await supabaseService.query<any[]>('home_products?order=sort_order.asc');
+      setHomeProducts(productRows || []);
       if (techRes && techRes.length > 0) setAllTechnicians(techRes);
       if (bkRes.success && bkRes.data) setAllBookings(bkRes.data);
     } catch (err) {
@@ -1061,7 +1046,7 @@ export const W07_CashierPOS: React.FC = () => {
     const enrStudentPhone = enr ? getEnrollmentStudentPhone(enr) : undefined;
 
     const cust = inv.customer || allCustomers.find((c) => c.id === inv.customerId);
-    const customerName = enrStudentName || cust?.fullName || 'Khách hàng MLD';
+    const customerName = inv.receiptCustomerName || enrStudentName || cust?.fullName || 'Khách hàng MLD';
     const customerPhone = enrStudentPhone || cust?.phone || '--';
     const customerTier = cust?.membershipTier || 'STANDARD';
 
@@ -1070,11 +1055,11 @@ export const W07_CashierPOS: React.FC = () => {
     const branchCode = br?.code || 'MLD-HQ';
     const branchDistrict = br?.district || 'Hà Nội';
 
-    let title = 'Dịch vụ Spa & Trị liệu';
+    let title = inv.receiptDescription || 'Dịch vụ Spa & Trị liệu';
     let category: 'SERVICE' | 'PACKAGE' | 'ACADEMY' = 'SERVICE';
 
     if (inv.items && inv.items.length > 0) {
-      title = inv.items.map((it: any) => it.itemName || it.item_name).filter(Boolean).join(', ');
+      title = inv.receiptDescription || inv.items.map((it: any) => it.itemName || it.item_name).filter(Boolean).join(', ');
       const itType = inv.items[0].itemType || (inv.items[0] as any).item_type;
       if (itType === 'COURSE') category = 'ACADEMY';
       else if (itType === 'PACKAGE') category = 'PACKAGE';
@@ -1148,6 +1133,45 @@ export const W07_CashierPOS: React.FC = () => {
   const pastReceipts = useMemo(() => {
     return invoices.map(resolveReceiptDetail);
   }, [invoices, allCustomers, branches, allEnrollments, allCourses, allBookings, treatmentPackages]);
+
+  const openReceiptEditor = (receipt: (typeof pastReceipts)[number]) => {
+    const invoice = invoices.find((item) => item.id === receipt.rawId);
+    if (!invoice) {
+      toast.error('Không tìm thấy hóa đơn gốc', 'Tải lại sổ hóa đơn rồi thử lại.');
+      return;
+    }
+    setEditingReceipt(invoice);
+    setReceiptCustomerName(invoice.receiptCustomerName || receipt.customerName);
+    setReceiptDescription(invoice.receiptDescription || receipt.content);
+    setReceiptNotes(invoice.receiptNotes || '');
+    setReceiptItems(invoice.items || []);
+    setReceiptEditReason('');
+    void supabaseService.getInvoiceEditHistory(invoice.id).then(setReceiptEditHistory);
+  };
+
+  const saveReceiptEdit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editingReceipt || receiptEditReason.trim().length < 3) return;
+    setIsSavingReceipt(true);
+    try {
+      const saved = await supabaseService.editInvoiceReceipt({
+        invoiceId: editingReceipt.id,
+        customerName: receiptCustomerName,
+        description: receiptDescription,
+        notes: receiptNotes,
+        reason: receiptEditReason.trim(),
+        items: receiptItems.map(({id,itemName})=>({id,itemName})),
+      });
+      if (!saved) throw new Error('Database từ chối cập nhật biên lai.');
+      toast.success('Đã cập nhật thông tin biên lai', 'Lịch sử sửa đã được lưu.');
+      setEditingReceipt(null);
+      await fetchPosData();
+    } catch (error: any) {
+      toast.error('Không thể sửa biên lai', error?.message || 'Vui lòng thử lại.');
+    } finally {
+      setIsSavingReceipt(false);
+    }
+  };
 
   const filteredPastReceipts = useMemo(() => {
     return pastReceipts.filter((r) => {
@@ -1314,21 +1338,21 @@ export const W07_CashierPOS: React.FC = () => {
     });
 
     // Sản phẩm bổ trợ Homecare
-    HOMECARE_PRODUCTS.forEach((pr) => {
+    homeProducts.forEach((pr) => {
       items.push({
         id: pr.id,
         name: pr.name,
         type: 'PRODUCT',
-        price: pr.unitPrice,
+        price: Number(pr.price_min || 0),
         description: 'Sản phẩm bổ trợ chăm sóc phục hồi mô tế bào tại nhà',
-        badgeText: 'Homecare',
-        imageUrl: pr.imageUrl,
-        searchTokens: `${pr.name} san pham my pham homecare ${pr.unitPrice} ${Math.round(pr.unitPrice / 1000)}k`,
+        badgeText: pr.unit || pr.category || 'Sản phẩm bổ trợ',
+        imageUrl: pr.image_url || pr.image_urls?.[0],
+        searchTokens: `${pr.name} ${pr.category || ''} san pham my pham homecare ${pr.price_min} ${Math.round(Number(pr.price_min || 0) / 1000)}k`,
       });
     });
 
     return items;
-  }, [allServices, treatmentPackages]);
+  }, [allServices, treatmentPackages, homeProducts]);
 
   // 2. Thống kê số lượng kết quả tìm kiếm theo từng tab
   const catalogCounts = useMemo(() => {
@@ -1813,6 +1837,9 @@ export const W07_CashierPOS: React.FC = () => {
                   >
                     {/* Top Tag & Type */}
                     <div>
+                      {item.type === 'PRODUCT' && item.imageUrl && (
+                        <img src={item.imageUrl} alt={item.name} className="mb-3 h-36 w-full rounded-lg object-cover bg-[#F8F5F0]" />
+                      )}
                       <div className="flex items-center justify-between gap-1 mb-2">
                         <span
                           className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
@@ -2137,6 +2164,9 @@ export const W07_CashierPOS: React.FC = () => {
                       key={item.id}
                       className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#EFE4D9] flex items-center justify-between gap-2 text-xs"
                     >
+                      {item.type === 'PRODUCT' && item.imageUrl && (
+                        <img src={item.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-[#2C241E] truncate" title={item.name}>
                           {item.name}
@@ -3453,6 +3483,7 @@ export const W07_CashierPOS: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <div className="inline-flex items-center justify-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => {
@@ -3478,6 +3509,16 @@ export const W07_CashierPOS: React.FC = () => {
                           <Receipt className="w-3 h-3" />
                           <span>Biên lai</span>
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => openReceiptEditor(r)}
+                          className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[11px] transition-colors cursor-pointer inline-flex items-center gap-1"
+                          title="Sửa tên hiển thị, nội dung hoặc ghi chú"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          <span>Sửa</span>
+                        </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -3590,6 +3631,59 @@ export const W07_CashierPOS: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {editingReceipt && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+          <form onSubmit={saveReceiptEdit} className="bg-white rounded-xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="px-5 py-4 border-b border-[#EFE4D9] flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-[#2C241E]">Sửa thông tin biên lai</h3>
+                <p className="text-xs text-[#73675F] mt-1">{editingReceipt.invoiceCode} · Chỉ sửa tên dòng hàng; giá, số lượng và thanh toán được giữ nguyên</p>
+              </div>
+              <button type="button" onClick={() => setEditingReceipt(null)} className="p-2 hover:bg-slate-100 rounded" aria-label="Đóng"><X size={16} /></button>
+            </div>
+            <div className="p-5 space-y-4 text-sm">
+              <label className="block space-y-1">
+                <span className="font-semibold text-[#4A3E31]">Tên khách trên biên lai</span>
+                <input value={receiptCustomerName} onChange={(e) => setReceiptCustomerName(e.target.value)} maxLength={150} required className="w-full border border-[#D8D0C7] rounded-md px-3 py-2" />
+              </label>
+              <label className="block space-y-1">
+                <span className="font-semibold text-[#4A3E31]">Nội dung dịch vụ / hàng hóa</span>
+                <textarea value={receiptDescription} onChange={(e) => setReceiptDescription(e.target.value)} maxLength={2000} rows={2} required className="w-full border border-[#D8D0C7] rounded-md px-3 py-2 resize-y" />
+              </label>
+              {receiptItems.length > 0 && <fieldset className="space-y-2"><legend className="font-semibold text-[#4A3E31]">Tên dịch vụ / hàng hóa trên hóa đơn</legend>{receiptItems.map((item,index)=><label key={item.id} className="grid grid-cols-[1fr_auto] items-center gap-3"><input aria-label={`Tên dòng hàng ${index+1}`} value={item.itemName} maxLength={250} required onChange={(event)=>setReceiptItems(current=>current.map(row=>row.id===item.id?{...row,itemName:event.target.value}:row))} className="w-full border border-[#D8D0C7] rounded-md px-3 py-2"/><span className="whitespace-nowrap text-xs text-[#73675F]">{item.quantity} × {Number(item.unitPrice).toLocaleString('vi-VN')} đ</span></label>)}</fieldset>}
+              <label className="block space-y-1">
+                <span className="font-semibold text-[#4A3E31]">Ghi chú</span>
+                <textarea value={receiptNotes} onChange={(e) => setReceiptNotes(e.target.value)} maxLength={2000} rows={2} className="w-full border border-[#D8D0C7] rounded-md px-3 py-2 resize-y" />
+              </label>
+              <label className="block space-y-1">
+                <span className="font-semibold text-[#4A3E31]">Lý do sửa <span className="text-red-600">*</span></span>
+                <input value={receiptEditReason} onChange={(e) => setReceiptEditReason(e.target.value)} minLength={3} maxLength={500} required className="w-full border border-[#D8D0C7] rounded-md px-3 py-2" placeholder="Ví dụ: Sửa tên khách theo yêu cầu" />
+              </label>
+              {receiptEditHistory.length > 0 && (
+                <section className="border-t border-[#EFE4D9] pt-3 space-y-2">
+                  <h4 className="font-semibold text-[#4A3E31]">Lịch sử chỉnh sửa gần đây</h4>
+                  {receiptEditHistory.slice(0, 5).map((entry) => (
+                    <div key={entry.id} className="text-xs bg-[#FAF8F5] rounded p-2">
+                      <div className="font-semibold">{entry.actor?.full_name || 'Nhân viên'} · {new Date(entry.created_at).toLocaleString('vi-VN')}</div>
+                      <div className="text-[#73675F]">Lý do: {entry.reason}</div>
+                      {['receipt_customer_name', 'receipt_description', 'receipt_notes'].map((field) => {
+                        const before = entry.before_data?.[field] || '(trống)';
+                        const after = entry.after_data?.[field] || '(trống)';
+                        return before === after ? null : <div key={field} className="mt-1"><span className="font-medium">{field === 'receipt_customer_name' ? 'Tên khách' : field === 'receipt_description' ? 'Diễn giải' : 'Ghi chú'}:</span> <span className="text-red-700">{before}</span> <span aria-hidden="true">→</span> <span className="text-green-800">{after}</span></div>;
+                      })}
+                    </div>
+                  ))}
+                </section>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-[#EFE4D9] flex justify-end gap-2">
+              <button type="button" onClick={() => setEditingReceipt(null)} className="px-4 py-2 border rounded-md">Hủy</button>
+              <button type="submit" disabled={isSavingReceipt || receiptEditReason.trim().length < 3} className="px-4 py-2 rounded-md bg-[#985018] text-white font-semibold disabled:opacity-50">{isSavingReceipt ? 'Đang lưu…' : 'Lưu thay đổi'}</button>
+            </div>
+          </form>
         </div>
       )}
 

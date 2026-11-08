@@ -75,6 +75,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
   // Form State (Clean inputs, NO pre-filled dummy templates!)
   const [courseId, setCourseId] = useState<string>(row.course_id || "");
   const [title, setTitle] = useState<string>(row.title || "");
+  const [examType, setExamType] = useState<string>(row.exam_type || "REGULAR");
   const [totalQuestions, setTotalQuestions] = useState<number>(
     row.total_questions !== undefined && row.total_questions !== null
       ? Number(row.total_questions)
@@ -285,6 +286,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
       const payload: Record<string, any> = {
         course_id: courseId,
         title: title.trim(),
+        exam_type: examType,
         total_questions: Number(totalQuestions),
         time_limit_minutes: Number(timeLimitMinutes),
         passing_score: Number(passingScore),
@@ -814,12 +816,28 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[#2C241E]">
-                    3. Thiết lập số lượng, thời gian & ngưỡng điểm đạt
+                    3. Loại đề thi & quy chuẩn đánh giá
                   </h3>
                   <p className="text-xs text-[#7F6E60]">
                     Các chỉ số làm bài giúp hệ thống chấm điểm tự động và xếp loại tốt nghiệp
                   </p>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4A3E31] mb-1">
+                  Loại đề thi
+                </label>
+                <select
+                  value={examType}
+                  disabled={isView}
+                  onChange={(e) => setExamType(e.target.value)}
+                  className="w-full max-w-md text-xs px-3.5 py-2.5 rounded-lg border border-[#E8DFD8] bg-white font-medium text-[#2C241E] focus:outline-none focus:border-[#985018] disabled:bg-[#F3EFEA]"
+                >
+                  <option value="ENTRY">Thi đầu vào</option>
+                  <option value="EXIT">Thi đầu ra</option>
+                  <option value="REGULAR">Kiểm tra thường kỳ</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

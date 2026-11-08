@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Sparkles,
   Clock,
@@ -12,7 +12,7 @@ import {
   HeartPulse,
   Info,
   Calendar,
-  DollarSign,
+  CreditCard,
   TrendingUp,
   Tag,
   Pencil,
@@ -23,12 +23,17 @@ import {
   SlidersHorizontal,
   Flame,
   Award,
-  BadgePercent,
   FileText,
+  Search,
+  X,
+  BadgePercent,
+  Wallet,
+  ShoppingBag,
 } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { toast } from '../components/common';
 import { useNavigate } from 'react-router-dom';
+import { matchSearch } from '../utils/searchUtils';
 
 interface ServiceItem {
   id: string;
@@ -68,6 +73,7 @@ export const W06_ServicesCatalog: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const [sessionFilter, setSessionFilter] = useState<'ALL' | '10' | '20' | '30'>('ALL');
+  const [catalogSearchTerm, setCatalogSearchTerm] = useState<string>('');
   const [editingItem, setEditingItem] = useState<{
     type: 'service' | 'package';
     id: string;
@@ -279,13 +285,20 @@ export const W06_ServicesCatalog: React.FC = () => {
   };
 
   // Filtered packages
-  const filteredPackages = packages.filter((p) => {
-    if (sessionFilter === 'ALL') return true;
-    return p.total_sessions === parseInt(sessionFilter);
-  });
+  const filteredPackages = useMemo(() => {
+    return packages.filter((p) => {
+      if (sessionFilter !== 'ALL' && p.total_sessions !== parseInt(sessionFilter)) {
+        return false;
+      }
+      if (catalogSearchTerm.trim()) {
+        return matchSearch([p.name, p.description, p.total_sessions, p.price], catalogSearchTerm);
+      }
+      return true;
+    });
+  }, [packages, sessionFilter, catalogSearchTerm]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
+    <div className="space-y-6 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E] pb-16">
       {/* Print Specific CSS */}
       <style>{`
         @media print {
@@ -302,9 +315,9 @@ export const W06_ServicesCatalog: React.FC = () => {
             width: 100%;
             margin: 0;
             padding: 20px;
-            background: #fbf7ee !important;
+            background: #ffffff !important;
             box-shadow: none !important;
-            border: none !important;
+            border: 1px solid #EFE4D9 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
@@ -314,1127 +327,1456 @@ export const W06_ServicesCatalog: React.FC = () => {
         }
       `}</style>
 
-      {/* Top Banner / Navigation */}
-      <div className="no-print bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Chuẩn Dr. Vodder Quốc Tế
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
-                  VAT 8% Niêm Yết
-                </span>
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Sparkles className="w-6 h-6 text-amber-500" />
-                Bảng Giá & Gói Liệu Trình MLD Việt Nam
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                3 Chương trình chăm sóc hệ bạch huyết sâu và nông • Đồng bộ dữ liệu xuyên suốt Admin, POS & Mobile App
-              </p>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handlePrint}
-                className="px-3.5 py-2 text-sm font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-colors shadow-sm"
-                title="In mẫu bảng giá tờ rơi"
-              >
-                <Printer className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                <span>In bảng giá</span>
-              </button>
-
-              <button
-                onClick={handleCopyPricing}
-                className="px-3.5 py-2 text-sm font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-colors shadow-sm"
-                title="Sao chép văn bản gửi Zalo/Facebook"
-              >
-                {copySuccess ? (
-                  <Check className="w-4 h-4 text-emerald-600" />
-                ) : (
-                  <Copy className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                )}
-                <span>{copySuccess ? 'Đã sao chép!' : 'Gửi Zalo'}</span>
-              </button>
-
-              <button
-                onClick={fetchData}
-                disabled={loading}
-                className="p-2 text-sm font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 transition-colors shadow-sm"
-                title="Tải lại dữ liệu từ Supabase"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-amber-500' : ''}`} />
-              </button>
-
-              <button
-                onClick={() => navigate('/cashier-pos')}
-                className="px-4 py-2 text-sm font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1.5 transition-all shadow-sm hover:shadow"
-              >
-                <DollarSign className="w-4 h-4" />
-                <span>Mở Thu Ngân POS</span>
-              </button>
-            </div>
+      {/* 1. Page Header & Actions Bar */}
+      <div className="no-print flex flex-col md:flex-row md:items-center md:justify-between gap-4 pt-1">
+        <div>
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] flex items-center gap-1.5 shadow-2xs">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#8A4F23]" /> Chuẩn Dr. Vodder Quốc Tế
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E8F6ED] text-[#0D6832] border border-emerald-200 flex items-center gap-1 shadow-2xs">
+              <Percent className="w-3 h-3 text-[#0D6832]" /> VAT 8% Đã Niêm Yết
+            </span>
           </div>
+          <h1 className="text-2xl sm:text-[26px] font-extrabold text-[#3E200C] tracking-tight leading-tight flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-[#985018]" />
+            Bảng Giá & Gói Liệu Trình MLD Việt Nam
+          </h1>
+          <p className="text-xs text-[#73675F] mt-1 font-medium">
+            3 Chương trình chăm sóc hệ bạch huyết sâu và nông • Đồng bộ dữ liệu xuyên suốt Admin, POS & Mobile App
+          </p>
+        </div>
 
-          {/* Navigation Tabs */}
-          <div className="flex border-b border-slate-200 dark:border-slate-800 mt-6 gap-6">
-            <button
-              onClick={() => setActiveTab('matrix')}
-              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
-                activeTab === 'matrix'
-                  ? 'border-amber-600 text-amber-600 dark:text-amber-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              Bảng Giá Niêm Yết Chuẩn (Pricing Matrix)
-            </button>
+        {/* Quick Actions Buttons */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-white hover:bg-[#FAF6F0] text-[#2C241E] border border-[#E8DFD8] flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+            title="In bảng giá tiêu chuẩn"
+          >
+            <Printer className="w-4 h-4 text-[#8A4F23]" />
+            <span>In bảng giá</span>
+          </button>
 
-            <button
-              onClick={() => setActiveTab('services')}
-              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
-                activeTab === 'services'
-                  ? 'border-amber-600 text-amber-600 dark:text-amber-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              <HeartPulse className="w-4 h-4" />
-              3 Chương Trình Chăm Sóc Buổi Lẻ
-            </button>
+          <button
+            type="button"
+            onClick={handleCopyPricing}
+            className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-white hover:bg-[#FAF6F0] text-[#2C241E] border border-[#E8DFD8] flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+            title="Sao chép văn bản gửi Zalo/Facebook"
+          >
+            {copySuccess ? (
+              <Check className="w-4 h-4 text-emerald-600" />
+            ) : (
+              <Share2 className="w-4 h-4 text-[#8A4F23]" />
+            )}
+            <span>{copySuccess ? 'Đã sao chép!' : 'Gửi Zalo'}</span>
+          </button>
 
-            <button
-              onClick={() => setActiveTab('packages')}
-              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
-                activeTab === 'packages'
-                  ? 'border-amber-600 text-amber-600 dark:text-amber-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              <Layers className="w-4 h-4" />
-              9 Gói Liệu Trình Trị Liệu (10 / 20 / 30 Buổi)
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={fetchData}
+            disabled={loading}
+            className="p-2.5 text-xs font-bold rounded-xl bg-white hover:bg-[#FAF6F0] text-[#2C241E] border border-[#E8DFD8] transition-all shadow-2xs cursor-pointer"
+            title="Tải lại dữ liệu từ Supabase Cloud"
+          >
+            <RefreshCw className={`w-4 h-4 text-[#8A4F23] ${loading ? 'animate-spin' : ''}`} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/cashier-pos')}
+            className="px-4 py-2.5 text-xs font-bold rounded-xl bg-[#985018] hover:bg-[#854412] text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+          >
+            <CreditCard className="w-4 h-4" />
+            <span>Mở Thu Ngân POS</span>
+          </button>
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        {/* TAB 1: PRICING MATRIX (Exact Flyer Replica) */}
-        {activeTab === 'matrix' && (
-          <div className="space-y-6">
-            {/* Context Notice */}
-            <div className="no-print bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-xl p-4 flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                <div className="text-sm">
-                  <p className="font-semibold text-amber-900 dark:text-amber-200">
-                    Bản sao chuẩn xác của bảng giá tờ rơi MLD Vietnam
-                  </p>
-                  <p className="text-amber-700 dark:text-amber-300 mt-0.5">
-                    Các con số in đậm màu xanh dương là các gói được khách hàng lựa chọn nhiều nhất. Bạn có thể nhấn trực tiếp vào biểu tượng bút chì để chỉnh sửa nhanh giá bán niêm yết.
-                  </p>
-                </div>
+      {/* 2. Metric Summary Cards */}
+      <div className="no-print grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs space-y-1.5">
+          <div className="flex items-center justify-between text-xs text-[#73675F]">
+            <span className="font-semibold">Dịch vụ buổi lẻ</span>
+            <div className="w-8 h-8 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center font-bold">
+              <HeartPulse className="w-4 h-4 stroke-[2]" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-[#2C241E] tracking-tight">3 Chương trình</div>
+          <div className="text-[11px] text-[#73675F]">Khu trú 45' • Mở rộng 60' • Toàn diện 90'</div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs space-y-1.5">
+          <div className="flex items-center justify-between text-xs text-[#73675F]">
+            <span className="font-semibold">Gói liệu trình tiết kiệm</span>
+            <div className="w-8 h-8 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center font-bold">
+              <Layers className="w-4 h-4 stroke-[2]" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-[#2C241E] tracking-tight">9 Gói trị liệu</div>
+          <div className="text-[11px] text-[#73675F]">10 buổi (3 thg) • 20 buổi (6 thg) • 30 buổi (12 thg)</div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs space-y-1.5">
+          <div className="flex items-center justify-between text-xs text-[#73675F]">
+            <span className="font-semibold">Chiết khấu cao nhất</span>
+            <div className="w-8 h-8 rounded-xl bg-[#E8F6ED] text-[#0D6832] flex items-center justify-center font-bold">
+              <BadgePercent className="w-4 h-4 stroke-[2]" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-[#0D6832] tracking-tight">Tiết kiệm 7.2M</div>
+          <div className="text-[11px] text-[#73675F]">Áp dụng cho gói 30 buổi toàn diện 90'</div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs space-y-1.5">
+          <div className="flex items-center justify-between text-xs text-[#73675F]">
+            <span className="font-semibold">Quy chuẩn dịch vụ</span>
+            <div className="w-8 h-8 rounded-xl bg-[#EAF2FA] text-[#1E5D9B] flex items-center justify-center font-bold">
+              <ShieldCheck className="w-4 h-4 stroke-[2]" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-[#1E5D9B] tracking-tight">Dr. Vodder</div>
+          <div className="text-[11px] text-[#73675F]">Đã bao gồm VAT 8% • Minh bạch & cam kết</div>
+        </div>
+      </div>
+
+      {/* 3. Navigation Tabs (Pill style matching W07_CashierPOS) */}
+      <div className="no-print flex flex-wrap items-center gap-2 border-b border-[#EFE4D9] pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('matrix')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'matrix'
+              ? 'bg-[#985018] text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Bảng Giá Niêm Yết Chuẩn (Pricing Matrix)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('services')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'services'
+              ? 'bg-[#985018] text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
+          }`}
+        >
+          <HeartPulse className="w-4 h-4" />
+          <span>3 Chương Trình Chăm Sóc Buổi Lẻ</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('packages')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'packages'
+              ? 'bg-[#985018] text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>9 Gói Liệu Trình Trị Liệu (10 / 20 / 30 Buổi)</span>
+        </button>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* TAB 1: PRICING MATRIX (LUXURY COHESIVE FLYER BOARD)                         */}
+      {/* ========================================================================= */}
+      {activeTab === 'matrix' && (
+        <div className="space-y-5 animate-in fade-in duration-200">
+          {/* Context Notice Banner */}
+          <div className="no-print bg-[#FAF8F5] border border-[#EFE4D9] rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-2xs">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center shrink-0">
+                <Info className="w-4 h-4" />
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => navigate('/manage/treatment_packages')}
-                  className="text-xs font-semibold text-amber-700 dark:text-amber-300 hover:underline flex items-center gap-1"
-                >
-                  Xem bảng CSDL <ExternalLink className="w-3 h-3" />
-                </button>
+              <div>
+                <p className="font-bold text-[#2C241E]">
+                  Bản sao niêm yết chuẩn xác của Bảng giá tờ rơi MLD Việt Nam
+                </p>
+                <p className="text-[#73675F] mt-0.5">
+                  Các ô có nhãn <span className="font-bold text-[#8A4F23]">Khuyên dùng</span> là các gói được khách hàng lựa chọn nhiều nhất. Bạn có thể nhấn trực tiếp vào biểu tượng bút chì để sửa giá, hoặc bấm <span className="font-bold text-[#985018]">"Bán gói"</span> để lập hóa đơn ngay tại POS.
+                </p>
               </div>
             </div>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={() => navigate('/manage/treatment_packages')}
+                className="text-xs font-bold text-[#8A4F23] hover:text-[#5C3214] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>Xem bảng CSDL</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
 
-            {/* THE PRICING MATRIX FLYER CARD */}
-            <div
-              id="mld-pricing-matrix-sheet"
-              ref={printRef}
-              className="bg-[#fbf7ee] text-slate-800 rounded-3xl overflow-hidden shadow-2xl border border-amber-900/20 max-w-5xl mx-auto"
-            >
-              {/* Flyer Header Banner */}
-              <div className="relative bg-[#1c1a17] text-white py-12 px-8 sm:px-12 overflow-hidden border-b-2 border-amber-700/40">
-                {/* Background decorative spa image overlay */}
-                <div
-                  className="absolute inset-0 opacity-35 bg-cover bg-center"
-                  style={{
-                    backgroundImage: `url('https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1600&q=80')`,
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#1c1a17] via-[#241e17]/85 to-[#1c1a17]/70" />
-
-                <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                  {/* Brand & Subtitle */}
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-700 to-amber-500 p-0.5 shadow-lg flex items-center justify-center shrink-0">
-                      <div className="w-full h-full bg-[#1c1a17] rounded-[14px] flex flex-col items-center justify-center p-1">
-                        <Sparkles className="w-7 h-7 text-amber-400" />
-                        <span className="text-[9px] font-black tracking-widest text-amber-300">MLD</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs uppercase tracking-widest text-amber-400 font-bold">
-                          VIETNAM ACADEMY & CLINICAL SPA
-                        </span>
-                      </div>
-                      <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mt-0.5 uppercase">
-                        BẢNG GIÁ DỊCH VỤ
-                      </h2>
-                      <p className="text-sm font-semibold tracking-widest text-amber-200/90 uppercase mt-0.5">
-                        PRICING • CHUẨN Y KHOA DR. VODDER
-                      </p>
+          {/* THE LUXURY PRICING MATRIX BOARD */}
+          <div
+            id="mld-pricing-matrix-sheet"
+            ref={printRef}
+            className="bg-white rounded-3xl border border-[#EFE4D9] shadow-sm overflow-hidden max-w-5xl mx-auto"
+          >
+            {/* Board Header Banner */}
+            <div className="relative bg-gradient-to-r from-[#2C1E14] via-[#3E200C] to-[#2C1E14] text-white py-9 px-6 sm:px-10 border-b border-[#E8DFD8]/20">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5 relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#985018] to-[#D4A373] p-0.5 shadow-lg flex items-center justify-center shrink-0">
+                    <div className="w-full h-full bg-[#2C1E14] rounded-[14px] flex flex-col items-center justify-center">
+                      <Sparkles className="w-6 h-6 text-[#EBD5B3]" />
+                      <span className="text-[9px] font-black tracking-widest text-[#EBD5B3]">MLD</span>
                     </div>
                   </div>
-
-                  {/* Badge Guarantee */}
-                  <div className="hidden sm:flex flex-col items-end text-right">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      <ShieldCheck className="w-4 h-4 text-amber-400" />
-                      Chuẩn hóa Quốc tế
+                  <div>
+                    <span className="text-[11px] font-bold tracking-widest text-[#EBD5B3] uppercase">
+                      VIETNAM ACADEMY & CLINICAL SPA
                     </span>
-                    <span className="text-xs text-amber-200/70 mt-1">
-                      Hệ bạch huyết Sâu & Nông
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Flyer Body Matrix Table */}
-              <div className="p-6 sm:p-10">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr>
-                        {/* Column 1 Header */}
-                        <th className="w-1/4 pb-6 pr-4 align-top">
-                          <div className="border-l-4 border-[#783c1d] pl-3 py-1">
-                            <h3 className="text-base sm:text-lg font-black text-[#783c1d] uppercase tracking-wide leading-tight">
-                              3 CHƯƠNG TRÌNH
-                              <br />
-                              CHĂM SÓC
-                            </h3>
-                            <p className="text-xs text-[#8c5a3c] font-medium mt-1 leading-relaxed">
-                              (Bao gồm chăm sóc cả hệ bạch huyết sâu và hệ bạch huyết nông)
-                            </p>
-                          </div>
-                        </th>
-
-                        {/* Column 2 Header: Chăm sóc khu trú (45') */}
-                        <th className="w-1/4 pb-6 px-3 text-center align-top">
-                          <div className="bg-[#6b3519] text-white py-2.5 px-3 rounded-full shadow-md">
-                            <span className="text-xs sm:text-sm font-black tracking-wide block uppercase">
-                              CHĂM SÓC
-                            </span>
-                            <span className="text-xs sm:text-sm font-black tracking-wide block uppercase">
-                              KHU TRÚ (45')
-                            </span>
-                          </div>
-                          <span className="text-[11px] text-slate-500 mt-1.5 block">Vùng can thiệp tập trung</span>
-                        </th>
-
-                        {/* Column 3 Header: Chăm sóc mở rộng (60') */}
-                        <th className="w-1/4 pb-6 px-3 text-center align-top">
-                          <div className="bg-[#6b3519] text-white py-2.5 px-3 rounded-full shadow-md">
-                            <span className="text-xs sm:text-sm font-black tracking-wide block uppercase">
-                              CHĂM SÓC
-                            </span>
-                            <span className="text-xs sm:text-sm font-black tracking-wide block uppercase">
-                              MỞ RỘNG (60')
-                            </span>
-                          </div>
-                          <span className="text-[11px] text-slate-500 mt-1.5 block">Nhiều vùng liên kết</span>
-                        </th>
-
-                        {/* Column 4 Header: Chăm sóc toàn diện (90') */}
-                        <th className="w-1/4 pb-6 pl-3 text-center align-top">
-                          <div className="bg-[#6b3519] text-white py-2.5 px-3 rounded-full shadow-md">
-                            <span className="text-xs sm:text-sm font-black tracking-wide block uppercase">
-                              CHĂM SÓC
-                            </span>
-                            <span className="text-xs sm:text-sm font-black tracking-wide block uppercase">
-                              TOÀN DIỆN (90')
-                            </span>
-                          </div>
-                          <span className="text-[11px] text-slate-500 mt-1.5 block">Toàn thân & nội tạng</span>
-                        </th>
-                      </tr>
-                    </thead>
-
-                    <tbody className="divide-y divide-amber-900/15 text-slate-800">
-                      {/* Row 1: Giá buổi lẻ */}
-                      <tr className="hover:bg-amber-100/50 transition-colors">
-                        <td className="py-4 pr-4 font-semibold text-slate-800 text-sm sm:text-base">
-                          Giá buổi lẻ
-                        </td>
-                        <td className="py-4 px-3 text-center font-bold text-slate-900 text-base sm:text-lg">
-                          <div className="flex items-center justify-center gap-1 group">
-                            <span>{formatVND(serviceKhuTru.price)}</span>
-                            <button
-                              onClick={() =>
-                                setEditingItem({
-                                  type: 'service',
-                                  id: serviceKhuTru.id,
-                                  name: serviceKhuTru.name,
-                                  price: serviceKhuTru.price,
-                                  duration: 45,
-                                  description: serviceKhuTru.full_description,
-                                })
-                              }
-                              className="no-print opacity-0 group-hover:opacity-100 p-1 hover:bg-amber-200/60 rounded text-slate-500 hover:text-amber-800 transition-opacity"
-                              title="Chỉnh sửa giá"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="py-4 px-3 text-center font-bold text-slate-900 text-base sm:text-lg">
-                          <div className="flex items-center justify-center gap-1 group">
-                            <span>{formatVND(serviceMoRong.price)}</span>
-                            <button
-                              onClick={() =>
-                                setEditingItem({
-                                  type: 'service',
-                                  id: serviceMoRong.id,
-                                  name: serviceMoRong.name,
-                                  price: serviceMoRong.price,
-                                  duration: 60,
-                                  description: serviceMoRong.full_description,
-                                })
-                              }
-                              className="no-print opacity-0 group-hover:opacity-100 p-1 hover:bg-amber-200/60 rounded text-slate-500 hover:text-amber-800 transition-opacity"
-                              title="Chỉnh sửa giá"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="py-4 pl-3 text-center font-bold text-slate-900 text-base sm:text-lg">
-                          <div className="flex items-center justify-center gap-1 group">
-                            <span>{formatVND(serviceToanDien.price)}</span>
-                            <button
-                              onClick={() =>
-                                setEditingItem({
-                                  type: 'service',
-                                  id: serviceToanDien.id,
-                                  name: serviceToanDien.name,
-                                  price: serviceToanDien.price,
-                                  duration: 90,
-                                  description: serviceToanDien.full_description,
-                                })
-                              }
-                              className="no-print opacity-0 group-hover:opacity-100 p-1 hover:bg-amber-200/60 rounded text-slate-500 hover:text-amber-800 transition-opacity"
-                              title="Chỉnh sửa giá"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-
-                      {/* Row 2: Giá liệu trình 10 buổi */}
-                      <tr className="hover:bg-amber-100/50 transition-colors">
-                        <td className="py-4 pr-4 font-semibold text-slate-800 text-sm sm:text-base">
-                          Giá liệu trình 10 buổi
-                          <span className="block text-[11px] text-slate-500 font-normal">Hạn dùng 3 tháng</span>
-                        </td>
-                        {/* 10 buổi khu trú: 4.800.000 (Bold Blue) */}
-                        <td className="py-4 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1 group">
-                            <span className="font-extrabold text-[#0055b8] text-lg sm:text-xl tracking-tight">
-                              {formatVND(pkgKhuTru10?.price || 4800000)}
-                            </span>
-                            {pkgKhuTru10 && (
-                              <button
-                                onClick={() =>
-                                  setEditingItem({
-                                    type: 'package',
-                                    id: pkgKhuTru10.id,
-                                    name: pkgKhuTru10.name,
-                                    price: pkgKhuTru10.price,
-                                    sessions: 10,
-                                    validityMonths: pkgKhuTru10.validity_months,
-                                    description: pkgKhuTru10.description,
-                                  })
-                                }
-                                className="no-print opacity-0 group-hover:opacity-100 p-1 hover:bg-amber-200/60 rounded text-slate-500 hover:text-amber-800 transition-opacity"
-                                title="Chỉnh sửa giá gói"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                            Tiết kiệm 200k
-                          </span>
-                        </td>
-
-                        {/* 10 buổi mở rộng: 8.600.000 (Bold Blue) */}
-                        <td className="py-4 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1 group">
-                            <span className="font-extrabold text-[#0055b8] text-lg sm:text-xl tracking-tight">
-                              {formatVND(pkgMoRong10?.price || 8600000)}
-                            </span>
-                            {pkgMoRong10 && (
-                              <button
-                                onClick={() =>
-                                  setEditingItem({
-                                    type: 'package',
-                                    id: pkgMoRong10.id,
-                                    name: pkgMoRong10.name,
-                                    price: pkgMoRong10.price,
-                                    sessions: 10,
-                                    validityMonths: pkgMoRong10.validity_months,
-                                    description: pkgMoRong10.description,
-                                  })
-                                }
-                                className="no-print opacity-0 group-hover:opacity-100 p-1 hover:bg-amber-200/60 rounded text-slate-500 hover:text-amber-800 transition-opacity"
-                                title="Chỉnh sửa giá gói"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                            Tiết kiệm 400k
-                          </span>
-                        </td>
-
-                        {/* 10 buổi toàn diện: 16.200.000 (Bold Blue) */}
-                        <td className="py-4 pl-3 text-center">
-                          <div className="flex items-center justify-center gap-1 group">
-                            <span className="font-extrabold text-[#0055b8] text-lg sm:text-xl tracking-tight">
-                              {formatVND(pkgToanDien10?.price || 16200000)}
-                            </span>
-                            {pkgToanDien10 && (
-                              <button
-                                onClick={() =>
-                                  setEditingItem({
-                                    type: 'package',
-                                    id: pkgToanDien10.id,
-                                    name: pkgToanDien10.name,
-                                    price: pkgToanDien10.price,
-                                    sessions: 10,
-                                    validityMonths: pkgToanDien10.validity_months,
-                                    description: pkgToanDien10.description,
-                                  })
-                                }
-                                className="no-print opacity-0 group-hover:opacity-100 p-1 hover:bg-amber-200/60 rounded text-slate-500 hover:text-amber-800 transition-opacity"
-                                title="Chỉnh sửa giá gói"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                            Tiết kiệm 800k
-                          </span>
-                        </td>
-                      </tr>
-
-                      {/* Row 3: Giá liệu trình 20 buổi */}
-                      <tr className="hover:bg-amber-100/50 transition-colors">
-                        <td className="py-4 pr-4 font-semibold text-slate-800 text-sm sm:text-base">
-                          Giá liệu trình 20 buổi
-                          <span className="block text-[11px] text-slate-500 font-normal">Hạn dùng 6 tháng</span>
-                        </td>
-
-                        {/* 20 buổi khu trú: 9.200.000 */}
-                        <td className="py-4 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1 group">
-                            <span className="font-bold text-slate-900 text-base sm:text-lg">
-                              {formatVND(pkgKhuTru20?.price || 9200000)}
-                            </span>
-                            {pkgKhuTru20 && (
-                              <button
-                                onClick={() =>
-                                  setEditingItem({
-                                    type: 'package',
-                                    id: pkgKhuTru20.id,
-                                    name: pkgKhuTru20.name,
-                                    price: pkgKhuTru20.price,
-                                    sessions: 20,
-                                    validityMonths: pkgKhuTru20.validity_months,
-                                    description: pkgKhuTru20.description,
-                                  })
-                                }
-                                className="no-print opacity-0 group-hover:opacity-100 p-1 hover:bg-amber-200/60 rounded text-slate-500 hover:text-amber-800 transition-opacity"
-                                title="Chỉnh sửa giá gói"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                            Tiết kiệm 800k
-                          </span>
-                        </td>
-
-                        {/* 20 buổi mở rộng: 16.400.000 */}
-                        <td className="py-4 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1 group">
-                            <span className="font-bold text-slate-900 text-base sm:text-lg">
-                              {formatVND(pkgMoRong20?.price || 16400000)}
-                            </span>
-                            {pkgMoRong20 && (
-                              <button
-                                onClick={() =>
-                                  setEditingItem({
-                                    type: 'package',
-                                    id: pkgMoRong20.id,
-                                    name: pkgMoRong20.name,
-                                    price: pkgMoRong20.price,
-                                    sessions: 20,
-                                    validityMonths: pkgMoRong20.validity_months,
-                                    description: pkgMoRong20.description,
-                                  })
-                                }
-                                className="no-print opacity-0 group-hover:opacity-100 p-1 hover:bg-amber-200/60 rounded text-slate-500 hover:text-amber-800 transition-opacity"
-                                title="Chỉnh sửa giá gói"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                            Tiết kiệm 1.6M
-                          </span>
-                        </td>
-
-                        {/* 20 buổi toàn diện: 30.800.000 (Bold Blue) */}
-                        <td className="py-4 pl-3 text-center">
-                          <div className="flex items-center justify-center gap-1 group">
-                            <span className="font-extrabold text-[#0055b8] text-lg sm:text-xl tracking-tight">
-                              {formatVND(pkgToanDien20?.price || 30800000)}
-                            </span>
-                            {pkgToanDien20 && (
-                              <button
-                                onClick={() =>
-                                  setEditingItem({
-                                    type: 'package',
-                                    id: pkgToanDien20.id,
-                                    name: pkgToanDien20.name,
-                                    price: pkgToanDien20.price,
-                                    sessions: 20,
-                                    validityMonths: pkgToanDien20.validity_months,
-                                    description: pkgToanDien20.description,
-                                  })
-                                }
-                                className="no-print opacity-0 group-hover:opacity-100 p-1 hover:bg-amber-200/60 rounded text-slate-500 hover:text-amber-800 transition-opacity"
-                                title="Chỉnh sửa giá gói"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                            Tiết kiệm 3.2M
-                          </span>
-                        </td>
-                      </tr>
-
-                      {/* Row 4: Giá liệu trình 30 buổi */}
-                      <tr className="hover:bg-amber-100/50 transition-colors">
-                        <td className="py-4 pr-4 font-semibold text-slate-800 text-sm sm:text-base">
-                          Giá liệu trình 30 buổi
-                          <span className="block text-[11px] text-slate-500 font-normal">Hạn dùng 12 tháng</span>
-                        </td>
-
-                        {/* 30 buổi khu trú: 13.200.000 */}
-                        <td className="py-4 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1 group">
-                            <span className="font-bold text-slate-900 text-base sm:text-lg">
-                              {formatVND(pkgKhuTru30?.price || 13200000)}
-                            </span>
-                            {pkgKhuTru30 && (
-                              <button
-                                onClick={() =>
-                                  setEditingItem({
-                                    type: 'package',
-                                    id: pkgKhuTru30.id,
-                                    name: pkgKhuTru30.name,
-                                    price: pkgKhuTru30.price,
-                                    sessions: 30,
-                                    validityMonths: pkgKhuTru30.validity_months,
-                                    description: pkgKhuTru30.description,
-                                  })
-                                }
-                                className="no-print opacity-0 group-hover:opacity-100 p-1 hover:bg-amber-200/60 rounded text-slate-500 hover:text-amber-800 transition-opacity"
-                                title="Chỉnh sửa giá gói"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                            Tiết kiệm 1.8M
-                          </span>
-                        </td>
-
-                        {/* 30 buổi mở rộng: 23.400.000 (Bold Blue) */}
-                        <td className="py-4 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1 group">
-                            <span className="font-extrabold text-[#0055b8] text-lg sm:text-xl tracking-tight">
-                              {formatVND(pkgMoRong30?.price || 23400000)}
-                            </span>
-                            {pkgMoRong30 && (
-                              <button
-                                onClick={() =>
-                                  setEditingItem({
-                                    type: 'package',
-                                    id: pkgMoRong30.id,
-                                    name: pkgMoRong30.name,
-                                    price: pkgMoRong30.price,
-                                    sessions: 30,
-                                    validityMonths: pkgMoRong30.validity_months,
-                                    description: pkgMoRong30.description,
-                                  })
-                                }
-                                className="no-print opacity-0 group-hover:opacity-100 p-1 hover:bg-amber-200/60 rounded text-slate-500 hover:text-amber-800 transition-opacity"
-                                title="Chỉnh sửa giá gói"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                            Tiết kiệm 3.6M
-                          </span>
-                        </td>
-
-                        {/* 30 buổi toàn diện: 43.800.000 */}
-                        <td className="py-4 pl-3 text-center">
-                          <div className="flex items-center justify-center gap-1 group">
-                            <span className="font-bold text-slate-900 text-base sm:text-lg">
-                              {formatVND(pkgToanDien30?.price || 43800000)}
-                            </span>
-                            {pkgToanDien30 && (
-                              <button
-                                onClick={() =>
-                                  setEditingItem({
-                                    type: 'package',
-                                    id: pkgToanDien30.id,
-                                    name: pkgToanDien30.name,
-                                    price: pkgToanDien30.price,
-                                    sessions: 30,
-                                    validityMonths: pkgToanDien30.validity_months,
-                                    description: pkgToanDien30.description,
-                                  })
-                                }
-                                className="no-print opacity-0 group-hover:opacity-100 p-1 hover:bg-amber-200/60 rounded text-slate-500 hover:text-amber-800 transition-opacity"
-                                title="Chỉnh sửa giá gói"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                            Tiết kiệm 7.2M
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Footer Notice matching the flyer */}
-                <div className="mt-8 pt-6 border-t border-amber-900/15">
-                  <div className="border-l-4 border-[#783c1d] pl-4 py-1 text-slate-700 text-xs sm:text-sm leading-relaxed">
-                    <p>
-                      <strong className="text-slate-900 font-bold">Đơn vị: VNĐ.</strong> Giá dịch vụ{' '}
-                      <strong className="text-slate-900 font-bold">đã bao gồm thuế VAT 8%</strong> theo quy định áp dụng.
-                      Phạm vi chăm sóc và số buổi đề xuất dựa trên kết quả đánh giá chuyên môn, tình trạng sức khỏe và
-                      mục tiêu theo dõi của từng khách hàng. Khách hàng{' '}
-                      <strong className="text-slate-900 font-bold">
-                        được giải thích và đồng thuận với kế hoạch trước khi thực hiện.
-                      </strong>
+                    <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white uppercase mt-0.5">
+                      BẢNG GIÁ DỊCH VỤ & GÓI LIỆU TRÌNH
+                    </h2>
+                    <p className="text-xs font-semibold tracking-wider text-[#F3E2CE] uppercase mt-0.5">
+                      PRICING • CHUẨN Y KHOA DR. VODDER
                     </p>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Quick Consultation CTA */}
-            <div className="no-print bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
-                  <TrendingUp className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-base font-bold text-slate-900 dark:text-white">
-                    Tư vấn phác đồ điều trị cá nhân hóa
-                  </h4>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Gợi ý gói 10 - 20 - 30 buổi phù hợp theo mức độ phù nề và giai đoạn phục hồi của từng khách hàng.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => navigate('/medical-records')}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors"
-                >
-                  Hồ sơ phác đồ MLD
-                </button>
-                <button
-                  onClick={() => navigate('/cashier-pos')}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 transition-colors shadow-sm"
-                >
-                  Tạo đơn bán gói
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: 3 CORE SERVICES DETAIL CARDS */}
-        {activeTab === 'services' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Card 1: Chăm sóc khu trú (45') */}
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
-                <div className="relative h-48 bg-slate-100 dark:bg-slate-800">
-                  <img
-                    src="https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=800&q=80"
-                    alt="Chăm sóc khu trú"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 left-3 bg-[#6b3519] text-white text-xs font-bold px-3 py-1 rounded-full shadow">
-                    45 PHÚT
-                  </div>
-                  <div className="absolute top-3 right-3 bg-white/90 dark:bg-slate-900/90 text-amber-700 dark:text-amber-400 text-xs font-bold px-2.5 py-1 rounded-md shadow">
-                    VAT 8%
-                  </div>
-                </div>
-
-                <div className="p-5 flex-1 flex flex-col">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                      Chăm sóc khu trú (45')
-                    </h3>
-                  </div>
-
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 line-clamp-2">
-                    Tập trung vào vùng chỉ định (mặt, cổ vai gáy, hoặc chi dưới) nhằm giải tỏa ứ trệ và giảm sưng nề nhanh.
-                  </p>
-
-                  <div className="mb-4">
-                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-1">
-                      Giá niêm yết (Buổi lẻ)
-                    </span>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-slate-900 dark:text-white">
-                        {formatVND(serviceKhuTru.price)}
-                      </span>
-                      <span className="text-xs text-slate-500">VNĐ / buổi</span>
-                    </div>
-                  </div>
-
-                  {/* Highlights */}
-                  <div className="space-y-2 mb-5 flex-1 border-t border-slate-100 dark:border-slate-800 pt-3">
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                      Điểm nổi bật:
-                    </span>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Kích hoạt cả hệ bạch huyết nông và sâu vùng can thiệp</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Giảm sưng đau, phù nề tức thì sau điều trị</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Thích hợp chăm sóc vùng sau phẫu thuật</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <button
-                      onClick={() =>
-                        setEditingItem({
-                          type: 'service',
-                          id: serviceKhuTru.id,
-                          name: serviceKhuTru.name,
-                          price: serviceKhuTru.price,
-                          duration: 45,
-                          description: serviceKhuTru.full_description,
-                        })
-                      }
-                      className="flex-1 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <Pencil className="w-3.5 h-3.5" /> Sửa giá
-                    </button>
-                    <button
-                      onClick={() => navigate('/cashier-pos')}
-                      className="flex-1 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-colors flex items-center justify-center gap-1 shadow-sm"
-                    >
-                      Bán dịch vụ
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 2: Chăm sóc mở rộng (60') */}
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-amber-500/50 dark:border-amber-500/40 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col relative">
-                <div className="absolute top-2 right-2 z-10 bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full shadow">
-                  Phổ biến nhất
-                </div>
-
-                <div className="relative h-48 bg-slate-100 dark:bg-slate-800">
-                  <img
-                    src="https://images.unsplash.com/photo-1519823551278-64ac92734fb1?auto=format&fit=crop&w=800&q=80"
-                    alt="Chăm sóc mở rộng"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 left-3 bg-[#6b3519] text-white text-xs font-bold px-3 py-1 rounded-full shadow">
-                    60 PHÚT
-                  </div>
-                  <div className="absolute bottom-3 right-3 bg-white/90 dark:bg-slate-900/90 text-amber-700 dark:text-amber-400 text-xs font-bold px-2.5 py-1 rounded-md shadow">
-                    VAT 8%
-                  </div>
-                </div>
-
-                <div className="p-5 flex-1 flex flex-col">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                      Chăm sóc mở rộng (60')
-                    </h3>
-                  </div>
-
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 line-clamp-2">
-                    Bao quát phạm vi liên kết rộng hơn trên cơ thể, giúp kích hoạt đồng bộ cả hệ bạch huyết sâu và nông liên vùng.
-                  </p>
-
-                  <div className="mb-4">
-                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-1">
-                      Giá niêm yết (Buổi lẻ)
-                    </span>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-amber-600 dark:text-amber-400">
-                        {formatVND(serviceMoRong.price)}
-                      </span>
-                      <span className="text-xs text-slate-500">VNĐ / buổi</span>
-                    </div>
-                  </div>
-
-                  {/* Highlights */}
-                  <div className="space-y-2 mb-5 flex-1 border-t border-slate-100 dark:border-slate-800 pt-3">
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                      Điểm nổi bật:
-                    </span>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Đả thông dòng chảy bạch huyết đa tầng sâu - nông</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Tối ưu tiêu sưng nề và bầm tím diện rộng</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Củng cố hệ miễn dịch tự nhiên của cơ thể</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <button
-                      onClick={() =>
-                        setEditingItem({
-                          type: 'service',
-                          id: serviceMoRong.id,
-                          name: serviceMoRong.name,
-                          price: serviceMoRong.price,
-                          duration: 60,
-                          description: serviceMoRong.full_description,
-                        })
-                      }
-                      className="flex-1 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <Pencil className="w-3.5 h-3.5" /> Sửa giá
-                    </button>
-                    <button
-                      onClick={() => navigate('/cashier-pos')}
-                      className="flex-1 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-colors flex items-center justify-center gap-1 shadow-sm"
-                    >
-                      Bán dịch vụ
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 3: Chăm sóc toàn diện (90') */}
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
-                <div className="relative h-48 bg-slate-100 dark:bg-slate-800">
-                  <img
-                    src="https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=800&q=80"
-                    alt="Chăm sóc toàn diện"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 left-3 bg-[#6b3519] text-white text-xs font-bold px-3 py-1 rounded-full shadow">
-                    90 PHÚT
-                  </div>
-                  <div className="absolute top-3 right-3 bg-white/90 dark:bg-slate-900/90 text-amber-700 dark:text-amber-400 text-xs font-bold px-2.5 py-1 rounded-md shadow">
-                    VAT 8%
-                  </div>
-                </div>
-
-                <div className="p-5 flex-1 flex flex-col">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                      Chăm sóc toàn diện (90')
-                    </h3>
-                  </div>
-
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 line-clamp-2">
-                    Phác đồ đỉnh cao dẫn lưu tuần tự trên toàn bộ mạch bạch huyết và trạm hạch toàn thân từ gốc đến ngọn.
-                  </p>
-
-                  <div className="mb-4">
-                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-1">
-                      Giá niêm yết (Buổi lẻ)
-                    </span>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-slate-900 dark:text-white">
-                        {formatVND(serviceToanDien.price)}
-                      </span>
-                      <span className="text-xs text-slate-500">VNĐ / buổi</span>
-                    </div>
-                  </div>
-
-                  {/* Highlights */}
-                  <div className="space-y-2 mb-5 flex-1 border-t border-slate-100 dark:border-slate-800 pt-3">
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                      Điểm nổi bật:
-                    </span>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Dẫn lưu toàn bộ trạm hạch chính: cổ, nách, bụng, bẹn</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Kết nối tuần hoàn nông dưới da & bạch huyết nội tạng</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Hồi sinh năng lượng, thải độc tế bào cấp độ sâu nhất</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <button
-                      onClick={() =>
-                        setEditingItem({
-                          type: 'service',
-                          id: serviceToanDien.id,
-                          name: serviceToanDien.name,
-                          price: serviceToanDien.price,
-                          duration: 90,
-                          description: serviceToanDien.full_description,
-                        })
-                      }
-                      className="flex-1 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <Pencil className="w-3.5 h-3.5" /> Sửa giá
-                    </button>
-                    <button
-                      onClick={() => navigate('/cashier-pos')}
-                      className="flex-1 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-colors flex items-center justify-center gap-1 shadow-sm"
-                    >
-                      Bán dịch vụ
-                    </button>
-                  </div>
+                {/* Right Guarantee Badge */}
+                <div className="hidden sm:flex flex-col items-end text-right">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-[#F5EBE1] border border-white/20 shadow-2xs">
+                    <ShieldCheck className="w-4 h-4 text-[#EBD5B3]" />
+                    Chuẩn hóa Quốc tế
+                  </span>
+                  <span className="text-[11px] text-[#D8C7B8] mt-1 font-medium">
+                    Hệ bạch huyết Sâu & Nông
+                  </span>
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* TAB 3: 9 TREATMENT PACKAGES LIST */}
-        {activeTab === 'packages' && (
-          <div className="space-y-6">
-            {/* Filter Bar */}
-            <div className="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4 text-slate-400" />
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Lọc theo số buổi:
-                </span>
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                  <button
-                    onClick={() => setSessionFilter('ALL')}
-                    className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
-                      sessionFilter === 'ALL'
-                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
-                    }`}
-                  >
-                    Tất cả (9 gói)
-                  </button>
-                  <button
-                    onClick={() => setSessionFilter('10')}
-                    className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
-                      sessionFilter === '10'
-                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
-                    }`}
-                  >
-                    10 buổi
-                  </button>
-                  <button
-                    onClick={() => setSessionFilter('20')}
-                    className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
-                      sessionFilter === '20'
-                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
-                    }`}
-                  >
-                    20 buổi
-                  </button>
-                  <button
-                    onClick={() => setSessionFilter('30')}
-                    className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
-                      sessionFilter === '30'
-                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
-                    }`}
-                  >
-                    30 buổi
-                  </button>
-                </div>
-              </div>
+            {/* Board Table Body */}
+            <div className="p-5 sm:p-8">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-[#EFE4D9]">
+                      {/* Column 1 Header: 3 Chương trình chăm sóc */}
+                      <th className="w-1/4 pb-5 pr-4 align-top">
+                        <div className="border-l-4 border-[#985018] pl-3 py-1">
+                          <h3 className="text-sm sm:text-base font-extrabold text-[#3E200C] uppercase tracking-wide leading-tight">
+                            3 CHƯƠNG TRÌNH
+                            <br />
+                            CHĂM SÓC
+                          </h3>
+                          <p className="text-[11px] text-[#73675F] font-medium mt-1 leading-relaxed">
+                            (Bao gồm chăm sóc cả hệ bạch huyết sâu và hệ bạch huyết nông)
+                          </p>
+                        </div>
+                      </th>
 
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                Đang hiển thị <strong>{filteredPackages.length}</strong> / {packages.length} gói liệu trình
-              </div>
-            </div>
-
-            {/* Packages Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPackages.map((pkg) => {
-                const perSession = Math.round(pkg.price / pkg.total_sessions);
-                const isRecommended =
-                  (pkg.total_sessions === 10 && pkg.name.includes('khu trú')) ||
-                  (pkg.total_sessions === 10 && pkg.name.includes('mở rộng')) ||
-                  (pkg.total_sessions === 10 && pkg.name.includes('toàn diện')) ||
-                  (pkg.total_sessions === 20 && pkg.name.includes('toàn diện')) ||
-                  (pkg.total_sessions === 30 && pkg.name.includes('mở rộng'));
-
-                return (
-                  <div
-                    key={pkg.id}
-                    className={`bg-white dark:bg-slate-900 rounded-2xl border p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all ${
-                      isRecommended
-                        ? 'border-blue-400 dark:border-blue-700 ring-1 ring-blue-400/30'
-                        : 'border-slate-200 dark:border-slate-800'
-                    }`}
-                  >
-                    <div>
-                      {/* Top Badges */}
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <span className="px-2.5 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                          {pkg.total_sessions} BUỔI
+                      {/* Column 2 Header: Chăm sóc khu trú (45') */}
+                      <th className="w-1/4 pb-5 px-2.5 text-center align-top">
+                        <div className="bg-[#FAF0E4] border border-[#E8DFD8] text-[#8A4F23] py-2.5 px-3 rounded-2xl shadow-2xs">
+                          <span className="text-xs sm:text-sm font-extrabold tracking-wide block uppercase">
+                            CHĂM SÓC KHU TRÚ
+                          </span>
+                          <span className="text-[11px] sm:text-xs font-bold block opacity-90">
+                            (45 Phút)
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-[#73675F] mt-1.5 block font-medium">
+                          Vùng can thiệp tập trung
                         </span>
+                      </th>
 
-                        {isRecommended && (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 flex items-center gap-1">
-                            <Flame className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                            Đề xuất cao
+                      {/* Column 3 Header: Chăm sóc mở rộng (60') */}
+                      <th className="w-1/4 pb-5 px-2.5 text-center align-top">
+                        <div className="bg-[#985018] text-white py-2.5 px-3 rounded-2xl shadow-xs relative">
+                          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-amber-200 text-[#5C3214] text-[9px] font-black uppercase tracking-wider px-2 py-0.2 rounded-full shadow-2xs whitespace-nowrap">
+                            Phổ biến nhất
                           </span>
-                        )}
-                      </div>
-
-                      <h4 className="text-base font-bold text-slate-900 dark:text-white mb-1">
-                        {pkg.name}
-                      </h4>
-
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 line-clamp-2">
-                        {pkg.description}
-                      </p>
-
-                      {/* Pricing block */}
-                      <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl mb-4 space-y-1">
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-xs text-slate-500 dark:text-slate-400">Trọn gói:</span>
-                          <span className="text-xl font-extrabold text-[#0055b8] dark:text-blue-400">
-                            {formatVND(pkg.price)} VNĐ
+                          <span className="text-xs sm:text-sm font-extrabold tracking-wide block uppercase">
+                            CHĂM SÓC MỞ RỘNG
+                          </span>
+                          <span className="text-[11px] sm:text-xs font-bold block opacity-90">
+                            (60 Phút)
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
-                          <span>Đơn giá mỗi buổi:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">
-                            {formatVND(perSession)} VNĐ / buổi
+                        <span className="text-[11px] text-[#73675F] mt-1.5 block font-medium">
+                          Nhiều vùng liên kết
+                        </span>
+                      </th>
+
+                      {/* Column 4 Header: Chăm sóc toàn diện (90') */}
+                      <th className="w-1/4 pb-5 pl-2.5 text-center align-top">
+                        <div className="bg-[#FAF0E4] border border-[#E8DFD8] text-[#8A4F23] py-2.5 px-3 rounded-2xl shadow-2xs relative">
+                          <span className="text-xs sm:text-sm font-extrabold tracking-wide block uppercase">
+                            CHĂM SÓC TOÀN DIỆN
+                          </span>
+                          <span className="text-[11px] sm:text-xs font-bold block opacity-90">
+                            (90 Phút)
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-xs text-slate-500">
-                          <span>Hạn bảo lưu:</span>
-                          <span>{pkg.validity_months} tháng</span>
-                        </div>
-                      </div>
-                    </div>
+                        <span className="text-[11px] text-[#73675F] mt-1.5 block font-medium">
+                          Toàn thân & nội tạng
+                        </span>
+                      </th>
+                    </tr>
+                  </thead>
 
-                    <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                      <button
-                        onClick={() =>
-                          setEditingItem({
-                            type: 'package',
-                            id: pkg.id,
-                            name: pkg.name,
-                            price: pkg.price,
-                            sessions: pkg.total_sessions,
-                            validityMonths: pkg.validity_months,
-                            description: pkg.description,
-                          })
-                        }
-                        className="flex-1 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors flex items-center justify-center gap-1"
-                      >
-                        <Pencil className="w-3.5 h-3.5" /> Sửa giá
-                      </button>
-                      <button
-                        onClick={() => navigate('/cashier-pos')}
-                        className="flex-1 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-colors flex items-center justify-center gap-1 shadow-sm"
-                      >
-                        Bán gói này
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+                  <tbody className="divide-y divide-[#F2ECE6] text-[#2C241E]">
+                    {/* ROW 1: GIÁ BUỔI LẺ */}
+                    <tr className="hover:bg-[#FAF8F5]/80 transition-colors">
+                      <td className="py-4 pr-4">
+                        <div className="font-bold text-sm text-[#2C241E]">Giá buổi lẻ</div>
+                        <div className="text-[11px] text-[#73675F]">Thanh toán theo từng buổi chăm sóc</div>
+                      </td>
+
+                      {/* Buổi lẻ khu trú */}
+                      <td className="py-4 px-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="text-base sm:text-lg font-black text-[#2C241E]">
+                            {formatVND(serviceKhuTru.price)}đ
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditingItem({
+                                type: 'service',
+                                id: serviceKhuTru.id,
+                                name: serviceKhuTru.name,
+                                price: serviceKhuTru.price,
+                                duration: 45,
+                                description: serviceKhuTru.full_description,
+                              })
+                            }
+                            className="no-print p-1 hover:bg-[#FAF0E4] rounded-lg text-[#8C7A6B] hover:text-[#985018] transition-colors cursor-pointer"
+                            title="Sửa giá niêm yết"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="no-print mt-1">
+                          <button
+                            type="button"
+                            onClick={() => navigate('/cashier-pos')}
+                            className="text-[10px] font-bold text-[#8A4F23] hover:underline cursor-pointer"
+                          >
+                            Bán tại POS →
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Buổi lẻ mở rộng */}
+                      <td className="py-4 px-2.5 text-center bg-[#FAF6F0]/40">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="text-base sm:text-lg font-black text-[#2C241E]">
+                            {formatVND(serviceMoRong.price)}đ
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditingItem({
+                                type: 'service',
+                                id: serviceMoRong.id,
+                                name: serviceMoRong.name,
+                                price: serviceMoRong.price,
+                                duration: 60,
+                                description: serviceMoRong.full_description,
+                              })
+                            }
+                            className="no-print p-1 hover:bg-[#FAF0E4] rounded-lg text-[#8C7A6B] hover:text-[#985018] transition-colors cursor-pointer"
+                            title="Sửa giá niêm yết"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="no-print mt-1">
+                          <button
+                            type="button"
+                            onClick={() => navigate('/cashier-pos')}
+                            className="text-[10px] font-bold text-[#8A4F23] hover:underline cursor-pointer"
+                          >
+                            Bán tại POS →
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Buổi lẻ toàn diện */}
+                      <td className="py-4 pl-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="text-base sm:text-lg font-black text-[#2C241E]">
+                            {formatVND(serviceToanDien.price)}đ
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditingItem({
+                                type: 'service',
+                                id: serviceToanDien.id,
+                                name: serviceToanDien.name,
+                                price: serviceToanDien.price,
+                                duration: 90,
+                                description: serviceToanDien.full_description,
+                              })
+                            }
+                            className="no-print p-1 hover:bg-[#FAF0E4] rounded-lg text-[#8C7A6B] hover:text-[#985018] transition-colors cursor-pointer"
+                            title="Sửa giá niêm yết"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="no-print mt-1">
+                          <button
+                            type="button"
+                            onClick={() => navigate('/cashier-pos')}
+                            className="text-[10px] font-bold text-[#8A4F23] hover:underline cursor-pointer"
+                          >
+                            Bán tại POS →
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* ROW 2: GIÁ LIỆU TRÌNH 10 BUỔI (KHUYÊN DÙNG NHIỀU NHẤT) */}
+                    <tr className="bg-[#FAF0E4]/30 hover:bg-[#FAF0E4]/50 transition-colors border-l-2 border-l-[#985018]">
+                      <td className="py-4 pr-4 pl-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-extrabold text-sm text-[#3E200C]">
+                            Giá liệu trình 10 buổi
+                          </span>
+                          <span className="no-print px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+                            Hot
+                          </span>
+                        </div>
+                        <span className="block text-[11px] text-[#73675F]">Hạn dùng 3 tháng • Phổ biến</span>
+                      </td>
+
+                      {/* 10 buổi khu trú: 4.800.000đ */}
+                      <td className="py-4 px-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="font-black text-lg sm:text-xl text-[#985018] tracking-tight">
+                            {formatVND(pkgKhuTru10?.price || 4800000)}đ
+                          </span>
+                          {pkgKhuTru10 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingItem({
+                                  type: 'package',
+                                  id: pkgKhuTru10.id,
+                                  name: pkgKhuTru10.name,
+                                  price: pkgKhuTru10.price,
+                                  sessions: 10,
+                                  validityMonths: pkgKhuTru10.validity_months,
+                                  description: pkgKhuTru10.description,
+                                })
+                              }
+                              className="no-print p-1 hover:bg-[#FAF0E4] rounded-lg text-[#8C7A6B] hover:text-[#985018] transition-colors cursor-pointer"
+                              title="Sửa giá gói"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center gap-1 mt-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-emerald-800 bg-[#E8F6ED] px-2 py-0.5 rounded-full inline-block border border-emerald-200">
+                            Tiết kiệm 200k
+                          </span>
+                          <span className="text-[10px] text-[#73675F]">480k/b</span>
+                        </div>
+                        <div className="no-print mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                pkgKhuTru10
+                                  ? `/cashier-pos?packageId=${pkgKhuTru10.id}`
+                                  : '/cashier-pos'
+                              )
+                            }
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-[#985018] hover:bg-[#854412] text-white transition-colors cursor-pointer shadow-2xs"
+                          >
+                            Bán gói này
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* 10 buổi mở rộng: 8.600.000đ */}
+                      <td className="py-4 px-2.5 text-center bg-[#FAF6F0]/60">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="font-black text-lg sm:text-xl text-[#985018] tracking-tight">
+                            {formatVND(pkgMoRong10?.price || 8600000)}đ
+                          </span>
+                          {pkgMoRong10 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingItem({
+                                  type: 'package',
+                                  id: pkgMoRong10.id,
+                                  name: pkgMoRong10.name,
+                                  price: pkgMoRong10.price,
+                                  sessions: 10,
+                                  validityMonths: pkgMoRong10.validity_months,
+                                  description: pkgMoRong10.description,
+                                })
+                              }
+                              className="no-print p-1 hover:bg-[#FAF0E4] rounded-lg text-[#8C7A6B] hover:text-[#985018] transition-colors cursor-pointer"
+                              title="Sửa giá gói"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center gap-1 mt-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-emerald-800 bg-[#E8F6ED] px-2 py-0.5 rounded-full inline-block border border-emerald-200">
+                            Tiết kiệm 400k
+                          </span>
+                          <span className="text-[10px] text-[#73675F]">860k/b</span>
+                        </div>
+                        <div className="no-print mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                pkgMoRong10
+                                  ? `/cashier-pos?packageId=${pkgMoRong10.id}`
+                                  : '/cashier-pos'
+                              )
+                            }
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-[#985018] hover:bg-[#854412] text-white transition-colors cursor-pointer shadow-2xs"
+                          >
+                            Bán gói này
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* 10 buổi toàn diện: 16.200.000đ */}
+                      <td className="py-4 pl-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="font-black text-lg sm:text-xl text-[#985018] tracking-tight">
+                            {formatVND(pkgToanDien10?.price || 16200000)}đ
+                          </span>
+                          {pkgToanDien10 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingItem({
+                                  type: 'package',
+                                  id: pkgToanDien10.id,
+                                  name: pkgToanDien10.name,
+                                  price: pkgToanDien10.price,
+                                  sessions: 10,
+                                  validityMonths: pkgToanDien10.validity_months,
+                                  description: pkgToanDien10.description,
+                                })
+                              }
+                              className="no-print p-1 hover:bg-[#FAF0E4] rounded-lg text-[#8C7A6B] hover:text-[#985018] transition-colors cursor-pointer"
+                              title="Sửa giá gói"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center gap-1 mt-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-emerald-800 bg-[#E8F6ED] px-2 py-0.5 rounded-full inline-block border border-emerald-200">
+                            Tiết kiệm 800k
+                          </span>
+                          <span className="text-[10px] text-[#73675F]">1.62M/b</span>
+                        </div>
+                        <div className="no-print mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                pkgToanDien10
+                                  ? `/cashier-pos?packageId=${pkgToanDien10.id}`
+                                  : '/cashier-pos'
+                              )
+                            }
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-[#985018] hover:bg-[#854412] text-white transition-colors cursor-pointer shadow-2xs"
+                          >
+                            Bán gói này
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* ROW 3: GIÁ LIỆU TRÌNH 20 BUỔI */}
+                    <tr className="hover:bg-[#FAF8F5]/80 transition-colors">
+                      <td className="py-4 pr-4">
+                        <div className="font-bold text-sm text-[#2C241E]">Giá liệu trình 20 buổi</div>
+                        <div className="text-[11px] text-[#73675F]">Hạn dùng 6 tháng • Phục hồi chuyên sâu</div>
+                      </td>
+
+                      {/* 20 buổi khu trú: 9.200.000đ */}
+                      <td className="py-4 px-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="font-extrabold text-base sm:text-lg text-[#2C241E]">
+                            {formatVND(pkgKhuTru20?.price || 9200000)}đ
+                          </span>
+                          {pkgKhuTru20 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingItem({
+                                  type: 'package',
+                                  id: pkgKhuTru20.id,
+                                  name: pkgKhuTru20.name,
+                                  price: pkgKhuTru20.price,
+                                  sessions: 20,
+                                  validityMonths: pkgKhuTru20.validity_months,
+                                  description: pkgKhuTru20.description,
+                                })
+                              }
+                              className="no-print p-1 hover:bg-[#FAF0E4] rounded-lg text-[#8C7A6B] hover:text-[#985018] transition-colors cursor-pointer"
+                              title="Sửa giá gói"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center gap-1 mt-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-emerald-800 bg-[#E8F6ED] px-2 py-0.5 rounded-full inline-block border border-emerald-200">
+                            Tiết kiệm 800k
+                          </span>
+                          <span className="text-[10px] text-[#73675F]">460k/b</span>
+                        </div>
+                        <div className="no-print mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                pkgKhuTru20
+                                  ? `/cashier-pos?packageId=${pkgKhuTru20.id}`
+                                  : '/cashier-pos'
+                              )
+                            }
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs"
+                          >
+                            Bán gói
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* 20 buổi mở rộng: 16.400.000đ */}
+                      <td className="py-4 px-2.5 text-center bg-[#FAF6F0]/40">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="font-extrabold text-base sm:text-lg text-[#2C241E]">
+                            {formatVND(pkgMoRong20?.price || 16400000)}đ
+                          </span>
+                          {pkgMoRong20 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingItem({
+                                  type: 'package',
+                                  id: pkgMoRong20.id,
+                                  name: pkgMoRong20.name,
+                                  price: pkgMoRong20.price,
+                                  sessions: 20,
+                                  validityMonths: pkgMoRong20.validity_months,
+                                  description: pkgMoRong20.description,
+                                })
+                              }
+                              className="no-print p-1 hover:bg-[#FAF0E4] rounded-lg text-[#8C7A6B] hover:text-[#985018] transition-colors cursor-pointer"
+                              title="Sửa giá gói"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center gap-1 mt-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-emerald-800 bg-[#E8F6ED] px-2 py-0.5 rounded-full inline-block border border-emerald-200">
+                            Tiết kiệm 1.6M
+                          </span>
+                          <span className="text-[10px] text-[#73675F]">820k/b</span>
+                        </div>
+                        <div className="no-print mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                pkgMoRong20
+                                  ? `/cashier-pos?packageId=${pkgMoRong20.id}`
+                                  : '/cashier-pos'
+                              )
+                            }
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs"
+                          >
+                            Bán gói
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* 20 buổi toàn diện: 30.800.000đ */}
+                      <td className="py-4 pl-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="font-extrabold text-base sm:text-lg text-[#2C241E]">
+                            {formatVND(pkgToanDien20?.price || 30800000)}đ
+                          </span>
+                          {pkgToanDien20 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingItem({
+                                  type: 'package',
+                                  id: pkgToanDien20.id,
+                                  name: pkgToanDien20.name,
+                                  price: pkgToanDien20.price,
+                                  sessions: 20,
+                                  validityMonths: pkgToanDien20.validity_months,
+                                  description: pkgToanDien20.description,
+                                })
+                              }
+                              className="no-print p-1 hover:bg-[#FAF0E4] rounded-lg text-[#8C7A6B] hover:text-[#985018] transition-colors cursor-pointer"
+                              title="Sửa giá gói"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center gap-1 mt-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-emerald-800 bg-[#E8F6ED] px-2 py-0.5 rounded-full inline-block border border-emerald-200">
+                            Tiết kiệm 3.2M
+                          </span>
+                          <span className="text-[10px] text-[#73675F]">1.54M/b</span>
+                        </div>
+                        <div className="no-print mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                pkgToanDien20
+                                  ? `/cashier-pos?packageId=${pkgToanDien20.id}`
+                                  : '/cashier-pos'
+                              )
+                            }
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs"
+                          >
+                            Bán gói
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* ROW 4: GIÁ LIỆU TRÌNH 30 BUỔI */}
+                    <tr className="hover:bg-[#FAF8F5]/80 transition-colors">
+                      <td className="py-4 pr-4">
+                        <div className="font-bold text-sm text-[#2C241E]">Giá liệu trình 30 buổi</div>
+                        <div className="text-[11px] text-[#73675F]">Hạn dùng 12 tháng • Liệu trình toàn khóa</div>
+                      </td>
+
+                      {/* 30 buổi khu trú: 13.200.000đ */}
+                      <td className="py-4 px-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="font-extrabold text-base sm:text-lg text-[#2C241E]">
+                            {formatVND(pkgKhuTru30?.price || 13200000)}đ
+                          </span>
+                          {pkgKhuTru30 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingItem({
+                                  type: 'package',
+                                  id: pkgKhuTru30.id,
+                                  name: pkgKhuTru30.name,
+                                  price: pkgKhuTru30.price,
+                                  sessions: 30,
+                                  validityMonths: pkgKhuTru30.validity_months,
+                                  description: pkgKhuTru30.description,
+                                })
+                              }
+                              className="no-print p-1 hover:bg-[#FAF0E4] rounded-lg text-[#8C7A6B] hover:text-[#985018] transition-colors cursor-pointer"
+                              title="Sửa giá gói"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center gap-1 mt-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-emerald-800 bg-[#E8F6ED] px-2 py-0.5 rounded-full inline-block border border-emerald-200">
+                            Tiết kiệm 1.8M
+                          </span>
+                          <span className="text-[10px] text-[#73675F]">440k/b</span>
+                        </div>
+                        <div className="no-print mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                pkgKhuTru30
+                                  ? `/cashier-pos?packageId=${pkgKhuTru30.id}`
+                                  : '/cashier-pos'
+                              )
+                            }
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs"
+                          >
+                            Bán gói
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* 30 buổi mở rộng: 23.400.000đ */}
+                      <td className="py-4 px-2.5 text-center bg-[#FAF6F0]/40">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="font-extrabold text-base sm:text-lg text-[#2C241E]">
+                            {formatVND(pkgMoRong30?.price || 23400000)}đ
+                          </span>
+                          {pkgMoRong30 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingItem({
+                                  type: 'package',
+                                  id: pkgMoRong30.id,
+                                  name: pkgMoRong30.name,
+                                  price: pkgMoRong30.price,
+                                  sessions: 30,
+                                  validityMonths: pkgMoRong30.validity_months,
+                                  description: pkgMoRong30.description,
+                                })
+                              }
+                              className="no-print p-1 hover:bg-[#FAF0E4] rounded-lg text-[#8C7A6B] hover:text-[#985018] transition-colors cursor-pointer"
+                              title="Sửa giá gói"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center gap-1 mt-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-emerald-800 bg-[#E8F6ED] px-2 py-0.5 rounded-full inline-block border border-emerald-200">
+                            Tiết kiệm 3.6M
+                          </span>
+                          <span className="text-[10px] text-[#73675F]">780k/b</span>
+                        </div>
+                        <div className="no-print mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                pkgMoRong30
+                                  ? `/cashier-pos?packageId=${pkgMoRong30.id}`
+                                  : '/cashier-pos'
+                              )
+                            }
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs"
+                          >
+                            Bán gói
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* 30 buổi toàn diện: 43.800.000đ */}
+                      <td className="py-4 pl-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="font-extrabold text-base sm:text-lg text-[#2C241E]">
+                            {formatVND(pkgToanDien30?.price || 43800000)}đ
+                          </span>
+                          {pkgToanDien30 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingItem({
+                                  type: 'package',
+                                  id: pkgToanDien30.id,
+                                  name: pkgToanDien30.name,
+                                  price: pkgToanDien30.price,
+                                  sessions: 30,
+                                  validityMonths: pkgToanDien30.validity_months,
+                                  description: pkgToanDien30.description,
+                                })
+                              }
+                              className="no-print p-1 hover:bg-[#FAF0E4] rounded-lg text-[#8C7A6B] hover:text-[#985018] transition-colors cursor-pointer"
+                              title="Sửa giá gói"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center gap-1 mt-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-emerald-800 bg-[#E8F6ED] px-2 py-0.5 rounded-full inline-block border border-emerald-200">
+                            Tiết kiệm 7.2M
+                          </span>
+                          <span className="text-[10px] text-[#73675F]">1.46M/b</span>
+                        </div>
+                        <div className="no-print mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                pkgToanDien30
+                                  ? `/cashier-pos?packageId=${pkgToanDien30.id}`
+                                  : '/cashier-pos'
+                              )
+                            }
+                            className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs"
+                          >
+                            Bán gói
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Board Footer Notice */}
+              <div className="mt-7 pt-5 border-t border-[#EFE4D9]">
+                <div className="border-l-4 border-[#985018] pl-3.5 py-1 text-[#73675F] text-xs leading-relaxed bg-[#FAF8F5] p-3 rounded-r-xl">
+                  <p>
+                    <strong className="text-[#2C241E] font-bold">Đơn vị: VNĐ.</strong> Giá dịch vụ{' '}
+                    <strong className="text-[#2C241E] font-bold">đã bao gồm thuế VAT 8%</strong> theo quy định áp dụng.
+                    Phạm vi chăm sóc và số buổi đề xuất dựa trên kết quả thăm khám chuyên môn, tình trạng phù nề thực tế và
+                    mục tiêu theo dõi của từng khách hàng. Khách hàng{' '}
+                    <strong className="text-[#2C241E] font-bold">
+                      được giải thích chuyên sâu và đồng thuận với kế hoạch trước khi thực hiện.
+                    </strong>
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* QUICK EDIT MODAL */}
+          {/* Quick Consultation CTA */}
+          <div className="no-print bg-white border border-[#EFE4D9] rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center shrink-0 font-bold">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-[#2C241E]">
+                  Tư vấn phác đồ điều trị cá nhân hóa
+                </h4>
+                <p className="text-xs text-[#73675F]">
+                  Gợi ý gói 10 - 20 - 30 buổi phù hợp theo mức độ phù nề và giai đoạn phục hồi của từng khách hàng.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => navigate('/treatment-management')}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-[#2C241E] bg-white border border-[#E8DFD8] hover:bg-[#FAF6F0] transition-colors cursor-pointer shadow-2xs"
+              >
+                Hồ sơ phác đồ MLD
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/cashier-pos')}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#985018] hover:bg-[#854412] transition-colors shadow-xs cursor-pointer"
+              >
+                Tạo đơn bán gói tại POS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 2: 3 CORE SERVICES DETAIL CARDS                                       */}
+      {/* ========================================================================= */}
+      {activeTab === 'services' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Card 1: Chăm sóc khu trú (45') */}
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col">
+              <div className="relative h-44 bg-[#FAF8F5]">
+                <img
+                  src="https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=800&q=80"
+                  alt="Chăm sóc khu trú"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-3 left-3 bg-[#2C1E14]/90 backdrop-blur-xs text-[#EBD5B3] text-[11px] font-bold px-3 py-1 rounded-full shadow-xs">
+                  45 PHÚT
+                </div>
+                <div className="absolute top-3 right-3 bg-white/95 text-[#0D6832] text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs border border-emerald-100">
+                  VAT 8%
+                </div>
+              </div>
+
+              <div className="p-5 flex-1 flex flex-col">
+                <h3 className="text-base font-bold text-[#2C241E] mb-1">
+                  Chăm sóc khu trú (45')
+                </h3>
+
+                <p className="text-xs text-[#73675F] mb-4 line-clamp-2">
+                  Tập trung vào vùng chỉ định (mặt, cổ vai gáy, hoặc chi dưới) nhằm giải tỏa ứ trệ và giảm sưng nề nhanh.
+                </p>
+
+                <div className="mb-4 p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9]">
+                  <span className="text-[10px] font-bold text-[#8C7A6B] uppercase tracking-wider block mb-0.5">
+                    Giá niêm yết (Buổi lẻ)
+                  </span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-[#2C241E]">
+                      {formatVND(serviceKhuTru.price)}đ
+                    </span>
+                    <span className="text-xs text-[#73675F]">/ buổi</span>
+                  </div>
+                </div>
+
+                {/* Highlights */}
+                <div className="space-y-2 mb-5 flex-1 border-t border-[#EFE4D9] pt-3 text-xs">
+                  <span className="font-bold text-[#2C241E] block">
+                    Đặc điểm lâm sàng:
+                  </span>
+                  <div className="flex items-center gap-2 text-[#73675F]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0D6832] shrink-0" />
+                    <span>Kích hoạt hệ bạch huyết nông và sâu vùng can thiệp</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[#73675F]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0D6832] shrink-0" />
+                    <span>Giảm sưng đau, căng tức phù nề tức thì</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[#73675F]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0D6832] shrink-0" />
+                    <span>Thích hợp phục hồi chuyên biệt sau phẫu thuật</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-3 border-t border-[#EFE4D9]">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingItem({
+                        type: 'service',
+                        id: serviceKhuTru.id,
+                        name: serviceKhuTru.name,
+                        price: serviceKhuTru.price,
+                        duration: 45,
+                        description: serviceKhuTru.full_description,
+                      })
+                    }
+                    className="flex-1 py-2 text-xs font-bold rounded-xl bg-white hover:bg-[#FAF6F0] text-[#2C241E] border border-[#E8DFD8] transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-[#8A4F23]" /> Sửa giá
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/cashier-pos')}
+                    className="flex-1 py-2 text-xs font-bold rounded-xl bg-[#985018] hover:bg-[#854412] text-white transition-colors flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                  >
+                    Bán dịch vụ
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Chăm sóc mở rộng (60') */}
+            <div className="bg-white rounded-2xl border-2 border-[#985018]/50 overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col relative">
+              <div className="absolute top-2.5 right-2.5 z-10 bg-[#985018] text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-xs">
+                Phổ biến nhất
+              </div>
+
+              <div className="relative h-44 bg-[#FAF8F5]">
+                <img
+                  src="https://images.unsplash.com/photo-1519823551278-64ac92734fb1?auto=format&fit=crop&w=800&q=80"
+                  alt="Chăm sóc mở rộng"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-3 left-3 bg-[#2C1E14]/90 backdrop-blur-xs text-[#EBD5B3] text-[11px] font-bold px-3 py-1 rounded-full shadow-xs">
+                  60 PHÚT
+                </div>
+              </div>
+
+              <div className="p-5 flex-1 flex flex-col">
+                <h3 className="text-base font-bold text-[#2C241E] mb-1">
+                  Chăm sóc mở rộng (60')
+                </h3>
+
+                <p className="text-xs text-[#73675F] mb-4 line-clamp-2">
+                  Bao quát phạm vi liên kết rộng hơn trên cơ thể, giúp kích hoạt đồng bộ cả hệ bạch huyết sâu và nông liên vùng.
+                </p>
+
+                <div className="mb-4 p-3 bg-[#FAF0E4]/40 rounded-xl border border-[#E8DFD8]">
+                  <span className="text-[10px] font-bold text-[#8A4F23] uppercase tracking-wider block mb-0.5">
+                    Giá niêm yết (Buổi lẻ)
+                  </span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-[#985018]">
+                      {formatVND(serviceMoRong.price)}đ
+                    </span>
+                    <span className="text-xs text-[#73675F]">/ buổi</span>
+                  </div>
+                </div>
+
+                {/* Highlights */}
+                <div className="space-y-2 mb-5 flex-1 border-t border-[#EFE4D9] pt-3 text-xs">
+                  <span className="font-bold text-[#2C241E] block">
+                    Đặc điểm lâm sàng:
+                  </span>
+                  <div className="flex items-center gap-2 text-[#73675F]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0D6832] shrink-0" />
+                    <span>Đả thông dòng chảy bạch huyết đa tầng sâu - nông</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[#73675F]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0D6832] shrink-0" />
+                    <span>Tối ưu tiêu sưng nề và bầm tím diện rộng</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[#73675F]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0D6832] shrink-0" />
+                    <span>Củng cố tuần hoàn và hệ miễn dịch tự nhiên</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-3 border-t border-[#EFE4D9]">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingItem({
+                        type: 'service',
+                        id: serviceMoRong.id,
+                        name: serviceMoRong.name,
+                        price: serviceMoRong.price,
+                        duration: 60,
+                        description: serviceMoRong.full_description,
+                      })
+                    }
+                    className="flex-1 py-2 text-xs font-bold rounded-xl bg-white hover:bg-[#FAF6F0] text-[#2C241E] border border-[#E8DFD8] transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-[#8A4F23]" /> Sửa giá
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/cashier-pos')}
+                    className="flex-1 py-2 text-xs font-bold rounded-xl bg-[#985018] hover:bg-[#854412] text-white transition-colors flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                  >
+                    Bán dịch vụ
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: Chăm sóc toàn diện (90') */}
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col">
+              <div className="relative h-44 bg-[#FAF8F5]">
+                <img
+                  src="https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=800&q=80"
+                  alt="Chăm sóc toàn diện"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-3 left-3 bg-[#2C1E14]/90 backdrop-blur-xs text-[#EBD5B3] text-[11px] font-bold px-3 py-1 rounded-full shadow-xs">
+                  90 PHÚT
+                </div>
+                <div className="absolute top-3 right-3 bg-white/95 text-[#0D6832] text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs border border-emerald-100">
+                  VAT 8%
+                </div>
+              </div>
+
+              <div className="p-5 flex-1 flex flex-col">
+                <h3 className="text-base font-bold text-[#2C241E] mb-1">
+                  Chăm sóc toàn diện (90')
+                </h3>
+
+                <p className="text-xs text-[#73675F] mb-4 line-clamp-2">
+                  Phục hồi tối đa hệ bạch huyết toàn thân, kết nối tuần hoàn nông dưới da & bạch huyết nội tạng.
+                </p>
+
+                <div className="mb-4 p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9]">
+                  <span className="text-[10px] font-bold text-[#8C7A6B] uppercase tracking-wider block mb-0.5">
+                    Giá niêm yết (Buổi lẻ)
+                  </span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-[#2C241E]">
+                      {formatVND(serviceToanDien.price)}đ
+                    </span>
+                    <span className="text-xs text-[#73675F]">/ buổi</span>
+                  </div>
+                </div>
+
+                {/* Highlights */}
+                <div className="space-y-2 mb-5 flex-1 border-t border-[#EFE4D9] pt-3 text-xs">
+                  <span className="font-bold text-[#2C241E] block">
+                    Đặc điểm lâm sàng:
+                  </span>
+                  <div className="flex items-center gap-2 text-[#73675F]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0D6832] shrink-0" />
+                    <span>Dẫn lưu toàn bộ trạm hạch chính: cổ, nách, bụng, bẹn</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[#73675F]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0D6832] shrink-0" />
+                    <span>Kết nối tuần hoàn nông dưới da & bạch huyết nội tạng</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[#73675F]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0D6832] shrink-0" />
+                    <span>Hồi sinh năng lượng, thải độc tế bào cấp độ sâu nhất</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-3 border-t border-[#EFE4D9]">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingItem({
+                        type: 'service',
+                        id: serviceToanDien.id,
+                        name: serviceToanDien.name,
+                        price: serviceToanDien.price,
+                        duration: 90,
+                        description: serviceToanDien.full_description,
+                      })
+                    }
+                    className="flex-1 py-2 text-xs font-bold rounded-xl bg-white hover:bg-[#FAF6F0] text-[#2C241E] border border-[#E8DFD8] transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-[#8A4F23]" /> Sửa giá
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/cashier-pos')}
+                    className="flex-1 py-2 text-xs font-bold rounded-xl bg-[#985018] hover:bg-[#854412] text-white transition-colors flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                  >
+                    Bán dịch vụ
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: 9 TREATMENT PACKAGES LIST                                          */}
+      {/* ========================================================================= */}
+      {activeTab === 'packages' && (
+        <div className="space-y-5 animate-in fade-in duration-200">
+          {/* Filter Toolbar (Search + Session count chips) */}
+          <div className="bg-white p-3.5 rounded-2xl border border-[#EFE4D9] shadow-xs flex flex-wrap items-center justify-between gap-3">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[220px]">
+              <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={catalogSearchTerm}
+                onChange={(e) => setCatalogSearchTerm(e.target.value)}
+                placeholder="Tìm gói liệu trình theo tên, số buổi, mức giá..."
+                className="w-full pl-10 pr-9 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] focus:outline-none focus:border-[#985018] shadow-2xs"
+              />
+              {catalogSearchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setCatalogSearchTerm('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A69788] hover:text-[#2C241E] rounded-full hover:bg-[#F4ECE3] transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Session Count Filter Chips */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-bold text-[#73675F]">Lọc số buổi:</span>
+              <div className="flex items-center gap-1 bg-[#FAF8F5] p-1 rounded-xl border border-[#EFE4D9]">
+                <button
+                  type="button"
+                  onClick={() => setSessionFilter('ALL')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    sessionFilter === 'ALL'
+                      ? 'bg-white text-[#8A4F23] shadow-xs'
+                      : 'text-[#73675F] hover:text-[#2C241E]'
+                  }`}
+                >
+                  Tất cả ({packages.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSessionFilter('10')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    sessionFilter === '10'
+                      ? 'bg-white text-[#8A4F23] shadow-xs'
+                      : 'text-[#73675F] hover:text-[#2C241E]'
+                  }`}
+                >
+                  10 buổi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSessionFilter('20')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    sessionFilter === '20'
+                      ? 'bg-white text-[#8A4F23] shadow-xs'
+                      : 'text-[#73675F] hover:text-[#2C241E]'
+                  }`}
+                >
+                  20 buổi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSessionFilter('30')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    sessionFilter === '30'
+                      ? 'bg-white text-[#8A4F23] shadow-xs'
+                      : 'text-[#73675F] hover:text-[#2C241E]'
+                  }`}
+                >
+                  30 buổi
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Packages Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredPackages.map((pkg) => {
+              const perSession = Math.round(pkg.price / pkg.total_sessions);
+              const isRecommended =
+                (pkg.total_sessions === 10 && pkg.name.includes('khu trú')) ||
+                (pkg.total_sessions === 10 && pkg.name.includes('mở rộng')) ||
+                (pkg.total_sessions === 10 && pkg.name.includes('toàn diện')) ||
+                (pkg.total_sessions === 20 && pkg.name.includes('toàn diện')) ||
+                (pkg.total_sessions === 30 && pkg.name.includes('mở rộng'));
+
+              return (
+                <div
+                  key={pkg.id}
+                  className={`bg-white rounded-2xl border p-5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all ${
+                    isRecommended
+                      ? 'border-[#985018]/40 ring-1 ring-[#985018]/20 bg-gradient-to-b from-[#FAF8F5]/60 to-white'
+                      : 'border-[#EFE4D9]'
+                  }`}
+                >
+                  <div>
+                    {/* Top Badges */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+                        {pkg.total_sessions} BUỔI
+                      </span>
+
+                      {isRecommended && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E8F6ED] text-[#0D6832] border border-emerald-200 flex items-center gap-1">
+                          <Flame className="w-3.5 h-3.5 text-emerald-600" />
+                          Khuyên dùng nhiều nhất
+                        </span>
+                      )}
+                    </div>
+
+                    <h4 className="text-base font-bold text-[#2C241E] mb-1">
+                      {pkg.name}
+                    </h4>
+
+                    <p className="text-xs text-[#73675F] mb-4 line-clamp-2">
+                      {pkg.description || 'Liệu trình dẫn lưu hệ bạch huyết chuẩn y khoa Dr. Vodder.'}
+                    </p>
+
+                    {/* Pricing Block */}
+                    <div className="bg-[#FAF8F5] p-3.5 rounded-xl border border-[#EFE4D9] mb-4 space-y-1.5">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xs text-[#73675F]">Giá trọn gói:</span>
+                        <span className="text-xl font-black text-[#985018]">
+                          {formatVND(pkg.price)}đ
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-[#E8DFD8]/60">
+                        <span className="text-[#73675F]">Đơn giá mỗi buổi:</span>
+                        <span className="font-bold text-[#2C241E]">
+                          {formatVND(perSession)}đ / buổi
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-[#73675F]">
+                        <span>Hạn bảo lưu:</span>
+                        <span className="font-semibold text-[#2C241E]">{pkg.validity_months} tháng</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-3 border-t border-[#EFE4D9]">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingItem({
+                          type: 'package',
+                          id: pkg.id,
+                          name: pkg.name,
+                          price: pkg.price,
+                          sessions: pkg.total_sessions,
+                          validityMonths: pkg.validity_months,
+                          description: pkg.description,
+                        })
+                      }
+                      className="flex-1 py-2 text-xs font-bold rounded-xl bg-white hover:bg-[#FAF6F0] text-[#2C241E] border border-[#E8DFD8] transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-[#8A4F23]" /> Sửa giá
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/cashier-pos?packageId=${pkg.id}`)}
+                      className="flex-1 py-2 text-xs font-bold rounded-xl bg-[#985018] hover:bg-[#854412] text-white transition-colors flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                    >
+                      Bán gói này
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {filteredPackages.length === 0 && (
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] p-10 text-center space-y-2">
+              <Layers className="w-9 h-9 text-[#8A4F23] mx-auto opacity-40" />
+              <div className="text-xs font-bold text-[#2C241E]">
+                Không tìm thấy gói liệu trình nào phù hợp
+              </div>
+              <p className="text-[11px] text-[#73675F]">
+                Vui lòng thử tìm kiếm với từ khóa khác hoặc đặt lại bộ lọc số buổi.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setCatalogSearchTerm('');
+                  setSessionFilter('ALL');
+                }}
+                className="mt-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+              >
+                Đặt lại bộ lọc
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* QUICK EDIT MODAL                                                          */}
+      {/* ========================================================================= */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-150">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
-              <Pencil className="w-5 h-5 text-amber-500" />
-              Chỉnh Sửa Giá Niêm Yết
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#EFE4D9] animate-in zoom-in-95 duration-150 text-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-[#EFE4D9]">
+              <h3 className="text-base font-extrabold text-[#2C241E] flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-[#985018]" />
+                <span>Chỉnh Sửa Giá Niêm Yết</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[11px] text-[#73675F] mt-2 mb-4">
               Cập nhật giá bán sẽ tự động đồng bộ tức thì lên hệ thống POS và Mobile App.
             </p>
 
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Tên {editingItem.type === 'service' ? 'dịch vụ' : 'gói liệu trình'}
+                <label className="block text-xs font-bold text-[#2C241E] mb-1">
+                  Tên {editingItem.type === 'service' ? 'dịch vụ' : 'gói liệu trình'}:
                 </label>
                 <input
                   type="text"
                   value={editingItem.name}
                   onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                  className="w-full px-3 py-2 text-xs border border-[#E8DFD8] rounded-xl bg-white text-[#2C241E] font-medium focus:border-[#985018] focus:outline-none shadow-2xs"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Giá niêm yết (VNĐ - Đã bao gồm VAT 8%)
+                <label className="block text-xs font-bold text-[#2C241E] mb-1">
+                  Giá niêm yết (VNĐ - Đã bao gồm VAT 8%):
                 </label>
                 <div className="relative">
                   <input
@@ -1444,11 +1786,11 @@ export const W06_ServicesCatalog: React.FC = () => {
                     onChange={(e) =>
                       setEditingItem({ ...editingItem, price: parseFloat(e.target.value) || 0 })
                     }
-                    className="w-full pl-3 pr-12 py-2 text-sm font-bold border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                    className="w-full pl-3 pr-12 py-2 text-sm font-bold border border-[#E8DFD8] rounded-xl bg-white text-[#985018] focus:border-[#985018] focus:outline-none shadow-2xs"
                   />
-                  <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">VNĐ</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#8C7A6B]">VNĐ</span>
                 </div>
-                <span className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 block">
+                <span className="text-[11px] font-bold text-[#8A4F23] mt-1 block">
                   Định dạng: {formatVND(editingItem.price)} VNĐ
                 </span>
               </div>
@@ -1456,8 +1798,8 @@ export const W06_ServicesCatalog: React.FC = () => {
               {editingItem.type === 'package' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Tổng số buổi
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1">
+                      Tổng số buổi:
                     </label>
                     <input
                       type="number"
@@ -1465,12 +1807,12 @@ export const W06_ServicesCatalog: React.FC = () => {
                       onChange={(e) =>
                         setEditingItem({ ...editingItem, sessions: parseInt(e.target.value) || 10 })
                       }
-                      className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                      className="w-full px-3 py-2 text-xs border border-[#E8DFD8] rounded-xl bg-white text-[#2C241E] font-medium focus:border-[#985018] focus:outline-none shadow-2xs"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Hạn dùng (tháng)
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1">
+                      Hạn dùng (tháng):
                     </label>
                     <input
                       type="number"
@@ -1481,30 +1823,30 @@ export const W06_ServicesCatalog: React.FC = () => {
                           validityMonths: parseInt(e.target.value) || 3,
                         })
                       }
-                      className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                      className="w-full px-3 py-2 text-xs border border-[#E8DFD8] rounded-xl bg-white text-[#2C241E] font-medium focus:border-[#985018] focus:outline-none shadow-2xs"
                     />
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Mô tả / Ghi chú
+                <label className="block text-xs font-bold text-[#2C241E] mb-1">
+                  Mô tả / Ghi chú:
                 </label>
                 <textarea
                   rows={2}
                   value={editingItem.description || ''}
                   onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                  className="w-full px-3 py-2 text-xs border border-[#E8DFD8] rounded-xl bg-white text-[#2C241E] focus:border-[#985018] focus:outline-none shadow-2xs"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-end gap-2 mt-5 pt-3 border-t border-[#EFE4D9]">
               <button
                 type="button"
                 onClick={() => setEditingItem(null)}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-[#73675F] transition-colors cursor-pointer"
               >
                 Hủy bỏ
               </button>
@@ -1512,7 +1854,7 @@ export const W06_ServicesCatalog: React.FC = () => {
                 type="button"
                 disabled={savingEdit}
                 onClick={handleSaveEdit}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-colors shadow-sm flex items-center gap-1.5"
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-[#985018] hover:bg-[#854412] text-white transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 {savingEdit ? (
                   <>

@@ -18,7 +18,7 @@ import {
   Sparkles,
   AlertCircle,
 } from "lucide-react";
-import { adminApi, Row } from "./api";
+import { adminApi, Listing, Row } from "./api";
 import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
 
 export interface StaffProfileEditorSheetProps {
@@ -102,6 +102,11 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
   const [loadingBranches, setLoadingBranches] = useState(true);
 
   const [department, setDepartment] = useState(row.department || "THERAPY_MASSAGE");
+  const [departmentId, setDepartmentId] = useState(row.department_id || "");
+  const [departments, setDepartments] = useState<Row[]>([]);
+  const [showNewDepartment, setShowNewDepartment] = useState(false);
+  const [newDepartmentName, setNewDepartmentName] = useState("");
+  const [newDepartmentCode, setNewDepartmentCode] = useState("");
   const [position, setPosition] = useState(row.position || (isCreate ? "Chuyên viên MLD" : ""));
   const [employmentType, setEmploymentType] = useState(row.employment_type || "FULL_TIME");
 
@@ -153,6 +158,9 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
       }
     };
     fetchBranches();
+    adminApi<Listing>("departments?limit=200&page=1&sort=sort_order&direction=asc")
+      .then((res) => { if (mounted) setDepartments(res.rows.filter((item) => item.is_active)); })
+      .catch((err) => console.warn("Lỗi load danh mục bộ phận:", err));
     return () => {
       mounted = false;
     };
@@ -229,6 +237,7 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
         employee_code: employeeCode.trim() || `NV-${Math.floor(1000 + Math.random() * 9000)}`,
         branch_id: branchId,
         department,
+        department_id: departmentId || null,
         position: position.trim(),
         employment_type: employmentType,
         base_salary: isNaN(Number(baseSalary)) ? 0 : Number(baseSalary),
@@ -260,6 +269,22 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
       setError(err?.message || "Đã xảy ra lỗi khi lưu hồ sơ nhân viên. Vui lòng thử lại.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const createDepartment = async () => {
+    const name = newDepartmentName.trim();
+    const code = (newDepartmentCode.trim() || name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "")).slice(0, 40);
+    if (!name || !code) return;
+    try {
+      const created = await adminApi<Row>("departments/create", { values: { name, code, is_active: true, sort_order: 100 } });
+      setDepartments((current) => [...current, created]);
+      setDepartmentId(created.id);
+      setShowNewDepartment(false);
+      setNewDepartmentName("");
+      setNewDepartmentCode("");
+    } catch (err: any) {
+      setError(err?.message || "Không thể tạo bộ phận.");
     }
   };
 
@@ -502,21 +527,34 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#2C241E] mb-1.5">
-                Bộ phận phụ trách <span className="text-red-500">*</span>
-              </label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="block text-xs font-semibold text-[#2C241E]">Bộ phận phụ trách <span className="text-red-500">*</span></label>
+                {!isView && <button type="button" onClick={() => setShowNewDepartment((v) => !v)} className="text-[11px] font-semibold text-[#985018] hover:underline">+ Thêm bộ phận</button>}
+              </div>
               <select
                 disabled={isView}
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
+                value={departmentId}
+                onChange={(e) => {
+                  setDepartmentId(e.target.value);
+                  const selected = departments.find((item) => item.id === e.target.value);
+                  if (selected?.code && DEPARTMENTS.some((item) => item.value === selected.code)) setDepartment(selected.code);
+                }}
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5] disabled:text-[#766554]"
               >
-                {DEPARTMENTS.map((d) => (
-                  <option key={d.value} value={d.value}>
-                    {d.label}
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
                   </option>
                 ))}
+                {!departmentId && departments.length === 0 && DEPARTMENTS.map((d) => <option key={d.value} value="">{d.label}</option>)}
               </select>
+              {showNewDepartment && (
+                <div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2">
+                  <input value={newDepartmentName} onChange={(e) => setNewDepartmentName(e.target.value)} placeholder="Tên bộ phận mới" className="min-w-0 rounded-md border border-[#D8D0C7] px-2 py-1.5 text-xs" />
+                  <input value={newDepartmentCode} onChange={(e) => setNewDepartmentCode(e.target.value)} placeholder="Mã (tự tạo nếu trống)" className="min-w-0 rounded-md border border-[#D8D0C7] px-2 py-1.5 text-xs" />
+                  <button type="button" onClick={() => void createDepartment()} className="rounded-md bg-[#985018] px-3 py-1.5 text-xs font-semibold text-white">Tạo</button>
+                </div>
+              )}
             </div>
 
             <div>

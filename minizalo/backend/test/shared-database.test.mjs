@@ -257,7 +257,13 @@ test('Mini App uses the canonical PostgreSQL database and preserves shared owner
       assert.equal(submission.status,200,JSON.stringify(submission));
       assert.equal(Number(submission.data.submission.score),10);
       assert.equal(submission.data.certificateCode,null);
-      assert.equal((await db.query('SELECT count(*)::int AS n FROM quiz_submissions')).rows[0].n,1);
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const retry = await request(`/courses/${ids.course}/quiz/start`,{method:'POST',body:{quizId:quiz.id}});
+        assert.equal(retry.status,200,JSON.stringify(retry));
+        const retried = await request(`/courses/${ids.course}/quiz/submit`,{method:'POST',body:{attemptId:retry.data.attempt.id,answers:{[question.id]:'A'}}});
+        assert.equal(retried.status,200,JSON.stringify(retried));
+      }
+      assert.equal((await db.query('SELECT count(*)::int AS n FROM quiz_submissions')).rows[0].n,4);
       assert.equal((await db.query('SELECT count(*)::int AS n FROM student_certificates')).rows[0].n,0);
     });
     await t.test('database changes from another client appear immediately in Mini App', async () => {

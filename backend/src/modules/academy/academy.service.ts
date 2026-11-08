@@ -875,7 +875,7 @@ export class AcademyService {
    */
   async getMyResults(userId: string) {
     try {
-      if (userId && userId !== 'default-user') {
+      if (userId) {
         const { data, error } = await this.supabaseService.adminClient
           .from('student_academic_records')
           .select(`
@@ -887,52 +887,39 @@ export class AcademyService {
             attendance_rate,
             feedback_theory,
             feedback_practical,
-            course_enrollments (
+            course_enrollments!inner (
+              student_id,
               courses (title)
             )
           `)
-          .limit(1)
-          .maybeSingle();
+          .eq('course_enrollments.student_id', userId)
+          .order('created_at', { ascending: false });
 
-        if (!error && data) {
+        if (error) throw error;
+        if (data) {
           return {
             success: true,
-            data: {
-              studentName: 'Học viên MLD',
-              studentCode: 'HV-2026-089',
-              courseTitle: (data as any).course_enrollments?.courses?.title || 'Khóa Kỹ Thuật Viên Spa Chuyên Nghiệp',
-              theoryScore: data.theory_score,
-              practicalScore: data.practical_score,
-              overallGpa: ((Number(data.theory_score) + Number(data.practical_score)) / 2).toFixed(1),
-              attendanceRate: data.attendance_rate,
-              certificateIssued: true,
-              certificateCode: 'MLD-CERT-2026-089',
-              issueDate: '15/10/2026',
-            },
+            data: data.map((record: any) => ({
+              id: record.id,
+              courseTitle: record.course_enrollments?.courses?.title || '',
+              theoryScore: record.theory_score,
+              practicalScore: record.practical_score,
+              overallGpa: ((Number(record.theory_score) + Number(record.practical_score)) / 2).toFixed(1),
+              attendanceRate: record.attendance_rate,
+              attendedSessions: record.attended_sessions,
+              totalBatchSessions: record.total_batch_sessions,
+              feedbackTheory: record.feedback_theory,
+              feedbackPractical: record.feedback_practical,
+            })),
           };
         }
       }
-    } catch (_) {}
+    } catch (error) {
+      this.logger.error('Failed to load authenticated student results', error);
+      throw new InternalServerErrorException('Không thể tải kết quả học tập');
+    }
 
-    return {
-      success: true,
-      data: {
-        studentName: 'Nguyễn Minh Anh',
-        studentCode: 'HV-2026-089',
-        courseTitle: 'Khóa Đào Tạo Kỹ Thuật Viên Spa Chuyên Nghiệp',
-        overallGpa: 8.8,
-        academicRank: 'Xuất sắc',
-        certificateIssued: true,
-        certificateCode: 'MLD-CERT-2026-089',
-        issueDate: '15/10/2026',
-        subjects: [
-          { name: 'Lý thuyết Da liễu & Vệ sinh chuẩn y khoa', score: 9.0, status: 'ĐẠT' },
-          { name: 'Kỹ thuật Massage & Bấm huyệt chuyên sâu', score: 8.8, status: 'ĐẠT' },
-          { name: 'Vận hành thiết bị công nghệ Spa hiện đại', score: 8.5, status: 'ĐẠT' },
-          { name: 'Kỹ năng tư vấn & Chăm sóc khách hàng', score: 9.2, status: 'ĐẠT' },
-        ],
-      },
-    };
+    return { success: true, data: [] };
   }
 
   private formatCourse(item: any) {

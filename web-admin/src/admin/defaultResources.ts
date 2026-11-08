@@ -8,7 +8,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
   // 2. Thu ngân & Tiếp đón (Lịch hẹn, Hóa đơn & Bảng kê thanh toán)
   { name: 'bookings', title: 'Lịch hẹn & Tiếp đón', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'booking_items', title: 'Dịch vụ trong lịch hẹn', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'invoices', title: 'Hóa đơn thanh toán', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'invoices', title: 'Hóa đơn thanh toán', group: 'Thu ngân & Tiếp đón', actions: ['action'] },
   { name: 'invoice_items', title: 'Chi tiết hóa đơn', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'home_products', title: 'Sản phẩm mang về', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete'] },
 
@@ -31,6 +31,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
 
   // 6. Nhân sự & Kỹ thuật viên
   { name: 'staff_profiles', title: 'Hồ sơ nhân viên', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'departments', title: 'Bộ phận', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete'] },
   { name: 'technicians', title: 'Đội ngũ Chuyên viên KTV', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'technician_shifts', title: 'Ca làm việc', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'technician_slots', title: 'Khung giờ chuyên viên', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
@@ -54,6 +55,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
 
   // 10. Học viên & Lớp học
   { name: 'course_batches', title: 'Lớp học đang mở', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'course_batch_assistants', title: 'Trợ giảng theo lớp', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete'] },
   { name: 'batch_schedules', title: 'Thời khóa biểu', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'student_attendance', title: 'Điểm danh', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'student_academic_records', title: 'Bảng điểm học viên', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete', 'action'] },

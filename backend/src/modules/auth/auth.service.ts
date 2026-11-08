@@ -36,9 +36,7 @@ export class AuthService {
   private readonly refreshTtlSeconds = 30 * 24 * 3600; // 30 ngày
 
   private shouldExposeOtp(): boolean {
-    const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
-    const allowDevOtp = this.configService.get<string>('ALLOW_DEV_OTP', 'true');
-    return nodeEnv !== 'production' || allowDevOtp === 'true';
+    return false; // Tuyệt đối không bao giờ để lộ OTP trong API response để bảo mật và gửi thật 100%
   }
 
   constructor(
@@ -483,11 +481,16 @@ export class AuthService {
 
     // 2. Gửi tin nhắn SMS thật qua SmsService (eSMS) bất đồng bộ (Non-blocking để App phản hồi ngay lập tức)
     if (this.smsService) {
-      this.smsService.sendOtpSms({
+      const sent = await this.smsService.sendOtpSms({
         to: normalizedPhone,
         otp: rawOtp,
         purpose: 'LOGIN_PHONE',
-      }).catch(err => this.logger.error(`❌ [SMS OTP Exception] ${err.message}`));
+      });
+      if (!sent) {
+        throw new BadRequestException(
+          'Không thể gửi tin nhắn SMS lúc này (cổng eSMS tạm hết số dư hoặc nhà mạng chặn lặp tin trong 5 phút). Quý khách vui lòng thử đăng nhập bằng Email hoặc thử lại sau 5 phút.',
+        );
+      }
     } else {
       this.logger.log(`📱 [SMS OTP Simulator] ${normalizedPhone}: ${rawOtp}`);
     }

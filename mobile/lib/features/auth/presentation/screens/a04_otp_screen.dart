@@ -41,11 +41,6 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
   void initState() {
     super.initState();
     _startCountdown();
-    if (widget.initialOtp != null && widget.initialOtp!.length == 6) {
-      for (int i = 0; i < 6; i++) {
-        _controllers[i].text = widget.initialOtp![i];
-      }
-    }
   }
 
   @override
@@ -366,20 +361,12 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
         );
         final body = res.data;
         final data = (body is Map && body.containsKey('data')) ? body['data'] : body;
-        final newOtp = (data is Map) ? data['otp']?.toString() : null;
-        if (newOtp != null && newOtp.length == 6) {
-          for (int i = 0; i < 6; i++) {
-            _controllers[i].text = newOtp[i];
-          }
-        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(newOtp != null
-                  ? 'Mã OTP mới: $newOtp (Đã tự động điền)'
-                  : 'Đã gửi lại mã xác thực OTP mới'),
+            const SnackBar(
+              content: Text('Đã gửi lại mã xác thực OTP mới. Vui lòng kiểm tra hộp thư (kể cả thư mục Thư rác/Spam).'),
               backgroundColor: AppColors.primary,
-              duration: const Duration(seconds: 8),
+              duration: Duration(seconds: 5),
             ),
           );
         }
@@ -523,41 +510,19 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                             ),
                           ),
 
-                                                    if (widget.initialOtp != null && widget.initialOtp!.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            InkWell(
-                              onTap: () {
-                                for (int i = 0; i < 6 && i < widget.initialOtp!.length; i++) {
-                                  _controllers[i].text = widget.initialOtp![i];
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.verified_rounded, size: 16, color: AppColors.primary),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Mã OTP: ${widget.initialOtp} (Bấm để điền)',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                          if (_isEmail) ...[
+                            const SizedBox(height: 8),
+                            const Text(
+                              '💡 Lưu ý: Vui lòng kiểm tra cả mục Thư rác (Spam) hoặc Quảng cáo nếu không thấy thư trong Hộp thư đến.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                                fontStyle: FontStyle.italic,
                               ),
                             ),
                           ],
-                          const SizedBox(height: 28),
+const SizedBox(height: 28),
 
                           // 4. Hàng 6 ô nhập mã OTP
                           Row(
