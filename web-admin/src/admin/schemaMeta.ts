@@ -7381,6 +7381,7 @@ export const SCHEMA_COLUMNS: Record<string, Column[]> = {
     { "name": "details", "type": "text[]", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": false, "writable": true, "reference": null },
     { "name": "sort_order", "type": "int4", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": false, "writable": true, "reference": null },
     { "name": "image_url", "type": "text", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": false, "writable": true, "reference": null },
+    { "name": "image_urls", "type": "jsonb", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": false, "writable": true, "reference": null },
     { "name": "created_at", "type": "timestamptz", "required": false, "hasDefault": true, "maxLength": null, "options": [], "primary": false, "writable": false, "reference": null }
   ]
 };
