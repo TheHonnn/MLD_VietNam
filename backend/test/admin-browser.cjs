@@ -177,7 +177,9 @@ async function main() {
     assert.equal(await sidebar.getByRole('link',{name:'Phòng & Giường trị liệu',exact:true}).getAttribute('href'),'/branches?tab=rooms');
     await sidebar.getByRole('button',{name:'Thu gọn Chi nhánh & Phòng ốc',exact:true}).click();
     const resourceLinks=await sidebar.locator('a[href^="/manage/"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
-    assert.equal(new Set(resourceLinks).size,Object.keys(ADMIN_RESOURCES).length,'Every resource assigned to a business menu');
+    const linkedResources = new Set(resourceLinks.map((href) => href.replace('/manage/', '').split('?')[0]));
+    const unlinkedResources = Object.keys(ADMIN_RESOURCES).filter((name) => !linkedResources.has(name));
+    assert.equal(unlinkedResources.length, 0, `Resources missing from business menus: ${unlinkedResources.join(', ')}`);
     while(await sidebar.getByRole('button',{name:/^Mở /}).count())await sidebar.getByRole('button',{name:/^Mở /}).first().click();
     const header=page.locator('main').locator('..').locator('header').first();
     const beforeTop=await header.evaluate(node=>node.getBoundingClientRect().top);
