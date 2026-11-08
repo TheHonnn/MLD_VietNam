@@ -93,10 +93,14 @@ const getVariableLabel = (key: string): string => {
 const TEMPLATE_NAMES: Record<string, string> = {
   CONFIRMATION_ENROLLMENT: 'Xác nhận đăng ký & cọc',
   REMINDER_CLASS_SESSION: 'Nhắc lịch học & thi',
+  CLASS_SCHEDULE_REMINDER: 'Nhắc lịch học thực hành',
   EXAM_RESULTS_NOTIFICATION: 'Thông báo kết quả thi',
+  EXAM_RESULT_AND_CERTIFICATE: 'Thông báo kết quả thi & Cấp chứng nhận',
   CERTIFICATE_ISSUED_VERIFICATION: 'Cấp chứng nhận điện tử',
   ENROLLMENT_PROGRESS_MONTHLY: 'Báo cáo tiến độ học tập',
   ENROLLMENT_EXPIRY_WARNING: 'Cảnh báo hết hạn khóa học',
+  COURSE_EXPIRY_WARNING: 'Cảnh báo thời hạn bài giảng',
+  PRACTICE_SCHEDULE_ANNOUNCEMENT: 'Thông báo lịch thực hành',
 };
 
 // ==========================================
@@ -2341,10 +2345,7 @@ export const W18_PortalContent: React.FC = () => {
                 className="bg-white rounded-3xl border border-[#E8DFD8] p-6 flex flex-col justify-between shadow-xs hover:border-[#BA7E4C] transition-all space-y-4 group"
               >
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-[#FAF0E4] text-[#8A4F23]">
-                      {template.id}
-                    </span>
+                  <div className="flex items-center justify-end gap-2">
                     <span className="text-[11px] font-bold text-[#137333] flex items-center gap-1">
                       <CheckCircle2 size={12} />
                       <span>Sẵn sàng gửi</span>
@@ -3641,8 +3642,10 @@ export const W18_PortalContent: React.FC = () => {
                   <span className="font-semibold text-[#985018]">{selectedLog.subject}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-[#73675F] w-24">Mã Template:</span>
-                  <span className="font-mono text-[#554B42]">{selectedLog.templateId || 'Tùy biến'}</span>
+                  <span className="font-bold text-[#73675F] w-24">Mẫu Email:</span>
+                  <span className="font-semibold text-[#554B42]">
+                    {(selectedLog.templateId && TEMPLATE_NAMES[selectedLog.templateId]) || selectedLog.templateId || 'Tùy biến'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-[#73675F] w-24">Trạng thái:</span>
