@@ -48,7 +48,7 @@ export const LoginPage: React.FC = () => {
           <div className="flex flex-col items-center text-center mb-7">
             <div className="border border-[#D8C4B2] rounded-2xl px-4 py-2 bg-white flex items-center justify-center h-[64px] w-[200px] shadow-xs mb-4">
               <img
-                src="/logo.png"
+                src="/logo_mld.png"
                 alt="MLD Vietnam - Cộng Đồng Dẫn Lưu Bạch Huyết Việt Nam"
                 className="w-full h-full object-contain"
               />

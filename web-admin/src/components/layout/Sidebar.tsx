@@ -102,7 +102,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           icon: Users,
           subItems: [
             { name: 'Hồ sơ Khách hàng', path: '/customers' },
-            { name: 'Khảo sát trước dịch vụ', path: '/manage/consultation_surveys' },
             { name: 'Đánh giá từ khách', path: '/manage/reviews' },
           ],
         },
@@ -283,7 +282,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             className="border border-[#D8C4B2] rounded-2xl px-3 py-2 bg-white flex items-center justify-center h-[56px] flex-1 shadow-xs hover:border-[#BA7E4C] transition-colors"
           >
             <img
-              src="/logo.png"
+              src="/logo_mld.png"
               alt="MLD Vietnam - Cộng Đồng Dẫn Lưu Bạch Huyết Việt Nam"
               className="w-full h-full object-contain"
             />

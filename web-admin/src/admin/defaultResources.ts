@@ -14,7 +14,6 @@ export const DEFAULT_RESOURCES: Resource[] = [
 
   // 3. Khách hàng (CRM)
   { name: 'users', title: 'Hồ sơ khách hàng', group: 'Khách hàng (CRM)', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'consultation_surveys', title: 'Khảo sát trước dịch vụ', group: 'Khách hàng (CRM)', actions: ['update', 'delete', 'action'] },
   { name: 'reviews', title: 'Đánh giá từ khách', group: 'Khách hàng (CRM)', actions: ['update', 'delete', 'action'] },
 
   // 4. Quản lý Liệu trình

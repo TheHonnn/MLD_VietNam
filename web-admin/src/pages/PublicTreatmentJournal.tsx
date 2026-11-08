@@ -297,7 +297,7 @@ export const PublicTreatmentJournal: React.FC = () => {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#EFE4D9] shadow-xs px-4 py-3 print:hidden">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="MLD Vietnam" className="w-8 h-8 object-contain" />
+            <img src="/logo_mld.png" alt="MLD Vietnam" className="w-8 h-8 object-contain" />
             <div>
               <div className="text-xs font-extrabold text-[#3E200C] leading-none tracking-tight">
                 MLD VIETNAM
@@ -364,7 +364,7 @@ export const PublicTreatmentJournal: React.FC = () => {
           {/* HEADER BRANDING */}
           <div className="pb-5 border-b border-[#EFE4D9] flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="MLD Vietnam" className="w-14 h-14 object-contain" />
+              <img src="/logo_mld.png" alt="MLD Vietnam" className="w-14 h-14 object-contain" />
               <div>
                 <h1 className="text-base sm:text-lg font-black text-[#3E200C] tracking-tight uppercase">
                   MLD VIETNAM MEDICAL HEALTHCARE & SPA

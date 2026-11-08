@@ -11,10 +11,6 @@ export const ADMIN_RESOURCES: Record<
   bookings: { title: 'Lịch hẹn / Check-in / Check-out', group: 'Thu ngân' },
   booking_items: { title: 'Dịch vụ trong lịch hẹn', group: 'Thu ngân' },
   users: { title: 'Tài khoản', group: 'Khách hàng' },
-  consultation_surveys: {
-    title: 'Khảo sát trước dịch vụ',
-    group: 'Khách hàng',
-  },
   reviews: { title: 'Đánh giá', group: 'Khách hàng' },
   support_tickets: { title: 'Yêu cầu hỗ trợ', group: 'Khách hàng' },
   support_faqs: { title: 'Câu hỏi thường gặp', group: 'Khách hàng' },

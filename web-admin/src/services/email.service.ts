@@ -1,6 +1,6 @@
 import { EmailTemplate, EmailLog, ApiResponse } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
-import { adminCommand } from '../admin/api';
+import { apiClient } from './apiClient';
 
 const DEFAULT_TEMPLATES: EmailTemplate[] = [
   {
@@ -387,52 +387,12 @@ export const emailService = {
     metadata?: Record<string, any>;
   }): Promise<ApiResponse<boolean>> {
     try {
-      try {
-        await adminCommand<boolean>('email/test', {
-          recipientEmail: params.recipientEmail,
-          recipientName: params.recipientName,
-          templateId: params.templateId,
-          variables: params.variables,
-          metadata: params.metadata,
-        });
-      } catch (cmdErr: any) {
-        // Fallback directly to serverless endpoints on current origin
-        const fallbackEndpoints = [
-          '/api/admin/email/test',
-          '/api/v1/admin/email/test',
-          '/api/v1/health/admin/email/test',
-          '/api/email'
-        ];
-        let succeeded = false;
-        let lastErrorMsg = cmdErr?.message || 'Lỗi gửi email';
-
-        for (const ep of fallbackEndpoints) {
-          try {
-            const res = await fetch(ep, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-MLD-Local-Admin': '1' },
-              body: JSON.stringify({
-                recipientEmail: params.recipientEmail,
-                recipientName: params.recipientName,
-                templateId: params.templateId,
-                variables: params.variables,
-                metadata: params.metadata,
-              }),
-            });
-            const json = await res.json().catch(() => null);
-            if (res.ok && json?.success) {
-              succeeded = true;
-              break;
-            } else if (json?.message) {
-              lastErrorMsg = json.message;
-            }
-          } catch {}
-        }
-
-        if (!succeeded) {
-          throw new Error(lastErrorMsg);
-        }
-      }
+      await apiClient.post<boolean>('admin/email/test', {
+        recipientEmail: params.recipientEmail,
+        recipientName: params.recipientName,
+        templateId: params.templateId,
+        variables: params.variables,
+      });
 
       return {
         success: true,
