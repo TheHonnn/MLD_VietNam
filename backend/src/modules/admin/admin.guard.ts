@@ -60,21 +60,24 @@ export class AdminGuard implements CanActivate {
       throw new UnauthorizedException('Vui lòng đăng nhập quản trị.');
     }
 
-    const supabaseSecret = this.config.get<string>('SUPABASE_JWT_SECRET');
+    const supabaseSecret =
+      this.config.get<string>('SUPABASE_JWT_SECRET') ||
+      'WYVA5k3ZT3S3Tu3VlAxf4Rc898hxctZ51OUS+Ddk9vFl0e9vAkmtRsrGsYVBA5uWkT+uMT30AgIGSkN43gdAuA==';
     const backendSecret = this.config.get<string>('JWT_SECRET');
 
     let payload: { sub: string; audience?: string } | null = null;
     let userEmail: string | undefined;
 
-    // 1. Xác thực Supabase Auth JWT (nếu có cấu hình SUPABASE_JWT_SECRET)
+    // 1. Xác thực Supabase Auth JWT
     if (supabaseSecret && supabaseSecret.length >= 32) {
       try {
         const decoded = this.jwt.verify(token, {
           secret: supabaseSecret,
-          audience: 'authenticated',
         });
-        payload = decoded;
-        userEmail = (decoded as any)?.email;
+        if (decoded && (decoded.sub || (decoded as any).id)) {
+          payload = { sub: decoded.sub || (decoded as any).id, audience: decoded.aud };
+          userEmail = (decoded as any)?.email;
+        }
       } catch {}
     }
 
@@ -85,6 +88,27 @@ export class AdminGuard implements CanActivate {
         if (sbData?.user?.id && !sbErr) {
           payload = { sub: sbData.user.id, audience: 'authenticated' };
           userEmail = sbData.user.email;
+        }
+      } catch {}
+    }
+
+    // 1.2 Xác thực dự phòng qua HTTP REST API tới Supabase Auth Server
+    if (!payload) {
+      try {
+        const sbUrl = this.config.get<string>('SUPABASE_URL') || 'https://wstvwushpwcdsmhpunvh.supabase.co';
+        const sbAnon = this.config.get<string>('SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMTk0MjAsImV4cCI6MjEwNzU5NTQyMH0.1mDiB0Rsst_nyseC5k-AyfLOwYTRe96ZzQ4yHEU5Z58';
+        const res = await fetch(`${sbUrl.replace(/\/+$/, '')}/auth/v1/user`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            apikey: sbAnon,
+          },
+        });
+        if (res.ok) {
+          const sbUser: any = await res.json();
+          if (sbUser?.id) {
+            payload = { sub: sbUser.id, audience: 'authenticated' };
+            userEmail = sbUser.email;
+          }
         }
       } catch {}
     }

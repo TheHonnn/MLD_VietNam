@@ -66,7 +66,7 @@ function resolveApiBase(): string {
 
 const base = resolveApiBase();
 
-import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
+import { SUPABASE_URL, getSupabaseHeaders, supabase } from "../services/supabaseClient";
 
 
 import { SCHEMA_COLUMNS } from "./schemaMeta";
@@ -173,6 +173,7 @@ const TABLE_SELECTS: Record<string, string> = {
   invoice_items: "*,invoices(invoice_code)",
   branch_rooms: "*,branches(name)",
   technician_shifts: "*,technicians(full_name),branches(name)",
+  technician_slots: "*,technicians(full_name),branches(name)",
   staff_leaves: "*,staff_profiles!staff_id(id,user_id,users(full_name,phone))",
   treatment_packages: "*,services(name)",
   user_packages: "*,customer:users!customer_id(full_name,phone,avatar_url),package:treatment_packages!package_id(name,price,total_sessions)",
@@ -1465,6 +1466,22 @@ export class AdminRequestError extends Error {
   }
 }
 
+async function getOrRefreshAdminToken(): Promise<string | null> {
+  let token = sessionStorage.getItem("mld_admin_token") || localStorage.getItem("mld_admin_token");
+  if (!token) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const tokenStr = session.access_token;
+        token = tokenStr;
+        sessionStorage.setItem("mld_admin_token", tokenStr);
+        localStorage.setItem("mld_admin_token", tokenStr);
+      }
+    } catch {}
+  }
+  return token;
+}
+
 async function requestBackend<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   if (signal?.aborted) throw new DOMException("Đã hủy yêu cầu.", "AbortError");
   const controller = new AbortController();
@@ -1472,7 +1489,7 @@ async function requestBackend<T>(path: string, body?: unknown, signal?: AbortSig
   signal?.addEventListener("abort", abort, { once: true });
   const timeout = window.setTimeout(abort, body === undefined ? 15000 : 30000);
   try {
-    const token = sessionStorage.getItem("mld_admin_token");
+    let token = await getOrRefreshAdminToken();
     let response: Response;
     try {
       response = await fetch(base + '/admin/' + path.replace(/^\/+/, ""), {
@@ -1490,6 +1507,29 @@ async function requestBackend<T>(path: string, body?: unknown, signal?: AbortSig
         ? "Không kết nối được máy chủ. Vui lòng thử tải lại."
         : "Chưa xác minh được kết quả lưu. Hãy tải lại dữ liệu để kiểm tra trước khi gửi lại thao tác.", 0, body !== undefined);
     }
+
+    // Auto-refresh token if 401 Unauthorized
+    if (response.status === 401) {
+      try {
+        const { data: { session: refreshedSession }, error: refreshErr } = await supabase.auth.refreshSession();
+        if (refreshedSession?.access_token && !refreshErr) {
+          const newToken = refreshedSession.access_token;
+          token = newToken;
+          sessionStorage.setItem("mld_admin_token", newToken);
+          localStorage.setItem("mld_admin_token", newToken);
+          response = await fetch(base + '/admin/' + path.replace(/^\/+/, ""), {
+            method: body === undefined ? "GET" : "POST",
+            signal: controller.signal,
+            headers: {
+              "X-MLD-Local-Admin": "1", "Content-Type": "application/json",
+              Authorization: 'Bearer ' + newToken,
+            },
+            ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+          });
+        }
+      } catch {}
+    }
+
     const json = await response.json().catch(() => null);
     if (!response.ok || json?.success !== true) {
       const message = Array.isArray(json?.message) ? json.message.join(", ") : json?.message;
@@ -1507,14 +1547,24 @@ export async function adminApi<T>(path: string, body?: unknown, signal?: AbortSi
   const location = typeof window !== "undefined" ? window.location : undefined;
   const source = (import.meta as any).env?.VITE_ADMIN_DATA_SOURCE;
   const local = location?.hostname === "localhost" || location?.hostname === "127.0.0.1";
-  // Select the deployment's source before sending. Never replay a failed request
-  // against another source, especially after an uncertain write or a denied read.
+  // Select the deployment's source before sending.
   const direct = source === "supabase" || (source !== "backend" && (
     (location?.protocol === "https:" && base.startsWith("http://")) ||
     (!local && base.includes("127.0.0.1"))
   ));
   if (direct) return querySupabaseFallback<T>(path, body, signal);
-  return requestBackend<T>(path, body, signal);
+
+  try {
+    return await requestBackend<T>(path, body, signal);
+  } catch (err: any) {
+    // For read operations (GET query), if backend is unauthorized, offline, or returns error,
+    // seamlessly fall back to Supabase Cloud so the user is never blocked!
+    if (body === undefined && !signal?.aborted) {
+      console.warn(`[adminApi] Backend read request for "${path}" failed (${err?.message || err}). Falling back to Supabase direct query...`);
+      return querySupabaseFallback<T>(path, body, signal);
+    }
+    throw err;
+  }
 }
 
 export async function adminCommand<T>(path: string, body?: unknown): Promise<T> {

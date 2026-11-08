@@ -29,7 +29,7 @@ export const useAdmin = () => useContext(AuthContext);
 export function AdminAuth({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AdminUser | null>(() => {
     try {
-      const cached = sessionStorage.getItem("mld_admin_profile");
+      const cached = sessionStorage.getItem("mld_admin_profile") || localStorage.getItem("mld_admin_profile");
       return cached ? JSON.parse(cached) : null;
     } catch {
       return null;
@@ -37,8 +37,8 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
   });
   const [loading, setLoading] = useState<boolean>(() => {
     try {
-      const token = sessionStorage.getItem("mld_admin_token");
-      const profile = sessionStorage.getItem("mld_admin_profile");
+      const token = sessionStorage.getItem("mld_admin_token") || localStorage.getItem("mld_admin_token");
+      const profile = sessionStorage.getItem("mld_admin_profile") || localStorage.getItem("mld_admin_profile");
       return !(token && profile);
     } catch {
       return true;
@@ -107,11 +107,14 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
         }
 
         sessionStorage.setItem("mld_admin_token", session.access_token);
+        localStorage.setItem("mld_admin_token", session.access_token);
         const profile = await fetchAdminProfile(session.user.email, session.user.id);
         if (profile) {
           sessionStorage.setItem("mld_admin_profile", JSON.stringify(profile));
+          localStorage.setItem("mld_admin_profile", JSON.stringify(profile));
         } else {
           sessionStorage.removeItem("mld_admin_profile");
+          localStorage.removeItem("mld_admin_profile");
         }
         if (isMounted) {
           setUser(profile);
@@ -120,6 +123,8 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
         console.warn("[AdminAuth] Lỗi khôi phục phiên:", err);
         sessionStorage.removeItem("mld_admin_token");
         sessionStorage.removeItem("mld_admin_profile");
+        localStorage.removeItem("mld_admin_token");
+        localStorage.removeItem("mld_admin_profile");
         await supabase.auth.signOut().catch(() => {});
         if (isMounted) {
           setUser(null);
@@ -138,9 +143,12 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
       if (event === "SIGNED_OUT" || !session) {
         sessionStorage.removeItem("mld_admin_token");
         sessionStorage.removeItem("mld_admin_profile");
+        localStorage.removeItem("mld_admin_token");
+        localStorage.removeItem("mld_admin_profile");
         setUser(null);
       } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         sessionStorage.setItem("mld_admin_token", session.access_token);
+        localStorage.setItem("mld_admin_token", session.access_token);
       }
     });
 
@@ -210,6 +218,8 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
 
       sessionStorage.setItem("mld_admin_token", data.session.access_token);
       sessionStorage.setItem("mld_admin_profile", JSON.stringify(profile));
+      localStorage.setItem("mld_admin_token", data.session.access_token);
+      localStorage.setItem("mld_admin_profile", JSON.stringify(profile));
       setUser(profile);
       return { success: true };
     } catch (err: any) {
@@ -229,6 +239,8 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
     } finally {
       sessionStorage.removeItem("mld_admin_token");
       sessionStorage.removeItem("mld_admin_profile");
+      localStorage.removeItem("mld_admin_token");
+      localStorage.removeItem("mld_admin_profile");
       setUser(null);
     }
   };
