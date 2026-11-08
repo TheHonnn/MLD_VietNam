@@ -887,7 +887,8 @@ export class AcademyService {
             attendance_rate,
             feedback_theory,
             feedback_practical,
-            course_enrollments (
+            course_enrollments!inner (
+              student_id,
               courses (title)
             )
           `)
