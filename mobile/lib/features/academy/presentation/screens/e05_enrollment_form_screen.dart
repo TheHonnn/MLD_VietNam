@@ -128,17 +128,14 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
 
     try {
       final isTest = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding');
-      // 1. Cập nhật phone, email, address đồng bộ vào profile cho user
+      // 1. TUYỆT ĐỐI KHÔNG cập nhật đè email tài khoản đăng nhập khi nộp hồ sơ khóa học
       if (!isTest) {
-        if (phone.isNotEmpty) await AuthService.instance.updatePhone(phone);
         final repo = MembershipRepository.instance;
-        repo.updateProfile(repo.profile.copyWith(
-          fullName: name,
-          phone: phone.isNotEmpty ? phone : repo.profile.phone,
-          email: email.isNotEmpty ? email : repo.profile.email,
-          address: address.isNotEmpty ? address : repo.profile.address,
-          isPhoneVerified: true,
-        ));
+        if (address.isNotEmpty && repo.profile.address.isEmpty) {
+          repo.updateProfile(repo.profile.copyWith(
+            address: address,
+          ));
+        }
       }
 
       // 2. Gửi đăng ký lên Supabase Cloud với trạng thái CHỜ DUYỆT THỦ CÔNG

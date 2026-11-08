@@ -332,14 +332,38 @@ export class AuthService {
     const { identifier, password, fcmToken } = loginDto;
     const cleanId = identifier.trim();
 
-    // 1. Tìm user theo số điện thoại hoặc email
-    const { data: user, error } = await this.supabaseService.adminClient
+    // 1. Tìm user theo số điện thoại hoặc email trong bảng users
+    let { data: user } = await this.supabaseService.adminClient
       .from('users')
       .select('id, phone, email, password_hash, full_name, role, is_active, avatar_url, referral_code')
       .or(`phone.eq.${cleanId},email.eq.${cleanId.toLowerCase()}`)
       .maybeSingle();
 
-    if (error || !user) {
+    let passwordHashToCompare = user?.password_hash;
+
+    // 1.1. Nếu không thấy trong users, tìm tiếp trong bảng auth_identities (hỗ trợ đa định danh Email/SĐT)
+    if (!user) {
+      const { data: identity } = await this.supabaseService.adminClient
+        .from('auth_identities')
+        .select('user_id, password_hash')
+        .eq('identifier', cleanId.toLowerCase())
+        .maybeSingle();
+
+      if (identity && identity.user_id) {
+        const { data: linkedUser } = await this.supabaseService.adminClient
+          .from('users')
+          .select('id, phone, email, password_hash, full_name, role, is_active, avatar_url, referral_code')
+          .eq('id', identity.user_id)
+          .maybeSingle();
+
+        if (linkedUser) {
+          user = linkedUser;
+          passwordHashToCompare = identity.password_hash || linkedUser.password_hash;
+        }
+      }
+    }
+
+    if (!user) {
       await this.recordFailedLoginAttempt(cleanId);
       throw new UnauthorizedException('Thông tin tài khoản hoặc mật khẩu không chính xác');
     }
@@ -349,7 +373,7 @@ export class AuthService {
     }
 
     // 2. Kiểm tra mật khẩu qua PasswordHasherService
-    const isPasswordValid = await this.passwordHasherService.comparePassword(password, user.password_hash);
+    const isPasswordValid = await this.passwordHasherService.comparePassword(password, passwordHashToCompare);
     if (!isPasswordValid) {
       await this.recordFailedLoginAttempt(cleanId);
       throw new UnauthorizedException('Thông tin tài khoản hoặc mật khẩu không chính xác');

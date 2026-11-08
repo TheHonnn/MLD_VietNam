@@ -125,9 +125,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
           _nameController.text = (userName != 'Khách hàng' && userName != 'Khách hàng MLD')
               ? userName
               : (profile.fullName.isNotEmpty ? profile.fullName : '');
-          _phoneController.clear();
-          _emailController.clear();
-          _addressController.clear();
+          if (profile.phone.isNotEmpty) _phoneController.text = profile.phone;
+          if (profile.email.isNotEmpty) _emailController.text = profile.email;
+          if (profile.address.isNotEmpty) _addressController.text = profile.address;
         }
       });
     }
@@ -334,14 +334,14 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     final customerEmail = _emailController.text.trim();
     final customerAddress = _addressController.text.trim();
 
+    // TUYỆT ĐỐI KHÔNG cập nhật đè email tài khoản đăng nhập khi đặt lịch dịch vụ
     if (_isBookingForSelf) {
       final repo = MembershipRepository.instance;
-      repo.updateProfile(repo.profile.copyWith(
-        fullName: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        email: customerEmail.isNotEmpty ? customerEmail : repo.profile.email,
-        address: customerAddress.isNotEmpty ? customerAddress : repo.profile.address,
-      ));
+      if (customerAddress.isNotEmpty && repo.profile.address.isEmpty) {
+        repo.updateProfile(repo.profile.copyWith(
+          address: customerAddress,
+        ));
+      }
     }
 
     final appointment = AppointmentItemModel(
