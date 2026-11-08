@@ -354,6 +354,8 @@
   min-height: 58px;
   border-bottom: 1px solid #f2eae2;
   max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .admin-table tr:last-child td {
   border-bottom: 0;

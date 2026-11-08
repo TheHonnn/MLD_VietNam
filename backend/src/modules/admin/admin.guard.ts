@@ -73,6 +73,7 @@ export class AdminGuard implements CanActivate {
       try {
         const decoded = this.jwt.verify(token, {
           secret: supabaseSecret,
+          audience: 'authenticated',
         });
         if (decoded && (decoded.sub || (decoded as any).id)) {
           payload = { sub: decoded.sub || (decoded as any).id, audience: decoded.aud };
@@ -95,19 +96,21 @@ export class AdminGuard implements CanActivate {
     // 1.2 Xác thực dự phòng qua HTTP REST API tới Supabase Auth Server
     if (!payload) {
       try {
-        const sbUrl = this.config.get<string>('SUPABASE_URL') || 'https://wstvwushpwcdsmhpunvh.supabase.co';
-        const sbAnon = this.config.get<string>('SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMTk0MjAsImV4cCI6MjEwNzU5NTQyMH0.1mDiB0Rsst_nyseC5k-AyfLOwYTRe96ZzQ4yHEU5Z58';
-        const res = await fetch(`${sbUrl.replace(/\/+$/, '')}/auth/v1/user`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            apikey: sbAnon,
-          },
-        });
-        if (res.ok) {
-          const sbUser: any = await res.json();
-          if (sbUser?.id) {
-            payload = { sub: sbUser.id, audience: 'authenticated' };
-            userEmail = sbUser.email;
+        const sbUrl = this.config.get<string>('SUPABASE_URL');
+        const sbAnon = this.config.get<string>('SUPABASE_ANON_KEY');
+        if (sbUrl && sbAnon) {
+          const res = await fetch(`${sbUrl.replace(/\/+$/, '')}/auth/v1/user`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              apikey: sbAnon,
+            },
+          });
+          if (res.ok) {
+            const sbUser: any = await res.json();
+            if (sbUser?.id) {
+              payload = { sub: sbUser.id, audience: 'authenticated' };
+              userEmail = sbUser.email;
+            }
           }
         }
       } catch {}
@@ -129,20 +132,67 @@ export class AdminGuard implements CanActivate {
       throw new UnauthorizedException('Vui lòng đăng nhập quản trị.');
     }
 
-    const { rows } = await this.db.connection.query(
-      'SELECT id, full_name, role, is_active FROM users WHERE id=$1' +
-        (userEmail ? ' OR LOWER(email)=LOWER($2)' : ''),
-      userEmail ? [payload.sub, userEmail] : [payload.sub],
-    );
-    const user = rows[0];
+    let user: any = null;
+    try {
+      const { rows } = await this.db.connection.query(
+        'SELECT id, full_name, role, is_active FROM users WHERE id=$1' +
+          (userEmail ? ' OR LOWER(email)=LOWER($2)' : ''),
+        userEmail ? [payload.sub, userEmail] : [payload.sub],
+      );
+      user = rows[0];
+    } catch {}
+
+    if (!user && this.supabase?.adminClient) {
+      try {
+        let query = this.supabase.adminClient
+          .from('users')
+          .select('id, full_name, role, is_active');
+        if (userEmail) {
+          query = query.or(`id.eq.${payload.sub},email.ilike.${userEmail}`);
+        } else {
+          query = query.eq('id', payload.sub);
+        }
+        const { data } = await query.maybeSingle();
+        user = data;
+      } catch {}
+    }
+
     if (!user?.is_active)
       throw new ForbiddenException('Tài khoản không hoạt động.');
+
     if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
-      const grants = await this.db.connection.query(
-        `SELECT DISTINCT p.code,ur.branch_id FROM user_roles ur JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=$1`,
-        [user.id],
-      );
-      const permissions = grants.rows.map((row) => row.code);
+      let permissions: string[] = [];
+      let scopes: any[] = [];
+
+      try {
+        const grants = await this.db.connection.query(
+          `SELECT DISTINCT p.code,ur.branch_id FROM user_roles ur JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=$1`,
+          [user.id],
+        );
+        permissions = grants.rows.map((row) => row.code);
+        scopes = grants.rows.map(row => ({ permission: row.code, branchId: row.branch_id || null }));
+      } catch {}
+
+      if (!permissions.length && this.supabase?.adminClient) {
+        try {
+          const { data: userRoles } = await this.supabase.adminClient
+            .from('user_roles')
+            .select('role_id, branch_id')
+            .eq('user_id', user.id);
+          if (Array.isArray(userRoles) && userRoles.length > 0) {
+            const roleIds = userRoles.map((r: any) => r.role_id);
+            const { data: rolePerms } = await this.supabase.adminClient
+              .from('role_permissions')
+              .select('permission_id, permissions(code)')
+              .in('role_id', roleIds);
+            if (Array.isArray(rolePerms)) {
+              permissions = Array.from(new Set(rolePerms.map((rp: any) => (rp as any)?.permissions?.code).filter(Boolean)));
+            }
+            scopes = userRoles.map((ur: any) => ({ permission: '', branchId: ur.branch_id || null }));
+          }
+        } catch {}
+      }
+
       const route = String(req.route?.path || '');
       const commandPermission = route.includes('cashier/')
         ? (route.endsWith('/collect') ? 'cashier.collect' : 'cashier.shifts') : null;
@@ -167,7 +217,7 @@ export class AdminGuard implements CanActivate {
           'Chỉ SUPER_ADMIN được quản lý phân quyền.',
         );
       user.permissions = permissions;
-      user.scopes = grants.rows.map(row => ({ permission: row.code, branchId: row.branch_id || null }));
+      user.scopes = scopes;
     }
     req.admin = user;
     return true;
