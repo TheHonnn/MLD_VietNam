@@ -10,7 +10,7 @@ Lệnh build backend rồi tự khởi động Vite và Nest trên loopback. C�
 
 ## Dữ liệu và dịch vụ
 
-- Database PGlite nằm trong bộ nhớ, được tạo từ `database/schema.sql` rồi hủy sau khi chạy.
+- Database PGlite nằm trong bộ nhớ, được tạo từ `database/schema.sql` và phần schema bộ phận/trợ giảng của migration 024–025, rồi hủy sau khi chạy. Các policy Supabase không được kiểm thử bằng database này.
 - Tài khoản quản trị, chi nhánh, nhân viên, khóa học và lớp học đều là dữ liệu kiểm thử.
 - Đăng nhập Supabase được giả lập trong trình duyệt. Các request Supabase bị chặn và trả dữ liệu kiểm thử; không được gửi ra dịch vụ thật.
 - API quản trị được chuyển đến Nest local và dùng PGlite. Email, SMS, Redis và Supabase phía Nest được thay bằng provider giả lập.
@@ -26,6 +26,8 @@ Lệnh build backend rồi tự khởi động Vite và Nest trên loopback. C�
 - Không có lỗi JavaScript trên trang; các trang danh sách quản trị phải có phản hồi API local thành công.
 
 Kết quả thành công được lưu tại `.local-archive/admin-review/result.json`, cùng ảnh chụp. Nếu lỗi, kiểm tra `failure.png`, `failure.html` và `requests.json` trong cùng thư mục. Các tệp lỗi có thể thuộc lần chạy trước; đối chiếu thời gian với `checkedAt` của kết quả thành công.
+
+Để chẩn đoán nhanh một phân hệ, có thể đặt `ADMIN_BROWSER_RESOURCES=service_categories` (hoặc danh sách tên bảng ngăn bằng dấu phẩy). Kết quả chạy giới hạn được ghi riêng vào `result-focused.json`, với `scope: focused`; kết quả đầy đủ có `scope: full`.
 
 ## Giới hạn của kết quả
 

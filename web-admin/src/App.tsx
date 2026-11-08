@@ -68,7 +68,12 @@ const PageLoadingFallback: React.FC = () => (
 
 const InvoicesRedirect: React.FC = () => {
   const location = useLocation();
-  return <Navigate to={`/cashier-pos${location.search}`} replace />;
+  const search = location.search
+    ? location.search.includes('tab=')
+      ? location.search
+      : `${location.search}&tab=receipts`
+    : '?tab=receipts';
+  return <Navigate to={`/cashier-pos${search}`} replace />;
 };
 
 const RoleRoute: React.FC<{ allowedRoles: string[]; children: React.ReactNode }> = ({
@@ -315,7 +320,6 @@ const AppContent: React.FC = () => {
             />
             <Route path="edema-assessments" element={<Navigate to="/medical-records" replace />} />
             <Route path="kham-phu" element={<Navigate to="/medical-records" replace />} />
-            <Route path="manage/student_certificates" element={<Navigate to="/certificates" replace />} />
             <Route
               path="portal-content"
               element={
@@ -326,9 +330,11 @@ const AppContent: React.FC = () => {
             />
             <Route path="portal" element={<Navigate to="/portal-content" replace />} />
             <Route path="manage/branches" element={<Navigate to="/branches" replace />} />
-
             <Route path="manage/branch_rooms" element={<Navigate to="/branches?tab=rooms" replace />} />
             <Route path="manage/consultation_surveys" element={<Navigate to="/customers" replace />} />
+            <Route path="manage/invoices" element={<Navigate to="/cashier-pos?tab=receipts" replace />} />
+            <Route path="manage/student_certificates" element={<Navigate to="/certificates?tab=list" replace />} />
+            <Route path="manage/certificate_templates" element={<Navigate to="/certificates?tab=template" replace />} />
             <Route path="manage/services" element={<Navigate to="/services-catalog?tab=services" replace />} />
             <Route path="manage/treatment_packages" element={<Navigate to="/services-catalog?tab=packages" replace />} />
             <Route path="manage/:table" element={<div className="admin-module"><ResourcePage /></div>} />

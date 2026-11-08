@@ -1458,148 +1458,67 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
   throw new Error(`Thao tác ${path} chưa được hỗ trợ.`);
 }
 
-let localBackendChecked = false;
-let localBackendAvailable = false;
-
-export async function adminApi<T>(
-  path: string,
-  body?: unknown,
-  signal?: AbortSignal,
-): Promise<T> {
-  const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
-  const isLocalhost =
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-  const shouldDirectSupabase =
-    (isHttps && base.startsWith("http://")) ||
-    (!isLocalhost && base.includes("127.0.0.1")) ||
-    (localBackendChecked && !localBackendAvailable);
-
-  // On production (Vercel) or remote environments, immediately query Supabase to prevent mixed content & delay
-  if (shouldDirectSupabase) {
-    return querySupabaseFallback<T>(path, body, signal);
+export class AdminRequestError extends Error {
+  constructor(message: string, public readonly statusCode: number, public readonly uncertain = false) {
+    super(message);
+    this.name = "AdminRequestError";
   }
+}
 
-  const token = sessionStorage.getItem("mld_admin_token");
+async function requestBackend<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  if (signal?.aborted) throw new DOMException("Đã hủy yêu cầu.", "AbortError");
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
-  if (signal?.aborted) controller.abort();
-  const timeout = window.setTimeout(abort, 1500); // 1.5s fast probe for local NestJS
-
+  const timeout = window.setTimeout(abort, body === undefined ? 15000 : 30000);
   try {
-    const response = await fetch(`${base}/admin/${path}`, {
-      method: body === undefined ? "GET" : "POST",
-      signal: controller.signal,
-      headers: {
-        "X-MLD-Local-Admin": "1",
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-    const json = await response.json().catch(() => null);
-    if (!response.ok || !json?.success) {
-      // NOTE: Do not clear session or signout here if backend fails with 401.
-      // Instead, throw so that the catch block seamlessly triggers querySupabaseFallback!
-      throw new Error(
-        Array.isArray(json?.message)
-          ? json.message.join(", ")
-          : json?.message || `Không tải được dữ liệu (${response.status}).`,
-      );
-    }
-    localBackendChecked = true;
-    localBackendAvailable = true;
-    return json.data as T;
-  } catch (err) {
-    // Screen cleanup (including React StrictMode) is not a backend failure.
-    // Preserve cancellation instead of changing the data source for later calls.
-    if (signal?.aborted) throw err;
-    // If backend is not running or unreachable, remember to avoid delay on subsequent calls
-    localBackendChecked = true;
-    localBackendAvailable = false;
+    const token = sessionStorage.getItem("mld_admin_token");
+    let response: Response;
     try {
-      return await querySupabaseFallback<T>(path, body, signal);
-    } catch (fallbackErr) {
-      if (controller.signal.aborted && !signal?.aborted)
-        throw new Error("Máy chủ phản hồi quá chậm. Vui lòng thử lại.");
-      throw fallbackErr || err;
+      response = await fetch(base + '/admin/' + path.replace(/^\/+/, ""), {
+        method: body === undefined ? "GET" : "POST",
+        signal: controller.signal,
+        headers: {
+          "X-MLD-Local-Admin": "1", "Content-Type": "application/json",
+          ...(token ? { Authorization: 'Bearer ' + token } : {}),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      throw new AdminRequestError(body === undefined
+        ? "Không kết nối được máy chủ. Vui lòng thử tải lại."
+        : "Chưa xác minh được kết quả lưu. Hãy tải lại dữ liệu để kiểm tra trước khi gửi lại thao tác.", 0, body !== undefined);
     }
+    const json = await response.json().catch(() => null);
+    if (!response.ok || json?.success !== true) {
+      const message = Array.isArray(json?.message) ? json.message.join(", ") : json?.message;
+      throw new AdminRequestError(message || 'Máy chủ không xác nhận thao tác (' + response.status + ').', response.status, response.ok && body !== undefined);
+    }
+    return json.data as T;
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener("abort", abort);
   }
 }
 
+export async function adminApi<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  if (signal?.aborted) throw new DOMException("Đã hủy yêu cầu.", "AbortError");
+  const location = typeof window !== "undefined" ? window.location : undefined;
+  const source = (import.meta as any).env?.VITE_ADMIN_DATA_SOURCE;
+  const local = location?.hostname === "localhost" || location?.hostname === "127.0.0.1";
+  // Select the deployment's source before sending. Never replay a failed request
+  // against another source, especially after an uncertain write or a denied read.
+  const direct = source === "supabase" || (source !== "backend" && (
+    (location?.protocol === "https:" && base.startsWith("http://")) ||
+    (!local && base.includes("127.0.0.1"))
+  ));
+  if (direct) return querySupabaseFallback<T>(path, body, signal);
+  return requestBackend<T>(path, body, signal);
+}
+
 export async function adminCommand<T>(path: string, body?: unknown): Promise<T> {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 20000);
-  const token = sessionStorage.getItem('mld_admin_token');
-  try {
-    let response: Response | null = null;
-    const cleanPath = path.replace(/^\/+/, '');
-    // Ensure no accidental double /health/ in URL
-    const primaryUrl = `${base}/admin/${cleanPath}`.replace('/health/admin/', '/admin/');
-
-    try {
-      response = await fetch(primaryUrl, {
-        method: body === undefined ? 'GET' : 'POST',
-        signal: controller.signal,
-        headers: {
-          'X-MLD-Local-Admin': '1',
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      });
-    } catch {
-      // Primary network failure / Mixed Content
-    }
-
-    // Fallback: If primary failed or returned any non-OK status (including 401, 403, 404, 500, 502, 503, 504), try relative fallbacks
-    if (!response || !response.ok) {
-      if (typeof window !== 'undefined') {
-        const fallbackUrls = [
-          `/api/admin/${cleanPath}`,
-          `/api/v1/admin/${cleanPath}`,
-          `/api/${cleanPath}`
-        ];
-        for (const fbUrl of fallbackUrls) {
-          if (fbUrl === primaryUrl) continue;
-          try {
-            const fb = await fetch(fbUrl, {
-              method: body === undefined ? 'GET' : 'POST',
-              signal: controller.signal,
-              headers: {
-                'X-MLD-Local-Admin': '1',
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-              },
-              ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-            });
-            if (fb.ok) {
-              response = fb;
-              break;
-            }
-          } catch {}
-        }
-      }
-    }
-
-    if (!response) {
-      throw new Error(`Không thể kết nối đến máy chủ (${primaryUrl}). Vui lòng kiểm tra lại dịch vụ backend.`);
-    }
-
-    const json = await response.json().catch(() => null);
-    if (!response.ok || !json?.success) {
-      // NOTE: Do NOT sign out user here. adminCommand is an operational utility
-      // (email sending, PDF export, etc.). A failure here should never kick the user to login.
-      throw new Error(json?.message || `Không thể hoàn tất thao tác (${response.status}).`);
-    }
-    return json.data as T;
-  } finally {
-    window.clearTimeout(timeout);
-  }
+  return requestBackend<T>(path, body);
 }
 
 export function rowKey(columns: Column[], row: Row) {

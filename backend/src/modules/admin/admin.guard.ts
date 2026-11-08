@@ -115,10 +115,13 @@ export class AdminGuard implements CanActivate {
       throw new ForbiddenException('Tài khoản không hoạt động.');
     if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
       const grants = await this.db.connection.query(
-        `SELECT DISTINCT p.code FROM user_roles ur JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=$1 AND ur.branch_id IS NULL`,
+        `SELECT DISTINCT p.code,ur.branch_id FROM user_roles ur JOIN roles r ON r.id=ur.role_id JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=$1`,
         [user.id],
       );
       const permissions = grants.rows.map((row) => row.code);
+      const route = String(req.route?.path || '');
+      const commandPermission = route.includes('cashier/')
+        ? (route.endsWith('/collect') ? 'cashier.collect' : 'cashier.shifts') : null;
       const table = req.params.table;
       const operation =
         req.method === 'GET'
@@ -128,6 +131,7 @@ export class AdminGuard implements CanActivate {
               .pop();
       if (
         !permissions.length ||
+        (commandPermission && !permissions.includes(commandPermission)) ||
         (table && !permissions.includes(`${table}.${operation}`)) ||
         (!table && String(req.route?.path || '').endsWith('summary'))
       )
@@ -139,6 +143,7 @@ export class AdminGuard implements CanActivate {
           'Chỉ SUPER_ADMIN được quản lý phân quyền.',
         );
       user.permissions = permissions;
+      user.scopes = grants.rows.map(row => ({ permission: row.code, branchId: row.branch_id || null }));
     }
     req.admin = user;
     return true;

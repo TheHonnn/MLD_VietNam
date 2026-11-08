@@ -248,6 +248,13 @@ export class AdminController {
   ) {
     return this.service.closeCashierShift(req.admin, id, body);
   }
+  @Get('schema/status')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  schemaStatus(@Req() req) {
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(req.admin.role)) throw new ForbiddenException('Chỉ quản trị viên được kiểm tra cấu hình hệ thống.');
+    return this.service.schemaStatus();
+  }
   @Get('resources')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()

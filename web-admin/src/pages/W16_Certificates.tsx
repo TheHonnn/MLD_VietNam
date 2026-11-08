@@ -34,6 +34,7 @@ import {
   CourseEnrollment,
 } from '../types/shared_types';
 import { toast } from '../components/common';
+import { useSearchParams } from 'react-router-dom';
 
 const STORAGE_KEY = 'mld.certificate-template.v2';
 
@@ -81,7 +82,26 @@ const formatDisplayDate = (value?: string | null) => {
 };
 
 export const W16_Certificates: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'list' | 'template' | 'issue'>('list');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'list' | 'template' | 'issue'>(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'template' || tabParam === 'issue' || tabParam === 'list') {
+      return tabParam;
+    }
+    return 'list';
+  });
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'template' || tabParam === 'issue' || tabParam === 'list') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: 'list' | 'template' | 'issue') => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
   const [certificates, setCertificates] = useState<StudentCertificate[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
@@ -552,7 +572,7 @@ export const W16_Certificates: React.FC = () => {
       <div className="flex items-center gap-2 border-b border-gray-200">
         <button
           type="button"
-          onClick={() => setActiveTab('list')}
+          onClick={() => handleTabChange('list')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition ${
             activeTab === 'list'
               ? 'border-sky-700 text-sky-800 bg-sky-50/50'
@@ -568,7 +588,7 @@ export const W16_Certificates: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveTab('template')}
+          onClick={() => handleTabChange('template')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition ${
             activeTab === 'template'
               ? 'border-sky-700 text-sky-800 bg-sky-50/50'
@@ -581,7 +601,7 @@ export const W16_Certificates: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => { setIssueCode(makeCertificateCode()); setActiveTab('issue'); }}
+          onClick={() => { setIssueCode(makeCertificateCode()); handleTabChange('issue'); }}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition ${
             activeTab === 'issue'
               ? 'border-sky-700 text-sky-800 bg-sky-50/50'

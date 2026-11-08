@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Clock,
@@ -265,6 +265,7 @@ export const W07_CashierPOS: React.FC = () => {
 
   // UI Processing & Modals
   const [isProcessing, setIsProcessing] = useState(false);
+  const paymentLock = useRef(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [editingReceipt, setEditingReceipt] = useState<Invoice | null>(null);
   const [receiptCustomerName, setReceiptCustomerName] = useState('');
@@ -660,6 +661,7 @@ export const W07_CashierPOS: React.FC = () => {
   // POS CHECKOUT & PAYMENT PROCESSING
   // -------------------------------------------------------------
   const handleProcessPosPayment = async () => {
+    if (paymentLock.current) return;
     if (posCart.length === 0) {
       toast.warning('Đơn hàng trống', 'Vui lòng chọn ít nhất 1 dịch vụ, gói hoặc sản phẩm từ menu bên trái.');
       return;
@@ -670,6 +672,7 @@ export const W07_CashierPOS: React.FC = () => {
       return;
     }
 
+    paymentLock.current = true;
     setIsProcessing(true);
     try {
       const activeBranch = selectedBranchId !== 'ALL' ? branches.find((b) => b.id === selectedBranchId) : branches[0];
@@ -683,123 +686,22 @@ export const W07_CashierPOS: React.FC = () => {
           ? PaymentMethod.BANK_TRANSFER
           : PaymentMethod.MOMO;
 
-      // 1. Tạo hóa đơn trên Supabase Cloud
-      const newInvoice = await supabaseService.createInvoice({
-        invoiceCode: draftInvoiceCode,
-        branchId: targetBranchId,
-        customerId: targetCustomerId,
-        cashierId: adminUser?.id || undefined,
-        bookingId: booking?.id || undefined,
-        shiftId: currentShift.id,
-        subtotal: cartSubtotal,
-        discountAmount: discountAmount,
-        preTaxAmount: cartPreTax,
-        vatRate: vatRate,
-        vatAmount: cartVat,
-        totalAmount: cartTotal,
-        paymentMethod: paymentMethodEnum,
-        paymentStatus: PaymentStatus.PAID,
-        paidAt: new Date().toISOString(),
+      const collection = await posService.collectPayment({
+        kind: booking?.id ? 'BOOKING' : 'CART',
+        ...(booking?.id ? { bookingId: booking.id } : { items: posCart.map(item => ({ id: item.id, type: item.type, quantity: item.quantity, serviceId: item.serviceId, packageId: item.packageId })) }),
+        customerId: targetCustomerId, branchId: currentShift.branchId,
+        shiftId: currentShift.id, paymentMethod: paymentMethodEnum as PaymentMethod.CASH_AT_SPA | PaymentMethod.BANK_TRANSFER,
+        vatRate, discountAmount, expectedTotal: cartTotal, commissionStaffId: selectedCommissionStaffId || undefined,
       });
-
-      if (!newInvoice || !newInvoice.id) {
-        throw new Error('Không thể ghi nhận hóa đơn vào cơ sở dữ liệu Supabase.');
-      }
-
-      // 2. Chèn các mục trong giỏ hàng vào bảng invoice_items
-      for (const item of posCart) {
-        await supabaseService
-          .query('invoice_items', {
-            method: 'POST',
-            body: JSON.stringify({
-              invoice_id: newInvoice.id,
-              item_name: item.name,
-              item_type: item.type,
-              quantity: item.quantity,
-              unit_price: item.unitPrice,
-              amount: item.unitPrice * item.quantity,
-            }),
-          })
-          .catch((e) => console.warn('Lỗi ghi nhận invoice_item:', e));
-
-        // Nếu là gói liệu trình, kích hoạt user_packages cho khách hàng
-        if (item.type === 'PACKAGE' && item.packageId && isUuid(targetCustomerId) && targetCustomerId !== GUEST_CUSTOMER.id) {
-          await supabaseService
-            .query('user_packages', {
-              method: 'POST',
-              body: JSON.stringify({
-                customer_id: targetCustomerId,
-                package_id: item.packageId,
-                total_sessions: item.totalSessions || 10,
-                completed_sessions: 0,
-                status: 'ACTIVE',
-                purchased_at: new Date().toISOString(),
-              }),
-            })
-            .catch((e) => console.warn('Lỗi kích hoạt user_packages:', e));
-        }
-      }
-
-      // 3. Cập nhật booking nếu đơn xuất phát từ lịch hẹn
-      if (booking && booking.id && isUuid(booking.id)) {
-        await supabaseService
-          .query(`bookings?id=eq.${booking.id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({
-              payment_status: PaymentStatus.PAID,
-              payment_method: paymentMethodEnum,
-              status: BookingStatus.COMPLETED,
-            }),
-          })
-          .catch((e) => console.warn('Lỗi cập nhật booking:', e));
-      }
-
-      // 4. Ghi nhận hoa hồng cho nhân viên / KTV nếu được chỉ định
-      if (selectedCommissionStaffId) {
-        await commissionService
-          .createCommission({
-            staffId: selectedCommissionStaffId,
-            branchId: targetBranchId,
-            invoiceId: newInvoice.id,
-            bookingId: booking?.id,
-            commissionType: posCart.some((i) => i.type === 'PACKAGE') ? 'PACKAGE_UPSELL' : 'SERVICE_DIRECT',
-            baseAmount: cartTotal,
-            percentage: 10,
-            notes: `Hoa hồng POS từ hóa đơn ${draftInvoiceCode}`,
-          })
-          .catch((e) => console.warn('Lỗi ghi nhận hoa hồng:', e));
-      }
-
-      // 5. Cập nhật doanh thu ca thu ngân hiện tại
-      const isCash = selectedMethod === 'onsite';
-      const isTransfer = selectedMethod === 'transfer';
-      const isCard = selectedMethod === 'online';
-      const updatedShift: CashierShift = {
-        ...currentShift,
-        totalSales: (currentShift.totalSales || 0) + cartTotal,
-        systemCash: (currentShift.systemCash || currentShift.openingCash) + (isCash ? cartTotal : 0),
-        transferSales: (currentShift.transferSales || 0) + (isTransfer ? cartTotal : 0),
-        cardSales: (currentShift.cardSales || 0) + (isCard ? cartTotal : 0),
-      };
-      setCurrentShift(updatedShift);
-      if (currentShift.id && isUuid(currentShift.id)) {
-        await supabaseService
-          .query(`cashier_shifts?id=eq.${currentShift.id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({
-              total_sales: updatedShift.totalSales,
-              system_cash: updatedShift.systemCash,
-              transfer_sales: updatedShift.transferSales,
-              card_sales: updatedShift.cardSales,
-            }),
-          })
-          .catch((e) => console.warn('Lỗi cập nhật ca thu ngân:', e));
-      }
+      if (!collection.success || !collection.data?.invoice?.id) throw new Error(collection.message);
+      const receiptCode = collection.data.invoice.invoice_code;
+      const shift = await posService.getActiveShift(currentShift.branchId);
+      if (shift.success) setCurrentShift(shift.data);
 
       // 6. Hiển thị biên lai điện tử
       const techName = commissionStaff.find((s) => s.id === selectedCommissionStaffId)?.fullName;
       setSelectedReceiptData({
-        id: draftInvoiceCode,
+        id: receiptCode,
         customerName: selectedCustomer.fullName || 'Khách hàng',
         customerPhone: selectedCustomer.phone || '--',
         customerTier: selectedCustomer.membershipTier || 'STANDARD',
@@ -824,14 +726,14 @@ export const W07_CashierPOS: React.FC = () => {
           year: 'numeric',
         }).format(new Date()),
         status: 'Đã thanh toán 100%',
-        commissionText: selectedCommissionStaffId ? `+${Math.round(cartTotal * 0.1).toLocaleString('vi-VN')}đ (${techName || 'KTV'})` : undefined,
+        commissionText: undefined,
         technicianName: techName,
-        znsSent: Boolean(selectedCustomer.phone && selectedCustomer.phone !== '0900000000'),
-        materialsText: 'Đã xuất phiếu kho vật tư theo định mức ca trị liệu MLD',
+        znsSent: false,
+        materialsText: 'Chưa xác nhận xuất kho vật tư',
       });
 
       setShowReceiptModal(true);
-      toast.success('Thanh toán thành công', `Đã ghi nhận hóa đơn ${draftInvoiceCode} · ${cartTotal.toLocaleString('vi-VN')}đ`);
+      toast.success('Thanh toán thành công', `Đã ghi nhận hóa đơn ${receiptCode} · ${cartTotal.toLocaleString('vi-VN')}đ`);
 
       // Reset cart và tạo mã mới cho đơn kế tiếp
       clearCart();
@@ -840,6 +742,7 @@ export const W07_CashierPOS: React.FC = () => {
       console.error('Lỗi quyết toán POS:', err);
       toast.error('Lỗi thanh toán', err?.message || 'Không thể ghi nhận hóa đơn.');
     } finally {
+      paymentLock.current = false;
       setIsProcessing(false);
     }
   };
@@ -913,6 +816,7 @@ export const W07_CashierPOS: React.FC = () => {
   // TUITION SETTLEMENT HANDLER
   // -------------------------------------------------------------
   const handleProcessTuitionPayment = async () => {
+    if (paymentLock.current) return;
     if (!selectedEnrollment) {
       toast.error('Lỗi', 'Chưa chọn hồ sơ học viên để thanh toán học phí.');
       return;
@@ -923,6 +827,7 @@ export const W07_CashierPOS: React.FC = () => {
       return;
     }
 
+    paymentLock.current = true;
     setIsProcessing(true);
     try {
       const paymentMethodEnum =
@@ -945,55 +850,15 @@ export const W07_CashierPOS: React.FC = () => {
         : activeBranch?.id || 'aaaaaaaa-0001-0001-0001-000000000001';
       const validCustomerId = isUuid(selectedEnrollment.studentId) ? selectedEnrollment.studentId : GUEST_CUSTOMER.id;
 
-      const datePart = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-      const randPart = Math.floor(1000 + Math.random() * 9000);
-      const generatedInvoiceCode = `HD-HP-${datePart}-${randPart}`;
-
-      const resInvoice = await supabaseService.createInvoice({
-        invoiceCode: generatedInvoiceCode,
-        branchId: validBranchId,
-        customerId: validCustomerId,
-        cashierId: adminUser?.id || undefined,
-        enrollmentId: isUuid(selectedEnrollment.id) ? selectedEnrollment.id : undefined,
-        shiftId: currentShift.id,
-        subtotal: amount,
-        discountAmount: 0,
-        preTaxAmount: amount,
-        vatRate: 0,
-        vatAmount: 0,
-        totalAmount: amount,
-        paymentMethod: paymentMethodEnum,
-        paymentStatus: PaymentStatus.PAID,
-        paidAt: new Date().toISOString(),
-      });
-
-      if (!resInvoice || !resInvoice.id) {
-        throw new Error('Không thể ghi nhận hóa đơn học phí vào CSDL.');
-      }
-
-      // Cập nhật số tiền đã đóng của học viên
-      const newPaidTotal = (selectedEnrollment.amountPaid || 0) + amount;
-      const isFull = newPaidTotal >= (selectedEnrollment.tuitionTotal || 9000000);
-      await supabaseService
-        .query(`course_enrollments?id=eq.${selectedEnrollment.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            amount_paid: newPaidTotal,
-            ...(isFull ? { approval_status: 'APPROVED', status: 'ENROLLED' } : {}),
-          }),
-        })
-        .catch(() => undefined);
-
-      // Cập nhật ca thu ngân
-      const isCash = selectedMethod === 'onsite';
-      const isTransfer = selectedMethod === 'transfer';
-      const updatedShift: CashierShift = {
-        ...currentShift,
-        totalSales: (currentShift.totalSales || 0) + amount,
-        systemCash: (currentShift.systemCash || currentShift.openingCash) + (isCash ? amount : 0),
-        transferSales: (currentShift.transferSales || 0) + (isTransfer ? amount : 0),
-      };
-      setCurrentShift(updatedShift);
+      const collection = await posService.collectPayment({ kind: 'TUITION', enrollmentId: selectedEnrollment.id, amount,
+        shiftId: currentShift.id, branchId: currentShift.branchId,
+        paymentMethod: paymentMethodEnum as PaymentMethod.CASH_AT_SPA | PaymentMethod.BANK_TRANSFER });
+      if (!collection.success || !collection.data?.transactionCode) throw new Error(collection.message);
+      const generatedInvoiceCode = collection.data.transactionCode;
+      const newPaidTotal = collection.data.paidTotal;
+      const isFull = newPaidTotal >= collection.data.tuitionTotal;
+      const shift = await posService.getActiveShift(currentShift.branchId);
+      if (shift.success) setCurrentShift(shift.data);
 
       setSelectedReceiptData({
         id: generatedInvoiceCode,
@@ -1026,6 +891,7 @@ export const W07_CashierPOS: React.FC = () => {
       console.error('Lỗi thu học phí:', err);
       toast.error('Lỗi thu học phí', err?.message || 'Không thể ghi nhận thanh toán.');
     } finally {
+      paymentLock.current = false;
       setIsProcessing(false);
     }
   };

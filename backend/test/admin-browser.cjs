@@ -41,15 +41,7 @@ async function main() {
     });
     await frontend.listen();
     const frontendUrl = `http://127.0.0.1:${frontend.httpServer.address().port}`;
-    await pg.exec(
-      fs
-        .readFileSync(
-          path.resolve(__dirname, '../../database/schema.sql'),
-          'utf8',
-        )
-        .replace(/^CREATE EXTENSION[^\n]*$/gm, '')
-        .replace(/^CREATE INDEX[^\n]*gin_trgm_ops[^\n]*$/gm, ''),
-    );
+    await require('../../database/testing/admin-schema.cjs').loadAdminSchema(pg);
     const browserAdmin = (await pg.query(
       "INSERT INTO users(phone,full_name,email,role,referral_code,password_hash) VALUES('0900000099','Kiểm thử giao diện','browser-test@mld.local','SUPER_ADMIN','BROWSERTEST',$1) RETURNING id",
       [await bcrypt.hash('Browser-test-only-123', 10)],
@@ -196,7 +188,7 @@ async function main() {
       .getByRole('heading', { name: 'Tổng quan vận hành', exact: true })
       .waitFor();
     await page.screenshot({ path: path.join(output, 'dashboard-desktop.png') });
-    const legacyLinks = [['Tổng quan','/'],['Chi nhánh & Phòng ốc','/branches'],['Khách hàng (CRM)','/customers'],['Nhân sự & Kỹ thuật viên','/staff-schedule'],['Quản lý Liệu trình','/medical-records'],['Thu ngân & Tiếp đón','/cashier-pos'],['Tuyển sinh & Ghi danh','/academy-enrollment'],['Đội ngũ Giảng viên','/instructors'],['Học viên & Lớp học','/attendance'],['Chương trình đào tạo','/curriculum'],['Báo cáo doanh thu','/reports']];
+    const legacyLinks = [['Tổng quan','/'],['Chi nhánh & Phòng ốc','/branches'],['Khách hàng (CRM)','/customers'],['Nhân sự & Kỹ thuật viên','/staff-schedule'],['Quản lý Liệu trình','/medical-records'],['Thu ngân & Tiếp đón','/cashier-pos'],['Tuyển sinh & Ghi danh','/academy-enrollment'],['Đội ngũ Giảng viên','/instructors'],['Học viên & Lớp học','/attendance'],['Chương trình đào tạo','/curriculum'],['Giấy chứng nhận','/certificates'],['Báo cáo doanh thu','/reports']];
     for(const [name,href] of legacyLinks) assert.equal(await page.getByRole('navigation').getByRole('link',{name,exact:true}).getAttribute('href'),href);
     const sidebar=page.locator('aside');
     assert.equal(await sidebar.getByText('QUẢN TRỊ BỔ SUNG',{exact:true}).count(),0);
@@ -206,7 +198,7 @@ async function main() {
     await sidebar.getByRole('button',{name:'Thu gọn Chi nhánh & Phòng ốc',exact:true}).click();
     const resourceLinks=await sidebar.locator('a[href^="/manage/"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
     const linkedResources = new Set(resourceLinks.map((href) => href.replace('/manage/', '').split('?')[0]));
-    const dedicatedRoutes = new Set(['branches', 'branch_rooms', 'users', 'consultation_surveys', 'instructors', 'student_attendance', 'services', 'treatment_packages']);
+    const dedicatedRoutes = new Set(['branches', 'branch_rooms', 'users', 'consultation_surveys', 'instructors', 'student_attendance', 'services', 'treatment_packages', 'invoices', 'student_certificates', 'certificate_templates']);
     const unlinkedResources = Object.keys(ADMIN_RESOURCES).filter((name) => !linkedResources.has(name) && !dedicatedRoutes.has(name));
     assert.equal(unlinkedResources.length, 0, `Resources missing from business menus: ${unlinkedResources.join(', ')}`);
     while(await sidebar.getByRole('button',{name:/^Mở /}).count())await sidebar.getByRole('button',{name:/^Mở /}).first().click();
@@ -240,8 +232,11 @@ async function main() {
     await page.getByRole('heading',{name:/Thêm mới câu hỏi #/}).waitFor();
     await page.screenshot({path:path.join(output,'quiz-form-desktop.png')});
     let checked = 0;
-    const dedicatedPages = { branches: '/branches', branch_rooms: '/branches?tab=rooms', student_certificates: '/certificates', services: '/services-catalog?tab=services', treatment_packages: '/services-catalog?tab=packages' };
-    for (const [name, resource] of Object.entries(ADMIN_RESOURCES)) {
+    const dedicatedPages = { branches: '/branches', branch_rooms: '/branches?tab=rooms', student_certificates: '/certificates?tab=list', certificate_templates: '/certificates?tab=template', services: '/services-catalog?tab=services', treatment_packages: '/services-catalog?tab=packages', invoices: '/cashier-pos?tab=receipts' };
+    const selectedResources = process.env.ADMIN_BROWSER_RESOURCES?.split(',');
+    const resourcesToCheck = Object.entries(ADMIN_RESOURCES).filter(([name]) => !selectedResources || selectedResources.includes(name));
+    assert.ok(resourcesToCheck.length, 'At least one resource must be selected');
+    for (const [name, resource] of resourcesToCheck) {
       console.log(`Checking admin resource: ${name}`);
       await page.goto(frontendUrl + '/manage/' + name);
       if (dedicatedPages[name]) {
@@ -287,14 +282,14 @@ async function main() {
       .fill('https://example.invalid/icon.png');
     await dialog.getByRole('button', { name: 'Lưu thay đổi' }).click();
     await page
-      .getByRole('button', { name: 'Bản ghi kiểm thử', exact: true })
+      .getByRole('cell', { name: 'Bản ghi kiểm thử', exact: true })
       .waitFor();
     await page.getByTitle('Tùy chọn thao tác', { exact: true }).click();
     await page.getByRole('button', { name: 'Chỉnh sửa thông tin', exact: true }).click();
     await page.getByRole('dialog').getByLabel(/^Tên/).fill('Đã chỉnh sửa');
     await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
     await page
-      .getByRole('button', { name: 'Đã chỉnh sửa', exact: true })
+      .getByRole('cell', { name: 'Đã chỉnh sửa', exact: true })
       .waitFor();
     await page.screenshot({ path: path.join(output, 'catalog-desktop.png') });
     await page.getByTitle('Tùy chọn thao tác', { exact: true }).click();
@@ -309,20 +304,21 @@ async function main() {
     assert.equal(await page.locator('.admin-shell').count(),0,'No replacement admin shell');
     for(const [name,href] of legacyLinks) assert.equal(await page.getByRole('navigation').first().getByRole('link',{name,exact:true}).getAttribute('href'),href);
     assert.equal(errors.length, 0, errors.join('\n'));
-    for (const name of Object.keys(ADMIN_RESOURCES).filter(name => !dedicatedPages[name])) {
+    for (const [name] of resourcesToCheck.filter(([name]) => !dedicatedPages[name])) {
       assert.ok(requests.some(request => request.path === `/api/v1/admin/${name}` && request.status === 200), `${name}: real local API listing was checked`);
     }
     const result = {
         checkedAt: new Date().toISOString(),
+        scope: selectedResources ? 'focused' : 'full',
         resourcesChecked: checked,
-        dedicatedPageSmokeChecks: Object.keys(dedicatedPages),
-        genericResourceChecks: checked - Object.keys(dedicatedPages).length,
+        dedicatedPageSmokeChecks: resourcesToCheck.map(([name]) => name).filter(name => dedicatedPages[name]),
+        genericResourceChecks: resourcesToCheck.filter(([name]) => !dedicatedPages[name]).length,
         actualCrud: 'passed',
         legacyMenuUnchanged: 'passed',
         pageErrors: errors,
         screenshots: output,
     };
-    fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify(result, null, 2));
+    fs.writeFileSync(path.join(output, selectedResources ? 'result-focused.json' : 'result.json'), JSON.stringify(result, null, 2));
     console.log(JSON.stringify(result));
   } catch (error) {
     if (page) {

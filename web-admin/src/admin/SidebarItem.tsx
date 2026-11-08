@@ -21,7 +21,6 @@ export const menuResources: Record<string, string[]> = {
   '/manage/services': ['service_categories', 'services', 'service_materials'],
   '/manage/staff_profiles': ['staff_profiles', 'technicians', 'staff_leaves'],
   '/manage/coupons': ['coupons', 'voucher_distribution_rules', 'user_vouchers', 'membership_tier_rules', 'loyalty_point_settings', 'point_transactions'],
-  '/manage/student_certificates': ['certificate_templates', 'student_certificates'],
   '/manage/roles': ['roles', 'permissions', 'role_permissions', 'user_roles', 'audit_logs'],
 };
 

@@ -1,7 +1,7 @@
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+
+const { loadAdminSchema } = require('../../../../database/testing/admin-schema.cjs');
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AdminService } from './admin.service';
@@ -24,32 +24,7 @@ describe('Admin shared-schema integration', () => {
   };
   beforeAll(async () => {
     pg = new PGlite();
-    const schema = readFileSync(
-      resolve(__dirname, '../../../../database/schema.sql'),
-      'utf8',
-    )
-      .replace(/^CREATE EXTENSION[^\n]*$/gm, '')
-      .replace(/^CREATE INDEX[^\n]*gin_trgm_ops[^\n]*$/gm, '');
-    await pg.exec(schema);
-    await pg.exec(`
-      CREATE TABLE departments (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(), code VARCHAR(40) UNIQUE NOT NULL,
-        name VARCHAR(120) UNIQUE NOT NULL, description TEXT, is_active BOOLEAN NOT NULL DEFAULT TRUE,
-        sort_order INT NOT NULL DEFAULT 100, created_by_id UUID, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      );
-      ALTER TABLE staff_profiles ADD COLUMN department_id UUID REFERENCES departments(id);
-      CREATE TABLE course_batch_assistants (
-        batch_id UUID NOT NULL REFERENCES course_batches(id), instructor_id UUID NOT NULL REFERENCES instructors(id),
-        can_mark_attendance BOOLEAN NOT NULL DEFAULT TRUE, can_enter_grades BOOLEAN NOT NULL DEFAULT TRUE,
-        assigned_by_id UUID, assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY(batch_id,instructor_id)
-      );
-      CREATE TABLE student_academic_record_history (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(), academic_record_id UUID NOT NULL,
-        actor_id UUID, reason TEXT NOT NULL, before_data JSONB NOT NULL, after_data JSONB NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      );
-    `);
+    await loadAdminSchema(pg);
     await pg.query(
       "INSERT INTO users(id,phone,full_name,role,referral_code) VALUES($1,'0900000001','Test operator','SUPER_ADMIN','TESTADMIN')",
       [actor.id],
@@ -80,6 +55,13 @@ describe('Admin shared-schema integration', () => {
         ),
         table,
       ).toBe(false);
+    }
+  });
+  it('treats the all-classes UI filter as an unfiltered listing', async () => {
+    for (const table of ['course_enrollments', 'student_attendance', 'student_academic_records']) {
+      const result = await service.list(table, actor, { filter: JSON.stringify({ batch_id: '__ALL__' }) });
+      expect(result.rows).toEqual([]);
+      expect(result.total).toBe(0);
     }
   });
   it('scopes instructor class and grade listings to assigned teaching roles', async () => {
@@ -134,7 +116,7 @@ describe('Admin shared-schema integration', () => {
       [enrollmentOne.id, enrollmentTwo.id],
     );
 
-    const teacher = { id: teacherUser.id, role: 'INSTRUCTOR' };
+    const teacher = { id: teacherUser.id, role: 'INSTRUCTOR', scopes: ['course_batches.read', 'student_academic_records.read'].map(permission => ({ permission, branchId: null })) };
     const batches = await service.list('course_batches', teacher, {});
     expect(batches.rows.map((row) => row.id).sort()).toEqual([batchOne.id, batchTwo.id].sort());
     const grades = await service.list('student_academic_records', teacher, {});
