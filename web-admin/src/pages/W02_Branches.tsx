@@ -1398,6 +1398,11 @@ export const W02_Branches: React.FC = () => {
       );
       return;
     }
+    const restored = await branchService.restoreBranch(branch.id);
+    if (!restored.success) {
+      toast.error('Không thể khôi phục chi nhánh', restored.message);
+      return;
+    }
 
     // 1. Remove from allArchivedBranches
     setAllArchivedBranches((prev) => prev.filter((b) => b.id !== branch.id));
@@ -1458,8 +1463,6 @@ export const W02_Branches: React.FC = () => {
 
     window.dispatchEvent(new CustomEvent('mld_branches_updated'));
 
-    // 4. Update Supabase Cloud
-    await branchService.restoreBranch(branch.id);
   };
 
   const handleSetWorkingBranch = (branchId: string, branchName: string) => {
@@ -1815,6 +1818,11 @@ export const W02_Branches: React.FC = () => {
       );
       return;
     }
+    const restored = await branchService.restoreRoom(roomId);
+    if (!restored.success) {
+      toast.error('Không thể khôi phục phòng', restored.message);
+      return;
+    }
 
     // 1. Gỡ khỏi danh sách lưu trữ CSDL
     setArchivedRooms((prev) => prev.filter((r) => r.id !== roomId));
@@ -1841,8 +1849,6 @@ export const W02_Branches: React.FC = () => {
       `Phòng "${target.name}" đã được khôi phục trở lại hệ thống vận hành. Toàn bộ lịch sử đặt hẹn và đối soát trước đó được giữ nguyên vẹn 100%.`
     );
 
-    // 3. Cập nhật restore trên Supabase Cloud
-    await branchService.restoreRoom(roomId);
   };
 
   // Save Branch Updates

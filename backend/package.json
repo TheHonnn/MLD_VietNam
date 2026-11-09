@@ -19,7 +19,8 @@
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
-    "test:browser": "npm run build && node test/admin-browser.cjs"
+    "test:browser": "npm run build && node test/admin-browser.cjs",
+    "check:admin-schema": "npm run build && node scripts/check-admin-schema.cjs"
   },
   "dependencies": {
     "@nestjs/cli": "^12.0.0",

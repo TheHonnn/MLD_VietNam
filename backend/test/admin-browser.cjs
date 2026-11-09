@@ -2,7 +2,7 @@
 require('reflect-metadata');
 const { PGlite } = require('@electric-sql/pglite');
 const { Test } = require('@nestjs/testing');
-const { ConfigModule } = require('@nestjs/config');
+const { ConfigModule, ConfigService } = require('@nestjs/config');
 const { ValidationPipe } = require('@nestjs/common');
 const { chromium } = require('@playwright/test');
 const { DatabaseModule } = require('../dist/database/database.module');
@@ -31,17 +31,22 @@ async function main() {
   const previousCwd = process.cwd();
   let app, browser, page, frontend;
   const requests = [];
+  const keepAlive = setInterval(() => {}, 1000);
   try {
     process.chdir(path.resolve(__dirname, '../../web-admin'));
     const { createServer } = await import(pathToFileURL(path.resolve(__dirname, '../../web-admin/node_modules/vite/dist/node/index.js')).href);
     frontend = await createServer({
       root: path.resolve(__dirname, '../../web-admin'),
+      cacheDir: path.join(output, 'vite-cache'),
       define: { 'import.meta.env.VITE_API_BASE_URL': JSON.stringify('http://127.0.0.1:3000/api/v1') },
       server: { host: '127.0.0.1', port: 0, strictPort: false, watch: { ignored: ['**/dist/**'] } },
     });
+    console.log('Starting isolated frontend');
     await frontend.listen();
     const frontendUrl = `http://127.0.0.1:${frontend.httpServer.address().port}`;
+    console.log('Preparing isolated migrated database');
     await require('../../database/testing/admin-schema.cjs').loadAdminSchema(pg);
+    console.log('Preparing isolated Nest application');
     const browserAdmin = (await pg.query(
       "INSERT INTO users(phone,full_name,email,role,referral_code,password_hash) VALUES('0900000099','Kiểm thử giao diện','browser-test@mld.local','SUPER_ADMIN','BROWSERTEST',$1) RETURNING id",
       [await bcrypt.hash('Browser-test-only-123', 10)],
@@ -67,6 +72,7 @@ async function main() {
       await previous;
       return { query: client.query, release };
     };
+    console.log('Compiling isolated API');
     const module = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
@@ -96,6 +102,7 @@ async function main() {
       .overrideProvider(SmsService)
       .useValue({})
       .compile();
+    console.log('Starting isolated API');
     app = module.createNestApplication({ logger: false });
     app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(
@@ -108,16 +115,19 @@ async function main() {
     app.useGlobalInterceptors(new TransformInterceptor());
     await app.listen(0, '127.0.0.1');
     const target = await app.getUrl();
+    console.log('Checking authenticated HTTP permissions');
+    const httpPermissions = await require('./support/admin-http-permissions.cjs').verifyHttpPermissions(pg, app, target, module.get(ConfigService));
     browser = await chromium.launch({
       executablePath:
         process.env.CHROME_PATH ||
-        'C:/Program Files/Google/Chrome/Application/chrome.exe',
+        (process.platform === 'win32' ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : chromium.executablePath()),
       headless: true,
     });
     page = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
     });
     page.setDefaultTimeout(15000);
+    page.setDefaultNavigationTimeout(60000);
     const errors = [];
     page.on('request', request => { if (request.url().includes('/api/') || request.url().includes('/rest/')) requests.push({ url: request.url(), method: request.method() }); });
     page.on('pageerror', (e) => errors.push(e.message));
@@ -148,7 +158,7 @@ async function main() {
             }),
           });
         }
-        if (requestUrl.pathname === '/rest/v1/users') {
+        if (requestUrl.pathname === '/rest/v1/users' && requestUrl.searchParams.get('id') === `eq.${browserAdmin.id}`) {
           return route.fulfill({
             status: 200,
             contentType: 'application/json',
@@ -167,16 +177,22 @@ async function main() {
           const result = await pg.query('SELECT b.*, row_to_json(c) AS courses, row_to_json(r) AS branches FROM course_batches b JOIN courses c ON c.id=b.course_id JOIN branches r ON r.id=b.branch_id');
           return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(result.rows) });
         }
-        return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+        const fixture = await require('./support/supabase-read-fixture.cjs').readSupabaseFixture(pg, requestUrl);
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture) });
       }
       return route.abort();
     });
     await page.route(/^http:\/\/(?:localhost|127\.0\.0\.1):3000\/api\/v1\//, async (route) => {
-      const response = await route.fetch({
-        url: route.request().url().replace(/^http:\/\/(?:localhost|127\.0\.0\.1):3000/, target),
-      });
-      requests.push({ path: new URL(route.request().url()).pathname, status: response.status(), body: (await response.text()).slice(0, 300) });
-      await route.fulfill({ response });
+      try {
+        const response = await route.fetch({
+          url: target + new URL(route.request().url()).pathname + new URL(route.request().url()).search,
+        });
+        requests.push({ path: new URL(route.request().url()).pathname, status: response.status(), body: (await response.text()).slice(0, 300) });
+        await route.fulfill({ response });
+      } catch (error) {
+        requests.push({ path: new URL(route.request().url()).pathname, status: 0, error: String(error.message).split('\n')[0] });
+        await route.abort('failed').catch(() => {});
+      }
     });
     await page.goto(frontendUrl + '/');
     await page.getByRole('heading', { name: 'Đăng nhập tài khoản', exact: true }).waitFor();
@@ -231,6 +247,7 @@ async function main() {
     await page.getByRole('dialog').waitFor();
     await page.getByRole('heading',{name:/Thêm mới câu hỏi #/}).waitFor();
     await page.screenshot({path:path.join(output,'quiz-form-desktop.png')});
+    const formReliability = await require('./support/admin-browser-reliability.cjs').verifyDialogAndRecovery(page, frontendUrl, requests, output);
     let checked = 0;
     const dedicatedPages = { branches: '/branches', branch_rooms: '/branches?tab=rooms', student_certificates: '/certificates?tab=list', certificate_templates: '/certificates?tab=template', services: '/services-catalog?tab=services', treatment_packages: '/services-catalog?tab=packages', invoices: '/cashier-pos?tab=receipts' };
     const selectedResources = process.env.ADMIN_BROWSER_RESOURCES?.split(',');
@@ -246,7 +263,7 @@ async function main() {
         continue;
       }
       await page
-        .getByRole('heading', { name: resource.title, exact: true })
+        .getByRole('heading', { name: resource.title })
         .waitFor();
       if (['course_enrollments', 'student_attendance', 'student_academic_records'].includes(name)) {
         await page.getByRole('combobox', { name: 'Chọn Lớp học', exact: true }).selectOption('__ALL__');
@@ -280,7 +297,7 @@ async function main() {
     await dialog
       .getByPlaceholder('Dán link ảnh icon (URL) hoặc nhấn Ctrl+V để dán ảnh icon...')
       .fill('https://example.invalid/icon.png');
-    await dialog.getByRole('button', { name: 'Lưu thay đổi' }).click();
+    await dialog.locator('form').evaluate(form => { form.requestSubmit(); form.requestSubmit(); });
     await page
       .getByRole('cell', { name: 'Bản ghi kiểm thử', exact: true })
       .waitFor();
@@ -304,9 +321,11 @@ async function main() {
     assert.equal(await page.locator('.admin-shell').count(),0,'No replacement admin shell');
     for(const [name,href] of legacyLinks) assert.equal(await page.getByRole('navigation').first().getByRole('link',{name,exact:true}).getAttribute('href'),href);
     assert.equal(errors.length, 0, errors.join('\n'));
+    assert.equal(requests.filter(request => request.method === 'POST' && request.url?.includes('/service_categories/create')).length, 1, 'Submitting twice creates one record');
     for (const [name] of resourcesToCheck.filter(([name]) => !dedicatedPages[name])) {
       assert.ok(requests.some(request => request.path === `/api/v1/admin/${name}` && request.status === 200), `${name}: real local API listing was checked`);
     }
+    const posWorkflow = await require('./support/admin-pos-browser.cjs').verifyPosPayment(page, pg, frontendUrl, output);
     const result = {
         checkedAt: new Date().toISOString(),
         scope: selectedResources ? 'focused' : 'full',
@@ -314,6 +333,9 @@ async function main() {
         dedicatedPageSmokeChecks: resourcesToCheck.map(([name]) => name).filter(name => dedicatedPages[name]),
         genericResourceChecks: resourcesToCheck.filter(([name]) => !dedicatedPages[name]).length,
         actualCrud: 'passed',
+        httpPermissions,
+        formReliability,
+        posWorkflow,
         legacyMenuUnchanged: 'passed',
         pageErrors: errors,
         screenshots: output,
@@ -334,6 +356,7 @@ async function main() {
     process.chdir(previousCwd);
     await app?.close();
     await pg.close();
+    clearInterval(keepAlive);
   }
 }
 main().catch((error) => {

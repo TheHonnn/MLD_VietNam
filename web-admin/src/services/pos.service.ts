@@ -34,7 +34,29 @@ const failed = <T>(error: any, data: T): ApiResponse<T> => ({
   data,
 });
 
+export function effectiveCataloguePrice(item: {price: number; discountPrice?: number | null}) {
+  const base = Number(item.price);
+  const discount = Number(item.discountPrice);
+  return Number.isFinite(discount) && discount > 0 && discount < base ? discount : base;
+}
+
+const numericColumns = new Set(['receipt_net_amount','amount','price','discount_price','base_total','final_price','subtotal','total_amount','amount_paid','tuition_total','duration_minutes','total_sessions','completed_sessions','opening_cash','closing_cash','system_cash','transfer_sales','card_sales','total_sales','discrepancy_amount','vat_rate','vat_amount','pre_tax_amount','discount_amount','points_discount','commission_rate','quantity','max_students','enrolled_count','rating_avg','experience_years','price_min','price_max','reward_points','total_spent','deposit_amount']);
+function fromDatabase(value: any): any {
+  if (Array.isArray(value)) return value.map(fromDatabase);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+    key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase()),
+    numericColumns.has(key) && item !== null ? Number(item) : fromDatabase(item),
+  ]));
+}
+
 export const posService = {
+  async getWorkspace(branchId?: string): Promise<ApiResponse<any>> {
+    try {
+      const data = await adminCommand<any>('cashier/workspace' + (branchId ? '?branchId=' + encodeURIComponent(branchId) : ''));
+      return {success:true,statusCode:200,message:'Đã tải dữ liệu thu ngân.',data:fromDatabase(data)};
+    } catch (error) { return failed(error, null); }
+  },
   async syncInvoices(): Promise<ApiResponse<InvoiceSyncResult | null>> {
     try {
       const result = await supabaseService.syncInvoicesAndRevenue();
@@ -56,7 +78,8 @@ export const posService = {
     search?: string;
   }): Promise<ApiResponse<Invoice[]>> {
     try {
-      let invoices = (await supabaseService.getInvoices(params?.branchId, params?.customerId)) || [];
+      let invoices = await supabaseService.getInvoices(params?.branchId, params?.customerId);
+      if (invoices === null) return failed(new Error('Không tải được hóa đơn.'), []);
       if (params?.paymentStatus) {
         invoices = invoices.filter((invoice) => invoice.paymentStatus === params.paymentStatus);
       }
@@ -87,13 +110,17 @@ export const posService = {
   async collectPayment(data: CashierCollection): Promise<ApiResponse<any>> {
     try {
       const payload = JSON.stringify(data);
-      const saved = sessionStorage.getItem('mld_admin_cashier_request');
-      let prior: {payload: string; requestId: string} | null = null;
-      try { prior = saved ? JSON.parse(saved) : null; } catch {}
-      const requestId = data.requestId || (prior?.payload === payload ? prior.requestId : crypto.randomUUID());
-      sessionStorage.setItem('mld_admin_cashier_request', JSON.stringify({payload,requestId}));
+      let pending: Record<string, string> = {};
+      try { pending = JSON.parse(sessionStorage.getItem('mld_admin_cashier_requests') || '{}'); } catch {}
+      const requestId = data.requestId || pending[payload] || crypto.randomUUID();
+      pending[payload] = requestId;
+      sessionStorage.setItem('mld_admin_cashier_requests', JSON.stringify(pending));
       const result = await adminCommand<any>('cashier/collect', { ...data, requestId });
-      sessionStorage.removeItem('mld_admin_cashier_request');
+      // Preserve other unresolved requests, including a different cart in this tab.
+      let latest: Record<string, string> = {};
+      try { latest = JSON.parse(sessionStorage.getItem('mld_admin_cashier_requests') || '{}'); } catch {}
+      delete latest[payload];
+      sessionStorage.setItem('mld_admin_cashier_requests', JSON.stringify(latest));
       return {
         success: true,
         statusCode: 200,

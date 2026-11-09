@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronDown, type LucideIcon } from 'lucide-react';
 import { Resource } from './api';
+import { useAdmin } from './Auth';
+import { canAccessAdminPath } from './access';
 
 export interface SubMenuItem {
   name: string;
@@ -17,7 +19,7 @@ export const menuResources: Record<string, string[]> = {
   '/academy-enrollment': ['course_enrollments', 'tuition_transactions'],
   '/instructors': ['instructors'],
   '/attendance': ['student_attendance', 'student_academic_records'],
-  '/curriculum': ['course_categories', 'courses', 'course_batches', 'course_chapters', 'course_lessons', 'course_quizzes', 'quiz_questions', 'quiz_submissions', 'user_lesson_progress'],
+  '/curriculum': ['course_categories', 'courses', 'course_batches', 'batch_schedules', 'course_chapters', 'course_lessons', 'course_quizzes', 'quiz_questions', 'quiz_submissions', 'user_lesson_progress'],
   '/manage/services': ['service_categories', 'services', 'service_materials'],
   '/manage/staff_profiles': ['staff_profiles', 'technicians', 'staff_leaves'],
   '/manage/coupons': ['coupons', 'voucher_distribution_rules', 'user_vouchers', 'membership_tier_rules', 'loyalty_point_settings', 'point_transactions'],
@@ -42,6 +44,7 @@ export function SidebarItem({
   subItems,
   onNavigate,
 }: SidebarItemProps) {
+  const { user } = useAdmin();
   const location = useLocation();
   const currentPath = location.pathname;
   const currentFull = location.pathname + location.search;
@@ -51,11 +54,11 @@ export function SidebarItem({
     if (subItems && subItems.length > 0) {
       return subItems.filter((item) => {
         if (item.resourceName) {
-          return resources.length === 0 || resources.some((r) => r.name === item.resourceName);
+          return resources.some((r) => r.name === item.resourceName);
         }
         if (item.path.startsWith('/manage/')) {
           const tbl = item.path.replace('/manage/', '').split('?')[0];
-          return resources.length === 0 || resources.some((r) => r.name === tbl);
+          return resources.some((r) => r.name === tbl);
         }
         return true;
       });

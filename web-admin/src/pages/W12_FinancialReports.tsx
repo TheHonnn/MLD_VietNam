@@ -58,7 +58,9 @@ interface DailyRevenueBar {
 }
 
 export const W12_FinancialReports: React.FC = () => {
-  const [dateRange, setDateRange] = useState('Tháng 10/2026');
+  const [dateRange, setDateRange] = useState(() => new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit',
+  }).format(new Date()));
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [methodFilter, setMethodFilter] = useState('all');
   const [branchFilter, setBranchFilter] = useState('all');
@@ -68,9 +70,12 @@ export const W12_FinancialReports: React.FC = () => {
   const [liveCertificates, setLiveCertificates] = useState<StudentCertificate[]>([]);
   const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
   const [liveBranches, setLiveBranches] = useState<Branch[]>([]);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     const fetchReportsData = async () => {
+      setLoadState('loading');
       try {
         const [invRes, ttRes, certRes, bkRes, brRes] = await Promise.all([
           posService.getInvoices(),
@@ -79,13 +84,17 @@ export const W12_FinancialReports: React.FC = () => {
           bookingService.getBookings(),
           branchService.getAllBranches(),
         ]);
-        if (invRes.success) setLiveInvoices(invRes.data);
-        if (ttRes.success) setLiveTuitionTrans(ttRes.data);
-        if (certRes.success) setLiveCertificates(certRes.data);
-        if (bkRes.success) setLiveBookings(bkRes.data);
-        if (brRes.success) setLiveBranches(brRes.data);
+        if (![invRes, ttRes, certRes, bkRes, brRes].every((result) => result.success))
+          throw new Error('Một hoặc nhiều nguồn dữ liệu báo cáo không tải được.');
+        setLiveInvoices(invRes.data);
+        setLiveTuitionTrans(ttRes.data);
+        setLiveCertificates(certRes.data);
+        setLiveBookings(bkRes.data);
+        setLiveBranches(brRes.data);
+        setLoadState('ready');
       } catch (err) {
         console.error('Failed to load financial reports data:', err);
+        setLoadState('error');
       }
     };
     fetchReportsData();
@@ -104,7 +113,7 @@ export const W12_FinancialReports: React.FC = () => {
     return () => {
       window.removeEventListener('mld_branches_updated' as any, handleBranchesUpdated);
     };
-  }, []);
+  }, [reloadToken]);
 
   // Modals state
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -121,19 +130,26 @@ export const W12_FinancialReports: React.FC = () => {
   // 1. Dynamic Completed Invoices
   const completedInvoicesData: CompletedInvoice[] = useMemo(() => {
     const list: CompletedInvoice[] = [];
-    const processedEnrollmentIds = new Set<string>();
+    // Tuition transactions are the payment ledger. A legacy enrollment invoice
+    // summarizes that ledger and must not replace later installments/refunds.
+    const enrollmentIdsWithLedger = new Set(liveTuitionTrans
+      .filter((transaction) => transaction.paymentStatus === 'PAID')
+      .map((transaction) => transaction.enrollmentId)
+      .filter(Boolean));
     const processedInvoiceCodes = new Set<string>();
 
     // From Invoices
     liveInvoices
-      .filter((inv) => inv.paymentStatus === 'PAID')
+      .filter((inv) => ['PAID', 'REFUNDED'].includes(inv.paymentStatus)
+        && (!inv.enrollmentId || !enrollmentIdsWithLedger.has(inv.enrollmentId)))
       .forEach((inv) => {
-        const d = inv.paidAt ? new Date(inv.paidAt) : new Date();
-        const dateStr = d.toLocaleDateString('vi-VN');
-        const dateKey = d.toISOString().split('T')[0];
+        const isRefunded = inv.paymentStatus === 'REFUNDED';
+        const d = (isRefunded && inv.refundedAt ? new Date(inv.refundedAt) : inv.paidAt ? new Date(inv.paidAt) : new Date());
+        const dateStr = d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+        const dateKey = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).format(d);
 
         const isCourse = Boolean(inv.enrollmentId) || inv.serviceCategory === 'ACADEMY';
-        const isPackage = Boolean(inv.userPackageId) || inv.serviceCategory === 'PACKAGE' || (!isCourse && inv.subtotal >= 2000000);
+        const isPackage = Boolean(inv.userPackageId) || inv.serviceCategory === 'PACKAGE';
         const category: 'service' | 'package' | 'course' = isCourse ? 'course' : isPackage ? 'package' : 'service';
 
         const methodType: 'pos' | 'online' | 'bank' =
@@ -149,10 +165,11 @@ export const W12_FinancialReports: React.FC = () => {
             ? 'Chuyển khoản QR'
             : 'Thanh toán tại cơ sở';
 
-        if (inv.enrollmentId) {
-          processedEnrollmentIds.add(inv.enrollmentId);
-        }
         processedInvoiceCodes.add(inv.invoiceCode);
+
+        const netAmount = isRefunded
+          ? -Math.abs(inv.refundAmount || inv.totalAmount)
+          : (inv.totalAmount - (inv.refundAmount || 0));
 
         list.push({
           id: inv.id,
@@ -167,9 +184,9 @@ export const W12_FinancialReports: React.FC = () => {
           method,
           methodType,
           category,
-          amountNumber: inv.totalAmount,
-          amount: `${inv.totalAmount.toLocaleString('vi-VN')}đ`,
-          statusText: 'Đã thanh toán',
+          amountNumber: netAmount,
+          amount: `${netAmount < 0 ? '-' : ''}${Math.abs(netAmount).toLocaleString('vi-VN')}đ`,
+          statusText: isRefunded ? 'Đã hoàn tiền' : 'Đã thanh toán',
           branchId: inv.branchId,
         });
       });
@@ -178,16 +195,13 @@ export const W12_FinancialReports: React.FC = () => {
     liveTuitionTrans
       .filter((tt) => tt.paymentStatus === 'PAID')
       .forEach((tt) => {
-        if (tt.enrollmentId && processedEnrollmentIds.has(tt.enrollmentId)) {
-          return;
-        }
         if (processedInvoiceCodes.has(tt.transactionCode)) {
           return;
         }
 
         const d = tt.paidAt ? new Date(tt.paidAt) : tt.dueDate ? new Date(tt.dueDate) : new Date();
-        const dateStr = d.toLocaleDateString('vi-VN');
-        const dateKey = d.toISOString().split('T')[0];
+        const dateStr = d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+        const dateKey = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).format(d);
 
         const methodType: 'pos' | 'online' | 'bank' =
           tt.paymentMethod === 'MOMO'
@@ -202,6 +216,7 @@ export const W12_FinancialReports: React.FC = () => {
             ? 'Chuyển khoản QR'
             : 'Thanh toán tại cơ sở';
 
+        const netAmount = tt.transactionType === 'REFUND' ? -Math.abs(tt.amount) : tt.amount;
         list.push({
           id: tt.id,
           code: tt.transactionCode,
@@ -211,9 +226,9 @@ export const W12_FinancialReports: React.FC = () => {
           method,
           methodType,
           category: 'course',
-          amountNumber: tt.amount,
-          amount: `${tt.amount.toLocaleString('vi-VN')}đ`,
-          statusText: 'Đã thanh toán',
+          amountNumber: netAmount,
+          amount: `${netAmount.toLocaleString('vi-VN')}đ`,
+          statusText: tt.transactionType === 'REFUND' ? 'Đã hoàn' : 'Đã thanh toán',
           branchId: tt.branchId,
         });
       });
@@ -276,16 +291,16 @@ export const W12_FinancialReports: React.FC = () => {
         inv.branchId === branchFilter ||
         (inv.branchId && branchFilter && inv.branchId.toLowerCase().includes(branchFilter.toLowerCase()));
 
-      return matchCategory && matchMethod && matchBranch;
+      return inv.dateKey.startsWith(`${dateRange}-`) && matchCategory && matchMethod && matchBranch;
     });
-  }, [completedInvoicesData, categoryFilter, methodFilter, branchFilter]);
+  }, [completedInvoicesData, dateRange, categoryFilter, methodFilter, branchFilter]);
 
   // 4. Financial KPI Aggregates
   const totalCollected = useMemo(() => {
-    return filteredInvoices.reduce((sum, inv) => sum + inv.amountNumber, 0);
+    return filteredInvoices.reduce((sum, inv) => sum + Math.max(0, inv.amountNumber), 0);
   }, [filteredInvoices]);
 
-  const totalRefund = 0;
+  const totalRefund = filteredInvoices.reduce((sum, inv) => sum + Math.max(0, -inv.amountNumber), 0);
   const netRevenue = totalCollected - totalRefund;
 
   const totalReceivables = useMemo(() => {
@@ -308,9 +323,9 @@ export const W12_FinancialReports: React.FC = () => {
       .filter((i) => i.category === 'course')
       .reduce((sum, i) => sum + i.amountNumber, 0);
 
-    const sPct = totalCollected > 0 ? ((serviceTotal / totalCollected) * 100).toFixed(1) : '0';
-    const pPct = totalCollected > 0 ? ((packageTotal / totalCollected) * 100).toFixed(1) : '0';
-    const cPct = totalCollected > 0 ? ((courseTotal / totalCollected) * 100).toFixed(1) : '0';
+    const sPct = netRevenue > 0 ? ((serviceTotal / netRevenue) * 100).toFixed(1) : '0';
+    const pPct = netRevenue > 0 ? ((packageTotal / netRevenue) * 100).toFixed(1) : '0';
+    const cPct = netRevenue > 0 ? ((courseTotal / netRevenue) * 100).toFixed(1) : '0';
 
     return {
       serviceTotal,
@@ -320,7 +335,7 @@ export const W12_FinancialReports: React.FC = () => {
       pPct,
       cPct,
     };
-  }, [filteredInvoices, totalCollected]);
+  }, [filteredInvoices, netRevenue]);
 
   // 6. Payment Method Breakdown
   const methodBreakdown = useMemo(() => {
@@ -343,36 +358,39 @@ export const W12_FinancialReports: React.FC = () => {
 
   // 7. Branch Comparison
   const branchComparison = useMemo(() => {
-    const q3Invoices = completedInvoicesData.filter((i) => i.branchId.includes('0001'));
-    const q1Invoices = completedInvoicesData.filter((i) => i.branchId.includes('0002'));
-
-    const q3Total = q3Invoices.reduce((sum, i) => sum + i.amountNumber, 0);
-    const q1Total = q1Invoices.reduce((sum, i) => sum + i.amountNumber, 0);
-
-    return {
-      q3Count: q3Invoices.length,
-      q3Total,
-      q1Count: q1Invoices.length,
-      q1Total,
-    };
-  }, [completedInvoicesData]);
+    return liveBranches.map((branch) => {
+      const invoices = filteredInvoices.filter((invoice) => invoice.branchId === branch.id);
+      return {
+        id: branch.id,
+        name: branch.name,
+        count: invoices.length,
+        total: invoices.reduce((sum, invoice) => sum + invoice.amountNumber, 0),
+      };
+    });
+  }, [filteredInvoices, liveBranches]);
 
   // 8. Daily Revenue Chart Bars (Dynamic 7-day rolling window)
   const dailyChartBars: DailyRevenueBar[] = useMemo(() => {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(dateRange)) return [];
     const days: string[] = [];
-    const now = new Date();
+    const todayKey = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+    const [year, month] = dateRange.split('-').map(Number);
+    const endKey = dateRange === todayKey.slice(0, 7)
+      ? todayKey
+      : new Date(Date.UTC(year, month, 0, 12)).toISOString().slice(0, 10);
+    const end = new Date(`${endKey}T12:00:00Z`);
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      days.push(d.toLocaleDateString('vi-VN'));
+      const d = new Date(end);
+      d.setUTCDate(d.getUTCDate() - i);
+      days.push(d.toISOString().slice(0, 10));
     }
 
     const dayTotals: Record<string, number> = {};
     days.forEach((d) => (dayTotals[d] = 0));
 
-    completedInvoicesData.forEach((inv) => {
-      if (dayTotals[inv.date] !== undefined) {
-        dayTotals[inv.date] += inv.amountNumber;
+    filteredInvoices.forEach((inv) => {
+      if (dayTotals[inv.dateKey] !== undefined) {
+        dayTotals[inv.dateKey] += inv.amountNumber;
       }
     });
 
@@ -391,17 +409,18 @@ export const W12_FinancialReports: React.FC = () => {
           : 'bg-[#D7BBA6]';
 
       return {
-        date,
+        date: new Date(`${date}T12:00:00Z`).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
         amountNumber: amount,
         amountText: amount > 0 ? `${(amount / 1000000).toFixed(1)}Tr` : '0đ',
         heightPx: height,
         barColor: color,
       };
     });
-  }, [completedInvoicesData]);
+  }, [dateRange, filteredInvoices]);
 
   const handleExportReport = (e: React.FormEvent) => {
     e.preventDefault();
+    if (loadState !== 'ready') return;
     try {
       const fileDateStr = new Date().toISOString().split('T')[0];
       const rows = filteredInvoices.map((inv, idx) => ({
@@ -497,6 +516,13 @@ export const W12_FinancialReports: React.FC = () => {
     }
   };
 
+  if (loadState !== 'ready') return (
+    <div role={loadState === 'error' ? 'alert' : 'status'} className="rounded-2xl border border-[#EFE4D9] bg-white p-5 text-sm text-[#2C241E]">
+      {loadState === 'loading' ? 'Đang tải dữ liệu báo cáo...' : 'Không tải đủ dữ liệu để lập báo cáo. Vui lòng thử lại.'}
+      {loadState === 'error' && <button className="ml-3 font-semibold text-[#8D4B1A]" onClick={() => setReloadToken((value) => value + 1)}>Tải lại</button>}
+    </div>
+  );
+
   return (
     <div className="space-y-5 font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Toast Alert */}
@@ -518,6 +544,7 @@ export const W12_FinancialReports: React.FC = () => {
 
         <button
           onClick={() => setIsExportModalOpen(true)}
+          disabled={loadState !== 'ready'}
           className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
         >
           Xuất báo cáo
@@ -529,7 +556,7 @@ export const W12_FinancialReports: React.FC = () => {
         {/* Date Range Input */}
         <div className="relative flex-1 min-w-[180px] w-full sm:w-auto">
           <input
-            type="text"
+            type="month"
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
             className="w-full px-3.5 py-2 bg-white border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
@@ -596,7 +623,7 @@ export const W12_FinancialReports: React.FC = () => {
             {totalCollected.toLocaleString('vi-VN')}đ
           </div>
           <div className="text-xs text-[#73675F] mt-3">
-            {filteredInvoices.length} biên nhận hoàn tất
+            {filteredInvoices.filter((invoice) => invoice.amountNumber > 0).length} biên nhận hoàn tất
           </div>
         </div>
 
@@ -610,7 +637,7 @@ export const W12_FinancialReports: React.FC = () => {
             {totalRefund.toLocaleString('vi-VN')}đ
           </div>
           <div className="text-xs text-[#73675F] mt-3">
-            Không có khoản hoàn trong kỳ
+            {filteredInvoices.filter((invoice) => invoice.amountNumber < 0).length} khoản hoàn trong kỳ
           </div>
         </div>
 
@@ -773,7 +800,7 @@ export const W12_FinancialReports: React.FC = () => {
             <div className="flex items-center justify-between text-[#73675F]">
               <span>Tổng cộng</span>
               <span className="text-[#2C241E] font-bold">
-                {totalCollected.toLocaleString('vi-VN')}đ
+                {netRevenue.toLocaleString('vi-VN')}đ
               </span>
             </div>
           </div>
@@ -786,18 +813,12 @@ export const W12_FinancialReports: React.FC = () => {
           </h2>
 
           <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-[#73675F]">Quận 3 · {branchComparison.q3Count} biên nhận</span>
-              <span className="text-[#2C241E] font-semibold">
-                {branchComparison.q3Total.toLocaleString('vi-VN')}đ
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[#73675F]">Quận 1 · {branchComparison.q1Count} biên nhận</span>
-              <span className="text-[#2C241E] font-semibold">
-                {branchComparison.q1Total.toLocaleString('vi-VN')}đ
-              </span>
-            </div>
+            {branchComparison.map((branch) => (
+              <div key={branch.id} className="flex items-center justify-between gap-3">
+                <span className="text-[#73675F]">{branch.name} · {branch.count} biên nhận</span>
+                <span className="text-[#2C241E] font-semibold">{branch.total.toLocaleString('vi-VN')}đ</span>
+              </div>
+            ))}
           </div>
 
           <div className="text-[11px] text-[#73675F] leading-relaxed pt-1">
@@ -1013,8 +1034,9 @@ export const W12_FinancialReports: React.FC = () => {
               <div>
                 <label className="block font-semibold text-[#2C241E] mb-1.5">Khoảng thời gian báo cáo</label>
                 <input
-                  type="text"
-                  defaultValue={dateRange}
+                  type="month"
+                  value={dateRange}
+                  onChange={(event) => setDateRange(event.target.value)}
                   className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                 />
               </div>
@@ -1064,7 +1086,7 @@ export const W12_FinancialReports: React.FC = () => {
                 <div className="p-3 bg-[#FAF5EF] rounded-xl border border-[#EFE4D9] space-y-1 text-[#73675F]">
                   <div>• Tổng thực thu trong kỳ: {netRevenue.toLocaleString('vi-VN')}đ ({filteredInvoices.length} biên nhận)</div>
                   <div>• Tổng công nợ cần thu ngay: {totalReceivables.toLocaleString('vi-VN')}đ</div>
-                  <div>• Chi nhánh: Quận 3 và Quận 1</div>
+                  <div>• Chi nhánh: {branchComparison.map((branch) => branch.name).join(', ') || 'Chưa có dữ liệu'}</div>
                 </div>
               </div>
 

@@ -10,7 +10,7 @@ Lệnh build backend rồi tự khởi động Vite và Nest trên loopback. C�
 
 ## Dữ liệu và dịch vụ
 
-- Database PGlite nằm trong bộ nhớ, được tạo từ `database/schema.sql` và phần schema bộ phận/trợ giảng của migration 024–025, rồi hủy sau khi chạy. Các policy Supabase không được kiểm thử bằng database này.
+- Database PGlite nằm trong bộ nhớ, được tạo từ `database/schema.sql`, `enterprise_features.sql` và migration 022, 024–027 đầy đủ qua `database/testing/admin-schema.cjs`, rồi hủy sau khi chạy. Các policy Supabase không được kiểm thử bằng database này.
 - Tài khoản quản trị, chi nhánh, nhân viên, khóa học và lớp học đều là dữ liệu kiểm thử.
 - Đăng nhập Supabase được giả lập trong trình duyệt. Các request Supabase bị chặn và trả dữ liệu kiểm thử; không được gửi ra dịch vụ thật.
 - API quản trị được chuyển đến Nest local và dùng PGlite. Email, SMS, Redis và Supabase phía Nest được thay bằng provider giả lập.
@@ -20,7 +20,7 @@ Lệnh build backend rồi tự khởi động Vite và Nest trên loopback. C�
 - Đăng nhập và dashboard; cấu trúc menu, đường dẫn và cuộn sidebar độc lập.
 - Hiển thị đúng tên nhân viên từ tài khoản đã tạo.
 - Mở các biểu mẫu bài học, bài kiểm tra và câu hỏi theo giao diện hiện tại.
-- 51 đường dẫn phân hệ: 46 trang danh sách quản trị và 5 trang riêng (chi nhánh, phòng, chứng nhận, dịch vụ, gói liệu trình). Năm trang riêng chỉ được kiểm tra chuyển trang và hiển thị tiêu đề.
+- 51 đường dẫn phân hệ: 44 trang danh sách quản trị và 7 trang riêng (chi nhánh, phòng, danh sách chứng nhận, mẫu chứng nhận, hóa đơn, dịch vụ, gói liệu trình). Bảy trang riêng chỉ được kiểm tra chuyển trang và hiển thị tiêu đề.
 - Mở biểu mẫu tạo mới của các trang quản trị cho phép ghi. Các màn hình ghi danh, điểm danh và bảng điểm được chuyển sang bộ lọc toàn bộ lớp.
 - Thêm, sửa, xóa một danh mục dịch vụ qua giao diện và kiểm tra kết quả xóa trong database.
 - Không có lỗi JavaScript trên trang; các trang danh sách quản trị phải có phản hồi API local thành công.
@@ -28,6 +28,13 @@ Lệnh build backend rồi tự khởi động Vite và Nest trên loopback. C�
 Kết quả thành công được lưu tại `.local-archive/admin-review/result.json`, cùng ảnh chụp. Nếu lỗi, kiểm tra `failure.png`, `failure.html` và `requests.json` trong cùng thư mục. Các tệp lỗi có thể thuộc lần chạy trước; đối chiếu thời gian với `checkedAt` của kết quả thành công.
 
 Để chẩn đoán nhanh một phân hệ, có thể đặt `ADMIN_BROWSER_RESOURCES=service_categories` (hoặc danh sách tên bảng ngăn bằng dấu phẩy). Kết quả chạy giới hạn được ghi riêng vào `result-focused.json`, với `scope: focused`; kết quả đầy đủ có `scope: full`.
+
+## Kiểm tra bổ sung
+
+- HTTP dùng JWT nội bộ thật: thiếu token, sai audience, quyền theo chi nhánh, từ chối ghi chéo chi nhánh, quyền thu ngân, tài khoản bị khóa.
+- Trình duyệt: giữ dữ liệu khi hủy đóng biểu mẫu, báo lỗi tại trường, không fallback sau 403, tải lại thành công, hai submit chỉ tạo một bản ghi.
+- POS: chọn dịch vụ → mở ca → thanh toán → hóa đơn và chi tiết lưu thật → doanh thu ca khớp.
+- Hướng dẫn triển khai: `docs/admin-reliability-improvements.md`.
 
 ## Giới hạn của kết quả
 

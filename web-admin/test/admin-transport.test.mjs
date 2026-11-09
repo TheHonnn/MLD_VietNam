@@ -40,5 +40,15 @@ test('backend errors never change data source or replay a write', async t => {
       await assert.rejects(adminCommand('cashier/collect', {}), /Forbidden/);
       assert.equal(calls, 1);
     });
+    await t.test('simultaneous identical writes share one confirmed request', async () => {
+      let calls = 0, finish;
+      globalThis.fetch = async () => { calls++; return new Promise(resolve => { finish = resolve; }); };
+      const body = { key: { id: 'same-user' }, values: { full_name: 'Persisted' } };
+      const first = adminApi('users/update', body);
+      const second = adminApi('users/update', body);
+      finish(new Response(JSON.stringify({success:true,data:{saved:true}})));
+      assert.deepEqual(await Promise.all([first,second]), [{saved:true},{saved:true}]);
+      assert.equal(calls,1);
+    });
   } finally { Object.assign(globalThis, original); }
 });

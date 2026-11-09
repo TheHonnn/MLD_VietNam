@@ -205,16 +205,16 @@ export const W14_ZaloZNS: React.FC = () => {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-[#E8EFF5] shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-[#EFE4D9] shadow-xs">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-600 mb-1">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#8A4F23] mb-1">
             <Smartphone className="w-4 h-4" />
             <span>Chăm sóc khách hàng tự động hóa</span>
           </div>
-          <h1 className="text-2xl font-bold text-[#1E293B]">
+          <h1 className="text-2xl font-bold text-[#2C241E]">
             Quản Lý Kịch Bản & Tự Động Hóa CRM Zalo ZNS
           </h1>
-          <p className="text-xs text-[#64748B] mt-1">
+          <p className="text-xs text-[#73675F] mt-1">
             Tự động gửi tin nhắn thương hiệu MLD qua cổng Zalo ZNS: Xác nhận lịch hẹn, nhắc hẹn trước 2h, dặn dò sau trị liệu 24h và nhắc tái khám 14 ngày.
           </p>
         </div>
@@ -222,7 +222,7 @@ export const W14_ZaloZNS: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsTestModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#8A4F23] hover:bg-[#72401C] text-white rounded-xl text-xs font-semibold transition-colors shadow-xs cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Gửi tin kiểm thử</span>
@@ -231,7 +231,7 @@ export const W14_ZaloZNS: React.FC = () => {
           <button
             onClick={loadData}
             disabled={isLoading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#334155] rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#FAF8F5] hover:bg-[#F3E5D4] text-[#2C241E] border border-[#E8DFD8] rounded-xl text-xs font-semibold transition-colors cursor-pointer"
           >
             <RotateCcw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             <span>Làm mới</span>
@@ -240,13 +240,13 @@ export const W14_ZaloZNS: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#E2E8F0] gap-4">
+      <div className="flex border-b border-[#EFE4D9] gap-4">
         <button
           onClick={() => setActiveTab('templates')}
           className={`pb-3 px-2 text-xs font-bold transition-colors cursor-pointer flex items-center gap-2 border-b-2 ${
             activeTab === 'templates'
-              ? 'border-sky-600 text-sky-600'
-              : 'border-transparent text-[#64748B] hover:text-[#0F172A]'
+              ? 'border-[#8A4F23] text-[#8A4F23]'
+              : 'border-transparent text-[#73675F] hover:text-[#2C241E]'
           }`}
         >
           <Sliders className="w-4 h-4" />
@@ -257,8 +257,8 @@ export const W14_ZaloZNS: React.FC = () => {
           onClick={() => setActiveTab('logs')}
           className={`pb-3 px-2 text-xs font-bold transition-colors cursor-pointer flex items-center gap-2 border-b-2 ${
             activeTab === 'logs'
-              ? 'border-sky-600 text-sky-600'
-              : 'border-transparent text-[#64748B] hover:text-[#0F172A]'
+              ? 'border-[#8A4F23] text-[#8A4F23]'
+              : 'border-transparent text-[#73675F] hover:text-[#2C241E]'
           }`}
         >
           <Clock className="w-4 h-4" />
@@ -269,8 +269,8 @@ export const W14_ZaloZNS: React.FC = () => {
           onClick={() => setActiveTab('config')}
           className={`pb-3 px-2 text-xs font-bold transition-colors cursor-pointer flex items-center gap-2 border-b-2 ${
             activeTab === 'config'
-              ? 'border-sky-600 text-sky-600'
-              : 'border-transparent text-[#64748B] hover:text-[#0F172A]'
+              ? 'border-[#8A4F23] text-[#8A4F23]'
+              : 'border-transparent text-[#73675F] hover:text-[#2C241E]'
           }`}
         >
           <Settings className="w-4 h-4" />
@@ -289,15 +289,15 @@ export const W14_ZaloZNS: React.FC = () => {
           {templates.map((tmpl) => (
             <div
               key={tmpl.id}
-              className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs p-5 flex flex-col justify-between hover:border-sky-300 transition-all"
+              className="bg-white rounded-2xl border border-[#EFE4D9] shadow-xs p-5 flex flex-col justify-between hover:border-[#8A4F23]/40 transition-all"
             >
               <div>
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-100">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8A4F23] bg-[#FAF0E4] px-2 py-0.5 rounded-full border border-[#E8DFD8]">
                       {tmpl.templateCode}
                     </span>
-                    <h3 className="font-bold text-[#0F172A] text-sm mt-1.5">{tmpl.name}</h3>
+                    <h3 className="font-bold text-[#2C241E] text-sm mt-1.5">{tmpl.name}</h3>
                   </div>
 
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -307,11 +307,11 @@ export const W14_ZaloZNS: React.FC = () => {
                       onChange={() => handleToggleTemplate(tmpl.id, tmpl.isActive)}
                       className="sr-only peer"
                     />
-                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-600"></div>
+                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#8A4F23]"></div>
                   </label>
                 </div>
 
-                <p className="text-xs text-[#64748B] mb-4">{tmpl.description}</p>
+                <p className="text-xs text-[#73675F] mb-4">{tmpl.description}</p>
 
                 {/* Zalo Chat Bubble Simulation */}
                 <div className="bg-[#EBF3FB] p-4 rounded-2xl border border-[#D0E2F5] relative text-xs text-[#1E293B] shadow-2xs">
@@ -326,11 +326,11 @@ export const W14_ZaloZNS: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-[#F1F5F9] flex items-center justify-between text-[11px] text-[#64748B]">
+              <div className="mt-4 pt-3 border-t border-[#EFE4D9] flex items-center justify-between text-[11px] text-[#73675F]">
                 <span>Trạng thái tự động:</span>
                 <span
                   className={`font-semibold ${
-                    tmpl.isActive ? 'text-emerald-600' : 'text-gray-400'
+                    tmpl.isActive ? 'text-[#0D6832]' : 'text-gray-400'
                   }`}
                 >
                   {tmpl.isActive ? '● Đang kích hoạt' : '○ Tạm dừng'}
@@ -345,25 +345,25 @@ export const W14_ZaloZNS: React.FC = () => {
       {activeTab === 'logs' && (
         <div className="space-y-4">
           {/* Search Bar */}
-          <div className="bg-white p-4 rounded-2xl border border-[#E2E8F0] shadow-xs flex flex-wrap items-center gap-3">
+          <div className="bg-white p-4 rounded-2xl border border-[#EFE4D9] shadow-xs flex flex-wrap items-center gap-3">
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Tìm theo số điện thoại..."
                 value={searchPhone}
                 onChange={(e) => setSearchPhone(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && loadData()}
-                className="w-full pl-9 pr-3 py-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500 focus:bg-white transition-all"
+                className="w-full pl-9 pr-3 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23] focus:bg-white transition-all"
               />
             </div>
 
-            <div className="flex items-center gap-1.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs">
-              <Filter className="w-3.5 h-3.5 text-[#64748B]" />
+            <div className="flex items-center gap-1.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl px-3 py-2 text-xs">
+              <Filter className="w-3.5 h-3.5 text-[#8C7A6B]" />
               <select
                 value={filterTemplate}
                 onChange={(e) => setFilterTemplate(e.target.value)}
-                className="bg-transparent text-xs text-[#0F172A] focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs text-[#2C241E] focus:outline-none cursor-pointer"
               >
                 <option value="all">Tất cả mẫu tin</option>
                 {templates.map((t) => (
@@ -374,11 +374,11 @@ export const W14_ZaloZNS: React.FC = () => {
               </select>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs">
+            <div className="flex items-center gap-1.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl px-3 py-2 text-xs">
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="bg-transparent text-xs text-[#0F172A] focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs text-[#2C241E] focus:outline-none cursor-pointer"
               >
                 <option value="all">Tất cả trạng thái</option>
                 <option value="SENT">Đã gửi (SENT)</option>
@@ -389,18 +389,18 @@ export const W14_ZaloZNS: React.FC = () => {
 
             <button
               onClick={loadData}
-              className="px-3.5 py-2 bg-sky-600 text-white rounded-xl text-xs font-semibold hover:bg-sky-700 transition-colors cursor-pointer"
+              className="px-3.5 py-2 bg-[#8A4F23] hover:bg-[#72401C] text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
             >
               Lọc
             </button>
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+          <div className="bg-white rounded-2xl border border-[#EFE4D9] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
+                  <tr className="bg-[#FAF8F5] border-b border-[#EFE4D9] text-[11px] font-bold text-[#73675F] uppercase tracking-wider">
                     <th className="py-3 px-4">Người nhận & SĐT</th>
                     <th className="py-3 px-4">Kịch bản ZNS</th>
                     <th className="py-3 px-4">Tham số đã truyền</th>
@@ -408,44 +408,44 @@ export const W14_ZaloZNS: React.FC = () => {
                     <th className="py-3 px-4 text-center">Trạng thái</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F1F5F9] text-xs text-[#334155]">
+                <tbody className="divide-y divide-[#EFE4D9] text-xs text-[#2C241E]">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={5} className="py-12 text-center text-[#94A3B8]">
+                      <td colSpan={5} className="py-12 text-center text-[#8C7A6B]">
                         <div className="flex flex-col items-center gap-2">
-                          <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                          <div className="w-6 h-6 border-2 border-[#8A4F23] border-t-transparent rounded-full animate-spin" />
                           <span>Đang tải nhật ký ZNS...</span>
                         </div>
                       </td>
                     </tr>
                   ) : logs.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-12 text-center text-[#94A3B8]">
-                        <p className="font-medium text-sm">Chưa có nhật ký gửi tin ZNS nào</p>
+                      <td colSpan={5} className="py-12 text-center text-[#8C7A6B]">
+                        <p className="font-medium text-sm text-[#2C241E]">Chưa có nhật ký gửi tin ZNS nào</p>
                       </td>
                     </tr>
                   ) : (
                     logs.map((log) => (
-                      <tr key={log.id} className="hover:bg-[#F8FAFC] transition-colors">
+                      <tr key={log.id} className="hover:bg-[#FAF8F5] transition-colors">
                         <td className="py-3 px-4">
-                          <div className="font-bold text-[#0F172A]">{log.recipientName || 'Khách hàng'}</div>
-                          <div className="text-[11px] text-[#64748B] flex items-center gap-1 mt-0.5 font-mono">
-                            <Phone className="w-3 h-3 text-[#94A3B8]" />
+                          <div className="font-bold text-[#2C241E]">{log.recipientName || 'Khách hàng'}</div>
+                          <div className="text-[11px] text-[#73675F] flex items-center gap-1 mt-0.5 font-mono">
+                            <Phone className="w-3 h-3 text-[#8C7A6B]" />
                             <span>{log.recipientPhone}</span>
                           </div>
                         </td>
 
                         <td className="py-3 px-4">
-                          <span className="font-semibold text-sky-800 text-xs">
+                          <span className="font-semibold text-[#8A4F23] text-xs">
                             {templates.find((t) => t.templateCode === log.templateCode)?.name || log.templateCode}
                           </span>
                         </td>
 
-                        <td className="py-3 px-4 max-w-xs truncate text-[11px] text-[#64748B] font-mono">
+                        <td className="py-3 px-4 max-w-xs truncate text-[11px] text-[#73675F] font-mono">
                           {JSON.stringify(log.paramsSent)}
                         </td>
 
-                        <td className="py-3 px-4 text-[11px] text-[#64748B]">
+                        <td className="py-3 px-4 text-[11px] text-[#73675F]">
                           {new Date(log.sentAt).toLocaleString('vi-VN')}
                         </td>
 
@@ -491,19 +491,19 @@ export const W14_ZaloZNS: React.FC = () => {
               <div
                 className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                   zaloConfig.accessToken && zaloConfig.accessToken.trim()
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-[#0D6832] text-white'
                     : 'bg-amber-600 text-white'
                 }`}
               >
                 <Shield className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-[#0F172A]">
+                <h3 className="font-bold text-sm text-[#2C241E]">
                   {zaloConfig.accessToken && zaloConfig.accessToken.trim()
                     ? 'Cổng Zalo Cloud OpenAPI Đã Cấu Hình Sẵn Sàng'
                     : 'Cổng Zalo Cloud API Chờ Cấu Hình Token'}
                 </h3>
-                <p className="text-xs text-[#64748B] mt-0.5">
+                <p className="text-xs text-[#73675F] mt-0.5">
                   {zaloConfig.accessToken && zaloConfig.accessToken.trim()
                     ? 'Hệ thống kết nối trực tiếp với endpoint Zalo OpenAPI chính thức: business.openapi.zalo.me.'
                     : 'Hệ thống đang hoạt động ở chế độ Sandbox ghi log CSDL. Vui lòng nạp Access Token từ Zalo Developers để kích hoạt tin gửi thực.'}
@@ -516,7 +516,7 @@ export const W14_ZaloZNS: React.FC = () => {
                 type="button"
                 onClick={handleAutoRefreshToken}
                 disabled={isRefreshingToken}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                className="px-4 py-2 bg-[#0D6832] hover:bg-[#094c24] text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                 title="Tự động gia hạn Access Token qua Zalo OAuth v4"
               >
                 <Sparkles className={`w-3.5 h-3.5 ${isRefreshingToken ? 'animate-spin' : ''}`} />
@@ -526,7 +526,7 @@ export const W14_ZaloZNS: React.FC = () => {
                 type="button"
                 onClick={handleTestConnection}
                 disabled={isTestingConnection}
-                className="px-4 py-2 bg-white border border-[#CBD5E1] hover:bg-gray-50 text-[#0F172A] rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                className="px-4 py-2 bg-[#FAF8F5] border border-[#E8DFD8] hover:bg-[#F3E5D4] text-[#2C241E] rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
               >
                 <RotateCcw className={`w-3.5 h-3.5 ${isTestingConnection ? 'animate-spin' : ''}`} />
                 <span>{isTestingConnection ? 'Đang kiểm tra...' : 'Kiểm tra kết nối Zalo'}</span>
@@ -553,11 +553,11 @@ export const W14_ZaloZNS: React.FC = () => {
           )}
 
           {/* Configuration Form Card */}
-          <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs p-6 space-y-6">
-            <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-4">
+          <div className="bg-white rounded-2xl border border-[#EFE4D9] shadow-xs p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-[#EFE4D9] pb-4">
               <div>
-                <h3 className="font-bold text-base text-[#0F172A]">Thông Số Kết Nối Zalo Official Account (OA)</h3>
-                <p className="text-xs text-[#64748B] mt-0.5">
+                <h3 className="font-bold text-base text-[#2C241E]">Thông Số Kết Nối Zalo Official Account (OA)</h3>
+                <p className="text-xs text-[#73675F] mt-0.5">
                   Thông số xác thực chính thức từ Zalo for Developers cho Viện Trị Liệu MLD Việt Nam.
                 </p>
               </div>
@@ -565,7 +565,7 @@ export const W14_ZaloZNS: React.FC = () => {
                 href="https://developers.zalo.me"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-sky-600 hover:text-sky-700 font-semibold"
+                className="inline-flex items-center gap-1 text-xs text-[#8A4F23] hover:text-[#72401C] font-semibold"
               >
                 <span>Cổng Zalo Developers</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -575,7 +575,7 @@ export const W14_ZaloZNS: React.FC = () => {
             <form onSubmit={handleSaveConfig} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-[#334155] mb-1.5">
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                     Zalo Official Account ID (OA ID)
                   </label>
                   <input
@@ -583,13 +583,13 @@ export const W14_ZaloZNS: React.FC = () => {
                     value={zaloConfig.oaId}
                     onChange={(e) => setZaloConfig({ ...zaloConfig, oaId: e.target.value })}
                     placeholder="VD: 2849182390192830192"
-                    className="w-full px-3.5 py-2.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500 font-mono"
+                    className="w-full px-3.5 py-2.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23] font-mono"
                   />
-                  <p className="text-[11px] text-[#94A3B8] mt-1">ID trang OA đã xác minh của Doanh nghiệp MLD.</p>
+                  <p className="text-[11px] text-[#8C7A6B] mt-1">ID trang OA đã xác minh của Doanh nghiệp MLD.</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#334155] mb-1.5">
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                     Zalo App ID (Mã Ứng Dụng)
                   </label>
                   <input
@@ -597,15 +597,15 @@ export const W14_ZaloZNS: React.FC = () => {
                     value={zaloConfig.appId}
                     onChange={(e) => setZaloConfig({ ...zaloConfig, appId: e.target.value })}
                     placeholder="VD: 4928109283019283"
-                    className="w-full px-3.5 py-2.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500 font-mono"
+                    className="w-full px-3.5 py-2.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23] font-mono"
                   />
-                  <p className="text-[11px] text-[#94A3B8] mt-1">App ID quản trị trên Zalo Developers.</p>
+                  <p className="text-[11px] text-[#8C7A6B] mt-1">App ID quản trị trên Zalo Developers.</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-[#334155] mb-1.5">
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                     Zalo App Secret (Khóa bí mật ứng dụng)
                   </label>
                   <input
@@ -613,13 +613,13 @@ export const W14_ZaloZNS: React.FC = () => {
                     value={zaloConfig.appSecret}
                     onChange={(e) => setZaloConfig({ ...zaloConfig, appSecret: e.target.value })}
                     placeholder="Nhập App Secret từ Zalo Developers..."
-                    className="w-full px-3.5 py-2.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500 font-mono"
+                    className="w-full px-3.5 py-2.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23] font-mono"
                   />
-                  <p className="text-[11px] text-[#94A3B8] mt-1">Dùng để ký xác thực tự động gia hạn token.</p>
+                  <p className="text-[11px] text-[#8C7A6B] mt-1">Dùng để ký xác thực tự động gia hạn token.</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#334155] mb-1.5">
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                     Zalo Refresh Token (Để tự động gia hạn Access Token)
                   </label>
                   <input
@@ -627,21 +627,21 @@ export const W14_ZaloZNS: React.FC = () => {
                     value={zaloConfig.refreshToken || ''}
                     onChange={(e) => setZaloConfig({ ...zaloConfig, refreshToken: e.target.value })}
                     placeholder="Nhập Refresh Token từ cổng Zalo OAuth..."
-                    className="w-full px-3.5 py-2.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500 font-mono"
+                    className="w-full px-3.5 py-2.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23] font-mono"
                   />
-                  <p className="text-[11px] text-[#94A3B8] mt-1">Hệ thống dùng token này để tự động refresh mỗi 6 giờ.</p>
+                  <p className="text-[11px] text-[#8C7A6B] mt-1">Hệ thống dùng token này để tự động refresh mỗi 6 giờ.</p>
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-[#334155]">
+                  <label className="block text-xs font-bold text-[#2C241E]">
                     Zalo Cloud Access Token (Bearer Token gửi ZNS)
                   </label>
                   <button
                     type="button"
                     onClick={() => setShowToken(!showToken)}
-                    className="text-xs text-sky-600 hover:text-sky-700 font-semibold flex items-center gap-1 cursor-pointer"
+                    className="text-xs text-[#8A4F23] hover:text-[#72401C] font-semibold flex items-center gap-1 cursor-pointer"
                   >
                     {showToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     <span>{showToken ? 'Ẩn token' : 'Hiển thị token'}</span>
@@ -652,14 +652,14 @@ export const W14_ZaloZNS: React.FC = () => {
                   onChange={(e) => setZaloConfig({ ...zaloConfig, accessToken: e.target.value })}
                   placeholder="Dán mã Zalo Access Token từ cổng Zalo API Explorer..."
                   rows={3}
-                  className="w-full px-3.5 py-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500 font-mono"
+                  className="w-full px-3.5 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23] font-mono"
                 />
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mt-1">
-                  <p className="text-[11px] text-[#94A3B8]">
+                  <p className="text-[11px] text-[#8C7A6B]">
                     Được dùng để gọi trực tiếp tới endpoint: <code>https://business.openapi.zalo.me/message/template</code>
                   </p>
                   {zaloConfig.expiresAt && (
-                    <div className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 shrink-0">
+                    <div className="text-[11px] text-[#0D6832] font-medium flex items-center gap-1 shrink-0">
                       <Clock className="w-3.5 h-3.5" />
                       <span>
                         Hết hạn: {new Date(zaloConfig.expiresAt).toLocaleTimeString('vi-VN')}, {new Date(zaloConfig.expiresAt).toLocaleDateString('vi-VN')}
@@ -670,7 +670,7 @@ export const W14_ZaloZNS: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#334155] mb-1.5">
+                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                   Webhook Callback URL (Nhận kết quả giao tin từ Zalo)
                 </label>
                 <div className="flex items-center gap-2">
@@ -678,7 +678,7 @@ export const W14_ZaloZNS: React.FC = () => {
                     type="text"
                     readOnly
                     value={zaloConfig.webhookUrl || 'https://wstvwushpwcdsmhpunvh.supabase.co/functions/v1/zalo-webhook'}
-                    className="flex-1 px-3.5 py-2.5 bg-gray-100 border border-[#CBD5E1] rounded-xl text-xs text-[#64748B] font-mono select-all"
+                    className="flex-1 px-3.5 py-2.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#73675F] font-mono select-all"
                   />
                   <button
                     type="button"
@@ -688,7 +688,7 @@ export const W14_ZaloZNS: React.FC = () => {
                       );
                       toast.success('Đã sao chép Webhook URL vào clipboard');
                     }}
-                    className="p-2.5 border border-[#CBD5E1] hover:bg-gray-100 rounded-xl text-gray-600 transition-colors cursor-pointer"
+                    className="p-2.5 border border-[#E8DFD8] bg-[#FAF8F5] hover:bg-[#F3E5D4] rounded-xl text-[#2C241E] transition-colors cursor-pointer"
                     title="Sao chép Webhook URL"
                   >
                     <Copy className="w-4 h-4" />
@@ -696,10 +696,10 @@ export const W14_ZaloZNS: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-[#F1F5F9] flex items-center justify-end gap-3">
+              <div className="pt-4 border-t border-[#EFE4D9] flex items-center justify-end gap-3">
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-2.5 bg-[#8A4F23] hover:bg-[#72401C] text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
                   <span>Lưu cấu hình Cổng Zalo</span>
@@ -709,22 +709,22 @@ export const W14_ZaloZNS: React.FC = () => {
           </div>
 
           {/* Integration Guide */}
-          <div className="bg-[#F8FAFC] rounded-2xl border border-[#E2E8F0] p-6 space-y-3">
-            <h4 className="font-bold text-xs uppercase tracking-wider text-[#0F172A] flex items-center gap-2">
-              <Key className="w-4 h-4 text-sky-600" />
+          <div className="bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] p-6 space-y-3">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-[#2C241E] flex items-center gap-2">
+              <Key className="w-4 h-4 text-[#8A4F23]" />
               <span>Quy Trình 3 Bước Kích Hoạt Zalo ZNS Chính Thức Cho MLD Việt Nam</span>
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-[#475569]">
-              <div className="bg-white p-4 rounded-xl border border-[#E2E8F0]">
-                <div className="font-bold text-[#0F172A] mb-1">1. Đăng ký & Xác minh OA</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-[#73675F]">
+              <div className="bg-white p-4 rounded-xl border border-[#EFE4D9]">
+                <div className="font-bold text-[#2C241E] mb-1">1. Đăng ký & Xác minh OA</div>
                 <p>Hoàn tất đăng ký trang Zalo OA Doanh nghiệp tại oa.zalo.me và nâng cấp tích vàng chính chủ.</p>
               </div>
-              <div className="bg-white p-4 rounded-xl border border-[#E2E8F0]">
-                <div className="font-bold text-[#0F172A] mb-1">2. Đăng ký 4 Mẫu ZNS</div>
+              <div className="bg-white p-4 rounded-xl border border-[#EFE4D9]">
+                <div className="font-bold text-[#2C241E] mb-1">2. Đăng ký 4 Mẫu ZNS</div>
                 <p>Nộp duyệt 4 mẫu tin: Xác nhận lịch, Nhắc hẹn 2h, Dặn dò sau trị liệu 24h và Nhắc tái khám 14 ngày.</p>
               </div>
-              <div className="bg-white p-4 rounded-xl border border-[#E2E8F0]">
-                <div className="font-bold text-[#0F172A] mb-1">3. Cấp Token & Kết nối</div>
+              <div className="bg-white p-4 rounded-xl border border-[#EFE4D9]">
+                <div className="font-bold text-[#2C241E] mb-1">3. Cấp Token & Kết nối</div>
                 <p>Truy cập Zalo API Explorer, tạo Access Token có quyền gửi tin ZNS và dán vào form trên để chạy thật.</p>
               </div>
             </div>
@@ -735,15 +735,15 @@ export const W14_ZaloZNS: React.FC = () => {
       {/* Test Modal */}
       {isTestModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4">
-            <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
-              <div className="flex items-center gap-2 text-sky-600 font-bold text-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#EFE4D9] space-y-4">
+            <div className="flex items-center justify-between border-b border-[#EFE4D9] pb-3">
+              <div className="flex items-center gap-2 text-[#8A4F23] font-bold text-sm">
                 <Send className="w-4 h-4" />
                 <span>Gửi thử nghiệm tin nhắn Zalo ZNS</span>
               </div>
               <button
                 onClick={() => setIsTestModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+                className="text-[#8C7A6B] hover:text-[#2C241E] p-1 rounded-lg"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -764,11 +764,11 @@ export const W14_ZaloZNS: React.FC = () => {
 
             <form onSubmit={handleSendTestZns} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-[#64748B] font-semibold mb-1">Kịch bản muốn kiểm thử</label>
+                <label className="block text-[#73675F] font-semibold mb-1">Kịch bản muốn kiểm thử</label>
                 <select
                   value={testTemplateCode}
                   onChange={(e) => setTestTemplateCode(e.target.value)}
-                  className="w-full p-2.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500"
+                  className="w-full p-2.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23]"
                 >
                   {templates.map((t) => (
                     <option key={t.id} value={t.templateCode}>
@@ -779,25 +779,25 @@ export const W14_ZaloZNS: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-[#64748B] font-semibold mb-1">Tên khách hàng test</label>
+                <label className="block text-[#73675F] font-semibold mb-1">Tên khách hàng test</label>
                 <input
                   type="text"
                   value={testName}
                   onChange={(e) => setTestName(e.target.value)}
                   placeholder="VD: Chị Minh Anh"
-                  className="w-full p-2.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500"
+                  className="w-full p-2.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23]"
                 />
               </div>
 
               <div>
-                <label className="block text-[#64748B] font-semibold mb-1">Số điện thoại nhận tin ZNS</label>
+                <label className="block text-[#73675F] font-semibold mb-1">Số điện thoại nhận tin ZNS</label>
                 <input
                   type="text"
                   value={testPhone}
                   onChange={(e) => setTestPhone(e.target.value)}
                   placeholder="09xxxxxxxx"
                   required
-                  className="w-full p-2.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500"
+                  className="w-full p-2.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23]"
                 />
               </div>
 
@@ -805,14 +805,14 @@ export const W14_ZaloZNS: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsTestModalOpen(false)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-colors"
+                  className="px-4 py-2 bg-[#FAF8F5] border border-[#E8DFD8] hover:bg-[#F3E5D4] text-[#2C241E] rounded-xl font-semibold transition-colors cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={isSendingTest}
-                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+                  className="px-4 py-2 bg-[#8A4F23] hover:bg-[#72401C] text-white rounded-xl font-semibold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{isSendingTest ? 'Đang gửi...' : 'Gửi tin ngay'}</span>

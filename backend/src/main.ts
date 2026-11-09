@@ -39,10 +39,10 @@ async function bootstrap() {
       if (Array.isArray(allowedOrigins) && allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      if (!isProduction || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('vercel.app')) {
+      if (!isProduction) {
         return callback(null, true);
       }
-      callback(null, true);
+      callback(null, false);
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: ['Content-Type', 'Authorization', 'X-MLD-Local-Admin', 'Accept', 'Origin', 'X-Requested-With'],

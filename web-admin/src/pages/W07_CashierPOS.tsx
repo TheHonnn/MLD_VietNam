@@ -63,6 +63,7 @@ import {
   CashierShift,
   Course,
   CourseEnrollment,
+  TuitionTransaction,
   StudentAdmissionStatus,
   EnrollmentStatus,
   Service,
@@ -135,6 +136,15 @@ export const W07_CashierPOS: React.FC = () => {
     if (tab === 'tuition') return 'tuition';
     return 'pos';
   });
+  const [tuitionLedger, setTuitionLedger] = useState<TuitionTransaction[] | null>(null);
+  useEffect(() => {
+    if (activeTab !== 'tuition') return;
+    let active = true;
+    academyService.getTuitionTransactions().then(result => {
+      if (active) setTuitionLedger(result.success ? result.data : null);
+    });
+    return () => { active = false; };
+  }, [activeTab]);
 
   const handleBranchSelect = (bId: string) => {
     setSelectedBranchId(bId);
@@ -335,7 +345,7 @@ export const W07_CashierPOS: React.FC = () => {
 
   const fetchPosData = async () => {
     try {
-      let [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, enrRes, srvRes, techRes, courseRes] = await Promise.all([
+      const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, enrRes, srvRes, techRes, courseRes] = await Promise.allSettled([
         posService.getInvoices(),
         bookingService.getBookings(),
         customerService.getCustomers(),
@@ -348,30 +358,46 @@ export const W07_CashierPOS: React.FC = () => {
         academyService.getCourses(),
       ]);
 
-      if (invRes.success && (!invRes.data || invRes.data.length === 0)) {
-        await posService.syncInvoices().catch(() => {});
-        invRes = await posService.getInvoices();
+      if (brRes.status === 'fulfilled' && brRes.value.success && brRes.value.data) {
+        setBranches(brRes.value.data);
       }
-
-      if (invRes.success && invRes.data) setInvoices(invRes.data);
-      if (brRes.success && brRes.data) setBranches(brRes.data);
-      if (custRes.success && custRes.data) {
-        setAllCustomers(custRes.data);
-        const guest = custRes.data.find((c) => c.id === GUEST_CUSTOMER.id);
+      if (bkRes.status === 'fulfilled' && bkRes.value.success && bkRes.value.data) {
+        setAllBookings(bkRes.value.data);
+      }
+      if (invRes.status === 'fulfilled' && invRes.value.success && invRes.value.data) {
+        setInvoices(invRes.value.data);
+      }
+      if (custRes.status === 'fulfilled' && custRes.value.success && custRes.value.data) {
+        setAllCustomers(custRes.value.data);
+        const guest = custRes.value.data.find((c) => c.id === GUEST_CUSTOMER.id);
         if (guest) setSelectedCustomer((prev) => (prev.id === GUEST_CUSTOMER.id ? guest : prev));
       }
-      if (pkgRes.success && pkgRes.data) setTreatmentPackages(pkgRes.data);
-      if (shiftRes.success && shiftRes.data) setCurrentShift(shiftRes.data);
-      if (enrRes.success && enrRes.data) setAllEnrollments(enrRes.data);
-      if (courseRes.success && courseRes.data) setAllCourses(courseRes.data);
-      if (srvRes && srvRes.length > 0) {
-        setAllServices(srvRes);
-        setWalkInServiceId((prev) => prev || srvRes[0].id);
+      if (pkgRes.status === 'fulfilled' && pkgRes.value.success && pkgRes.value.data) {
+        setTreatmentPackages(pkgRes.value.data);
       }
-      const productRows = await supabaseService.query<any[]>('home_products?order=sort_order.asc');
-      setHomeProducts(productRows || []);
-      if (techRes && techRes.length > 0) setAllTechnicians(techRes);
-      if (bkRes.success && bkRes.data) setAllBookings(bkRes.data);
+      if (shiftRes.status === 'fulfilled' && shiftRes.value.success && shiftRes.value.data) {
+        setCurrentShift(shiftRes.value.data);
+      }
+      if (enrRes.status === 'fulfilled' && enrRes.value.success && enrRes.value.data) {
+        setAllEnrollments(enrRes.value.data);
+      }
+      if (courseRes.status === 'fulfilled' && courseRes.value.success && courseRes.value.data) {
+        setAllCourses(courseRes.value.data);
+      }
+      if (srvRes.status === 'fulfilled' && srvRes.value && srvRes.value.length > 0) {
+        setAllServices(srvRes.value);
+        setWalkInServiceId((prev) => prev || srvRes.value[0].id);
+      }
+      if (techRes.status === 'fulfilled' && techRes.value && techRes.value.length > 0) {
+        setAllTechnicians(techRes.value);
+      }
+
+      try {
+        const productRows = await supabaseService.query<any[]>('home_products?order=sort_order.asc');
+        setHomeProducts(productRows || []);
+      } catch (prodErr) {
+        console.warn('Không tải được danh mục sản phẩm bổ trợ:', prodErr);
+      }
     } catch (err) {
       console.error('Failed to load POS data:', err);
     }
@@ -1228,7 +1254,8 @@ export const W07_CashierPOS: React.FC = () => {
     // Dịch vụ cốt lõi (Buổi lẻ)
     allServices.forEach((s) => {
       const duration = s.durationMinutes || 60;
-      const price = Number(s.price || 500000);
+      const price = Number(s.discountPrice) > 0 && Number(s.discountPrice) < Number(s.price)
+        ? Number(s.discountPrice) : Number(s.price);
       items.push({
         id: s.id,
         name: s.name,
@@ -2490,6 +2517,9 @@ export const W07_CashierPOS: React.FC = () => {
       {/* ========================================================================= */}
       {activeTab === 'tuition' && (
         <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="rounded-xl border border-[#EFE4D9] bg-white px-5 py-3 text-sm font-semibold text-[#2C241E]">
+            Học phí thực thu: <span data-testid="tuition-net-total" className="text-[#985018]">{tuitionLedger === null ? 'Đang tải…' : `${tuitionLedger.filter(row => row.paymentStatus === PaymentStatus.PAID && (selectedBranchId === 'ALL' || row.branchId === selectedBranchId)).reduce((sum, row) => sum + (row.transactionType === 'REFUND' ? -Math.abs(row.amount) : row.amount), 0).toLocaleString('vi-VN')}đ`}</span>
+          </div>
           {/* PHẦN 1: GHI NHẬN PHIẾU THU HỌC PHÍ MỚI */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             {/* Left Column: Tìm kiếm & Chọn hồ sơ học viên */}

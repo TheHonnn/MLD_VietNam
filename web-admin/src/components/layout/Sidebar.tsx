@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { SidebarItem, type SubMenuItem } from '../../admin/SidebarItem';
 import { adminApi, Resource } from '../../admin/api';
-import { DEFAULT_RESOURCES } from '../../admin/defaultResources';
+import { useAdmin } from '../../admin/Auth';
+import { canAccessAdminPath } from '../../admin/access';
 import { toast } from '../common';
 import {
   LayoutGrid,
@@ -47,17 +48,20 @@ interface SidebarSection {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }) => {
-  const [resources, setResources] = useState<Resource[]>(DEFAULT_RESOURCES);
+  const { user } = useAdmin();
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [resourceError, setResourceError] = useState('');
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
     adminApi<Resource[]>('resources', undefined, controller.signal)
       .then((res) => {
-        if (Array.isArray(res) && res.length > 0) setResources(res);
+        if (Array.isArray(res)) { setResources(res); setResourceError(''); }
       })
-      .catch(() => {});
+      .catch(error => { if (!controller.signal.aborted) { setResources([]); setResourceError(error.message); } });
     return () => controller.abort();
-  }, []);
+  }, [user?.id, attempt]);
 
   const sections: SidebarSection[] = [
     {
@@ -185,6 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             { name: 'Điểm danh & Sổ theo dõi', path: '/attendance' },
             { name: 'Lớp học đang mở', path: '/manage/course_batches' },
             { name: 'Trợ giảng theo lớp', path: '/manage/course_batch_assistants' },
+            { name: 'Thời khóa biểu', path: '/manage/batch_schedules' },
             { name: 'Bảng điểm học viên', path: '/manage/student_academic_records' },
           ],
         },
@@ -238,19 +243,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
     },
   ];
 
-  const isItemAllowed = (item: SidebarSectionItem) => {
-    if (!item.onlyWhenAllowed) return true;
-    if (item.subItems && item.subItems.length > 0) {
-      return item.subItems.some((sub) => {
-        if (sub.path.startsWith('/manage/')) {
-          const tbl = sub.path.replace('/manage/', '').split('?')[0];
-          return resources.some((r) => r.name === tbl);
-        }
-        return true;
-      });
-    }
-    return true;
-  };
+  const isItemAllowed = (item: SidebarSectionItem) => canAccessAdminPath(item.path, user?.role || '', resources) || Boolean(item.subItems?.some(sub => canAccessAdminPath(sub.path, user?.role || '', resources)));
 
   return (
     <>
@@ -299,6 +292,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           </span>
         </div>
 
+        {resourceError && <div className="px-4 py-2 text-xs text-red-700" role="alert"><p>Không tải được quyền truy cập.</p><button type="button" onClick={() => setAttempt(value => value + 1)}>Thử lại</button></div>}
         {/* Navigation Sections */}
         <nav className="px-3 py-1 space-y-3.5 flex-1 pb-6">
           {sections

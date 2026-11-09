@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useDialogGuard } from "./useDialogGuard";
 import { TrainingActions } from "./TrainingActions";
 import { QuizOptions, quizOptions } from "./QuizOptions";
 import { ConsultationSurveySheet, COMMON_FOCUS_AREAS } from "./ConsultationSurveyView";
@@ -2184,23 +2185,17 @@ function formatCell(row: Row, c: Column, table?: string): React.ReactNode {
       row.instructor?.full_name ||
       row.primary_instructor?.full_name ||
       row.instructors?.full_name;
-    const isAssistant = table === "course_batch_assistants";
     if (instName) {
       return (
         <span className="font-semibold text-[#8A4F23] text-xs inline-flex items-center gap-1.5" title={String(row[c.name] || "")}>
-          <span>{isAssistant ? "🧑‍🏫" : "👨‍🏫"}</span>
+          <span>👨‍🏫</span>
           <span>{instName}</span>
-          {isAssistant && (
-            <span className="text-[10px] bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] px-1.5 py-0.2 rounded font-medium">
-              Trợ giảng
-            </span>
-          )}
         </span>
       );
     }
     return (
       <span className="text-xs text-[#8C7A6B] font-mono" title={String(row[c.name] || "")}>
-        {isAssistant ? "Trợ giảng" : "Giảng viên"} #{String(row[c.name] || "").slice(0, 8)}
+        Giảng viên #{String(row[c.name] || "").slice(0, 8)}
       </span>
     );
   }
@@ -2240,24 +2235,6 @@ function formatCell(row: Row, c: Column, table?: string): React.ReactNode {
     if (val === "FEMALE") return "👩 Nữ";
     if (val === "OTHER") return "🧑 Khác";
     return display(row[c.name]);
-  }
-  if (c.name === "description" || c.name === "short_description") {
-    const val = String(row[c.name] || "");
-    if (!val || val === "null" || val === "undefined") return <span className="text-[#A69788]">—</span>;
-    return (
-      <span className="truncate max-w-[280px] block text-xs text-[#5C4F44]" title={val}>
-        {val}
-      </span>
-    );
-  }
-  if (c.name === "code") {
-    const val = String(row[c.name] || "");
-    if (!val || val === "null") return <span className="text-[#A69788]">—</span>;
-    return (
-      <span className="font-mono text-[11px] text-[#7A6A5E] bg-[#F7F2EB] px-2 py-0.5 rounded border border-[#E8DFD3] inline-block font-semibold">
-        {val}
-      </span>
-    );
   }
   if (c.name === "avatar_url" && row[c.name]) {
     return (
@@ -2318,13 +2295,11 @@ function ReferenceInput({
   value,
   onChange,
   required,
-  table,
 }: {
   column: Column;
   value: string;
   onChange: (v: string) => void;
   required: boolean;
-  table?: string;
 }) {
   const [rows, setRows] = useState<Row[]>([]),
     [page, setPage] = useState(1),
@@ -2357,17 +2332,16 @@ function ReferenceInput({
       controller.abort();
     };
   }, [column.reference!.table, page]);
-  const isAssistant = table === "course_batch_assistants" && column.name === "instructor_id";
   return (
     <div className="admin-reference">
       <select
-        aria-label={label(column.name, table)}
+        aria-label={label(column.name)}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
         disabled={busy}
       >
-        <option value="">{busy ? "Đang tải…" : isAssistant ? "Chọn trợ giảng…" : "Chưa chọn"}</option>
+        <option value="">{busy ? "Đang tải…" : "Chưa chọn"}</option>
         {value &&
           !rows.some((r) => String(r[column.reference!.column]) === value) && (
             <option value={value}>{value}</option>
@@ -2378,7 +2352,6 @@ function ReferenceInput({
             value={r[column.reference!.column]}
           >
             {recordLabel(r)}
-            {r.title ? " (" + r.title + ")" : ""}
             {r.phone ? " · " + r.phone : ""}
           </option>
         ))}
@@ -2851,6 +2824,7 @@ function CategoryIconPicker({
             type="text"
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            aria-label="Biểu tượng danh mục"
             placeholder="Dán link ảnh icon (URL) hoặc nhấn Ctrl+V để dán ảnh icon..."
             required={required}
             className="w-full px-3.5 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A69788] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]/20 transition-all shadow-2xs"
@@ -3241,7 +3215,7 @@ function RecordDialog({
   columns,
   row,
   mode,
-  onClose,
+  onClose: closeDialog,
   onSaved,
   onSwitchMode,
   onShareJournal,
@@ -3261,6 +3235,8 @@ function RecordDialog({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
+  const saving = useRef(false);
+  const onClose = useDialogGuard(dialog, closeDialog, mode === "view", busy);
   useEffect(() => {
     const node = dialog.current;
     node?.showModal();
@@ -3359,6 +3335,8 @@ function RecordDialog({
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving.current) return;
+    saving.current = true;
     setError("");
     setBusy(true);
     try {
@@ -3510,6 +3488,7 @@ function RecordDialog({
           : (err as Error).message,
       );
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   };
@@ -3524,8 +3503,8 @@ function RecordDialog({
       }`}
       ref={dialog}
       onCancel={(e) => {
-        if (busy) e.preventDefault();
-        else onClose();
+        e.preventDefault();
+        onClose();
       }}
       aria-labelledby="record-heading"
     >
@@ -3953,7 +3932,7 @@ function RecordDialog({
                 }
               >
                 <span>
-                  {label(c.name, resource.name)}
+                  {label(c.name)}
                   {required && <b className="admin-required"> *</b>}
                   {resource.name === "service_categories" && c.name === "code" && (
                     <span style={{ fontSize: "11px", color: "#8A7968", fontWeight: "normal", marginLeft: "6px" }}>
@@ -4028,7 +4007,6 @@ function RecordDialog({
                     value={String(value)}
                     onChange={(v) => set(c.name, v)}
                     required={required}
-                    table={resource.name}
                   />
                 ) : c.options.length ? (
                   <select
@@ -4343,7 +4321,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const { table: routeTable } = useParams(),
     table = fixedTable || routeTable || "";
   const [params, setParams] = useSearchParams();
-  const [resources, setResources] = useState<Resource[]>(DEFAULT_RESOURCES),
+  const [resources, setResources] = useState<Resource[]>(DEFAULT_RESOURCES.map(resource => ({ ...resource, actions: [] }))),
     [listing, setListing] = useState<Listing | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
@@ -6491,7 +6469,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                                     </span>
                                   )}
                                   {table === "course_categories" && c.name === "name" && (
-                                    <div className="mt-1 flex items-center gap-1.5">
+                                    <div className="mt-1 flex flex-wrap gap-1">
                                       {(() => {
                                         const matched = coursesForFilter.filter(
                                           (crs) => crs.category_id === row.id
@@ -6505,11 +6483,10 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                                         }
                                         return (
                                           <span
-                                            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#8A4F23] bg-[#FAF3EA] border border-[#EAD8C7] px-2.5 py-0.5 rounded-full cursor-help hover:bg-[#F3E7D8] transition-colors"
-                                            title={`Danh sách khóa học thuộc danh mục (${matched.length}):\n${matched.map((m, idx) => `${idx + 1}. ${m.title}`).join("\n")}`}
+                                            className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#8A4F23] bg-[#FAF3EA] border border-[#EAD8C7] px-2 py-0.5 rounded-md max-w-xs truncate"
+                                            title={matched.map((m) => m.title).join(", ")}
                                           >
-                                            <span>📚</span>
-                                            <span>{matched.length} khóa học</span>
+                                            📚 {matched.length} khóa: {matched.map((m) => m.title).join(", ")}
                                           </span>
                                         );
                                       })()}

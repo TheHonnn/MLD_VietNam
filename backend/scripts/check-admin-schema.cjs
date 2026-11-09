@@ -4,6 +4,7 @@ const path = require('node:path');
 const { parseEnv } = require('node:util');
 const { Pool } = require('pg');
 const { ADMIN_RESOURCES } = require('../dist/modules/admin/admin.resources');
+const { inspectAdminSchema } = require('../dist/modules/admin/admin.schema');
 const envPath = path.resolve(
   process.argv[2] || path.join(__dirname, '../.env'),
 );
@@ -28,31 +29,24 @@ const pool = new Pool({
   const client = await pool.connect();
   try {
     await client.query('BEGIN READ ONLY');
-    const tables = new Set(
-      (
-        await client.query(
-          'SELECT tablename FROM pg_tables WHERE schemaname=$1',
-          ['public'],
-        )
-      ).rows.map((r) => r.tablename),
-    );
-    const missing = Object.keys(ADMIN_RESOURCES).filter(
-      (name) => !tables.has(name),
-    );
-    const roles = await client.query(
+    const status = await inspectAdminSchema(client);
+    const roles = status.missing.includes('users') ? {rows:[]} : await client.query(
       'SELECT role,count(*)::int AS count,count(password_hash)::int AS with_password FROM users GROUP BY role',
     );
     console.log(
       JSON.stringify(
         {
           expectedTables: Object.keys(ADMIN_RESOURCES).length,
-          missing,
+          ready: status.ready,
+          missing: status.missing,
+          checkedAt: status.checkedAt,
           accountRoleCounts: roles.rows,
         },
         null,
         2,
       ),
     );
+    if (!status.ready) process.exitCode = 1;
     await client.query('ROLLBACK');
   } finally {
     client.release();
