@@ -72,15 +72,12 @@ class CourseModel {
       } catch (_) {}
     }
 
-    final audience = json['targetAudience']?.toString() ??
-        outcomes['target_audience']?.toString() ??
-        'Tất cả đối tượng';
-    final need = json['targetNeed']?.toString() ??
-        outcomes['target_need']?.toString() ??
-        'Tất cả nhu cầu';
-    final group = json['courseGroup']?.toString() ??
-        outcomes['course_group']?.toString() ??
-        (json['categoryName']?.toString() ?? json['category']?.toString() ?? 'Người mới bắt đầu');
+    final audienceRaw = (json['targetAudience'] ?? json['target_audience'] ?? outcomes['target_audience'] ?? outcomes['targetAudience'])?.toString().trim() ?? '';
+    final audience = audienceRaw.isNotEmpty ? audienceRaw : 'Tất cả đối tượng';
+    final needRaw = (json['targetNeed'] ?? json['target_need'] ?? outcomes['target_need'] ?? outcomes['targetNeed'])?.toString().trim() ?? '';
+    final need = needRaw.isNotEmpty ? needRaw : 'Tất cả nhu cầu';
+    final groupRaw = (json['courseGroup'] ?? json['course_group'] ?? outcomes['course_group'] ?? outcomes['courseGroup'] ?? json['categoryName'] ?? json['category'])?.toString().trim() ?? '';
+    final group = groupRaw.isNotEmpty ? groupRaw : 'Người mới bắt đầu';
     final orig = (json['originalPrice'] as num?)?.toDouble() ??
         (outcomes['original_price'] as num?)?.toDouble();
 

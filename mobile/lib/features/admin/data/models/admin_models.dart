@@ -1,7 +1,5 @@
-// Bộ dữ liệu định dạng chuẩn Admin Mobile MLD Việt Nam
-// Đồng bộ 100% với Supabase Database & Web-Admin
+import 'dart:convert';
 
-/// 1. Chỉ số KPI Dashboard
 class AdminKpiMetrics {
   final double todayRevenue;
   final double monthRevenue;
@@ -464,14 +462,13 @@ class AdminServiceModel {
   }
 }
 
-/// 8. Khóa học đào tạo (Course)
 class AdminCourseModel {
   final String id;
   final String title;
   final String code;
   final String categoryId;
   final String categoryName;
-  final String level; // BEGINNER, INTERMEDIATE, ADVANCED, MASTER
+  final String level;
   final double tuitionFee;
   final double depositAmount;
   final int totalHours;
@@ -484,6 +481,10 @@ class AdminCourseModel {
   final String? instructorName;
   final bool isActive;
   final bool isFeatured;
+  final String targetAudience;
+  final String targetNeed;
+  final String courseGroup;
+  final Map<String, dynamic> learningOutcomes;
 
   const AdminCourseModel({
     required this.id,
@@ -504,6 +505,10 @@ class AdminCourseModel {
     this.instructorName,
     required this.isActive,
     required this.isFeatured,
+    this.targetAudience = '',
+    this.targetNeed = '',
+    this.courseGroup = '',
+    this.learningOutcomes = const {},
   });
 
   factory AdminCourseModel.fromJson(Map<String, dynamic> json) {
@@ -518,6 +523,20 @@ class AdminCourseModel {
     if (instObj is Map) {
       instName = instObj['full_name']?.toString();
     }
+
+    Map<String, dynamic> outcomes = {};
+    if (json['learning_outcomes'] is Map) {
+      outcomes = Map<String, dynamic>.from(json['learning_outcomes'] as Map);
+    } else if (json['learning_outcomes'] is String) {
+      try {
+        final decoded = jsonDecode(json['learning_outcomes']);
+        if (decoded is Map) outcomes = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+
+    final targetAudience = (json['target_audience'] ?? json['targetAudience'] ?? outcomes['target_audience'] ?? outcomes['targetAudience'])?.toString().trim() ?? '';
+    final targetNeed = (json['target_need'] ?? json['targetNeed'] ?? outcomes['target_need'] ?? outcomes['targetNeed'])?.toString().trim() ?? '';
+    final courseGroup = (json['course_group'] ?? json['courseGroup'] ?? outcomes['course_group'] ?? outcomes['courseGroup'])?.toString().trim() ?? '';
 
     return AdminCourseModel(
       id: json['id']?.toString() ?? '',
@@ -538,6 +557,10 @@ class AdminCourseModel {
       instructorName: instName,
       isActive: json['is_active'] == true,
       isFeatured: json['is_featured'] == true,
+      targetAudience: targetAudience,
+      targetNeed: targetNeed,
+      courseGroup: courseGroup,
+      learningOutcomes: outcomes,
     );
   }
 
@@ -547,6 +570,10 @@ class AdminCourseModel {
     String? title,
     double? tuitionFee,
     double? depositAmount,
+    String? targetAudience,
+    String? targetNeed,
+    String? courseGroup,
+    Map<String, dynamic>? learningOutcomes,
   }) {
     return AdminCourseModel(
       id: id,
@@ -567,6 +594,10 @@ class AdminCourseModel {
       instructorName: instructorName,
       isActive: isActive ?? this.isActive,
       isFeatured: isFeatured ?? this.isFeatured,
+      targetAudience: targetAudience ?? this.targetAudience,
+      targetNeed: targetNeed ?? this.targetNeed,
+      courseGroup: courseGroup ?? this.courseGroup,
+      learningOutcomes: learningOutcomes ?? this.learningOutcomes,
     );
   }
 }

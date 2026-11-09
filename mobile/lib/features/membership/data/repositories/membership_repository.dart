@@ -280,19 +280,12 @@ class MembershipRepository {
     }
 
     _userProfile = _userProfile.copyWith(
-      fullName: cleanName,
-      phone: cleanPhone,
-      isPhoneVerified: cleanPhone.isNotEmpty,
-      email: cleanEmail,
-      avatarUrl: cleanAvatar,
-      memberCode: derivedCode.isNotEmpty ? derivedCode : 'MLD-000001',
-      address: '',
-      dateOfBirth: '',
-      gender: 'Nữ',
-      occupation: '',
-      emergencyContactName: '',
-      emergencyContactPhone: '',
-      points: 0,
+      fullName: cleanName.isNotEmpty ? cleanName : _userProfile.fullName,
+      phone: cleanPhone.isNotEmpty ? cleanPhone : _userProfile.phone,
+      isPhoneVerified: cleanPhone.isNotEmpty || _userProfile.isPhoneVerified,
+      email: cleanEmail.isNotEmpty ? cleanEmail : _userProfile.email,
+      avatarUrl: cleanAvatar.isNotEmpty ? cleanAvatar : _userProfile.avatarUrl,
+      memberCode: derivedCode.isNotEmpty ? derivedCode : _userProfile.memberCode,
     );
     _persistLocalProfile(_userProfile);
   }
@@ -304,14 +297,25 @@ class MembershipRepository {
       return _userProfile;
     }
 
+    final currentAuthPhone = AuthService.instance.currentPhone?.trim() ?? '';
+    final lookupPhone = currentAuthPhone.isNotEmpty ? currentAuthPhone : _userProfile.phone.trim();
+    final lookupEmail = _userProfile.email.trim();
+
     try {
-      final response = await _apiClient.dio.get(ApiEndpoints.membershipProfile);
+      final queryParams = <String, dynamic>{
+        if (lookupPhone.isNotEmpty) 'phone': lookupPhone,
+        if (lookupEmail.isNotEmpty) 'email': lookupEmail,
+      };
+
+      final response = await _apiClient.dio.get(
+        ApiEndpoints.membershipProfile,
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data['data'] ?? response.data;
         if (data is Map<String, dynamic>) {
           final serverPhone = data['phone']?.toString().trim() ?? '';
-          final currentAuthPhone = AuthService.instance.currentPhone?.trim() ?? '';
-          final finalPhone = currentAuthPhone.isNotEmpty ? currentAuthPhone : (serverPhone.isNotEmpty ? serverPhone : _userProfile.phone);
+          final finalPhone = lookupPhone.isNotEmpty ? lookupPhone : (serverPhone.isNotEmpty ? serverPhone : _userProfile.phone);
 
           final serverName = data['fullName']?.toString().trim() ?? '';
           final currentAuthName = AuthService.instance.currentDisplayName?.trim() ?? '';
@@ -329,8 +333,31 @@ class MembershipRepository {
               ? serverEmail
               : _userProfile.email;
 
-          final serverDob = data['dateOfBirth']?.toString().trim() ?? '';
-          final serverGender = data['gender']?.toString().trim() ?? '';
+          final rawServerDob = data['dateOfBirth']?.toString().trim() ?? '';
+          String finalDob = _userProfile.dateOfBirth;
+          if (rawServerDob.isNotEmpty) {
+            if (rawServerDob.contains('-')) {
+              final dParts = rawServerDob.split('-');
+              if (dParts.length == 3 && dParts[0].length == 4) {
+                finalDob = '${dParts[2].padLeft(2, '0')}/${dParts[1].padLeft(2, '0')}/${dParts[0]}';
+              } else {
+                finalDob = rawServerDob;
+              }
+            } else {
+              finalDob = rawServerDob;
+            }
+          }
+
+          final rawGender = data['gender']?.toString().trim() ?? '';
+          String finalGender = _userProfile.gender;
+          if (rawGender.toUpperCase().contains('NAM') || rawGender.toUpperCase() == 'MALE') {
+            finalGender = 'Nam';
+          } else if (rawGender.toUpperCase().contains('KHÁC') || rawGender.toUpperCase().contains('KHAC') || rawGender.toUpperCase() == 'OTHER') {
+            finalGender = 'Khác';
+          } else if (rawGender.isNotEmpty) {
+            finalGender = 'Nữ';
+          }
+
           final serverAddress = data['address']?.toString().trim() ?? '';
           final serverOcc = data['occupation']?.toString().trim() ?? '';
           final serverEmerName = data['emergencyContactName']?.toString().trim() ?? '';
@@ -342,13 +369,13 @@ class MembershipRepository {
             phone: finalPhone,
             isPhoneVerified: finalPhone.isNotEmpty,
             email: finalEmail,
-            dateOfBirth: serverDob.isNotEmpty ? serverDob : _userProfile.dateOfBirth,
-            gender: serverGender.isNotEmpty ? serverGender : _userProfile.gender,
+            dateOfBirth: finalDob.isNotEmpty ? finalDob : _userProfile.dateOfBirth,
+            gender: finalGender.isNotEmpty ? finalGender : _userProfile.gender,
             address: serverAddress.isNotEmpty ? serverAddress : _userProfile.address,
             occupation: serverOcc.isNotEmpty ? serverOcc : _userProfile.occupation,
             emergencyContactName: serverEmerName.isNotEmpty ? serverEmerName : _userProfile.emergencyContactName,
             emergencyContactPhone: serverEmerPhone.isNotEmpty ? serverEmerPhone : _userProfile.emergencyContactPhone,
-            avatarUrl: serverAvatar,
+            avatarUrl: serverAvatar.isNotEmpty ? serverAvatar : _userProfile.avatarUrl,
             memberTier: (data['memberTier']?.toString().isNotEmpty == true) ? data['memberTier'].toString() : _userProfile.memberTier,
             memberCode: (data['memberCode']?.toString().isNotEmpty == true) ? data['memberCode'].toString() : _userProfile.memberCode,
             points: (data['points'] as num?)?.toInt() ?? _userProfile.points,
@@ -361,9 +388,6 @@ class MembershipRepository {
       debugPrint('>>> [MembershipRepository] Error fetching profile: $e');
     }
 
-    // Đồng bộ trực tiếp và toàn diện từ bảng users Supabase Database
-    final lookupPhone = _userProfile.phone.trim();
-    final lookupEmail = _userProfile.email.trim();
     final lookupId = AuthService.instance.currentUserId;
     if (lookupPhone.isNotEmpty || lookupEmail.isNotEmpty || (lookupId != null && lookupId.isNotEmpty)) {
       try {
@@ -568,7 +592,39 @@ class MembershipRepository {
       return;
     }
 
-    // 1. Lưu trực tiếp vào Database Supabase (Bảng users)
+    try {
+      final backendPayload = <String, dynamic>{
+        'fullName': updated.fullName.trim().isNotEmpty ? updated.fullName.trim() : 'Khách hàng MLD',
+        if (effectivePhone.isNotEmpty) 'phone': effectivePhone,
+        if (updated.email.trim().isNotEmpty) 'email': updated.email.trim(),
+        if (updated.dateOfBirth.trim().isNotEmpty) 'dateOfBirth': updated.dateOfBirth.trim(),
+        'gender': updated.gender.isNotEmpty ? updated.gender : 'Nữ',
+        'address': updated.address.trim(),
+        'occupation': updated.occupation.trim(),
+        'emergencyContactName': updated.emergencyContactName.trim(),
+        'emergencyContactPhone': updated.emergencyContactPhone.trim(),
+        if (finalAvatarUrl.isNotEmpty) 'avatarUrl': finalAvatarUrl,
+      };
+
+      final bRes = await _apiClient.dio.put(
+        ApiEndpoints.membershipProfile,
+        data: backendPayload,
+      );
+      if (bRes.statusCode == 200 || bRes.statusCode == 201) {
+        final bData = bRes.data is Map ? bRes.data['data'] : null;
+        if (bData is Map<String, dynamic>) {
+          _userProfile = _userProfile.copyWith(
+            memberTier: (bData['memberTier']?.toString().isNotEmpty == true) ? bData['memberTier'].toString() : _userProfile.memberTier,
+            memberCode: (bData['memberCode']?.toString().isNotEmpty == true) ? bData['memberCode'].toString() : _userProfile.memberCode,
+            points: (bData['points'] as num?)?.toInt() ?? _userProfile.points,
+          );
+          _persistLocalProfile(_userProfile);
+        }
+      }
+    } catch (e) {
+      debugPrint('>>> [MembershipRepository] Error updating profile to backend: $e');
+    }
+
     try {
       final lookupPhone = _userProfile.phone.trim();
       final lookupEmail = _userProfile.email.trim();
@@ -610,7 +666,7 @@ class MembershipRepository {
           'updated_at': DateTime.now().toIso8601String(),
         };
 
-        final patchRes = await _apiClient.dio.patch(
+        await _apiClient.dio.patch(
           '${ApiEndpoints.users}?$queryParam',
           data: updateData,
           options: Options(
@@ -622,63 +678,9 @@ class MembershipRepository {
             },
           ),
         );
-
-        // Nếu bảng users chưa có record, tự động tạo mới để lưu vĩnh viễn (đầy đủ các ràng buộc NOT NULL)
-        if (patchRes.data is List && (patchRes.data as List).isEmpty) {
-          final autoReferralCode = 'MLD${(DateTime.now().millisecondsSinceEpoch % 1000000).toString().padLeft(6, '0')}';
-          final insertData = <String, dynamic>{
-            'full_name': updated.fullName.trim().isNotEmpty ? updated.fullName.trim() : 'Khách hàng MLD',
-            'phone': updated.phone.trim().isNotEmpty ? updated.phone.trim() : '09${DateTime.now().millisecondsSinceEpoch.toString().substring(5, 13)}',
-            if (updated.email.trim().isNotEmpty) 'email': updated.email.trim(),
-            if (finalAvatarUrl.isNotEmpty) 'avatar_url': finalAvatarUrl,
-            'address': updated.address.trim(),
-            'gender': dbGender,
-            'role': 'CUSTOMER',
-            'membership_tier': 'STANDARD',
-            'reward_points': 0,
-            'referral_code': autoReferralCode,
-            if (dbDob != null) 'date_of_birth': dbDob,
-            'emergency_contact_name': updated.emergencyContactName.trim(),
-            'emergency_contact_phone': updated.emergencyContactPhone.trim(),
-          };
-
-          await _apiClient.dio.post(
-            ApiEndpoints.users,
-            data: insertData,
-            options: Options(
-              headers: {
-                'apikey': ApiEndpoints.supabaseAnonKey,
-                'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
-                'Content-Type': 'application/json',
-                'Prefer': 'return=representation',
-              },
-            ),
-          );
-        }
       }
     } catch (e) {
-      debugPrint('>>> [MembershipRepository] Error saving profile directly to Supabase: $e');
-    }
-
-    // 2. Cập nhật lên Backend Gateway
-    try {
-      await _apiClient.dio.put(
-        ApiEndpoints.membershipProfile,
-        data: {
-          'fullName': updated.fullName,
-          'phone': updated.phone,
-          'email': updated.email,
-          'dateOfBirth': updated.dateOfBirth,
-          'gender': updated.gender,
-          'address': updated.address,
-          'occupation': updated.occupation,
-          'emergencyContactName': updated.emergencyContactName,
-          'emergencyContactPhone': updated.emergencyContactPhone,
-          'avatarUrl': finalAvatarUrl,
-        },
-      );
-    } catch (e) {
-      debugPrint('>>> [MembershipRepository] Error updating profile: $e');
+      debugPrint('>>> [MembershipRepository] Supabase direct fallback ignored: $e');
     }
   }
 

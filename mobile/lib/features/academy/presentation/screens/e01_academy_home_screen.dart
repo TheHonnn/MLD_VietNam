@@ -52,24 +52,40 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
   // Trạng thái mở rộng bộ lọc: mặc định là null (thu gọn, hiển thị tất cả)
   AcademyFilterExpanded? _expandedFilter;
 
-  // Danh mục lọc Đối tượng
-  static const List<String> _audienceCategories = [
-    'Tất cả đối tượng',
-    'Khóa học đã đăng ký',
-    'Người mới bắt đầu',
-    'Người đang làm nghề',
-    'Kỹ thuật viên XBBH/VLTL',
-    'Y tế & Phục hồi',
-  ];
+  List<String> get _audienceCategories {
+    final list = <String>['Tất cả đối tượng', 'Khóa học đã đăng ký'];
+    final seen = <String>{};
+    for (final c in _allCourses) {
+      final aud = c.targetAudience.trim();
+      if (aud.isNotEmpty && aud != 'Tất cả đối tượng' && !seen.contains(aud)) {
+        seen.add(aud);
+        list.add(aud);
+      }
+    }
+    return list;
+  }
   String _selectedAudience = 'Tất cả đối tượng';
 
-  // Danh mục lọc Nhu cầu
-  static const List<String> _needCategories = [
-    'Tất cả nhu cầu',
-    'Kiến thức nền tảng & Tự chăm sóc',
-    'Tích hợp dịch vụ mới',
-    'Mở cơ sở chăm sóc',
-  ];
+  List<String> get _needCategories {
+    final list = <String>['Tất cả nhu cầu'];
+    final seen = <String>{};
+    for (final c in _allCourses) {
+      final need = c.targetNeed.trim();
+      if (need.isNotEmpty && need != 'Tất cả nhu cầu' && !seen.contains(need)) {
+        seen.add(need);
+        list.add(need);
+      }
+    }
+    if (list.length == 1) {
+      return const [
+        'Tất cả nhu cầu',
+        'Kiến thức nền tảng & Tự chăm sóc',
+        'Tích hợp dịch vụ mới',
+        'Mở cơ sở chăm sóc',
+      ];
+    }
+    return list;
+  }
   String _selectedNeed = 'Tất cả nhu cầu';
 
   @override
@@ -112,6 +128,17 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
       setState(() {
         _allCourses = courses;
         _isLoading = false;
+        if (_selectedAudience != 'Tất cả đối tượng' &&
+            _selectedAudience != 'Tất cả' &&
+            _selectedAudience != 'Khóa học đã đăng ký' &&
+            !_audienceCategories.contains(_selectedAudience)) {
+          final matched = _audienceCategories.firstWhere(
+            (a) => a.toLowerCase().contains(_selectedAudience.toLowerCase()) ||
+                _selectedAudience.toLowerCase().contains(a.toLowerCase()),
+            orElse: () => 'Tất cả đối tượng',
+          );
+          _selectedAudience = matched;
+        }
       });
     }
   }
@@ -120,15 +147,19 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
     final query = _searchController.text.trim().toLowerCase();
 
     return _allCourses.where((c) {
-      // 1. Lọc theo Đối tượng / Khóa học đã đăng ký
       if (_selectedAudience == 'Khóa học đã đăng ký') {
         final isEnrolled = _academyRepo.isCourseEnrolled(c.id, c.title);
         if (!isEnrolled) return false;
       } else if (_selectedAudience != 'Tất cả đối tượng' && _selectedAudience != 'Tất cả') {
-        final aud = _selectedAudience.toLowerCase();
-        final matchesAudience = c.targetAudience.toLowerCase().contains(aud) ||
-            c.courseGroup.toLowerCase().contains(aud) ||
-            c.category.toLowerCase().contains(aud);
+        final aud = _selectedAudience.toLowerCase().trim();
+        final cAud = c.targetAudience.toLowerCase().trim();
+        final cGrp = c.courseGroup.toLowerCase().trim();
+        final cCat = c.category.toLowerCase().trim();
+        final matchesAudience = cAud == aud ||
+            cAud.contains(aud) ||
+            aud.contains(cAud) ||
+            cGrp.contains(aud) ||
+            cCat.contains(aud);
         if (!matchesAudience) return false;
       }
 
