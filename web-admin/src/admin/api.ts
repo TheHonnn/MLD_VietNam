@@ -164,15 +164,22 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
   return clean;
 }
 
+export const branchCache = new Map<string, { id: string; name: string; code?: string }>();
+branchCache.set("aaaaaaaa-0001-0001-0001-000000000001", {
+  id: "aaaaaaaa-0001-0001-0001-000000000001",
+  name: "Trụ sở MLD Việt Nam (5 Master LV3)",
+  code: "MLD-HQ",
+});
+
 const TABLE_SELECTS: Record<string, string> = {
   staff_profiles: "*,users(full_name,phone,email,role),branches(name,code)",
-  technicians: "*,branches(name)",
-  bookings: "*,customer:users!customer_id(full_name,phone),branches(name)",
+  technicians: "*,branches(name,code)",
+  bookings: "*,customer:users!customer_id(full_name,phone),branches(name,code)",
   booking_items: "*,bookings(booking_code,booking_date),services(name),technicians(full_name)",
   invoices: "*,customer:users!customer_id(full_name,phone),branches(name,code),bookings(booking_code)",
   invoice_items: "*,invoices(invoice_code)",
-  branch_rooms: "*,branches(name)",
-  technician_shifts: "*,technicians(full_name),branches(name)",
+  branch_rooms: "*,branches(name,code)",
+  technician_shifts: "*,technicians(full_name),branches(name,code)",
   staff_leaves: "*,staff_profiles!staff_id(id,user_id,users(full_name,phone))",
   treatment_packages: "*,services(name)",
   user_packages: "*,customer:users!customer_id(full_name,phone,avatar_url),package:treatment_packages!package_id(name,price,total_sessions)",
@@ -195,13 +202,14 @@ const TABLE_SELECTS: Record<string, string> = {
   course_enrollments: "*,student:users!student_id(full_name,phone,email),courses(title,code,tuition_fee,deposit_amount),course_batches(batch_code,start_date,schedule_text)",
   instructors: "*,user:users!user_id(full_name,phone,email,avatar_url)",
   student_certificates: "*,student:users!student_id(full_name,phone),courses(title,code)",
-  staff_commissions: "*,staff:users!staff_id(full_name,phone),branches(name),bookings(booking_code)",
+  staff_commissions: "*,staff:users!staff_id(full_name,phone),branches(name,code),bookings(booking_code)",
   student_attendance: "*,batch_schedules(id,batch_id,session_date,start_time,end_time,topic,is_practice_lab,course_batches(id,batch_code,courses(id,title,code))),course_enrollments(id,student_id,batch_id,student:users!student_id(id,full_name,phone,email)),marked_by:users!marked_by_id(id,full_name)",
   user_vouchers: "*,users(full_name,phone),coupons(code,discount_amount,discount_percent)",
-  user_roles: "*,users!user_id(full_name,phone,email),roles(name)",
+  user_roles: "*,users!user_id(full_name,phone,email),roles(name),branches(name,code)",
   role_permissions: "*,roles(name),permissions(code,description)",
   audit_logs: "*,users(full_name,phone,email)",
   point_transactions: "*,users(full_name,phone)",
+  cashier_shifts: "*,branches(name,code),users!cashier_id(full_name,phone)",
 };
 
 function buildColumns(table: string, rows: Row[]): Column[] {
@@ -419,6 +427,14 @@ async function enrichMissingRelations(rows: Row[], signal?: AbortSignal): Promis
   const missingPermIds = new Set<string>();
   rows.forEach((r) => {
     if (r.permission_id && !r.permission_code && isUuid(r.permission_id)) missingPermIds.add(r.permission_id);
+  });
+
+  // Collect missing branch IDs
+  const missingBranchIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.branch_id && !r.branch_name && !r.branches?.name && isUuid(r.branch_id)) {
+      missingBranchIds.add(r.branch_id);
+    }
   });
 
   const promises: Promise<void>[] = [];
@@ -641,6 +657,35 @@ async function enrichMissingRelations(rows: Row[], signal?: AbortSignal): Promis
                 const p = map.get(r.permission_id)!;
                 r.permission_code = r.permission_code || p.code;
                 r.permission_name = r.permission_name || p.description;
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingBranchIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingBranchIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/branches?id=in.(${ids})&select=id,name,code`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; name: string; code?: string }> = await res.json();
+            const map = new Map(data.map((b) => [b.id, b]));
+            rows.forEach((r) => {
+              if (r.branch_id && map.has(r.branch_id)) {
+                const b = map.get(r.branch_id)!;
+                r.branch_name = r.branch_name || b.name;
+                r.branch_code = r.branch_code || b.code;
+                if (!r.branches || typeof r.branches !== "object") {
+                  r.branches = { id: b.id, name: b.name, code: b.code };
+                }
+                branchCache.set(b.id, { id: b.id, name: b.name, code: b.code });
               }
             });
           }
@@ -898,6 +943,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (r.branches) {
         r.branch_name = r.branch_name || r.branches.name || r.branches.code;
         r.branch_code = r.branch_code || r.branches.code;
+        if (r.branch_id && r.branches.name) {
+          branchCache.set(r.branch_id, { id: r.branch_id, name: r.branches.name, code: r.branches.code });
+        }
       }
       if (r.customer) {
         r.customer_name = r.customer_name || r.customer.full_name;

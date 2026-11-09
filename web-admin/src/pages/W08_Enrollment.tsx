@@ -114,6 +114,13 @@ export interface CandidateRecord {
   extensionReason?: string | null;
 }
 
+const getShortBranch = (branchStr?: string): string => {
+  if (!branchStr) return 'Cơ sở đào tạo';
+  const firstPart = branchStr.split(' - ')[0];
+  const clean = firstPart.replace(/\(.*?\)/g, '').trim();
+  return clean || firstPart || branchStr;
+};
+
 export const W08_Enrollment: React.FC = () => {
   const navigate = useNavigate();
   const [selectedCandidateId, setSelectedCandidateId] = useState<string>('');
@@ -1283,14 +1290,14 @@ export const W08_Enrollment: React.FC = () => {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[760px] whitespace-nowrap">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-[#FAF5EF] text-[#73675F] text-[11px] font-bold border-b border-[#EFE4D9]">
-                    <th className="py-3 px-3.5 w-[22%]">MÃ ĐƠN & KHÁCH HÀNG</th>
-                    <th className="py-3 px-3.5 w-[24%]">KHÓA HỌC & CƠ SỞ</th>
-                    <th className="py-3 px-3.5 w-[16%]">HỌC PHÍ ĐÃ CHỐT</th>
-                    <th className="py-3 px-3.5 w-[22%]">3 TRẠNG THÁI QUY TRÌNH</th>
-                    <th className="py-3 px-3.5 w-[16%] text-right">THAO TÁC</th>
+                    <th className="py-2.5 px-3 w-[22%]">MÃ ĐƠN & KHÁCH HÀNG</th>
+                    <th className="py-2.5 px-3 w-[24%]">KHÓA HỌC & CƠ SỞ</th>
+                    <th className="py-2.5 px-3 w-[16%]">HỌC PHÍ</th>
+                    <th className="py-2.5 px-3 w-[22%]">TRẠNG THÁI</th>
+                    <th className="py-2.5 px-3 w-[16%] text-right">THAO TÁC</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EFE4D9] text-xs">
@@ -1320,87 +1327,85 @@ export const W08_Enrollment: React.FC = () => {
                           }`}
                         >
                           {/* 1. Mã đơn & Khách hàng */}
-                          <td className="py-3 px-3.5">
-                            <div className="flex items-center gap-2.5">
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-2">
                               {candidate.avatar ? (
                                 <img
                                   src={candidate.avatar}
                                   alt={candidate.name}
-                                  className="w-8 h-8 rounded-full object-cover shrink-0"
+                                  className="w-7 h-7 rounded-full object-cover shrink-0"
                                 />
                               ) : (
-                                <div className="w-8 h-8 rounded-full bg-[#F3E2CE] text-[#8A4F23] font-bold text-xs flex items-center justify-center shrink-0">
+                                <div className="w-7 h-7 rounded-full bg-[#F3E2CE] text-[#8A4F23] font-bold text-[11px] flex items-center justify-center shrink-0">
                                   {candidate.initials}
                                 </div>
                               )}
-                              <div className="min-w-0">
-                                <div className="font-bold text-xs text-[#2C241E] flex items-center gap-1.5">
-                                  <span>{candidate.name}</span>
+                              <div className="min-w-0 max-w-[170px]">
+                                <div className="font-bold text-xs text-[#2C241E] truncate" title={candidate.name}>
+                                  {candidate.name}
                                 </div>
-                                <div className="text-[11px] text-[#73675F] flex items-center gap-1 mt-0.5">
-                                  <span className="font-mono font-bold text-[#8D4B1A] bg-amber-50 px-1 py-0.2 rounded border border-amber-200">
+                                <div className="text-[10.5px] text-[#73675F] flex items-center gap-1 mt-0.5">
+                                  <span className="font-mono font-bold text-[#8D4B1A] bg-amber-50 px-1 rounded border border-amber-200">
                                     {candidate.orderCode}
                                   </span>
-                                  <span>· {candidate.phone}</span>
+                                  <span className="truncate">{candidate.phone}</span>
                                 </div>
                               </div>
                             </div>
                           </td>
 
                           {/* 2. Khóa học & Cơ sở */}
-                          <td className="py-3 px-3.5">
-                            <div className="font-medium text-xs text-[#2C241E] truncate max-w-[200px]" title={candidate.program}>
+                          <td className="py-2.5 px-3">
+                            <div className="font-medium text-xs text-[#2C241E] truncate max-w-[190px]" title={candidate.program}>
                               {candidate.program}
                             </div>
-                            <div className="text-[11px] text-[#73675F] mt-0.5 flex items-center gap-1">
+                            <div className="text-[11px] text-[#73675F] mt-0.5 flex items-center gap-1 max-w-[190px]" title={candidate.branch}>
                               <MapPin className="w-3 h-3 text-[#8D4B1A] shrink-0" />
-                              <span className="truncate">{candidate.branch}</span>
+                              <span className="truncate font-normal">{getShortBranch(candidate.branch)}</span>
                             </div>
                           </td>
 
                           {/* 3. Học phí */}
-                          <td className="py-3 px-3.5">
+                          <td className="py-2.5 px-3">
                             <div className="font-bold text-xs text-[#2C241E]">
                               {candidate.tuitionTotal}
                             </div>
-                            <div className="text-[11px] text-[#73675F] mt-0.5">
-                              {candidate.tuitionDeposit}
+                            <div className="text-[10.5px] mt-0.5">
+                              {candidate.paymentVerificationStatus === PaymentVerificationStatus.PAID ? (
+                                <span className="text-emerald-700 font-medium">Đã thu: {candidate.tuitionDeposit || candidate.tuitionTotal}</span>
+                              ) : candidate.tuitionDeposit ? (
+                                <span className="text-amber-700 font-medium">Cọc: {candidate.tuitionDeposit}</span>
+                              ) : (
+                                <span className="text-stone-500">Chưa thu cọc</span>
+                              )}
                             </div>
                           </td>
 
-                          {/* 4. 3 Nhóm trạng thái (Tư vấn, Thanh toán, Học viên) */}
-                          <td className="py-3 px-3.5">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-[#73675F] w-12 shrink-0">Tư vấn:</span>
-                                {renderConsultationBadge(candidate.consultationStatus)}
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-[#73675F] w-12 shrink-0">Thanh toán:</span>
+                          {/* 4. Trạng thái (Thanh toán & Lớp học) */}
+                          <td className="py-2.5 px-3">
+                            <div className="flex flex-col gap-1 max-w-[210px]">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 {renderPaymentBadge(candidate.paymentVerificationStatus)}
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-[#73675F] w-12 shrink-0">Học viên:</span>
                                 {renderStudentBadge(candidate.studentAdmissionStatus, candidate.rawStatus)}
                               </div>
-                              <div className="flex items-center gap-1.5 pt-0.5">
-                                <span className="text-[10px] text-[#73675F] w-12 shrink-0">Hạn 365d:</span>
-                                {renderValidityBadge(candidate)}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {renderConsultationBadge(candidate.consultationStatus)}
+                                {candidate.isExpired && renderValidityBadge(candidate)}
                               </div>
                             </div>
                           </td>
 
                           {/* 5. Thao tác nhanh */}
-                          <td className="py-3 px-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                          <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => handleOpenBillModal(candidate)}
-                                className="px-2.5 py-1.5 bg-[#FAF5EF] hover:bg-[#F3E2CE] text-[#8D4B1A] border border-[#BA7E4C]/40 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                                className="px-2 py-1 bg-[#FAF5EF] hover:bg-[#F3E2CE] text-[#8D4B1A] border border-[#BA7E4C]/40 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
                                 title="In Bill & Xem mã VietQR"
                               >
-                                <Printer className="w-3.5 h-3.5" />
-                                <span>In Bill / QR</span>
+                                <Printer className="w-3 h-3" />
+                                <span>Bill/QR</span>
                               </button>
 
                               {candidate.paymentVerificationStatus !== PaymentVerificationStatus.PAID && (
@@ -1408,7 +1413,7 @@ export const W08_Enrollment: React.FC = () => {
                                   type="button"
                                   disabled={checkingCandidateId === candidate.id}
                                   onClick={() => handleCheckPayment(candidate.id)}
-                                  className="px-2 py-1.5 bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                                  className="p-1 bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
                                   title="Kiểm tra tiền về tài khoản MB Bank"
                                 >
                                   <RefreshCw className={`w-3.5 h-3.5 ${checkingCandidateId === candidate.id ? 'animate-spin' : ''}`} />
@@ -1419,10 +1424,10 @@ export const W08_Enrollment: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => handleOpenAssignModal(candidate)}
-                                  className="px-2.5 py-1.5 bg-[#EBF5FB] hover:bg-[#D4E6F1] text-[#1B4F72] border border-[#A9CCE3] rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                                  className="px-2 py-1 bg-[#EBF5FB] hover:bg-[#D4E6F1] text-[#1B4F72] border border-[#A9CCE3] rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
                                   title="Xếp lớp học viên vào đợt khai giảng"
                                 >
-                                  <GraduationCap className="w-3.5 h-3.5" />
+                                  <GraduationCap className="w-3 h-3" />
                                   <span>{candidate.batchId ? 'Đổi lớp' : 'Xếp lớp'}</span>
                                 </button>
                               )}

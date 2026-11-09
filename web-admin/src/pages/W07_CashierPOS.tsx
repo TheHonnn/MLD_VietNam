@@ -385,11 +385,13 @@ export const W07_CashierPOS: React.FC = () => {
         setAllCourses(courseRes.value.data);
       }
       if (srvRes.status === 'fulfilled' && srvRes.value && srvRes.value.length > 0) {
-        setAllServices(srvRes.value);
-        setWalkInServiceId((prev) => prev || srvRes.value[0].id);
+        const services = srvRes.value;
+        setAllServices(services);
+        setWalkInServiceId((prev) => prev || services[0].id);
       }
       if (techRes.status === 'fulfilled' && techRes.value && techRes.value.length > 0) {
-        setAllTechnicians(techRes.value);
+        const technicians = techRes.value;
+        setAllTechnicians(technicians);
       }
 
       try {

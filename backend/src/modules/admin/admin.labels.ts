@@ -18,17 +18,20 @@ export async function enrichReferenceLabels(connection: any, columns: any[], row
     if (!display || reference.column !== 'id') continue;
     const ids = [...new Set(rows.map(row => row[column.name]).filter(Boolean))];
     if (!ids.length) continue;
-    // Both identifiers come from the fixed display registry, never HTTP input.
-    const result = await connection.query('SELECT id,"' + display + '" AS label FROM public."' + reference.table + '" WHERE id=ANY($1::uuid[])', [ids]);
-    const labels = new Map(result.rows.map((row: any) => [row.id, row.label]));
+    const selectFields = reference.table === 'branches' ? 'id,"' + display + '" AS label, code' : 'id,"' + display + '" AS label';
+    const result = await connection.query('SELECT ' + selectFields + ' FROM public."' + reference.table + '" WHERE id=ANY($1::uuid[])', [ids]);
+    const labels = new Map(result.rows.map((row: any) => [row.id, row]));
     for (const row of rows) {
-      const label = labels.get(row[column.name]);
-      if (label == null) continue;
+      const match: any = labels.get(row[column.name]);
+      if (match == null) continue;
       const output = outputNames[column.name];
-      if (output && !row[output]) row[output] = label;
+      if (output && !row[output]) row[output] = match.label;
+      if (reference.table === 'branches' && !row.branch_code && match.code) {
+        row.branch_code = match.code;
+      }
       const nested = reference.table === 'users' && column.name === 'customer_id' ? 'customer'
         : reference.table === 'users' && column.name === 'student_id' ? 'student' : reference.table;
-      if (!row[nested]) row[nested] = { id: row[column.name], [display]: label };
+      if (!row[nested]) row[nested] = { id: row[column.name], [display]: match.label, ...(match.code ? { code: match.code } : {}) };
     }
   }
 }

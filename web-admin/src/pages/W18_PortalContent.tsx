@@ -94,6 +94,7 @@ const TEMPLATE_NAMES: Record<string, string> = {
   CONFIRMATION_ENROLLMENT: 'Xác nhận đăng ký & cọc',
   REMINDER_CLASS_SESSION: 'Nhắc lịch học & thi',
   EXAM_RESULTS_NOTIFICATION: 'Thông báo kết quả thi',
+  EXAM_RESULT_AND_CERTIFICATE: 'Kết quả thi & Chứng chỉ',
   CERTIFICATE_ISSUED_VERIFICATION: 'Cấp chứng nhận điện tử',
   ENROLLMENT_PROGRESS_MONTHLY: 'Báo cáo tiến độ học tập',
   ENROLLMENT_EXPIRY_WARNING: 'Cảnh báo hết hạn khóa học',
@@ -2342,8 +2343,8 @@ export const W18_PortalContent: React.FC = () => {
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-[#FAF0E4] text-[#8A4F23]">
-                      {template.id}
+                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-sans font-bold bg-[#FAF0E4] text-[#8A4F23]" title={template.id}>
+                      {TEMPLATE_NAMES[template.id] || template.id}
                     </span>
                     <span className="text-[11px] font-bold text-[#137333] flex items-center gap-1">
                       <CheckCircle2 size={12} />
