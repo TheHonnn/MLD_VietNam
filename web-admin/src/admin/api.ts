@@ -66,7 +66,7 @@ function resolveApiBase(): string {
 
 const base = resolveApiBase();
 
-import { SUPABASE_URL, getSupabaseHeaders, supabase } from "../services/supabaseClient";
+import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
 
 
 import { SCHEMA_COLUMNS } from "./schemaMeta";
@@ -82,8 +82,10 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
       continue;
     }
 
-    // On update, do not send primary key in body
-    if (isUpdate && (k === "id" || k === "created_at")) {
+    const colDef = validColMap.get(k);
+
+    // On update, do not send primary key or creation timestamp in body
+    if (isUpdate && (k === "id" || k === "created_at" || colDef?.primary)) {
       continue;
     }
 
@@ -94,8 +96,6 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
     if (!isUpdate && k === "id" && (!v || v === "")) {
       continue;
     }
-
-    const colDef = validColMap.get(k);
 
     // Normalize empty strings to null for nullable / foreign key / numeric / date columns
     if (v === "") {
@@ -164,24 +164,30 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
   return clean;
 }
 
+export const branchCache = new Map<string, { id: string; name: string; code?: string }>();
+branchCache.set("aaaaaaaa-0001-0001-0001-000000000001", {
+  id: "aaaaaaaa-0001-0001-0001-000000000001",
+  name: "Trụ sở MLD Việt Nam (5 Master LV3)",
+  code: "MLD-HQ",
+});
+
 const TABLE_SELECTS: Record<string, string> = {
   staff_profiles: "*,users(full_name,phone,email,role),branches(name,code)",
-  technicians: "*,branches(name)",
-  bookings: "*,customer:users!customer_id(full_name,phone),branches(name)",
+  technicians: "*,branches(name,code)",
+  bookings: "*,customer:users!customer_id(full_name,phone),branches(name,code)",
   booking_items: "*,bookings(booking_code,booking_date),services(name),technicians(full_name)",
   invoices: "*,customer:users!customer_id(full_name,phone),branches(name,code),bookings(booking_code)",
   invoice_items: "*,invoices(invoice_code)",
-  branch_rooms: "*,branches(name)",
-  technician_shifts: "*,technicians(full_name),branches(name)",
-  technician_slots: "*,technicians(full_name),branches(name)",
+  branch_rooms: "*,branches(name,code)",
+  technician_shifts: "*,technicians(full_name),branches(name,code)",
   staff_leaves: "*,staff_profiles!staff_id(id,user_id,users(full_name,phone))",
   treatment_packages: "*,services(name)",
   user_packages: "*,customer:users!customer_id(full_name,phone,avatar_url),package:treatment_packages!package_id(name,price,total_sessions)",
   treatment_journal: "*,customer:users!customer_id(full_name,phone),technicians(full_name)",
   service_materials: "*,services(name)",
   tuition_transactions: "*,student:users!student_id(full_name,phone),courses(title,code),branches(name,code)",
-  course_batches: "*,courses(title,code),branches(name,code),instructor:instructors!instructor_id(full_name)",
-  course_batch_assistants: "*,course_batches(batch_code,courses(title)),instructors(full_name,title,phone),assigned_by:users!assigned_by_id(full_name)",
+  course_batches: "*,courses(title,code),branches(name,code),instructor:instructors!instructor_id(full_name),assistant_instructor:instructors!assistant_instructor_id(full_name)",
+  course_batch_assistants: "*,course_batches(batch_code,courses(title,code)),instructors(id,full_name,title)",
   student_academic_records: "*,course_enrollments(id,batch_id,course_id,student:users!student_id(full_name,phone),courses(title,code),course_batches(batch_code))",
   batch_schedules: "*,course_batches(batch_code),assigned_room:branch_rooms!assigned_room_id(name)",
   course_chapters: "*,courses(title,code)",
@@ -197,13 +203,14 @@ const TABLE_SELECTS: Record<string, string> = {
   course_enrollments: "*,student:users!student_id(full_name,phone,email),courses(title,code,tuition_fee,deposit_amount),course_batches(batch_code,start_date,schedule_text)",
   instructors: "*,user:users!user_id(full_name,phone,email,avatar_url)",
   student_certificates: "*,student:users!student_id(full_name,phone),courses(title,code)",
-  staff_commissions: "*,staff:users!staff_id(full_name,phone),branches(name),bookings(booking_code)",
+  staff_commissions: "*,staff:users!staff_id(full_name,phone),branches(name,code),bookings(booking_code)",
   student_attendance: "*,batch_schedules(id,batch_id,session_date,start_time,end_time,topic,is_practice_lab,course_batches(id,batch_code,courses(id,title,code))),course_enrollments(id,student_id,batch_id,student:users!student_id(id,full_name,phone,email)),marked_by:users!marked_by_id(id,full_name)",
   user_vouchers: "*,users(full_name,phone),coupons(code,discount_amount,discount_percent)",
-  user_roles: "*,users!user_id(full_name,phone,email),roles(name)",
+  user_roles: "*,users!user_id(full_name,phone,email),roles(name),branches(name,code)",
   role_permissions: "*,roles(name),permissions(code,description)",
   audit_logs: "*,users(full_name,phone,email)",
   point_transactions: "*,users(full_name,phone)",
+  cashier_shifts: "*,branches(name,code),users!cashier_id(full_name,phone)",
 };
 
 function buildColumns(table: string, rows: Row[]): Column[] {
@@ -421,6 +428,36 @@ async function enrichMissingRelations(rows: Row[], signal?: AbortSignal): Promis
   const missingPermIds = new Set<string>();
   rows.forEach((r) => {
     if (r.permission_id && !r.permission_code && isUuid(r.permission_id)) missingPermIds.add(r.permission_id);
+  });
+
+  // Collect missing branch IDs
+  const missingBranchIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.branch_id && !r.branch_name && !r.branches?.name && isUuid(r.branch_id)) {
+      missingBranchIds.add(r.branch_id);
+    }
+  });
+
+  // Collect missing instructor / assistant IDs
+  const missingInstructorIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.instructor_id && !r.instructor_name && !r.instructors?.full_name && isUuid(r.instructor_id)) {
+      missingInstructorIds.add(r.instructor_id);
+    }
+    if (r.primary_instructor_id && !r.instructor_name && isUuid(r.primary_instructor_id)) {
+      missingInstructorIds.add(r.primary_instructor_id);
+    }
+    if (r.assistant_instructor_id && !r.assistant_name && !r.assistant_instructor?.full_name && isUuid(r.assistant_instructor_id)) {
+      missingInstructorIds.add(r.assistant_instructor_id);
+    }
+  });
+
+  // Collect missing batch IDs
+  const missingBatchIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.batch_id && !r.batch_code && !r.course_batches?.batch_code && isUuid(r.batch_id)) {
+      missingBatchIds.add(r.batch_id);
+    }
   });
 
   const promises: Promise<void>[] = [];
@@ -643,6 +680,100 @@ async function enrichMissingRelations(rows: Row[], signal?: AbortSignal): Promis
                 const p = map.get(r.permission_id)!;
                 r.permission_code = r.permission_code || p.code;
                 r.permission_name = r.permission_name || p.description;
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingBranchIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingBranchIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/branches?id=in.(${ids})&select=id,name,code`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; name: string; code?: string }> = await res.json();
+            const map = new Map(data.map((b) => [b.id, b]));
+            rows.forEach((r) => {
+              if (r.branch_id && map.has(r.branch_id)) {
+                const b = map.get(r.branch_id)!;
+                r.branch_name = r.branch_name || b.name;
+                r.branch_code = r.branch_code || b.code;
+                if (!r.branches || typeof r.branches !== "object") {
+                  r.branches = { id: b.id, name: b.name, code: b.code };
+                }
+                branchCache.set(b.id, { id: b.id, name: b.name, code: b.code });
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingInstructorIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingInstructorIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/instructors?id=in.(${ids})&select=id,full_name,title`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; full_name: string; title?: string }> = await res.json();
+            const map = new Map(data.map((i) => [i.id, i]));
+            rows.forEach((r) => {
+              if (r.instructor_id && map.has(r.instructor_id)) {
+                const inst = map.get(r.instructor_id)!;
+                r.instructor_name = r.instructor_name || inst.full_name;
+                if (!r.instructors) r.instructors = { id: inst.id, full_name: inst.full_name, title: inst.title };
+              }
+              if (r.primary_instructor_id && map.has(r.primary_instructor_id)) {
+                const inst = map.get(r.primary_instructor_id)!;
+                r.instructor_name = r.instructor_name || inst.full_name;
+                if (!r.primary_instructor) r.primary_instructor = { id: inst.id, full_name: inst.full_name, title: inst.title };
+              }
+              if (r.assistant_instructor_id && map.has(r.assistant_instructor_id)) {
+                const inst = map.get(r.assistant_instructor_id)!;
+                r.assistant_name = r.assistant_name || inst.full_name;
+                if (!r.assistant_instructor) r.assistant_instructor = { id: inst.id, full_name: inst.full_name, title: inst.title };
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingBatchIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingBatchIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/course_batches?id=in.(${ids})&select=id,batch_code,courses(title,code)`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; batch_code: string; courses?: { title?: string; code?: string } }> = await res.json();
+            const map = new Map(data.map((b) => [b.id, b]));
+            rows.forEach((r) => {
+              if (r.batch_id && map.has(r.batch_id)) {
+                const b = map.get(r.batch_id)!;
+                r.batch_code = r.batch_code || b.batch_code;
+                r.batch_name = r.batch_name || b.batch_code;
+                if (b.courses?.title) {
+                  r.course_title = r.course_title || b.courses.title;
+                  r.course_code = r.course_code || b.courses.code;
+                }
+                if (!r.course_batches) r.course_batches = { id: b.id, batch_code: b.batch_code, courses: b.courses };
               }
             });
           }
@@ -900,6 +1031,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (r.branches) {
         r.branch_name = r.branch_name || r.branches.name || r.branches.code;
         r.branch_code = r.branch_code || r.branches.code;
+        if (r.branch_id && r.branches.name) {
+          branchCache.set(r.branch_id, { id: r.branch_id, name: r.branches.name, code: r.branches.code });
+        }
       }
       if (r.customer) {
         r.customer_name = r.customer_name || r.customer.full_name;
@@ -946,6 +1080,15 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
       if (r.primary_instructor) {
         r.instructor_name = r.instructor_name || r.primary_instructor.full_name;
+      }
+      if (r.assistant_instructor) {
+        r.assistant_name = r.assistant_name || r.assistant_instructor.full_name;
+      }
+      if (r.assistant) {
+        r.assistant_name = r.assistant_name || r.assistant.full_name;
+      }
+      if (r.instructors) {
+        r.instructor_name = r.instructor_name || r.instructors.full_name;
       }
       if (r.assigned_room) {
         r.room_name = r.room_name || r.assigned_room.name;
@@ -1212,6 +1355,22 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       delete payload.values.course_code;
     }
 
+    if (table === "course_batch_assistants") {
+      if (!payload.values.assigned_by_id) {
+        try {
+          const profile = JSON.parse(sessionStorage.getItem("mld_admin_profile") || localStorage.getItem("mld_admin_profile") || "{}");
+          if (profile?.id) payload.values.assigned_by_id = profile.id;
+        } catch {}
+      }
+      if (payload.values.can_mark_attendance === undefined) payload.values.can_mark_attendance = true;
+      if (payload.values.can_enter_grades === undefined) payload.values.can_enter_grades = true;
+      delete payload.values.course_batches;
+      delete payload.values.batch_code;
+      delete payload.values.instructors;
+      delete payload.values.instructor_name;
+      delete payload.values.assistant_name;
+    }
+
     const cleanValues = sanitizeValues(table, payload.values, false);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
@@ -1226,6 +1385,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       const err = await res.json().catch(() => null);
       if (res.status === 401 && typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("admin-signout"));
+      }
+      if (res.status === 413 || err?.message?.toLowerCase().includes("large")) {
+        throw new Error("Dữ liệu ảnh quá lớn vượt hạn mức truyền tải. Vui lòng tải lại ảnh để hệ thống nén tự động.");
       }
       throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
     }
@@ -1351,6 +1513,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (res.status === 401 && typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("admin-signout"));
       }
+      if (res.status === 413 || err?.message?.toLowerCase().includes("large")) {
+        throw new Error("Dữ liệu ảnh quá lớn vượt hạn mức truyền tải. Vui lòng tải lại ảnh để hệ thống nén tự động.");
+      }
       throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
     }
     const updated = await res.json();
@@ -1467,22 +1632,6 @@ export class AdminRequestError extends Error {
   }
 }
 
-async function getOrRefreshAdminToken(): Promise<string | null> {
-  let token = sessionStorage.getItem("mld_admin_token") || localStorage.getItem("mld_admin_token");
-  if (!token) {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        const tokenStr = session.access_token;
-        token = tokenStr;
-        sessionStorage.setItem("mld_admin_token", tokenStr);
-        localStorage.setItem("mld_admin_token", tokenStr);
-      }
-    } catch {}
-  }
-  return token;
-}
-
 async function requestBackend<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   if (signal?.aborted) throw new DOMException("Đã hủy yêu cầu.", "AbortError");
   const controller = new AbortController();
@@ -1490,7 +1639,7 @@ async function requestBackend<T>(path: string, body?: unknown, signal?: AbortSig
   signal?.addEventListener("abort", abort, { once: true });
   const timeout = window.setTimeout(abort, body === undefined ? 15000 : 30000);
   try {
-    let token = await getOrRefreshAdminToken();
+    const token = sessionStorage.getItem("mld_admin_token");
     let response: Response;
     try {
       response = await fetch(base + '/admin/' + path.replace(/^\/+/, ""), {
@@ -1508,29 +1657,6 @@ async function requestBackend<T>(path: string, body?: unknown, signal?: AbortSig
         ? "Không kết nối được máy chủ. Vui lòng thử tải lại."
         : "Chưa xác minh được kết quả lưu. Hãy tải lại dữ liệu để kiểm tra trước khi gửi lại thao tác.", 0, body !== undefined);
     }
-
-    // Auto-refresh token if 401 Unauthorized
-    if (response.status === 401) {
-      try {
-        const { data: { session: refreshedSession }, error: refreshErr } = await supabase.auth.refreshSession();
-        if (refreshedSession?.access_token && !refreshErr) {
-          const newToken = refreshedSession.access_token;
-          token = newToken;
-          sessionStorage.setItem("mld_admin_token", newToken);
-          localStorage.setItem("mld_admin_token", newToken);
-          response = await fetch(base + '/admin/' + path.replace(/^\/+/, ""), {
-            method: body === undefined ? "GET" : "POST",
-            signal: controller.signal,
-            headers: {
-              "X-MLD-Local-Admin": "1", "Content-Type": "application/json",
-              Authorization: 'Bearer ' + newToken,
-            },
-            ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-          });
-        }
-      } catch {}
-    }
-
     const json = await response.json().catch(() => null);
     if (!response.ok || json?.success !== true) {
       const message = Array.isArray(json?.message) ? json.message.join(", ") : json?.message;
@@ -1543,33 +1669,35 @@ async function requestBackend<T>(path: string, body?: unknown, signal?: AbortSig
   }
 }
 
+const pendingMutations = new Map<string, Promise<unknown>>();
+function sendMutation<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  const key = path + ':' + JSON.stringify(body);
+  const existing = pendingMutations.get(key);
+  if (existing) return existing as Promise<T>;
+  const request = requestBackend<T>(path, body, signal).finally(() => {
+    if (pendingMutations.get(key) === request) pendingMutations.delete(key);
+  });
+  pendingMutations.set(key, request);
+  return request;
+}
+
 export async function adminApi<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   if (signal?.aborted) throw new DOMException("Đã hủy yêu cầu.", "AbortError");
   const location = typeof window !== "undefined" ? window.location : undefined;
   const source = (import.meta as any).env?.VITE_ADMIN_DATA_SOURCE;
   const local = location?.hostname === "localhost" || location?.hostname === "127.0.0.1";
-  // Select the deployment's source before sending.
+  // Select the deployment's source before sending. Never replay a failed request
+  // against another source, especially after an uncertain write or a denied read.
   const direct = source === "supabase" || (source !== "backend" && (
     (location?.protocol === "https:" && base.startsWith("http://")) ||
     (!local && base.includes("127.0.0.1"))
   ));
   if (direct) return querySupabaseFallback<T>(path, body, signal);
-
-  try {
-    return await requestBackend<T>(path, body, signal);
-  } catch (err: any) {
-    // For read operations (GET query), if backend is unauthorized, offline, or returns error,
-    // seamlessly fall back to Supabase Cloud so the user is never blocked!
-    if (body === undefined && !signal?.aborted) {
-      console.warn(`[adminApi] Backend read request for "${path}" failed (${err?.message || err}). Falling back to Supabase direct query...`);
-      return querySupabaseFallback<T>(path, body, signal);
-    }
-    throw err;
-  }
+  return body === undefined ? requestBackend<T>(path, body, signal) : sendMutation<T>(path, body, signal);
 }
 
 export async function adminCommand<T>(path: string, body?: unknown): Promise<T> {
-  return requestBackend<T>(path, body);
+  return body === undefined ? requestBackend<T>(path, body) : sendMutation<T>(path, body);
 }
 
 export function rowKey(columns: Column[], row: Row) {
@@ -1582,8 +1710,14 @@ export function rowKey(columns: Column[], row: Row) {
   );
 }
 
-export const recordLabel = (row: Row) =>
-  String(
+export const recordLabel = (row: Row) => {
+  if (row.batch_code && (row.instructor_name || row.assistant_name)) {
+    return `${row.batch_code} · ${row.instructor_name || row.assistant_name}`;
+  }
+  if (row.batch_code && row.course_title) {
+    return `${row.batch_code} · ${row.course_title}`;
+  }
+  return String(
     row.full_name ||
       row.name ||
       row.title ||
@@ -1600,3 +1734,4 @@ export const recordLabel = (row: Row) =>
       row.tier ||
       (row.id ? `#${String(row.id).slice(0, 8)}` : "")
   );
+};

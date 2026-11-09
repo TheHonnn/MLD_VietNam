@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail } from 'class-validator';
+import { IsString, IsOptional, IsEmail, ValidateIf } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateProfileDto {
@@ -7,9 +7,10 @@ export class UpdateProfileDto {
   @IsString()
   avatarUrl?: string;
 
-  @ApiProperty({ description: 'Họ và tên', example: 'Nguyễn Minh Anh' })
+  @ApiProperty({ description: 'Họ và tên', example: 'Nguyễn Minh Anh', required: false })
+  @IsOptional()
   @IsString()
-  fullName: string;
+  fullName?: string;
 
   @ApiProperty({ description: 'Số điện thoại', example: '0901234567', required: false })
   @IsOptional()
@@ -18,7 +19,8 @@ export class UpdateProfileDto {
 
   @ApiProperty({ description: 'Email liên hệ', example: 'minh.anh@example.com', required: false })
   @IsOptional()
-  @IsEmail()
+  @ValidateIf((o) => typeof o.email === 'string' && o.email.trim().length > 0)
+  @IsEmail({}, { message: 'Email không đúng định dạng' })
   email?: string;
 
   @ApiProperty({ description: 'Ngày sinh DD/MM/YYYY', example: '15/08/1998', required: false })

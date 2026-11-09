@@ -14,24 +14,27 @@ export class AdminDatabase implements OnModuleDestroy, OnModuleInit {
   private pool?: Pool;
   constructor(private readonly config: ConfigService) {}
   async onModuleInit() {
-    if (!(this.config.get<string>('ADMIN_DATABASE_URL') || this.config.get<string>('DATABASE_URL'))) return;
+    if (!(this.config.get<string>('ADMIN_DATABASE_URL') || this.config.get<string>('DATABASE_URL'))) {
+      if (this.config.get<string>('NODE_ENV') === 'production')
+        throw new ServiceUnavailableException('Admin database is not configured.');
+      return;
+    }
     const logger = new Logger(AdminDatabase.name);
     try {
       const status = await inspectAdminSchema(this.connection);
-      if (!status.ready) logger.error(`Admin schema is incomplete: ${status.missing.join(', ')}. Apply the documented admin migrations before operating.`);
-    } catch {
+      if (!status.ready) throw new ServiceUnavailableException(`Admin schema is incomplete: ${status.missing.join(', ')}`);
+    } catch (error) {
       logger.error('Admin database readiness check failed. Verify the database connection and migrations.');
+      throw error;
     }
   }
   get connection(): Pool {
     if (!this.pool) {
-      const connectionString =
-        this.config.get<string>('ADMIN_DATABASE_URL') ||
-        this.config.get<string>('DATABASE_URL') ||
-        'postgresql://postgres.wstvwushpwcdsmhpunvh:20051811buiH%40%40@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true';
+      const connectionString = this.config.get<string>('ADMIN_DATABASE_URL') || this.config.get<string>('DATABASE_URL');
+      if (!connectionString) throw new ServiceUnavailableException('Admin database is not configured.');
       this.pool = new Pool({
         connectionString,
-        ssl: { rejectUnauthorized: false },
+        ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1') ? false : { rejectUnauthorized: true },
         max: 5,
         connectionTimeoutMillis: 10000,
         statement_timeout: 15000,

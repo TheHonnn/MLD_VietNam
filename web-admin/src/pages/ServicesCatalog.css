@@ -1,0 +1,177 @@
+.services-catalog {
+  --catalog-ink: #35291f;
+  --catalog-muted: #786b60;
+  --catalog-line: #ece4db;
+}
+
+.services-catalog button:focus-visible,
+.services-catalog input:focus-visible,
+.services-catalog select:focus-visible,
+.catalog-table-scroll:focus-visible {
+  outline: 2px solid #985018;
+  outline-offset: 3px;
+}
+
+.catalog-metrics > div {
+  border-color: var(--catalog-line);
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.catalog-metrics > div > div:nth-child(2) {
+  color: var(--catalog-ink);
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.catalog-metrics > div > div:first-child > div {
+  background: #f8f1e9;
+  color: #985018;
+  border-radius: 10px;
+}
+
+.catalog-tabs {
+  gap: 6px;
+  padding-bottom: 0;
+  border-color: #e4d8cb;
+}
+
+.catalog-tabs > button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--catalog-muted);
+  box-shadow: none;
+  padding: 13px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.catalog-tabs > button[aria-pressed='true'] {
+  background: #fbf6ef;
+  border-bottom-color: #985018;
+  color: #8a4f23;
+}
+
+.catalog-tabs > button:hover {
+  background: #f7eee3;
+  color: #8a4f23;
+}
+
+.catalog-notice {
+  border-radius: 12px;
+  box-shadow: none;
+  padding: 14px 18px;
+  background: #fcfaf7;
+  line-height: 1.65;
+}
+
+.catalog-board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--catalog-line);
+  background: #fffdfa;
+}
+
+.catalog-board-header .catalog-eyebrow {
+  margin: 0 0 6px;
+  color: #985018;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.catalog-board-header h2 {
+  margin: 0;
+  color: var(--catalog-ink);
+  font-size: 22px;
+  line-height: 1.4;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.catalog-board-header p {
+  margin-top: 5px;
+  color: var(--catalog-muted);
+  font-size: 12px;
+}
+
+.catalog-tax-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  color: #78634d;
+  font-size: 12px;
+}
+
+.catalog-board-body { padding: 28px 24px 20px; }
+.catalog-table-scroll { padding-top: 14px; }
+.catalog-price-table { min-width: 760px; table-layout: fixed; }
+.catalog-price-table th { vertical-align: top; }
+.catalog-price-table thead th > div {
+  border-radius: 10px;
+  box-shadow: none;
+}
+.catalog-price-table thead th:first-child > div {
+  border-left: none;
+  padding: 9px 8px 9px 0;
+}
+.catalog-price-table thead h3,
+.catalog-price-table thead th > div > span:first-child:not(.catalog-popular-label),
+.catalog-price-table thead th > div > .catalog-popular-label + span {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+.catalog-price-table .catalog-popular-label {
+  top: -13px;
+  padding: 3px 9px;
+  border: 2px solid white;
+  background: #f2e4d2;
+  font-size: 9px;
+  line-height: 1.2;
+  box-shadow: none;
+}
+.catalog-price-table tbody td {
+  padding-top: 22px;
+  padding-bottom: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.catalog-price-table tbody td:first-child { padding-left: 10px; }
+.catalog-price-table tbody tr:nth-child(even) { background: #fcfaf7; }
+.catalog-price-table tbody tr:hover { background: #f8f2ea; }
+.catalog-price-table tbody td > div:first-child > span:first-child {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+.catalog-price-table button[title='Sửa giá niêm yết'] {
+  min-width: 28px;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.catalog-price-table tbody button { border-radius: 7px; }
+
+@media (max-width: 640px) {
+  .catalog-board-header { align-items: flex-start; flex-direction: column; gap: 10px; padding: 20px; }
+  .catalog-board-header h2 { font-size: 20px; }
+  .catalog-board-body { padding: 24px 12px 12px; }
+  .catalog-tabs { flex-wrap: nowrap; overflow-x: auto; }
+  .catalog-tabs > button { flex-shrink: 0; padding: 12px; font-size: 12px; }
+  .catalog-metrics > div > div:nth-child(2) { font-size: 20px; }
+}
+
+@media print {
+  .catalog-price-table { min-width: 0; }
+  .catalog-board-header { padding: 16px; }
+  .catalog-board-body { padding: 20px 12px; }
+  .catalog-price-table tbody td { padding-top: 12px; padding-bottom: 12px; }
+}

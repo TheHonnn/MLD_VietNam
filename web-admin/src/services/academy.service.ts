@@ -25,6 +25,7 @@ import {
 } from '../types/shared_types';
 
 import { supabaseService } from './supabaseService';
+import { posService } from './pos.service';
 import { legacyRead, legacyWrite } from './adminAdapter';
 import { commissionService } from './commission.service';
 
@@ -452,7 +453,7 @@ export const academyService = {
         if (txList && txList.length > 0) {
           matchedAmount = txList
             .filter((t) => t.paymentStatus === 'PAID')
-            .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+            .reduce((sum, t) => sum + (t.transactionType === 'REFUND' ? -Math.abs(Number(t.amount || 0)) : Number(t.amount || 0)), 0);
         }
       }
 
@@ -469,19 +470,22 @@ export const academyService = {
           approvalNotes: `Đã tự động duyệt: Nhận thanh toán ${matchedAmount.toLocaleString('vi-VN')}đ khớp mã KH ${customerCode}`,
         });
 
-        // Tự động tạo bản ghi tuition_transactions để ghi nhận doanh thu
+        // Tự động tạo bản ghi tuition_transactions qua backend POS có đối soát ca
         try {
-          await supabaseService.recordTuitionPayment({
-            transactionCode: `TT-${customerCode}-${Date.now().toString().slice(-4)}`,
-            enrollmentId,
-            studentId: enr.studentId,
-            courseId: enr.courseId,
-            branchId: enr.batchId || 'aaaaaaaa-0001-0001-0001-000000000001',
-            amount: matchedAmount,
-            paymentMethod: 'BANK_TRANSFER' as any,
-            paymentStatus: 'PAID' as any,
-            notes: `Tự động đối soát ngân hàng khớp mã KH ${customerCode}`,
-          });
+          const batches = await supabaseService.getCourseBatches();
+          const branchId = batches?.find((b) => b.id === enr.batchId)?.branchId;
+          const shiftRes = await posService.getActiveShift(branchId);
+          if (shiftRes.success && shiftRes.data?.id) {
+            await posService.collectPayment({
+              kind: 'TUITION',
+              enrollmentId,
+              amount: matchedAmount,
+              shiftId: shiftRes.data.id,
+              branchId: branchId || shiftRes.data.branchId,
+              paymentMethod: PaymentMethod.BANK_TRANSFER,
+              notes: `Tự động đối soát ngân hàng khớp mã KH ${customerCode}`,
+            });
+          }
         } catch (_) {}
 
         return {
@@ -527,20 +531,25 @@ export const academyService = {
         approvalNotes: options?.notes || `Admin duyệt tại quầy, thu ${finalPaid.toLocaleString('vi-VN')}đ`,
       });
 
-      // Tự động ghi nhận giao dịch vào bảng tuition_transactions để hiển thị tức thì trên Dashboard doanh thu
+      // Tự động ghi nhận giao dịch vào bảng tuition_transactions qua backend POS có đối soát ca
       if (finalPaid > 0 && enr) {
         try {
-          await supabaseService.recordTuitionPayment({
-            transactionCode: `TT-DESK-${Date.now().toString().slice(-6)}`,
-            enrollmentId,
-            studentId: enr.studentId,
-            courseId: enr.courseId,
-            branchId: enr.batchId || 'aaaaaaaa-0001-0001-0001-000000000001',
-            amount: finalPaid,
-            paymentMethod: 'CASH_AT_SPA' as any,
-            paymentStatus: 'PAID' as any,
-            notes: options?.notes || `Admin duyệt và thu học phí tại quầy cho học viên ${enr.studentName || ''}`,
-          });
+          const batches = await supabaseService.getCourseBatches();
+          const branchId = batches?.find((b) => b.id === enr.batchId)?.branchId;
+          const shiftRes = await posService.getActiveShift(branchId);
+          if (shiftRes.success && shiftRes.data?.id) {
+            await posService.collectPayment({
+              kind: 'TUITION',
+              enrollmentId,
+              amount: finalPaid,
+              shiftId: shiftRes.data.id,
+              branchId: branchId || shiftRes.data.branchId,
+              paymentMethod: PaymentMethod.CASH_AT_SPA,
+              notes: options?.notes || `Admin duyệt và thu học phí tại quầy cho học viên ${enr.studentName || ''}`,
+            });
+          } else {
+            console.warn('[approveEnrollment] Không tìm thấy ca thu ngân đang mở để ghi nhận giao dịch học phí');
+          }
         } catch (tErr) {
           console.warn('[approveEnrollment] Lỗi tự động ghi nhận giao dịch học phí:', tErr);
         }
@@ -701,25 +710,17 @@ export const academyService = {
       if (ok) {
         try {
           const batches = await supabaseService.getCourseBatches();
-          const payment = await supabaseService.recordTuitionPayment({
-            transactionCode: `HP-${enr.orderCode || Date.now().toString().slice(-6)}`,
-            enrollmentId,
-            studentId: enr.studentId,
-            courseId: enr.courseId,
-            branchId: batches?.find((batch) => batch.id === enr.batchId)?.branchId || 'aaaaaaaa-0001-0001-0001-000000000001',
-            amount,
-            paymentMethod: options?.paymentMethod || PaymentMethod.BANK_TRANSFER,
-            paymentStatus: PaymentStatus.PAID,
-            notes: options?.notes || `Thanh toán học phí cho hồ sơ ${enr.orderCode || ''}`,
-          });
-          if (payment && enr.assignedStaffId) {
-            await commissionService.createCommission({
-              staffId: enr.assignedStaffId,
-              branchId: payment.branch_id,
-              tuitionTransactionId: payment.id,
-              commissionType: 'COURSE_ENROLLMENT',
-              baseAmount: amount,
-              notes: `Hoa hồng tư vấn khóa học từ giao dịch ${payment.transaction_code}`,
+          const branchId = batches?.find((batch) => batch.id === enr.batchId)?.branchId;
+          const shiftRes = await posService.getActiveShift(branchId);
+          if (shiftRes.success && shiftRes.data?.id) {
+            await posService.collectPayment({
+              kind: 'TUITION',
+              enrollmentId,
+              amount,
+              shiftId: shiftRes.data.id,
+              branchId: branchId || shiftRes.data.branchId,
+              paymentMethod: options?.paymentMethod === PaymentMethod.CASH_AT_SPA ? PaymentMethod.CASH_AT_SPA : PaymentMethod.BANK_TRANSFER,
+              notes: options?.notes || `Thanh toán học phí cho hồ sơ ${enr.orderCode || ''}`,
             });
           }
         } catch (_) {}
@@ -814,6 +815,7 @@ export const academyService = {
   async getTuitionTransactions(enrollmentId?: string): Promise<ApiResponse<TuitionTransaction[]>> {
     try {
       const live = await supabaseService.getTuitionTransactions(enrollmentId);
+      if (live === null) throw new Error('Không tải được giao dịch học phí.');
       return {
         success: true,
         statusCode: 200,
@@ -835,19 +837,47 @@ export const academyService = {
     data: any
   ): Promise<ApiResponse<TuitionTransaction>> {
     try {
-      const res = await supabaseService.recordTuitionPayment(data);
-      if (res) {
+      const shiftRes = await posService.getActiveShift(data.branchId);
+      if (!shiftRes.success || !shiftRes.data?.id) {
+        return {
+          success: false,
+          statusCode: 409,
+          message: 'Vui lòng mở ca thu ngân tại chi nhánh trước khi ghi nhận đóng học phí.',
+          data: {} as TuitionTransaction,
+        };
+      }
+      const collectRes = await posService.collectPayment({
+        kind: 'TUITION',
+        enrollmentId: data.enrollmentId,
+        amount: Number(data.amount),
+        shiftId: data.shiftId || shiftRes.data.id,
+        branchId: data.branchId || shiftRes.data.branchId,
+        paymentMethod: data.paymentMethod || PaymentMethod.BANK_TRANSFER,
+        notes: data.notes || 'Thanh toán học phí khóa học',
+      });
+      if (collectRes.success && collectRes.data) {
         return {
           success: true,
           statusCode: 201,
-          message: 'Ghi nhận đóng học phí thành công trên Supabase Cloud',
-          data: res,
+          message: 'Ghi nhận đóng học phí thành công qua POS',
+          data: (collectRes.data.transaction || collectRes.data) as TuitionTransaction,
         };
       }
-    } catch (err) {
+      return {
+        success: false,
+        statusCode: collectRes.statusCode || 400,
+        message: collectRes.message || 'Không thể ghi nhận học phí.',
+        data: {} as TuitionTransaction,
+      };
+    } catch (err: any) {
       console.error('[academyService] recordTuitionPayment error:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: err?.message || 'Lỗi ghi nhận học phí qua POS',
+        data: {} as TuitionTransaction,
+      };
     }
-    return legacyWrite<TuitionTransaction>('tuition_transactions', data);
   },
 
   // --- Giấy chứng nhận Chuẩn Y khoa (Student Certificates) ---

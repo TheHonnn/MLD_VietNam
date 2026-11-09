@@ -38,6 +38,7 @@ import {
   emailService,
 } from '../services';
 import { toast } from '../components/common';
+import { useAdmin } from '../admin/Auth';
 import {
   User,
   Booking,
@@ -130,6 +131,9 @@ export const W04_CustomerDetail: React.FC = () => {
   const [emailLogs, setEmailLogs] = useState<any[]>([]);
   const [availablePackages, setAvailablePackages] = useState<TreatmentPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const { user } = useAdmin();
+  const isStaff = Boolean(user && !['ADMIN', 'SUPER_ADMIN'].includes(user.role));
 
   // Modals
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -730,6 +734,10 @@ export const W04_CustomerDetail: React.FC = () => {
 
   const sendCareGuide = async () => {
     if (!customer?.id || !selectedCareGuideId || !careGuideRequestKey) return;
+    if (isStaff && !selectedCareBookingId) {
+      toast.error('Thiếu thông tin lịch hẹn', 'Nhân viên bắt buộc phải chọn lịch hẹn hợp lệ thuộc chi nhánh để gửi hướng dẫn chăm sóc.');
+      return;
+    }
     setIsSendingCareGuide(true);
     try {
       const result = await supabaseService.query<any>('rpc/fn_send_home_care_guideline', {
@@ -1810,10 +1818,27 @@ export const W04_CustomerDetail: React.FC = () => {
                     <option value="">Chọn bài hướng dẫn</option>{careGuides.map((guide) => <option key={guide.id} value={guide.id}>{guide.title}</option>)}
                   </select>
                 </label>
-                <label className="block space-y-1"><span className="font-semibold">Gắn với lịch hẹn (không bắt buộc)</span>
-                  <select value={selectedCareBookingId} onChange={(event) => setSelectedCareBookingId(event.target.value)} className="w-full border border-[#D8D0C7] rounded-md px-3 py-2">
-                    <option value="">Không gắn lịch hẹn</option>{bookings.map((booking) => <option key={booking.id} value={booking.id}>{booking.bookingCode} · {formatDateVN(booking.bookingDate)}</option>)}
+                <label className="block space-y-1">
+                  <span className="font-semibold">
+                    Gắn với lịch hẹn {isStaff ? <span className="text-red-600 font-bold">* (Bắt buộc với nhân viên)</span> : '(nhân viên cần chọn)'}
+                  </span>
+                  <select
+                    value={selectedCareBookingId}
+                    onChange={(event) => setSelectedCareBookingId(event.target.value)}
+                    className={`w-full border rounded-md px-3 py-2 ${isStaff && !selectedCareBookingId ? 'border-red-400 bg-red-50/30' : 'border-[#D8D0C7]'}`}
+                  >
+                    <option value="">{isStaff ? '— Vui lòng chọn lịch hẹn thuộc chi nhánh —' : 'Không gắn lịch hẹn'}</option>
+                    {bookings.map((booking) => (
+                      <option key={booking.id} value={booking.id}>
+                        {booking.bookingCode} · {formatDateVN(booking.bookingDate)}
+                      </option>
+                    ))}
                   </select>
+                  {isStaff && !selectedCareBookingId && (
+                    <p className="text-[11px] text-red-600 mt-1">
+                      Theo chính sách bảo mật chi nhánh (Migration 028), nhân viên phải gắn lịch hẹn thuộc chi nhánh phụ trách.
+                    </p>
+                  )}
                 </label>
               </div>
               <div className="rounded-lg border border-[#EFE4D9] bg-[#FAF8F5] p-4 space-y-2">
@@ -1822,7 +1847,7 @@ export const W04_CustomerDetail: React.FC = () => {
             </div>
             <footer className="px-5 py-4 border-t border-[#EFE4D9] flex justify-end gap-2">
               <button type="button" onClick={() => setIsCareGuideModalOpen(false)} className="px-4 py-2 border rounded-md">Hủy</button>
-              <button type="button" onClick={() => void sendCareGuide()} disabled={!selectedCareGuideId || isSendingCareGuide} className="px-4 py-2 rounded-md bg-[#985018] text-white font-semibold disabled:opacity-50">{isSendingCareGuide ? 'Đang gửi…' : 'Gửi trong ứng dụng'}</button>
+              <button type="button" onClick={() => void sendCareGuide()} disabled={!selectedCareGuideId || isSendingCareGuide || (Boolean(isStaff) && !selectedCareBookingId)} className="px-4 py-2 rounded-md bg-[#985018] text-white font-semibold disabled:opacity-50">{isSendingCareGuide ? 'Đang gửi…' : 'Gửi trong ứng dụng'}</button>
             </footer>
           </section>
         </div>

@@ -53,12 +53,28 @@ export class MembershipService {
       const clean = phoneOrEmail.trim();
       const isEmail = clean.includes('@');
       try {
-        const { data } = await this.supabaseService.adminClient
-          .from('users')
-          .select('id')
-          .eq(isEmail ? 'email' : 'phone', clean)
-          .maybeSingle();
-        if (data?.id) return data.id;
+        if (isEmail) {
+          const { data } = await this.supabaseService.adminClient
+            .from('users')
+            .select('id')
+            .eq('email', clean)
+            .maybeSingle();
+          if (data?.id) return data.id;
+        } else {
+          const digits = clean.replace(/\D/g, '');
+          const phoneVariants = [clean, digits];
+          if (digits.startsWith('0')) {
+            phoneVariants.push('+84' + digits.slice(1));
+          } else if (digits.startsWith('84')) {
+            phoneVariants.push('0' + digits.slice(2));
+          }
+          const { data } = await this.supabaseService.adminClient
+            .from('users')
+            .select('id')
+            .in('phone', phoneVariants)
+            .maybeSingle();
+          if (data?.id) return data.id;
+        }
       } catch (_) {}
     }
     return null;
@@ -96,6 +112,23 @@ export class MembershipService {
           const points = typeof user.reward_points === 'number' ? user.reward_points : 0;
           const phone = user.phone || '';
 
+          let formattedDob = '';
+          if (user.date_of_birth) {
+            const raw = String(user.date_of_birth).trim();
+            if (raw.includes('-')) {
+              const parts = raw.split('-');
+              if (parts.length === 3 && parts[0].length === 4) {
+                formattedDob = `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+              } else {
+                formattedDob = raw;
+              }
+            } else {
+              formattedDob = raw;
+            }
+          }
+
+          const displayGender = user.gender === 'MALE' ? 'Nam' : (user.gender === 'FEMALE' ? 'Nữ' : 'Khác');
+
           return {
             success: true,
             data: {
@@ -104,8 +137,8 @@ export class MembershipService {
               phone: phone,
               isPhoneVerified: phone.trim().length > 0,
               email: user.email || '',
-              dateOfBirth: user.date_of_birth ? String(user.date_of_birth) : '',
-              gender: user.gender === 'MALE' ? 'Nam' : (user.gender === 'FEMALE' ? 'Nữ' : (user.gender || '')),
+              dateOfBirth: formattedDob,
+              gender: displayGender,
               address: user.address || '',
               occupation: '',
               emergencyContactName: user.emergency_contact_name || '',
@@ -132,7 +165,7 @@ export class MembershipService {
         isPhoneVerified: false,
         email: '',
         dateOfBirth: '',
-        gender: '',
+        gender: 'Nữ',
         address: '',
         occupation: '',
         emergencyContactName: '',
@@ -155,26 +188,34 @@ export class MembershipService {
     if (resolvedId) {
       try {
         const updateData: Record<string, any> = {};
-        if (dto.fullName) updateData.full_name = dto.fullName;
-        if (dto.phone) updateData.phone = dto.phone;
-        if (dto.avatarUrl) updateData.avatar_url = dto.avatarUrl;
-        if (dto.email) updateData.email = dto.email;
-        if (dto.address !== undefined) updateData.address = dto.address;
-        if (dto.emergencyContactName !== undefined) updateData.emergency_contact_name = dto.emergencyContactName;
-        if (dto.emergencyContactPhone !== undefined) updateData.emergency_contact_phone = dto.emergencyContactPhone;
+        if (dto.fullName !== undefined) updateData.full_name = dto.fullName.trim();
+        if (dto.phone !== undefined && dto.phone.trim().length > 0) updateData.phone = dto.phone.trim();
+        if (dto.avatarUrl !== undefined) updateData.avatar_url = dto.avatarUrl.trim();
+        if (dto.email !== undefined) {
+          const em = dto.email.trim();
+          updateData.email = em.length > 0 ? em : null;
+        }
+        if (dto.address !== undefined) updateData.address = dto.address.trim();
+        if (dto.emergencyContactName !== undefined) updateData.emergency_contact_name = dto.emergencyContactName.trim();
+        if (dto.emergencyContactPhone !== undefined) updateData.emergency_contact_phone = dto.emergencyContactPhone.trim();
         if (dto.gender) {
-          const g = dto.gender.toUpperCase();
+          const g = dto.gender.toUpperCase().trim();
           if (g === 'NAM' || g === 'MALE') updateData.gender = 'MALE';
           else if (g === 'NỮ' || g === 'NU' || g === 'FEMALE') updateData.gender = 'FEMALE';
           else updateData.gender = 'OTHER';
         }
-        if (dto.dateOfBirth) {
+        if (dto.dateOfBirth && dto.dateOfBirth.trim().length > 0) {
           try {
-            const parts = dto.dateOfBirth.split('/');
-            if (parts.length === 3) {
-              updateData.date_of_birth = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            const raw = dto.dateOfBirth.trim();
+            if (raw.includes('/')) {
+              const parts = raw.split('/');
+              if (parts.length === 3) {
+                updateData.date_of_birth = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+              } else {
+                updateData.date_of_birth = raw;
+              }
             } else {
-              updateData.date_of_birth = dto.dateOfBirth;
+              updateData.date_of_birth = raw;
             }
           } catch (_) {
             updateData.date_of_birth = dto.dateOfBirth;
@@ -182,10 +223,52 @@ export class MembershipService {
         }
 
         if (Object.keys(updateData).length > 0) {
+          updateData.updated_at = new Date().toISOString();
           await this.supabaseService.adminClient
             .from('users')
             .update(updateData)
             .eq('id', resolvedId);
+        }
+
+        const { data: refreshed } = await this.supabaseService.adminClient
+          .from('users')
+          .select('id, full_name, phone, email, avatar_url, gender, date_of_birth, address, emergency_contact_name, emergency_contact_phone, membership_tier, reward_points, referral_code')
+          .eq('id', resolvedId)
+          .maybeSingle();
+
+        if (refreshed) {
+          const tier = this.mapTierName(refreshed.membership_tier);
+          let dob = '';
+          if (refreshed.date_of_birth) {
+            const parts = String(refreshed.date_of_birth).split('-');
+            if (parts.length === 3 && parts[0].length === 4) {
+              dob = `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+            } else {
+              dob = String(refreshed.date_of_birth);
+            }
+          }
+          return {
+            success: true,
+            message: 'Cập nhật thông tin thành công',
+            data: {
+              id: refreshed.id,
+              fullName: refreshed.full_name || '',
+              phone: refreshed.phone || '',
+              isPhoneVerified: !!(refreshed.phone && refreshed.phone.trim().length > 0),
+              email: refreshed.email || '',
+              dateOfBirth: dob,
+              gender: refreshed.gender === 'MALE' ? 'Nam' : (refreshed.gender === 'FEMALE' ? 'Nữ' : 'Khác'),
+              address: refreshed.address || '',
+              occupation: dto.occupation || '',
+              emergencyContactName: refreshed.emergency_contact_name || '',
+              emergencyContactPhone: refreshed.emergency_contact_phone || '',
+              avatarUrl: refreshed.avatar_url || '',
+              memberTier: tier,
+              memberCode: refreshed.referral_code || '',
+              points: typeof refreshed.reward_points === 'number' ? refreshed.reward_points : 0,
+              validUntil: 'Đang hoạt động',
+            },
+          };
         }
       } catch (err) {
         this.logger.warn(`Error updating profile: ${err}`);
@@ -721,6 +804,72 @@ export class MembershipService {
       success: true,
       message: 'Cập nhật cài đặt thành công',
       data: this.userSettings,
+    };
+  }
+
+  /**
+   * Liên kết mã người giới thiệu cho hội viên qua Backend NestJS (dùng adminClient, an toàn tuyệt đối)
+   */
+  async linkReferral(userId: string, code: string) {
+    const cleanCode = (code || '').trim().toUpperCase();
+    if (!cleanCode) {
+      throw new BadRequestException('Mã giới thiệu không được để trống');
+    }
+
+    const resolvedId = await this.resolveUserId(userId);
+    if (!resolvedId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để thực hiện');
+    }
+
+    const { data: referrer, error } = await this.supabaseService.adminClient
+      .from('users')
+      .select('id, full_name, role')
+      .eq('referral_code', cleanCode)
+      .maybeSingle();
+
+    if (error || !referrer) {
+      throw new BadRequestException('Mã giới thiệu không tồn tại trên hệ thống');
+    }
+
+    if (referrer.id === resolvedId) {
+      throw new BadRequestException('Không thể nhập mã của chính bạn');
+    }
+
+    await this.supabaseService.adminClient
+      .from('users')
+      .update({ referred_by_id: referrer.id })
+      .eq('id', resolvedId);
+
+    const displayRole = referrer.role === 'INSTRUCTOR' ? ' (Chỉ định Y khoa)' : (referrer.role === 'TECHNICIAN' ? ' (KTV Phục hồi)' : '');
+    const fullNameFormatted = `${referrer.full_name}${displayRole}`;
+
+    return {
+      success: true,
+      message: `Đã liên kết người giới thiệu: ${referrer.full_name}`,
+      data: {
+        referrerId: referrer.id,
+        referrerName: fullNameFormatted,
+      },
+    };
+  }
+
+  /**
+   * Gỡ bỏ người giới thiệu qua Backend NestJS
+   */
+  async clearReferral(userId: string) {
+    const resolvedId = await this.resolveUserId(userId);
+    if (!resolvedId) {
+      throw new UnauthorizedException('Vui lòng đăng nhập để thực hiện');
+    }
+
+    await this.supabaseService.adminClient
+      .from('users')
+      .update({ referred_by_id: null })
+      .eq('id', resolvedId);
+
+    return {
+      success: true,
+      message: 'Đã gỡ bỏ người giới thiệu thành công',
     };
   }
 }

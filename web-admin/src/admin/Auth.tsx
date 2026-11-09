@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../services/supabaseClient";
+import { supabaseService } from "../services/supabaseService";
 
 export interface AdminUser {
   id: string;
@@ -48,10 +49,11 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
   // Helper to fetch user details from public.users and verify administrative permissions
   const fetchAdminProfile = async (email: string, authId?: string): Promise<AdminUser | null> => {
     try {
+      if (!authId) return null;
       const { data, error } = await supabase
         .from("users")
         .select("id, full_name, email, phone, role, is_active, avatar_url")
-        .or(`email.eq.${email}${authId ? `,id.eq.${authId}` : ""}`)
+        .eq('id', authId)
         .maybeSingle();
 
       if (error || !data) {
@@ -141,12 +143,14 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
     // Listen to Supabase auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_OUT" || !session) {
+        supabaseService.invalidateCache();
         sessionStorage.removeItem("mld_admin_token");
         sessionStorage.removeItem("mld_admin_profile");
         localStorage.removeItem("mld_admin_token");
         localStorage.removeItem("mld_admin_profile");
         setUser(null);
       } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        supabaseService.invalidateCache();
         sessionStorage.setItem("mld_admin_token", session.access_token);
         localStorage.setItem("mld_admin_token", session.access_token);
       }
@@ -262,6 +266,7 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn("[AdminAuth] Lỗi khi đăng xuất:", err);
     } finally {
+      supabaseService.invalidateCache();
       sessionStorage.removeItem("mld_admin_token");
       sessionStorage.removeItem("mld_admin_profile");
       localStorage.removeItem("mld_admin_token");

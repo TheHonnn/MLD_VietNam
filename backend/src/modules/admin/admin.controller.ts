@@ -92,6 +92,7 @@ export class AdminController {
     if (!['ADMIN', 'SUPER_ADMIN'].includes(req.admin?.role) && !permissions.includes('treatment_journal.update')) {
       throw new ForbiddenException('Tài khoản chưa được cấp quyền chia sẻ nhật ký điều trị.');
     }
+    await this.service.assertJournalAccess(req.admin, id);
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await this.supabase.adminClient
@@ -117,6 +118,7 @@ export class AdminController {
     if (!['ADMIN', 'SUPER_ADMIN'].includes(req.admin?.role) && !permissions.includes('treatment_journal.update')) {
       throw new ForbiddenException('Tài khoản chưa được cấp quyền thu hồi liên kết nhật ký.');
     }
+    await this.service.assertJournalAccess(req.admin, id);
     const { data, error } = await this.supabase.adminClient
       .from('treatment_journal')
       .update({ share_revoked_at: new Date().toISOString() })
@@ -207,11 +209,12 @@ export class AdminController {
   @Get('documents/signed-url')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()
-  async getDocumentSignedUrl(@Query('path') pathStr: string) {
+  async getDocumentSignedUrl(@Query('path') pathStr: string, @Req() req) {
     if (!pathStr || typeof pathStr !== 'string') {
       throw new BadRequestException('Vui lòng cung cấp đường dẫn tệp tài liệu.');
     }
     const cleanPath = pathStr.replace(/^[/\\]+/, '').replace(/\.\./g, '');
+    await this.service.assertDocumentAccess(req.admin, cleanPath);
     const { data, error } = await this.supabase.adminClient.storage
       .from('documents')
       .createSignedUrl(cleanPath, 3600);
@@ -220,6 +223,10 @@ export class AdminController {
     }
     return { data: { signedUrl: data.signedUrl, expiresIn: 3600 } };
   }
+  @Get('cashier/workspace')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  cashierWorkspace(@Query('branchId') branchId: string, @Req() req) { return this.service.cashierWorkspace(req.admin, branchId); }
   @Post('cashier/collect')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()

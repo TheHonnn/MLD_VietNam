@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
@@ -141,7 +141,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
       } else if (errStr.contains('INVALID_CREDENTIALS')) {
         msg = 'Số điện thoại hoặc mật khẩu không chính xác.';
       } else {
-        final cleanMsg = errStr.replaceFirst('Exception: ', '').replaceAll('ApiException: ', '').trim();
+        final cleanMsg = errStr.replaceAll(RegExp(r'^(ApiException\s*(\[\d+\])?:\s*|Exception:\s*)'), '').trim();
         if (cleanMsg.isNotEmpty && !cleanMsg.contains('DioException')) {
           msg = cleanMsg;
         }
@@ -240,6 +240,11 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
         msg = 'Tài khoản tạm thời bị khóa do nhập sai nhiều lần. Vui lòng thử lại sau 15 phút.';
       } else if (errStr.contains('INVALID_CREDENTIALS')) {
         msg = 'Email hoặc mật khẩu không chính xác.';
+      } else {
+        final cleanMsg = errStr.replaceAll(RegExp(r'^(ApiException\s*(\[\d+\])?:\s*|Exception:\s*)'), '').trim();
+        if (cleanMsg.isNotEmpty && !cleanMsg.contains('DioException')) {
+          msg = cleanMsg;
+        }
       }
       setState(() {
         _errorMessage = msg;

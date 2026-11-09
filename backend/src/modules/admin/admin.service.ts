@@ -15,6 +15,7 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes, randomUUID } from 'crypto';
 import { AdminDatabase } from './admin.database';
 import { inspectAdminSchema } from './admin.schema';
+import { enrichReferenceLabels } from './admin.labels';
 import { allowedBranches, branchPredicate, assertRowScope, assertCashierBranch } from './admin.scope';
 import {
   ADMIN_RESOURCES,
@@ -56,6 +57,66 @@ export class AdminService {
 
   async schemaStatus() {
     return inspectAdminSchema(this.db.connection);
+  }
+
+  async assertJournalAccess(actor: AdminActor, id: string) {
+    if (!this.isUuid(id)) throw new BadRequestException('Nhật ký không hợp lệ.');
+    const branches = allowedBranches(actor, 'treatment_journal.update');
+    const rows = (await this.db.connection.query(
+      `SELECT DISTINCT branch_id FROM (
+         SELECT b.branch_id FROM treatment_journal j JOIN bookings b ON b.id=j.booking_id WHERE j.id=$1
+         UNION
+         SELECT i.branch_id FROM treatment_journal j JOIN invoices i ON i.user_package_id=j.user_package_id WHERE j.id=$1
+       ) scoped`, [id],
+    )).rows;
+    if (!rows.length) throw new NotFoundException('Không tìm thấy nhật ký có chi nhánh hợp lệ.');
+    if (branches !== null && !rows.some(row => branches.includes(row.branch_id)))
+      throw new ForbiddenException('Nhật ký không thuộc chi nhánh được cấp quyền.');
+  }
+
+  async assertDocumentAccess(actor: AdminActor, pathStr: string) {
+    if (!pathStr || typeof pathStr !== 'string') {
+      throw new BadRequestException('Vui lòng cung cấp đường dẫn tệp tài liệu.');
+    }
+    if (['ADMIN', 'SUPER_ADMIN'].includes(actor.role)) return;
+
+    const hasGeneralPerm = actor.permissions?.some(p => ['documents.read', 'portal_content.read', 'courses.read'].includes(p));
+    if (hasGeneralPerm) return;
+
+    let allowed = false;
+    try {
+      const branches = allowedBranches(actor, 'treatment_journal.read');
+      if (branches === null) {
+        allowed = true;
+      } else if (branches.length) {
+        const check = await this.db.connection.query(
+          `SELECT 1 FROM treatment_journal j
+           JOIN bookings b ON b.id=j.booking_id
+           WHERE b.branch_id=ANY($1::uuid[]) AND (
+             j.before_photos::text LIKE '%' || $2 || '%' OR
+             j.after_photos::text LIKE '%' || $2 || '%' OR
+             j.treatment_notes LIKE '%' || $2 || '%'
+           ) LIMIT 1`,
+          [branches, pathStr],
+        );
+        if (check.rowCount) allowed = true;
+      }
+    } catch {}
+
+    if (!allowed) {
+      const publicDoc = await this.db.connection.query(
+        `SELECT 1 FROM portal_content WHERE (file_url LIKE '%' || $1 || '%' OR content LIKE '%' || $1 || '%')
+         UNION
+         SELECT 1 FROM home_care_guidelines WHERE (media::text LIKE '%' || $1 || '%' OR image_url LIKE '%' || $1 || '%')
+         LIMIT 1`,
+        [pathStr],
+      );
+      if (publicDoc.rowCount) allowed = true;
+    }
+
+    if (!allowed) {
+      throw new ForbiddenException('Tài liệu riêng tư hoặc chưa được phân quyền cho nhân viên.');
+    }
   }
 
   resource(table: string, actor: AdminActor, write = false) {
@@ -227,7 +288,7 @@ export class AdminService {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
       const result = await client.query(
         `SELECT
-        (SELECT coalesce(sum(total_amount),0)::text FROM invoices WHERE payment_status='PAID' AND enrollment_id IS NULL AND paid_at>=($1::date::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh') AND paid_at<(($2::date+1)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')) AS "invoiceRevenue",
+        (SELECT coalesce(sum(CASE WHEN payment_status='REFUNDED' THEN 0 ELSE total_amount - coalesce(refund_amount, 0) END),0)::text FROM invoices WHERE payment_status IN ('PAID', 'REFUNDED') AND enrollment_id IS NULL AND paid_at>=($1::date::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh') AND paid_at<(($2::date+1)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')) AS "invoiceRevenue",
         (SELECT coalesce(sum(CASE WHEN transaction_type='REFUND' THEN -amount ELSE amount END),0)::text FROM tuition_transactions WHERE payment_status='PAID' AND paid_at>=($1::date::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh') AND paid_at<(($2::date+1)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')) AS "tuitionRevenue",
         (SELECT count(*)::int FROM bookings WHERE booking_date BETWEEN $1::date AND $2::date) AS "bookingCount",
         (SELECT count(*)::int FROM users WHERE role='CUSTOMER') AS "customerCount",
@@ -253,7 +314,7 @@ export class AdminService {
       table === 'staff_profiles' && name === 'full_name'
         ? '(SELECT u.full_name FROM public.users u WHERE u.id="staff_profiles".user_id)'
         : quote(name);
-    const page = Math.max(1, Math.min(100000, Number(query.page) || 1));
+    let page = Math.max(1, Math.min(100000, Number(query.page) || 1));
     const limit = Math.max(1, Math.min(100, Number(query.limit) || 25));
     if (!Number.isInteger(page) || !Number.isInteger(limit))
       throw new BadRequestException('Phân trang không hợp lệ.');
@@ -277,13 +338,12 @@ export class AdminService {
               .replace(/[\\%_]/g, '\\$&') +
             '%',
         );
-        where.push(
-          '(' +
-            text
-              .map((c) => `${expression(c.name)}::text ILIKE $${values.length}`)
-              .join(' OR ') +
-            ')',
-        );
+        const predicates = text.map((c) => `${expression(c.name)}::text ILIKE $${values.length}`);
+        if (table === 'staff_profiles') {
+          predicates.push(`EXISTS (SELECT 1 FROM public.users u WHERE u.id="staff_profiles".user_id AND u.full_name ILIKE $${values.length})`);
+          predicates.push(`EXISTS (SELECT 1 FROM public.branches b WHERE b.id="staff_profiles".branch_id AND b.name ILIKE $${values.length})`);
+        }
+        where.push('(' + predicates.join(' OR ') + ')');
       }
     }
     if (query.filter) {
@@ -339,6 +399,7 @@ export class AdminService {
         `SELECT count(*)::int AS total FROM public.${quote(table)}${clause}`,
         values,
       );
+      page = Math.min(page, Math.max(1, Math.ceil(count.rows[0].total / limit)));
       const data = await client.query(
         `SELECT ${selected} FROM public.${quote(table)}${clause} ORDER BY ${quote(order.name)} ${query.direction === 'asc' ? 'ASC' : 'DESC'}${columns
           .filter((c) => c.primary && c.name !== order.name)
@@ -346,6 +407,7 @@ export class AdminService {
           .join('')} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
         [...values, limit, (page - 1) * limit],
       );
+      await enrichReferenceLabels(client, columns, data.rows);
       await client.query('COMMIT');
       return {
         rows: data.rows,
@@ -1369,10 +1431,24 @@ export class AdminService {
             );
           }
         }
+        let shiftToUpdate: any = null;
+        if (row.branch_id) {
+          const openShift = (
+            await client.query(
+              `SELECT id FROM cashier_shifts WHERE cashier_id=$1 AND branch_id=$2 AND status='OPEN' ORDER BY opened_at DESC LIMIT 1`,
+              [actor.id, row.branch_id],
+            )
+          ).rows[0];
+          if (openShift) shiftToUpdate = openShift;
+        }
         await client.query(
-          `UPDATE public.${quote(table)} SET payment_status='PAID',paid_at=now(),cashier_id=$2 WHERE id=$1`,
-          [row.id, actor.id],
+          `UPDATE public.${quote(table)} SET payment_status='PAID',paid_at=now(),cashier_id=$2${shiftToUpdate ? ',shift_id=$3' : ''} WHERE id=$1`,
+          shiftToUpdate ? [row.id, actor.id, shiftToUpdate.id] : [row.id, actor.id],
         );
+        if (shiftToUpdate) {
+          const delta = (table === 'tuition_transactions' && row.transaction_type === 'REFUND') ? -Number(row.amount) : Number(row.amount || row.total_amount);
+          await this.updateCashierShiftTotals(client, shiftToUpdate.id, row.payment_method, delta);
+        }
       } else if (table === 'invoices' && body.action === 'refund') {
         if (row.payment_status !== 'PAID' || !body.reason?.trim())
           throw new ConflictException('Chỉ hoàn hóa đơn đã thu và cần lý do.');
@@ -1475,6 +1551,37 @@ export class AdminService {
     }
   }
 
+  async cashierWorkspace(actor: AdminActor, branchId?: string) {
+    this.requireCashier(actor);
+    const permitted = allowedBranches(actor, 'cashier.collect');
+    if (branchId && (!this.isUuid(branchId) || (permitted !== null && !permitted.includes(branchId))))
+      throw new ForbiddenException('Chi nhánh không thuộc phạm vi được cấp quyền.');
+    const branches = (await this.db.connection.query(
+      `SELECT id,name,code,address,phone,is_active FROM branches
+       WHERE ($1::uuid IS NULL OR id=$1) AND ($2::uuid[] IS NULL OR id=ANY($2::uuid[])) ORDER BY name`,
+      [branchId || null, permitted],
+    )).rows;
+    const ids = branches.map((branch) => branch.id);
+    const invoices = (await this.db.connection.query(
+      `SELECT id,invoice_code,branch_id,customer_id,booking_id,total_amount,payment_status,payment_method,paid_at
+       FROM invoices WHERE branch_id=ANY($1::uuid[]) ORDER BY paid_at DESC NULLS LAST LIMIT 200`, [ids],
+    )).rows;
+    const customers = (await this.db.connection.query(
+      `SELECT DISTINCT u.id,u.full_name,u.phone,u.email,u.role,u.is_active
+       FROM users u WHERE EXISTS (SELECT 1 FROM bookings b WHERE b.customer_id=u.id AND b.branch_id=ANY($1::uuid[]))
+       OR EXISTS (SELECT 1 FROM invoices i WHERE i.customer_id=u.id AND i.branch_id=ANY($1::uuid[]))
+       ORDER BY u.full_name LIMIT 200`, [ids],
+    )).rows;
+    const staff = (await this.db.connection.query(
+      `SELECT u.id,u.full_name,u.phone,sp.id AS profile_id,sp.branch_id,sp.position,sp.employee_code
+       FROM staff_profiles sp JOIN users u ON u.id=sp.user_id WHERE sp.branch_id=ANY($1::uuid[]) ORDER BY u.full_name`, [ids],
+    )).rows.map((row) => ({
+      id: row.id, full_name: row.full_name, phone: row.phone,
+      staff_profile: { id: row.profile_id, branch_id: row.branch_id, position: row.position, employee_code: row.employee_code },
+    }));
+    return { branches, invoices, customers, staff };
+  }
+
   async activeCashierShift(actor: AdminActor, branchId?: string) {
     this.requireCashier(actor);
     if (branchId) assertCashierBranch(actor, branchId, 'cashier.shifts');
@@ -1553,7 +1660,7 @@ export class AdminService {
         throw new ConflictException('Ca thu ngân này đã được đóng.');
       const systemCash = Number(shift.system_cash || shift.opening_cash || 0);
       const result = await client.query(
-        `UPDATE cashier_shifts SET closing_cash=$2, discrepancy_amount=$2-$3,
+        `UPDATE cashier_shifts SET closing_cash=$2, discrepancy_amount=$2::numeric-$3::numeric,
          status='CLOSED',closed_at=now(),notes=COALESCE($4,notes),updated_at=now()
          WHERE id=$1 RETURNING *`,
         [id, closingCash, systemCash, typeof body.notes === 'string' ? body.notes.trim().slice(0, 1000) : null],
@@ -1660,7 +1767,7 @@ export class AdminService {
         );
         await this.updateCashierShiftTotals(client, shiftId, paymentMethod, amount);
         await this.audit(client, actor, 'tuition_transactions', 'COLLECT', transaction.id);
-        return await this.finishCollection(client, actor, body, { kind, amount, transactionCode, paymentStatus: 'PAID', paidTotal: nextPaid, tuitionTotal: tuition });
+        return await this.finishCollection(client, actor, body, { kind, amount, transactionCode, paymentStatus: 'PAID', paidTotal: nextPaid, tuitionTotal: tuition, transaction });
       }
 
       if (kind === 'BOOKING') {
@@ -1710,7 +1817,7 @@ export class AdminService {
           );
         }
         await client.query(
-          "UPDATE bookings SET payment_status='PAID',status='COMPLETED',payment_method=$2,updated_at=now() WHERE id=$1",
+          "UPDATE bookings SET payment_status='PAID',payment_method=$2,updated_at=now() WHERE id=$1",
           [booking.id,paymentMethod],
         );
         const paidInvoice = (await client.query(

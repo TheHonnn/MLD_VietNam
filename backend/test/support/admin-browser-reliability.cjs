@@ -1,0 +1,31 @@
+const assert = require('node:assert/strict');
+async function verifyDialogAndRecovery(page, frontendUrl, requests, output) {
+  await page.goto(frontendUrl + '/manage/service_categories');
+  await page.locator('.admin-pagination').waitFor();
+  await page.getByRole('button',{name:'Thêm mới',exact:true}).click();
+  await page.getByRole('dialog').getByLabel(/^Tên/).fill('Thông tin chưa lưu');
+  page.once('dialog', dialog => dialog.dismiss());
+  await page.getByRole('dialog').getByRole('button',{name:'Đóng',exact:true}).last().click();
+  assert.equal(await page.getByRole('dialog').isVisible(),true,'Cancelling close retains the editor');
+  assert.equal(await page.getByRole('dialog').getByLabel(/^Tên/).inputValue(),'Thông tin chưa lưu');
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('dialog').getByRole('button',{name:'Đóng',exact:true}).last().click();
+  await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.getByRole('button',{name:'Thêm mới',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Lưu thay đổi',exact:true}).click();
+  assert.equal(await page.getByRole('dialog').getByLabel(/^Tên/).getAttribute('aria-invalid'),'true');
+  await page.getByRole('dialog').getByRole('button',{name:'Đóng',exact:true}).last().click();
+  const pattern=/^http:\/\/(?:localhost|127\.0\.0\.1):3000\/api\/v1\/admin\/service_categories(?:\?|$)/;
+  const deny=route=>route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({success:false,message:'Không có quyền truy cập danh mục kiểm thử.'})});
+  const before=requests.length;
+  await page.route(pattern,deny);
+  await page.goto(frontendUrl + '/manage/service_categories');
+  await page.getByRole('alert').filter({hasText:'Không có quyền truy cập danh mục kiểm thử.'}).waitFor();
+  assert.equal(requests.slice(before).filter(request=>request.url?.includes('/rest/v1/service_categories')).length,0,'Denied API reads never fall back to fake Supabase data');
+  await page.unroute(pattern,deny);
+  await page.getByRole('button',{name:'Thử lại',exact:true}).click();
+  await page.locator('.admin-pagination').waitFor();
+  assert.equal(await page.getByRole('alert').count(),0);
+  return {unsavedChanges:'passed',requiredFieldFeedback:'passed',deniedReadAndRetry:'passed'};
+}
+module.exports={verifyDialogAndRecovery};

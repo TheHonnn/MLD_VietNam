@@ -219,16 +219,16 @@ export const W13_StaffCommissions: React.FC = () => {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-[#E8EFF5] shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-[#EFE4D9] shadow-xs">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-600 mb-1">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#8A4F23] mb-1">
             <ShieldCheck className="w-4 h-4" />
             <span>Phân hệ Quản trị Vận hành Enterprise</span>
           </div>
-          <h1 className="text-2xl font-bold text-[#1E293B]">
+          <h1 className="text-2xl font-bold text-[#2C241E]">
             Bảng Kê Hoa Hồng Kỹ Thuật Viên & Nhân Sự
           </h1>
-          <p className="text-xs text-[#64748B] mt-1">
+          <p className="text-xs text-[#73675F] mt-1">
             Tự động trích xuất hoa hồng theo ca trị liệu, tư vấn bán gói và thưởng chất lượng dịch vụ CSAT.
           </p>
         </div>
@@ -237,7 +237,7 @@ export const W13_StaffCommissions: React.FC = () => {
           <button
             onClick={loadData}
             disabled={isLoading || isProcessing}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#334155] rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#FAF8F5] hover:bg-[#F3E5D4] text-[#2C241E] border border-[#E8DFD8] rounded-xl text-xs font-semibold transition-colors cursor-pointer"
           >
             <RotateCcw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             <span>Làm mới</span>
@@ -246,7 +246,7 @@ export const W13_StaffCommissions: React.FC = () => {
           <button
             onClick={handleBulkApprove}
             disabled={isProcessing || kpi.pending === 0}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#8A4F23] hover:bg-[#72401C] disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs cursor-pointer"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Duyệt tất cả chờ ({formatVND(kpi.pending)})</span>
@@ -256,20 +256,20 @@ export const W13_StaffCommissions: React.FC = () => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-xs flex items-center justify-between">
+        <div className="bg-white p-5 rounded-2xl border border-[#EFE4D9] shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-[#64748B]">Tổng hoa hồng phát sinh</p>
-            <p className="text-xl font-bold text-[#0F172A] mt-1">{formatVND(kpi.total)}</p>
-            <p className="text-[11px] text-sky-600 mt-0.5">{kpi.count} lượt ghi nhận</p>
+            <p className="text-xs font-medium text-[#73675F]">Tổng hoa hồng phát sinh</p>
+            <p className="text-xl font-bold text-[#2C241E] mt-1">{formatVND(kpi.total)}</p>
+            <p className="text-[11px] text-[#8A4F23] font-semibold mt-0.5">{kpi.count} lượt ghi nhận</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center text-sky-600">
+          <div className="w-12 h-12 rounded-xl bg-[#FAF0E4] flex items-center justify-center text-[#8A4F23]">
             <DollarSign className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-xs flex items-center justify-between">
+        <div className="bg-white p-5 rounded-2xl border border-[#EFE4D9] shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-[#64748B]">Chờ phê duyệt</p>
+            <p className="text-xs font-medium text-[#73675F]">Chờ phê duyệt</p>
             <p className="text-xl font-bold text-amber-600 mt-1">{formatVND(kpi.pending)}</p>
             <p className="text-[11px] text-amber-500 mt-0.5">Cần đối soát</p>
           </div>
@@ -278,9 +278,9 @@ export const W13_StaffCommissions: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-xs flex items-center justify-between">
+        <div className="bg-white p-5 rounded-2xl border border-[#EFE4D9] shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-[#64748B]">Đã phê duyệt (Chờ chi)</p>
+            <p className="text-xs font-medium text-[#73675F]">Đã phê duyệt (Chờ chi)</p>
             <p className="text-xl font-bold text-blue-600 mt-1">{formatVND(kpi.approved)}</p>
             <p className="text-[11px] text-blue-500 mt-0.5">Sẵn sàng chi trả</p>
           </div>
@@ -289,9 +289,9 @@ export const W13_StaffCommissions: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-xs flex items-center justify-between">
+        <div className="bg-white p-5 rounded-2xl border border-[#EFE4D9] shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-[#64748B]">Đã chi trả hoàn tất</p>
+            <p className="text-xs font-medium text-[#73675F]">Đã chi trả hoàn tất</p>
             <p className="text-xl font-bold text-emerald-600 mt-1">{formatVND(kpi.paid)}</p>
             <p className="text-[11px] text-emerald-500 mt-0.5">Đã vào phiếu lương</p>
           </div>
@@ -302,26 +302,26 @@ export const W13_StaffCommissions: React.FC = () => {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-white p-4 rounded-2xl border border-[#E2E8F0] shadow-xs flex flex-wrap items-center gap-3">
+      <div className="bg-white p-4 rounded-2xl border border-[#EFE4D9] shadow-xs flex flex-wrap items-center gap-3">
         {/* Search Input */}
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Tìm theo tên KTV, chi nhánh, ghi chú..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] focus:outline-none focus:border-sky-500 focus:bg-white transition-all"
+            className="w-full pl-9 pr-3 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23] focus:bg-white transition-all"
           />
         </div>
 
         {/* Month Selector */}
-        <div className="flex items-center gap-1.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs">
-          <Calendar className="w-3.5 h-3.5 text-[#64748B]" />
+        <div className="flex items-center gap-1.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl px-3 py-2 text-xs">
+          <Calendar className="w-3.5 h-3.5 text-[#8C7A6B]" />
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="bg-transparent text-xs text-[#0F172A] focus:outline-none cursor-pointer"
+            className="bg-transparent text-xs text-[#2C241E] focus:outline-none cursor-pointer"
           >
             <option value="all">Tất cả tháng</option>
             {Array.from({ length: 12 }, (_, index) => {
@@ -335,12 +335,12 @@ export const W13_StaffCommissions: React.FC = () => {
         </div>
 
         {/* Branch Selector */}
-        <div className="flex items-center gap-1.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs">
-          <Building2 className="w-3.5 h-3.5 text-[#64748B]" />
+        <div className="flex items-center gap-1.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl px-3 py-2 text-xs">
+          <Building2 className="w-3.5 h-3.5 text-[#8C7A6B]" />
           <select
             value={selectedBranch}
             onChange={(e) => setSelectedBranch(e.target.value)}
-            className="bg-transparent text-xs text-[#0F172A] focus:outline-none cursor-pointer"
+            className="bg-transparent text-xs text-[#2C241E] focus:outline-none cursor-pointer"
           >
             <option value="all">Tất cả chi nhánh</option>
             {branches.map((b) => (
@@ -352,12 +352,12 @@ export const W13_StaffCommissions: React.FC = () => {
         </div>
 
         {/* Staff Selector */}
-        <div className="flex items-center gap-1.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs">
-          <UserCheck className="w-3.5 h-3.5 text-[#64748B]" />
+        <div className="flex items-center gap-1.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl px-3 py-2 text-xs">
+          <UserCheck className="w-3.5 h-3.5 text-[#8C7A6B]" />
           <select
             value={selectedStaff}
             onChange={(e) => setSelectedStaff(e.target.value)}
-            className="bg-transparent text-xs text-[#0F172A] focus:outline-none cursor-pointer"
+            className="bg-transparent text-xs text-[#2C241E] focus:outline-none cursor-pointer"
           >
             <option value="all">Tất cả kỹ thuật viên</option>
             {staffList.map((s) => (
@@ -369,12 +369,12 @@ export const W13_StaffCommissions: React.FC = () => {
         </div>
 
         {/* Status Selector */}
-        <div className="flex items-center gap-1.5 bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs">
-          <Filter className="w-3.5 h-3.5 text-[#64748B]" />
+        <div className="flex items-center gap-1.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl px-3 py-2 text-xs">
+          <Filter className="w-3.5 h-3.5 text-[#8C7A6B]" />
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="bg-transparent text-xs text-[#0F172A] focus:outline-none cursor-pointer"
+            className="bg-transparent text-xs text-[#2C241E] focus:outline-none cursor-pointer"
           >
             <option value="all">Tất cả trạng thái</option>
             <option value="PENDING_APPROVAL">Chờ duyệt</option>
@@ -385,18 +385,18 @@ export const W13_StaffCommissions: React.FC = () => {
         <button
           type="button"
           onClick={() => { setSelectedMonth(currentMonthKey()); setSelectedBranch('all'); setSelectedStaff('all'); setSelectedStatus('all'); setSearchTerm(''); }}
-          className="px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-50 rounded-xl"
+          className="px-3 py-2 text-xs font-semibold text-[#8A4F23] hover:bg-[#FAF0E4] rounded-xl transition-colors cursor-pointer"
         >
           Xóa bộ lọc
         </button>
       </div>
 
       {/* Main Table */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-[#EFE4D9] shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[11px] font-bold text-[#64748B] uppercase tracking-wider">
+              <tr className="bg-[#FAF8F5] border-b border-[#EFE4D9] text-[11px] font-bold text-[#73675F] uppercase tracking-wider">
                 <th className="py-3 px-4">Kỹ thuật viên & Cơ sở</th>
                 <th className="py-3 px-4">Loại hoa hồng</th>
                 <th className="py-3 px-4 text-right">Doanh số gốc</th>
@@ -407,23 +407,23 @@ export const W13_StaffCommissions: React.FC = () => {
                 <th className="py-3 px-4 text-center">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F1F5F9] text-xs text-[#334155]">
+            <tbody className="divide-y divide-[#EFE4D9] text-xs text-[#2C241E]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-[#94A3B8]">
+                  <td colSpan={8} className="py-12 text-center text-[#8C7A6B]">
                     <div className="flex flex-col items-center gap-2">
-                      <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                      <div className="w-6 h-6 border-2 border-[#8A4F23] border-t-transparent rounded-full animate-spin" />
                       <span>Đang tải bảng kê hoa hồng...</span>
                     </div>
                   </td>
                 </tr>
               ) : filteredCommissions.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-[#94A3B8]">
+                  <td colSpan={8} className="py-12 text-center text-[#8C7A6B]">
                     <div className="flex flex-col items-center gap-2">
-                      <AlertCircle className="w-8 h-8 text-[#CBD5E1]" />
-                      <p className="font-medium text-sm">Không tìm thấy bản ghi hoa hồng nào</p>
-                      <p className="text-[11px]">Thử điều chỉnh bộ lọc ngày hoặc chi nhánh bên trên.</p>
+                      <AlertCircle className="w-8 h-8 text-[#D5C7BD]" />
+                      <p className="font-medium text-sm text-[#2C241E]">Không tìm thấy bản ghi hoa hồng nào</p>
+                      <p className="text-[11px] text-[#73675F]">Thử điều chỉnh bộ lọc ngày hoặc chi nhánh bên trên.</p>
                     </div>
                   </td>
                 </tr>
@@ -433,15 +433,15 @@ export const W13_StaffCommissions: React.FC = () => {
                   const statusBadge = getStatusBadge(row.status);
 
                   return (
-                    <tr key={row.id} className="hover:bg-[#F8FAFC] transition-colors">
+                    <tr key={row.id} className="hover:bg-[#FAF8F5] transition-colors">
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-[#0F172A]">{row.staffName}</div>
-                        <div className="text-[11px] text-[#64748B] flex items-center gap-1 mt-0.5">
-                          <Building2 className="w-3 h-3 text-[#94A3B8]" />
+                        <div className="font-semibold text-[#2C241E]">{row.staffName}</div>
+                        <div className="text-[11px] text-[#73675F] flex items-center gap-1 mt-0.5">
+                          <Building2 className="w-3 h-3 text-[#8C7A6B]" />
                           <span>{row.branchName}</span>
                         </div>
                         {row.notes && (
-                          <div className="text-[10.5px] text-[#64748B] italic mt-0.5 line-clamp-1">
+                          <div className="text-[10.5px] text-[#73675F] italic mt-0.5 line-clamp-1">
                             {row.notes}
                           </div>
                         )}
@@ -455,20 +455,20 @@ export const W13_StaffCommissions: React.FC = () => {
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-4 text-right font-medium text-[#0F172A]">
+                      <td className="py-3.5 px-4 text-right font-medium text-[#2C241E]">
                         {formatVND(row.baseAmount)}
                       </td>
 
-                      <td className="py-3.5 px-4 text-center font-semibold text-sky-700">
+                      <td className="py-3.5 px-4 text-center font-bold text-[#8A4F23]">
                         {row.percentage}%
                       </td>
 
-                      <td className="py-3.5 px-4 text-right font-bold text-emerald-600 text-sm">
+                      <td className="py-3.5 px-4 text-right font-bold text-[#0D6832] text-sm">
                         +{formatVND(row.commissionAmount)}
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <span className="text-[11px] text-[#64748B] font-mono">{row.cycleMonth}</span>
+                        <span className="text-[11px] text-[#73675F] font-mono">{row.cycleMonth}</span>
                       </td>
 
                       <td className="py-3.5 px-4 text-center">
@@ -485,7 +485,7 @@ export const W13_StaffCommissions: React.FC = () => {
                             <button
                               onClick={() => handleApprove(row)}
                               disabled={isProcessing}
-                              className="px-2.5 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
+                              className="px-2.5 py-1 bg-[#8A4F23] hover:bg-[#72401C] text-white rounded-lg text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
                               title="Phê duyệt hoa hồng này"
                             >
                               Duyệt
@@ -496,7 +496,7 @@ export const W13_StaffCommissions: React.FC = () => {
                             <button
                               onClick={() => handleMarkPaid(row)}
                               disabled={isProcessing}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
+                              className="px-2.5 py-1 bg-[#0D6832] hover:bg-[#094c24] text-white rounded-lg text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
                               title="Xác nhận đã chi trả tiền cho KTV"
                             >
                               Chi trả
@@ -504,7 +504,7 @@ export const W13_StaffCommissions: React.FC = () => {
                           )}
 
                           {row.status === 'PAID' && (
-                            <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 justify-center">
+                            <span className="text-[11px] text-[#0D6832] font-semibold flex items-center gap-1 justify-center">
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               <span>Hoàn tất</span>
                             </span>

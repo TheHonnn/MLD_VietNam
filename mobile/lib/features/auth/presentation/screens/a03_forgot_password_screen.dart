@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/utils/validators.dart';
 import '../../widgets/primary_button.dart';
@@ -56,6 +57,12 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  String _cleanError(dynamic e) {
+    if (e is ApiException) return e.message;
+    final s = e.toString();
+    return s.replaceAll(RegExp(r'^(ApiException\s*(\[\d+\])?:\s*|Exception:\s*)'), '').trim();
   }
 
   Future<void> _handleSendOtp() async {
@@ -142,7 +149,7 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          _errorMessage = _cleanError(e);
         });
       }
     } finally {
@@ -199,7 +206,7 @@ class _A03ForgotPasswordScreenState extends State<A03ForgotPasswordScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          _errorMessage = _cleanError(e);
         });
       }
     } finally {

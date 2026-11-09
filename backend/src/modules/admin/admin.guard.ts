@@ -61,9 +61,7 @@ export class AdminGuard implements CanActivate {
       throw new UnauthorizedException('Vui lòng đăng nhập quản trị.');
     }
 
-    const supabaseSecret =
-      this.config.get<string>('SUPABASE_JWT_SECRET') ||
-      'WYVA5k3ZT3S3Tu3VlAxf4Rc898hxctZ51OUS+Ddk9vFl0e9vAkmtRsrGsYVBA5uWkT+uMT30AgIGSkN43gdAuA==';
+    const supabaseSecret = this.config.get<string>('SUPABASE_JWT_SECRET');
     const backendSecret = this.config.get<string>('JWT_SECRET');
 
     let payload: { sub: string; audience?: string } | null = null;
@@ -101,16 +99,13 @@ export class AdminGuard implements CanActivate {
       }
     } catch {}
 
-    // 1.1 Xác thực trực tiếp qua Supabase Admin SDK nếu có SupabaseService
+    // Supabase validates the presented token; a decoded account ID is not proof of identity.
     if (!payload && this.supabase?.adminClient) {
       try {
-        const decodedRaw: any = this.jwt.decode(token);
-        if (decodedRaw?.sub && decodedRaw?.aud === 'authenticated') {
-          const { data: sbData, error: sbErr } = await this.supabase.adminClient.auth.admin.getUserById(decodedRaw.sub);
-          if (sbData?.user?.id && !sbErr) {
-            payload = { sub: sbData.user.id, audience: 'authenticated' };
-            userEmail = sbData.user.email;
-          }
+        const { data: sbData, error: sbErr } = await this.supabase.adminClient.auth.getUser(token);
+        if (sbData?.user?.id && !sbErr) {
+          payload = { sub: sbData.user.id, audience: 'authenticated' };
+          userEmail = sbData.user.email;
         }
       } catch {}
     }
@@ -118,8 +113,9 @@ export class AdminGuard implements CanActivate {
     // 1.2 Xác thực dự phòng qua HTTP REST API tới Supabase Auth Server
     if (!payload) {
       try {
-        const sbUrl = this.config.get<string>('SUPABASE_URL') || 'https://wstvwushpwcdsmhpunvh.supabase.co';
-        const sbAnon = this.config.get<string>('SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMTk0MjAsImV4cCI6MjEwNzU5NTQyMH0.1mDiB0Rsst_nyseC5k-AyfLOwYTRe96ZzQ4yHEU5Z58';
+        const sbUrl = this.config.get<string>('SUPABASE_URL');
+        const sbAnon = this.config.get<string>('SUPABASE_ANON_KEY');
+        if (!sbUrl || !sbAnon) throw new Error('Supabase Auth is not configured.');
         const res = await fetch(`${sbUrl.replace(/\/+$/, '')}/auth/v1/user`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -155,9 +151,8 @@ export class AdminGuard implements CanActivate {
     let user: any = null;
     try {
       const { rows } = await this.db.connection.query(
-        'SELECT id, full_name, role, is_active FROM users WHERE id=$1' +
-          (userEmail ? ' OR LOWER(email)=LOWER($2)' : ''),
-        userEmail ? [payload.sub, userEmail] : [payload.sub],
+        'SELECT id, full_name, role, is_active FROM users WHERE id=$1',
+        [payload.sub],
       );
       user = rows[0];
     } catch {}
@@ -167,24 +162,10 @@ export class AdminGuard implements CanActivate {
         let query = this.supabase.adminClient
           .from('users')
           .select('id, full_name, role, is_active');
-        if (userEmail) {
-          query = query.or(`id.eq.${payload.sub},email.ilike.${userEmail}`);
-        } else {
-          query = query.eq('id', payload.sub);
-        }
+        query = query.eq('id', payload.sub);
         const { data } = await query.maybeSingle();
         user = data;
       } catch {}
-    }
-
-    // Nếu là tài khoản quản trị mặc định hoặc admin đã xác thực qua Supabase
-    if (!user && userEmail && ['admin@mldvietnam.vn', '8888@kks.com'].includes(userEmail.toLowerCase())) {
-      user = {
-        id: payload.sub,
-        full_name: 'Ban Quản Trị MLD Việt Nam',
-        role: 'SUPER_ADMIN',
-        is_active: true,
-      };
     }
 
     if (!user || user.is_active === false)

@@ -1,0 +1,126 @@
+import { beforeAll, afterAll, describe, it, expect } from 'vitest';
+import { PGlite } from '@electric-sql/pglite';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { randomUUID } from 'node:crypto';
+import { AdminService } from './admin.service';
+import { inspectAdminSchema } from './admin.schema';
+const { loadAdminSchema } = require('../../../../database/testing/admin-schema.cjs');
+
+describe('Admin business workflows on the complete migrated schema', () => {
+  let pg: PGlite, service: AdminService, actor: any, customer: any, branch: any, otherBranch: any, course: any, batch: any, spaService: any, spaPackage: any;
+  const query = async (sql: string, values?: any[]) => { const result = await pg.query<any>(sql, values); return {...result,rowCount:result.rows.length || result.affectedRows || 0}; };
+  const client = {query,release:()=>{}};
+  beforeAll(async () => {
+    pg = new PGlite(); await loadAdminSchema(pg);
+    actor = {...(await query("INSERT INTO users(phone,full_name,role,referral_code) VALUES('0900100001','Cashier test','SUPER_ADMIN','FLOWADMIN') RETURNING *")).rows[0]};
+    customer = (await query("INSERT INTO users(phone,full_name,role,referral_code) VALUES('0900100002','Student test','STUDENT','FLOWSTUDENT') RETURNING *")).rows[0];
+    for (const code of ['FLOW-A','FLOW-B']) {
+      const row = (await query("INSERT INTO branches(name,code,phone,address,district,latitude,longitude,image_url) VALUES($1,$1,'0900100003','Test','Test',10,106,'https://example.invalid/img.png') RETURNING *",[code])).rows[0];
+      if (!branch) branch=row; else otherBranch=row;
+    }
+    const category = (await query("INSERT INTO course_categories(name,code,icon_url) VALUES('Flow courses','FLOW','https://example.invalid/icon.png') RETURNING *")).rows[0];
+    course=(await query("INSERT INTO courses(category_id,title,code,short_description,full_description,image_url) VALUES($1,'Flow course','FLOW','Test','Test','https://example.invalid/img.png') RETURNING *",[category.id])).rows[0];
+    batch=(await query("INSERT INTO course_batches(course_id,branch_id,batch_code,start_date,end_date,schedule_text) VALUES($1,$2,'FLOW','2026-11-01','2026-12-01','Test') RETURNING *",[course.id,branch.id])).rows[0];
+    const spaCategory=(await query("INSERT INTO service_categories(name,code,icon_url) VALUES('Flow services','FLOW','https://example.invalid/icon.png') RETURNING *")).rows[0];
+    spaService=(await query("INSERT INTO services(category_id,name,slug,short_description,full_description,price,image_url) VALUES($1,'Flow service','flow','Test','Test',100000,'https://example.invalid/img.png') RETURNING *",[spaCategory.id])).rows[0];
+    spaPackage=(await query("INSERT INTO treatment_packages(name,service_id,total_sessions,price,description,image_url) VALUES('Flow package',$1,5,500000,'Test','https://example.invalid/img.png') RETURNING *",[spaService.id])).rows[0];
+    service=new AdminService({connection:{query,connect:async()=>client}} as any,new ConfigService({JWT_SECRET:'isolated-flow-secret-at-least-32-characters'}),new JwtService());
+  },60000);
+  afterAll(async()=>{await pg?.close();});
+
+  it('preflights the migrated schema and identifies missing columns precisely', async()=>{
+    expect((await inspectAdminSchema({query})).ready).toBe(true);
+    await query('BEGIN');
+    try {
+      await query('ALTER TABLE admin_payment_requests RENAME COLUMN result TO result_missing');
+      expect((await inspectAdminSchema({query})).missing).toContain('admin_payment_requests.result');
+    } finally { await query('ROLLBACK'); }
+  });
+
+  it('receives, serves, collects and checks out a booking, recording one receipt across retries',async()=>{
+    const booking=(await query("INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,status,base_total,final_price,qr_code_hash) VALUES('FLOWBOOK',$1,$2,'2026-11-08','10:00','11:00','CONFIRMED',100000,100000,'flowqr') RETURNING *",[customer.id,branch.id])).rows[0];
+    await query('INSERT INTO booking_items(booking_id,service_id,price) VALUES($1,$2,100000)',[booking.id,spaService.id]);
+    await service.action('bookings',actor,{key:{id:booking.id},action:'checkin'});
+    await service.action('bookings',actor,{key:{id:booking.id},action:'start'});
+    await expect(service.action('bookings',actor,{key:{id:booking.id},action:'checkout'})).rejects.toThrow(/thanh toán/);
+    const shift=await service.openCashierShift(actor,{branchId:branch.id,openingCash:50000});
+    const body={kind:'BOOKING',bookingId:booking.id,shiftId:shift.id,paymentMethod:'CASH_AT_SPA',vatRate:8,expectedTotal:108000,requestId:randomUUID()};
+    const receipt=await service.collectCashierPayment(actor,body);
+    expect((await service.collectCashierPayment(actor,body)).invoice.id).toBe(receipt.invoice.id);
+    expect((await query('SELECT count(*)::int n FROM invoices WHERE booking_id=$1',[booking.id])).rows[0].n).toBe(1);
+    expect((await service.activeCashierShift(actor,branch.id))?.systemCash).toBe(158000);
+    await expect(service.collectCashierPayment(actor,{...body,expectedTotal:100000})).rejects.toThrow(/nội dung khác/);
+    await service.action('bookings',actor,{key:{id:booking.id},action:'checkout'});
+    expect((await query('SELECT status FROM bookings WHERE id=$1',[booking.id])).rows[0].status).toBe('COMPLETED');
+    await service.closeCashierShift(actor,shift.id,{closingCash:158000});
+    expect((await service.collectCashierPayment(actor,body)).invoice.id).toBe(receipt.invoice.id);
+  });
+
+  it('rolls back stale cart prices and activates a package only with its paid invoice',async()=>{
+    const shift=await service.openCashierShift(actor,{branchId:branch.id,openingCash:0});
+    const body={kind:'CART',shiftId:shift.id,customerId:customer.id,paymentMethod:'BANK_TRANSFER',requestId:randomUUID(),items:[{type:'SERVICE',id:spaService.id,quantity:2},{type:'PACKAGE',id:spaPackage.id,quantity:1}],expectedTotal:700000};
+    const before=(await query('SELECT count(*)::int n FROM invoices')).rows[0].n;
+    await expect(service.collectCashierPayment(actor,{...body,expectedTotal:1})).rejects.toThrow(/Giá hoặc tổng tiền/);
+    expect((await query('SELECT count(*)::int n FROM invoices')).rows[0].n).toBe(before);
+    const paid=await service.collectCashierPayment(actor,body);
+    expect(paid.amount).toBe(700000);
+    await service.collectCashierPayment(actor,body);
+    expect((await query('SELECT count(*)::int n FROM user_packages WHERE customer_id=$1',[customer.id])).rows[0].n).toBe(1);
+    expect((await query('SELECT count(*)::int n FROM invoice_items WHERE invoice_id=$1',[paid.invoice.id])).rows[0].n).toBe(2);
+    await service.closeCashierShift(actor,shift.id,{closingCash:0});
+  });
+
+  it('enrolls, collects deposit/balance, marks attendance, grades and issues/revokes a certificate',async()=>{
+    const enrollment=await service.mutate('course_enrollments',actor,'create',{values:{student_id:customer.id,course_id:course.id,batch_id:batch.id,tuition_total:1000000}});
+    const shift=await service.openCashierShift(actor,{branchId:branch.id,openingCash:0});
+    const deposit={kind:'TUITION',enrollmentId:enrollment.id,shiftId:shift.id,amount:200000,paymentMethod:'CASH_AT_SPA',requestId:randomUUID()};
+    await service.collectCashierPayment(actor,deposit); await service.collectCashierPayment(actor,deposit);
+    expect(Number((await query('SELECT amount_paid FROM course_enrollments WHERE id=$1',[enrollment.id])).rows[0].amount_paid)).toBe(200000);
+    await expect(service.collectCashierPayment(actor,{...deposit,requestId:randomUUID(),amount:900000})).rejects.toThrow(/vượt quá/);
+    await service.collectCashierPayment(actor,{...deposit,requestId:randomUUID(),amount:800000});
+    const schedule=await service.mutate('batch_schedules',actor,'create',{values:{batch_id:batch.id,session_date:'2026-11-08',start_time:'08:00',end_time:'10:00',topic:'Flow'}});
+    const record=await service.mutate('student_academic_records',actor,'create',{values:{enrollment_id:enrollment.id,theory_score:8,practical_score:8,is_graduated:false,total_batch_sessions:1}});
+    await service.mutate('student_attendance',actor,'create',{values:{enrollment_id:enrollment.id,schedule_id:schedule.id,status:'PRESENT'}});
+    const latest=(await query('SELECT * FROM student_academic_records WHERE id=$1',[record.id])).rows[0];
+    expect(Number(latest.attendance_rate)).toBe(100);
+    await service.mutate('student_academic_records',actor,'update',{key:{id:record.id},expectedUpdatedAt:latest.updated_at,values:{is_graduated:true},reason:'Verified completion'});
+    const certificate=await service.mutate('student_certificates',actor,'create',{values:{enrollment_id:enrollment.id,student_id:customer.id,course_id:course.id,certificate_code:'FLOWCERT',student_name:customer.full_name,course_title:course.title,theory_score:8,practical_score:8,final_grade:'PASS'}});
+    await service.action('student_certificates',actor,{key:{id:certificate.id},action:'issue'});
+    expect((await query('SELECT status FROM student_certificates WHERE id=$1',[certificate.id])).rows[0].status).toBe('ISSUED');
+    await service.action('student_certificates',actor,{key:{id:certificate.id},action:'revoke',reason:'Test correction'});
+    expect((await query('SELECT status FROM student_certificates WHERE id=$1',[certificate.id])).rows[0].status).toBe('REVOKED');
+    await service.closeCashierShift(actor,shift.id,{closingCash:1000000});
+  });
+
+  it('limits branch roles at reads, writes, actions and cashier operations',async()=>{
+    const scoped={...actor,role:'BRANCH_MANAGER',scopes:['branches.read','branches.update','cashier.shifts','cashier.collect'].map(permission=>({permission,branchId:branch.id}))};
+    const branches=await service.list('branches',scoped,{});
+    expect(branches.rows.map(row=>row.id)).toEqual([branch.id]);
+    await expect(service.mutate('branches',scoped,'update',{key:{id:otherBranch.id},expectedUpdatedAt:otherBranch.updated_at,values:{name:'Denied'}})).rejects.toThrow(/chi nhánh/);
+    await expect(service.openCashierShift(scoped,{branchId:otherBranch.id,openingCash:0})).rejects.toThrow(/chi nhánh/);
+    const wrongRole={...scoped,role:'RECEPTIONIST'};
+    await expect(service.openCashierShift(wrongRole,{branchId:branch.id,openingCash:0})).rejects.toThrow(/Vai trò/);
+    await expect(service.list('roles',scoped,{})).rejects.toThrow(/SUPER_ADMIN/);
+  });
+  it('shows reference names, searches them and clamps pages after data removal',async()=>{
+    await query("INSERT INTO staff_profiles(user_id,branch_id,employee_code,position) VALUES($1,$2,'FLOWEMP','Test')",[actor.id,branch.id]);
+    const staff=await service.list('staff_profiles',actor,{search:branch.name});
+    expect(staff.rows).toHaveLength(1);
+    expect(staff.rows[0].full_name).toBe(actor.full_name);
+    expect(staff.rows[0].branch_name).toBe(branch.name);
+    const page=await service.list('branches',actor,{page:'999',limit:'1'});
+    expect(page.page).toBe(2);
+    expect(page.rows).toHaveLength(1);
+  });
+  it('returns only permitted POS data without account secrets',async()=>{
+    const scoped={...actor,role:'CASHIER',scopes:[{permission:'cashier.collect',branchId:branch.id}]};
+    const workspace=await service.cashierWorkspace(scoped);
+    expect(workspace.branches.map(row=>row.id)).toEqual([branch.id]);
+    expect(workspace.invoices.every(row=>row.branch_id===branch.id)).toBe(true);
+    expect(workspace.customers.every(row=>row.password_hash===undefined)).toBe(true);
+    expect(workspace.staff.every(row=>row.staff_profile.base_salary===undefined && row.staff_profile.bank_account_number===undefined)).toBe(true);
+    await expect(service.cashierWorkspace(scoped,otherBranch.id)).rejects.toThrow(/Chi nhánh/);
+  });
+
+});

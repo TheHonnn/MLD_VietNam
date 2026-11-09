@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import './ServicesCatalog.css';
 import {
   Sparkles,
   Clock,
@@ -90,6 +91,7 @@ export const W06_ServicesCatalog: React.FC = () => {
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [packages, setPackages] = useState<TreatmentPackageItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [catalogError, setCatalogError] = useState('');
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const [sessionFilter, setSessionFilter] = useState<'ALL' | '10' | '20' | '30'>('ALL');
   const [catalogSearchTerm, setCatalogSearchTerm] = useState<string>('');
@@ -111,6 +113,7 @@ export const W06_ServicesCatalog: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setCatalogError('');
       const [srvRes, pkgRes] = await Promise.all([
         supabase
           .from('services')
@@ -122,6 +125,8 @@ export const W06_ServicesCatalog: React.FC = () => {
           .order('total_sessions', { ascending: true }),
       ]);
 
+      if (srvRes.error || pkgRes.error) throw srvRes.error || pkgRes.error;
+
       if (srvRes.data) {
         setServices(srvRes.data);
       }
@@ -130,6 +135,7 @@ export const W06_ServicesCatalog: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Lỗi khi tải bảng giá:', err);
+      setCatalogError('Không thể xác minh bảng giá hiện tại. Vui lòng tải lại.');
       toast.error('Không thể tải dữ liệu bảng giá từ máy chủ');
     } finally {
       setLoading(false);
@@ -263,7 +269,7 @@ export const W06_ServicesCatalog: React.FC = () => {
     try {
       setSavingEdit(true);
       if (editingItem.type === 'service') {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('services')
           .update({
             price: editingItem.price,
@@ -272,12 +278,15 @@ export const W06_ServicesCatalog: React.FC = () => {
             duration_minutes: editingItem.duration,
             full_description: editingItem.description,
           })
-          .eq('id', editingItem.id);
+          .eq('id', editingItem.id)
+          .select('id')
+          .maybeSingle();
 
         if (error) throw error;
+        if (!data) throw new Error('Dịch vụ không còn tồn tại hoặc bạn không có quyền sửa.');
         toast.success(`Đã cập nhật dịch vụ "${editingItem.name}" thành công!`);
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('treatment_packages')
           .update({
             price: editingItem.price,
@@ -287,9 +296,12 @@ export const W06_ServicesCatalog: React.FC = () => {
             validity_months: editingItem.validityMonths,
             description: editingItem.description,
           })
-          .eq('id', editingItem.id);
+          .eq('id', editingItem.id)
+          .select('id')
+          .maybeSingle();
 
         if (error) throw error;
+        if (!data) throw new Error('Gói liệu trình không còn tồn tại hoặc bạn không có quyền sửa.');
         toast.success(`Đã cập nhật gói liệu trình "${editingItem.name}" thành công!`);
       }
 
@@ -316,8 +328,16 @@ export const W06_ServicesCatalog: React.FC = () => {
     });
   }, [packages, sessionFilter, catalogSearchTerm]);
 
+  if (loading || catalogError || services.length < 3 || packages.length < 9) {
+    return <div className="rounded-2xl border border-[#EFE4D9] bg-white p-6 text-[#2C241E]" role="status">
+      <h1 className="text-xl font-bold">Bảng giá & gói liệu trình</h1>
+      <p className="mt-2 text-sm text-[#73675F]">{loading ? 'Đang tải bảng giá…' : catalogError || 'Bảng giá chưa đủ dữ liệu niêm yết. Vui lòng kiểm tra danh mục trước khi bán.'}</p>
+      {!loading && <button type="button" onClick={fetchData} className="mt-4 rounded-lg bg-[#985018] px-4 py-2 text-sm font-semibold text-white">Tải lại</button>}
+    </div>;
+  }
+
   return (
-    <div className="space-y-6 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E] pb-16">
+    <div className="services-catalog space-y-6 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E] pb-16">
       {/* Print Specific CSS */}
       <style>{`
         @media print {
@@ -359,10 +379,10 @@ export const W06_ServicesCatalog: React.FC = () => {
           </div>
           <h1 className="text-2xl sm:text-[26px] font-extrabold text-[#3E200C] tracking-tight leading-tight flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-[#985018]" />
-            Bảng Giá & Gói Liệu Trình MLD Việt Nam
+            Bảng giá & gói liệu trình
           </h1>
           <p className="text-xs text-[#73675F] mt-1 font-medium">
-            3 Chương trình chăm sóc hệ bạch huyết sâu và nông • Đồng bộ dữ liệu xuyên suốt Admin, POS & Mobile App
+            Quản lý giá dịch vụ và các gói chăm sóc hệ bạch huyết MLD Việt Nam.
           </p>
         </div>
 
@@ -408,13 +428,13 @@ export const W06_ServicesCatalog: React.FC = () => {
             className="px-4 py-2.5 text-xs font-bold rounded-xl bg-[#985018] hover:bg-[#854412] text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
           >
             <CreditCard className="w-4 h-4" />
-            <span>Mở Thu Ngân POS</span>
+            <span>Mở thu ngân</span>
           </button>
         </div>
       </div>
 
       {/* 2. Metric Summary Cards */}
-      <div className="no-print grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="catalog-metrics no-print grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs space-y-1.5">
           <div className="flex items-center justify-between text-xs text-[#73675F]">
             <span className="font-semibold">Dịch vụ buổi lẻ</span>
@@ -422,7 +442,7 @@ export const W06_ServicesCatalog: React.FC = () => {
               <HeartPulse className="w-4 h-4 stroke-[2]" />
             </div>
           </div>
-          <div className="text-2xl font-black text-[#2C241E] tracking-tight">3 Chương trình</div>
+          <div className="text-2xl font-black text-[#2C241E] tracking-tight">3 chương trình</div>
           <div className="text-[11px] text-[#73675F]">Khu trú 45' • Mở rộng 60' • Toàn diện 90'</div>
         </div>
 
@@ -433,7 +453,7 @@ export const W06_ServicesCatalog: React.FC = () => {
               <Layers className="w-4 h-4 stroke-[2]" />
             </div>
           </div>
-          <div className="text-2xl font-black text-[#2C241E] tracking-tight">9 Gói trị liệu</div>
+          <div className="text-2xl font-black text-[#2C241E] tracking-tight">9 gói liệu trình</div>
           <div className="text-[11px] text-[#73675F]">10 buổi (3 thg) • 20 buổi (6 thg) • 30 buổi (12 thg)</div>
         </div>
 
@@ -444,7 +464,7 @@ export const W06_ServicesCatalog: React.FC = () => {
               <BadgePercent className="w-4 h-4 stroke-[2]" />
             </div>
           </div>
-          <div className="text-2xl font-black text-[#0D6832] tracking-tight">Tiết kiệm 7.2M</div>
+          <div className="text-2xl font-black text-[#0D6832] tracking-tight">7,2 triệu đồng</div>
           <div className="text-[11px] text-[#73675F]">Áp dụng cho gói 30 buổi toàn diện 90'</div>
         </div>
 
@@ -461,10 +481,11 @@ export const W06_ServicesCatalog: React.FC = () => {
       </div>
 
       {/* 3. Navigation Tabs (Pill style matching W07_CashierPOS) */}
-      <div className="no-print flex flex-wrap items-center gap-2 border-b border-[#EFE4D9] pb-3">
+      <div className="catalog-tabs no-print flex flex-wrap items-center gap-2 border-b border-[#EFE4D9] pb-3" aria-label="Chế độ xem bảng giá">
         <button
           type="button"
           onClick={() => handleTabChange('matrix')}
+          aria-pressed={activeTab === 'matrix'}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'matrix'
               ? 'bg-[#985018] text-white shadow-xs'
@@ -472,12 +493,13 @@ export const W06_ServicesCatalog: React.FC = () => {
           }`}
         >
           <FileText className="w-4 h-4" />
-          <span>Bảng Giá Niêm Yết Chuẩn (Pricing Matrix)</span>
+          <span>Bảng giá tổng hợp</span>
         </button>
 
         <button
           type="button"
           onClick={() => handleTabChange('services')}
+          aria-pressed={activeTab === 'services'}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'services'
               ? 'bg-[#985018] text-white shadow-xs'
@@ -485,12 +507,13 @@ export const W06_ServicesCatalog: React.FC = () => {
           }`}
         >
           <HeartPulse className="w-4 h-4" />
-          <span>3 Chương Trình Chăm Sóc Buổi Lẻ</span>
+          <span>Dịch vụ buổi lẻ · 3</span>
         </button>
 
         <button
           type="button"
           onClick={() => handleTabChange('packages')}
+          aria-pressed={activeTab === 'packages'}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'packages'
               ? 'bg-[#985018] text-white shadow-xs'
@@ -498,7 +521,7 @@ export const W06_ServicesCatalog: React.FC = () => {
           }`}
         >
           <Layers className="w-4 h-4" />
-          <span>9 Gói Liệu Trình Trị Liệu (10 / 20 / 30 Buổi)</span>
+          <span>Gói liệu trình · 9</span>
         </button>
       </div>
 
@@ -508,17 +531,17 @@ export const W06_ServicesCatalog: React.FC = () => {
       {activeTab === 'matrix' && (
         <div className="space-y-5 animate-in fade-in duration-200">
           {/* Context Notice Banner */}
-          <div className="no-print bg-[#FAF8F5] border border-[#EFE4D9] rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-2xs">
+          <div className="catalog-notice no-print bg-[#FAF8F5] border border-[#EFE4D9] rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-2xs">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center shrink-0">
                 <Info className="w-4 h-4" />
               </div>
               <div>
                 <p className="font-bold text-[#2C241E]">
-                  Bản sao niêm yết chuẩn xác của Bảng giá tờ rơi MLD Việt Nam
+                  So sánh giá và chọn gói phù hợp
                 </p>
                 <p className="text-[#73675F] mt-0.5">
-                  Các ô có nhãn <span className="font-bold text-[#8A4F23]">Khuyên dùng</span> là các gói được khách hàng lựa chọn nhiều nhất. Bạn có thể nhấn trực tiếp vào biểu tượng bút chì để sửa giá, hoặc bấm <span className="font-bold text-[#985018]">"Bán gói"</span> để lập hóa đơn ngay tại POS.
+                  Nhấn biểu tượng bút chì để sửa giá hoặc chọn <span className="font-bold text-[#985018]">Bán gói</span> để chuyển đến thu ngân.
                 </p>
               </div>
             </div>
@@ -528,7 +551,7 @@ export const W06_ServicesCatalog: React.FC = () => {
                 onClick={() => handleTabChange('packages')}
                 className="text-xs font-bold text-[#8A4F23] hover:text-[#5C3214] hover:underline flex items-center gap-1 cursor-pointer"
               >
-                <span>Xem danh sách 9 gói liệu trình</span>
+                <span>Xem các gói liệu trình</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -538,60 +561,35 @@ export const W06_ServicesCatalog: React.FC = () => {
           <div
             id="mld-pricing-matrix-sheet"
             ref={printRef}
-            className="bg-white rounded-3xl border border-[#EFE4D9] shadow-sm overflow-hidden max-w-5xl mx-auto"
+            className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden w-full"
           >
             {/* Board Header Banner */}
-            <div className="relative bg-gradient-to-r from-[#2C1E14] via-[#3E200C] to-[#2C1E14] text-white py-9 px-6 sm:px-10 border-b border-[#E8DFD8]/20">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5 relative z-10">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#985018] to-[#D4A373] p-0.5 shadow-lg flex items-center justify-center shrink-0">
-                    <div className="w-full h-full bg-[#2C1E14] rounded-[14px] flex flex-col items-center justify-center">
-                      <Sparkles className="w-6 h-6 text-[#EBD5B3]" />
-                      <span className="text-[9px] font-black tracking-widest text-[#EBD5B3]">MLD</span>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-bold tracking-widest text-[#EBD5B3] uppercase">
-                      VIETNAM ACADEMY & CLINICAL SPA
-                    </span>
-                    <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white uppercase mt-0.5">
-                      BẢNG GIÁ DỊCH VỤ & GÓI LIỆU TRÌNH
-                    </h2>
-                    <p className="text-xs font-semibold tracking-wider text-[#F3E2CE] uppercase mt-0.5">
-                      PRICING • CHUẨN Y KHOA DR. VODDER
-                    </p>
-                  </div>
-                </div>
-
-                {/* Right Guarantee Badge */}
-                <div className="hidden sm:flex flex-col items-end text-right">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-[#F5EBE1] border border-white/20 shadow-2xs">
-                    <ShieldCheck className="w-4 h-4 text-[#EBD5B3]" />
-                    Chuẩn hóa Quốc tế
-                  </span>
-                  <span className="text-[11px] text-[#D8C7B8] mt-1 font-medium">
-                    Hệ bạch huyết Sâu & Nông
-                  </span>
-                </div>
+            <div className="catalog-board-header">
+              <div>
+                <p className="catalog-eyebrow">MLD VIỆT NAM · DR. VODDER</p>
+                <h2>Giá dịch vụ & gói liệu trình</h2>
+                <p>Chăm sóc hệ bạch huyết sâu và nông</p>
               </div>
+              <span className="catalog-tax-note">
+                <ShieldCheck className="w-4 h-4" /> Giá đã bao gồm VAT 8%
+              </span>
             </div>
 
             {/* Board Table Body */}
-            <div className="p-5 sm:p-8">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
+            <div className="catalog-board-body">
+              <div className="catalog-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng so sánh giá dịch vụ và gói liệu trình">
+                <table className="catalog-price-table w-full text-left border-collapse text-xs">
+                  <caption className="sr-only">Giá buổi lẻ và gói 10, 20, 30 buổi cho ba chương trình chăm sóc. Giá tính bằng đồng Việt Nam.</caption>
                   <thead>
                     <tr className="border-b border-[#EFE4D9]">
                       {/* Column 1 Header: 3 Chương trình chăm sóc */}
                       <th className="w-1/4 pb-5 pr-4 align-top">
                         <div className="border-l-4 border-[#985018] pl-3 py-1">
                           <h3 className="text-sm sm:text-base font-extrabold text-[#3E200C] uppercase tracking-wide leading-tight">
-                            3 CHƯƠNG TRÌNH
-                            <br />
-                            CHĂM SÓC
+                            Chương trình chăm sóc
                           </h3>
                           <p className="text-[11px] text-[#73675F] font-medium mt-1 leading-relaxed">
-                            (Bao gồm chăm sóc cả hệ bạch huyết sâu và hệ bạch huyết nông)
+                            Chọn buổi lẻ hoặc gói 10, 20, 30 buổi
                           </p>
                         </div>
                       </th>
@@ -614,7 +612,7 @@ export const W06_ServicesCatalog: React.FC = () => {
                       {/* Column 3 Header: Chăm sóc mở rộng (60') */}
                       <th className="w-1/4 pb-5 px-2.5 text-center align-top">
                         <div className="bg-[#985018] text-white py-2.5 px-3 rounded-2xl shadow-xs relative">
-                          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-amber-200 text-[#5C3214] text-[9px] font-black uppercase tracking-wider px-2 py-0.2 rounded-full shadow-2xs whitespace-nowrap">
+                          <span className="catalog-popular-label absolute -top-2.5 left-1/2 -translate-x-1/2 bg-amber-200 text-[#5C3214] text-[9px] font-black uppercase tracking-wider px-2 py-0.2 rounded-full shadow-2xs whitespace-nowrap">
                             Phổ biến nhất
                           </span>
                           <span className="text-xs sm:text-sm font-extrabold tracking-wide block uppercase">

@@ -30,11 +30,38 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
   late final TextEditingController _lessonsController;
   late final TextEditingController _descController;
   late final TextEditingController _imageUrlController;
+  late final TextEditingController _audienceController;
+  late final TextEditingController _needController;
+  late final TextEditingController _groupController;
   late String _level;
   late bool _isActive;
   bool _isSaving = false;
 
   bool get isEdit => widget.course != null;
+
+  final List<String> _audienceSuggestions = [
+    'Kỹ thuật viên, Y bác sĩ & Người quan tâm đến sức khỏe',
+    'Chủ Spa, Quản lý thẩm mỹ viện & KTV ngành làm đẹp',
+    'Người mới bắt đầu tìm hiểu dẫn lưu bạch huyết Vodder',
+    'Bệnh nhân và người nhà có nhu cầu tự chăm sóc tại nhà',
+  ];
+
+  final List<String> _needSuggestions = [
+    'Nâng cao tay nghề và chăm sóc hệ bạch huyết chuyên sâu',
+    'Chuẩn hóa phương pháp dẫn lưu bạch huyết Vodder Châu Âu',
+    'Ứng dụng giảm phù nề sau phẫu thuật và làm đẹp y khoa',
+    'Xây dựng lộ trình phát triển giảng viên chuyển giao công nghệ',
+  ];
+
+  final List<String> _groupSuggestions = [
+    'Chuyên sâu',
+    'Cơ bản nghề',
+    'Nâng cao',
+    'Nền tảng',
+    'Chuyên đề Mẹ & Bé',
+    'Phục hồi chức năng',
+    'Chuyên gia & Giảng viên',
+  ];
 
   final List<Map<String, String>> _levels = [
     {'value': 'BEGINNER', 'label': 'Cơ bản'},
@@ -55,7 +82,11 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
     _lessonsController = TextEditingController(text: c != null ? c.totalLessons.toString() : '20');
     _descController = TextEditingController(text: c?.shortDescription ?? '');
     _imageUrlController = TextEditingController(text: c?.imageUrl ?? '');
-    _level = c?.level ?? 'BEGINNER';
+    _audienceController = TextEditingController(text: c?.targetAudience ?? '');
+    _needController = TextEditingController(text: c?.targetNeed ?? '');
+    _groupController = TextEditingController(text: c?.courseGroup ?? '');
+    final rawLevel = (c?.level ?? 'BEGINNER').toUpperCase();
+    _level = _levels.any((l) => l['value'] == rawLevel) ? rawLevel : 'BEGINNER';
     _isActive = c?.isActive ?? true;
   }
 
@@ -69,6 +100,9 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
     _lessonsController.dispose();
     _descController.dispose();
     _imageUrlController.dispose();
+    _audienceController.dispose();
+    _needController.dispose();
+    _groupController.dispose();
     super.dispose();
   }
 
@@ -109,6 +143,16 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
       'is_active': _isActive,
       'short_description': _descController.text.trim(),
       'image_url': imageUrl,
+      if (widget.course?.categoryId.isNotEmpty == true)
+        'category_id': widget.course!.categoryId
+      else
+        'category_id': '20202020-0001-0001-0001-000000000001',
+      'learning_outcomes': {
+        ...?widget.course?.learningOutcomes,
+        'target_audience': _audienceController.text.trim(),
+        'target_need': _needController.text.trim(),
+        'course_group': _groupController.text.trim(),
+      },
     };
 
     final success = await _repository.saveCourse(
@@ -132,9 +176,48 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
     }
   }
 
+  Widget _buildPreviewWidget(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) {
+      return const Icon(
+        Icons.school_rounded,
+        size: 26,
+        color: Color(0xFF00693F),
+      );
+    }
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return Image.network(
+        trimmed,
+        width: 64,
+        height: 64,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.broken_image_outlined,
+          size: 26,
+          color: Color(0xFF9CA3AF),
+        ),
+      );
+    } else {
+      return Image.asset(
+        trimmed,
+        width: 64,
+        height: 64,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.broken_image_outlined,
+          size: 26,
+          color: Color(0xFF9CA3AF),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
@@ -204,7 +287,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
 
               // Ảnh đại diện khóa học (URL + Live Preview)
               Text(
-                'Ảnh bìa khóa học (URL)',
+                'Ảnh bìa khóa học (URL hoặc Assets)',
                 style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
               ),
               const SizedBox(height: 6),
@@ -221,23 +304,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: const Color(0xFFC6F6D5)),
                       ),
-                      child: _imageUrlController.text.trim().isNotEmpty
-                          ? Image.network(
-                              _imageUrlController.text.trim(),
-                              width: 64,
-                              height: 64,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.broken_image_outlined,
-                                size: 26,
-                                color: Color(0xFF9CA3AF),
-                              ),
-                            )
-                          : const Icon(
-                              Icons.school_rounded,
-                              size: 26,
-                              color: Color(0xFF00693F),
-                            ),
+                      child: _buildPreviewWidget(_imageUrlController.text),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -328,7 +395,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                         ),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
-                          initialValue: _level,
+                          value: _levels.any((lvl) => lvl['value'] == _level) ? _level : _levels.first['value'],
                           decoration: _inputDecoration(''),
                           items: _levels.map((lvl) {
                             return DropdownMenuItem(
@@ -442,6 +509,144 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                 controller: _descController,
                 maxLines: 2,
                 decoration: _inputDecoration('Chuẩn đầu ra, kỹ năng và cơ hội nghề nghiệp...'),
+              ),
+              const SizedBox(height: 14),
+
+              Text(
+                'Đối tượng học viên phù hợp',
+                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _audienceController,
+                decoration: _inputDecoration('Ví dụ: Kỹ thuật viên, Y bác sĩ...'),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _audienceSuggestions.map((s) {
+                  final isSelected = _audienceController.text.trim() == s;
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _audienceController.text = s;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFFFAF3EA) : const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected ? const Color(0xFFB38A58) : const Color(0xFFE5E7EB),
+                        ),
+                      ),
+                      child: Text(
+                        s,
+                        style: GoogleFonts.montserrat(
+                          fontSize: 10.5,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected ? const Color(0xFF985018) : const Color(0xFF4B5563),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+
+              Text(
+                'Nhu cầu mục tiêu / Chuẩn đầu ra',
+                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _needController,
+                decoration: _inputDecoration('Ví dụ: Nâng cao tay nghề và chăm sóc hệ bạch huyết...'),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _needSuggestions.map((s) {
+                  final isSelected = _needController.text.trim() == s;
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _needController.text = s;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFFFAF3EA) : const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected ? const Color(0xFFB38A58) : const Color(0xFFE5E7EB),
+                        ),
+                      ),
+                      child: Text(
+                        s,
+                        style: GoogleFonts.montserrat(
+                          fontSize: 10.5,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected ? const Color(0xFF985018) : const Color(0xFF4B5563),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+
+              Text(
+                'Nhóm khóa học',
+                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _groupController,
+                decoration: _inputDecoration('Ví dụ: Chuyên sâu, Cơ bản nghề, Nâng cao...'),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _groupSuggestions.map((s) {
+                  final isSelected = _groupController.text.trim() == s;
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _groupController.text = s;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFFFAF3EA) : const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected ? const Color(0xFFB38A58) : const Color(0xFFE5E7EB),
+                        ),
+                      ),
+                      child: Text(
+                        s,
+                        style: GoogleFonts.montserrat(
+                          fontSize: 10.5,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected ? const Color(0xFF985018) : const Color(0xFF4B5563),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 16),
 

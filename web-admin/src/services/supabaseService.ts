@@ -156,39 +156,13 @@ class SupabaseService {
           return json as T;
         }
 
-        // Retry với public anon key nếu token JWT trong storage hết hạn (401)
-        if (res.status === 401) {
-          try {
-            const retryRes = await fetch(fullUrl, {
-              ...options,
-              headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-                Prefer: 'return=representation',
-                apikey: this.key,
-                Authorization: `Bearer ${this.key}`,
-                ...(options.headers || {}),
-              },
-            });
-            if (retryRes.ok) {
-              const retryJson = await retryRes.json();
-              if (isGet && !bypassCache) {
-                const cleanTable = path.split('?')[0].replace(/^\/+/, '');
-                const ttl = CACHE_TABLE_TTLS[cleanTable] || 30_000;
-                this.cache.set(path, {
-                  data: retryJson,
-                  timestamp: Date.now(),
-                  ttl,
-                });
-              }
-              return retryJson as T;
-            }
-          } catch {
-            // bỏ qua lỗi retry
-          }
-        }
-      } catch {
-        // Fallback to local adminApi if direct fetch fails
+        const failure = new Error(`Supabase từ chối yêu cầu (${res.status}).`);
+        (failure as Error & { statusCode?: number }).statusCode = res.status;
+        throw failure;
+      } catch (error) {
+        // Never replay a write, or change identity after an authorization failure.
+        if (!isGet || (error as { statusCode?: number })?.statusCode === 401 ||
+            (error as { statusCode?: number })?.statusCode === 403) throw error;
       }
     }
 
@@ -2204,12 +2178,8 @@ class SupabaseService {
         paid_at: new Date().toISOString(),
       };
 
-      const res = await this.query<any[]>('tuition_transactions', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-
-      return res?.[0] || null;
+      console.warn('[SupabaseService] Ghi nhận học phí trực tiếp bị chặn bởi Migration 028. Dùng posService.collectPayment qua backend.');
+      return null;
     } catch (err) {
       console.warn('[SupabaseService] recordTuitionPayment error:', err);
       return null;

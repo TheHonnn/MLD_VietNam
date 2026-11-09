@@ -194,6 +194,67 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     return '${formatter.format(amount)} ₫';
   }
 
+  Widget _buildThumbnail(String url, {required bool isCourse, String title = ''}) {
+    final fallbackIcon = Container(
+      width: 54,
+      height: 54,
+      color: isCourse ? const Color(0xFFE8F6ED) : const Color(0xFFFFF1F2),
+      child: Icon(
+        isCourse ? Icons.school_rounded : Icons.spa_rounded,
+        color: isCourse ? const Color(0xFF00693F) : const Color(0xFFE11D48),
+        size: 24,
+      ),
+    );
+
+    String resolvedUrl = url.trim();
+    if (resolvedUrl.isEmpty && isCourse && title.isNotEmpty) {
+      final t = title.toLowerCase();
+      if (t.contains('lymphatic wellness signature program')) {
+        resolvedUrl = 'assets/images/DaoTao/LYMPHATIC WELLNESS SIGNATURE PROGRAM 350.000.000.jpg';
+      } else if (t.contains('phát triển giảng viên')) {
+        resolvedUrl = 'assets/images/DaoTao/Chương trình phát triển giảng viên và học thuật 35.000.000.jpg';
+      } else if (t.contains('chuyên sâu')) {
+        resolvedUrl = 'assets/images/DaoTao/Dẫn lưu bạch huyết chuyên sâu cho người làm nghề.jpg';
+      } else if (t.contains('nâng cao')) {
+        resolvedUrl = 'assets/images/DaoTao/Dẫn lưu bạch huyết nâng cao cho người làm nghề 25.000.000.jpg';
+      } else if (t.contains('cơ bản')) {
+        resolvedUrl = 'assets/images/DaoTao/Dẫn lưu bạch huyết cơ bản cho người làm nghề 15.000.000.jpg';
+      } else if (t.contains('nền tảng') || t.contains('mới bắt đầu') || t.contains('599')) {
+        resolvedUrl = 'assets/images/DaoTao/Dẫn lưu bạch huyết nền tảng cho người mới bắt đầu 599.000.jpg';
+      } else if (t.contains('giảm phù') || t.contains('cdt')) {
+        resolvedUrl = 'assets/images/DaoTao/Giảm phù bằng dẫn lưu bạch huyết và băng ép CDT 30.000.000.webp';
+      } else if (t.contains('chế độ ăn') || t.contains('tuyến vú')) {
+        resolvedUrl = 'assets/images/DaoTao/HƯỚNG DẪN XÂY DỰNG CHẾ ĐỘ ĂN PHÒNG NGỪA BỆNH LÝ TUYẾN VÚ 350.000.jpg';
+      } else if (t.contains('mẹ sau sinh')) {
+        resolvedUrl = 'assets/images/DaoTao/Khoá học Chuyên đề CHĂM SÓC MẸ SAU SINH 10.000.000.jpg';
+      } else if (t.contains('phù tay') || t.contains('ung thư vú')) {
+        resolvedUrl = 'assets/images/DaoTao/Khóa học Hướng dẫn phòng ngừa phù tay sau phẫu thuật ung thư vú 350.000.jpg';
+      }
+    }
+
+    if (resolvedUrl.isEmpty) {
+      return fallbackIcon;
+    }
+
+    if (resolvedUrl.startsWith('http://') || resolvedUrl.startsWith('https://')) {
+      return Image.network(
+        resolvedUrl,
+        width: 54,
+        height: 54,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallbackIcon,
+      );
+    } else {
+      return Image.asset(
+        resolvedUrl,
+        width: 54,
+        height: 54,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallbackIcon,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -434,25 +495,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                 // Thumbnail Ảnh thật dịch vụ (Fallback Icon nếu không có ảnh)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: s.imageUrl.isNotEmpty
-                      ? Image.network(
-                          s.imageUrl,
-                          width: 54,
-                          height: 54,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 54,
-                            height: 54,
-                            color: const Color(0xFFFFF1F2),
-                            child: const Icon(Icons.spa_rounded, color: Color(0xFFE11D48), size: 24),
-                          ),
-                        )
-                      : Container(
-                          width: 54,
-                          height: 54,
-                          color: const Color(0xFFFFF1F2),
-                          child: const Icon(Icons.spa_rounded, color: Color(0xFFE11D48), size: 24),
-                        ),
+                  child: _buildThumbnail(s.imageUrl, isCourse: false, title: s.name),
                 ),
                 const SizedBox(width: 12),
 
@@ -572,25 +615,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                 // Thumbnail Ảnh thật khóa học (Fallback Icon nếu không có ảnh)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: c.imageUrl.isNotEmpty
-                      ? Image.network(
-                          c.imageUrl,
-                          width: 54,
-                          height: 54,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 54,
-                            height: 54,
-                            color: const Color(0xFFE8F6ED),
-                            child: const Icon(Icons.school_rounded, color: Color(0xFF00693F), size: 24),
-                          ),
-                        )
-                      : Container(
-                          width: 54,
-                          height: 54,
-                          color: const Color(0xFFE8F6ED),
-                          child: const Icon(Icons.school_rounded, color: Color(0xFF00693F), size: 24),
-                        ),
+                  child: _buildThumbnail(c.imageUrl, isCourse: true, title: c.title),
                 ),
                 const SizedBox(width: 12),
 

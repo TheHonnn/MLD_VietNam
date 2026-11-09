@@ -1,12 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.use(json({ limit: '15mb' }));
+  app.use(urlencoded({ extended: true, limit: '15mb' }));
   const logger = new Logger('Bootstrap');
   const isProduction = process.env.NODE_ENV === 'production';
   const defaultProdOrigins = [
@@ -39,10 +42,10 @@ async function bootstrap() {
       if (Array.isArray(allowedOrigins) && allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      if (!isProduction || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('vercel.app')) {
+      if (!isProduction) {
         return callback(null, true);
       }
-      callback(null, true);
+      callback(null, false);
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: ['Content-Type', 'Authorization', 'X-MLD-Local-Admin', 'Accept', 'Origin', 'X-Requested-With'],

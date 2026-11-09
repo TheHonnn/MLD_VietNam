@@ -424,6 +424,8 @@ export const enums: Record<string, string> = {
   READING_DOC: "Tài liệu",
   PRACTICE_GUIDE: "Hướng dẫn thực hành",
   QUIZ: "Trắc nghiệm",
+  EXAM_RESULT_AND_CERTIFICATE: "Kết quả thi & Chứng nhận",
+  EXAM_RESULTS_NOTIFICATION: "Thông báo kết quả thi",
   VIP_ROOM: "Phòng VIP",
   MASSAGE_ROOM: "Phòng Massage",
   HEAD_SPA_ROOM: "Phòng Gội đầu dưỡng sinh",
@@ -463,11 +465,6 @@ export const label = (name: string, table?: string) => {
   }
   if (table === "course_batch_assistants") {
     if (name === "instructor_id") return "Trợ giảng";
-    if (name === "batch_id") return "Lớp học";
-    if (name === "can_mark_attendance") return "Được điểm danh";
-    if (name === "can_enter_grades") return "Được nhập điểm";
-    if (name === "assigned_by_id") return "Người phân công";
-    if (name === "assigned_at") return "Thời gian phân công";
   }
   return labels[name] || name.replace(/_/g, " ");
 };

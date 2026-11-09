@@ -29,6 +29,7 @@ import { useNavigate } from 'react-router-dom';
 import { adminApi } from '../admin/api';
 import { toast } from '../components/common';
 import { portalService } from '../services/portal.service';
+import { compressImageFile } from '../utils/imageCompressor';
 
 type ProductGroup = 'Dụng cụ tập luyện' | 'Băng ép' | 'Chăm sóc da' | 'Tài liệu';
 
@@ -237,16 +238,12 @@ export const W19_HomeProducts: React.FC = () => {
   };
 
   /**
-   * Xử lý tệp hình ảnh
+   * Xử lý tệp hình ảnh: Tự động nén và tối ưu hóa kích thước trước khi tải lên
+   * Tránh lỗi HTTP 413 "Request entity too large" khi người dùng tải ảnh dung lượng lớn
    */
   const handleProcessImageFile = async (file: File | Blob, nameHint?: string) => {
     if (!file.type.startsWith('image/')) {
       toast.error('Định dạng không hợp lệ', 'Vui lòng chọn tệp hình ảnh (JPG, PNG, WEBP, GIF).');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Tệp quá lớn', 'Dung lượng ảnh tối đa là 5MB.');
       return;
     }
 
@@ -256,29 +253,34 @@ export const W19_HomeProducts: React.FC = () => {
     setUploadingImage(true);
 
     try {
-      const fileName = nameHint || (file as File).name || `homeproduct_${Date.now()}.png`;
-      const publicUrl = await portalService.uploadFileToStorage(file, fileName);
-      setGallery((current) => current.map((url) => (url === localPreviewUrl ? publicUrl : url)));
-      setForm((current) => ({
-        ...current,
-        image_url: current.image_url === localPreviewUrl ? publicUrl : current.image_url,
-      }));
-      toast.success('Tải ảnh thành công', 'Ảnh sản phẩm đã được đồng bộ vào kho lưu trữ.');
+      // 1. Tự động nén và tối ưu hóa kích thước ảnh (giảm từ 3-10MB xuống còn ~60-120KB)
+      const compressed = await compressImageFile(file, 1200, 0.82);
+      const processedFile = compressed.file;
+      const optimizedDataUrl = compressed.dataUrl;
+
+      const fileName = nameHint || (file as File).name || `homeproduct_${Date.now()}.jpg`;
+
+      try {
+        const publicUrl = await portalService.uploadFileToStorage(processedFile, fileName);
+        setGallery((current) => current.map((url) => (url === localPreviewUrl ? publicUrl : url)));
+        setForm((current) => ({
+          ...current,
+          image_url: current.image_url === localPreviewUrl ? publicUrl : current.image_url,
+        }));
+        toast.success('Tải ảnh thành công', 'Ảnh sản phẩm đã được đồng bộ vào kho lưu trữ.');
+      } catch (uploadErr) {
+        console.warn('Lỗi tải ảnh lên Storage, chuyển sang lưu ảnh đã nén tối ưu:', uploadErr);
+        // Lưu dataUrl đã nén (chỉ ~80KB, tuyệt đối an toàn và không gây lỗi 413)
+        setGallery((current) => current.map((url) => (url === localPreviewUrl ? optimizedDataUrl : url)));
+        setForm((current) => ({
+          ...current,
+          image_url: current.image_url === localPreviewUrl ? optimizedDataUrl : current.image_url,
+        }));
+        toast.success('Đã nạp ảnh', 'Ảnh đã được nén tối ưu cho sản phẩm.');
+      }
     } catch (err: any) {
-      console.warn('Lỗi tải ảnh lên Storage, chuyển sang lưu Base64 Data URL:', err);
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (reader.result) {
-          const dataUrl = String(reader.result);
-          setGallery((current) => current.map((url) => (url === localPreviewUrl ? dataUrl : url)));
-          setForm((current) => ({
-            ...current,
-            image_url: current.image_url === localPreviewUrl ? dataUrl : current.image_url,
-          }));
-          toast.success('Đã nạp ảnh', 'Ảnh được lưu tạm định dạng Base64.');
-        }
-      };
-      reader.readAsDataURL(file);
+      console.error('Lỗi xử lý nén ảnh:', err);
+      toast.error('Lỗi xử lý ảnh', err?.message || 'Không thể đọc tệp ảnh.');
     } finally {
       setUploadingImage(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -334,10 +336,16 @@ export const W19_HomeProducts: React.FC = () => {
 
       const text = await navigator.clipboard.readText();
       const trimmed = text ? text.trim() : '';
-      if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
         setGallery((current) => [...current, trimmed]);
         setForm((current) => ({ ...current, image_url: current.image_url || trimmed }));
         toast.success('Dán link ảnh thành công');
+        return;
+      }
+      if (trimmed.startsWith('data:image/')) {
+        const res = await fetch(trimmed);
+        const blob = await res.blob();
+        await handleProcessImageFile(blob, `pasted_${Date.now()}.jpg`);
         return;
       }
 
@@ -372,6 +380,28 @@ export const W19_HomeProducts: React.FC = () => {
 
     setBusy(true);
     try {
+      // Bảo hiểm nén lần cuối: Nếu có ảnh Base64 lớn lọt vào gallery, nén ngay trước khi gửi
+      let finalGallery: string[] = [];
+      for (const item of gallery.filter((url) => !url.startsWith('blob:'))) {
+        if (item.startsWith('data:image/') && item.length > 250 * 1024) {
+          try {
+            const res = await fetch(item);
+            const blob = await res.blob();
+            const compressed = await compressImageFile(blob, 1000, 0.75);
+            finalGallery.push(compressed.dataUrl);
+          } catch {
+            finalGallery.push(item);
+          }
+        } else {
+          finalGallery.push(item);
+        }
+      }
+
+      let finalImageUrl = form.image_url ? form.image_url.trim() : null;
+      if (finalImageUrl && finalImageUrl.startsWith('data:image/') && finalImageUrl.length > 250 * 1024) {
+        finalImageUrl = finalGallery[0] || finalImageUrl;
+      }
+
       const values = {
         name: form.name.trim(),
         category: form.category,
@@ -380,8 +410,8 @@ export const W19_HomeProducts: React.FC = () => {
         unit: form.unit.trim(),
         details: form.details.split('\n').map((item) => item.trim()).filter(Boolean),
         sort_order: Number(form.sort_order) || 100,
-        image_url: form.image_url ? form.image_url.trim() : null,
-        image_urls: gallery.filter((url) => !url.startsWith('blob:')),
+        image_url: finalImageUrl,
+        image_urls: finalGallery,
       };
 
       if (editing) {

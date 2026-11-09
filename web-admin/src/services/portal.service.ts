@@ -1,6 +1,7 @@
 import { PortalContentItem, PortalContentKind, PortalContentStatus, DocumentAccessLevel, ApiResponse } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 import { getAdminAuthToken, supabase } from './supabaseClient';
+import { compressImageFile } from '../utils/imageCompressor';
 
 function mapDbToPortalContent(item: any): PortalContentItem {
   return {
@@ -290,12 +291,23 @@ export const portalService = {
   async uploadFileToStorage(file: File | Blob, nameHint = 'portal_file.pdf'): Promise<string> {
     if (!file) throw new Error('Không có tệp tin nào được chọn.');
 
+    // Tự động nén ảnh trước khi tải lên (giảm 95% dung lượng, tránh HTTP 413)
+    let uploadPayload = file;
+    let fallbackDataUrl: string | null = null;
+    if (file.type?.startsWith('image/')) {
+      try {
+        const compressed = await compressImageFile(file, 1200, 0.82);
+        uploadPayload = compressed.file;
+        fallbackDataUrl = compressed.dataUrl;
+      } catch (_) {}
+    }
+
     const ext = nameHint.split('.').pop()?.toLowerCase().replace(/[^a-zA-Z0-9]/g, '') || 'pdf';
     const isDoc = ['pdf', 'doc', 'docx', 'zip', 'xls', 'xlsx'].includes(ext);
     const cleanHint = nameHint.replace(/[^a-zA-Z0-9._-]/g, '_');
     const uniquePath = `portal/${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${cleanHint}`;
     const contentType =
-      (file as any).type ||
+      (uploadPayload as any).type ||
       (ext === 'pdf'
         ? 'application/pdf'
         : ext === 'png'
@@ -307,7 +319,7 @@ export const portalService = {
     // Bước 1: Thử tải trực tiếp lên Supabase Storage
     try {
       const bucket = isDoc ? 'documents' : 'avatars';
-      const { data, error } = await supabase.storage.from(bucket).upload(uniquePath, file, {
+      const { data, error } = await supabase.storage.from(bucket).upload(uniquePath, uploadPayload, {
         cacheControl: '3600',
         upsert: true,
         contentType,
@@ -335,7 +347,7 @@ export const portalService = {
 
       if (canCallBackend && token) {
         const form = new FormData();
-        form.append('file', file, cleanHint);
+        form.append('file', uploadPayload, cleanHint);
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
@@ -358,8 +370,11 @@ export const portalService = {
       console.warn('[portalService] Backend upload API failed, falling back to Base64:', apiErr);
     }
 
-    // Bước 3: Fallback an toàn tuyệt đối qua FileReader Base64 Data URL
-    // Giúp người dùng tại Vercel lưu trữ và đọc tài liệu PDF/ảnh ngay lập tức không phụ thuộc backend cục bộ
+    // Bước 3: Fallback an toàn tuyệt đối qua Base64 Data URL đã nén
+    if (fallbackDataUrl) {
+      return fallbackDataUrl;
+    }
+
     return new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {

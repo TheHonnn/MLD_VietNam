@@ -17,9 +17,9 @@ export function AdminReadiness() {
     setChecking(true);
     adminCommand<{ready: boolean; missing: string[]}>('schema/status').then(status => {
       if (active) setMessage(status.ready ? '' : 'Hệ thống quản trị cần được cập nhật dữ liệu trước khi vận hành. Vui lòng liên hệ người quản trị kỹ thuật.');
-    }).catch(error => { 
+    }).catch(error => {
       if (active && error?.statusCode !== 401 && !error?.message?.includes('đăng nhập')) {
-        setMessage(error.message); 
+        setMessage(error.message);
       }
     })
       .finally(() => { if (active) setChecking(false); });

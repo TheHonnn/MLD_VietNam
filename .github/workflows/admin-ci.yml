@@ -1,0 +1,58 @@
+name: Admin checks
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'web-admin/**'
+      - 'database/**'
+      - '.github/workflows/admin-ci.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'web-admin/**'
+      - 'database/**'
+      - '.github/workflows/admin-ci.yml'
+
+jobs:
+  admin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            web-admin/package-lock.json
+      - name: Install backend
+        run: npm ci --include=dev
+        working-directory: backend
+      - name: Install web admin
+        run: npm ci --include=dev
+        working-directory: web-admin
+      - name: Backend admin tests
+        run: npx vitest run src/modules/admin
+        working-directory: backend
+      - name: Backend build
+        run: npm run build
+        working-directory: backend
+      - name: Frontend tests and build
+        run: npm test && npm run build
+        working-directory: web-admin
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+        working-directory: backend
+      - name: Isolated admin browser checks
+        run: node test/admin-browser.cjs
+        working-directory: backend
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-browser-failure
+          path: .local-archive/admin-review/
+          if-no-files-found: ignore
