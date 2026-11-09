@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 import '../motion/app_page_transitions.dart';
+import 'app_typography.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
-    final baseTextTheme = GoogleFonts.beVietnamProTextTheme();
+    final baseTextTheme = AppTypography.zaloTextTheme;
 
     return ThemeData(
       useMaterial3: true,
@@ -18,8 +19,8 @@ class AppTheme {
           TargetPlatform.linux: MldPageTransitionsBuilder(),
         },
       ),
-      fontFamily: GoogleFonts.beVietnamPro().fontFamily,
-      fontFamilyFallback: const ['Be Vietnam Pro', 'sans-serif'],
+      fontFamily: GoogleFonts.roboto().fontFamily,
+      fontFamilyFallback: const ['Roboto', 'Be Vietnam Pro', 'sans-serif'],
       scaffoldBackgroundColor: Colors.white,
       colorScheme: const ColorScheme(
         brightness: Brightness.light,

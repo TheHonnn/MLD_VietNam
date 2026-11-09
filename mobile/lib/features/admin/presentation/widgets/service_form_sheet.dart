@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 
@@ -230,7 +230,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                 children: [
                   Text(
                     isEdit ? 'Chỉnh sửa Dịch vụ' : 'Thêm mới Dịch vụ Spa',
-                    style: GoogleFonts.montserrat(
+                    style: AppTypography.zaloFont(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textHeading,
@@ -249,7 +249,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
               if (_categories.isNotEmpty) ...[
                 Text(
                   'Danh mục dịch vụ',
-                  style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                  style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
@@ -260,7 +260,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                   items: _categories.map((cat) {
                     return DropdownMenuItem<String>(
                       value: cat['id']?.toString(),
-                      child: Text(cat['name']?.toString() ?? '', style: GoogleFonts.montserrat(fontSize: 12.5)),
+                      child: Text(cat['name']?.toString() ?? '', style: AppTypography.zaloFont(fontSize: 12.5)),
                     );
                   }).toList(),
                   onChanged: (val) {
@@ -273,7 +273,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
               // Tên dịch vụ
               Text(
                 'Tên dịch vụ trị liệu *',
-                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
               ),
               const SizedBox(height: 6),
               TextFormField(
@@ -286,7 +286,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
               // Ảnh đại diện dịch vụ (URL + Live Preview)
               Text(
                 'Ảnh đại diện dịch vụ (URL)',
-                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
               ),
               const SizedBox(height: 6),
               Row(
@@ -327,7 +327,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                               },
                               child: Text(
                                 'Dùng ảnh mẫu',
-                                style: GoogleFonts.montserrat(
+                                style: AppTypography.zaloFont(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.primary,
@@ -344,7 +344,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                                 },
                                 child: Text(
                                   'Xóa link',
-                                  style: GoogleFonts.montserrat(
+                                  style: AppTypography.zaloFont(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
                                     color: const Color(0xFFDC2626),
@@ -367,7 +367,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                 children: [
                   Text(
                     'Thời lượng (Phút) *',
-                    style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                    style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                   ),
                   Row(
                     children: [45, 60, 75, 90, 120].map((mins) {
@@ -384,7 +384,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                             ),
                             child: Text(
                               '${mins}p',
-                              style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                              style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
                             ),
                           ),
                         ),
@@ -411,7 +411,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                       children: [
                         Text(
                           'Giá gốc (VNĐ) *',
-                          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                          style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                         ),
                         const SizedBox(height: 6),
                         TextFormField(
@@ -430,7 +430,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                       children: [
                         Text(
                           'Giá ưu đãi (VNĐ)',
-                          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                          style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                         ),
                         const SizedBox(height: 6),
                         TextFormField(
@@ -448,7 +448,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
               // Mô tả ngắn
               Text(
                 'Mô tả ngắn gọn',
-                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
               ),
               const SizedBox(height: 6),
               TextFormField(
@@ -474,11 +474,11 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                       children: [
                         Text(
                           'Trạng thái kinh doanh:',
-                          style: GoogleFonts.montserrat(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                          style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                         ),
                         Text(
                           _isActive ? 'Đang mở bán tiếp nhận khách' : 'Tạm dừng phục vụ',
-                          style: GoogleFonts.montserrat(
+                          style: AppTypography.zaloFont(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: _isActive ? const Color(0xFF00693F) : const Color(0xFFDC2626),
@@ -516,7 +516,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                         )
                       : Text(
                           isEdit ? 'Lưu thay đổi' : 'Tạo mới Dịch vụ',
-                          style: GoogleFonts.montserrat(fontSize: 13.5, fontWeight: FontWeight.w700),
+                          style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w700),
                         ),
                 ),
               ),
@@ -530,7 +530,7 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
   InputDecoration _inputDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.montserrat(fontSize: 12.5, color: const Color(0xFF9CA3AF)),
+      hintStyle: AppTypography.zaloFont(fontSize: 12.5, color: const Color(0xFF9CA3AF)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       filled: true,
       fillColor: const Color(0xFFF9FAFB),

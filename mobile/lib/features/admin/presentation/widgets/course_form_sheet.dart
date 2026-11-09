@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 
@@ -252,7 +252,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                 children: [
                   Text(
                     isEdit ? 'Chỉnh sửa Khóa học' : 'Thêm mới Khóa đào tạo',
-                    style: GoogleFonts.montserrat(
+                    style: AppTypography.zaloFont(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textHeading,
@@ -270,7 +270,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
               // Tên khóa học
               Text(
                 'Tên khóa đào tạo *',
-                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
               ),
               const SizedBox(height: 6),
               TextFormField(
@@ -288,7 +288,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
               // Ảnh đại diện khóa học (URL + Live Preview)
               Text(
                 'Ảnh bìa khóa học (URL hoặc Assets)',
-                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
               ),
               const SizedBox(height: 6),
               Row(
@@ -329,7 +329,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                               },
                               child: Text(
                                 'Dùng ảnh mẫu',
-                                style: GoogleFonts.montserrat(
+                                style: AppTypography.zaloFont(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                   color: const Color(0xFF00693F),
@@ -346,7 +346,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                                 },
                                 child: Text(
                                   'Xóa link',
-                                  style: GoogleFonts.montserrat(
+                                  style: AppTypography.zaloFont(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
                                     color: const Color(0xFFDC2626),
@@ -372,7 +372,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                       children: [
                         Text(
                           'Mã khóa *',
-                          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                          style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                         ),
                         const SizedBox(height: 6),
                         TextFormField(
@@ -391,7 +391,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                       children: [
                         Text(
                           'Cấp độ',
-                          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                          style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                         ),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
@@ -400,7 +400,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                           items: _levels.map((lvl) {
                             return DropdownMenuItem(
                               value: lvl['value'],
-                              child: Text(lvl['label']!, style: GoogleFonts.montserrat(fontSize: 12.5)),
+                              child: Text(lvl['label']!, style: AppTypography.zaloFont(fontSize: 12.5)),
                             );
                           }).toList(),
                           onChanged: (val) {
@@ -423,7 +423,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                       children: [
                         Text(
                           'Học phí (VNĐ) *',
-                          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                          style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                         ),
                         const SizedBox(height: 6),
                         TextFormField(
@@ -442,7 +442,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                       children: [
                         Text(
                           'Mức cọc (VNĐ) *',
-                          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                          style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                         ),
                         const SizedBox(height: 6),
                         TextFormField(
@@ -466,7 +466,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                       children: [
                         Text(
                           'Tổng giờ học',
-                          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                          style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                         ),
                         const SizedBox(height: 6),
                         TextFormField(
@@ -484,7 +484,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                       children: [
                         Text(
                           'Tổng số bài học',
-                          style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                          style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                         ),
                         const SizedBox(height: 6),
                         TextFormField(
@@ -502,7 +502,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
               // Mô tả ngắn
               Text(
                 'Mô tả khóa học',
-                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
               ),
               const SizedBox(height: 6),
               TextFormField(
@@ -514,7 +514,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
 
               Text(
                 'Đối tượng học viên phù hợp',
-                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
               ),
               const SizedBox(height: 6),
               TextFormField(
@@ -546,7 +546,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                       ),
                       child: Text(
                         s,
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 10.5,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected ? const Color(0xFF985018) : const Color(0xFF4B5563),
@@ -560,7 +560,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
 
               Text(
                 'Nhu cầu mục tiêu / Chuẩn đầu ra',
-                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
               ),
               const SizedBox(height: 6),
               TextFormField(
@@ -592,7 +592,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                       ),
                       child: Text(
                         s,
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 10.5,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected ? const Color(0xFF985018) : const Color(0xFF4B5563),
@@ -606,7 +606,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
 
               Text(
                 'Nhóm khóa học',
-                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
               ),
               const SizedBox(height: 6),
               TextFormField(
@@ -638,7 +638,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                       ),
                       child: Text(
                         s,
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 10.5,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected ? const Color(0xFF985018) : const Color(0xFF4B5563),
@@ -666,11 +666,11 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                       children: [
                         Text(
                           'Trạng thái tuyển sinh:',
-                          style: GoogleFonts.montserrat(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                          style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                         ),
                         Text(
                           _isActive ? 'Đang mở tuyển sinh nhận học viên' : 'Tạm dừng tuyển sinh',
-                          style: GoogleFonts.montserrat(
+                          style: AppTypography.zaloFont(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: _isActive ? const Color(0xFF00693F) : const Color(0xFFDC2626),
@@ -708,7 +708,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                         )
                       : Text(
                           isEdit ? 'Lưu khóa học' : 'Tạo mới Khóa đào tạo',
-                          style: GoogleFonts.montserrat(fontSize: 13.5, fontWeight: FontWeight.w700),
+                          style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w700),
                         ),
                 ),
               ),
@@ -722,7 +722,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
   InputDecoration _inputDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.montserrat(fontSize: 12.5, color: const Color(0xFF9CA3AF)),
+      hintStyle: AppTypography.zaloFont(fontSize: 12.5, color: const Color(0xFF9CA3AF)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       filled: true,
       fillColor: const Color(0xFFF9FAFB),

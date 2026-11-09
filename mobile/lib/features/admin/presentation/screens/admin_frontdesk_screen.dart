@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../widgets/admin_appointment_card.dart';
@@ -35,6 +35,87 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
   List<AdminBookingModel> _bookings = [];
   List<AdminBranchModel> _branches = [];
   String? _processingBookingId;
+
+  // Trạng thái mở rộng các Ca tiếp đón (Mặc định mở ca hiện tại hoặc toàn bộ)
+  final Set<String> _expandedShifts = {'morning', 'afternoon', 'evening'};
+
+  int _parseHour(String timeStr) {
+    try {
+      final parts = timeStr.trim().split(':');
+      if (parts.isNotEmpty) {
+        return int.tryParse(parts[0]) ?? 9;
+      }
+    } catch (_) {}
+    return 9;
+  }
+
+  void _toggleShift(String shiftKey) {
+    setState(() {
+      if (_expandedShifts.contains(shiftKey)) {
+        _expandedShifts.remove(shiftKey);
+      } else {
+        _expandedShifts.add(shiftKey);
+      }
+    });
+  }
+
+  void _toggleAllShifts() {
+    setState(() {
+      if (_expandedShifts.isEmpty) {
+        _expandedShifts.addAll(['morning', 'afternoon', 'evening']);
+      } else {
+        _expandedShifts.clear();
+      }
+    });
+  }
+
+  List<Map<String, dynamic>> get _shiftGroups {
+    final list = _filteredBookings;
+    final morning = <AdminBookingModel>[];
+    final afternoon = <AdminBookingModel>[];
+    final evening = <AdminBookingModel>[];
+
+    for (final b in list) {
+      final h = _parseHour(b.startTime);
+      if (h < 12) {
+        morning.add(b);
+      } else if (h < 17 || (h == 17 && (int.tryParse(b.startTime.split(':').length > 1 ? b.startTime.split(':')[1] : '0') ?? 0) <= 30)) {
+        afternoon.add(b);
+      } else {
+        evening.add(b);
+      }
+    }
+
+    return [
+      {
+        'key': 'morning',
+        'title': 'Ca Sáng',
+        'timeRange': '08:00 - 12:00',
+        'icon': Icons.wb_sunny_rounded,
+        'color': const Color(0xFFD97706),
+        'bgColor': const Color(0xFFFEF3C7),
+        'bookings': morning,
+      },
+      {
+        'key': 'afternoon',
+        'title': 'Ca Chiều',
+        'timeRange': '12:00 - 17:30',
+        'icon': Icons.wb_twilight_rounded,
+        'color': AppColors.primary,
+        'bgColor': const Color(0xFFEFF6FF),
+        'bookings': afternoon,
+      },
+      {
+        'key': 'evening',
+        'title': 'Ca Tối',
+        'timeRange': '17:30 - 21:00',
+        'icon': Icons.nights_stay_rounded,
+        'color': const Color(0xFF7C3AED),
+        'bgColor': const Color(0xFFEDE9FE),
+        'bookings': evening,
+      },
+    ];
+  }
 
   final List<Map<String, String>> _statusFilters = [
     {'key': 'ALL', 'label': 'Tất cả'},
@@ -171,7 +252,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Hủy / Từ chối lịch hẹn',
-          style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700),
+          style: AppTypography.zaloFont(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -179,7 +260,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
           children: [
             Text(
               'Xác nhận từ chối lịch hẹn của khách hàng ${b.customerName}?',
-              style: GoogleFonts.montserrat(fontSize: 13, color: AppColors.textSecondary),
+              style: AppTypography.zaloFont(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -187,7 +268,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
               maxLines: 2,
               decoration: InputDecoration(
                 hintText: 'Nhập lý do từ chối (tùy chọn)...',
-                hintStyle: GoogleFonts.montserrat(fontSize: 12),
+                hintStyle: AppTypography.zaloFont(fontSize: 12),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 contentPadding: const EdgeInsets.all(12),
               ),
@@ -197,7 +278,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Quay lại', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600)),
+            child: Text('Quay lại', style: AppTypography.zaloFont(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -205,7 +286,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
             ),
-            child: Text('Xác nhận hủy', style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
+            child: Text('Xác nhận hủy', style: AppTypography.zaloFont(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -232,7 +313,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
   void _showToast(String message, Color bgColor) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: GoogleFonts.montserrat(fontSize: 12.5, fontWeight: FontWeight.w500)),
+        content: Text(message, style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w500)),
         backgroundColor: bgColor,
         behavior: SnackBarBehavior.floating,
       ),
@@ -315,7 +396,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                     children: [
                       Text(
                         'Xác nhận Tiếp đón Khách hàng',
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textHeading,
@@ -323,7 +404,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                       ),
                       Text(
                         'Mã đặt lịch: ${b.bookingCode}',
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: AppColors.textSecondary,
@@ -355,7 +436,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                     ),
                     child: Text(
                       'Hủy',
-                      style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600),
+                      style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -375,7 +456,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                     ),
                     child: Text(
                       'Xác nhận Check-in',
-                      style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700),
+                      style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
@@ -396,11 +477,11 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
         children: [
           Text(
             label,
-            style: GoogleFonts.montserrat(fontSize: 12.5, color: AppColors.textSecondary),
+            style: AppTypography.zaloFont(fontSize: 12.5, color: AppColors.textSecondary),
           ),
           Text(
             value,
-            style: GoogleFonts.montserrat(
+            style: AppTypography.zaloFont(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppColors.textHeading,
@@ -434,7 +515,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
               children: [
                 Text(
                   'Chi tiết ca hẹn ${b.bookingCode}',
-                  style: GoogleFonts.montserrat(
+                  style: AppTypography.zaloFont(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textHeading,
@@ -462,7 +543,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
               const SizedBox(height: 8),
               Text(
                 'Ghi chú của khách:',
-                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 4),
               Container(
@@ -475,7 +556,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                 ),
                 child: Text(
                   b.notes!,
-                  style: GoogleFonts.montserrat(fontSize: 12, color: AppColors.textHeading),
+                  style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textHeading),
                 ),
               ),
             ],
@@ -503,7 +584,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
           children: [
             Text(
               'Tiếp đón & Lịch hẹn Spa',
-              style: GoogleFonts.montserrat(
+              style: AppTypography.zaloFont(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textHeading,
@@ -513,7 +594,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
               _isAllDates
                   ? '${_bookings.length} ca hẹn (Tất cả các ngày)'
                   : '${_bookings.length} ca hẹn ngày ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
-              style: GoogleFonts.montserrat(
+              style: AppTypography.zaloFont(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textSecondary,
@@ -541,11 +622,11 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
             itemBuilder: (ctx) => [
               PopupMenuItem(
                 value: 'ALL',
-                child: Text('Tất cả cơ sở', style: GoogleFonts.montserrat(fontSize: 12.5)),
+                child: Text('Tất cả cơ sở', style: AppTypography.zaloFont(fontSize: 12.5)),
               ),
               ..._branches.map((b) => PopupMenuItem(
                     value: b.id,
-                    child: Text(b.name, style: GoogleFonts.montserrat(fontSize: 12.5)),
+                    child: Text(b.name, style: AppTypography.zaloFont(fontSize: 12.5)),
                   )),
             ],
           ),
@@ -587,7 +668,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                             selected: _isAllDates,
                             selectedColor: AppColors.primary,
                             backgroundColor: const Color(0xFFF3F4F6),
-                            labelStyle: GoogleFonts.montserrat(
+                            labelStyle: AppTypography.zaloFont(
                               fontSize: 12,
                               fontWeight: _isAllDates ? FontWeight.w700 : FontWeight.w500,
                               color: _isAllDates ? Colors.white : AppColors.textHeading,
@@ -617,7 +698,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                               selected: isSelected,
                               selectedColor: AppColors.primary,
                               backgroundColor: const Color(0xFFF3F4F6),
-                              labelStyle: GoogleFonts.montserrat(
+                              labelStyle: AppTypography.zaloFont(
                                 fontSize: 12,
                                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                                 color: isSelected ? Colors.white : AppColors.textHeading,
@@ -675,7 +756,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                     controller: _searchController,
                     decoration: InputDecoration(
                       hintText: 'Tìm khách hàng, SĐT, mã BK...',
-                      hintStyle: GoogleFonts.montserrat(fontSize: 12, color: const Color(0xFF9CA3AF)),
+                      hintStyle: AppTypography.zaloFont(fontSize: 12, color: const Color(0xFF9CA3AF)),
                       prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF9CA3AF)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       filled: true,
@@ -716,7 +797,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                       selected: isSelected,
                       selectedColor: const Color(0xFFEFF4FE),
                       backgroundColor: Colors.white,
-                      labelStyle: GoogleFonts.montserrat(
+                      labelStyle: AppTypography.zaloFont(
                         fontSize: 11.5,
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                         color: isSelected ? AppColors.primary : const Color(0xFF6B7280),
@@ -745,7 +826,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
           ),
           const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
-          // 4. Danh sách ca hẹn
+          // 4. Danh sách ca hẹn phân theo Ca
           Expanded(
             child: RefreshIndicator(
               onRefresh: _fetchBookings,
@@ -776,7 +857,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                                   const SizedBox(height: 14),
                                   Text(
                                     'Không có ca hẹn nào phù hợp',
-                                    style: GoogleFonts.montserrat(
+                                    style: AppTypography.zaloFont(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.textHeading,
@@ -785,7 +866,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     'Hãy chọn ngày khác hoặc thử tìm kiếm với từ khóa khác.',
-                                    style: GoogleFonts.montserrat(
+                                    style: AppTypography.zaloFont(
                                       fontSize: 12,
                                       color: AppColors.textSecondary,
                                     ),
@@ -795,22 +876,212 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                             ),
                           ],
                         )
-                      : ListView.builder(
+                      : ListView(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          itemCount: _filteredBookings.length,
-                          itemBuilder: (context, index) {
-                            final b = _filteredBookings[index];
-                            return AdminAppointmentCard(
-                              booking: b,
-                              isProcessing: _processingBookingId == b.id,
-                              onApprove: () => _handleApprove(b),
-                              onCancel: () => _handleCancel(b),
-                              onCheckIn: () => _handleCheckIn(b),
-                              onStartService: () => _handleStartService(b),
-                              onCheckOut: () => _handleCheckOut(b),
-                              onViewDetail: () => _showAppointmentDetailSheet(b),
-                            );
-                          },
+                          children: [
+                            // Thanh tiêu đề phân ca & Nút mở/thu gọn nhanh
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12, left: 2, right: 2),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.layers_rounded, size: 16, color: AppColors.primary),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'TIẾP ĐÓN PHÂN THEO CA (${_filteredBookings.length} khách)',
+                                        style: AppTypography.zaloFont(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textHeading,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  InkWell(
+                                    onTap: _toggleAllShifts,
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      child: Text(
+                                        _expandedShifts.isEmpty ? 'Mở tất cả' : 'Thu gọn tất cả',
+                                        style: AppTypography.zaloFont(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Duyệt qua từng Ca (Sáng, Chiều, Tối)
+                            ..._shiftGroups.map((shift) {
+                              final String key = shift['key'] as String;
+                              final String title = shift['title'] as String;
+                              final String timeRange = shift['timeRange'] as String;
+                              final IconData icon = shift['icon'] as IconData;
+                              final Color color = shift['color'] as Color;
+                              final Color bgColor = shift['bgColor'] as Color;
+                              final List<AdminBookingModel> shiftBookings =
+                                  shift['bookings'] as List<AdminBookingModel>;
+                              final bool isExpanded = _expandedShifts.contains(key);
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isExpanded ? color.withValues(alpha: 0.35) : const Color(0xFFE5E7EB),
+                                    width: isExpanded ? 1.5 : 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.02),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Header của Ca - BẤM VÀO SẼ HIỆN / ẨN KHÁCH
+                                    Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: () => _toggleShift(key),
+                                        borderRadius: BorderRadius.circular(15),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 38,
+                                                height: 38,
+                                                decoration: BoxDecoration(
+                                                  color: bgColor,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                ),
+                                                child: Icon(icon, color: color, size: 20),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Text(
+                                                          title,
+                                                          style: AppTypography.zaloFont(
+                                                            fontSize: 14.5,
+                                                            fontWeight: FontWeight.w700,
+                                                            color: AppColors.textHeading,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 8),
+                                                        Container(
+                                                          padding: const EdgeInsets.symmetric(
+                                                              horizontal: 7, vertical: 2),
+                                                          decoration: BoxDecoration(
+                                                            color: shiftBookings.isNotEmpty
+                                                                ? color.withValues(alpha: 0.12)
+                                                                : const Color(0xFFF3F4F6),
+                                                            borderRadius: BorderRadius.circular(8),
+                                                          ),
+                                                          child: Text(
+                                                            '${shiftBookings.length} khách',
+                                                            style: AppTypography.zaloFont(
+                                                              fontSize: 11,
+                                                              fontWeight: FontWeight.w700,
+                                                              color: shiftBookings.isNotEmpty
+                                                                  ? color
+                                                                  : const Color(0xFF6B7280),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      'Khung giờ: $timeRange',
+                                                      style: AppTypography.zaloFont(
+                                                        fontSize: 11.5,
+                                                        color: AppColors.textSecondary,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Container(
+                                                width: 30,
+                                                height: 30,
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFF9FAFB),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                                                ),
+                                                child: Icon(
+                                                  isExpanded
+                                                      ? Icons.keyboard_arrow_up_rounded
+                                                      : Icons.keyboard_arrow_down_rounded,
+                                                  color: const Color(0xFF4B5563),
+                                                  size: 20,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+
+                                    // Danh sách khách trong ca khi mở rộng
+                                    if (isExpanded) ...[
+                                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                                      if (shiftBookings.isEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                                          child: Center(
+                                            child: Text(
+                                              'Chưa có lịch hẹn nào trong $title ($timeRange)',
+                                              style: AppTypography.zaloFont(
+                                                fontSize: 12,
+                                                color: const Color(0xFF9CA3AF),
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
+                                          child: Column(
+                                            children: shiftBookings.map((b) {
+                                              return AdminAppointmentCard(
+                                                booking: b,
+                                                isProcessing: _processingBookingId == b.id,
+                                                onApprove: () => _handleApprove(b),
+                                                onCancel: () => _handleCancel(b),
+                                                onCheckIn: () => _handleCheckIn(b),
+                                                onStartService: () => _handleStartService(b),
+                                                onCheckOut: () => _handleCheckOut(b),
+                                                onViewDetail: () => _showAppointmentDetailSheet(b),
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
                         ),
             ),
           ),

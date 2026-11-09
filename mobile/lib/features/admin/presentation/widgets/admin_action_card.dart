@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 
 class AdminActionCard extends StatelessWidget {
@@ -85,7 +85,7 @@ class AdminActionCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       badgeLabel,
-                      style: GoogleFonts.montserrat(
+                      style: AppTypography.zaloFont(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w700,
                         color: badgeText,
@@ -96,7 +96,7 @@ class AdminActionCard extends StatelessWidget {
               ),
               Text(
                 item.timeAgo,
-                style: GoogleFonts.montserrat(
+                style: AppTypography.zaloFont(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: const Color(0xFF9CA3AF),
@@ -107,7 +107,7 @@ class AdminActionCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             item.title,
-            style: GoogleFonts.montserrat(
+            style: AppTypography.zaloFont(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppColors.textHeading,
@@ -117,7 +117,7 @@ class AdminActionCard extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             item.subtitle,
-            style: GoogleFonts.montserrat(
+            style: AppTypography.zaloFont(
               fontSize: 12,
               fontWeight: FontWeight.w400,
               color: AppColors.textSecondary,
@@ -135,7 +135,7 @@ class AdminActionCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       item.secondaryInfo!,
-                      style: GoogleFonts.montserrat(
+                      style: AppTypography.zaloFont(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w500,
                         color: AppColors.textSecondary,
@@ -168,7 +168,7 @@ class AdminActionCard extends StatelessWidget {
                       )
                     : Text(
                         actionBtnText,
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),

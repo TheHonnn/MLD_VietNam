@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 
@@ -115,7 +115,7 @@ class _AssignBatchBottomSheetState extends State<AssignBatchBottomSheet> {
                 children: [
                   Text(
                     'Xếp lớp đào tạo học viên',
-                    style: GoogleFonts.montserrat(
+                    style: AppTypography.zaloFont(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textHeading,
@@ -124,7 +124,7 @@ class _AssignBatchBottomSheetState extends State<AssignBatchBottomSheet> {
                   const SizedBox(height: 2),
                   Text(
                     'Học viên: ${widget.candidate.candidateName} (${widget.candidate.orderCode})',
-                    style: GoogleFonts.montserrat(
+                    style: AppTypography.zaloFont(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       color: const Color(0xFF00693F),
@@ -156,7 +156,7 @@ class _AssignBatchBottomSheetState extends State<AssignBatchBottomSheet> {
                 Expanded(
                   child: Text(
                     widget.candidate.courseTitle,
-                    style: GoogleFonts.montserrat(
+                    style: AppTypography.zaloFont(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textHeading,
@@ -170,7 +170,7 @@ class _AssignBatchBottomSheetState extends State<AssignBatchBottomSheet> {
 
           Text(
             'CHỌN LỚP HỌC MỞ TUYỂN SINH:',
-            style: GoogleFonts.montserrat(
+            style: AppTypography.zaloFont(
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF6B7280),
@@ -201,7 +201,7 @@ class _AssignBatchBottomSheetState extends State<AssignBatchBottomSheet> {
                   Text(
                     'Hiện chưa có lớp đào tạo nào được mở cho khóa học này.',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.montserrat(
+                    style: AppTypography.zaloFont(
                       fontSize: 12,
                       color: AppColors.textSecondary,
                     ),
@@ -269,7 +269,7 @@ class _AssignBatchBottomSheetState extends State<AssignBatchBottomSheet> {
                                   children: [
                                     Text(
                                       'Lớp: ${b.batchCode}',
-                                      style: GoogleFonts.montserrat(
+                                      style: AppTypography.zaloFont(
                                         fontSize: 13.5,
                                         fontWeight: FontWeight.w700,
                                         color: isFull
@@ -287,7 +287,7 @@ class _AssignBatchBottomSheetState extends State<AssignBatchBottomSheet> {
                                       ),
                                       child: Text(
                                         isFull ? 'Đã đủ sĩ số' : 'Còn ${b.availableSlots} chỗ',
-                                        style: GoogleFonts.montserrat(
+                                        style: AppTypography.zaloFont(
                                           fontSize: 10.5,
                                           fontWeight: FontWeight.w700,
                                           color: isFull
@@ -301,7 +301,7 @@ class _AssignBatchBottomSheetState extends State<AssignBatchBottomSheet> {
                                 const SizedBox(height: 4),
                                 Text(
                                   '${b.scheduleDays} · ${b.timeSlot} · Khai giảng: ${b.startDate}',
-                                  style: GoogleFonts.montserrat(
+                                  style: AppTypography.zaloFont(
                                     fontSize: 11.5,
                                     color: AppColors.textSecondary,
                                   ),
@@ -310,7 +310,7 @@ class _AssignBatchBottomSheetState extends State<AssignBatchBottomSheet> {
                                   const SizedBox(height: 2),
                                   Text(
                                     '${b.instructorName != null ? "GV: ${b.instructorName}" : ""}${b.roomName != null ? " · Phòng: ${b.roomName}" : ""}',
-                                    style: GoogleFonts.montserrat(
+                                    style: AppTypography.zaloFont(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w500,
                                       color: const Color(0xFF6B7280),
@@ -341,7 +341,7 @@ class _AssignBatchBottomSheetState extends State<AssignBatchBottomSheet> {
                   ),
                   child: Text(
                     'Đóng',
-                    style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600),
+                    style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -364,7 +364,7 @@ class _AssignBatchBottomSheetState extends State<AssignBatchBottomSheet> {
                         )
                       : Text(
                           'Xác nhận Xếp lớp',
-                          style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700),
+                          style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700),
                         ),
                 ),
               ),

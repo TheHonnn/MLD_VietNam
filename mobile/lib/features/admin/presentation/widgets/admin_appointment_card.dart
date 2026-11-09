@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 
 class AdminAppointmentCard extends StatelessWidget {
@@ -151,7 +151,7 @@ class AdminAppointmentCard extends StatelessWidget {
                             booking.startTime.isNotEmpty
                                 ? '${booking.startTime} - ${booking.endTime}'
                                 : 'Lịch hẹn',
-                            style: GoogleFonts.montserrat(
+                            style: AppTypography.zaloFont(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: AppColors.primary,
@@ -163,7 +163,7 @@ class AdminAppointmentCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       booking.bookingCode,
-                      style: GoogleFonts.montserrat(
+                      style: AppTypography.zaloFont(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF9CA3AF),
@@ -184,7 +184,7 @@ class AdminAppointmentCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         statusLabel,
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: statusText,
@@ -227,7 +227,7 @@ class AdminAppointmentCard extends StatelessWidget {
                               children: [
                                 Text(
                                   booking.customerName,
-                                  style: GoogleFonts.montserrat(
+                                  style: AppTypography.zaloFont(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                     color: AppColors.textHeading,
@@ -236,7 +236,7 @@ class AdminAppointmentCard extends StatelessWidget {
                                 if (booking.customerPhone.isNotEmpty)
                                   Text(
                                     booking.customerPhone,
-                                    style: GoogleFonts.montserrat(
+                                    style: AppTypography.zaloFont(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
                                       color: AppColors.textSecondary,
@@ -287,7 +287,7 @@ class AdminAppointmentCard extends StatelessWidget {
                                 booking.serviceName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.montserrat(
+                                style: AppTypography.zaloFont(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.textHeading,
@@ -299,7 +299,7 @@ class AdminAppointmentCard extends StatelessWidget {
                       ),
                       Text(
                         _formatPrice(booking.finalPrice),
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFFE11D48),
@@ -320,7 +320,7 @@ class AdminAppointmentCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           'KTV: ${booking.technicianName}',
-                          style: GoogleFonts.montserrat(
+                          style: AppTypography.zaloFont(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w500,
                             color: AppColors.textSecondary,
@@ -333,7 +333,7 @@ class AdminAppointmentCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           'Phòng: ${booking.roomName}',
-                          style: GoogleFonts.montserrat(
+                          style: AppTypography.zaloFont(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w500,
                             color: AppColors.textSecondary,
@@ -353,7 +353,7 @@ class AdminAppointmentCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         'Tiếp đón lúc ${_formatTimeOnly(booking.checkedInAt)}${booking.serviceStartedAt != null ? ' · Bắt đầu lúc ${_formatTimeOnly(booking.serviceStartedAt)}' : ''}${booking.checkedOutAt != null ? ' · Xong lúc ${_formatTimeOnly(booking.checkedOutAt)}' : ''}',
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFF6B7280),
@@ -373,7 +373,7 @@ class AdminAppointmentCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           'Lý do hủy: ${booking.cancellationReason}',
-                          style: GoogleFonts.montserrat(
+                          style: AppTypography.zaloFont(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: const Color(0xFFDC2626),
@@ -406,7 +406,7 @@ class AdminAppointmentCard extends StatelessWidget {
                     icon: const Icon(Icons.visibility_outlined, size: 15),
                     label: Text(
                       'Chi tiết',
-                      style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600),
+                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.textSecondary,
@@ -449,7 +449,7 @@ class AdminAppointmentCard extends StatelessWidget {
                 icon: const Icon(Icons.close_rounded, size: 14),
                 label: Text(
                   'Hủy',
-                  style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600),
+                  style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFDC2626),
@@ -465,7 +465,7 @@ class AdminAppointmentCard extends StatelessWidget {
               icon: const Icon(Icons.check_rounded, size: 16),
               label: Text(
                 'Duyệt lịch',
-                style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600),
+                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
@@ -484,7 +484,7 @@ class AdminAppointmentCard extends StatelessWidget {
           icon: const Icon(Icons.how_to_reg_rounded, size: 16),
           label: Text(
             'Tiếp đón Check-in',
-            style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600),
+            style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF00693F),
@@ -501,7 +501,7 @@ class AdminAppointmentCard extends StatelessWidget {
           icon: const Icon(Icons.play_arrow_rounded, size: 16),
           label: Text(
             'Bắt đầu dịch vụ',
-            style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600),
+            style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF7E22CE),
@@ -518,7 +518,7 @@ class AdminAppointmentCard extends StatelessWidget {
           icon: const Icon(Icons.logout_rounded, size: 16),
           label: Text(
             'Hoàn thành Check-out',
-            style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600),
+            style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF2563EB),
@@ -543,7 +543,7 @@ class AdminAppointmentCard extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 'Đã hoàn tất',
-                style: GoogleFonts.montserrat(
+                style: AppTypography.zaloFont(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF0D6832),
@@ -567,7 +567,7 @@ class AdminAppointmentCard extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 'Đã hủy lịch',
-                style: GoogleFonts.montserrat(
+                style: AppTypography.zaloFont(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFFDC2626),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class AdminKpiCard extends StatelessWidget {
   final String title;
@@ -72,7 +72,7 @@ class AdminKpiCard extends StatelessWidget {
                 value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.montserrat(
+                style: AppTypography.zaloFont(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textHeading,
@@ -84,7 +84,7 @@ class AdminKpiCard extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.montserrat(
+                style: AppTypography.zaloFont(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary,
@@ -96,7 +96,7 @@ class AdminKpiCard extends StatelessWidget {
                   subtitle!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.montserrat(
+                  style: AppTypography.zaloFont(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w600,
                     color: iconColor,

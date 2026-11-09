@@ -3,6 +3,8 @@ import 'dart:convert';
 class AdminKpiMetrics {
   final double todayRevenue;
   final double monthRevenue;
+  final int todayStudentsCount;
+  final int monthStudentsCount;
   final int todayBookingsCount;
   final int checkedInBookingsCount;
   final int waitingBatchStudentsCount;
@@ -11,6 +13,8 @@ class AdminKpiMetrics {
   const AdminKpiMetrics({
     this.todayRevenue = 0.0,
     this.monthRevenue = 0.0,
+    this.todayStudentsCount = 0,
+    this.monthStudentsCount = 0,
     this.todayBookingsCount = 0,
     this.checkedInBookingsCount = 0,
     this.waitingBatchStudentsCount = 0,
@@ -323,6 +327,7 @@ class AdminCourseBatchModel {
   final String status;
   final String? instructorName;
   final String? roomName;
+  final String? courseTitle;
 
   const AdminCourseBatchModel({
     required this.id,
@@ -337,6 +342,7 @@ class AdminCourseBatchModel {
     required this.status,
     this.instructorName,
     this.roomName,
+    this.courseTitle,
   });
 
   bool get isFull => maxStudents > 0 && enrolledCount >= maxStudents;
@@ -345,6 +351,7 @@ class AdminCourseBatchModel {
   factory AdminCourseBatchModel.fromJson(Map<String, dynamic> json) {
     final instObj = json['instructors'];
     final roomObj = json['branch_rooms'];
+    final courseObj = json['courses'];
 
     return AdminCourseBatchModel(
       id: json['id']?.toString() ?? '',
@@ -359,6 +366,7 @@ class AdminCourseBatchModel {
       status: json['status']?.toString() ?? 'OPEN_FOR_ENROLLMENT',
       instructorName: instObj is Map ? instObj['full_name']?.toString() : null,
       roomName: roomObj is Map ? roomObj['name']?.toString() : null,
+      courseTitle: courseObj is Map ? courseObj['title']?.toString() : null,
     );
   }
 }

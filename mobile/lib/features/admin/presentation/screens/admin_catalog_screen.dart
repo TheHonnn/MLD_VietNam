@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../services/data/models/home_product_model.dart';
+import '../../../services/data/repositories/product_repository.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../widgets/service_form_sheet.dart';
@@ -22,13 +24,14 @@ class AdminCatalogScreen extends StatefulWidget {
 class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   final AdminRepository _repository = AdminRepository.instance;
 
-  int _selectedSegment = 0; // 0: Dịch vụ, 1: Khóa học
+  int _selectedSegment = 0; // 0: Dịch vụ, 1: Khóa học, 2: Sản phẩm
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
   List<AdminServiceModel> _services = [];
   List<AdminCourseModel> _courses = [];
+  List<HomeProductModel> _products = [];
   String? _togglingId;
 
   @override
@@ -36,6 +39,8 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     super.initState();
     if (widget.initialTab == 'COURSES') {
       _selectedSegment = 1;
+    } else if (widget.initialTab == 'PRODUCTS') {
+      _selectedSegment = 2;
     }
     _fetchData();
   }
@@ -56,7 +61,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           _isLoading = false;
         });
       }
-    } else {
+    } else if (_selectedSegment == 1) {
       final list = await _repository.fetchCourses();
       if (mounted) {
         setState(() {
@@ -64,7 +69,21 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           _isLoading = false;
         });
       }
+    } else {
+      final list = await ProductRepository.instance.getProducts(forceRefresh: true);
+      if (mounted) {
+        setState(() {
+          _products = list;
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  List<HomeProductModel> get _filteredProducts {
+    if (_searchQuery.isEmpty) return _products;
+    final q = _searchQuery.toLowerCase();
+    return _products.where((p) => p.name.toLowerCase().contains(q) || p.category.toLowerCase().contains(q)).toList();
   }
 
   List<AdminServiceModel> get _filteredServices {
@@ -93,7 +112,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
               nextStatus
                   ? 'Đã bật mở bán dịch vụ "${s.name}"'
                   : 'Đã tạm dừng nhận khách dịch vụ "${s.name}"',
-              style: GoogleFonts.montserrat(fontSize: 12.5),
+              style: AppTypography.zaloFont(fontSize: 12.5),
             ),
             backgroundColor: nextStatus ? const Color(0xFF00693F) : const Color(0xFF6B7280),
             behavior: SnackBarBehavior.floating,
@@ -125,7 +144,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
               nextStatus
                   ? 'Đã mở tuyển sinh khóa học "${c.title}"'
                   : 'Đã tạm dừng tuyển sinh khóa "${c.title}"',
-              style: GoogleFonts.montserrat(fontSize: 12.5),
+              style: AppTypography.zaloFont(fontSize: 12.5),
             ),
             backgroundColor: nextStatus ? const Color(0xFF00693F) : const Color(0xFF6B7280),
             behavior: SnackBarBehavior.floating,
@@ -155,7 +174,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
             SnackBar(
               content: Text(
                 service != null ? 'Đã lưu thay đổi dịch vụ!' : 'Đã tạo mới dịch vụ thành công!',
-                style: GoogleFonts.montserrat(fontSize: 12.5),
+                style: AppTypography.zaloFont(fontSize: 12.5),
               ),
               backgroundColor: const Color(0xFFE11D48),
             ),
@@ -178,7 +197,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
             SnackBar(
               content: Text(
                 course != null ? 'Đã lưu thay đổi khóa học!' : 'Đã tạo mới khóa học thành công!',
-                style: GoogleFonts.montserrat(fontSize: 12.5),
+                style: AppTypography.zaloFont(fontSize: 12.5),
               ),
               backgroundColor: const Color(0xFF00693F),
             ),
@@ -269,7 +288,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           children: [
             Text(
               'Danh mục Dịch vụ & Khóa học',
-              style: GoogleFonts.montserrat(
+              style: AppTypography.zaloFont(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textHeading,
@@ -279,7 +298,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
               _selectedSegment == 0
                   ? '${_services.length} dịch vụ trong bảng giá'
                   : '${_courses.length} chương trình đào tạo',
-              style: GoogleFonts.montserrat(
+              style: AppTypography.zaloFont(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textSecondary,
@@ -290,88 +309,22 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
       ),
       body: Column(
         children: [
-          // 1. Segmented Control
+          // 1. Segmented Control 3 Tab
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
             child: Container(
-              height: 40,
+              height: 42,
+              padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 color: const Color(0xFFF3F4F6),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedSegment = 0);
-                        _fetchData();
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: _selectedSegment == 0 ? Colors.white : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: _selectedSegment == 0
-                              ? [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.04),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Dịch vụ Spa',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 12.5,
-                              fontWeight: _selectedSegment == 0 ? FontWeight.w700 : FontWeight.w500,
-                              color: _selectedSegment == 0
-                                  ? const Color(0xFFE11D48)
-                                  : AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedSegment = 1);
-                        _fetchData();
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: _selectedSegment == 1 ? Colors.white : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: _selectedSegment == 1
-                              ? [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.04),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Khóa học Đào tạo',
-                            style: GoogleFonts.montserrat(
-                              fontSize: 12.5,
-                              fontWeight: _selectedSegment == 1 ? FontWeight.w700 : FontWeight.w500,
-                              color: _selectedSegment == 1
-                                  ? const Color(0xFF00693F)
-                                  : AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildCatalogTabButton(0, 'Dịch vụ', const Color(0xFFE11D48)),
+                  _buildCatalogTabButton(1, 'Khóa học', const Color(0xFF00693F)),
+                  _buildCatalogTabButton(2, 'Sản phẩm', AppColors.primary),
                 ],
               ),
             ),
@@ -384,8 +337,12 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: _selectedSegment == 0 ? 'Tìm dịch vụ...' : 'Tìm khóa học...',
-                hintStyle: GoogleFonts.montserrat(fontSize: 12, color: const Color(0xFF9CA3AF)),
+                hintText: _selectedSegment == 0
+                    ? 'Tìm dịch vụ...'
+                    : _selectedSegment == 1
+                        ? 'Tìm khóa học...'
+                        : 'Tìm sản phẩm mang về...',
+                hintStyle: AppTypography.zaloFont(fontSize: 12, color: const Color(0xFF9CA3AF)),
                 prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF9CA3AF)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 filled: true,
@@ -408,18 +365,26 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: _fetchData,
-              color: _selectedSegment == 0 ? const Color(0xFFE11D48) : const Color(0xFF00693F),
+              color: _selectedSegment == 0
+                  ? const Color(0xFFE11D48)
+                  : _selectedSegment == 1
+                      ? const Color(0xFF00693F)
+                      : AppColors.primary,
               child: _isLoading
                   ? Center(
                       child: CircularProgressIndicator(
                         color: _selectedSegment == 0
                             ? const Color(0xFFE11D48)
-                            : const Color(0xFF00693F),
+                            : _selectedSegment == 1
+                                ? const Color(0xFF00693F)
+                                : AppColors.primary,
                       ),
                     )
                   : _selectedSegment == 0
                       ? _buildServicesList()
-                      : _buildCoursesList(),
+                      : _selectedSegment == 1
+                          ? _buildCoursesList()
+                          : _buildProductsList(),
             ),
           ),
         ],
@@ -438,7 +403,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
         icon: const Icon(Icons.add_rounded, size: 20),
         label: Text(
           _selectedSegment == 0 ? 'Thêm dịch vụ' : 'Thêm khóa học',
-          style: GoogleFonts.montserrat(fontSize: 12.5, fontWeight: FontWeight.w700),
+          style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -456,7 +421,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                 const SizedBox(height: 12),
                 Text(
                   'Không tìm thấy dịch vụ nào',
-                  style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                  style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                 ),
               ],
             ),
@@ -508,7 +473,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                         s.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textHeading,
@@ -525,13 +490,13 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                             ),
                             child: Text(
                               '${s.durationMinutes} phút',
-                              style: GoogleFonts.montserrat(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF4B5563)),
+                              style: AppTypography.zaloFont(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF4B5563)),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Text(
                             _formatPrice(s.price),
-                            style: GoogleFonts.montserrat(
+                            style: AppTypography.zaloFont(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFFE11D48),
@@ -576,7 +541,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                 const SizedBox(height: 12),
                 Text(
                   'Không tìm thấy khóa học nào',
-                  style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                  style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                 ),
               ],
             ),
@@ -634,7 +599,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                             ),
                             child: Text(
                               c.code,
-                              style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF1B4F72)),
+                              style: AppTypography.zaloFont(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF1B4F72)),
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -643,7 +608,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                               c.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.montserrat(
+                              style: AppTypography.zaloFont(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textHeading,
@@ -657,7 +622,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                         children: [
                           Text(
                             _formatPrice(c.tuitionFee),
-                            style: GoogleFonts.montserrat(
+                            style: AppTypography.zaloFont(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF00693F),
@@ -666,7 +631,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                           const SizedBox(width: 8),
                           Text(
                             '${c.totalHours}h · ${c.totalLessons} buổi',
-                            style: GoogleFonts.montserrat(fontSize: 11, color: AppColors.textSecondary),
+                            style: AppTypography.zaloFont(fontSize: 11, color: AppColors.textSecondary),
                           ),
                         ],
                       ),
@@ -689,6 +654,146 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                   ),
               ],
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCatalogTabButton(int index, String label, Color activeColor) {
+    final isSelected = _selectedSegment == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() => _selectedSegment = index);
+          _fetchData();
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: AppTypography.zaloFont(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? activeColor : AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductsList() {
+    if (_filteredProducts.isEmpty) {
+      return ListView(
+        children: [
+          const SizedBox(height: 60),
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: const BoxDecoration(color: Color(0xFFF3F4F6), shape: BoxShape.circle),
+                  child: const Icon(Icons.shopping_bag_outlined, size: 30, color: Color(0xFF9CA3AF)),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Không có sản phẩm nào phù hợp',
+                  style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Sản phẩm từ CSDL home_products đồng bộ với Web Admin.',
+                  style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      itemCount: _filteredProducts.length,
+      itemBuilder: (ctx, index) {
+        final p = _filteredProducts[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: p.imageUrl != null && p.imageUrl!.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(p.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag_rounded, color: AppColors.primary)),
+                      )
+                    : const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        p.category,
+                        style: AppTypography.zaloFont(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      p.name,
+                      style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${p.formattedPrice} · Đơn vị: ${p.unit}',
+                      style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFF00693F)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         );
       },

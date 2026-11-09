@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../auth/presentation/screens/a03_login_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_frontdesk_screen.dart';
@@ -63,20 +63,20 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
             const SizedBox(width: 8),
             Text(
               'Đăng xuất quản trị',
-              style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700),
+              style: AppTypography.zaloFont(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ],
         ),
         content: Text(
           'Bạn có chắc chắn muốn đăng xuất khỏi giao diện quản trị viên?',
-          style: GoogleFonts.montserrat(fontSize: 13, color: AppColors.textSecondary),
+          style: AppTypography.zaloFont(fontSize: 13, color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               'Hủy',
-              style: GoogleFonts.montserrat(
+              style: AppTypography.zaloFont(
                 fontWeight: FontWeight.w600,
                 color: AppColors.textSecondary,
               ),
@@ -89,7 +89,7 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: Text('Đăng xuất', style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
+            child: Text('Đăng xuất', style: AppTypography.zaloFont(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -155,9 +155,9 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(0, 'Tổng quan', Icons.grid_view_rounded),
-                _buildNavItem(1, 'Tiếp đón Spa', Icons.calendar_month_rounded),
-                _buildNavItem(2, 'Đào tạo', Icons.school_rounded),
-                _buildNavItem(3, 'Dịch vụ & Khóa', Icons.spa_rounded),
+                _buildNavItem(1, 'Tiếp đón', Icons.calendar_month_rounded),
+                _buildNavItem(2, 'Tuyển sinh', Icons.view_kanban_rounded),
+                _buildNavItem(3, 'Danh mục & SP', Icons.storefront_rounded),
                 _buildLogoutItem(),
               ],
             ),
@@ -201,7 +201,7 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.montserrat(
+                style: AppTypography.zaloFont(
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   color: isSelected ? AppColors.primary : const Color(0xFF6B7280),
@@ -239,7 +239,7 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
               const SizedBox(height: 2),
               Text(
                 'Đăng xuất',
-                style: GoogleFonts.montserrat(
+                style: AppTypography.zaloFont(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFFE11D48),

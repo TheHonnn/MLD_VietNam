@@ -41,7 +41,7 @@ class AdminRepository {
       final todayStr = DateFormat('yyyy-MM-dd').format(now);
       final monthStartStr = DateFormat('yyyy-MM-01').format(now);
 
-      // A. Doanh thu hôm nay & tháng này (tổng từ hóa đơn đã thanh toán)
+      // A. Doanh thu hôm nay & tháng này (tổng từ hóa đơn Spa + Học phí đã thu)
       double todayRev = 0.0;
       double monthRev = 0.0;
       try {
@@ -61,9 +61,42 @@ class AdminRepository {
             }
           }
         }
+
+        // Bổ sung học phí thu được từ học viện (tuition_transactions)
+        final tuitionRes = await _apiClient.dio.get(
+          '/rest/v1/tuition_transactions?select=amount,status,created_at&status=eq.SUCCESS&created_at=gte.$monthStartStr',
+        );
+        if (tuitionRes.data is List) {
+          for (final t in tuitionRes.data) {
+            final amt = double.tryParse(t['amount']?.toString() ?? '0') ?? 0.0;
+            final createdAt = t['created_at']?.toString() ?? '';
+            monthRev += amt;
+            if (createdAt.startsWith(todayStr)) {
+              todayRev += amt;
+            }
+          }
+        }
       } catch (_) {}
 
-      // B. Thống kê lịch hẹn hôm nay & Tất cả ca đang chờ duyệt
+      // B. Thống kê Học viên mới hôm nay & tháng này (Tuyển sinh & Ghi danh)
+      int todayStudents = 0;
+      int monthStudents = 0;
+      try {
+        final studentRes = await _apiClient.dio.get(
+          '/rest/v1/course_enrollments?select=id,created_at&created_at=gte.$monthStartStr',
+        );
+        if (studentRes.data is List) {
+          for (final s in studentRes.data) {
+            monthStudents++;
+            final createdAt = s['created_at']?.toString() ?? '';
+            if (createdAt.startsWith(todayStr)) {
+              todayStudents++;
+            }
+          }
+        }
+      } catch (_) {}
+
+      // C. Thống kê lịch hẹn hôm nay & Tất cả ca đang chờ duyệt
       int todayBk = 0;
       int checkedInBk = 0;
       int pendingBk = 0;
@@ -93,7 +126,7 @@ class AdminRepository {
         }
       } catch (_) {}
 
-      // C. Học viên đã nộp tiền chờ xếp lớp
+      // D. Học viên đã nộp tiền chờ xếp lớp
       int waitingBatchCount = 0;
       try {
         final enrRes = await _apiClient.dio.get(
@@ -104,7 +137,7 @@ class AdminRepository {
         }
       } catch (_) {}
 
-      // D. Bài thi nộp gần đây chưa duyệt feedback
+      // E. Bài thi nộp gần đây chưa duyệt feedback
       int pendingQuizCount = 0;
       try {
         final qRes = await _apiClient.dio.get(
@@ -120,6 +153,8 @@ class AdminRepository {
       return AdminKpiMetrics(
         todayRevenue: todayRev,
         monthRevenue: monthRev,
+        todayStudentsCount: todayStudents,
+        monthStudentsCount: monthStudents,
         todayBookingsCount: todayBk,
         checkedInBookingsCount: checkedInBk,
         waitingBatchStudentsCount: waitingBatchCount,
@@ -407,6 +442,84 @@ class AdminRepository {
     } catch (e) {
       debugPrint('[AdminRepository] fetchCourseBatches error: $e');
       return [];
+    }
+  }
+
+  /// 5.3. Danh sách TẤT CẢ các Lớp học đang mở (Hiển thị phân nhóm theo Lớp)
+  Future<List<AdminCourseBatchModel>> fetchAllCourseBatches() async {
+    try {
+      final res = await _apiClient.dio.get(
+        '/rest/v1/course_batches?select=*,courses(title),instructors(full_name),branch_rooms(name)&order=start_date.desc',
+      );
+      if (res.data is List) {
+        return (res.data as List)
+            .map((item) => AdminCourseBatchModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchAllCourseBatches error: $e');
+      return [];
+    }
+  }
+
+  /// 5.4. Thêm mới học viên tuyển sinh (CRUD kiểu Trello - Create)
+  Future<bool> createCandidate({
+    required String candidateName,
+    required String candidatePhone,
+    String? candidateEmail,
+    required String courseId,
+    String status = 'PENDING',
+    double amountPaid = 0.0,
+    String? notes,
+  }) async {
+    try {
+      final res = await _apiClient.dio.post(
+        '/rest/v1/course_enrollments',
+        data: {
+          'student_name': candidateName,
+          'student_phone': candidatePhone,
+          if (candidateEmail != null && candidateEmail.isNotEmpty) 'student_email': candidateEmail,
+          'course_id': courseId,
+          'status': status,
+          'amount_paid': amountPaid,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        },
+      );
+      return res.statusCode == 201 || res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[AdminRepository] createCandidate error: $e');
+      return false;
+    }
+  }
+
+  /// 5.5. Cập nhật trạng thái cột Kanban (CRUD kiểu Trello - Update Column)
+  Future<bool> updateCandidateStatus(String candidateId, String newStatus) async {
+    try {
+      final res = await _apiClient.dio.patch(
+        '/rest/v1/course_enrollments?id=eq.$candidateId',
+        data: {
+          'status': newStatus,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      debugPrint('[AdminRepository] updateCandidateStatus error: $e');
+      return false;
+    }
+  }
+
+  /// 5.6. Xóa / Hủy học viên (CRUD kiểu Trello - Delete)
+  Future<bool> deleteCandidate(String candidateId) async {
+    try {
+      final res = await _apiClient.dio.delete(
+        '/rest/v1/course_enrollments?id=eq.$candidateId',
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      debugPrint('[AdminRepository] deleteCandidate error: $e');
+      return false;
     }
   }
 

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 
 class AdminCandidateCard extends StatelessWidget {
@@ -111,7 +111,7 @@ class AdminCandidateCard extends StatelessWidget {
                       ),
                       child: Text(
                         candidate.orderCode,
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFF4B5563),
@@ -128,7 +128,7 @@ class AdminCandidateCard extends StatelessWidget {
                         ),
                         child: Text(
                           'Lớp: ${candidate.batchCode}',
-                          style: GoogleFonts.montserrat(
+                          style: AppTypography.zaloFont(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: const Color(0xFF0D6832),
@@ -146,7 +146,7 @@ class AdminCandidateCard extends StatelessWidget {
                   ),
                   child: Text(
                     badgeLabel,
-                    style: GoogleFonts.montserrat(
+                    style: AppTypography.zaloFont(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: badgeText,
@@ -186,7 +186,7 @@ class AdminCandidateCard extends StatelessWidget {
                               children: [
                                 Text(
                                   candidate.candidateName,
-                                  style: GoogleFonts.montserrat(
+                                  style: AppTypography.zaloFont(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                     color: AppColors.textHeading,
@@ -195,7 +195,7 @@ class AdminCandidateCard extends StatelessWidget {
                                 if (candidate.candidatePhone.isNotEmpty)
                                   Text(
                                     candidate.candidatePhone,
-                                    style: GoogleFonts.montserrat(
+                                    style: AppTypography.zaloFont(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
                                       color: AppColors.textSecondary,
@@ -243,7 +243,7 @@ class AdminCandidateCard extends StatelessWidget {
                           candidate.courseTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.montserrat(
+                          style: AppTypography.zaloFont(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: AppColors.textHeading,
@@ -261,7 +261,7 @@ class AdminCandidateCard extends StatelessWidget {
                   children: [
                     Text(
                       'Học phí: ${_formatPrice(candidate.tuitionTotal)}',
-                      style: GoogleFonts.montserrat(
+                      style: AppTypography.zaloFont(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: AppColors.textSecondary,
@@ -271,11 +271,11 @@ class AdminCandidateCard extends StatelessWidget {
                       children: [
                         Text(
                           'Đã nộp: ',
-                          style: GoogleFonts.montserrat(fontSize: 12, color: AppColors.textSecondary),
+                          style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textSecondary),
                         ),
                         Text(
                           _formatPrice(candidate.amountPaid),
-                          style: GoogleFonts.montserrat(
+                          style: AppTypography.zaloFont(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: isPaidFull ? const Color(0xFF00693F) : const Color(0xFFD97706),
@@ -307,7 +307,7 @@ class AdminCandidateCard extends StatelessWidget {
                     onPressed: onViewDetail,
                     child: Text(
                       'Xem hồ sơ',
-                      style: GoogleFonts.montserrat(
+                      style: AppTypography.zaloFont(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textSecondary,
@@ -324,7 +324,7 @@ class AdminCandidateCard extends StatelessWidget {
                     icon: const Icon(Icons.group_add_rounded, size: 16),
                     label: Text(
                       'Xếp lớp ngay',
-                      style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700),
+                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w700),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF00693F),
@@ -340,7 +340,7 @@ class AdminCandidateCard extends StatelessWidget {
                     icon: const Icon(Icons.check_rounded, size: 16),
                     label: Text(
                       'Đã tư vấn',
-                      style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600),
+                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -356,7 +356,7 @@ class AdminCandidateCard extends StatelessWidget {
                     icon: const Icon(Icons.swap_horiz_rounded, size: 15),
                     label: Text(
                       'Đổi lớp',
-                      style: GoogleFonts.montserrat(fontSize: 11.5, fontWeight: FontWeight.w600),
+                      style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w600),
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF00693F),

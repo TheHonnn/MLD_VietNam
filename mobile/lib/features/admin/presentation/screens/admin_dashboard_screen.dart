@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../widgets/admin_kpi_card.dart';
@@ -138,7 +138,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   child: Text(
                     'QUẢN TRỊ VIÊN',
-                    style: GoogleFonts.montserrat(
+                    style: AppTypography.zaloFont(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: AppColors.primary,
@@ -149,7 +149,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 const SizedBox(width: 8),
                 Text(
                   'MLD Việt Nam',
-                  style: GoogleFonts.montserrat(
+                  style: AppTypography.zaloFont(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textHeading,
@@ -160,7 +160,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             const SizedBox(height: 2),
             Text(
               dateStr,
-              style: GoogleFonts.montserrat(
+              style: AppTypography.zaloFont(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textSecondary,
@@ -233,7 +233,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         value: _selectedBranchId,
                         isExpanded: true,
                         icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF6B7280)),
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textHeading,
@@ -247,7 +247,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 const SizedBox(width: 8),
                                 Text(
                                   'Tất cả cơ sở MLD',
-                                  style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
+                                  style: AppTypography.zaloFont(fontWeight: FontWeight.w600),
                                 ),
                               ],
                             ),
@@ -263,7 +263,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     child: Text(
                                       b.name,
                                       overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.montserrat(fontWeight: FontWeight.w500),
+                                      style: AppTypography.zaloFont(fontWeight: FontWeight.w500),
                                     ),
                                   ),
                                 ],
@@ -285,7 +285,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 2. Thống kê Doanh thu (Ngày & Tháng đặt ngang nhau)
+                  // 2. Thống kê Doanh thu (Hôm nay & Tháng đặt ngang nhau)
                   Row(
                     children: [
                       Expanded(
@@ -313,7 +313,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 3. Thống kê Lịch hẹn & Học viện (Đặt ngang nhau)
+                  // 3. Thống kê Học viên (Hôm nay & Tháng đặt ngang nhau theo yêu cầu)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AdminKpiCard(
+                          title: 'Học viên hôm nay',
+                          value: '${_metrics.todayStudentsCount} học viên',
+                          subtitle: 'Ghi danh mới hôm nay',
+                          icon: Icons.person_add_alt_1_rounded,
+                          iconColor: const Color(0xFF0284C7),
+                          iconBgColor: const Color(0xFFE0F2FE),
+                          onTap: () => widget.onNavigateTab?.call(2),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: AdminKpiCard(
+                          title: 'Học viên tháng ${now.month}',
+                          value: '${_metrics.monthStudentsCount} học viên',
+                          subtitle: 'Tháng ${now.month}/${now.year}',
+                          icon: Icons.groups_rounded,
+                          iconColor: const Color(0xFF7C3AED),
+                          iconBgColor: const Color(0xFFEDE9FE),
+                          onTap: () => widget.onNavigateTab?.call(2),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 4. Thống kê Vận hành Lịch hẹn & Chờ lớp (Đặt ngang nhau)
                   Row(
                     children: [
                       Expanded(
@@ -392,7 +422,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   children: [
                                     Text(
                                       'VIỆC CẦN DUYỆT GẤP',
-                                      style: GoogleFonts.montserrat(
+                                      style: AppTypography.zaloFont(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 0.5,
@@ -412,7 +442,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       ),
                                       child: Text(
                                         '${_metrics.pendingActionsCount} mục',
-                                        style: GoogleFonts.montserrat(
+                                        style: AppTypography.zaloFont(
                                           fontSize: 10.5,
                                           fontWeight: FontWeight.w700,
                                           color: Colors.white,
@@ -426,7 +456,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   _metrics.pendingActionsCount > 0
                                       ? 'Có lịch hẹn/hồ sơ đang chờ bạn duyệt. Bấm để vào duyệt ngay →'
                                       : 'Đã hoàn tất tất cả việc duyệt. Hệ thống đang thông suốt.',
-                                  style: GoogleFonts.montserrat(
+                                  style: AppTypography.zaloFont(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                     color: _metrics.pendingActionsCount > 0
@@ -452,7 +482,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   // 3. Phím tắt Thao tác nhanh (Quick Action Shortcuts)
                   Text(
                     'THAO TÁC NHANH',
-                    style: GoogleFonts.montserrat(
+                    style: AppTypography.zaloFont(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF6B7280),
@@ -498,7 +528,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     children: [
                       Text(
                         'CẦN DUYỆT KHẨN CẤP (${_actionItems.length})',
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFF6B7280),
@@ -508,7 +538,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       if (_actionItems.isNotEmpty)
                         Text(
                           'Vuốt xuống để làm mới',
-                          style: GoogleFonts.montserrat(
+                          style: AppTypography.zaloFont(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w500,
                             color: const Color(0xFF9CA3AF),
@@ -545,7 +575,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           const SizedBox(height: 12),
                           Text(
                             'Tuyệt vời! Không có mục nào tồn đọng',
-                            style: GoogleFonts.montserrat(
+                            style: AppTypography.zaloFont(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textHeading,
@@ -555,7 +585,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           Text(
                             'Mọi lịch hẹn và hồ sơ học viên đã được phê duyệt đầy đủ.',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.montserrat(
+                            style: AppTypography.zaloFont(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w400,
                               color: AppColors.textSecondary,
@@ -615,7 +645,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.montserrat(
+                style: AppTypography.zaloFont(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textHeading,

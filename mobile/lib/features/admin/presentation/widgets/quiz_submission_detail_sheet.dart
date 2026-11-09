@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 
@@ -99,7 +99,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
               children: [
                 Text(
                   'Chi tiết Kết quả Bài thi',
-                  style: GoogleFonts.montserrat(
+                  style: AppTypography.zaloFont(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textHeading,
@@ -136,7 +136,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
                     child: Center(
                       child: Text(
                         '${widget.submission.score}',
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
@@ -151,7 +151,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
                       children: [
                         Text(
                           _passed ? 'KẾT QUẢ: ĐẠT CHUẨN MLD' : 'KẾT QUẢ: CHƯA ĐẠT CHUẨN',
-                          style: GoogleFonts.montserrat(
+                          style: AppTypography.zaloFont(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: _passed ? const Color(0xFF0D6832) : const Color(0xFF92400E),
@@ -160,7 +160,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
                         const SizedBox(height: 2),
                         Text(
                           'Số câu đúng: ${widget.submission.correctCount} câu',
-                          style: GoogleFonts.montserrat(
+                          style: AppTypography.zaloFont(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                             color: AppColors.textHeading,
@@ -168,7 +168,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
                         ),
                         Text(
                           'Học viên: ${widget.submission.studentName}',
-                          style: GoogleFonts.montserrat(
+                          style: AppTypography.zaloFont(
                             fontSize: 11.5,
                             color: AppColors.textSecondary,
                           ),
@@ -183,7 +183,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
 
             Text(
               'Khóa học: ${widget.submission.courseTitle}',
-              style: GoogleFonts.montserrat(
+              style: AppTypography.zaloFont(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textHeading,
@@ -191,7 +191,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
             ),
             Text(
               'Bài kiểm tra: ${widget.submission.quizTitle}',
-              style: GoogleFonts.montserrat(
+              style: AppTypography.zaloFont(
                 fontSize: 12,
                 color: AppColors.textSecondary,
               ),
@@ -211,7 +211,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
                 children: [
                   Text(
                     'Đánh giá kết quả:',
-                    style: GoogleFonts.montserrat(
+                    style: AppTypography.zaloFont(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textHeading,
@@ -221,7 +221,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
                     children: [
                       Text(
                         _passed ? 'ĐẠT' : 'CHƯA ĐẠT',
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: _passed ? const Color(0xFF00693F) : const Color(0xFFDC2626),
@@ -243,7 +243,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
             // Nhập nhận xét của Giảng viên
             Text(
               'Nhận xét & Lời khuyên của Giảng viên:',
-              style: GoogleFonts.montserrat(
+              style: AppTypography.zaloFont(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textHeading,
@@ -255,7 +255,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
               maxLines: 4,
               decoration: InputDecoration(
                 hintText: 'Nhập góp ý chuyên môn, động viên hoặc hướng dẫn học lại...',
-                hintStyle: GoogleFonts.montserrat(fontSize: 12, color: const Color(0xFF9CA3AF)),
+                hintStyle: AppTypography.zaloFont(fontSize: 12, color: const Color(0xFF9CA3AF)),
                 filled: true,
                 fillColor: const Color(0xFFF9FAFB),
                 border: OutlineInputBorder(
@@ -290,7 +290,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
                       )
                     : Text(
                         'Lưu nhận xét & Phê duyệt kết quả',
-                        style: GoogleFonts.montserrat(
+                        style: AppTypography.zaloFont(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                         ),
