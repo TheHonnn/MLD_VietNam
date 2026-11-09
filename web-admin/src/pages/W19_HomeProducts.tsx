@@ -380,6 +380,28 @@ export const W19_HomeProducts: React.FC = () => {
 
     setBusy(true);
     try {
+      // Bảo hiểm nén lần cuối: Nếu có ảnh Base64 lớn lọt vào gallery, nén ngay trước khi gửi
+      let finalGallery: string[] = [];
+      for (const item of gallery.filter((url) => !url.startsWith('blob:'))) {
+        if (item.startsWith('data:image/') && item.length > 250 * 1024) {
+          try {
+            const res = await fetch(item);
+            const blob = await res.blob();
+            const compressed = await compressImageFile(blob, 1000, 0.75);
+            finalGallery.push(compressed.dataUrl);
+          } catch {
+            finalGallery.push(item);
+          }
+        } else {
+          finalGallery.push(item);
+        }
+      }
+
+      let finalImageUrl = form.image_url ? form.image_url.trim() : null;
+      if (finalImageUrl && finalImageUrl.startsWith('data:image/') && finalImageUrl.length > 250 * 1024) {
+        finalImageUrl = finalGallery[0] || finalImageUrl;
+      }
+
       const values = {
         name: form.name.trim(),
         category: form.category,
@@ -388,8 +410,8 @@ export const W19_HomeProducts: React.FC = () => {
         unit: form.unit.trim(),
         details: form.details.split('\n').map((item) => item.trim()).filter(Boolean),
         sort_order: Number(form.sort_order) || 100,
-        image_url: form.image_url ? form.image_url.trim() : null,
-        image_urls: gallery.filter((url) => !url.startsWith('blob:')),
+        image_url: finalImageUrl,
+        image_urls: finalGallery,
       };
 
       if (editing) {

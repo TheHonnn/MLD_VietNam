@@ -1273,6 +1273,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (res.status === 401 && typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("admin-signout"));
       }
+      if (res.status === 413 || err?.message?.toLowerCase().includes("large")) {
+        throw new Error("Dữ liệu ảnh quá lớn vượt hạn mức truyền tải. Vui lòng tải lại ảnh để hệ thống nén tự động.");
+      }
       throw new Error(err?.message || "Không thể tạo bản ghi mới trên Supabase.");
     }
     const created = await res.json();
@@ -1396,6 +1399,9 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       const err = await res.json().catch(() => null);
       if (res.status === 401 && typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("admin-signout"));
+      }
+      if (res.status === 413 || err?.message?.toLowerCase().includes("large")) {
+        throw new Error("Dữ liệu ảnh quá lớn vượt hạn mức truyền tải. Vui lòng tải lại ảnh để hệ thống nén tự động.");
       }
       throw new Error(err?.message || "Không thể cập nhật bản ghi trên Supabase.");
     }
