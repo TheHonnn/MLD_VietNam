@@ -108,6 +108,9 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
   const [targetNeed, setTargetNeed] = useState<string>(
     existingOutcomes.target_need || ""
   );
+  const [audienceSuggestions, setAudienceSuggestions] = useState<string[]>(TARGET_AUDIENCE_SUGGESTIONS);
+  const [needSuggestions, setNeedSuggestions] = useState<string[]>(TARGET_NEED_SUGGESTIONS);
+  const [groupSuggestions, setGroupSuggestions] = useState<string[]>(COURSE_GROUP_SUGGESTIONS);
 
   // Certificate & Description - Để trống khi tạo mới
   const [certificateTitle, setCertificateTitle] = useState(row.certificate_title || "");
@@ -201,18 +204,22 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
     const fetchLookups = async () => {
       setLoadingLookups(true);
       try {
-        const [catRes, instRes] = await Promise.all([
+        const [catRes, instRes, coursesRes] = await Promise.all([
           fetch(`${SUPABASE_URL}/rest/v1/course_categories?select=id,name,code&order=name.asc`, {
             headers: getSupabaseHeaders(),
           }),
           fetch(`${SUPABASE_URL}/rest/v1/instructors?select=id,full_name&order=full_name.asc`, {
             headers: getSupabaseHeaders(),
           }),
+          fetch(`${SUPABASE_URL}/rest/v1/courses?select=learning_outcomes`, {
+            headers: getSupabaseHeaders(),
+          }),
         ]);
 
-        const [catData, instData] = await Promise.all([
+        const [catData, instData, coursesData] = await Promise.all([
           catRes.json().catch(() => []),
           instRes.json().catch(() => []),
+          coursesRes.json().catch(() => []),
         ]);
 
         if (mounted) {
@@ -223,6 +230,25 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
           if (Array.isArray(instData)) {
             setInstructors(instData);
             if (!isCreate && !instructorId && instData.length > 0) setInstructorId(instData[0].id);
+          }
+          if (Array.isArray(coursesData)) {
+            const audSet = new Set(TARGET_AUDIENCE_SUGGESTIONS);
+            const needSet = new Set(TARGET_NEED_SUGGESTIONS);
+            const grpSet = new Set(COURSE_GROUP_SUGGESTIONS);
+            for (const item of coursesData) {
+              const outcomes = item?.learning_outcomes;
+              if (outcomes && typeof outcomes === "object") {
+                const aud = outcomes.target_audience;
+                if (typeof aud === "string" && aud.trim().length > 0) audSet.add(aud.trim());
+                const need = outcomes.target_need;
+                if (typeof need === "string" && need.trim().length > 0) needSet.add(need.trim());
+                const grp = outcomes.course_group;
+                if (typeof grp === "string" && grp.trim().length > 0) grpSet.add(grp.trim());
+              }
+            }
+            setAudienceSuggestions(Array.from(audSet));
+            setNeedSuggestions(Array.from(needSet));
+            setGroupSuggestions(Array.from(grpSet));
           }
         }
       } catch (err) {
@@ -822,7 +848,7 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
               />
               {!isView && (
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {COURSE_GROUP_SUGGESTIONS.map((g) => (
+                  {groupSuggestions.map((g) => (
                     <button
                       type="button"
                       key={g}
@@ -854,7 +880,7 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
               />
               {!isView && (
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {TARGET_AUDIENCE_SUGGESTIONS.map((a) => (
+                  {audienceSuggestions.map((a) => (
                     <button
                       type="button"
                       key={a}
@@ -886,7 +912,7 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
               />
               {!isView && (
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {TARGET_NEED_SUGGESTIONS.map((n) => (
+                  {needSuggestions.map((n) => (
                     <button
                       type="button"
                       key={n}

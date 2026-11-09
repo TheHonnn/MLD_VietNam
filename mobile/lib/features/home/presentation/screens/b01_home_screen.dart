@@ -30,11 +30,11 @@ import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
 import '../../../treatment/presentation/screens/d09_documents_screen.dart';
 import '../../../treatment/presentation/screens/d10_lymph_examination_screen.dart';
 import '../../../treatment/presentation/screens/d11_community_screen.dart';
-import '../../../academy/presentation/screens/e01_academy_home_screen.dart';
 import '../../../academy/presentation/screens/e02_course_catalog_screen.dart';
 import '../../../academy/presentation/screens/e07_my_courses_screen.dart';
 import '../../../academy/presentation/screens/e11_attendance_schedule_screen.dart';
 import '../../../academy/presentation/screens/e12_learning_results_screen.dart';
+import '../../../academy/data/repositories/academy_repository.dart';
 import '../../../services/presentation/screens/b02_service_listing_screen.dart';
 import 'b04_search_screen.dart';
 import '../../data/models/home_models.dart';
@@ -86,14 +86,19 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
   // Controller & Dropdown cho Tab Khóa học
   final TextEditingController _courseSearchController = TextEditingController();
-  static const List<String> _audienceCategories = [
-    'Tất cả đối tượng',
-    'Người mới bắt đầu',
-    'Người đang làm nghề',
-    'Kỹ thuật viên XBBH/VLTL',
-    'Y tế & Phục hồi',
-    'Khóa học đã đăng ký',
-  ];
+  List<String> get _audienceCategories {
+    final list = <String>['Tất cả đối tượng'];
+    final seen = <String>{};
+    for (final c in AcademyRepository.instance.cachedCourses) {
+      final aud = c.targetAudience.trim();
+      if (aud.isNotEmpty && aud != 'Tất cả đối tượng' && !seen.contains(aud)) {
+        seen.add(aud);
+        list.add(aud);
+      }
+    }
+    list.add('Khóa học đã đăng ký');
+    return list;
+  }
   String _selectedAudience = 'Tất cả đối tượng';
 
   static const List<String> _needCategories = [
@@ -146,7 +151,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     _initBannersFromLocalCache();
     _loadBanners();
     _startBannerAutoScroll();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+    AcademyRepository.instance.getCourses().then((_) {
+      if (mounted) setState(() {});
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPhonePrompt();
     });
   }
@@ -1593,7 +1601,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           ),
                           DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
-                              value: _searchTabIndex == 0 ? _selectedAudience : _selectedBranchFilter,
+                              value: _searchTabIndex == 0
+                                  ? (_audienceCategories.contains(_selectedAudience) ? _selectedAudience : _audienceCategories.first)
+                                  : (branchOptions.contains(_selectedBranchFilter) ? _selectedBranchFilter : branchOptions.first),
                               isDense: true,
                               isExpanded: true,
                               icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF64748B)),

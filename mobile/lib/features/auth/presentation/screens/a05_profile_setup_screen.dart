@@ -29,6 +29,15 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
   bool _isLoading = false;
   String? _avatarPath;
 
+  static String? _normalizeGender(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final lower = raw.trim().toLowerCase();
+    if (lower == 'nam' || lower == 'male') return 'Nam';
+    if (lower == 'nữ' || lower == 'nu' || lower == 'female') return 'Nữ';
+    if (lower == 'khác' || lower == 'khac' || lower == 'other') return 'Khác';
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -38,7 +47,7 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
     final initialPhone = widget.phone.isNotEmpty ? widget.phone : profile.phone;
     if (initialPhone.isNotEmpty) _phoneController.text = initialPhone;
     if (profile.dateOfBirth.isNotEmpty) _dobController.text = profile.dateOfBirth;
-    if (profile.gender.isNotEmpty) _selectedGender = profile.gender;
+    if (profile.gender.isNotEmpty) _selectedGender = _normalizeGender(profile.gender);
     if (profile.avatarUrl.isNotEmpty) _avatarPath = profile.avatarUrl;
   }
 
@@ -453,7 +462,7 @@ class _A05ProfileSetupScreenState extends State<A05ProfileSetupScreen> {
                                     ),
                                     child: DropdownButtonHideUnderline(
                                       child: DropdownButton<String>(
-                                        value: _selectedGender,
+                                        value: (['Nữ', 'Nam', 'Khác'].contains(_selectedGender)) ? _selectedGender : null,
                                         isExpanded: true,
                                         hint: const Text(
                                           'Chọn giới tính',

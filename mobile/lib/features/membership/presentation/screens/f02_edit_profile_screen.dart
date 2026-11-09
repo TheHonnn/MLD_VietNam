@@ -32,6 +32,26 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
   bool _isLoading = false;
   late String _currentAvatarUrl;
 
+  static String _normalizeGender(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return 'Nữ';
+    final lower = raw.trim().toLowerCase();
+    if (lower == 'nam' || lower == 'male') return 'Nam';
+    if (lower == 'khác' || lower == 'khac' || lower == 'other') return 'Khác';
+    return 'Nữ';
+  }
+
+  static String _formatDob(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return '';
+    final trimmed = raw.trim();
+    if (trimmed.contains('-')) {
+      final parts = trimmed.split('-');
+      if (parts.length == 3 && parts[0].length == 4) {
+        return '${parts[2].padLeft(2, '0')}/${parts[1].padLeft(2, '0')}/${parts[0]}';
+      }
+    }
+    return trimmed;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -39,12 +59,12 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
     _currentAvatarUrl = p.avatarUrl;
     _fullNameController = TextEditingController(text: p.fullName);
     _emailController = TextEditingController(text: p.email);
-    _dobController = TextEditingController(text: p.dateOfBirth);
+    _dobController = TextEditingController(text: _formatDob(p.dateOfBirth));
     _addressController = TextEditingController(text: p.address);
     _occupationController = TextEditingController(text: p.occupation);
     _emergencyNameController = TextEditingController(text: p.emergencyContactName);
     _emergencyPhoneController = TextEditingController(text: p.emergencyContactPhone);
-    _gender = p.gender.isNotEmpty ? p.gender : 'Nữ';
+    _gender = _normalizeGender(p.gender);
   }
 
   @override
@@ -378,7 +398,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
                             ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
-                                value: _gender,
+                                value: _normalizeGender(_gender),
                                 isExpanded: true,
                                 icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
                                 style: GoogleFonts.beVietnamPro(
