@@ -55,7 +55,8 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
     _lessonsController = TextEditingController(text: c != null ? c.totalLessons.toString() : '20');
     _descController = TextEditingController(text: c?.shortDescription ?? '');
     _imageUrlController = TextEditingController(text: c?.imageUrl ?? '');
-    _level = c?.level ?? 'BEGINNER';
+    final rawLevel = (c?.level ?? 'BEGINNER').toUpperCase();
+    _level = _levels.any((l) => l['value'] == rawLevel) ? rawLevel : 'BEGINNER';
     _isActive = c?.isActive ?? true;
   }
 
@@ -132,9 +133,48 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
     }
   }
 
+  Widget _buildPreviewWidget(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) {
+      return const Icon(
+        Icons.school_rounded,
+        size: 26,
+        color: Color(0xFF00693F),
+      );
+    }
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return Image.network(
+        trimmed,
+        width: 64,
+        height: 64,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.broken_image_outlined,
+          size: 26,
+          color: Color(0xFF9CA3AF),
+        ),
+      );
+    } else {
+      return Image.asset(
+        trimmed,
+        width: 64,
+        height: 64,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.broken_image_outlined,
+          size: 26,
+          color: Color(0xFF9CA3AF),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
@@ -204,7 +244,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
 
               // Ảnh đại diện khóa học (URL + Live Preview)
               Text(
-                'Ảnh bìa khóa học (URL)',
+                'Ảnh bìa khóa học (URL hoặc Assets)',
                 style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
               ),
               const SizedBox(height: 6),
@@ -221,23 +261,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: const Color(0xFFC6F6D5)),
                       ),
-                      child: _imageUrlController.text.trim().isNotEmpty
-                          ? Image.network(
-                              _imageUrlController.text.trim(),
-                              width: 64,
-                              height: 64,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.broken_image_outlined,
-                                size: 26,
-                                color: Color(0xFF9CA3AF),
-                              ),
-                            )
-                          : const Icon(
-                              Icons.school_rounded,
-                              size: 26,
-                              color: Color(0xFF00693F),
-                            ),
+                      child: _buildPreviewWidget(_imageUrlController.text),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -328,7 +352,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                         ),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
-                          initialValue: _level,
+                          value: _levels.any((lvl) => lvl['value'] == _level) ? _level : _levels.first['value'],
                           decoration: _inputDecoration(''),
                           items: _levels.map((lvl) {
                             return DropdownMenuItem(

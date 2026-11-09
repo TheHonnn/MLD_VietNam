@@ -86,9 +86,15 @@ class AdminCandidateCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onViewDetail,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // 1. Header Card: Mã đơn + Trạng thái
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
@@ -364,7 +370,9 @@ class AdminCandidateCard extends StatelessWidget {
               ],
             ),
           ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

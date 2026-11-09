@@ -160,8 +160,8 @@ class SupabaseDataService {
         queryParameters: query,
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
           },
         ),
       );
@@ -194,8 +194,8 @@ class SupabaseDataService {
         },
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
           },
         ),
       );
@@ -234,8 +234,8 @@ class SupabaseDataService {
         queryParameters: query,
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
           },
         ),
       );
@@ -299,8 +299,8 @@ class SupabaseDataService {
         },
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
           },
         ),
       );
@@ -329,8 +329,8 @@ class SupabaseDataService {
         },
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
           },
         ),
       );
@@ -369,8 +369,8 @@ class SupabaseDataService {
         },
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
             'Content-Type': 'application/json',
             'Prefer': 'return=minimal',
           },
@@ -411,8 +411,8 @@ class SupabaseDataService {
         queryParameters: query,
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ' + ApiEndpoints.supabaseServiceRoleKey,
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
           },
         ),
       );
@@ -475,8 +475,8 @@ class SupabaseDataService {
         },
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ' + ApiEndpoints.supabaseServiceRoleKey,
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
             'Content-Type': 'application/json',
             'Prefer': 'return=representation',
           },
@@ -516,8 +516,8 @@ class SupabaseDataService {
         },
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ' + ApiEndpoints.supabaseServiceRoleKey,
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
             'Content-Type': 'application/json',
             'Prefer': 'resolution=merge-duplicates',
           },

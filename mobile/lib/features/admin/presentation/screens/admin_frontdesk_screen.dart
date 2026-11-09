@@ -25,6 +25,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
   final AdminRepository _repository = AdminRepository.instance;
 
   DateTime _selectedDate = DateTime.now();
+  bool _isAllDates = false;
   String _selectedStatus = 'ALL';
   String _selectedBranchId = 'ALL';
   String _searchQuery = '';
@@ -50,6 +51,9 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
     super.initState();
     if (widget.initialStatus != null && widget.initialStatus!.isNotEmpty) {
       _selectedStatus = widget.initialStatus!;
+      if (_selectedStatus == 'PENDING') {
+        _isAllDates = true;
+      }
     }
     _loadBranches();
     _fetchBookings();
@@ -76,6 +80,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
       bookingDate: dateStr,
       status: _selectedStatus == 'ALL' ? null : _selectedStatus,
       branchId: _selectedBranchId == 'ALL' ? null : _selectedBranchId,
+      isAllDates: _isAllDates || _selectedStatus == 'PENDING',
     );
 
     if (mounted) {
@@ -282,11 +287,15 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Padding(
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
         padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
@@ -375,7 +384,8 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildDetailRow(String label, String value) {
@@ -409,11 +419,15 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Padding(
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
         padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -469,7 +483,8 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   @override
@@ -495,7 +510,9 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
               ),
             ),
             Text(
-              '${_bookings.length} ca hẹn trong ngày',
+              _isAllDates
+                  ? '${_bookings.length} ca hẹn (Tất cả các ngày)'
+                  : '${_bookings.length} ca hẹn ngày ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
               style: GoogleFonts.montserrat(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -562,39 +579,67 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: [-1, 0, 1, 2, 3].map((offset) {
-                        final date = now.add(Duration(days: offset));
-                        final isSelected = DateUtils.isSameDay(date, _selectedDate);
-                        String label = DateFormat('dd/MM').format(date);
-                        if (offset == 0) label = 'Hôm nay';
-                        if (offset == 1) label = 'Ngày mai';
-
-                        return Padding(
+                      children: [
+                        Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: ChoiceChip(
-                            label: Text(label),
-                            selected: isSelected,
+                            label: const Text('Tất cả ngày'),
+                            selected: _isAllDates,
                             selectedColor: AppColors.primary,
                             backgroundColor: const Color(0xFFF3F4F6),
                             labelStyle: GoogleFonts.montserrat(
                               fontSize: 12,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                              color: isSelected ? Colors.white : AppColors.textHeading,
+                              fontWeight: _isAllDates ? FontWeight.w700 : FontWeight.w500,
+                              color: _isAllDates ? Colors.white : AppColors.textHeading,
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                               side: BorderSide.none,
                             ),
                             showCheckmark: false,
-                            onSelected: (selected) {
-                              if (selected) {
-                                setState(() => _selectedDate = date);
-                                _fetchBookings();
-                              }
+                            onSelected: (_) {
+                              setState(() => _isAllDates = true);
+                              _fetchBookings();
                             },
                           ),
-                        );
-                      }).toList(),
+                        ),
+                        ...[-1, 0, 1, 2, 3].map((offset) {
+                          final date = now.add(Duration(days: offset));
+                          final isSelected = !_isAllDates && DateUtils.isSameDay(date, _selectedDate);
+                          String label = DateFormat('dd/MM').format(date);
+                          if (offset == 0) label = 'Hôm nay';
+                          if (offset == 1) label = 'Ngày mai';
+
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(label),
+                              selected: isSelected,
+                              selectedColor: AppColors.primary,
+                              backgroundColor: const Color(0xFFF3F4F6),
+                              labelStyle: GoogleFonts.montserrat(
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: isSelected ? Colors.white : AppColors.textHeading,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide.none,
+                              ),
+                              showCheckmark: false,
+                              onSelected: (selected) {
+                                if (selected) {
+                                  setState(() {
+                                    _selectedDate = date;
+                                    _isAllDates = false;
+                                  });
+                                  _fetchBookings();
+                                }
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      ],
                     ),
                   ),
                 ),
@@ -684,7 +729,12 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                       ),
                       showCheckmark: false,
                       onSelected: (selected) {
-                        setState(() => _selectedStatus = key);
+                        setState(() {
+                          _selectedStatus = key;
+                          if (key == 'PENDING') {
+                            _isAllDates = true;
+                          }
+                        });
                         _fetchBookings();
                       },
                     ),

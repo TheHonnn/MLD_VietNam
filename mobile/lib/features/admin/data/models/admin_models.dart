@@ -253,15 +253,15 @@ class AdminCandidateModel {
     final total = double.tryParse(json['tuition_total']?.toString() ?? '0') ?? 0.0;
 
     String workflowStatus = rawStatus;
-    if (rawStatus == 'CONSULTING') {
-      workflowStatus = 'PENDING_CONSULTATION';
-    } else if (rawStatus == 'CONFIRMED' || rawStatus == 'DEPOSITED') {
-      if (bId == null || bId.isEmpty) {
-        workflowStatus = paid > 0 ? 'PAID_WAITING_CLASS' : 'CONFIRMED_PENDING_PAY';
+    if (bId == null || bId.isEmpty) {
+      if (paid > 0) {
+        workflowStatus = 'PAID_WAITING_CLASS';
+      } else if (rawStatus == 'CONSULTING') {
+        workflowStatus = 'PENDING_CONSULTATION';
       } else {
-        workflowStatus = 'ENROLLED_STUDYING';
+        workflowStatus = 'CONFIRMED_PENDING_PAY';
       }
-    } else if (rawStatus == 'ENROLLED' || rawStatus == 'STUDYING') {
+    } else {
       workflowStatus = 'ENROLLED_STUDYING';
     }
 

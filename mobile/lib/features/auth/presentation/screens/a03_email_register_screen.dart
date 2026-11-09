@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/utils/validators.dart';
 import '../../widgets/primary_button.dart';
 import 'a04_otp_screen.dart';
@@ -61,6 +62,12 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
     super.dispose();
   }
 
+  String _cleanError(dynamic e) {
+    if (e is ApiException) return e.message;
+    final s = e.toString();
+    return s.replaceAll(RegExp(r'^(ApiException\s*(\[\d+\])?:\s*|Exception:\s*)'), '').trim();
+  }
+
   Future<void> _handleRegisterEmail() async {
     if (!(_emailFormKey.currentState?.validate() ?? false)) return;
 
@@ -109,7 +116,7 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _serverError = e.toString().replaceFirst('Exception: ', '');
+          _serverError = _cleanError(e);
         });
       }
     } finally {
@@ -171,7 +178,7 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _serverError = e.toString().replaceFirst('Exception: ', '');
+          _serverError = _cleanError(e);
         });
       }
     } finally {
