@@ -261,7 +261,7 @@ export const CourseCategoryFormEditor: React.FC<CourseCategoryFormEditorProps> =
           <div className="p-3 bg-[#FAF8F5] border border-dashed border-[#BA7E4C]/50 rounded-xl flex items-center justify-between gap-3">
             <div className="text-xs text-[#73675F]">
               <span className="font-bold text-[#2C241E] block">Tải ảnh biểu tượng từ máy tính</span>
-              <span>Định dạng hỗ trợ: PNG, SVG, JPG, WEBP (tối đa 5MB)</span>
+              <span>Định dạng hỗ trợ: PNG, SVG, JPG, WEBP (tự động tối ưu dung lượng)</span>
             </div>
             <input
               type="file"

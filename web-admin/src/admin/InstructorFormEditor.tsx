@@ -124,13 +124,6 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
       return;
     }
 
-    // 2. Kiểm tra dung lượng tối đa 5MB
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Dung lượng ảnh vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-
     setUploading(true);
 
     // 3. Hiển thị ngay ảnh xem trước để người dùng thấy kết quả tức thì
@@ -252,7 +245,7 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
           <div className="p-3 bg-[#FAF8F5] border border-dashed border-[#BA7E4C]/50 rounded-xl flex items-center justify-between gap-3">
             <div className="text-xs text-[#73675F]">
               <span className="font-bold text-[#2C241E] block">Tải ảnh chân dung giảng viên</span>
-              <span>Định dạng hỗ trợ: JPG, PNG, WEBP (tối đa 5MB)</span>
+              <span>Định dạng hỗ trợ: JPG, PNG, WEBP (tự động tối ưu dung lượng)</span>
             </div>
             <input
               type="file"

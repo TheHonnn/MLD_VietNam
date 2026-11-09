@@ -247,11 +247,6 @@ export const W19_HomeProducts: React.FC = () => {
       return;
     }
 
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error('Tệp quá lớn', 'Dung lượng ảnh tối đa là 20MB.');
-      return;
-    }
-
     const localPreviewUrl = URL.createObjectURL(file);
     setGallery((current) => [...current, localPreviewUrl]);
     setForm((current) => ({ ...current, image_url: current.image_url || localPreviewUrl }));

@@ -129,12 +129,6 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Dung lượng ảnh vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-
     setUploadingImage(true);
 
     // Hiển thị ngay ảnh xem trước từ máy
