@@ -7,11 +7,13 @@ const ADMIN_MIGRATIONS = [
   '025_admin_workflows.sql',
   '026_receipt_items_refund_commission.sql',
   '027_admin_reliability.sql',
+  '028_admin_access_hardening.sql',
 ];
 async function loadAdminSchema(database) {
   await database.exec(`
     CREATE ROLE anon NOLOGIN;
     CREATE ROLE authenticated NOLOGIN;
+    CREATE ROLE service_role NOLOGIN;
     CREATE SCHEMA auth;
     CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
       $$ SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
