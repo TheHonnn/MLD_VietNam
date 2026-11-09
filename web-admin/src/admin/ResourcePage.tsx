@@ -1056,13 +1056,21 @@ function formatCell(row: Row, c: Column, table?: string): React.ReactNode {
       row.batch_code ||
       row.course_batches?.batch_code ||
       (typeof row.course_batches === "string" ? row.course_batches : null);
+    const cTitle = row.course_title || row.course_batches?.courses?.title;
     if (bCode) {
       return (
-        <span className="font-bold text-[#8A4F23] text-xs inline-flex items-center gap-1.5" title={String(row[c.name] || "")}>
-          <span className="px-2 py-0.5 rounded-md bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] font-mono">
-            🎓 {bCode}
+        <div className="min-w-0 max-w-[240px]">
+          <span className="font-bold text-[#8A4F23] text-xs inline-flex items-center gap-1.5" title={String(row[c.name] || "")}>
+            <span className="px-2 py-0.5 rounded-md bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] font-mono">
+              🎓 {bCode}
+            </span>
           </span>
-        </span>
+          {cTitle && (
+            <div className="text-[10.5px] text-[#8C7A6B] truncate mt-0.5" title={cTitle}>
+              {cTitle}
+            </div>
+          )}
+        </div>
       );
     }
     return (
@@ -2183,23 +2191,47 @@ function formatCell(row: Row, c: Column, table?: string): React.ReactNode {
       </span>
     );
   }
+  if (c.name === "assistant_instructor_id") {
+    const rawVal = row[c.name];
+    if (!rawVal) return <span className="text-[#A69788] text-xs">—</span>;
+    const asstName =
+      row.assistant_name ||
+      row.assistant_instructor?.full_name ||
+      row.assistant?.full_name ||
+      row.instructors?.full_name ||
+      (typeof row.assistant_instructor === "string" ? row.assistant_instructor : null);
+    if (asstName) {
+      return (
+        <span className="font-semibold text-[#8A4F23] text-xs inline-flex items-center gap-1.5" title={String(rawVal)}>
+          <span>🧑‍🏫</span>
+          <span>{asstName}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#8C7A6B] font-mono" title={String(rawVal)}>
+        Trợ giảng #{String(rawVal).slice(0, 8)}
+      </span>
+    );
+  }
   if (c.name === "primary_instructor_id" || c.name === "instructor_id") {
     const instName =
       row.instructor_name ||
       row.instructor?.full_name ||
       row.primary_instructor?.full_name ||
       row.instructors?.full_name;
+    const isAssistant = table === "course_batch_assistants";
     if (instName) {
       return (
         <span className="font-semibold text-[#8A4F23] text-xs inline-flex items-center gap-1.5" title={String(row[c.name] || "")}>
-          <span>👨‍🏫</span>
+          <span>{isAssistant ? "🧑‍🏫" : "👨‍🏫"}</span>
           <span>{instName}</span>
         </span>
       );
     }
     return (
       <span className="text-xs text-[#8C7A6B] font-mono" title={String(row[c.name] || "")}>
-        Giảng viên #{String(row[c.name] || "").slice(0, 8)}
+        {isAssistant ? "Trợ giảng" : "Giảng viên"} #{String(row[c.name] || "").slice(0, 8)}
       </span>
     );
   }
@@ -3477,6 +3509,12 @@ function RecordDialog({
         if (values.feedback_attendance !== undefined) payload.feedback_attendance = values.feedback_attendance;
         if (values.feedback_attitude !== undefined) payload.feedback_attitude = values.feedback_attitude;
       }
+      if (resource.name === "course_batch_assistants") {
+        if (!payload.batch_id && values.batch_id) payload.batch_id = values.batch_id;
+        if (!payload.instructor_id && values.instructor_id) payload.instructor_id = values.instructor_id;
+        payload.can_mark_attendance = payload.can_mark_attendance !== undefined ? Boolean(payload.can_mark_attendance) : (values.can_mark_attendance !== undefined ? Boolean(values.can_mark_attendance) : true);
+        payload.can_enter_grades = payload.can_enter_grades !== undefined ? Boolean(payload.can_enter_grades) : (values.can_enter_grades !== undefined ? Boolean(values.can_enter_grades) : true);
+      }
       await adminApi(`${resource.name}/${mode}`, {
         values: payload,
         ...(mode === "update"
@@ -4461,7 +4499,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           if (active && Array.isArray(data)) setCategoriesForFilter(data);
         })
         .catch(() => { });
-    } else if (table === "course_enrollments" || table === "student_attendance" || table === "student_academic_records") {
+    } else if (table === "course_enrollments" || table === "student_attendance" || table === "student_academic_records" || table === "course_batch_assistants") {
       fetch(
         `${SUPABASE_URL}/rest/v1/course_batches?select=*,courses(id,title,code),branches(id,name,code),instructor:instructors!instructor_id(id,full_name)&order=start_date.desc,created_at.desc`,
         {
@@ -5018,11 +5056,19 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "course_id",
       "branch_id",
       "instructor_id",
+      "assistant_instructor_id",
       "start_date",
       "end_date",
       "schedule_text",
       "enrolled_count",
       "status",
+    ],
+    course_batch_assistants: [
+      "batch_id",
+      "instructor_id",
+      "can_mark_attendance",
+      "can_enter_grades",
+      "assigned_at",
     ],
     batch_schedules: [
       "batch_id",
@@ -5286,6 +5332,15 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                     },
                     mode: "create",
                   });
+                } else if (table === "course_batch_assistants") {
+                  setEdit({
+                    row: {
+                      ...(selectedBatchId && selectedBatchId !== "__ALL__" ? { batch_id: selectedBatchId } : {}),
+                      can_mark_attendance: true,
+                      can_enter_grades: true,
+                    },
+                    mode: "create",
+                  });
                 } else {
                   setEdit({ row: {}, mode: "create" });
                 }
@@ -5337,7 +5392,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        {(table === "course_enrollments" || table === "student_attendance" || table === "student_academic_records") && (
+        {(table === "course_enrollments" || table === "student_attendance" || table === "student_academic_records" || table === "course_batch_assistants") && (
           <select
             aria-label="Chọn Lớp học"
             className="font-bold text-[#8A4F23] bg-[#FFFDF9] border-[#EAD8C7]"
@@ -5363,7 +5418,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             }}
           >
             <option value="">🎓 Chọn lớp học ({batchesForFilter.length} lớp có sẵn)</option>
-            <option value="__ALL__">🌐 {table === "student_attendance" ? "Toàn bộ lịch sử điểm danh tất cả các lớp" : "Toàn bộ học viên tất cả các lớp"}</option>
+            <option value="__ALL__">🌐 {table === "student_attendance" ? "Toàn bộ lịch sử điểm danh tất cả các lớp" : table === "course_batch_assistants" ? "Toàn bộ trợ giảng tất cả các lớp" : "Toàn bộ học viên tất cả các lớp"}</option>
             {batchesForFilter.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.batch_code} · {b.courses?.title || "Khóa học"} {b.branches?.name ? `(${b.branches.name})` : ""}
@@ -6889,12 +6944,20 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                       prev
                         ? {
                           ...prev,
-                          rows: prev.rows.filter((r) => r.id !== targetRow.id),
+                          rows: prev.rows.filter((r) => {
+                            if (targetRow?.id && r.id) return r.id !== targetRow.id;
+                            const pkCols = listing.columns.filter((c) => c.primary);
+                            if (pkCols.length > 0) {
+                              return !pkCols.every((c) => r[c.name] === targetRow[c.name]);
+                            }
+                            return r !== targetRow;
+                          }),
                           total: Math.max(0, prev.total - 1),
                         }
                         : null,
                     );
-                    setNotice(`Đã xóa "${targetRow?.name || targetRow?.title || "bản ghi"}" thành công.`);
+                    const labelStr = recordLabel(targetRow);
+                    setNotice(`Đã xóa "${labelStr || targetRow?.name || targetRow?.title || "bản ghi"}" thành công.`);
                   }
 
                   setConfirmation(null);

@@ -8,6 +8,7 @@ export const REFERENCE_DISPLAYS: Record<string, string> = {
 const outputNames: Record<string, string> = {
   user_id: 'full_name', customer_id: 'customer_name', student_id: 'student_name',
   staff_id: 'staff_name', technician_id: 'technician_name', instructor_id: 'instructor_name',
+  primary_instructor_id: 'instructor_name', assistant_instructor_id: 'assistant_name',
   branch_id: 'branch_name', department_id: 'department_name', service_id: 'service_name',
   package_id: 'package_name', course_id: 'course_title', batch_id: 'batch_code',
 };
@@ -30,7 +31,9 @@ export async function enrichReferenceLabels(connection: any, columns: any[], row
         row.branch_code = match.code;
       }
       const nested = reference.table === 'users' && column.name === 'customer_id' ? 'customer'
-        : reference.table === 'users' && column.name === 'student_id' ? 'student' : reference.table;
+        : reference.table === 'users' && column.name === 'student_id' ? 'student'
+        : column.name === 'assistant_instructor_id' ? 'assistant_instructor'
+        : reference.table;
       if (!row[nested]) row[nested] = { id: row[column.name], [display]: match.label, ...(match.code ? { code: match.code } : {}) };
     }
   }

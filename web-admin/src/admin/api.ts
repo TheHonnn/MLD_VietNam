@@ -82,8 +82,10 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
       continue;
     }
 
-    // On update, do not send primary key in body
-    if (isUpdate && (k === "id" || k === "created_at")) {
+    const colDef = validColMap.get(k);
+
+    // On update, do not send primary key or creation timestamp in body
+    if (isUpdate && (k === "id" || k === "created_at" || colDef?.primary)) {
       continue;
     }
 
@@ -94,8 +96,6 @@ function sanitizeValues(table: string, values: Record<string, any>, isUpdate = f
     if (!isUpdate && k === "id" && (!v || v === "")) {
       continue;
     }
-
-    const colDef = validColMap.get(k);
 
     // Normalize empty strings to null for nullable / foreign key / numeric / date columns
     if (v === "") {
@@ -186,7 +186,8 @@ const TABLE_SELECTS: Record<string, string> = {
   treatment_journal: "*,customer:users!customer_id(full_name,phone),technicians(full_name)",
   service_materials: "*,services(name)",
   tuition_transactions: "*,student:users!student_id(full_name,phone),courses(title,code),branches(name,code)",
-  course_batches: "*,courses(title,code),branches(name,code),instructor:instructors!instructor_id(full_name)",
+  course_batches: "*,courses(title,code),branches(name,code),instructor:instructors!instructor_id(full_name),assistant_instructor:instructors!assistant_instructor_id(full_name)",
+  course_batch_assistants: "*,course_batches(batch_code,courses(title,code)),instructors(id,full_name,title)",
   student_academic_records: "*,course_enrollments(id,batch_id,course_id,student:users!student_id(full_name,phone),courses(title,code),course_batches(batch_code))",
   batch_schedules: "*,course_batches(batch_code),assigned_room:branch_rooms!assigned_room_id(name)",
   course_chapters: "*,courses(title,code)",
@@ -434,6 +435,28 @@ async function enrichMissingRelations(rows: Row[], signal?: AbortSignal): Promis
   rows.forEach((r) => {
     if (r.branch_id && !r.branch_name && !r.branches?.name && isUuid(r.branch_id)) {
       missingBranchIds.add(r.branch_id);
+    }
+  });
+
+  // Collect missing instructor / assistant IDs
+  const missingInstructorIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.instructor_id && !r.instructor_name && !r.instructors?.full_name && isUuid(r.instructor_id)) {
+      missingInstructorIds.add(r.instructor_id);
+    }
+    if (r.primary_instructor_id && !r.instructor_name && isUuid(r.primary_instructor_id)) {
+      missingInstructorIds.add(r.primary_instructor_id);
+    }
+    if (r.assistant_instructor_id && !r.assistant_name && !r.assistant_instructor?.full_name && isUuid(r.assistant_instructor_id)) {
+      missingInstructorIds.add(r.assistant_instructor_id);
+    }
+  });
+
+  // Collect missing batch IDs
+  const missingBatchIds = new Set<string>();
+  rows.forEach((r) => {
+    if (r.batch_id && !r.batch_code && !r.course_batches?.batch_code && isUuid(r.batch_id)) {
+      missingBatchIds.add(r.batch_id);
     }
   });
 
@@ -686,6 +709,71 @@ async function enrichMissingRelations(rows: Row[], signal?: AbortSignal): Promis
                   r.branches = { id: b.id, name: b.name, code: b.code };
                 }
                 branchCache.set(b.id, { id: b.id, name: b.name, code: b.code });
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingInstructorIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingInstructorIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/instructors?id=in.(${ids})&select=id,full_name,title`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; full_name: string; title?: string }> = await res.json();
+            const map = new Map(data.map((i) => [i.id, i]));
+            rows.forEach((r) => {
+              if (r.instructor_id && map.has(r.instructor_id)) {
+                const inst = map.get(r.instructor_id)!;
+                r.instructor_name = r.instructor_name || inst.full_name;
+                if (!r.instructors) r.instructors = { id: inst.id, full_name: inst.full_name, title: inst.title };
+              }
+              if (r.primary_instructor_id && map.has(r.primary_instructor_id)) {
+                const inst = map.get(r.primary_instructor_id)!;
+                r.instructor_name = r.instructor_name || inst.full_name;
+                if (!r.primary_instructor) r.primary_instructor = { id: inst.id, full_name: inst.full_name, title: inst.title };
+              }
+              if (r.assistant_instructor_id && map.has(r.assistant_instructor_id)) {
+                const inst = map.get(r.assistant_instructor_id)!;
+                r.assistant_name = r.assistant_name || inst.full_name;
+                if (!r.assistant_instructor) r.assistant_instructor = { id: inst.id, full_name: inst.full_name, title: inst.title };
+              }
+            });
+          }
+        } catch {}
+      })()
+    );
+  }
+
+  if (missingBatchIds.size > 0) {
+    promises.push(
+      (async () => {
+        try {
+          const ids = Array.from(missingBatchIds).slice(0, 100).join(",");
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/course_batches?id=in.(${ids})&select=id,batch_code,courses(title,code)`, {
+            headers: getSupabaseHeaders(),
+            signal,
+          });
+          if (res.ok) {
+            const data: Array<{ id: string; batch_code: string; courses?: { title?: string; code?: string } }> = await res.json();
+            const map = new Map(data.map((b) => [b.id, b]));
+            rows.forEach((r) => {
+              if (r.batch_id && map.has(r.batch_id)) {
+                const b = map.get(r.batch_id)!;
+                r.batch_code = r.batch_code || b.batch_code;
+                r.batch_name = r.batch_name || b.batch_code;
+                if (b.courses?.title) {
+                  r.course_title = r.course_title || b.courses.title;
+                  r.course_code = r.course_code || b.courses.code;
+                }
+                if (!r.course_batches) r.course_batches = { id: b.id, batch_code: b.batch_code, courses: b.courses };
               }
             });
           }
@@ -993,6 +1081,15 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       if (r.primary_instructor) {
         r.instructor_name = r.instructor_name || r.primary_instructor.full_name;
       }
+      if (r.assistant_instructor) {
+        r.assistant_name = r.assistant_name || r.assistant_instructor.full_name;
+      }
+      if (r.assistant) {
+        r.assistant_name = r.assistant_name || r.assistant.full_name;
+      }
+      if (r.instructors) {
+        r.instructor_name = r.instructor_name || r.instructors.full_name;
+      }
       if (r.assigned_room) {
         r.room_name = r.room_name || r.assigned_room.name;
       }
@@ -1256,6 +1353,22 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       delete payload.values.chapter_title;
       delete payload.values.course_title;
       delete payload.values.course_code;
+    }
+
+    if (table === "course_batch_assistants") {
+      if (!payload.values.assigned_by_id) {
+        try {
+          const profile = JSON.parse(sessionStorage.getItem("mld_admin_profile") || localStorage.getItem("mld_admin_profile") || "{}");
+          if (profile?.id) payload.values.assigned_by_id = profile.id;
+        } catch {}
+      }
+      if (payload.values.can_mark_attendance === undefined) payload.values.can_mark_attendance = true;
+      if (payload.values.can_enter_grades === undefined) payload.values.can_enter_grades = true;
+      delete payload.values.course_batches;
+      delete payload.values.batch_code;
+      delete payload.values.instructors;
+      delete payload.values.instructor_name;
+      delete payload.values.assistant_name;
     }
 
     const cleanValues = sanitizeValues(table, payload.values, false);
@@ -1597,8 +1710,14 @@ export function rowKey(columns: Column[], row: Row) {
   );
 }
 
-export const recordLabel = (row: Row) =>
-  String(
+export const recordLabel = (row: Row) => {
+  if (row.batch_code && (row.instructor_name || row.assistant_name)) {
+    return `${row.batch_code} · ${row.instructor_name || row.assistant_name}`;
+  }
+  if (row.batch_code && row.course_title) {
+    return `${row.batch_code} · ${row.course_title}`;
+  }
+  return String(
     row.full_name ||
       row.name ||
       row.title ||
@@ -1615,3 +1734,4 @@ export const recordLabel = (row: Row) =>
       row.tier ||
       (row.id ? `#${String(row.id).slice(0, 8)}` : "")
   );
+};
