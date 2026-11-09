@@ -1382,6 +1382,7 @@ class QuizSubmissionModel {
   final String id;
   final String quizId;
   final String courseId;
+  final String? enrollmentId;
   final double score;
   final int correctCount;
   final int totalQuestions;
@@ -1393,6 +1394,7 @@ class QuizSubmissionModel {
     required this.id,
     required this.quizId,
     required this.courseId,
+    this.enrollmentId,
     required this.score,
     required this.correctCount,
     required this.totalQuestions,
@@ -1405,6 +1407,7 @@ class QuizSubmissionModel {
     'id': id,
     'quizId': quizId,
     'courseId': courseId,
+    'enrollmentId': enrollmentId,
     'score': score,
     'correctCount': correctCount,
     'totalQuestions': totalQuestions,
@@ -1425,6 +1428,7 @@ class QuizSubmissionModel {
       id: json['id']?.toString() ?? '',
       quizId: json['quizId']?.toString() ?? json['quiz_id']?.toString() ?? '',
       courseId: json['courseId']?.toString() ?? json['course_id']?.toString() ?? '',
+      enrollmentId: json['enrollmentId']?.toString() ?? json['enrollment_id']?.toString(),
       score: (json['score'] as num?)?.toDouble() ?? 0.0,
       correctCount: (json['correctCount'] as num?)?.toInt() ??
           (json['correct_count'] as num?)?.toInt() ?? 0,
@@ -1434,7 +1438,9 @@ class QuizSubmissionModel {
       submittedAnswers: answers,
       submittedAt: json['submittedAt'] != null
           ? DateTime.tryParse(json['submittedAt'].toString()) ?? DateTime.now()
-          : DateTime.now(),
+          : (json['submitted_at'] != null
+              ? DateTime.tryParse(json['submitted_at'].toString()) ?? DateTime.now()
+              : DateTime.now()),
     );
   }
 }

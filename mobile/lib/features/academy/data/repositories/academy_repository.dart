@@ -1,5 +1,6 @@
 import '../../../../core/services/supabase_data_service.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -706,15 +707,41 @@ class AcademyRepository {
     } catch (_) {}
 
     try {
-      await SupabaseDataService.instance.submitQuizSubmission(
-        enrollmentId: 'enroll_',
+      final courseId = submission.courseId;
+      final resolvedQuizId = await SupabaseDataService.instance.ensureQuizId(
+        courseId,
         quizId: submission.quizId,
-        score: submission.score,
-        correctCount: submission.correctCount,
-        submittedAnswers: submission.submittedAnswers.map((k, v) => MapEntry(k.toString(), v)),
-        passed: submission.passed,
+        totalQuestions: submission.totalQuestions,
       );
-    } catch (_) {}
+
+      final studentId = AuthService.instance.currentUserId;
+      final profile = MembershipRepository.instance.profile;
+
+      final resolvedEnrollmentId = await SupabaseDataService.instance.ensureEnrollmentId(
+        courseId,
+        existingEnrollmentId: submission.enrollmentId,
+        studentId: studentId,
+        studentPhone: profile.phone.trim(),
+        studentName: profile.fullName.trim().isNotEmpty ? profile.fullName.trim() : 'Học viên MLD',
+        studentEmail: profile.email.trim(),
+      );
+
+      if (resolvedQuizId != null && resolvedEnrollmentId != null) {
+        final success = await SupabaseDataService.instance.submitQuizSubmission(
+          enrollmentId: resolvedEnrollmentId,
+          quizId: resolvedQuizId,
+          score: submission.score,
+          correctCount: submission.correctCount,
+          submittedAnswers: submission.submittedAnswers.map((k, v) => MapEntry(k.toString(), v)),
+          passed: submission.passed,
+        );
+        debugPrint('>>> [AcademyRepository] submitQuizSubmission result: $success (quizId: $resolvedQuizId, enrollmentId: $resolvedEnrollmentId)');
+      } else {
+        debugPrint('>>> [AcademyRepository] Could not resolve quizId ($resolvedQuizId) or enrollmentId ($resolvedEnrollmentId)');
+      }
+    } catch (e) {
+      debugPrint('>>> [AcademyRepository] Error saving quiz submission to Supabase: $e');
+    }
   }
 
   /// Lấy kết quả bài làm mới nhất theo quizId

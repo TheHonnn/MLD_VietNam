@@ -36,6 +36,7 @@ export const labels: Record<string, string> = {
   chapter_id: "Chương học",
   lesson_id: "Bài học",
   quiz_id: "Bài kiểm tra",
+  quiz_title: "Tên bài kiểm tra",
   schedule_id: "Buổi học",
   template_id: "Mẫu chứng nhận",
   role_id: "Vai trò",

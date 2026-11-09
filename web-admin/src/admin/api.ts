@@ -194,7 +194,7 @@ const TABLE_SELECTS: Record<string, string> = {
   course_lessons: "*,course_chapters(title,course_id,courses(title,code))",
   course_quizzes: "*,courses(title)",
   quiz_questions: "*,course_quizzes(title)",
-  quiz_submissions: "*,course_quizzes(title)",
+  quiz_submissions: "*,course_quizzes(title),course_enrollments(student_name,student_phone,student_email,courses(title))",
   consultation_surveys: "*,customer:users!customer_id(full_name,phone,avatar_url),bookings(booking_code,booking_date,start_time,status)",
   reviews: "*,customer:users!customer_id(full_name,phone),services(name),technicians(full_name),bookings(booking_code)",
   support_tickets: "*,customer:users!customer_id(full_name,phone)",
@@ -1105,6 +1105,14 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
       }
       if (r.course_quizzes) {
         r.quiz_title = r.quiz_title || r.course_quizzes.title;
+      }
+      if (r.course_enrollments) {
+        r.student_name = r.student_name || r.course_enrollments.student_name;
+        r.student_phone = r.student_phone || r.course_enrollments.student_phone;
+        r.student_email = r.student_email || r.course_enrollments.student_email;
+        if (r.course_enrollments.courses) {
+          r.course_title = r.course_title || r.course_enrollments.courses.title;
+        }
       }
       if (r.package) {
         r.package_name = r.package_name || r.package.name;

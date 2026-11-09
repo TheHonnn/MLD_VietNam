@@ -136,10 +136,12 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
         : 0.0;
     final bool passed = score >= _passingScore;
 
+    final enrollmentId = widget.course?.enrollmentId;
     final sub = QuizSubmissionModel(
       id: 'sub_${DateTime.now().millisecondsSinceEpoch}',
       quizId: widget.quiz?.id ?? 'quiz_default',
       courseId: widget.course?.id ?? widget.quiz?.courseId ?? 'course_default',
+      enrollmentId: enrollmentId,
       score: score,
       correctCount: correctCount,
       totalQuestions: _questions.length,

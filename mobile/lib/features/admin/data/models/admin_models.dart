@@ -642,9 +642,14 @@ class AdminQuizSubmissionModel {
     String sPhone = '';
     String cTitle = 'Đào tạo MLD';
     if (enrObj is Map) {
-      sName = enrObj['candidate_name']?.toString() ?? sName;
-      sPhone = enrObj['candidate_phone']?.toString() ?? '';
-      cTitle = enrObj['course_title']?.toString() ?? cTitle;
+      sName = enrObj['student_name']?.toString() ?? enrObj['candidate_name']?.toString() ?? sName;
+      sPhone = enrObj['student_phone']?.toString() ?? enrObj['candidate_phone']?.toString() ?? '';
+      final cObj = enrObj['courses'];
+      if (cObj is Map) {
+        cTitle = cObj['title']?.toString() ?? cTitle;
+      } else {
+        cTitle = enrObj['course_title']?.toString() ?? cTitle;
+      }
     }
 
     String qTitle = 'Bài kiểm tra kiến thức MLD';
