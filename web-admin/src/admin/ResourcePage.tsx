@@ -18,6 +18,7 @@ import { InstructorFormEditor } from "./InstructorFormEditor";
 import { BatchScheduleFormEditor } from "./BatchScheduleFormEditor";
 import { StudentAcademicRecordFormEditor } from "./StudentAcademicRecordFormEditor";
 import { BookingCreateDialog } from "./BookingCreateDialog";
+import { BookingDetailDialog } from "./BookingDetailDialog";
 import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
 import { ShareJournalModal, ShareJournalItem } from "../components/treatment/ShareJournalModal";
 import CertificateTemplateEditor from "../components/certificates/CertificateTemplateEditor";
@@ -3571,6 +3572,12 @@ function RecordDialog({
     >
       {resource.name === "bookings" && mode === "create" ? (
         <BookingCreateDialog onClose={onClose} onSaved={onSaved} />
+      ) : resource.name === "bookings" && mode === "view" ? (
+        <BookingDetailDialog
+          row={row}
+          onClose={onClose}
+          onEdit={() => onSwitchMode?.("update", row)}
+        />
       ) : resource.name === "staff_profiles" ? (
         <StaffProfileEditorSheet
           row={row}
