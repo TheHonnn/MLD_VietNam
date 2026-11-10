@@ -55,8 +55,19 @@ describe('Admin business workflows on the complete migrated schema', () => {
     expect((await service.activeCashierShift(actor,branch.id))?.systemCash).toBe(158000);
     await expect(service.collectCashierPayment(actor,{...body,expectedTotal:100000})).rejects.toThrow(/nội dung khác/);
     expect((await query('SELECT status FROM bookings WHERE id=$1',[booking.id])).rows[0].status).toBe('COMPLETED');
+    await expect(service.closeCashierShift(actor,shift.id,{closingCash:150000})).rejects.toThrow(/lý do giải trình/);
     await service.closeCashierShift(actor,shift.id,{closingCash:158000});
     expect((await service.collectCashierPayment(actor,body)).invoice.id).toBe(receipt.invoice.id);
+    await expect(service.collectCashierPayment(actor,{...body,requestId:randomUUID()})).rejects.toThrow(/mở ca/);
+
+    const inServiceBk=(await query("INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,status,session_status,base_total,final_price,qr_code_hash) VALUES('INSERVICE-PAY',$1,$2,'2026-11-08','14:00','15:00','IN_SERVICE','IN_SERVICE',100000,100000,'in-service-qr') RETURNING *",[customer.id,branch.id])).rows[0];
+    await query('INSERT INTO booking_items(booking_id,service_id,price) VALUES($1,$2,100000)',[inServiceBk.id,spaService.id]);
+    const shift2=await service.openCashierShift(actor,{branchId:branch.id,openingCash:0});
+    await service.collectCashierPayment(actor,{kind:'BOOKING',bookingId:inServiceBk.id,shiftId:shift2.id,paymentMethod:'CASH_AT_SPA',vatRate:0,expectedTotal:100000,requestId:randomUUID()});
+    const checkedBk=(await query('SELECT status,session_status,payment_status FROM bookings WHERE id=$1',[inServiceBk.id])).rows[0];
+    expect(checkedBk.payment_status).toBe('PAID');
+    expect(checkedBk.status).toBe('IN_SERVICE');
+    await service.closeCashierShift(actor,shift2.id,{closingCash:100000});
   });
 
   it('verifies a prepaid package on check-in without consuming a session early',async()=>{
@@ -81,6 +92,7 @@ describe('Admin business workflows on the complete migrated schema', () => {
     await service.collectCashierPayment(actor,body);
     expect((await query('SELECT count(*)::int n FROM user_packages WHERE customer_id=$1',[customer.id])).rows[0].n).toBe(packagesBefore+1);
     expect((await query('SELECT count(*)::int n FROM invoice_items WHERE invoice_id=$1',[paid.invoice.id])).rows[0].n).toBe(2);
+    await expect(service.collectCashierPayment(actor,{kind:'PACKAGE',shiftId:shift.id,branchId:branch.id,customerId:'bbbbbbbb-0001-0001-0001-000000000001',packageId:spaPackage.id,paymentMethod:'BANK_TRANSFER',vatRate:8,requestId:randomUUID()})).rejects.toThrow(/khách vãng lai/);
     const registration=await service.collectCashierPayment(actor,{kind:'PACKAGE',shiftId:shift.id,branchId:branch.id,customerId:customer.id,packageId:spaPackage.id,paymentMethod:'BANK_TRANSFER',vatRate:8,requestId:randomUUID()});
     expect(registration.userPackage.id).toBeTruthy();
     expect(registration.invoice.user_package_id).toBe(registration.userPackage.id);

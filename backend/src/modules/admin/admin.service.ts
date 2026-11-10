@@ -1730,6 +1730,12 @@ export class AdminService {
       if (shift.status !== 'OPEN')
         throw new ConflictException('Ca thu ngân này đã được đóng.');
       const systemCash = Number(shift.system_cash || shift.opening_cash || 0);
+      const discrepancy = Math.round((closingCash - systemCash) * 100) / 100;
+      if (Math.abs(discrepancy) > 0.001) {
+        const notes = typeof body.notes === 'string' ? body.notes.trim() : '';
+        if (!notes || notes.length < 5)
+          throw new BadRequestException('Bắt buộc nhập lý do giải trình khi có chênh lệch tiền mặt cuối ca.');
+      }
       const result = await client.query(
         `UPDATE cashier_shifts SET closing_cash=$2, discrepancy_amount=$2::numeric-$3::numeric,
          status='CLOSED',closed_at=now(),notes=COALESCE($4,notes),updated_at=now()
@@ -1854,6 +1860,11 @@ export class AdminService {
           throw new ConflictException('Lịch hẹn đã bị hủy hoặc khách không đến.');
         if (booking.payment_status === 'PAID')
           throw new ConflictException('Lịch hẹn đã được thanh toán.');
+        const existingPaidInvoice = (await client.query(
+          "SELECT id FROM invoices WHERE booking_id=$1 AND payment_status='PAID' LIMIT 1", [bookingId],
+        )).rows[0];
+        if (existingPaidInvoice)
+          throw new ConflictException('Lịch hẹn đã có hóa đơn thanh toán.');
         const items = await client.query(
           `SELECT bi.id,bi.service_id,bi.duration_minutes,bi.price,s.name
            FROM booking_items bi JOIN services s ON s.id=bi.service_id
@@ -1913,6 +1924,8 @@ export class AdminService {
       const commissionStaffId = String(body.commissionStaffId || '');
       if (!this.isUuid(packageId) || !this.isUuid(customerId))
         throw new BadRequestException('Gói liệu trình hoặc khách hàng không hợp lệ.');
+      if (customerId === 'bbbbbbbb-0001-0001-0001-000000000001')
+        throw new BadRequestException('Không cho phép khách vãng lai đăng ký gói liệu trình. Vui lòng chọn hồ sơ khách hàng.');
       if (commissionStaffId && !this.isUuid(commissionStaffId))
         throw new BadRequestException('Nhân viên phụ trách gói liệu trình không hợp lệ.');
       const treatmentPackage = (await client.query(
@@ -1933,12 +1946,16 @@ export class AdminService {
       if (shift.branch_id !== String(body.branchId || shift.branch_id))
         throw new BadRequestException('Ca thu ngân không khớp chi nhánh đang chọn.');
       const configuredDiscount = Number(treatmentPackage.discount_price || 0);
+      if (body.discountAmount && Number(body.discountAmount) > 0 && configuredDiscount > 0)
+        throw new BadRequestException('Không cho phép áp dụng chiết khấu tùy ý khi gói đã có giá ưu đãi cấu hình.');
       const subtotal = configuredDiscount > 0 && configuredDiscount < Number(treatmentPackage.price)
         ? configuredDiscount
         : Number(treatmentPackage.price);
       const vatAmount = Math.round(subtotal * vatRate) / 100;
       const total = subtotal + vatAmount;
       if (total <= 0) throw new BadRequestException('Tổng thanh toán phải lớn hơn 0.');
+      if (body.expectedTotal !== undefined && Number(body.expectedTotal) !== total)
+        throw new ConflictException('Giá gói hoặc tổng tiền đã thay đổi. Tải lại thông tin gói trước khi thu tiền.');
       const packageOwner = (await client.query(
         `INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,purchased_at,expires_at,commission_staff_id)
          VALUES($1,$2,$3,0,'ACTIVE',now(),now()+($4::int * interval '1 month'),$5) RETURNING *`,
@@ -2009,8 +2026,12 @@ export class AdminService {
       const base = Number(item.type === 'PRODUCT' ? row.price_min : row.price);
       const price = Number(row.discount_price) > 0 && Number(row.discount_price) < base ? Number(row.discount_price) : base;
       if (!Number.isFinite(price) || price < 0) throw new ConflictException('Giá mặt hàng không hợp lệ.');
-      if (item.type === 'PACKAGE' && (!row.service_id || !(await client.query('SELECT id FROM services WHERE id=$1 AND is_active=true', [row.service_id])).rowCount))
-        throw new ConflictException('Gói phải có dịch vụ đang hoạt động.');
+      if (item.type === 'PACKAGE') {
+        if (customerId === 'bbbbbbbb-0001-0001-0001-000000000001')
+          throw new BadRequestException('Không cho phép khách vãng lai đăng ký gói liệu trình. Vui lòng chọn hồ sơ khách hàng.');
+        if (!row.service_id || !(await client.query('SELECT id FROM services WHERE id=$1 AND is_active=true', [row.service_id])).rowCount)
+          throw new ConflictException('Gói phải có dịch vụ đang hoạt động.');
+      }
       lines.push({ name: row.name, type: item.type, quantity: item.quantity, price, ...(item.type === 'PACKAGE' ? { package: row } : {}) });
     }
     const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
