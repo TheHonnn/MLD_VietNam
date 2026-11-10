@@ -57,6 +57,12 @@ describe('Admin shared-schema integration', () => {
       ).toBe(false);
     }
   });
+  it('treats support tickets as an inbox that admins may process but never create manually', async () => {
+    const catalog = await service.catalog(actor);
+    expect(catalog.find((resource) => resource.name === 'support_tickets')?.actions).toEqual(['update']);
+    await expect(service.mutate('support_tickets', actor, 'create', { values: {} }))
+      .rejects.toThrow(/khách hàng gửi từ ứng dụng/i);
+  });
   it('treats the all-classes UI filter as an unfiltered listing', async () => {
     for (const table of ['course_enrollments', 'student_attendance', 'student_academic_records']) {
       const result = await service.list(table, actor, { filter: JSON.stringify({ batch_id: '__ALL__' }) });

@@ -5774,6 +5774,17 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             </Link>
           ))}
       </nav>
+      {table === "support_tickets" && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-[#D7E8E0] bg-[#F4FBF7] px-4 py-3 text-sm text-[#315B49]">
+          <AlertCircle size={18} className="mt-0.5 shrink-0 text-[#0B7A53]" />
+          <div>
+            <p className="font-semibold text-[#214B39]">Hộp thư yêu cầu từ khách hàng</p>
+            <p className="mt-0.5 text-xs leading-5 text-[#567064]">
+              Phiếu được tạo khi khách gửi yêu cầu từ ứng dụng. Admin tiếp nhận, cập nhật trạng thái và phản hồi; không tạo phiếu thay khách tại màn hình này.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="admin-toolbar">
         <div className="admin-search">
           <Search size={17} />

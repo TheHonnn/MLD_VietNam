@@ -1,7 +1,12 @@
 // Explicit ownership boundary: never accept arbitrary table names from HTTP requests.
 export const ADMIN_RESOURCES: Record<
   string,
-  { title: string; group: string; readonly?: boolean }
+  {
+    title: string;
+    group: string;
+    readonly?: boolean;
+    actions?: Array<'create' | 'update' | 'delete' | 'action'>;
+  }
 > = {
   branches: { title: 'Chi nhánh', group: 'Cơ sở' },
   branch_rooms: { title: 'Phòng dịch vụ', group: 'Cơ sở' },
@@ -12,7 +17,11 @@ export const ADMIN_RESOURCES: Record<
   booking_items: { title: 'Dịch vụ trong lịch hẹn', group: 'Thu ngân' },
   users: { title: 'Tài khoản', group: 'Khách hàng' },
   reviews: { title: 'Đánh giá', group: 'Khách hàng' },
-  support_tickets: { title: 'Yêu cầu hỗ trợ', group: 'Khách hàng' },
+  support_tickets: {
+    title: 'Yêu cầu hỗ trợ',
+    group: 'Khách hàng',
+    actions: ['update'],
+  },
   support_faqs: { title: 'Câu hỏi thường gặp', group: 'Khách hàng' },
   staff_profiles: { title: 'Hồ sơ nhân viên', group: 'Nhân sự' },
   departments: { title: 'Bộ phận', group: 'Nhân sự' },

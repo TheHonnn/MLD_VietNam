@@ -273,7 +273,7 @@ export class AdminService {
         ...resource,
         actions: resource.readonly
           ? []
-          : ['create', 'update', 'delete', 'action'].filter(
+          : (resource.actions || ['create', 'update', 'delete', 'action']).filter(
               (action) =>
                 full || actor.permissions?.includes(`${name}.${action}`),
             ),
@@ -518,7 +518,12 @@ export class AdminService {
     operation: 'create' | 'update' | 'delete',
     body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string; reason?: string },
   ) {
-    this.resource(table, actor, true);
+    const resource = this.resource(table, actor, true);
+    if (resource.actions && !resource.actions.includes(operation)) {
+      if (table === 'support_tickets' && operation === 'create')
+        throw new ForbiddenException('Yêu cầu hỗ trợ phải do khách hàng gửi từ ứng dụng. Admin chỉ tiếp nhận và xử lý phiếu.');
+      throw new ForbiddenException('Thao tác này không được phép với phân hệ hiện tại.');
+    }
     if ((table === 'invoices' || table === 'invoice_items') && operation !== 'create')
       throw new ForbiddenException('Không sửa trực tiếp hóa đơn hoặc dòng hàng. Dùng thao tác thanh toán/hoàn tiền và luồng sửa mô tả biên lai có lưu lịch sử.');
     if (table === 'departments' && !['ADMIN', 'SUPER_ADMIN'].includes(actor.role))
