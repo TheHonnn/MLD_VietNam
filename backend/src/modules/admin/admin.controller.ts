@@ -320,7 +320,7 @@ export class AdminController {
   @ApiBearerAuth()
   action(
     @Param('table') table: string,
-    @Body() body: { key?: unknown; action?: string; reason?: string },
+    @Body() body: { key?: unknown; action?: string; reason?: string; userPackageId?: string },
     @Req() req,
   ) {
     return this.service.action(table, req.admin, body);

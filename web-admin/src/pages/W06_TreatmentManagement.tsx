@@ -118,6 +118,8 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   const [searchParams] = useSearchParams();
   const packageIdParam = searchParams.get('packageId') || '';
+  const userPackageIdParam = searchParams.get('userPackageId') || '';
+  const registrationAction = searchParams.get('action') || '';
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -140,6 +142,7 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [isBookNextModalOpen, setIsBookNextModalOpen] = useState(false);
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
   const [isAssignPackageModalOpen, setIsAssignPackageModalOpen] = useState(false);
+  const [handledRegistrationAction, setHandledRegistrationAction] = useState(false);
   const [shareModalJournal, setShareModalJournal] = useState<ShareJournalItem | null>(null);
 
   // Form States
@@ -170,6 +173,8 @@ export const W06_TreatmentManagement: React.FC = () => {
   // Assign Package Form
   const [assignCustomerId, setAssignCustomerId] = useState('');
   const [assignPackageId, setAssignPackageId] = useState('');
+  const [assignStep, setAssignStep] = useState<1 | 2 | 3>(1);
+  const [assignCustomerSearch, setAssignCustomerSearch] = useState('');
 
   const fetchTreatmentData = useCallback(async () => {
     setIsLoading(true);
@@ -372,6 +377,12 @@ export const W06_TreatmentManagement: React.FC = () => {
     }
   }, [filteredPackages, selectedPkgId]);
 
+  useEffect(() => {
+    if (userPackageIdParam && packages.some((pkg) => pkg.id === userPackageIdParam)) {
+      setSelectedPkgId(userPackageIdParam);
+    }
+  }, [packages, userPackageIdParam]);
+
   // Fetch DRC slot availability when booking modal is opened
   useEffect(() => {
     if (isBookNextModalOpen && bookingDate) {
@@ -450,6 +461,18 @@ export const W06_TreatmentManagement: React.FC = () => {
     setIsBookNextModalOpen(true);
   };
 
+  useEffect(() => {
+    if (
+      !handledRegistrationAction
+      && registrationAction === 'book-first-session'
+      && userPackageIdParam
+      && selectedPkg.id === userPackageIdParam
+    ) {
+      handleOpenBookModal();
+      setHandledRegistrationAction(true);
+    }
+  }, [handledRegistrationAction, registrationAction, selectedPkg.id, userPackageIdParam]);
+
   const handleSubmitBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomer) {
@@ -474,11 +497,11 @@ export const W06_TreatmentManagement: React.FC = () => {
         startTime: selectedSlotObj.startTime,
         endTime: selectedSlotObj.endTime,
         status: BookingStatus.CONFIRMED,
-        paymentStatus: PaymentStatus.PAID,
+        paymentStatus: PaymentStatus.UNPAID,
         paymentMethod: PaymentMethod.MEMBERSHIP_WALLET,
         baseTotal: 0,
         finalPrice: 0,
-        notes: `[Gói ${selectedPkg.name}] ${bookingNotes}`,
+        notes: `[Gói liệu trình: ${selectedPkg.name} | user_package_id=${selectedPkg.id}] ${bookingNotes}`,
         serviceName: selectedPkg.name,
         durationMinutes: 60,
       });
@@ -569,20 +592,35 @@ export const W06_TreatmentManagement: React.FC = () => {
   const handleOpenAssignPackageModal = () => {
     setAssignCustomerId('');
     setAssignPackageId('');
+    setAssignStep(1);
+    setAssignCustomerSearch('');
     setIsAssignPackageModalOpen(true);
   };
 
-  const handleSubmitAssignPackage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitAssignPackage = () => {
     const pkg = livePackages.find((p) => p.id === assignPackageId && p.isActive);
     const cust = customers.find((c) => c.id === assignCustomerId);
 
     if (!pkg || !cust) {
-      toast.error('Thiếu thông tin', 'Chọn khách hàng và gói đang mở bán.');
+      toast.error('Thiếu thông tin', 'Thông tin khách hàng hoặc liệu trình không còn hợp lệ. Vui lòng kiểm tra lại.');
       return;
     }
-    window.location.href = `/cashier-pos?packageId=${encodeURIComponent(pkg.id)}&packageName=${encodeURIComponent(pkg.name)}&customerId=${encodeURIComponent(cust.id)}`;
+    window.location.href = `/cashier-pos?flow=treatment-registration&packageId=${encodeURIComponent(pkg.id)}&packageName=${encodeURIComponent(pkg.name)}&customerId=${encodeURIComponent(cust.id)}`;
   };
+
+  const selectedAssignCustomer = customers.find((customer) => customer.id === assignCustomerId);
+  const selectedAssignPackage = livePackages.find((pkg) => pkg.id === assignPackageId && pkg.isActive);
+  const assignPackagePrice = selectedAssignPackage
+    ? Number(selectedAssignPackage.discountPrice) > 0 && Number(selectedAssignPackage.discountPrice) < Number(selectedAssignPackage.price)
+      ? Number(selectedAssignPackage.discountPrice)
+      : Number(selectedAssignPackage.price)
+    : 0;
+  const assignPackageSavings = selectedAssignPackage
+    ? Math.max(0, Number(selectedAssignPackage.price) - assignPackagePrice)
+    : 0;
+  const filteredAssignCustomers = customers.filter((customer) =>
+    matchSearch([customer.fullName, customer.phone, customer.email], assignCustomerSearch)
+  );
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -1474,83 +1512,211 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* ======================================================== */}
       {isAssignPackageModalOpen && (
         <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
-                  <Plus className="w-5 h-5" />
-                </div>
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-5 border-b border-[#EFE4D9] bg-[#FAF8F5]">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-bold text-[#3E200C]">Kích hoạt gói liệu trình mới</h3>
-                  <p className="text-[11px] text-[#73675F]">Cấp phát hồ sơ gói trị liệu chuyên sâu cho khách hàng</p>
+                  <h3 className="text-base font-extrabold text-[#3E200C]">Đăng ký liệu trình cho khách hàng</h3>
+                  <p className="text-xs text-[#73675F] mt-1">Chọn đúng khách, kiểm tra gói và chuyển sang thu ngân để kích hoạt hồ sơ.</p>
                 </div>
-              </div>
               <button
                 type="button"
                 onClick={() => setIsAssignPackageModalOpen(false)}
-                className="p-1.5 text-[#8C7A6B] hover:text-[#2C241E] rounded-lg hover:bg-[#EFE4D9] transition-colors cursor-pointer"
+                  aria-label="Đóng quy trình đăng ký"
+                  className="p-2 text-[#8C7A6B] hover:text-[#2C241E] rounded-lg hover:bg-[#EFE4D9] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
+              </div>
+              <ol className="grid grid-cols-3 gap-2 mt-5" aria-label="Tiến trình đăng ký liệu trình">
+                {[
+                  { step: 1, label: 'Chọn khách hàng' },
+                  { step: 2, label: 'Chọn gói liệu trình' },
+                  { step: 3, label: 'Kiểm tra & thanh toán' },
+                ].map((item) => {
+                  const active = assignStep === item.step;
+                  const completed = assignStep > item.step;
+                  return (
+                    <li key={item.step} className="min-w-0">
+                      <div className={`h-1 rounded-full ${active || completed ? 'bg-[#985018]' : 'bg-[#E8DFD8]'}`} />
+                      <div className={`mt-2 flex items-center gap-2 text-[11px] font-semibold ${active ? 'text-[#8A4F23]' : completed ? 'text-[#2C241E]' : 'text-[#8C7A6B]'}`}>
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${active || completed ? 'bg-[#985018] text-white' : 'bg-[#EFE4D9]'}`}>
+                          {completed ? <CheckCircle2 className="w-3.5 h-3.5" /> : item.step}
+                        </span>
+                        <span className="truncate">{item.label}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
             </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleSubmitAssignPackage} className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Khách hàng <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={assignCustomerId}
-                  onChange={(e) => setAssignCustomerId(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
-                >
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.fullName} - {c.phone} ({c.membershipTier || 'Thành viên'})
-                    </option>
-                  ))}
-                </select>
+            <form onSubmit={(event) => event.preventDefault()} className="min-h-0 flex flex-1 flex-col">
+              <div className="p-6 overflow-y-auto flex-1">
+                {assignStep === 1 && (
+                  <section aria-labelledby="assign-customer-heading">
+                    <div className="mb-4">
+                      <h4 id="assign-customer-heading" className="text-sm font-bold text-[#2C241E]">Khách hàng nào đăng ký liệu trình?</h4>
+                      <p className="text-xs text-[#73675F] mt-1">Tìm theo tên, số điện thoại hoặc email. Hồ sơ này sẽ đứng tên gói và hóa đơn.</p>
+                    </div>
+                    <label className="relative block mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8C7A6B]" />
+                      <input
+                        autoFocus
+                        value={assignCustomerSearch}
+                        onChange={(event) => setAssignCustomerSearch(event.target.value)}
+                        placeholder="Tìm tên, số điện thoại hoặc email..."
+                        className="w-full pl-10 pr-3 py-2.5 border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
+                      />
+                    </label>
+                    <div className="border border-[#EFE4D9] rounded-xl divide-y divide-[#EFE4D9] max-h-[340px] overflow-y-auto">
+                      {filteredAssignCustomers.length === 0 ? (
+                        <div className="p-8 text-center text-xs text-[#73675F]">Không tìm thấy khách hàng phù hợp.</div>
+                      ) : filteredAssignCustomers.map((customer) => {
+                        const selected = assignCustomerId === customer.id;
+                        return (
+                          <button
+                            key={customer.id}
+                            type="button"
+                            onClick={() => setAssignCustomerId(customer.id)}
+                            className={`w-full p-3.5 text-left flex items-center gap-3 transition-colors ${selected ? 'bg-[#FAF0E4]' : 'bg-white hover:bg-[#FAF8F5]'}`}
+                          >
+                            <span className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${selected ? 'bg-[#985018] text-white' : 'bg-[#EFE4D9] text-[#73675F]'}`}>
+                              {(customer.fullName || 'K').split(' ').slice(-1)[0]?.charAt(0).toUpperCase()}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-xs font-bold text-[#2C241E] truncate">{customer.fullName || 'Chưa có tên'}</span>
+                              <span className="block text-[11px] text-[#73675F] mt-0.5 truncate">{customer.phone || 'Chưa có SĐT'}{customer.email ? ` · ${customer.email}` : ''}</span>
+                            </span>
+                            <span className="text-[10px] font-semibold text-[#8A4F23]">{customer.membershipTier || 'STANDARD'}</span>
+                            {selected && <CheckCircle2 className="w-5 h-5 text-[#985018] shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+
+                {assignStep === 2 && (
+                  <section aria-labelledby="assign-package-heading">
+                    <div className="mb-4">
+                      <h4 id="assign-package-heading" className="text-sm font-bold text-[#2C241E]">Chọn gói phù hợp với nhu cầu tư vấn</h4>
+                      <p className="text-xs text-[#73675F] mt-1">Giá, số buổi và hạn dùng lấy trực tiếp từ bảng giá đang mở bán.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[420px] overflow-y-auto pr-1">
+                      {livePackages.filter((pkg) => pkg.isActive).map((pkg) => {
+                        const effectivePrice = Number(pkg.discountPrice) > 0 && Number(pkg.discountPrice) < Number(pkg.price) ? Number(pkg.discountPrice) : Number(pkg.price);
+                        const selected = assignPackageId === pkg.id;
+                        return (
+                          <button
+                            key={pkg.id}
+                            type="button"
+                            onClick={() => setAssignPackageId(pkg.id)}
+                            className={`p-4 rounded-xl border text-left transition-all ${selected ? 'border-[#985018] bg-[#FAF0E4] shadow-sm' : 'border-[#E8DFD8] bg-white hover:border-[#D7BBA6]'}`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <h5 className="text-xs font-extrabold text-[#2C241E] line-clamp-2">{pkg.name}</h5>
+                                <p className="text-[11px] text-[#73675F] mt-1 line-clamp-2">{pkg.description || 'Liệu trình chăm sóc theo phác đồ MLD.'}</p>
+                              </div>
+                              <span className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${selected ? 'border-[#985018] bg-[#985018] text-white' : 'border-[#D7BBA6]'}`}>
+                                {selected && <CheckCircle2 className="w-3.5 h-3.5" />}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mt-4 text-[11px]">
+                              <span className="flex items-center gap-1.5 text-[#73675F]"><Sparkles className="w-3.5 h-3.5" />{pkg.totalSessions} buổi</span>
+                              <span className="flex items-center gap-1.5 text-[#73675F]"><Clock className="w-3.5 h-3.5" />Hiệu lực {pkg.validityMonths} tháng</span>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-[#E8DFD8] flex items-end justify-between gap-3">
+                              <span className="text-[11px] text-[#73675F]">Giá niêm yết</span>
+                              <span className="text-sm font-black text-[#8A4F23]">{effectivePrice.toLocaleString('vi-VN')}đ</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+
+                {assignStep === 3 && selectedAssignCustomer && selectedAssignPackage && (
+                  <section aria-labelledby="assign-review-heading">
+                    <div className="mb-4">
+                      <h4 id="assign-review-heading" className="text-sm font-bold text-[#2C241E]">Kiểm tra trước khi chuyển sang thu ngân</h4>
+                      <p className="text-xs text-[#73675F] mt-1">Hồ sơ liệu trình chỉ được tạo sau khi thanh toán thành công.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_1.2fr] gap-4">
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-[#EFE4D9] p-4">
+                          <span className="text-[10px] font-bold text-[#8C7A6B] uppercase tracking-wide">Khách hàng</span>
+                          <p className="text-sm font-extrabold text-[#2C241E] mt-1">{selectedAssignCustomer.fullName}</p>
+                          <p className="text-xs text-[#73675F] mt-1 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />{selectedAssignCustomer.phone || 'Chưa có số điện thoại'}</p>
+                        </div>
+                        <div className="rounded-xl border border-[#EFE4D9] p-4">
+                          <span className="text-[10px] font-bold text-[#8C7A6B] uppercase tracking-wide">Gói đã chọn</span>
+                          <p className="text-sm font-extrabold text-[#2C241E] mt-1">{selectedAssignPackage.name}</p>
+                          <div className="mt-3 space-y-2 text-xs">
+                            <div className="flex justify-between"><span className="text-[#73675F]">Số buổi</span><strong>{selectedAssignPackage.totalSessions} buổi</strong></div>
+                            <div className="flex justify-between"><span className="text-[#73675F]">Hạn sử dụng</span><strong>{selectedAssignPackage.validityMonths} tháng từ ngày mua</strong></div>
+                            {assignPackageSavings > 0 && <div className="flex justify-between"><span className="text-[#73675F]">Tiết kiệm</span><strong className="text-[#0D6832]">{assignPackageSavings.toLocaleString('vi-VN')}đ</strong></div>}
+                            <div className="flex justify-between pt-2 border-t border-[#EFE4D9]"><span className="font-semibold">Tạm tính trước VAT</span><strong className="text-base text-[#8A4F23]">{assignPackagePrice.toLocaleString('vi-VN')}đ</strong></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-[#D7BBA6] bg-[#FAF8F5] p-4">
+                        <h5 className="text-xs font-bold text-[#2C241E]">Điều gì xảy ra tiếp theo?</h5>
+                        <ol className="mt-4 space-y-4">
+                          {[
+                            ['1', 'Thu ngân xác nhận', 'Kiểm tra khách hàng, gói, chi nhánh, nhân viên tư vấn và phương thức thanh toán.'],
+                            ['2', 'Thanh toán & kích hoạt', 'Hệ thống tạo hóa đơn và hồ sơ liệu trình trong cùng một giao dịch, tránh kích hoạt khi thu tiền thất bại.'],
+                            ['3', 'Đặt buổi đầu tiên', 'Sau thanh toán, mở hồ sơ liệu trình để chọn cơ sở, ngày giờ, kỹ thuật viên và phòng phù hợp.'],
+                            ['4', 'Theo dõi từng buổi', 'Mỗi buổi có nhật ký, ảnh trước sau, tư vấn chăm sóc và số buổi còn lại.'],
+                          ].map(([number, title, description]) => (
+                            <li key={number} className="flex gap-3">
+                              <span className="w-6 h-6 rounded-full bg-[#985018] text-white text-[11px] font-bold flex items-center justify-center shrink-0">{number}</span>
+                              <span><strong className="block text-xs text-[#2C241E]">{title}</strong><span className="block text-[11px] text-[#73675F] mt-0.5 leading-relaxed">{description}</span></span>
+                            </li>
+                          ))}
+                        </ol>
+                        <div className="mt-4 p-3 rounded-lg bg-white border border-[#EFE4D9] text-[11px] text-[#73675F] flex gap-2">
+                          <AlertCircle className="w-4 h-4 text-[#985018] shrink-0" />
+                          <span>Thu ngân cần mở ca. Tổng cuối cùng có thể gồm VAT; giá sẽ được kiểm tra lại từ máy chủ trước khi ghi nhận.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Gói liệu trình dịch vụ <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={assignPackageId}
-                  onChange={(e) => setAssignPackageId(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
-                >
-                  {livePackages.filter((p) => p.isActive).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} · {p.totalSessions} buổi ({(p.discountPrice && p.discountPrice < p.price ? p.discountPrice : p.price).toLocaleString('vi-VN')}đ)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <p className="text-[11px] text-[#73675F]">Giá, số buổi và hạn dùng được lấy từ cấu hình gói. Gói chỉ được kích hoạt sau khi thu ngân hoàn tất thanh toán.</p>
-
-              {/* Modal Footer */}
-              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2.5">
+              <div className="px-6 py-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-between gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsAssignPackageModalOpen(false)}
+                  onClick={() => assignStep === 1 ? setIsAssignPackageModalOpen(false) : setAssignStep((assignStep - 1) as 1 | 2)}
                   className="px-4 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
                 >
-                  Hủy bỏ
+                  {assignStep === 1 ? 'Hủy' : 'Quay lại'}
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-[#985018] hover:bg-[#854412] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Tiếp tục thanh toán</span>
-                </button>
+                <div className="flex items-center gap-3">
+                  <span className="hidden sm:block text-[11px] text-[#73675F]">Bước {assignStep}/3</span>
+                  {assignStep < 3 ? (
+                    <button
+                      type="button"
+                      disabled={assignStep === 1 ? !selectedAssignCustomer : !selectedAssignPackage}
+                      onClick={() => setAssignStep((assignStep + 1) as 2 | 3)}
+                      className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                    >
+                      Tiếp tục
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSubmitAssignPackage}
+                      className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Chuyển sang thu ngân</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </form>
           </div>

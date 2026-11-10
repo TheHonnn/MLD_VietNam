@@ -996,6 +996,7 @@ class SupabaseService {
       serviceStartedAt: b.service_started_at,
       checkedOutAt: b.checked_out_at,
       actualDurationMinutes: b.actual_duration_minutes ? Number(b.actual_duration_minutes) : undefined,
+      sessionStatus: b.session_status || 'NOT_STARTED',
       hasMedicalAlert: Boolean(b.has_medical_alert),
       customer: b.customer ? {
         id: b.customer.id,

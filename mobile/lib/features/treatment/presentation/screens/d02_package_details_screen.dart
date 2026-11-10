@@ -395,7 +395,10 @@ class D02PackageDetailsScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const AllInOneBookingScreen(),
+                          builder: (_) => AllInOneBookingScreen(
+                            userPackageId: package.id,
+                            userPackageName: package.packageName,
+                          ),
                         ),
                       );
                     },

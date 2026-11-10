@@ -630,7 +630,20 @@ describe('Admin shared-schema integration', () => {
         key: { id: booking.id },
         action: 'checkout',
       }),
-    ).rejects.toThrow(/thanh toán/);
+    ).rejects.toThrow(/chuyên môn/);
+    await service.mutate('treatment_journal', actor, 'create', {
+      values: {
+        booking_id: booking.id,
+        customer_id: customer.id,
+        session_number: 1,
+        session_date: '2026-10-16',
+        treatment_notes: 'Đã hoàn tất chuyên môn',
+      },
+    });
+    await service.action('bookings', actor, {
+      key: { id: booking.id },
+      action: 'finish-service',
+    });
     const invoice = await service.mutate('invoices', actor, 'create', {
       values: {
         invoice_code: 'TESTINVOICE',
@@ -660,10 +673,6 @@ describe('Admin shared-schema integration', () => {
     await service.action('invoices', actor, {
       key: { id: invoice.id },
       action: 'confirm-payment',
-    });
-    await service.action('bookings', actor, {
-      key: { id: booking.id },
-      action: 'checkout',
     });
     expect(
       (

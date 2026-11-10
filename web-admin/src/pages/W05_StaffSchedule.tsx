@@ -96,6 +96,10 @@ interface ScheduleAppointment {
   roomName?: string;
   serviceId?: string;
   cancellationReason?: string | null;
+  paymentStatus?: PaymentStatus | string;
+  paymentMethod?: PaymentMethod | string;
+  sessionStatus?: 'NOT_STARTED' | 'IN_SERVICE' | 'COMPLETED';
+  specialNotes?: string | null;
 }
 
 
@@ -110,6 +114,14 @@ export const TIME_SLOT_OPTIONS = [
   { label: '17:30–18:30', startHour: 17.5, durationHours: 1.0, bufferTimeRange: '18:30–18:45', bufferEndTime: '18:30', startTime: '17:30:00', endTime: '18:30:00' },
   { label: '18:30–19:30', startHour: 18.5, durationHours: 1.0, bufferTimeRange: '19:30–19:45', bufferEndTime: '19:30', startTime: '18:30:00', endTime: '19:30:00' },
   { label: '19:30–20:30', startHour: 19.5, durationHours: 1.0, bufferTimeRange: '20:30–20:45', bufferEndTime: '20:30', startTime: '19:30:00', endTime: '20:30:00' },
+];
+
+const BOOKING_FLOW_STEPS: Array<{ status: BookingStatus; label: string }> = [
+  { status: BookingStatus.PENDING, label: 'Tiếp nhận' },
+  { status: BookingStatus.CONFIRMED, label: 'Xác nhận' },
+  { status: BookingStatus.CHECKED_IN, label: 'Check-in' },
+  { status: BookingStatus.IN_SERVICE, label: 'Phục vụ' },
+  { status: BookingStatus.COMPLETED, label: 'Hoàn tất' },
 ];
 
 export interface ScheduleTechnician {
@@ -478,27 +490,43 @@ export const W05_StaffSchedule: React.FC = () => {
       const customerName = cust?.fullName || b.bookedForName || 'Khách hàng';
       const customerPhone = cust?.phone || b.bookedForPhone || '';
       const techName = tech?.name || b.technician?.fullName || (b.technicianId ? 'Kỹ thuật viên' : 'Chưa phân công');
+      const isPackageBooking = Boolean(b.specialNotes?.includes('[Gói liệu trình:'));
+      const clinicalCompleted = b.sessionStatus === 'COMPLETED';
 
       const statusLabel =
-        b.status === 'CONFIRMED'
+        b.status === 'PENDING'
+          ? isPackageBooking ? 'Chờ xác nhận gói' : 'Chờ xác nhận'
+          : b.status === 'CONFIRMED'
           ? 'Đã xác nhận'
+          : b.status === 'CHECKED_IN'
+          ? 'Đã tiếp đón'
           : b.status === 'IN_SERVICE'
-          ? 'Đang thực hiện'
+          ? clinicalCompleted
+            ? b.paymentStatus === 'PAID' ? 'Sẵn sàng đóng ca' : 'Chờ thanh toán'
+            : 'Đang thực hiện'
           : b.status === 'COMPLETED'
           ? 'Hoàn thành'
           : b.status === 'CANCELLED'
           ? 'Đã hủy'
-          : 'Chờ thanh toán';
+          : b.status === 'NO_SHOW'
+          ? 'Khách không đến'
+          : isPackageBooking
+          ? 'Chờ xác nhận gói'
+          : String(b.status);
 
       const isPaid = b.paymentStatus === 'PAID';
-      const priceVal = b.finalPrice || b.baseTotal || 500000;
-      const depositVal = isPaid
+      const priceVal = Number(b.finalPrice ?? b.baseTotal ?? 0);
+      const depositVal = isPackageBooking
+        ? 'Yêu cầu dùng gói'
+        : isPaid
         ? '0đ (Đã tất toán)'
         : b.discountAmount
         ? `${b.discountAmount.toLocaleString('vi-VN')}đ`
         : 'Chưa thu cọc';
 
-      const remainingVal = isPaid
+      const remainingVal = isPackageBooking
+        ? '0đ (Chờ đối chiếu gói)'
+        : isPaid
         ? '0đ (Đã thanh toán đủ)'
         : `${Math.max(0, priceVal - (b.discountAmount || 0)).toLocaleString('vi-VN')}đ`;
 
@@ -534,7 +562,7 @@ export const W05_StaffSchedule: React.FC = () => {
         remaining: remainingVal,
         status: statusLabel,
         statusRaw: b.status,
-        statusType: isPaid ? 'independent' : 'waiting_payment',
+        statusType: isPaid || isPackageBooking ? 'independent' : 'waiting_payment',
         bufferTitle: `Giữ nguồn lực đến ${(b.endTime || '').slice(0, 5)}`,
         bufferDesc: isPaid
           ? 'Liệu trình đã hoàn thành hoặc thanh toán đầy đủ. Vùng đệm vệ sinh khử khuẩn 15 phút sau phục vụ.'
@@ -549,6 +577,10 @@ export const W05_StaffSchedule: React.FC = () => {
         roomName: b.room?.name || 'Phòng Trị Liệu',
         serviceId: (b.items && b.items[0]?.serviceId) || (b as any).serviceId || (b as any).service_id || '',
         cancellationReason: b.cancellationReason || (b as any).cancellation_reason || null,
+        paymentStatus: b.paymentStatus,
+        paymentMethod: b.paymentMethod,
+        sessionStatus: b.sessionStatus || 'NOT_STARTED',
+        specialNotes: b.specialNotes,
       };
 
     });
@@ -804,31 +836,53 @@ export const W05_StaffSchedule: React.FC = () => {
     }
   };
 
-  // Update Booking Status directly on Supabase Cloud
+  // Booking lifecycle is enforced by the backend workflow. The browser never
+  // writes protected operational states directly.
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
-  const handleUpdateBookingStatus = async (bookingId: string, nextStatus: BookingStatus): Promise<boolean> => {
+  const handleBookingAction = async (
+    app: ScheduleAppointment,
+    action: 'confirm' | 'checkin' | 'start' | 'finish-service' | 'checkout' | 'cancel' | 'no-show',
+    options: { reason?: string; userPackageId?: string } = {}
+  ): Promise<boolean> => {
     setIsUpdatingStatus(true);
     try {
-      const res = await bookingService.updateBookingStatus(bookingId, nextStatus);
+      const packageIdFromApp = app.specialNotes?.match(/user_package_id=([0-9a-f-]{36})/i)?.[1];
+      const res = await bookingService.runWorkflowAction(app.id, action, {
+        ...options,
+        userPackageId: options.userPackageId || (action === 'checkin' ? packageIdFromApp : undefined),
+      });
       if (!res.success) {
-        toast.error('Cập nhật thất bại', res.message || 'Không thể cập nhật trạng thái lịch.');
+        toast.error('Không thể chuyển bước', res.message || 'Trạng thái hoặc dữ liệu lịch chưa hợp lệ.');
         return false;
       }
-      setLiveBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, status: nextStatus } : b)));
-      const statusMap: Record<string, string> = {
-        [BookingStatus.CONFIRMED]: 'Đã xác nhận',
-        [BookingStatus.IN_SERVICE]: 'Đang thực hiện',
-        [BookingStatus.COMPLETED]: 'Hoàn thành',
-        [BookingStatus.CANCELLED]: 'Đã hủy',
+      await fetchScheduleData();
+      const actionMap: Record<string, string> = {
+        confirm: 'Đã xác nhận lịch hẹn',
+        checkin: 'Đã check-in và xác minh quyền sử dụng dịch vụ',
+        start: 'Đã bắt đầu thực hiện dịch vụ',
+        'finish-service': 'Đã hoàn tất hồ sơ chuyên môn',
+        checkout: 'Đã đóng ca dịch vụ',
+        cancel: 'Đã hủy lịch hẹn',
+        'no-show': 'Đã ghi nhận khách không đến',
       };
-      toast.success('Cập nhật thành công', `Trạng thái lịch hẹn: ${statusMap[nextStatus] || nextStatus}`);
+      toast.success('Cập nhật thành công', actionMap[action] || 'Quy trình lịch hẹn đã được cập nhật.');
       return true;
-    } catch {
-      toast.error('Lỗi hệ thống', 'Vui lòng thử lại sau.');
+    } catch (error: any) {
+      toast.error('Lỗi hệ thống', error?.message || 'Vui lòng thử lại sau.');
       return false;
     } finally {
       setIsUpdatingStatus(false);
     }
+  };
+
+  const handleCancelBooking = async (app: ScheduleAppointment) => {
+    const reason = window.prompt('Nhập lý do hủy lịch để lưu vào lịch sử:', app.cancellationReason || '');
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.warning('Thiếu lý do', 'Cần nhập lý do hủy để tiếp tục.');
+      return;
+    }
+    await handleBookingAction(app, 'cancel', { reason: reason.trim() });
   };
 
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -910,8 +964,8 @@ export const W05_StaffSchedule: React.FC = () => {
     checkResult: ScheduleValidationResult;
   } | null>(null);
 
-  // Check-in and start service workflow
-  const handleCheckInAndStart = (app: ScheduleAppointment) => {
+  // Reception check-in is deliberately separate from starting the service.
+  const handleCheckIn = (app: ScheduleAppointment) => {
     const checkResult = validateAppointmentSchedule(app);
     if (checkResult.isOverdue) {
       setValidationModalApp({ app, checkResult });
@@ -921,25 +975,25 @@ export const W05_StaffSchedule: React.FC = () => {
       setValidationModalApp({ app, checkResult });
       return;
     }
-    handleUpdateBookingStatus(app.id, BookingStatus.IN_SERVICE);
+    void handleBookingAction(app, 'checkin');
   };
 
   // Drop an overdue booking immediately and release resources
   const handleDropOverdueBooking = async (bookingId: string) => {
     setIsUpdatingStatus(true);
     try {
-      const res = await bookingService.updateBookingStatus(bookingId, BookingStatus.CANCELLED);
-      if (res.success) {
-        setLiveBookings((prev) =>
-          prev.map((b) => (b.id === bookingId ? { ...b, status: BookingStatus.CANCELLED } : b))
-        );
+      const app = allAppointments.find((item) => item.id === bookingId);
+      const success = app
+        ? await handleBookingAction(app, 'no-show', { reason: 'Khách không đến và lịch đã quá thời gian giữ chỗ.' })
+        : false;
+      if (success) {
         toast.success(
-          'Đã bỏ lịch hẹn quá hạn',
-          'Lịch hẹn đã được hủy bỏ và giải phóng kỹ thuật viên, phòng/giường thành công.'
+          'Đã ghi nhận không đến',
+          'Kỹ thuật viên và phòng/giường đã được giải phóng.'
         );
         setValidationModalApp(null);
       } else {
-        toast.error('Lỗi thao tác', res.message || 'Không thể hủy lịch hẹn.');
+        toast.error('Lỗi thao tác', 'Không thể ghi nhận khách không đến.');
       }
     } catch (err) {
       toast.error('Lỗi hệ thống', 'Vui lòng thử lại sau.');
@@ -957,12 +1011,11 @@ export const W05_StaffSchedule: React.FC = () => {
 
     setIsUpdatingStatus(true);
     try {
-      await Promise.all(
-        overdueBookings.map((b) => bookingService.updateBookingStatus(b.id, BookingStatus.CANCELLED))
-      );
-      setLiveBookings((prev) =>
-        prev.map((b) => (isBookingOverdue(b) ? { ...b, status: BookingStatus.CANCELLED } : b))
-      );
+      for (const booking of overdueBookings) {
+        const app = allAppointments.find((item) => item.id === booking.id);
+        if (app) await handleBookingAction(app, 'no-show', { reason: 'Khách không đến và lịch đã quá thời gian giữ chỗ.' });
+      }
+      await fetchScheduleData();
       toast.success(
         'Đã dọn dẹp lịch quá hạn',
         `Đã hủy và giải phóng thành công ${overdueBookings.length} lịch hẹn quá hạn.`
@@ -1077,7 +1130,10 @@ export const W05_StaffSchedule: React.FC = () => {
           );
           setClinicalCustomerPackages(activePkgs);
           if (activePkgs.length > 0) {
-            setSelectedUserPackageId(activePkgs[0].id);
+            const requestedPackageId = targetBooking?.specialNotes
+              ?.match(/user_package_id=([0-9a-f-]{36})/i)?.[1];
+            const requestedPackage = activePkgs.find((pkg) => pkg.id === requestedPackageId);
+            setSelectedUserPackageId(requestedPackage?.id || activePkgs[0].id);
           } else {
             setSelectedUserPackageId('');
           }
@@ -1187,7 +1243,7 @@ export const W05_StaffSchedule: React.FC = () => {
         return;
       }
 
-      if (!(await handleUpdateBookingStatus(clinicalApp.id, BookingStatus.COMPLETED))) return;
+      if (!(await handleBookingAction(clinicalApp, 'finish-service'))) return;
 
       // 5. Tự động gửi tin nhắn Zalo ZNS dặn dò sau trị liệu
       if (clinicalApp.customerPhone) {
@@ -1209,10 +1265,10 @@ export const W05_StaffSchedule: React.FC = () => {
 
       setShowClinicalModal(false);
       toast.success(
-        'Hoàn tất buổi điều trị',
+        clinicalApp.paymentStatus === 'PAID' ? 'Hoàn tất buổi điều trị' : 'Đã xong chuyên môn, chờ thanh toán',
         `Đã lưu hồ sơ điều trị cho ${clinicalApp.customer}${
           chosenPkg ? ` (Buổi ${sessionNum}/${chosenPkg.totalSessions} của gói)` : ''
-        } và ghi nhận vật tư theo định mức.`
+        } và ghi nhận vật tư theo định mức.${clinicalApp.paymentStatus === 'PAID' ? '' : ' Chuyển sang POS để đóng ca.'}`
       );
     } catch (err: any) {
       console.error('Lỗi hoàn tất ca:', err);
@@ -1582,10 +1638,12 @@ export const W05_StaffSchedule: React.FC = () => {
             className="h-9 pl-3 pr-8 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#2C241E] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
           >
             <option value="ALL">Tất cả trạng thái</option>
+            <option value="PENDING">Chờ xác nhận</option>
             <option value="CONFIRMED">Đã xác nhận</option>
+            <option value="CHECKED_IN">Đã tiếp đón</option>
             <option value="IN_SERVICE">Đang thực hiện</option>
             <option value="COMPLETED">Đã hoàn thành</option>
-            <option value="PENDING">Chờ thanh toán / Giữ chỗ</option>
+            <option value="NO_SHOW">Khách không đến</option>
             <option value="CANCELLED">Đã hủy</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -2003,7 +2061,11 @@ export const W05_StaffSchedule: React.FC = () => {
                     </span>
                   ) : selectedApp.statusRaw === 'IN_SERVICE' ? (
                     <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]">
-                      Đang thực hiện
+                      {selectedApp.sessionStatus === 'COMPLETED' ? 'Chờ quyết toán' : 'Đang thực hiện'}
+                    </span>
+                  ) : selectedApp.statusRaw === 'CHECKED_IN' ? (
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#ECFDF3] text-[#166534] border border-[#BBF7D0]">
+                      Đã tiếp đón
                     </span>
                   ) : selectedApp.statusRaw === 'CONFIRMED' ? (
                     <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
@@ -2012,6 +2074,10 @@ export const W05_StaffSchedule: React.FC = () => {
                   ) : selectedApp.statusRaw === 'CANCELLED' ? (
                     <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA]">
                       Đã hủy
+                    </span>
+                  ) : selectedApp.statusRaw === 'NO_SHOW' ? (
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#F3F4F6] text-[#4B5563] border border-[#D1D5DB]">
+                      Khách không đến
                     </span>
                   ) : (
                     <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
@@ -2264,6 +2330,8 @@ export const W05_StaffSchedule: React.FC = () => {
                   className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${
                     selectedApp.statusRaw === 'COMPLETED'
                       ? 'bg-[#E8F6ED] text-[#0D6832]'
+                      : selectedApp.statusRaw === 'CHECKED_IN'
+                      ? 'bg-[#ECFDF3] text-[#166534]'
                       : selectedApp.statusRaw === 'IN_SERVICE'
                       ? 'bg-[#E0F2FE] text-[#0369A1]'
                       : selectedApp.statusRaw === 'CANCELLED'
@@ -2278,12 +2346,37 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
               )}
 
+              {!['CANCELLED', 'NO_SHOW'].includes(String(selectedApp.statusRaw)) && (
+                <div className="rounded-2xl border border-[#EFE4D9] bg-[#FAF8F5] px-3 py-3" aria-label="Tiến trình phục vụ">
+                  <div className="grid grid-cols-5 gap-1">
+                    {BOOKING_FLOW_STEPS.map((step, index) => {
+                      const currentIndex = BOOKING_FLOW_STEPS.findIndex((item) => item.status === selectedApp.statusRaw);
+                      const completed = index < currentIndex || selectedApp.statusRaw === 'COMPLETED';
+                      const current = index === currentIndex && selectedApp.statusRaw !== 'COMPLETED';
+                      return (
+                        <div key={step.status} className="min-w-0 text-center">
+                          <div className={`h-1.5 rounded-full mb-1.5 ${completed ? 'bg-[#0D6832]' : current ? 'bg-[#985018]' : 'bg-[#E8DFD8]'}`} />
+                          <span className={`text-[9.5px] font-bold whitespace-nowrap ${completed ? 'text-[#0D6832]' : current ? 'text-[#985018]' : 'text-[#9A8E84]'}`}>
+                            {step.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {selectedApp.statusRaw === 'IN_SERVICE' && selectedApp.sessionStatus === 'COMPLETED' && (
+                    <p className="mt-2.5 text-[11px] font-semibold text-[#8A4F23]">
+                      Hồ sơ chuyên môn đã lưu. {selectedApp.paymentStatus === 'PAID' ? 'Hệ thống đang đóng ca.' : 'Cần quyết toán tại POS để đóng ca.'}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Cancellation Reason Alert if Cancelled */}
-              {selectedApp.statusRaw === 'CANCELLED' && selectedApp.cancellationReason && (
+              {['CANCELLED', 'NO_SHOW'].includes(String(selectedApp.statusRaw)) && selectedApp.cancellationReason && (
                 <div className="bg-[#FFF5F5] border border-[#F5C2C7] rounded-2xl p-3.5 space-y-1 text-xs text-[#7A1D28] animate-in fade-in">
                   <div className="font-bold flex items-center gap-1.5 text-[#B02A37]">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
-                    <span>Lý do hủy lịch hẹn</span>
+                    <span>{selectedApp.statusRaw === 'NO_SHOW' ? 'Ghi nhận khách không đến' : 'Lý do hủy lịch hẹn'}</span>
                   </div>
                   <p className="text-[12px] font-medium leading-relaxed text-[#2C241E]">
                     "{selectedApp.cancellationReason}"
@@ -2328,11 +2421,11 @@ export const W05_StaffSchedule: React.FC = () => {
 
                       <button
                         type="button"
-                        onClick={() => handleCheckInAndStart(selectedApp)}
+                        onClick={() => handleCheckIn(selectedApp)}
                         className="w-full py-2 bg-[#FAF4EE] hover:bg-[#F3E2CE] text-[#8A4F23] border border-[#E8DFD8] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>Kiểm tra khách đến & Bắt đầu</span>
+                        <span>Khách đã đến, thực hiện check-in</span>
                       </button>
                     </div>
                   ) : (
@@ -2341,7 +2434,7 @@ export const W05_StaffSchedule: React.FC = () => {
                         <button
                           type="button"
                           disabled={isUpdatingStatus}
-                          onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.CONFIRMED)}
+                          onClick={() => handleBookingAction(selectedApp, 'confirm')}
                           className="w-full py-2.5 bg-[#8A4F23] hover:bg-[#723F1A] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
@@ -2353,15 +2446,27 @@ export const W05_StaffSchedule: React.FC = () => {
                         <button
                           type="button"
                           disabled={isUpdatingStatus}
-                          onClick={() => handleCheckInAndStart(selectedApp)}
+                          onClick={() => handleCheckIn(selectedApp)}
                           className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                         >
                           <Sparkles className="w-3.5 h-3.5" />
-                          <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Khách đã đến & Bắt đầu'}</span>
+                          <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Check-in khách tại quầy'}</span>
                         </button>
                       )}
 
-                      {selectedApp.statusRaw === 'IN_SERVICE' && (
+                      {selectedApp.statusRaw === 'CHECKED_IN' && (
+                        <button
+                          type="button"
+                          disabled={isUpdatingStatus}
+                          onClick={() => handleBookingAction(selectedApp, 'start')}
+                          className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Bắt đầu thực hiện dịch vụ'}</span>
+                        </button>
+                      )}
+
+                      {selectedApp.statusRaw === 'IN_SERVICE' && selectedApp.sessionStatus !== 'COMPLETED' && (
                         <button
                           type="button"
                           disabled={isUpdatingStatus}
@@ -2369,16 +2474,31 @@ export const W05_StaffSchedule: React.FC = () => {
                           className="w-full py-3 bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                         >
                           <ClipboardCheck className="w-4 h-4" />
-                          <span>Ghi bệnh án & Kết thúc ca trị liệu</span>
+                          <span>Ghi hồ sơ & Hoàn tất chuyên môn</span>
                         </button>
                       )}
 
 
-                      {selectedApp.statusRaw !== 'COMPLETED' && selectedApp.statusRaw !== 'CANCELLED' && (
+                      {selectedApp.statusRaw === 'IN_SERVICE' && selectedApp.sessionStatus === 'COMPLETED' && selectedApp.paymentStatus !== 'PAID' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const bCode = selectedApp.customerCode?.split('·')[1]?.trim() || selectedApp.id;
+                            navigate(`/cashier-pos?booking=${encodeURIComponent(bCode)}${selectedApp.branchId ? `&branchId=${selectedApp.branchId}` : ''}`);
+                          }}
+                          className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                          <span>Chuyển POS để thanh toán và đóng ca</span>
+                        </button>
+                      )}
+
+
+                      {['PENDING', 'CONFIRMED'].includes(String(selectedApp.statusRaw)) && (
                         <button
                           type="button"
                           disabled={isUpdatingStatus}
-                          onClick={() => handleUpdateBookingStatus(selectedApp.id, BookingStatus.CANCELLED)}
+                          onClick={() => handleCancelBooking(selectedApp)}
                           className="w-full py-2 bg-[#FDF2F2] hover:bg-[#FDE8E8] text-[#B02A37] border border-[#F5C2C7] rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -2996,15 +3116,11 @@ export const W05_StaffSchedule: React.FC = () => {
                 <>
                   <button
                     type="button"
-                    disabled={isUpdatingStatus}
-                    onClick={() => {
-                      handleUpdateBookingStatus(validationModalApp.app.id, BookingStatus.IN_SERVICE);
-                      setValidationModalApp(null);
-                    }}
-                    className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+                    onClick={() => setValidationModalApp(null)}
+                    className="w-full py-2.5 bg-[#8A4F23] hover:bg-[#723F1A] text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                   >
-                    <Sparkles className="w-4 h-4" />
-                    <span>Xác nhận tiếp nhận phục vụ sớm hôm nay</span>
+                    <Calendar className="w-4 h-4" />
+                    <span>Đóng và giữ nguyên ngày hẹn</span>
                   </button>
 
                   <button
@@ -3124,7 +3240,7 @@ export const W05_StaffSchedule: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => {
-                              handleCheckInAndStart(app);
+                              handleCheckIn(app);
                               setSelectedAppId(app.id);
                               setShowFastCheckInModal(false);
                             }}
@@ -3137,7 +3253,7 @@ export const W05_StaffSchedule: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => {
-                              handleUpdateBookingStatus(app.id, BookingStatus.CONFIRMED);
+                              void handleBookingAction(app, 'confirm');
                               setSelectedAppId(app.id);
                               setShowFastCheckInModal(false);
                             }}

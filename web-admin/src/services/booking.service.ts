@@ -1,8 +1,33 @@
 import { Booking, BookingStatus, PaymentStatus, PaymentMethod, ApiResponse, DualSlotAvailability } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 import { isUuid } from '../utils/searchUtils';
+import { adminCommand } from '../admin/api';
 
 export const bookingService = {
+  async runWorkflowAction(
+    id: string,
+    action: 'confirm' | 'checkin' | 'start' | 'finish-service' | 'checkout' | 'cancel' | 'no-show',
+    options: { reason?: string; userPackageId?: string } = {}
+  ): Promise<ApiResponse<{ completed: boolean }>> {
+    try {
+      if (!isUuid(id)) throw new Error('Mã lịch hẹn không hợp lệ.');
+      const data = await adminCommand<{ completed: boolean }>('bookings/action', {
+        key: { id },
+        action,
+        ...options,
+      });
+      supabaseService.invalidateCache('bookings');
+      return { success: true, statusCode: 200, message: 'Đã cập nhật quy trình lịch hẹn.', data };
+    } catch (error: any) {
+      return {
+        success: false,
+        statusCode: Number(error?.status || 409),
+        message: error?.message || 'Không thể cập nhật quy trình lịch hẹn.',
+        data: { completed: false },
+      };
+    }
+  },
+
   async getBookings(params?: {
     branchId?: string;
     customerId?: string;

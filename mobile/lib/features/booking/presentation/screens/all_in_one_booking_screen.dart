@@ -20,6 +20,8 @@ class AllInOneBookingScreen extends StatefulWidget {
   final SpaServiceModel? initialService;
   final BranchModel? initialBranch;
   final String? initialSpecialty;
+  final String? userPackageId;
+  final String? userPackageName;
 
   const AllInOneBookingScreen({
     super.key,
@@ -27,6 +29,8 @@ class AllInOneBookingScreen extends StatefulWidget {
     this.initialService,
     this.initialBranch,
     this.initialSpecialty,
+    this.userPackageId,
+    this.userPackageName,
   });
 
   @override
@@ -34,6 +38,8 @@ class AllInOneBookingScreen extends StatefulWidget {
 }
 
 class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
+  bool get _usesActivePackage => widget.userPackageId?.trim().isNotEmpty == true;
+
   // 1. Dịch vụ duy nhất & Thuế giá lấy động từ Admin backend
   String _serviceId = '235166f2-66c9-4231-bbe1-af91b48fc67c';
   String _serviceTitle = 'Lưu phù bạch huyết';
@@ -93,9 +99,11 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
           : MockHomeRepository.getBranches();
       _branches = mockBranches;
       _selectedBranch = widget.initialBranch ?? mockBranches.first;
-      _serviceTitle = widget.initialService?.name ?? ServiceRepository.defaultCoreVodderService.name;
+      _serviceTitle = _usesActivePackage && widget.userPackageName?.trim().isNotEmpty == true
+          ? widget.userPackageName!.trim()
+          : widget.initialService?.name ?? ServiceRepository.defaultCoreVodderService.name;
       _serviceDuration = widget.initialService?.durationMinutes ?? ServiceRepository.defaultCoreVodderService.durationMinutes;
-      _pricePerPerson = widget.initialService?.displayPrice ?? ServiceRepository.defaultCoreVodderService.displayPrice;
+      _pricePerPerson = _usesActivePackage ? 0 : widget.initialService?.displayPrice ?? ServiceRepository.defaultCoreVodderService.displayPrice;
       _nameController.text = 'Khách hàng MLD';
       _phoneController.text = '0967786399';
       _emailController.text = 'khachhang@mldvietnam.vn';
@@ -116,9 +124,11 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
         _serviceId = coreService.id.isNotEmpty && !coreService.id.startsWith('srv-')
             ? coreService.id
             : '235166f2-66c9-4231-bbe1-af91b48fc67c';
-        _serviceTitle = coreService.name;
+        _serviceTitle = _usesActivePackage && widget.userPackageName?.trim().isNotEmpty == true
+            ? widget.userPackageName!.trim()
+            : coreService.name;
         _serviceDuration = coreService.durationMinutes;
-        _pricePerPerson = coreService.displayPrice;
+        _pricePerPerson = _usesActivePackage ? 0 : coreService.displayPrice;
         _branches = branches;
         _selectedBranch = widget.initialBranch ?? BranchRepository.instance.activeBranch ?? (branches.isNotEmpty ? branches.first : (BranchRepository.instance.cachedBranches.isNotEmpty ? BranchRepository.instance.cachedBranches.first : null));
         if (_isBookingForSelf) {
@@ -344,6 +354,14 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       }
     }
 
+    final packageReference = _usesActivePackage
+        ? '[Gói liệu trình: ${widget.userPackageName ?? 'Đang sử dụng'} | user_package_id=${widget.userPackageId}]'
+        : '';
+    final customerNote = _noteController.text.trim();
+    final synchronizedNotes = [packageReference, customerNote]
+        .where((value) => value.trim().isNotEmpty)
+        .join(' | ');
+
     final appointment = AppointmentItemModel(
       id: appointmentCode,
       bookingCode: appointmentCode,
@@ -364,18 +382,20 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       customerPhone: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : '0900000000',
       customerEmail: customerEmail,
       customerAddress: customerAddress,
-      specialNotes: _noteController.text.trim(),
+      specialNotes: synchronizedNotes,
       totalAmount: _totalPrice,
       depositAmount: 0,
       remainingAmount: _totalPrice,
-      paymentMethod: 'CASH_AT_SPA',
+      paymentMethod: _usesActivePackage ? 'MEMBERSHIP_WALLET' : 'CASH_AT_SPA',
       paymentStatus: 'UNPAID',
       status: AppointmentStatus.pending, // Chờ duyệt
       createdAt: DateTime.now(),
       timeline: [
         BookingTimelineEvent(
           title: 'Đăng ký đặt lịch thành công',
-          description: 'Hệ thống đã tiếp nhận yêu cầu đặt lịch ($_guestCount người). Chờ chuyên gia liên hệ xác nhận trong ít phút.',
+          description: _usesActivePackage
+              ? 'Đã ghi nhận buổi tiếp theo thuộc ${widget.userPackageName ?? 'liệu trình đang sử dụng'}. Chờ trung tâm xác nhận.'
+              : 'Hệ thống đã tiếp nhận yêu cầu đặt lịch ($_guestCount người). Chờ chuyên gia liên hệ xác nhận trong ít phút.',
           timestamp: DateTime.now(),
           isCompleted: true,
           isCurrent: true,

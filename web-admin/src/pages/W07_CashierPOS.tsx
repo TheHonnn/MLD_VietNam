@@ -123,6 +123,7 @@ const GUEST_CUSTOMER: User = {
 export const W07_CashierPOS: React.FC = () => {
   const { user: adminUser } = useAdmin();
   const [searchParams, setSearchParams] = useSearchParams();
+  const isTreatmentRegistration = searchParams.get('flow') === 'treatment-registration';
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>(() => {
     return searchParams.get('branchId') || localStorage.getItem('mld_selected_branch_id') || 'ALL';
@@ -330,6 +331,8 @@ export const W07_CashierPOS: React.FC = () => {
     status?: string;
     commissionText?: string;
     technicianName?: string;
+    userPackageId?: string;
+    packageDefinitionId?: string;
     znsSent?: boolean;
     materialsText?: string;
   } | null>(null);
@@ -385,13 +388,15 @@ export const W07_CashierPOS: React.FC = () => {
         setAllCourses(courseRes.value.data);
       }
       if (srvRes.status === 'fulfilled' && srvRes.value && srvRes.value.length > 0) {
-        const services = srvRes.value;
-        setAllServices(services);
-        setWalkInServiceId((prev) => prev || services[0].id);
+        const servicesList = srvRes.value;
+        setAllServices(servicesList);
+        const firstServiceId = servicesList[0]?.id;
+        if (firstServiceId) {
+          setWalkInServiceId((prev) => prev || firstServiceId);
+        }
       }
       if (techRes.status === 'fulfilled' && techRes.value && techRes.value.length > 0) {
-        const technicians = techRes.value;
-        setAllTechnicians(technicians);
+        setAllTechnicians(techRes.value);
       }
 
       try {
@@ -423,7 +428,9 @@ export const W07_CashierPOS: React.FC = () => {
             id: pkg.id,
             name: pkg.name,
             type: 'PACKAGE',
-            unitPrice: Number(pkg.price),
+            unitPrice: Number(pkg.discountPrice) > 0 && Number(pkg.discountPrice) < Number(pkg.price)
+              ? Number(pkg.discountPrice)
+              : Number(pkg.price),
             quantity: 1,
             totalSessions: Number(pkg.totalSessions),
             packageId: pkg.id,
@@ -731,14 +738,32 @@ export const W07_CashierPOS: React.FC = () => {
           ? PaymentMethod.BANK_TRANSFER
           : PaymentMethod.MOMO;
 
+      const registrationPackage = isTreatmentRegistration
+        && !booking?.id
+        && discountAmount === 0
+        && posCart.length === 1
+        && posCart[0].type === 'PACKAGE'
+        && posCart[0].quantity === 1;
+
       const collection = await posService.collectPayment({
-        kind: booking?.id ? 'BOOKING' : 'CART',
-        ...(booking?.id ? { bookingId: booking.id } : { items: posCart.map(item => ({ id: item.id, type: item.type, quantity: item.quantity, serviceId: item.serviceId, packageId: item.packageId })) }),
+        kind: booking?.id ? 'BOOKING' : registrationPackage ? 'PACKAGE' : 'CART',
+        ...(booking?.id
+          ? { bookingId: booking.id }
+          : registrationPackage
+            ? { packageId: posCart[0].packageId || posCart[0].id }
+            : { items: posCart.map(item => ({ id: item.id, type: item.type, quantity: item.quantity, serviceId: item.serviceId, packageId: item.packageId })) }),
         customerId: targetCustomerId, branchId: currentShift.branchId,
         shiftId: currentShift.id, paymentMethod: paymentMethodEnum as PaymentMethod.CASH_AT_SPA | PaymentMethod.BANK_TRANSFER,
         vatRate, discountAmount, expectedTotal: cartTotal, commissionStaffId: selectedCommissionStaffId || undefined,
       });
       if (!collection.success || !collection.data?.invoice?.id) throw new Error(collection.message);
+      if (registrationPackage) {
+        // POS writes through the workflow API, not SupabaseService.query(). Clear the
+        // operational cache so the treatment screen sees the newly activated package
+        // immediately when the cashier hands off to first-session scheduling.
+        supabaseService.invalidateCache('user_packages');
+        supabaseService.invalidateCache('invoices');
+      }
       const receiptCode = collection.data.invoice.invoice_code;
       const shift = await posService.getActiveShift(currentShift.branchId);
       if (shift.success) setCurrentShift(shift.data);
@@ -755,7 +780,7 @@ export const W07_CashierPOS: React.FC = () => {
         serviceName: posCart.map((i) => `${i.name} (x${i.quantity})`).join(', '),
         category: posCart.some((i) => i.type === 'PACKAGE') ? 'PACKAGE' : 'SERVICE',
         method: selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : selectedMethod === 'transfer' ? 'Chuyển khoản VietQR' : 'Quẹt thẻ POS',
-        amount: `${cartTotal.toLocaleString('vi-VN')}đ`,
+        amount: `${Number(collection.data.amount ?? cartTotal).toLocaleString('vi-VN')}đ`,
         subtotal: `${cartSubtotal.toLocaleString('vi-VN')}đ`,
         discount: discountAmount > 0 ? `${discountAmount.toLocaleString('vi-VN')}đ` : '0đ',
         preTaxAmount: `${cartPreTax.toLocaleString('vi-VN')}đ`,
@@ -773,12 +798,19 @@ export const W07_CashierPOS: React.FC = () => {
         status: 'Đã thanh toán 100%',
         commissionText: undefined,
         technicianName: techName,
+        userPackageId: collection.data.userPackage?.id,
+        packageDefinitionId: collection.data.userPackage?.package_id,
         znsSent: false,
         materialsText: 'Chưa xác nhận xuất kho vật tư',
       });
 
       setShowReceiptModal(true);
-      toast.success('Thanh toán thành công', `Đã ghi nhận hóa đơn ${receiptCode} · ${cartTotal.toLocaleString('vi-VN')}đ`);
+      toast.success(
+        registrationPackage ? 'Đã kích hoạt liệu trình' : 'Thanh toán thành công',
+        registrationPackage
+          ? `Hồ sơ liệu trình đã được tạo và liên kết hóa đơn ${receiptCode}.`
+          : `Đã ghi nhận hóa đơn ${receiptCode} · ${cartTotal.toLocaleString('vi-VN')}đ`
+      );
 
       // Reset cart và tạo mã mới cho đơn kế tiếp
       clearCart();
@@ -1595,7 +1627,20 @@ export const W07_CashierPOS: React.FC = () => {
       {/* TAB 1: BÁN HÀNG TẠI QUẦY (POS WORKSTATION - MENU + CART + CHECKOUT)       */}
       {/* ========================================================================= */}
       {activeTab === 'pos' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <div className="space-y-4">
+          {isTreatmentRegistration && (
+            <div className="rounded-2xl border border-[#D7BBA6] bg-[#FAF8F5] px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="w-9 h-9 rounded-xl bg-[#985018] text-white flex items-center justify-center shrink-0"><CheckCircle2 className="w-5 h-5" /></span>
+                <div>
+                  <p className="text-xs font-extrabold text-[#2C241E]">Đăng ký liệu trình · Bước thanh toán</p>
+                  <p className="text-[11px] text-[#73675F] mt-1">Khách hàng và gói đã được chọn. Kiểm tra chi nhánh, nhân viên tư vấn, giá và phương thức thanh toán trước khi kích hoạt.</p>
+                </div>
+              </div>
+              <span className="text-[11px] font-semibold text-[#8A4F23] whitespace-nowrap">Hồ sơ chỉ tạo khi thanh toán thành công</span>
+            </div>
+          )}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* ------------------------------------------------------------- */}
           {/* LEFT 65%: INTERACTIVE MENU & SERVICE / PACKAGE CATALOG        */}
           {/* ------------------------------------------------------------- */}
@@ -2217,7 +2262,9 @@ export const W07_CashierPOS: React.FC = () => {
                     value={discountAmount || ''}
                     onChange={(e) => setDiscountAmount(Math.max(0, Number(e.target.value) || 0))}
                     placeholder="0"
-                    className="w-20 text-right py-0.5 px-1.5 border border-[#E8DFD8] bg-white rounded text-xs font-semibold text-emerald-700 focus:outline-none focus:border-[#985018]"
+                    disabled={isTreatmentRegistration}
+                    title={isTreatmentRegistration ? 'Luồng đăng ký liệu trình sử dụng đúng giá ưu đãi đã cấu hình của gói.' : undefined}
+                    className="w-20 text-right py-0.5 px-1.5 border border-[#E8DFD8] bg-white rounded text-xs font-semibold text-emerald-700 focus:outline-none focus:border-[#985018] disabled:bg-[#F1ECE7] disabled:text-[#9A8E84] disabled:cursor-not-allowed"
                   />
                   <span className="font-bold text-emerald-700">đ</span>
                 </div>
@@ -2381,6 +2428,7 @@ export const W07_CashierPOS: React.FC = () => {
                 </>
               )}
             </button>
+          </div>
           </div>
         </div>
       )}
@@ -3517,10 +3565,10 @@ export const W07_CashierPOS: React.FC = () => {
                 <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
               </div>
               <h3 className="text-base font-extrabold text-[#2C241E]">
-                Thanh toán thành công!
+                {selectedReceiptData.userPackageId ? 'Liệu trình đã được kích hoạt!' : 'Thanh toán thành công!'}
               </h3>
               <p className="text-[11px] text-[#73675F] mt-0.5">
-                Biên lai điện tử MLD Healthcare & Spa
+                {selectedReceiptData.userPackageId ? 'Hóa đơn và hồ sơ liệu trình đã liên kết thành công' : 'Biên lai điện tử MLD Healthcare & Spa'}
               </p>
             </div>
 
@@ -3563,10 +3611,34 @@ export const W07_CashierPOS: React.FC = () => {
                 <Sparkles className="w-4 h-4 shrink-0" />
                 <span>Trạng thái: {selectedReceiptData.status || 'Đã thanh toán'}{selectedReceiptData.status?.includes('hoàn tiền') ? ` · Giá trị thực thu: ${selectedReceiptData.amount}` : ' · Dữ liệu đã đồng bộ kế toán'}</span>
               </div>
+              {selectedReceiptData.userPackageId && (
+                <div className="rounded-xl border border-[#D7BBA6] bg-[#FAF8F5] p-3">
+                  <p className="text-xs font-bold text-[#2C241E]">Bước tiếp theo: đặt buổi chăm sóc đầu tiên</p>
+                  <p className="text-[11px] text-[#73675F] mt-1 leading-relaxed">Mở hồ sơ vừa kích hoạt để chọn cơ sở, ngày giờ và kỹ thuật viên. Khách có thể đặt sau nếu chưa chốt lịch.</p>
+                </div>
+              )}
             </div>
 
             {/* Modal Actions */}
-            <div className="p-4 bg-[#FAF8F5] border-t border-[#EFE4D9] flex items-center gap-2">
+            <div className="p-4 bg-[#FAF8F5] border-t border-[#EFE4D9] space-y-2">
+              {selectedReceiptData.userPackageId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const query = new URLSearchParams({
+                      action: 'book-first-session',
+                      userPackageId: selectedReceiptData.userPackageId || '',
+                    });
+                    if (selectedReceiptData.packageDefinitionId) query.set('packageId', selectedReceiptData.packageDefinitionId);
+                    window.location.href = `/medical-records?${query.toString()}`;
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-[#985018] hover:bg-[#854412] font-bold text-white transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>Đặt buổi đầu tiên</span>
+                </button>
+              )}
+              <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -3590,11 +3662,12 @@ export const W07_CashierPOS: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowReceiptModal(false)}
-                className="flex-1 py-2 rounded-xl bg-[#985018] hover:bg-[#854412] font-bold text-white transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                className={`flex-1 py-2 rounded-xl font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${selectedReceiptData.userPackageId ? 'border border-[#D7BBA6] bg-white text-[#8A4F23] hover:bg-[#FAF0E4]' : 'bg-[#985018] hover:bg-[#854412] text-white'}`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Hoàn tất</span>
+                <span>{selectedReceiptData.userPackageId ? 'Để sau' : 'Hoàn tất'}</span>
               </button>
+              </div>
             </div>
           </div>
         </div>

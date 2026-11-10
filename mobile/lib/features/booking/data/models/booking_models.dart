@@ -7,9 +7,11 @@ enum SlotPeriod { morning, afternoon, evening }
 enum AppointmentStatus {
   pending, // Chờ xác nhận
   confirmed, // Đã xác nhận
+  checkedIn, // Đã tiếp đón tại chi nhánh
   inService, // Đang phục vụ
   completed, // Hoàn thành
   cancelled, // Đã hủy
+  noShow, // Khách không đến
 }
 
 extension AppointmentStatusExtension on AppointmentStatus {
@@ -19,12 +21,16 @@ extension AppointmentStatusExtension on AppointmentStatus {
         return 'Chờ xác nhận';
       case AppointmentStatus.confirmed:
         return 'Đã xác nhận';
+      case AppointmentStatus.checkedIn:
+        return 'Đã check-in';
       case AppointmentStatus.inService:
         return 'Đang phục vụ';
       case AppointmentStatus.completed:
         return 'Hoàn thành';
       case AppointmentStatus.cancelled:
         return 'Đã hủy';
+      case AppointmentStatus.noShow:
+        return 'Không đến';
     }
   }
 
@@ -34,12 +40,16 @@ extension AppointmentStatusExtension on AppointmentStatus {
         return 'Chờ xác nhận';
       case AppointmentStatus.confirmed:
         return 'Đã xác nhận';
+      case AppointmentStatus.checkedIn:
+        return 'Đã check-in';
       case AppointmentStatus.inService:
         return 'Đang phục vụ';
       case AppointmentStatus.completed:
         return 'Hoàn thành';
       case AppointmentStatus.cancelled:
         return 'Đã hủy';
+      case AppointmentStatus.noShow:
+        return 'Không đến';
     }
   }
 }

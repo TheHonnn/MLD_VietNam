@@ -1279,7 +1279,7 @@ export class AdminService {
   async action(
     table: string,
     actor: AdminActor,
-    body: { key?: unknown; action?: string; reason?: string },
+    body: { key?: unknown; action?: string; reason?: string; userPackageId?: string },
   ) {
     this.resource(table, actor, true);
     const columns = await this.columns(table, actor);
@@ -1299,33 +1299,100 @@ export class AdminService {
       if (!row) throw new NotFoundException('Không tìm thấy bản ghi.');
       await assertRowScope(client, table, row, columns.map(column => column.name), actor, 'action');
       if (table === 'bookings') {
-        const transitions = {
-          checkin: ['CONFIRMED', 'CHECKED_IN'],
-          start: ['CHECKED_IN', 'IN_SERVICE'],
-          checkout: ['IN_SERVICE', 'COMPLETED'],
-        };
-        const t = transitions[body.action];
-        if (!t || row.status !== t[0])
-          throw new ConflictException('Trạng thái lịch hẹn không phù hợp.');
-        if (body.action === 'checkout' && row.payment_status !== 'PAID')
-          throw new ConflictException(
-            'Cần hoàn tất thanh toán trước khi check-out.',
-          );
-        if (body.action === 'checkin')
+        const action = body.action || '';
+        if (action === 'confirm') {
+          if (row.status !== 'PENDING')
+            throw new ConflictException('Chỉ xác nhận lịch đang chờ xử lý.');
+          await client.query("UPDATE bookings SET status='CONFIRMED' WHERE id=$1", [row.id]);
+        } else if (action === 'cancel') {
+          if (!['PENDING', 'CONFIRMED'].includes(row.status))
+            throw new ConflictException('Chỉ hủy lịch chưa tiếp đón khách.');
+          if (!body.reason?.trim())
+            throw new BadRequestException('Cần nhập lý do hủy lịch.');
           await client.query(
-            "UPDATE bookings SET status='CHECKED_IN', checked_in_at=now(), checked_in_by_id=$2 WHERE id=$1",
-            [row.id, actor.id],
+            "UPDATE bookings SET status='CANCELLED',cancellation_reason=$2,cancelled_by_id=$3 WHERE id=$1",
+            [row.id, body.reason.trim().slice(0, 2000), actor.id],
           );
-        if (body.action === 'start')
+        } else if (action === 'no-show') {
+          if (row.status !== 'CONFIRMED')
+            throw new ConflictException('Chỉ đánh dấu không đến cho lịch đã xác nhận.');
+          if (!body.reason?.trim())
+            throw new BadRequestException('Cần ghi lý do xác nhận khách không đến.');
           await client.query(
-            "UPDATE bookings SET status='IN_SERVICE',service_started_at=now() WHERE id=$1",
+            "UPDATE bookings SET status='NO_SHOW',cancellation_reason=$2,cancelled_by_id=$3 WHERE id=$1",
+            [row.id, body.reason.trim().slice(0, 2000), actor.id],
+          );
+        } else if (action === 'checkin') {
+          if (row.status !== 'CONFIRMED')
+            throw new ConflictException('Chỉ check-in lịch đã được xác nhận.');
+          if (row.payment_method === 'MEMBERSHIP_WALLET') {
+            const userPackageId = String(body.userPackageId || '');
+            if (!this.isUuid(userPackageId))
+              throw new BadRequestException('Cần chọn gói liệu trình hợp lệ trước khi check-in.');
+            const entitlement = (await client.query(
+              `SELECT up.id,tp.service_id
+               FROM user_packages up JOIN treatment_packages tp ON tp.id=up.package_id
+               WHERE up.id=$1 AND up.customer_id=$2 AND up.status='ACTIVE'
+                 AND up.completed_sessions<up.total_sessions
+                 AND (up.expires_at IS NULL OR up.expires_at>now())
+               FOR UPDATE OF up`,
+              [userPackageId, row.customer_id],
+            )).rows[0];
+            if (!entitlement)
+              throw new ConflictException('Gói liệu trình không thuộc khách, đã hết buổi hoặc hết hạn.');
+            const serviceMatches = (await client.query(
+              'SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id=$2 LIMIT 1',
+              [row.id, entitlement.service_id],
+            )).rowCount;
+            if (!serviceMatches)
+              throw new ConflictException('Dịch vụ đặt lịch không khớp gói liệu trình.');
+            await client.query(
+              "UPDATE bookings SET payment_status='PAID',status='CHECKED_IN',checked_in_at=now(),checked_in_by_id=$2 WHERE id=$1",
+              [row.id, actor.id],
+            );
+          } else {
+            await client.query(
+              "UPDATE bookings SET status='CHECKED_IN',checked_in_at=now(),checked_in_by_id=$2 WHERE id=$1",
+              [row.id, actor.id],
+            );
+          }
+        } else if (action === 'start') {
+          if (row.status !== 'CHECKED_IN')
+            throw new ConflictException('Cần check-in khách trước khi bắt đầu dịch vụ.');
+          await client.query(
+            "UPDATE bookings SET status='IN_SERVICE',session_status='IN_SERVICE',service_started_at=now() WHERE id=$1",
             [row.id],
           );
-        if (body.action === 'checkout')
+        } else if (action === 'finish-service') {
+          if (row.status !== 'IN_SERVICE' || row.session_status === 'COMPLETED')
+            throw new ConflictException('Ca dịch vụ không ở trạng thái có thể hoàn tất.');
+          const journal = await client.query(
+            'SELECT 1 FROM treatment_journal WHERE booking_id=$1 LIMIT 1',
+            [row.id],
+          );
+          if (!journal.rowCount)
+            throw new ConflictException('Cần lưu hồ sơ buổi chăm sóc trước khi hoàn tất chuyên môn.');
           await client.query(
-            "UPDATE bookings SET status='COMPLETED', checked_out_at=now(),checked_out_by_id=$2,actual_duration_minutes=GREATEST(0,floor(extract(epoch from (now()-service_started_at))/60)) WHERE id=$1",
+            `UPDATE bookings SET session_status='COMPLETED',
+             status=CASE WHEN payment_status='PAID' THEN 'COMPLETED'::booking_status ELSE status END,
+             checked_out_at=CASE WHEN payment_status='PAID' THEN now() ELSE checked_out_at END,
+             checked_out_by_id=CASE WHEN payment_status='PAID' THEN $2 ELSE checked_out_by_id END,
+             actual_duration_minutes=GREATEST(0,floor(extract(epoch from (now()-service_started_at))/60))::int
+             WHERE id=$1`,
             [row.id, actor.id],
           );
+        } else if (action === 'checkout') {
+          if (row.status !== 'IN_SERVICE' || row.session_status !== 'COMPLETED')
+            throw new ConflictException('Cần hoàn tất hồ sơ chuyên môn trước khi check-out.');
+          if (row.payment_status !== 'PAID')
+            throw new ConflictException('Cần hoàn tất thanh toán trước khi check-out.');
+          await client.query(
+            "UPDATE bookings SET status='COMPLETED',checked_out_at=now(),checked_out_by_id=$2,actual_duration_minutes=GREATEST(0,floor(extract(epoch from (now()-service_started_at))/60))::int WHERE id=$1",
+            [row.id, actor.id],
+          );
+        } else {
+          throw new BadRequestException('Thao tác lịch hẹn không được hỗ trợ.');
+        }
       } else if (
         ['tuition_transactions', 'invoices'].includes(table) &&
         ['confirm-payment', 'confirm-refund'].includes(body.action)
@@ -1426,8 +1493,12 @@ export class AdminService {
                 'Hóa đơn không khớp lịch hẹn hoặc lịch đã thu tiền.',
               );
             await client.query(
-              "UPDATE bookings SET payment_status='PAID',payment_method=$2 WHERE id=$1",
-              [row.booking_id, row.payment_method],
+              `UPDATE bookings SET payment_status='PAID',payment_method=$2,
+               status=CASE WHEN session_status='COMPLETED' THEN 'COMPLETED'::booking_status ELSE status END,
+               checked_out_at=CASE WHEN session_status='COMPLETED' THEN now() ELSE checked_out_at END,
+               checked_out_by_id=CASE WHEN session_status='COMPLETED' THEN $3 ELSE checked_out_by_id END
+               WHERE id=$1`,
+              [row.booking_id, row.payment_method, actor.id],
             );
           }
         }
@@ -1817,8 +1888,12 @@ export class AdminService {
           );
         }
         await client.query(
-          "UPDATE bookings SET payment_status='PAID',payment_method=$2,updated_at=now() WHERE id=$1",
-          [booking.id,paymentMethod],
+          `UPDATE bookings SET payment_status='PAID',payment_method=$2,updated_at=now(),
+           status=CASE WHEN session_status='COMPLETED' THEN 'COMPLETED'::booking_status ELSE status END,
+           checked_out_at=CASE WHEN session_status='COMPLETED' THEN now() ELSE checked_out_at END,
+           checked_out_by_id=CASE WHEN session_status='COMPLETED' THEN $3 ELSE checked_out_by_id END
+           WHERE id=$1`,
+          [booking.id,paymentMethod,actor.id],
         );
         const paidInvoice = (await client.query(
           "UPDATE invoices SET payment_status='PAID',paid_at=now() WHERE id=$1 RETURNING *", [invoice.id],

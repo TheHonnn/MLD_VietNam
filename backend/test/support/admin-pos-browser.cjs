@@ -20,6 +20,29 @@ async function verifyPosPayment(page,pg,frontendUrl,output) {
   const shift=(await pg.query('SELECT * FROM cashier_shifts WHERE id=$1',[invoices[0].shift_id])).rows[0];
   assert.equal(Number(shift.total_sales),Number(invoices[0].total_amount));
   await page.screenshot({path:path.join(output,'pos-paid-desktop.png')});
+  const treatmentPackage=(await pg.query("INSERT INTO treatment_packages(name,service_id,total_sessions,price,validity_months,description,image_url) VALUES('Liệu trình kiểm thử đăng ký',$1,10,500000,6,'Kiểm thử luồng đăng ký','https://example.invalid/package.png') RETURNING id",[service.id])).rows[0];
+  await page.goto(frontendUrl+'/medical-records');
+  await page.getByRole('heading',{name:'Quản lý liệu trình',exact:true}).waitFor();
+  await page.getByRole('button',{name:/Đăng ký gói mới/}).click();
+  await page.getByRole('heading',{name:'Đăng ký liệu trình cho khách hàng',exact:true}).waitFor();
+  await page.getByPlaceholder('Tìm tên, số điện thoại hoặc email...').fill('0900000000');
+  await page.getByRole('button',{name:/Khách hàng Vãng lai/}).click();
+  await page.getByRole('button',{name:'Tiếp tục',exact:true}).click();
+  await page.getByRole('button',{name:/Liệu trình kiểm thử đăng ký/}).click();
+  await page.getByRole('button',{name:'Tiếp tục',exact:true}).click();
+  await page.getByRole('heading',{name:'Kiểm tra trước khi chuyển sang thu ngân',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Chuyển sang thu ngân',exact:true}).click();
+  await page.waitForURL(/\/cashier-pos\?flow=treatment-registration/);
+  await page.getByTitle('Liệu trình kiểm thử đăng ký',{exact:true}).waitFor();
+  await page.getByRole('button',{name:/Xác nhận thanh toán & In hóa đơn/}).click();
+  await page.getByText('Liệu trình đã được kích hoạt!',{exact:true}).waitFor();
+  const owner=(await pg.query('SELECT * FROM user_packages WHERE customer_id=$1 AND package_id=$2',[guest,treatmentPackage.id])).rows[0];
+  assert.ok(owner?.id,'Paid registration creates the customer treatment file');
+  const packageInvoice=(await pg.query('SELECT * FROM invoices WHERE user_package_id=$1',[owner.id])).rows[0];
+  assert.equal(packageInvoice.payment_status,'PAID','Package invoice is linked and paid');
+  await page.getByRole('button',{name:'Đặt buổi đầu tiên',exact:true}).click();
+  await page.getByRole('heading',{name:'Đặt lịch buổi chăm sóc tiếp theo',exact:true}).waitFor();
+  await page.screenshot({path:path.join(output,'package-registration-handoff.png')});
   const batch=(await pg.query('SELECT id,course_id,branch_id FROM course_batches LIMIT 1')).rows[0];
   const enrollment=(await pg.query('INSERT INTO course_enrollments(student_id,course_id,batch_id,tuition_total,amount_paid) VALUES($1,$2,$3,1000000,150000) RETURNING id',[guest,batch.course_id,batch.id])).rows[0];
   for (const [code,type,status,amount] of [['POS-TUI-1','DEPOSIT','PAID',200000],['POS-TUI-2','REFUND','PAID',50000],['POS-TUI-3','REMAINING_BALANCE','PENDING',800000]]) {
@@ -36,9 +59,9 @@ async function verifyPosPayment(page,pg,frontendUrl,output) {
   await page.getByText('POS-TUI-2',{exact:true}).waitFor();
   assert.equal(await page.getByText('LEGACY-TUI',{exact:true}).count(),0,'Legacy enrollment invoice must not duplicate the tuition ledger');
   assert.equal(await page.locator('input[type="month"]').first().inputValue(),new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit'}).format(new Date()));
-  const expectedNet = `${(Number(invoices[0].total_amount)+150000).toLocaleString('vi-VN')}đ`;
+  const expectedNet = `${(Number(invoices[0].total_amount)+Number(packageInvoice.total_amount)+150000).toLocaleString('vi-VN')}đ`;
   await page.getByText(expectedNet,{exact:true}).first().waitFor();
   await page.screenshot({path:path.join(output,'financial-report-desktop.png')});
-  return {cartToPersistedInvoice:'passed',shiftReconciliation:'passed',discountedPrice:'passed',tuitionHistoryNet:'passed',monthlyFinancialLedger:'passed'};
+  return {cartToPersistedInvoice:'passed',shiftReconciliation:'passed',discountedPrice:'passed',packageRegistrationHandoff:'passed',tuitionHistoryNet:'passed',monthlyFinancialLedger:'passed'};
 }
 module.exports={verifyPosPayment};

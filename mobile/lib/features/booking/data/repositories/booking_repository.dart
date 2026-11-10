@@ -34,6 +34,7 @@ class BookingRepository {
     return _appointments.where((a) =>
       a.status == AppointmentStatus.confirmed ||
       a.status == AppointmentStatus.pending ||
+      a.status == AppointmentStatus.checkedIn ||
       a.status == AppointmentStatus.inService
     ).toList();
   }
@@ -43,7 +44,10 @@ class BookingRepository {
   }
 
   List<AppointmentItemModel> getCancelledAppointments() {
-    return _appointments.where((a) => a.status == AppointmentStatus.cancelled).toList();
+    return _appointments.where((a) =>
+      a.status == AppointmentStatus.cancelled ||
+      a.status == AppointmentStatus.noShow
+    ).toList();
   }
 
   AppointmentItemModel? getAppointmentById(String id) {
@@ -88,10 +92,11 @@ class BookingRepository {
               AppointmentStatus parsedStatus = AppointmentStatus.pending;
               final st = item['status']?.toString().toUpperCase();
               if (st == 'CONFIRMED') parsedStatus = AppointmentStatus.confirmed;
-              if (st == 'CHECKED_IN') parsedStatus = AppointmentStatus.confirmed;
+              if (st == 'CHECKED_IN') parsedStatus = AppointmentStatus.checkedIn;
               if (st == 'IN_SERVICE') parsedStatus = AppointmentStatus.inService;
               if (st == 'COMPLETED') parsedStatus = AppointmentStatus.completed;
               if (st == 'CANCELLED') parsedStatus = AppointmentStatus.cancelled;
+              if (st == 'NO_SHOW') parsedStatus = AppointmentStatus.noShow;
 
               DateTime parsedDate;
               try {
