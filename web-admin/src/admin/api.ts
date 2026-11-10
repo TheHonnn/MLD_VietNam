@@ -480,17 +480,26 @@ async function enrichMissingRelations(rows: Row[], signal?: AbortSignal): Promis
                 r.customer_name = r.customer_name || u.full_name;
                 r.customer_phone = r.customer_phone || u.phone;
                 r.customer_avatar = r.customer_avatar || u.avatar_url;
+                if (!r.customer) {
+                  r.customer = { full_name: u.full_name, phone: u.phone, avatar_url: u.avatar_url };
+                }
               }
               if (r.user_id && map.has(r.user_id)) {
                 const u = map.get(r.user_id)!;
                 r.full_name = r.full_name || u.full_name;
                 r.phone = r.phone || u.phone;
                 r.avatar_url = r.avatar_url || u.avatar_url;
+                if (!r.user) {
+                  r.user = { full_name: u.full_name, phone: u.phone, avatar_url: u.avatar_url };
+                }
               }
               if (r.student_id && map.has(r.student_id)) {
                 const u = map.get(r.student_id)!;
                 r.student_name = r.student_name || u.full_name;
                 r.student_phone = r.student_phone || u.phone;
+                if (!r.student) {
+                  r.student = { full_name: u.full_name, phone: u.phone };
+                }
               }
             });
           }
@@ -1039,6 +1048,12 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
         r.customer_name = r.customer_name || r.customer.full_name;
         r.customer_phone = r.customer_phone || r.customer.phone;
         r.customer_avatar = r.customer_avatar || r.customer.avatar_url;
+      }
+      if (r.booked_for_name) {
+        r.customer_name = r.customer_name || r.booked_for_name;
+      }
+      if (r.booked_for_phone) {
+        r.customer_phone = r.customer_phone || r.booked_for_phone;
       }
       if (r.technicians) {
         r.technician_name = r.technician_name || r.technicians.full_name;
@@ -1729,7 +1744,11 @@ export const recordLabel = (row: Row) => {
     row.full_name ||
       row.name ||
       row.title ||
+      row.customer?.full_name ||
+      row.users?.full_name ||
+      row.user?.full_name ||
       row.customer_name ||
+      row.booked_for_name ||
       row.package_name ||
       row.service_name ||
       row.code ||

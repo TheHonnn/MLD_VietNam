@@ -19,7 +19,9 @@ export async function enrichReferenceLabels(connection: any, columns: any[], row
     if (!display || reference.column !== 'id') continue;
     const ids = [...new Set(rows.map(row => row[column.name]).filter(Boolean))];
     if (!ids.length) continue;
-    const selectFields = reference.table === 'branches' ? 'id,"' + display + '" AS label, code' : 'id,"' + display + '" AS label';
+    const selectFields = reference.table === 'branches' ? 'id,"' + display + '" AS label, code'
+      : reference.table === 'users' ? 'id,"' + display + '" AS label, phone, avatar_url'
+      : 'id,"' + display + '" AS label';
     const result = await connection.query('SELECT ' + selectFields + ' FROM public."' + reference.table + '" WHERE id=ANY($1::uuid[])', [ids]);
     const labels = new Map(result.rows.map((row: any) => [row.id, row]));
     for (const row of rows) {
@@ -30,11 +32,28 @@ export async function enrichReferenceLabels(connection: any, columns: any[], row
       if (reference.table === 'branches' && !row.branch_code && match.code) {
         row.branch_code = match.code;
       }
+      if (reference.table === 'users') {
+        if (column.name === 'customer_id') {
+          if (!row.customer_phone && match.phone) row.customer_phone = match.phone;
+          if (!row.customer_avatar && match.avatar_url) row.customer_avatar = match.avatar_url;
+        } else if (column.name === 'user_id') {
+          if (!row.phone && match.phone) row.phone = match.phone;
+          if (!row.avatar_url && match.avatar_url) row.avatar_url = match.avatar_url;
+        } else if (column.name === 'student_id') {
+          if (!row.student_phone && match.phone) row.student_phone = match.phone;
+        }
+      }
       const nested = reference.table === 'users' && column.name === 'customer_id' ? 'customer'
         : reference.table === 'users' && column.name === 'student_id' ? 'student'
         : column.name === 'assistant_instructor_id' ? 'assistant_instructor'
         : reference.table;
-      if (!row[nested]) row[nested] = { id: row[column.name], [display]: match.label, ...(match.code ? { code: match.code } : {}) };
+      if (!row[nested]) row[nested] = {
+        id: row[column.name],
+        [display]: match.label,
+        ...(match.code ? { code: match.code } : {}),
+        ...(match.phone ? { phone: match.phone } : {}),
+        ...(match.avatar_url ? { avatar_url: match.avatar_url } : {})
+      };
     }
   }
 }

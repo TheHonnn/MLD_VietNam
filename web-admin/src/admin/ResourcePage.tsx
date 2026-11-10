@@ -1179,11 +1179,31 @@ function formatCell(row: Row, c: Column, table?: string): React.ReactNode {
   }
   if (c.name === "customer_id") {
     const rawVal = String(row[c.name] || "");
-    const rawCust = row.customer_name || row.customer?.full_name || row.users?.full_name;
+    const rawCust =
+      row.customer_name ||
+      row.customer?.full_name ||
+      row.users?.full_name ||
+      row.user?.full_name ||
+      row.booked_for_name ||
+      row.customers?.full_name ||
+      row.full_name;
     const isRawUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(rawCust || rawVal).trim());
-    const custName = rawCust || (isRawUuid ? `Khách hàng #${rawVal.slice(0, 8)}` : display(row[c.name]));
-    const phone = row.customer_phone || row.customer?.phone || row.users?.phone;
-    const avatar = row.customer_avatar || row.customer?.avatar_url || row.users?.avatar_url;
+    const custName = (rawCust && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(rawCust).trim()))
+      ? rawCust
+      : (isRawUuid ? `Khách hàng #${rawVal.slice(0, 8)}` : display(row[c.name]));
+    const phone =
+      row.customer_phone ||
+      row.customer?.phone ||
+      row.users?.phone ||
+      row.user?.phone ||
+      row.booked_for_phone ||
+      row.phone;
+    const avatar =
+      row.customer_avatar ||
+      row.customer?.avatar_url ||
+      row.users?.avatar_url ||
+      row.user?.avatar_url ||
+      row.avatar_url;
     return (
       <div className="flex items-center gap-2.5">
         {avatar ? (
@@ -4428,9 +4448,29 @@ function BookingOperationsView({
             const meta = bookingStatusMeta[String(row.status)] || { label: String(row.status || "Chưa rõ"), tone: "bg-slate-50 text-slate-700 border-slate-200", hint: "Kiểm tra trạng thái" };
             const action = primaryAction(row);
             const ActionIcon = action?.icon;
-            const customerName = row.customer?.full_name || row.customer_name || `Khách hàng ${String(row.customer_id || "").slice(0, 8)}`;
-            const customerPhone = row.customer?.phone || row.phone || "Chưa có số điện thoại";
-            const branchName = row.branches?.name || row.branch_name || "Chưa xác định cơ sở";
+            const customerName =
+              row.customer?.full_name ||
+              row.customer_name ||
+              row.users?.full_name ||
+              row.user?.full_name ||
+              row.booked_for_name ||
+              row.full_name ||
+              (row.customer_id ? `Khách hàng #${String(row.customer_id).slice(0, 8)}` : "Khách vãng lai");
+            const customerPhone =
+              row.customer?.phone ||
+              row.customer_phone ||
+              row.users?.phone ||
+              row.user?.phone ||
+              row.booked_for_phone ||
+              row.phone ||
+              "Chưa có số điện thoại";
+            const branchName =
+              row.branches?.name ||
+              row.branch?.name ||
+              row.branch_name ||
+              branchCache.get(String(row.branch_id || ""))?.name ||
+              KNOWN_BRANCH_FALLBACKS[String(row.branch_id || "")]?.name ||
+              "Chưa xác định cơ sở";
             const date = row.booking_date ? new Date(`${row.booking_date}T00:00:00`).toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" }) : "Chưa có ngày";
             const time = String(row.start_time || "").slice(0, 5) || "Chưa có giờ";
             const isWaitingPayment = row.status === "IN_SERVICE" && row.session_status === "COMPLETED" && row.payment_status !== "PAID";
