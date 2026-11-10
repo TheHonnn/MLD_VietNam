@@ -83,6 +83,7 @@ import {
   classifyPosSource,
   isBookingWaitingPayment,
   isCompletedServiceBooking,
+  hasCashierShiftSnapshotChanged,
   SYSTEM_GUEST_CUSTOMER_ID,
 } from './cashier-pos.rules';
 
@@ -279,6 +280,7 @@ export const W07_CashierPOS: React.FC = () => {
   const [currentShift, setCurrentShift] = useState<CashierShift | null>(null);
   const [showOpenShiftModal, setShowOpenShiftModal] = useState(false);
   const [showCloseShiftModal, setShowCloseShiftModal] = useState(false);
+  const [isClosingShift, setIsClosingShift] = useState(false);
   const [shiftOpeningCash, setShiftOpeningCash] = useState<number>(1000000);
   const [shiftClosingCash, setShiftClosingCash] = useState<number>(0);
   const [shiftNotes, setShiftNotes] = useState('');
@@ -1652,8 +1654,14 @@ export const W07_CashierPOS: React.FC = () => {
           {currentShift ? (
             <button
               type="button"
-              onClick={() => {
-                setShiftClosingCash(currentShift.systemCash ?? currentShift.openingCash);
+              onClick={async () => {
+                const latest = await posService.getActiveShift(currentShift.branchId);
+                if (!latest.success || !latest.data) {
+                  toast.error('Không thể đối soát ca', latest.message || 'Không tải được số liệu ca mới nhất.');
+                  return;
+                }
+                setCurrentShift(latest.data);
+                setShiftClosingCash(latest.data.systemCash ?? latest.data.openingCash);
                 setShiftVarianceReason('');
                 setShowCloseShiftModal(true);
               }}
@@ -4427,19 +4435,36 @@ export const W07_CashierPOS: React.FC = () => {
               <button
                 type="button"
                 onClick={async () => {
+                  if (isClosingShift) return;
                   const expectedCash = currentShift.systemCash ?? currentShift.openingCash;
                   if (shiftClosingCash !== expectedCash && shiftVarianceReason.trim().length < 5) {
                     toast.error('Thiếu lý do chênh lệch', 'Vui lòng nhập lý do ít nhất 5 ký tự.');
                     return;
                   }
+                  setIsClosingShift(true);
                   try {
+                    // Re-read immediately before closing. Payments can arrive while
+                    // the reconciliation dialog is open, so the modal snapshot is
+                    // not authoritative.
+                    const latest = await posService.getActiveShift(currentShift.branchId);
+                    if (!latest.success || !latest.data) {
+                      toast.error('Không thể kết ca', latest.message || 'Ca hiện tại đã thay đổi. Vui lòng tải lại trang.');
+                      return;
+                    }
+                    const latestExpectedCash = latest.data.systemCash ?? latest.data.openingCash;
+                    if (hasCashierShiftSnapshotChanged(currentShift, latest.data)) {
+                      setCurrentShift(latest.data);
+                      setShiftClosingCash(latestExpectedCash);
+                      setShiftVarianceReason('');
+                      toast.warning(
+                        'Số liệu ca vừa thay đổi',
+                        'Có giao dịch mới trong lúc đối soát. Hệ thống đã cập nhật tiền mặt; vui lòng kiểm đếm và xác nhận lại.'
+                      );
+                      return;
+                    }
                     const result = await posService.closeShift(currentShift.id, {
                       closingCash: shiftClosingCash,
                       notes: [shiftNotes.trim(), shiftVarianceReason.trim() ? `Chênh lệch tiền mặt: ${shiftVarianceReason.trim()}` : ''].filter(Boolean).join('\n'),
-                      systemCash: currentShift.systemCash,
-                      totalSales: currentShift.totalSales,
-                      transferSales: currentShift.transferSales,
-                      cardSales: currentShift.cardSales,
                     });
                     if (!result.success) {
                       toast.error('Không thể kết ca', result.message || 'Máy chủ chưa ghi nhận kết ca.');
@@ -4450,12 +4475,14 @@ export const W07_CashierPOS: React.FC = () => {
                     toast.success('Đã đóng ca', 'Đã kết ca và hoàn tất đối soát doanh thu.');
                   } catch (e: any) {
                     toast.error('Không thể kết ca', e?.message || 'Đã xảy ra lỗi khi lưu kết ca.');
+                  } finally {
+                    setIsClosingShift(false);
                   }
                 }}
-                disabled={shiftClosingCash !== (currentShift.systemCash ?? currentShift.openingCash) && shiftVarianceReason.trim().length < 5}
+                disabled={isClosingShift || (shiftClosingCash !== (currentShift.systemCash ?? currentShift.openingCash) && shiftVarianceReason.trim().length < 5)}
                 className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Xác nhận kết ca
+                {isClosingShift ? 'Đang kết ca...' : 'Xác nhận kết ca'}
               </button>
             </div>
           </div>

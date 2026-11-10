@@ -31,6 +31,13 @@ test('paid invoice removes a stale unpaid booking from the queue', () => {
   assert.equal(rules.isBookingWaitingPayment(booking, new Set(['booking-1'])), false);
 });
 
+test('cashier cannot close from a stale reconciliation snapshot', () => {
+  const shown = { id: 'shift-1', openingCash: 1000000, systemCash: 1000000 };
+  assert.equal(rules.hasCashierShiftSnapshotChanged(shown, { ...shown }), false);
+  assert.equal(rules.hasCashierShiftSnapshotChanged(shown, { ...shown, systemCash: 1900000 }), true);
+  assert.equal(rules.hasCashierShiftSnapshotChanged(shown, { ...shown, id: 'shift-2' }), true);
+});
+
 test('cancelled and no-show bookings never appear as money to collect', () => {
   assert.equal(rules.isBookingWaitingPayment({ id: 'cancelled', status: 'CANCELLED', paymentStatus: 'UNPAID' }, new Set()), false);
   assert.equal(rules.isBookingWaitingPayment({ id: 'no-show', status: 'NO_SHOW', paymentStatus: 'UNPAID' }, new Set()), false);

@@ -26,6 +26,21 @@ type BookingLike = {
   }>;
 };
 
+type CashierShiftSnapshot = {
+  id: string;
+  systemCash?: number;
+  openingCash: number;
+};
+
+export function hasCashierShiftSnapshotChanged(
+  snapshot: CashierShiftSnapshot,
+  latest: CashierShiftSnapshot,
+): boolean {
+  const snapshotExpected = Number(snapshot.systemCash ?? snapshot.openingCash);
+  const latestExpected = Number(latest.systemCash ?? latest.openingCash);
+  return snapshot.id !== latest.id || snapshotExpected !== latestExpected;
+}
+
 export function cartCompositionError(cart: CartLine[], nextType: CartLine['type']): string | null {
   const hasPackage = cart.some((line) => line.type === 'PACKAGE');
   if (nextType === 'PACKAGE' && cart.length > 0) return 'Gói liệu trình phải được thanh toán trong một phiếu riêng.';
