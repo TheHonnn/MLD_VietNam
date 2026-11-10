@@ -31,6 +31,12 @@ test('paid invoice removes a stale unpaid booking from the queue', () => {
   assert.equal(rules.isBookingWaitingPayment(booking, new Set(['booking-1'])), false);
 });
 
+test('cancelled and no-show bookings never appear as money to collect', () => {
+  assert.equal(rules.isBookingWaitingPayment({ id: 'cancelled', status: 'CANCELLED', paymentStatus: 'UNPAID' }, new Set()), false);
+  assert.equal(rules.isBookingWaitingPayment({ id: 'no-show', status: 'NO_SHOW', paymentStatus: 'UNPAID' }, new Set()), false);
+  assert.equal(rules.isBookingWaitingPayment({ id: 'active', status: 'IN_SERVICE', paymentStatus: 'UNPAID' }, new Set()), true);
+});
+
 test('booking checkout preserves every item and never invents a fallback price', () => {
   const lines = rules.bookingItemsToCart({ id: 'booking-1', items: [
     { id: 'i1', price: 100, service: { id: 's1', name: 'One' } },

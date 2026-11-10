@@ -59,6 +59,7 @@ import {
 } from '../components/dashboard/RevenueBreakdownChart';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { matchSearch } from '../utils/searchUtils';
+import { isBookingWaitingPayment } from './cashier-pos.rules';
 
 type DateRangePreset = '7D' | 'TODAY' | '30D' | 'THIS_MONTH' | 'ALL' | 'CUSTOM';
 
@@ -488,7 +489,20 @@ export const W01_Dashboard: React.FC = () => {
   const instructorsCount = instructors.length;
   const activeInstructorsCount = instructors.filter((i) => i.isActive !== false).length;
 
-  const pendingBookings = filteredBookings.filter((b) => b.paymentStatus !== 'PAID');
+  // Keep the dashboard KPI identical to the cashier queue. A booking that was
+  // cancelled/no-show, or already has a paid invoice, must not be presented as
+  // money the cashier still needs to collect.
+  const paidBookingIds = useMemo(
+    () => new Set(
+      invoices
+        .filter((invoice) => invoice.paymentStatus === 'PAID' && invoice.bookingId)
+        .map((invoice) => String(invoice.bookingId))
+    ),
+    [invoices]
+  );
+  const pendingBookings = filteredBookings.filter((booking) =>
+    isBookingWaitingPayment(booking, paidBookingIds)
+  );
   const pendingBookingAmount = pendingBookings.reduce((s, b) => s + b.finalPrice, 0);
 
   const pendingEnrollments = filteredEnrollments.filter(
