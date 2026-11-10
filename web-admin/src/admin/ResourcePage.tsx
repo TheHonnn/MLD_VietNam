@@ -17,6 +17,7 @@ import { CourseCategoryFormEditor, slugifyCategoryCode } from "./CourseCategoryF
 import { InstructorFormEditor } from "./InstructorFormEditor";
 import { BatchScheduleFormEditor } from "./BatchScheduleFormEditor";
 import { StudentAcademicRecordFormEditor } from "./StudentAcademicRecordFormEditor";
+import { BookingCreateDialog } from "./BookingCreateDialog";
 import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
 import { ShareJournalModal, ShareJournalItem } from "../components/treatment/ShareJournalModal";
 import CertificateTemplateEditor from "../components/certificates/CertificateTemplateEditor";
@@ -3568,7 +3569,9 @@ function RecordDialog({
       }}
       aria-labelledby="record-heading"
     >
-      {resource.name === "staff_profiles" ? (
+      {resource.name === "bookings" && mode === "create" ? (
+        <BookingCreateDialog onClose={onClose} onSaved={onSaved} />
+      ) : resource.name === "staff_profiles" ? (
         <StaffProfileEditorSheet
           row={row}
           mode={mode}
@@ -4691,7 +4694,7 @@ function InvoiceItemsView({ rows, onOpen }: { rows: Row[]; onOpen: (row: Row) =>
                 className="grid grid-cols-1 items-center gap-3 px-4 py-4 transition-colors hover:bg-[#FFFDFC] lg:grid-cols-[minmax(170px,0.85fr)_minmax(310px,1.55fr)_150px_170px_92px] lg:gap-4 lg:px-5"
               >
                 <Link
-                  to={`/manage/invoices?search=${encodeURIComponent(String(invoiceCode))}`}
+                  to={`/cashier-pos?tab=receipts&search=${encodeURIComponent(String(invoiceCode))}`}
                   className="inline-flex min-w-0 items-center gap-1.5 text-xs font-extrabold text-[#8A4F23] hover:underline focus:outline-none focus:ring-2 focus:ring-[#985018]/30"
                 >
                   <FileText size={14} className="shrink-0" />
@@ -5757,10 +5760,10 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           .map((r) => (
             <Link
               key={r.name}
-              to={`/manage/${r.name}`}
+              to={r.name === "invoices" ? "/cashier-pos?tab=receipts" : `/manage/${r.name}`}
               aria-current={r.name === table ? "page" : undefined}
             >
-              {r.title}
+              {r.name === "invoices" ? "Hóa đơn & Đối soát" : r.title}
             </Link>
           ))}
       </nav>

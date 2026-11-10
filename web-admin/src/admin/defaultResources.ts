@@ -8,7 +8,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
   // 2. Thu ngân & Tiếp đón (Lịch hẹn, Hóa đơn & Bảng kê thanh toán)
   { name: 'bookings', title: 'Lịch hẹn / Check-in / Check-out', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'booking_items', title: 'Dịch vụ trong lịch hẹn', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'invoices', title: 'Hóa đơn', group: 'Thu ngân & Tiếp đón', actions: ['action'] },
+  { name: 'invoices', title: 'Hóa đơn & Đối soát', group: 'Thu ngân & Tiếp đón', actions: ['action'] },
   { name: 'invoice_items', title: 'Chi tiết hóa đơn', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'home_products', title: 'Sản phẩm mang về', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete'] },
 

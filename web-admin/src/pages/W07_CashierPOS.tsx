@@ -315,9 +315,15 @@ export const W07_CashierPOS: React.FC = () => {
   const [isSubmittingWalkIn, setIsSubmittingWalkIn] = useState<boolean>(false);
 
   // Invoices Tab Filter States
-  const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
+  const [invoiceSearchTerm, setInvoiceSearchTerm] = useState(() => searchParams.get('search') || searchParams.get('invoice') || '');
   const [invoiceMethodFilter, setInvoiceMethodFilter] = useState('ALL');
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('ALL');
+
+  useEffect(() => {
+    if (activeTab !== 'receipts') return;
+    const requestedInvoice = searchParams.get('search') || searchParams.get('invoice') || '';
+    setInvoiceSearchTerm(requestedInvoice);
+  }, [activeTab, searchParams]);
 
   // Receipt Modal Data
   const [selectedReceiptData, setSelectedReceiptData] = useState<{

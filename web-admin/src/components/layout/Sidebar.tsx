@@ -95,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             { name: 'Thu ngân POS', path: '/cashier-pos' },
             { name: 'Lịch hẹn / Check-in / Check-out', path: '/manage/bookings' },
             { name: 'Dịch vụ trong lịch hẹn', path: '/manage/booking_items' },
-            { name: 'Hóa đơn', path: '/manage/invoices' },
+            { name: 'Hóa đơn & Đối soát', path: '/cashier-pos?tab=receipts' },
             { name: 'Chi tiết hóa đơn', path: '/manage/invoice_items' },
           ],
         },
