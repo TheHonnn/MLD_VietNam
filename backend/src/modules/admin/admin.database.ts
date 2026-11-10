@@ -24,7 +24,11 @@ export class AdminDatabase implements OnModuleDestroy, OnModuleInit {
       const status = await inspectAdminSchema(this.connection);
       if (!status.ready) throw new ServiceUnavailableException(`Admin schema is incomplete: ${status.missing.join(', ')}`);
     } catch (error) {
-      logger.error('Admin database readiness check failed. Verify the database connection and migrations.');
+      const databaseError = error as { code?: string; message?: string; stack?: string };
+      logger.error(
+        `Admin database readiness check failed${databaseError.code ? ` [${databaseError.code}]` : ''}: ${databaseError.message || 'Unknown database error'}`,
+        databaseError.stack,
+      );
       throw error;
     }
   }
