@@ -72,7 +72,7 @@ async function runE2EAcceptanceSuite() {
     // TIÊU CHÍ 1: DUAL-RESOURCE CAPACITY CHẶN ĐẶT KHI KÍN 6 GIƯỜNG / 6 KTV
     // --------------------------------------------------------------------------
     console.log('📋 [E2E - TEST 1] Dual-Resource Capacity: Chặn đặt chỗ khi kín 6 giường & 6 KTV...');
-    
+
     // Tra cứu 10 ca 1 tiếng
     const slotsRes = await client.query(
       'SELECT * FROM public.fn_get_day_slots_dual_availability($1, CURRENT_DATE + 2) ORDER BY start_time ASC;',
@@ -141,7 +141,7 @@ async function runE2EAcceptanceSuite() {
     // --------------------------------------------------------------------------
     console.log('📋 [E2E - TEST 2] Dynamic Ceiling Reduction: KTV nghỉ phép -> Giảm trần công suất...');
     const testDate2 = new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0];
-    
+
     // Giả lập 2 KTV xin nghỉ phép có phê duyệt vào ngày testDate2
     const techLeave1 = technicians[0];
     const techLeave2 = technicians[1];
@@ -180,7 +180,7 @@ async function runE2EAcceptanceSuite() {
     // TIÊU CHÍ 3: VÒNG ĐỜI HỌC VIÊN 365 NGÀY, AUTO-EXPIRE CRON & GIA HẠN
     // --------------------------------------------------------------------------
     console.log('📋 [E2E - TEST 3] Academy 365-Day Lifecycle & Auto-Expire Lockdown...');
-    
+
     // Tạo học viên đã nhập học 370 ngày trước
     const past370Days = new Date(Date.now() - 370 * 86400000).toISOString();
     const enrollRes = await client.query(`
@@ -238,7 +238,7 @@ async function runE2EAcceptanceSuite() {
     // TIÊU CHÍ 4: AUTOMATED EMAIL NOTIFICATION & LIVE LOGGING VÀO EMAIL_LOGS
     // --------------------------------------------------------------------------
     console.log('📋 [E2E - TEST 4] Automated Email Dispatch & Real Audit Logging...');
-    
+
     // Kiểm tra mẫu email ENROLLMENT_EXPIRY_WARNING trên Supabase Cloud
     const tplRes = await client.query("SELECT id, name, subject FROM public.email_templates WHERE id = 'ENROLLMENT_EXPIRY_WARNING';");
     if (tplRes.rows.length === 0) {
@@ -270,7 +270,7 @@ async function runE2EAcceptanceSuite() {
     // TIÊU CHÍ 5: AUTO-RELEASE LIFECYCLE (NHẢ PHÒNG & KTV KHI HẾT CA)
     // --------------------------------------------------------------------------
     console.log('📋 [E2E - TEST 5] Auto-Release Lifecycle: Nhả phòng & KTV khi qua giờ kết thúc ca...');
-    
+
     // Tạo 1 ca trị liệu đã qua giờ hôm nay (ví dụ ca 08:00–09:00 sáng nay)
     const pastBookingRes = await client.query(`
       INSERT INTO public.bookings (
@@ -311,7 +311,7 @@ async function runE2EAcceptanceSuite() {
     // TIÊU CHÍ 6: LEAST-BUSY TECHNICIAN DISPATCH
     // --------------------------------------------------------------------------
     console.log('📋 [E2E - TEST 6] Least-Busy Technician Dispatch: Cân bằng tải ca cho 6 KTV...');
-    
+
     const dispatchRes = await client.query(
       'SELECT * FROM public.fn_dispatch_least_busy_technician($1, $2, $3, $4);',
       [branchId, testDate, '13:30:00', '14:30:00']
