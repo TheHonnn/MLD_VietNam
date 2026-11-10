@@ -279,6 +279,7 @@ export const W07_CashierPOS: React.FC = () => {
   // Cashier Shift states
   const [currentShift, setCurrentShift] = useState<CashierShift | null>(null);
   const [showOpenShiftModal, setShowOpenShiftModal] = useState(false);
+  const [isOpeningShift, setIsOpeningShift] = useState(false);
   const [showCloseShiftModal, setShowCloseShiftModal] = useState(false);
   const [isClosingShift, setIsClosingShift] = useState(false);
   const [shiftOpeningCash, setShiftOpeningCash] = useState<number>(1000000);
@@ -399,8 +400,8 @@ export const W07_CashierPOS: React.FC = () => {
       if (pkgRes.status === 'fulfilled' && pkgRes.value.success && pkgRes.value.data) {
         setTreatmentPackages(pkgRes.value.data);
       }
-      if (shiftRes.status === 'fulfilled' && shiftRes.value.success && shiftRes.value.data) {
-        setCurrentShift(shiftRes.value.data);
+      if (shiftRes.status === 'fulfilled' && shiftRes.value.success) {
+        setCurrentShift(shiftRes.value.data || null);
       }
       if (enrRes.status === 'fulfilled' && enrRes.value.success && enrRes.value.data) {
         setAllEnrollments(enrRes.value.data);
@@ -437,6 +438,20 @@ export const W07_CashierPOS: React.FC = () => {
       if (res.success && res.data) setCommissionStaff(res.data.filter((staff) => staff.staffProfile.isActive));
     });
   }, []);
+
+  // The active shift is branch-scoped. Keep it synchronized whenever the URL,
+  // global branch selector, or the local selector changes branch. The initial
+  // bulk fetch alone is not sufficient because it closes over the first branch.
+  useEffect(() => {
+    let active = true;
+    const branchId = selectedBranchId !== 'ALL' ? selectedBranchId : undefined;
+    posService.getActiveShift(branchId).then((result) => {
+      if (!active || !result.success) return;
+      setCurrentShift(result.data || null);
+      if (result.data) setShowOpenShiftModal(false);
+    });
+    return () => { active = false; };
+  }, [selectedBranchId]);
 
   // Handle URL query parameter pre-selection
   useEffect(() => {
@@ -4324,13 +4339,25 @@ export const W07_CashierPOS: React.FC = () => {
               <button
                 type="button"
                 onClick={async () => {
+                  if (isOpeningShift) return;
                   const validBranches = branches.filter((b) => b.id !== 'ALL');
                   const bId = (selectedBranchId !== 'ALL' ? selectedBranchId : validBranches[0]?.id) || '';
                   if (!bId) {
                     toast.error('Lỗi', 'Chưa chọn chi nhánh cụ thể để mở ca.');
                     return;
                   }
+                  setIsOpeningShift(true);
                   try {
+                    // Recover an existing server-side shift before attempting a
+                    // create. This covers refreshes, branch switches and another
+                    // browser tab that opened the same cashier shift.
+                    const existing = await posService.getActiveShift(bId);
+                    if (existing.success && existing.data) {
+                      setCurrentShift(existing.data);
+                      setShowOpenShiftModal(false);
+                      toast.info('Đã khôi phục ca đang mở', `Mã ca: ${existing.data.shiftCode}`);
+                      return;
+                    }
                     const res = await posService.openShift({
                       branchId: bId,
                       openingCash: shiftOpeningCash,
@@ -4344,15 +4371,29 @@ export const W07_CashierPOS: React.FC = () => {
                       setShowOpenShiftModal(false);
                       toast.success('Đã mở ca thu ngân', `Mã ca: ${res.data.shiftCode}`);
                     } else {
+                      // A concurrent click/tab may win between the pre-check and
+                      // create. Resolve a 409 by loading the winning shift.
+                      if (res.statusCode === 409) {
+                        const recovered = await posService.getActiveShift(bId);
+                        if (recovered.success && recovered.data) {
+                          setCurrentShift(recovered.data);
+                          setShowOpenShiftModal(false);
+                          toast.info('Đã khôi phục ca đang mở', `Mã ca: ${recovered.data.shiftCode}`);
+                          return;
+                        }
+                      }
                       toast.error('Lỗi mở ca', res.message || 'Không thể mở ca thu ngân.');
                     }
                   } catch (e: any) {
                     toast.error('Lỗi mở ca', e?.message || 'Không thể mở ca thu ngân.');
+                  } finally {
+                    setIsOpeningShift(false);
                   }
                 }}
+                disabled={isOpeningShift}
                 className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold shadow-xs"
               >
-                Xác nhận mở ca
+                {isOpeningShift ? 'Đang kiểm tra ca...' : 'Xác nhận mở ca'}
               </button>
             </div>
           </div>
