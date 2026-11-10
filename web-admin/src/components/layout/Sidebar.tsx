@@ -93,9 +93,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           icon: CreditCard,
           subItems: [
             { name: 'Thu ngân POS', path: '/cashier-pos' },
-            { name: 'Sản phẩm mang về', path: '/home-products' },
-            { name: 'Lịch hẹn & Tiếp đón', path: '/manage/bookings' },
+            { name: 'Lịch hẹn / Check-in / Check-out', path: '/manage/bookings' },
             { name: 'Dịch vụ trong lịch hẹn', path: '/manage/booking_items' },
+            { name: 'Hóa đơn', path: '/manage/invoices' },
             { name: 'Chi tiết hóa đơn', path: '/manage/invoice_items' },
           ],
         },
@@ -128,6 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           icon: Sparkles,
           subItems: [
             { name: 'Bảng giá niêm yết MLD', path: '/services-catalog' },
+            { name: 'Sản phẩm mang về', path: '/home-products' },
             { name: 'Danh mục nhóm dịch vụ', path: '/manage/service_categories' },
             { name: 'Định mức tiêu hao vật tư (BOM)', path: '/manage/service_materials' },
             { name: 'Xuất kho vật tư tiêu hao (BOM)', path: '/manage/inventory_consumption_logs' },

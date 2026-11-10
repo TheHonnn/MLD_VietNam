@@ -4511,6 +4511,218 @@ function BookingOperationsView({
   );
 }
 
+function BookingItemsView({
+  rows,
+  onOpen,
+  onEdit,
+}: {
+  rows: Row[];
+  onOpen: (row: Row) => void;
+  onEdit: (row: Row) => void;
+}) {
+  const totalValue = rows.reduce((sum, row) => sum + Number(row.price || 0), 0);
+  const totalDuration = rows.reduce((sum, row) => sum + Number(row.duration_minutes || 0), 0);
+  const assignedCount = rows.filter((row) => row.technician_name || row.technicians?.full_name).length;
+  const bookingCount = new Set(rows.map((row) => row.booking_id).filter(Boolean)).size;
+
+  return (
+    <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif]">
+      <section className="rounded-xl border border-[#E2D6CA] bg-white px-4 py-4" aria-label="Tổng quan dịch vụ trong lịch hẹn">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[
+            { label: "Lịch hẹn", value: bookingCount.toLocaleString("vi-VN"), detail: "Có dịch vụ trên trang", tone: "text-[#8A4F23]" },
+            { label: "Dịch vụ", value: rows.length.toLocaleString("vi-VN"), detail: "Dòng dịch vụ đang xem", tone: "text-[#2C241E]" },
+            { label: "Tổng thời lượng", value: `${totalDuration.toLocaleString("vi-VN")} phút`, detail: "Theo cấu hình lịch", tone: "text-[#2C241E]" },
+            { label: "Tổng niêm yết", value: `${totalValue.toLocaleString("vi-VN")}đ`, detail: "Chưa trừ ưu đãi", tone: "text-[#985018]" },
+          ].map((item) => (
+            <div key={item.label} className="min-w-0 border-l-2 border-[#DCCBBA] pl-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-[#8C7A6B]">{item.label}</p>
+              <p className={`mt-1 truncate text-lg font-black ${item.tone}`}>{item.value}</p>
+              <p className="mt-0.5 hidden text-[10px] text-[#73675F] sm:block">{item.detail}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {assignedCount < rows.length && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-950" role="status">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <div>
+            <strong>{rows.length - assignedCount} dịch vụ chưa có chuyên viên.</strong>
+            <span className="ml-1">Hãy phân công trước giờ khách đến để tránh chậm ca.</span>
+          </div>
+        </div>
+      )}
+
+      <section className="overflow-hidden rounded-xl border border-[#E2D6CA] bg-white" aria-label="Danh sách dịch vụ trong lịch hẹn">
+        <div className="hidden grid-cols-[minmax(180px,0.9fr)_minmax(260px,1.35fr)_minmax(180px,0.9fr)_120px_140px_88px] gap-4 border-b border-[#E8DFD8] bg-[#FAF8F5] px-5 py-2.5 text-[10px] font-bold uppercase tracking-wide text-[#73675F] lg:grid">
+          <span>Lịch hẹn</span>
+          <span>Dịch vụ</span>
+          <span>Chuyên viên</span>
+          <span>Thời lượng</span>
+          <span className="text-right">Giá niêm yết</span>
+          <span className="text-right">Thao tác</span>
+        </div>
+        <div className="divide-y divide-[#EFE6DE]">
+          {rows.map((row) => {
+            const bookingCode = row.booking_code || row.bookings?.booking_code || "Chưa có mã lịch";
+            const bookingDate = row.booking_date || row.bookings?.booking_date;
+            const serviceName = row.service_name || row.services?.name || "Dịch vụ chưa đồng bộ tên";
+            const technicianName = row.technician_name || row.technicians?.full_name || "Chưa phân công";
+            const duration = Number(row.duration_minutes || 0);
+            const price = Number(row.price || 0);
+            const hasTechnician = technicianName !== "Chưa phân công";
+            return (
+              <article
+                key={String(row.id)}
+                className="grid grid-cols-1 items-center gap-3 px-4 py-4 transition-colors hover:bg-[#FFFDFC] lg:grid-cols-[minmax(180px,0.9fr)_minmax(260px,1.35fr)_minmax(180px,0.9fr)_120px_140px_88px] lg:gap-4 lg:px-5"
+              >
+                <div className="min-w-0">
+                  <Link
+                    to={`/manage/bookings?search=${encodeURIComponent(String(bookingCode))}`}
+                    className="inline-flex max-w-full items-center gap-1.5 text-xs font-extrabold text-[#8A4F23] hover:underline focus:outline-none focus:ring-2 focus:ring-[#985018]/30"
+                  >
+                    <Calendar size={14} className="shrink-0" />
+                    <span className="truncate">{bookingCode}</span>
+                    <ArrowUpRight size={12} className="shrink-0" />
+                  </Link>
+                  <p className="mt-1 text-[11px] text-[#73675F]">
+                    {bookingDate ? new Date(`${bookingDate}T00:00:00`).toLocaleDateString("vi-VN") : "Chưa xác định ngày"}
+                  </p>
+                </div>
+
+                <button type="button" onClick={() => onOpen(row)} className="min-w-0 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-[#985018]/30">
+                  <span className="block truncate text-sm font-extrabold text-[#2C241E]">{serviceName}</span>
+                  <span className="mt-1 block text-[10px] text-[#73675F]">Bấm để xem đầy đủ chi tiết dịch vụ</span>
+                </button>
+
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${hasTechnician ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                    <UserCheck size={16} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-bold text-[#2C241E]">{technicianName}</span>
+                    <span className="mt-0.5 block text-[10px] text-[#73675F]">{hasTechnician ? "Đã phân công" : "Cần xếp chuyên viên"}</span>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#2C241E]">
+                  <Clock size={14} className="shrink-0 text-[#985018]" />
+                  {duration > 0 ? `${duration} phút` : "Chưa đặt"}
+                </div>
+
+                <p className="text-left text-sm font-black text-[#985018] lg:text-right">{price.toLocaleString("vi-VN")}đ</p>
+
+                <div className="flex items-center justify-start gap-1 lg:justify-end">
+                  <button type="button" onClick={() => onOpen(row)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#DED0C3] text-[#6F3C18] hover:bg-[#FAF3EA] active:translate-y-px" title="Xem chi tiết" aria-label={`Xem ${serviceName}`}>
+                    <Eye size={15} />
+                  </button>
+                  <button type="button" onClick={() => onEdit(row)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#DED0C3] text-[#6F3C18] hover:bg-[#FAF3EA] active:translate-y-px" title="Chỉnh sửa dịch vụ" aria-label={`Chỉnh sửa ${serviceName}`}>
+                    <Pencil size={15} />
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+const invoiceItemTypeMeta: Record<string, { label: string; tone: string }> = {
+  SERVICE: { label: "Dịch vụ spa", tone: "bg-sky-50 text-sky-800 border-sky-200" },
+  PACKAGE: { label: "Gói liệu trình", tone: "bg-amber-50 text-amber-900 border-amber-200" },
+  PRODUCT: { label: "Sản phẩm", tone: "bg-emerald-50 text-emerald-800 border-emerald-200" },
+  COURSE: { label: "Học phí", tone: "bg-violet-50 text-violet-800 border-violet-200" },
+  TUITION: { label: "Học phí", tone: "bg-violet-50 text-violet-800 border-violet-200" },
+};
+
+function InvoiceItemsView({ rows, onOpen }: { rows: Row[]; onOpen: (row: Row) => void }) {
+  const totalAmount = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const totalQuantity = rows.reduce((sum, row) => sum + Number(row.quantity || 0), 0);
+  const invoiceCount = new Set(rows.map((row) => row.invoice_id).filter(Boolean)).size;
+  const typeCount = new Set(rows.map((row) => String(row.item_type || "OTHER"))).size;
+
+  return (
+    <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif]">
+      <section className="rounded-xl border border-[#E2D6CA] bg-white px-4 py-4" aria-label="Tổng quan chi tiết hóa đơn">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[
+            { label: "Hóa đơn", value: invoiceCount.toLocaleString("vi-VN"), detail: "Có dòng thu trên trang", tone: "text-[#8A4F23]" },
+            { label: "Dòng thu", value: rows.length.toLocaleString("vi-VN"), detail: `${totalQuantity.toLocaleString("vi-VN")} đơn vị`, tone: "text-[#2C241E]" },
+            { label: "Nhóm doanh thu", value: typeCount.toLocaleString("vi-VN"), detail: "Theo loại khoản thu", tone: "text-[#2C241E]" },
+            { label: "Tổng giá trị", value: `${totalAmount.toLocaleString("vi-VN")}đ`, detail: "Tổng các dòng đang xem", tone: "text-[#985018]" },
+          ].map((item) => (
+            <div key={item.label} className="min-w-0 border-l-2 border-[#DCCBBA] pl-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-[#8C7A6B]">{item.label}</p>
+              <p className={`mt-1 truncate text-lg font-black ${item.tone}`}>{item.value}</p>
+              <p className="mt-0.5 hidden text-[10px] text-[#73675F] sm:block">{item.detail}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="flex items-start gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-950">
+        <Lock size={15} className="mt-0.5 shrink-0" />
+        <span><strong>Dữ liệu tài chính được bảo vệ.</strong> Dòng thu chỉ được tạo từ Thu ngân POS hoặc quy trình thu học phí để giữ đúng số tiền và lịch sử đối soát.</span>
+      </div>
+
+      <section className="overflow-hidden rounded-xl border border-[#E2D6CA] bg-white" aria-label="Danh sách dòng thu của hóa đơn">
+        <div className="hidden grid-cols-[minmax(170px,0.85fr)_minmax(310px,1.55fr)_150px_170px_92px] gap-4 border-b border-[#E8DFD8] bg-[#FAF8F5] px-5 py-2.5 text-[10px] font-bold uppercase tracking-wide text-[#73675F] lg:grid">
+          <span>Hóa đơn</span>
+          <span>Nội dung thu</span>
+          <span>Phân loại</span>
+          <span className="text-right">Số lượng và đơn giá</span>
+          <span className="text-right">Thành tiền</span>
+        </div>
+        <div className="divide-y divide-[#EFE6DE]">
+          {rows.map((row) => {
+            const invoiceCode = row.invoice_code || row.invoices?.invoice_code || "Chưa có mã hóa đơn";
+            const itemName = row.item_name || row.description || "Khoản thu chưa có diễn giải";
+            const itemType = String(row.item_type || "OTHER");
+            const meta = invoiceItemTypeMeta[itemType] || { label: "Khoản thu khác", tone: "bg-slate-50 text-slate-700 border-slate-200" };
+            const quantity = Number(row.quantity || 0);
+            const unitPrice = Number(row.unit_price || 0);
+            const amount = Number(row.amount || 0);
+            return (
+              <article
+                key={String(row.id)}
+                className="grid grid-cols-1 items-center gap-3 px-4 py-4 transition-colors hover:bg-[#FFFDFC] lg:grid-cols-[minmax(170px,0.85fr)_minmax(310px,1.55fr)_150px_170px_92px] lg:gap-4 lg:px-5"
+              >
+                <Link
+                  to={`/manage/invoices?search=${encodeURIComponent(String(invoiceCode))}`}
+                  className="inline-flex min-w-0 items-center gap-1.5 text-xs font-extrabold text-[#8A4F23] hover:underline focus:outline-none focus:ring-2 focus:ring-[#985018]/30"
+                >
+                  <FileText size={14} className="shrink-0" />
+                  <span className="truncate">{invoiceCode}</span>
+                  <ArrowUpRight size={12} className="shrink-0" />
+                </Link>
+
+                <button type="button" onClick={() => onOpen(row)} className="min-w-0 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-[#985018]/30">
+                  <span className="block text-sm font-extrabold leading-snug text-[#2C241E]">{itemName}</span>
+                  <span className="mt-1 block text-[10px] text-[#73675F]">Bấm để xem dữ liệu gốc của dòng thu</span>
+                </button>
+
+                <div>
+                  <span className={`inline-flex rounded-md border px-2 py-1 text-[11px] font-bold ${meta.tone}`}>{meta.label}</span>
+                </div>
+
+                <div className="text-left lg:text-right">
+                  <p className="text-xs font-bold text-[#2C241E]">{quantity.toLocaleString("vi-VN")} × {unitPrice.toLocaleString("vi-VN")}đ</p>
+                  <p className="mt-1 text-[10px] text-[#73675F]">Số lượng × đơn giá</p>
+                </div>
+
+                <p className="text-left text-sm font-black text-[#985018] lg:text-right">{amount.toLocaleString("vi-VN")}đ</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const { table: routeTable } = useParams(),
     table = fixedTable || routeTable || "";
@@ -5435,6 +5647,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           {table === "bookings" && (
             <p className="mt-1 text-xs text-[#73675F]">Theo dõi khách từ lúc đặt lịch, đến cơ sở, thực hiện dịch vụ và thanh toán.</p>
           )}
+          {table === "booking_items" && (
+            <p className="mt-1 text-xs text-[#73675F]">Kiểm tra dịch vụ, chuyên viên, thời lượng và giá cấu thành của từng lịch hẹn.</p>
+          )}
+          {table === "invoice_items" && (
+            <p className="mt-1 text-xs text-[#73675F]">Đối chiếu nội dung thu, số lượng, đơn giá và thành tiền của từng hóa đơn.</p>
+          )}
         </div>
         <div className="admin-toolbar-actions">
           {table === "certificate_templates" && (
@@ -5470,6 +5688,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             <RefreshCw size={18} />
           </button>
           {resource?.actions?.includes("create") && listing && (
+            table === "invoice_items" ? (
+              <Link to="/cashier-pos" className="admin-primary">
+                <CreditCard size={16} />
+                Mở Thu ngân POS
+              </Link>
+            ) : (
             <button
               className="admin-primary"
               onClick={() => {
@@ -5505,8 +5729,9 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
               }}
             >
               <Plus />
-              Thêm mới
+              {table === "booking_items" ? "Thêm dịch vụ vào lịch" : "Thêm mới"}
             </button>
+            )
           )}
           {["course_quizzes", "quiz_questions"].includes(table) && (
             <button
@@ -5544,7 +5769,13 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           <Search size={17} />
           <input
             type="search"
-            placeholder={table === "bookings" ? "Tìm mã lịch, tên hoặc số điện thoại..." : "Tìm kiếm…"}
+            placeholder={table === "bookings"
+              ? "Tìm mã lịch, tên hoặc số điện thoại..."
+              : table === "booking_items"
+                ? "Tìm mã lịch, tên dịch vụ hoặc chuyên viên..."
+                : table === "invoice_items"
+                  ? "Tìm mã hóa đơn, nội dung thu hoặc loại khoản thu..."
+                : "Tìm kiếm…"}
             aria-label="Tìm kiếm bản ghi"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -6646,6 +6877,30 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                       <CalendarCheck size={30} className="mx-auto text-[#985018]" />
                       <h3 className="mt-3 text-sm font-bold text-[#2C241E]">Không có lịch hẹn phù hợp</h3>
                       <p className="mt-1 text-xs text-[#73675F]">Thử đổi trạng thái, phương thức thanh toán hoặc từ khóa tìm kiếm.</p>
+                    </div>
+                  )
+                ) : table === "booking_items" ? (
+                  listing.rows.length ? (
+                    <BookingItemsView
+                      rows={listing.rows}
+                      onOpen={openRecordPreview}
+                      onEdit={(row) => setEdit({ row, mode: "update" })}
+                    />
+                  ) : (
+                    <div className="rounded-xl border border-[#E2D6CA] bg-white px-6 py-12 text-center">
+                      <Layers size={30} className="mx-auto text-[#985018]" />
+                      <h3 className="mt-3 text-sm font-bold text-[#2C241E]">Chưa có dịch vụ trong lịch hẹn</h3>
+                      <p className="mt-1 text-xs text-[#73675F]">Thêm dịch vụ vào một lịch hẹn hoặc đổi từ khóa tìm kiếm.</p>
+                    </div>
+                  )
+                ) : table === "invoice_items" ? (
+                  listing.rows.length ? (
+                    <InvoiceItemsView rows={listing.rows} onOpen={openRecordPreview} />
+                  ) : (
+                    <div className="rounded-xl border border-[#E2D6CA] bg-white px-6 py-12 text-center">
+                      <FileText size={30} className="mx-auto text-[#985018]" />
+                      <h3 className="mt-3 text-sm font-bold text-[#2C241E]">Chưa có chi tiết hóa đơn</h3>
+                      <p className="mt-1 text-xs text-[#73675F]">Tạo giao dịch tại Thu ngân POS hoặc đổi từ khóa tìm kiếm.</p>
                     </div>
                   )
                 ) : (

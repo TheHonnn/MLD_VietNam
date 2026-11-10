@@ -6,11 +6,11 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'branch_rooms', title: 'Phòng & Giường trị liệu', group: 'Cơ sở vật chất', actions: ['create', 'update', 'delete', 'action'] },
 
   // 2. Thu ngân & Tiếp đón (Lịch hẹn, Hóa đơn & Bảng kê thanh toán)
-  { name: 'bookings', title: 'Lịch hẹn & Tiếp đón', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'bookings', title: 'Lịch hẹn / Check-in / Check-out', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'booking_items', title: 'Dịch vụ trong lịch hẹn', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'invoices', title: 'Hóa đơn thanh toán', group: 'Thu ngân & Tiếp đón', actions: ['action'] },
+  { name: 'invoices', title: 'Hóa đơn', group: 'Thu ngân & Tiếp đón', actions: ['action'] },
   { name: 'invoice_items', title: 'Chi tiết hóa đơn', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'home_products', title: 'Sản phẩm mang về', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete'] },
+  { name: 'home_products', title: 'Sản phẩm mang về', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete'] },
 
   // 3. Khách hàng (CRM)
   { name: 'users', title: 'Hồ sơ khách hàng', group: 'Khách hàng (CRM)', actions: ['create', 'update', 'delete', 'action'] },
