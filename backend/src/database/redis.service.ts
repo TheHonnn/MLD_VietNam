@@ -11,9 +11,14 @@ export class RedisService implements OnModuleDestroy {
   private fallbackMemoryLock = new Map<string, { value: string; expiresAt: number }>();
 
   constructor(private configService: ConfigService) {
-    const host = this.configService.get<string>('REDIS_HOST', 'localhost');
+    const host = this.configService.get<string>('REDIS_HOST');
     const port = Number(this.configService.get<number>('REDIS_PORT', 6379));
     const password = this.configService.get<string>('REDIS_PASSWORD', '');
+
+    if (!host) {
+      this.logger.warn('⚠️ REDIS_HOST chưa được cấu hình. Hệ thống dùng In-Memory Lock dự phòng.');
+      return;
+    }
 
     try {
       this.redisClient = new Redis({
@@ -24,6 +29,10 @@ export class RedisService implements OnModuleDestroy {
         maxRetriesPerRequest: 1,
         lazyConnect: true,
       });
+      // ioredis emits an `error` event in addition to rejecting connect().
+      // Register the listener before connect so an unavailable optional Redis
+      // instance never becomes an unhandled process-level error.
+      this.redisClient.on('error', () => {});
 
       this.redisClient
         .connect()

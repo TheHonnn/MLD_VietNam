@@ -9,6 +9,15 @@ import { ConfigService } from '@nestjs/config';
 import { Pool } from 'pg';
 import { inspectAdminSchema } from './admin.schema';
 
+export function adminDatabaseSsl(connectionString: string): false | { rejectUnauthorized: boolean } {
+  const url = new URL(connectionString);
+  if (['localhost', '127.0.0.1'].includes(url.hostname)) return false;
+  // Supabase documents sslmode=require for its managed pooler. This keeps the
+  // transport encrypted while accommodating the platform-managed CA chain.
+  if (url.hostname.endsWith('.pooler.supabase.com')) return { rejectUnauthorized: false };
+  return { rejectUnauthorized: true };
+}
+
 @Injectable()
 export class AdminDatabase implements OnModuleDestroy, OnModuleInit {
   private pool?: Pool;
@@ -38,7 +47,7 @@ export class AdminDatabase implements OnModuleDestroy, OnModuleInit {
       if (!connectionString) throw new ServiceUnavailableException('Admin database is not configured.');
       this.pool = new Pool({
         connectionString,
-        ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1') ? false : { rejectUnauthorized: true },
+        ssl: adminDatabaseSsl(connectionString),
         max: 5,
         connectionTimeoutMillis: 10000,
         statement_timeout: 15000,
