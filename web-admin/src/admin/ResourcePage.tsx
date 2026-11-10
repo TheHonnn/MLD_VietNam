@@ -4319,12 +4319,25 @@ function availableActions(table: string, row: Row) {
       },
     ];
   if (table === "bookings")
-    return row.status === "CONFIRMED"
-      ? [{ key: "checkin", title: "Check-in", icon: Check }]
+    return row.status === "PENDING"
+      ? [
+        { key: "confirm", title: "Xác nhận lịch", icon: Check },
+        { key: "cancel", title: "Hủy lịch", icon: Ban },
+      ]
+      : row.status === "CONFIRMED"
+      ? [
+        { key: "checkin", title: "Tiếp đón khách", icon: Check },
+        { key: "no-show", title: "Khách không đến", icon: Ban },
+        { key: "cancel", title: "Hủy lịch", icon: Ban },
+      ]
       : row.status === "CHECKED_IN"
         ? [{ key: "start", title: "Bắt đầu dịch vụ", icon: Play }]
         : row.status === "IN_SERVICE"
-          ? [{ key: "checkout", title: "Check-out", icon: LogOut }]
+          ? row.session_status === "COMPLETED"
+            ? row.payment_status === "PAID"
+              ? [{ key: "checkout", title: "Đóng dịch vụ", icon: LogOut }]
+              : []
+            : [{ key: "finish-service", title: "Hoàn tất chuyên môn", icon: CheckCheck }]
           : [];
   if (
     ["invoices", "tuition_transactions"].includes(table) &&
@@ -4354,6 +4367,108 @@ function availableActions(table: string, row: Row) {
         ? [{ key: "revoke", title: "Thu hồi", icon: Ban }]
         : [];
   return [];
+}
+
+const bookingStatusMeta: Record<string, { label: string; tone: string; hint: string }> = {
+  PENDING: { label: "Chờ xác nhận", tone: "bg-amber-50 text-amber-800 border-amber-200", hint: "Kiểm tra và xác nhận với khách" },
+  CONFIRMED: { label: "Đã xác nhận", tone: "bg-blue-50 text-blue-800 border-blue-200", hint: "Sẵn sàng tiếp đón" },
+  CHECKED_IN: { label: "Đã tiếp đón", tone: "bg-cyan-50 text-cyan-800 border-cyan-200", hint: "Khách đang chờ phục vụ" },
+  IN_SERVICE: { label: "Đang thực hiện", tone: "bg-violet-50 text-violet-800 border-violet-200", hint: "Dịch vụ đang diễn ra" },
+  COMPLETED: { label: "Hoàn tất", tone: "bg-emerald-50 text-emerald-800 border-emerald-200", hint: "Đã hoàn thành quy trình" },
+  CANCELLED: { label: "Đã hủy", tone: "bg-slate-100 text-slate-700 border-slate-200", hint: "Lịch không còn hiệu lực" },
+  NO_SHOW: { label: "Không đến", tone: "bg-rose-50 text-rose-800 border-rose-200", hint: "Khách vắng mặt" },
+};
+
+function BookingOperationsView({
+  rows,
+  onOpen,
+  onAction,
+}: {
+  rows: Row[];
+  onOpen: (row: Row) => void;
+  onAction: (action: string, row: Row) => void;
+}) {
+  const operational = rows.filter((row) => ["PENDING", "CONFIRMED", "CHECKED_IN", "IN_SERVICE"].includes(String(row.status)));
+  const waitingPayment = rows.filter((row) => row.status === "IN_SERVICE" && row.session_status === "COMPLETED" && row.payment_status !== "PAID");
+  const completed = rows.filter((row) => row.status === "COMPLETED");
+
+  const primaryAction = (row: Row) => {
+    if (row.status === "PENDING") return { key: "confirm", label: "Xác nhận lịch", icon: Check };
+    if (row.status === "CONFIRMED") return { key: "checkin", label: "Tiếp đón khách", icon: UserCheck };
+    if (row.status === "CHECKED_IN") return { key: "start", label: "Bắt đầu dịch vụ", icon: Play };
+    if (row.status === "IN_SERVICE" && row.session_status !== "COMPLETED") return { key: "finish-service", label: "Hoàn tất chuyên môn", icon: CheckCheck };
+    return null;
+  };
+
+  return (
+    <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif]">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Tổng quan lịch hẹn trên trang hiện tại">
+        {[
+          { label: "Cần xử lý", value: operational.length, detail: "Chờ xác nhận hoặc phục vụ", icon: CalendarCheck, tone: "text-[#8A4F23] bg-[#FAF0E4]" },
+          { label: "Đang tại cơ sở", value: rows.filter((row) => ["CHECKED_IN", "IN_SERVICE"].includes(String(row.status))).length, detail: "Đã đến hoặc đang làm", icon: Users, tone: "text-blue-700 bg-blue-50" },
+          { label: "Chờ thanh toán", value: waitingPayment.length, detail: "Đã xong chuyên môn", icon: CreditCard, tone: "text-amber-700 bg-amber-50" },
+          { label: "Đã hoàn tất", value: completed.length, detail: "Trong trang đang xem", icon: CheckCheck, tone: "text-emerald-700 bg-emerald-50" },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="rounded-xl border border-[#E8DFD8] bg-white px-4 py-3 flex items-center gap-3">
+              <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${item.tone}`}><Icon size={18} /></span>
+              <span className="min-w-0"><span className="block text-xl font-black text-[#2C241E] leading-none">{item.value}</span><span className="block text-xs font-bold text-[#2C241E] mt-1">{item.label}</span><span className="hidden xl:block text-[10px] text-[#73675F] mt-0.5 truncate">{item.detail}</span></span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="rounded-xl border border-[#E2D6CA] bg-white overflow-hidden">
+        <div className="hidden lg:grid grid-cols-[150px_minmax(220px,1.2fr)_minmax(210px,1fr)_180px_190px] gap-4 px-5 py-2.5 bg-[#FAF8F5] border-b border-[#E8DFD8] text-[10px] font-bold uppercase tracking-wide text-[#73675F]">
+          <span>Thời gian</span><span>Khách hàng</span><span>Cơ sở và dịch vụ</span><span>Trạng thái</span><span className="text-right">Việc tiếp theo</span>
+        </div>
+        <div className="divide-y divide-[#EFE6DE]">
+          {rows.map((row) => {
+            const meta = bookingStatusMeta[String(row.status)] || { label: String(row.status || "Chưa rõ"), tone: "bg-slate-50 text-slate-700 border-slate-200", hint: "Kiểm tra trạng thái" };
+            const action = primaryAction(row);
+            const ActionIcon = action?.icon;
+            const customerName = row.customer?.full_name || row.customer_name || `Khách hàng ${String(row.customer_id || "").slice(0, 8)}`;
+            const customerPhone = row.customer?.phone || row.phone || "Chưa có số điện thoại";
+            const branchName = row.branches?.name || row.branch_name || "Chưa xác định cơ sở";
+            const date = row.booking_date ? new Date(`${row.booking_date}T00:00:00`).toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" }) : "Chưa có ngày";
+            const time = String(row.start_time || "").slice(0, 5) || "Chưa có giờ";
+            const isWaitingPayment = row.status === "IN_SERVICE" && row.session_status === "COMPLETED" && row.payment_status !== "PAID";
+            return (
+              <article key={String(row.id || row.booking_code)} className="grid grid-cols-1 lg:grid-cols-[150px_minmax(220px,1.2fr)_minmax(210px,1fr)_180px_190px] gap-3 lg:gap-4 px-4 lg:px-5 py-4 items-center hover:bg-[#FFFDFC] transition-colors">
+                <div className="flex lg:block items-baseline gap-2">
+                  <p className="text-sm font-black text-[#2C241E]">{time}</p>
+                  <p className="text-xs font-semibold text-[#73675F] lg:mt-1">{date}</p>
+                  <p className="text-[10px] font-mono text-[#9A8E84] lg:mt-1">{row.booking_code || "Chưa có mã"}</p>
+                </div>
+                <button type="button" onClick={() => onOpen(row)} className="text-left min-w-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#985018]/30">
+                  <span className="block text-sm font-extrabold text-[#2C241E] truncate">{customerName}</span>
+                  <span className="block text-xs text-[#73675F] mt-1 truncate">{customerPhone}</span>
+                </button>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-[#2C241E] truncate flex items-center gap-1.5"><MapPin size={13} className="text-[#985018] shrink-0" />{branchName}</p>
+                  <p className="text-[11px] text-[#73675F] mt-1 truncate">{row.service_name || row.special_notes || "Dịch vụ theo lịch hẹn"}</p>
+                </div>
+                <div>
+                  <span className={`inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-bold ${isWaitingPayment ? "bg-amber-50 text-amber-800 border-amber-200" : meta.tone}`}>{isWaitingPayment ? "Chờ thanh toán" : meta.label}</span>
+                  <p className="text-[10px] text-[#73675F] mt-1.5 leading-snug">{isWaitingPayment ? "Mở POS để thu tiền và đóng dịch vụ" : meta.hint}</p>
+                </div>
+                <div className="flex items-center justify-start lg:justify-end gap-2">
+                  {isWaitingPayment ? (
+                    <Link to={`/cashier-pos?bookingId=${encodeURIComponent(String(row.id))}`} className="inline-flex items-center justify-center gap-1.5 min-w-[132px] rounded-lg bg-[#985018] px-3 py-2 text-xs font-bold text-white hover:bg-[#7F4115] active:translate-y-px"><CreditCard size={14} />Mở thu ngân</Link>
+                  ) : action && ActionIcon ? (
+                    <button type="button" onClick={() => onAction(action.key, row)} className="inline-flex items-center justify-center gap-1.5 min-w-[132px] rounded-lg bg-[#985018] px-3 py-2 text-xs font-bold text-white hover:bg-[#7F4115] active:translate-y-px"><ActionIcon size={14} />{action.label}</button>
+                  ) : (
+                    <button type="button" onClick={() => onOpen(row)} className="inline-flex items-center justify-center gap-1.5 min-w-[132px] rounded-lg border border-[#D8C8BA] bg-white px-3 py-2 text-xs font-bold text-[#6F3C18] hover:bg-[#FAF3EA]"><Eye size={14} />Xem chi tiết</button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function ResourcePage({ table: fixedTable }: { table?: string }) {
@@ -5277,6 +5392,9 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         <div>
           <p className="admin-eyebrow">{resource?.group || "QUẢN TRỊ"}</p>
           <h1>{resource?.title || "Đang tải phân hệ…"}</h1>
+          {table === "bookings" && (
+            <p className="mt-1 text-xs text-[#73675F]">Theo dõi khách từ lúc đặt lịch, đến cơ sở, thực hiện dịch vụ và thanh toán.</p>
+          )}
         </div>
         <div className="admin-toolbar-actions">
           {table === "certificate_templates" && (
@@ -5386,7 +5504,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           <Search size={17} />
           <input
             type="search"
-            placeholder="Tìm kiếm…"
+            placeholder={table === "bookings" ? "Tìm mã lịch, tên hoặc số điện thoại..." : "Tìm kiếm…"}
             aria-label="Tìm kiếm bản ghi"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -6476,6 +6594,21 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                     </button>
                   </div>
                 )}
+                {table === "bookings" ? (
+                  listing.rows.length ? (
+                    <BookingOperationsView
+                      rows={listing.rows}
+                      onOpen={openRecordPreview}
+                      onAction={handleTriggerAction}
+                    />
+                  ) : (
+                    <div className="rounded-xl border border-[#E2D6CA] bg-white px-6 py-12 text-center">
+                      <CalendarCheck size={30} className="mx-auto text-[#985018]" />
+                      <h3 className="mt-3 text-sm font-bold text-[#2C241E]">Không có lịch hẹn phù hợp</h3>
+                      <p className="mt-1 text-xs text-[#73675F]">Thử đổi trạng thái, phương thức thanh toán hoặc từ khóa tìm kiếm.</p>
+                    </div>
+                  )
+                ) : (
                 <div className="admin-table-wrap">
                   <table className="admin-table">
                     <thead>
@@ -6755,6 +6888,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                     </div>
                   )}
                 </div>
+                )}
                 <div className="admin-pagination">
                   <span>{listing.total.toLocaleString("vi-VN")} bản ghi</span>
                   <div>
@@ -6860,17 +6994,23 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                 ? "Chỉ xác nhận khi thực tế đã nhận đủ tiền mặt hoặc kiểm tra giao dịch chuyển khoản."
                 : confirmation.action === "handover-tech"
                   ? "Nhập nội dung dặn dò kỹ thuật viên phụ trách ca hẹn này để KTV xem được trực tiếp trên lịch phòng:"
+                  : confirmation.action === "cancel"
+                    ? "Nhập lý do hủy để lễ tân và khách hàng cùng theo dõi đúng thông tin."
+                    : confirmation.action === "no-show"
+                      ? "Chỉ đánh dấu không đến sau khi đã liên hệ khách và hết thời gian giữ lịch."
                   : ["refund", "confirm-refund"].includes(confirmation.action)
                     ? "Chỉ xác nhận sau khi thực tế đã hoàn tiền cho khách hàng."
                     : "Thay đổi sẽ được lưu vào database chung."}
           </p>
-          {["revoke", "refund", "confirm-refund", "handover-tech"].includes(
+          {["revoke", "refund", "confirm-refund", "handover-tech", "cancel", "no-show"].includes(
             confirmation.action,
           ) && (
               <label>
                 {confirmation.action === "handover-tech"
                   ? "Nội dung dặn dò chuyên viên / KTV phụ trách"
-                  : "Lý do"}
+                  : confirmation.action === "no-show"
+                    ? "Ghi chú liên hệ khách"
+                    : "Lý do"}
                 <textarea
                   placeholder={
                     confirmation.action === "handover-tech"
@@ -6895,7 +7035,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
               className="admin-primary"
               disabled={
                 pending ||
-                (["revoke", "refund", "confirm-refund", "handover-tech"].includes(
+                (["revoke", "refund", "confirm-refund", "handover-tech", "cancel", "no-show"].includes(
                   confirmation.action,
                 ) &&
                   !reason.trim())
