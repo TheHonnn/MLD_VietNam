@@ -77,6 +77,14 @@ import {
 import { matchSearch, isUuid } from '../utils/searchUtils';
 import { useAdmin } from '../admin/Auth';
 import { supabase } from '../services/supabaseClient';
+import {
+  bookingItemsToCart,
+  cartCompositionError,
+  classifyPosSource,
+  isBookingWaitingPayment,
+  isCompletedServiceBooking,
+  SYSTEM_GUEST_CUSTOMER_ID,
+} from './cashier-pos.rules';
 
 export const POS_TIME_SLOTS = [
   { label: '09:00–10:00', startTime: '09:00:00', endTime: '10:00:00' },
@@ -105,7 +113,7 @@ export interface PosCartItem {
 }
 
 const GUEST_CUSTOMER: User = {
-  id: 'bbbbbbbb-0001-0001-0001-000000000001',
+  id: SYSTEM_GUEST_CUSTOMER_ID,
   fullName: 'Khách hàng Vãng lai (Guest)',
   phone: '0900000000',
   role: UserRole.CUSTOMER,
@@ -177,6 +185,7 @@ export const W07_CashierPOS: React.FC = () => {
       setActiveTab('tuition');
     } else if (tab === 'pos') {
       setActiveTab('pos');
+      if (searchParams.get('source') === 'package') setCatalogCategory('PACKAGE');
     }
   }, [searchParams]);
 
@@ -293,6 +302,7 @@ export const W07_CashierPOS: React.FC = () => {
 
   // Walk-in Quick Booking Modal State (DRC: 6 Giường × 6 KTV × Ca 1 Giờ)
   const [showWalkInModal, setShowWalkInModal] = useState<boolean>(false);
+  const [walkInModalMode, setWalkInModalMode] = useState<'DIRECT_SALE' | 'SCHEDULE'>('DIRECT_SALE');
   const [walkInCustomerName, setWalkInCustomerName] = useState<string>('');
   const [walkInCustomerPhone, setWalkInCustomerPhone] = useState<string>('');
   const [walkInCustomerId, setWalkInCustomerId] = useState<string>('');
@@ -518,7 +528,7 @@ export const W07_CashierPOS: React.FC = () => {
 
   // Tự động tải danh sách 10 ca 1 tiếng DRC khi mở modal Đặt lịch tại quầy
   useEffect(() => {
-    if (!showWalkInModal) return;
+    if (!showWalkInModal || walkInModalMode !== 'SCHEDULE') return;
     const fetchWalkInSlots = async () => {
       setIsLoadingWalkInSlots(true);
       try {
@@ -535,7 +545,7 @@ export const W07_CashierPOS: React.FC = () => {
       }
     };
     fetchWalkInSlots();
-  }, [showWalkInModal, walkInDate, selectedBranchId]);
+  }, [showWalkInModal, walkInModalMode, walkInDate, selectedBranchId]);
 
   // -------------------------------------------------------------
   // CART OPERATIONS
@@ -556,6 +566,11 @@ export const W07_CashierPOS: React.FC = () => {
         'Đơn đang khóa theo lịch hẹn',
         'Vui lòng bấm "Thoát lịch hẹn" nếu bạn muốn tạo đơn bán lẻ tự do.'
       );
+      return;
+    }
+    const compositionError = cartCompositionError(posCart, item.type);
+    if (compositionError) {
+      toast.warning('Tách riêng phiếu bán gói', compositionError);
       return;
     }
     setPosCart((prev) => {
@@ -593,6 +608,10 @@ export const W07_CashierPOS: React.FC = () => {
       return prev
         .map((item) => {
           if (item.id === id) {
+            if (item.type === 'PACKAGE' && delta > 0) {
+              toast.warning('Mỗi phiếu chỉ bán một gói', 'Muốn mua thêm gói, hãy hoàn tất phiếu hiện tại rồi tạo phiếu mới.');
+              return item;
+            }
             const newQty = item.quantity + delta;
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
@@ -675,21 +694,22 @@ export const W07_CashierPOS: React.FC = () => {
   // PENDING BOOKINGS QUEUE
   // -------------------------------------------------------------
   const pendingBookings = useMemo(() => {
+    const paidBookingIds = new Set(
+      invoices
+        .filter((invoice) => invoice.paymentStatus === PaymentStatus.PAID && invoice.bookingId)
+        .map((invoice) => String(invoice.bookingId))
+    );
     return allBookings.filter((b) => {
-      const isUnpaid = b.paymentStatus === PaymentStatus.UNPAID;
-      const isNotCancelled = ![BookingStatus.CANCELLED, BookingStatus.NO_SHOW].includes(b.status);
-      if (!isUnpaid || !isNotCancelled) return false;
+      if (!isBookingWaitingPayment(b, paidBookingIds)) return false;
       if (selectedBranchId !== 'ALL' && b.branchId && b.branchId !== selectedBranchId) {
         return false;
       }
       return true;
     });
-  }, [allBookings, selectedBranchId]);
+  }, [allBookings, invoices, selectedBranchId]);
 
   const completedQueueCount = useMemo(() => {
-    return pendingBookings.filter(
-      (b) => b.sessionStatus === 'COMPLETED' || (b as any).session_status === 'COMPLETED'
-    ).length;
+    return pendingBookings.filter(isCompletedServiceBooking).length;
   }, [pendingBookings]);
 
   const filteredPendingBookings = useMemo(() => {
@@ -705,8 +725,8 @@ export const W07_CashierPOS: React.FC = () => {
 
   const sortedPendingBookings = useMemo(() => {
     return [...filteredPendingBookings].sort((a, b) => {
-      const aDone = a.sessionStatus === 'COMPLETED' || (a as any).session_status === 'COMPLETED' ? 1 : 0;
-      const bDone = b.sessionStatus === 'COMPLETED' || (b as any).session_status === 'COMPLETED' ? 1 : 0;
+      const aDone = isCompletedServiceBooking(a) ? 1 : 0;
+      const bDone = isCompletedServiceBooking(b) ? 1 : 0;
       return bDone - aDone;
     });
   }, [filteredPendingBookings]);
@@ -717,9 +737,11 @@ export const W07_CashierPOS: React.FC = () => {
       handleBranchSelect(bk.branchId);
     }
 
-    const srv = bk.items?.[0]?.service;
-    const srvPrice = Number(srv?.price || bk.baseTotal || bk.finalPrice || 500000);
-    const srvName = srv?.name || (bk as any).serviceName || 'Chăm sóc Dẫn lưu bạch huyết';
+    const bookingLines = bookingItemsToCart(bk);
+    if (!bookingLines.length) {
+      toast.error('Lịch hẹn chưa có dịch vụ', 'Không thể thu tiền trước khi lịch hẹn có đầy đủ chi tiết dịch vụ.');
+      return;
+    }
 
     if (bk.customer) {
       setSelectedCustomer(bk.customer);
@@ -745,17 +767,7 @@ export const W07_CashierPOS: React.FC = () => {
       setSelectedCommissionStaffId(bk.technicianId);
     }
 
-    setPosCart([
-      {
-        id: srv?.id || bk.id,
-        name: srvName,
-        type: 'SERVICE',
-        unitPrice: srvPrice,
-        quantity: 1,
-        durationMinutes: srv?.durationMinutes || 60,
-        serviceId: srv?.id,
-      },
-    ]);
+    setPosCart(bookingLines);
 
     setBooking(bk);
     setActiveTab('pos');
@@ -764,7 +776,7 @@ export const W07_CashierPOS: React.FC = () => {
       next.set('tab', 'pos');
       return next;
     });
-    toast.success('Đã nạp đơn vào quầy', `${srvName} · ${bk.bookingCode}`);
+    toast.success('Đã nạp đơn vào quầy', `${bookingLines.length} dịch vụ · ${bk.bookingCode}`);
   };
 
   // -------------------------------------------------------------
@@ -798,8 +810,8 @@ export const W07_CashierPOS: React.FC = () => {
     paymentLock.current = true;
     setIsProcessing(true);
     try {
-      const activeBranch = selectedBranchId !== 'ALL' ? branches.find((b) => b.id === selectedBranchId) : branches[0];
-      const targetBranchId = activeBranch?.id || 'aaaaaaaa-0001-0001-0001-000000000001';
+      const activeBranch = branches.find((b) => b.id === currentShift.branchId);
+      if (!activeBranch) throw new Error('Không tìm thấy chi nhánh của ca thu ngân. Vui lòng tải lại dữ liệu.');
       const targetCustomerId = isUuid(selectedCustomer.id) ? selectedCustomer.id : GUEST_CUSTOMER.id;
 
       const paymentMethodEnum =
@@ -840,16 +852,8 @@ export const W07_CashierPOS: React.FC = () => {
       const shift = await posService.getActiveShift(currentShift.branchId);
       if (shift.success) setCurrentShift(shift.data);
 
-      const isPkg = Boolean(registrationPackage || posCart.some((i) => i.type === 'PACKAGE'));
-      const isBk = Boolean(booking?.id);
-      const isWalkInService = !isBk && !isPkg && posCart.some((i) => i.type === 'SERVICE');
-      const sourceKind: 'BOOKING' | 'PACKAGE' | 'WALK_IN' | 'CART' = isBk
-        ? 'BOOKING'
-        : isPkg
-        ? 'PACKAGE'
-        : isWalkInService
-        ? 'WALK_IN'
-        : 'CART';
+      const isPkg = Boolean(registrationPackage);
+      const sourceKind = classifyPosSource(booking?.id, posCart);
       const firstServiceItem = posCart.find((i) => i.type === 'SERVICE');
 
       // 6. Hiển thị biên lai điện tử
@@ -915,11 +919,32 @@ export const W07_CashierPOS: React.FC = () => {
   // WALK-IN QUICK BOOKING MODAL HANDLER
   // -------------------------------------------------------------
   const handleCreateWalkInBooking = async () => {
-    if (!isUuid(walkInCustomerId) || !walkInCustomerName.trim()) {
+    const chosenService = allServices.find((s) => s.id === walkInServiceId) || allServices[0];
+    if (!chosenService) {
+      toast.error('Thiếu dịch vụ', 'Không có dịch vụ đang hoạt động để tiếp nhận khách.');
+      return;
+    }
+    if (walkInModalMode === 'DIRECT_SALE') {
+      const customer = allCustomers.find((candidate) => candidate.id === walkInCustomerId) || GUEST_CUSTOMER;
+      setSelectedCustomer(customer);
+      setSelectedCommissionStaffId(walkInTechId || '');
+      addToCart({
+        id: chosenService.id,
+        name: chosenService.name,
+        type: 'SERVICE',
+        unitPrice: Number(chosenService.price || 0),
+        durationMinutes: chosenService.durationMinutes,
+        serviceId: chosenService.id,
+      });
+      setShowWalkInModal(false);
+      setActiveTab('pos');
+      toast.success('Đã tiếp nhận khách walk-in', 'Dịch vụ đã được đưa thẳng vào phiếu thu, không tạo lịch hẹn trung gian.');
+      return;
+    }
+    if (!isUuid(walkInCustomerId) || walkInCustomerId === GUEST_CUSTOMER.id || !walkInCustomerName.trim()) {
       toast.warning('Chọn hồ sơ khách hàng', 'Walk-in cần gắn với hồ sơ khách hàng có sẵn. Hãy tạo hồ sơ trước nếu khách mới.');
       return;
     }
-    const chosenService = allServices.find((s) => s.id === walkInServiceId) || allServices[0];
     const chosenSlot = POS_TIME_SLOTS[walkInSlotIndex] || POS_TIME_SLOTS[0];
     const targetBranchId = selectedBranchId !== 'ALL' ? selectedBranchId : branches[0]?.id;
     if (!isUuid(targetBranchId) || !isUuid(chosenService?.id)) {
@@ -1540,13 +1565,17 @@ export const W07_CashierPOS: React.FC = () => {
             onClick={() => {
               const activeBranch = selectedBranchId !== 'ALL' ? selectedBranchId : branches[0]?.id;
               if (activeBranch) setSelectedBranchId(activeBranch);
+              setWalkInModalMode('DIRECT_SALE');
+              setWalkInCustomerId(GUEST_CUSTOMER.id);
+              setWalkInCustomerName(GUEST_CUSTOMER.fullName);
+              setWalkInCustomerPhone(GUEST_CUSTOMER.phone || '');
               setShowWalkInModal(true);
             }}
             className="px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
-            title="Đặt lịch tại quầy và tự động khóa giường & KTV theo chuẩn DRC"
+            title="Tiếp nhận khách chưa có lịch và đưa dịch vụ thẳng vào phiếu thu"
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>Đặt lịch tại quầy (Walk-in)</span>
+            <span>Tiếp nhận khách Walk-in</span>
           </button>
         </div>
       </div>
@@ -1644,25 +1673,27 @@ export const W07_CashierPOS: React.FC = () => {
       {/* 2. PRIMARY WORKSTATION NAVIGATION TABS                                    */}
       {/* ========================================================================= */}
       <div className="flex flex-wrap items-center gap-2 border-b border-[#EFE4D9] pb-2">
-        {/* Tab 1: Bán tại quầy */}
+        {/* Source 1: Walk-in / direct cart */}
         <button
           type="button"
           onClick={() => {
             setActiveTab('pos');
+            setCatalogCategory('ALL');
             setSearchParams((prev) => {
               const next = new URLSearchParams(prev);
               next.set('tab', 'pos');
+              next.delete('source');
               return next;
             });
           }}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'pos'
+            activeTab === 'pos' && catalogCategory !== 'PACKAGE'
               ? 'bg-[#985018] text-white shadow-xs'
               : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
           }`}
         >
           <CreditCard className="w-4 h-4" />
-          <span>Bán tại quầy (POS)</span>
+          <span>Walk-in / Bán lẻ</span>
           {posCart.length > 0 && (
             <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-white text-[#985018]">
               {posCart.length}
@@ -1670,7 +1701,7 @@ export const W07_CashierPOS: React.FC = () => {
           )}
         </button>
 
-        {/* Tab 2: Chờ thanh toán */}
+        {/* Source 2: Existing booking */}
         <button
           type="button"
           onClick={() => {
@@ -1688,7 +1719,7 @@ export const W07_CashierPOS: React.FC = () => {
           }`}
         >
           <Clock className="w-4 h-4" />
-          <span>Chờ thanh toán</span>
+          <span>Lịch hẹn cần thu</span>
           <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
             activeTab === 'queue' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-900'
           }`}>
@@ -1701,7 +1732,30 @@ export const W07_CashierPOS: React.FC = () => {
           )}
         </button>
 
-        {/* Tab 3: Thu học phí */}
+        {/* Source 3: Treatment package registration */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('pos');
+            setCatalogCategory('PACKAGE');
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set('tab', 'pos');
+              next.set('source', 'package');
+              return next;
+            });
+          }}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'pos' && catalogCategory === 'PACKAGE'
+              ? 'bg-[#985018] text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>Đăng ký gói liệu trình</span>
+        </button>
+
+        {/* Source 4: Tuition */}
         <button
           type="button"
           onClick={() => {
@@ -4060,6 +4114,7 @@ export const W07_CashierPOS: React.FC = () => {
                     if (selectedReceiptData.serviceId) {
                       setWalkInServiceId(selectedReceiptData.serviceId);
                     }
+                    setWalkInModalMode('SCHEDULE');
                     setShowWalkInModal(true);
                   }}
                   className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 font-bold text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
@@ -4080,6 +4135,7 @@ export const W07_CashierPOS: React.FC = () => {
                       setWalkInCustomerName(selectedReceiptData.customerName);
                       setWalkInCustomerPhone(selectedReceiptData.customerPhone || '');
                     }
+                    setWalkInModalMode('SCHEDULE');
                     setShowWalkInModal(true);
                   }}
                   className="w-full py-2.5 rounded-xl bg-[#985018] hover:bg-[#854412] font-bold text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
@@ -4416,9 +4472,11 @@ export const W07_CashierPOS: React.FC = () => {
                   <Calendar className="w-4 h-4 text-emerald-300" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold">Đặt lịch tại quầy (Walk-in)</h3>
+                  <h3 className="text-sm font-bold">{walkInModalMode === 'DIRECT_SALE' ? 'Tiếp nhận khách Walk-in' : 'Đặt lịch sử dụng dịch vụ'}</h3>
                   <p className="text-[11px] text-emerald-200">
-                    Cơ chế DRC: 6 Giường × 6 KTV · Tự động điều phối và khóa ca
+                    {walkInModalMode === 'DIRECT_SALE'
+                      ? 'Đưa dịch vụ thẳng vào phiếu thu · Không tạo lịch hẹn trung gian'
+                      : 'Cơ chế DRC: 6 Giường × 6 KTV · Tự động điều phối và khóa ca'}
                   </p>
                 </div>
               </div>
@@ -4447,7 +4505,7 @@ export const W07_CashierPOS: React.FC = () => {
                     }}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800"
                   >
-                    <option value="">-- Chọn khách hàng có sẵn --</option>
+                    <option value="">-- Chọn khách hàng --</option>
                     {allCustomers
                       .filter((c) => isUuid(c.id))
                       .map((c) => (
@@ -4472,7 +4530,7 @@ export const W07_CashierPOS: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
+                {walkInModalMode === 'SCHEDULE' && <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Cơ sở thực hiện
                   </label>
@@ -4487,7 +4545,7 @@ export const W07_CashierPOS: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                </div>
+                </div>}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Dịch vụ trị liệu Spa
@@ -4538,7 +4596,7 @@ export const W07_CashierPOS: React.FC = () => {
               </div>
 
               {/* 10 Khung giờ ca 1 tiếng */}
-              <div>
+              {walkInModalMode === 'SCHEDULE' && <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
                   Chọn ca giờ trị liệu (Trần 6 Giường × 6 KTV):
                 </label>
@@ -4562,7 +4620,7 @@ export const W07_CashierPOS: React.FC = () => {
                     );
                   })}
                 </div>
-              </div>
+              </div>}
             </div>
 
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
@@ -4587,7 +4645,7 @@ export const W07_CashierPOS: React.FC = () => {
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Xác nhận & Nạp quầy POS</span>
+                    <span>{walkInModalMode === 'DIRECT_SALE' ? 'Đưa vào phiếu thu' : 'Xác nhận đặt lịch'}</span>
                   </>
                 )}
               </button>

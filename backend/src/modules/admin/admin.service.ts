@@ -26,6 +26,8 @@ import {
   quote,
 } from './admin.resources';
 
+const SYSTEM_GUEST_CUSTOMER_ID = process.env.ADMIN_GUEST_CUSTOMER_ID || 'bbbbbbbb-0001-0001-0001-000000000001';
+
 export interface Column {
   defaultValue?: string | null;
   name: string;
@@ -1924,7 +1926,7 @@ export class AdminService {
       const commissionStaffId = String(body.commissionStaffId || '');
       if (!this.isUuid(packageId) || !this.isUuid(customerId))
         throw new BadRequestException('Gói liệu trình hoặc khách hàng không hợp lệ.');
-      if (customerId === 'bbbbbbbb-0001-0001-0001-000000000001')
+      if (customerId === SYSTEM_GUEST_CUSTOMER_ID)
         throw new BadRequestException('Không cho phép khách vãng lai đăng ký gói liệu trình. Vui lòng chọn hồ sơ khách hàng.');
       if (commissionStaffId && !this.isUuid(commissionStaffId))
         throw new BadRequestException('Nhân viên phụ trách gói liệu trình không hợp lệ.');
@@ -2014,25 +2016,21 @@ export class AdminService {
       throw new BadRequestException('Chọn khách hàng có hồ sơ hợp lệ trước khi thu tiền.');
     if (!Array.isArray(body.items) || !body.items.length || body.items.length > 100)
       throw new BadRequestException('Giỏ hàng không hợp lệ.');
-    const lines: Array<{ name: string; type: string; quantity: number; price: number; package?: any }> = [];
+    const lines: Array<{ name: string; type: string; quantity: number; price: number }> = [];
     for (const item of body.items) {
       if (!item || typeof item !== 'object' || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 100)
         throw new BadRequestException('Số lượng phải là số nguyên từ 1 đến 100.');
       const table = { SERVICE: 'services', PACKAGE: 'treatment_packages', PRODUCT: 'home_products' }[item.type];
       const id = item.serviceId || item.packageId || item.productId || item.id;
       if (!table || !this.isUuid(String(id))) throw new BadRequestException('Mặt hàng không hợp lệ.');
+      if (item.type === 'PACKAGE')
+        throw new BadRequestException('Gói liệu trình phải được thanh toán trong một phiếu riêng.');
       const row = (await client.query(`SELECT * FROM ${quote(table)} WHERE id=$1 FOR SHARE`, [id])).rows[0];
       if (!row || row.is_active === false) throw new ConflictException('Mặt hàng đã ngừng kinh doanh.');
       const base = Number(item.type === 'PRODUCT' ? row.price_min : row.price);
       const price = Number(row.discount_price) > 0 && Number(row.discount_price) < base ? Number(row.discount_price) : base;
       if (!Number.isFinite(price) || price < 0) throw new ConflictException('Giá mặt hàng không hợp lệ.');
-      if (item.type === 'PACKAGE') {
-        if (customerId === 'bbbbbbbb-0001-0001-0001-000000000001')
-          throw new BadRequestException('Không cho phép khách vãng lai đăng ký gói liệu trình. Vui lòng chọn hồ sơ khách hàng.');
-        if (!row.service_id || !(await client.query('SELECT id FROM services WHERE id=$1 AND is_active=true', [row.service_id])).rowCount)
-          throw new ConflictException('Gói phải có dịch vụ đang hoạt động.');
-      }
-      lines.push({ name: row.name, type: item.type, quantity: item.quantity, price, ...(item.type === 'PACKAGE' ? { package: row } : {}) });
+      lines.push({ name: row.name, type: item.type, quantity: item.quantity, price });
     }
     const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
     const discount = Number(body.discountAmount || 0);
@@ -2050,11 +2048,6 @@ export class AdminService {
     )).rows[0];
     for (const line of lines) {
       await client.query('INSERT INTO invoice_items(invoice_id,item_name,item_type,quantity,unit_price,amount) VALUES($1,$2,$3,$4,$5,$6)', [invoice.id,line.name,line.type,line.quantity,line.price,line.price * line.quantity]);
-      if (line.package) for (let index = 0; index < line.quantity; index++) await client.query(
-        `INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,purchased_at,expires_at)
-         VALUES($1,$2,$3,0,'ACTIVE',now(),now()+($4::int * interval '1 month'))`,
-        [customerId,line.package.id,line.package.total_sessions,line.package.validity_months],
-      );
     }
     const paid = (await client.query("UPDATE invoices SET payment_status='PAID',paid_at=now() WHERE id=$1 RETURNING *", [invoice.id])).rows[0];
     await this.updateCashierShiftTotals(client, shift.id, paymentMethod, total);

@@ -80,18 +80,21 @@ describe('Admin business workflows on the complete migrated schema', () => {
     expect((await query('SELECT completed_sessions FROM user_packages WHERE id=$1',[owner.id])).rows[0].completed_sessions).toBe(0);
   });
 
-  it('rolls back stale cart prices and activates a package only with its paid invoice',async()=>{
+  it('keeps package sales out of generic carts and activates a package only with its paid invoice',async()=>{
     const shift=await service.openCashierShift(actor,{branchId:branch.id,openingCash:0});
-    const body={kind:'CART',shiftId:shift.id,customerId:customer.id,paymentMethod:'BANK_TRANSFER',requestId:randomUUID(),items:[{type:'SERVICE',id:spaService.id,quantity:2},{type:'PACKAGE',id:spaPackage.id,quantity:1}],expectedTotal:700000};
+    const mixedCart={kind:'CART',shiftId:shift.id,customerId:customer.id,paymentMethod:'BANK_TRANSFER',requestId:randomUUID(),items:[{type:'SERVICE',id:spaService.id,quantity:2},{type:'PACKAGE',id:spaPackage.id,quantity:1}],expectedTotal:700000};
     const before=(await query('SELECT count(*)::int n FROM invoices')).rows[0].n;
     const packagesBefore=(await query('SELECT count(*)::int n FROM user_packages WHERE customer_id=$1',[customer.id])).rows[0].n;
-    await expect(service.collectCashierPayment(actor,{...body,expectedTotal:1})).rejects.toThrow(/Giá hoặc tổng tiền/);
+    await expect(service.collectCashierPayment(actor,mixedCart)).rejects.toThrow(/phiếu riêng/);
     expect((await query('SELECT count(*)::int n FROM invoices')).rows[0].n).toBe(before);
+    expect((await query('SELECT count(*)::int n FROM user_packages WHERE customer_id=$1',[customer.id])).rows[0].n).toBe(packagesBefore);
+    const body={...mixedCart,requestId:randomUUID(),items:[{type:'SERVICE',id:spaService.id,quantity:2}],expectedTotal:200000};
+    await expect(service.collectCashierPayment(actor,{...body,expectedTotal:1})).rejects.toThrow(/Giá hoặc tổng tiền/);
     const paid=await service.collectCashierPayment(actor,body);
-    expect(paid.amount).toBe(700000);
+    expect(paid.amount).toBe(200000);
     await service.collectCashierPayment(actor,body);
-    expect((await query('SELECT count(*)::int n FROM user_packages WHERE customer_id=$1',[customer.id])).rows[0].n).toBe(packagesBefore+1);
-    expect((await query('SELECT count(*)::int n FROM invoice_items WHERE invoice_id=$1',[paid.invoice.id])).rows[0].n).toBe(2);
+    expect((await query('SELECT count(*)::int n FROM user_packages WHERE customer_id=$1',[customer.id])).rows[0].n).toBe(packagesBefore);
+    expect((await query('SELECT count(*)::int n FROM invoice_items WHERE invoice_id=$1',[paid.invoice.id])).rows[0].n).toBe(1);
     await expect(service.collectCashierPayment(actor,{kind:'PACKAGE',shiftId:shift.id,branchId:branch.id,customerId:'bbbbbbbb-0001-0001-0001-000000000001',packageId:spaPackage.id,paymentMethod:'BANK_TRANSFER',vatRate:8,requestId:randomUUID()})).rejects.toThrow(/khách vãng lai/);
     const registration=await service.collectCashierPayment(actor,{kind:'PACKAGE',shiftId:shift.id,branchId:branch.id,customerId:customer.id,packageId:spaPackage.id,paymentMethod:'BANK_TRANSFER',vatRate:8,requestId:randomUUID()});
     expect(registration.userPackage.id).toBeTruthy();
