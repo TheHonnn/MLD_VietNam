@@ -48,6 +48,7 @@ import {
   User as CustomerUser,
   Instructor,
   EnrollmentStatus,
+  PackageStatus,
 } from '../types/shared_types';
 import {
   MultiColorLineChart,
@@ -62,6 +63,15 @@ import { matchSearch } from '../utils/searchUtils';
 import { isBookingWaitingPayment } from './cashier-pos.rules';
 
 type DateRangePreset = '7D' | 'TODAY' | '30D' | 'THIS_MONTH' | 'ALL' | 'CUSTOM';
+
+const formatKpiMoney = (amount: number) => {
+  const absolute = Math.abs(amount);
+  const format = (value: number) => value.toLocaleString('vi-VN', { maximumFractionDigits: 1 });
+  if (absolute >= 1_000_000_000) return `${format(amount / 1_000_000_000)} tỷ đ`;
+  if (absolute >= 1_000_000) return `${format(amount / 1_000_000)} triệu đ`;
+  if (absolute >= 1_000) return `${format(amount / 1_000)} nghìn đ`;
+  return `${amount.toLocaleString('vi-VN')}đ`;
+};
 
 export const W01_Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -455,38 +465,89 @@ export const W01_Dashboard: React.FC = () => {
   }, [enrollments, selectedBranchId]);
 
   // 2. LIVE KPI METRICS (Dynamically computed from filtered dataset)
-  const totalInvoiceCollected = filteredInvoices.reduce(
-    (sum, inv) => (inv.paymentStatus === 'PAID' ? sum + inv.totalAmount : sum),
-    0
-  );
-  const totalTuitionCollected = filteredTuitions.reduce(
-    (sum, t) => (t.paymentStatus === 'PAID' ? sum + t.amount : sum),
-    0
-  );
+  const totalInvoiceCollected = filteredInvoices.reduce((sum, inv) => {
+    if (inv.paymentStatus !== 'PAID') return sum;
+    return sum + Math.max(0, Number(inv.totalAmount || 0) - Number(inv.refundAmount || 0));
+  }, 0);
+  const totalTuitionCollected = filteredTuitions.reduce((sum, transaction) => {
+    if (transaction.paymentStatus !== 'PAID') return sum;
+    const amount = Number(transaction.amount || 0);
+    return sum + (transaction.transactionType === TuitionTransType.REFUND ? -amount : amount);
+  }, 0);
   const totalCollected = totalInvoiceCollected + totalTuitionCollected;
+
+  const refundedAmount = useMemo(() => {
+    const invoiceRefunds = filteredInvoices.reduce(
+      (sum, invoice) => sum + Number(invoice.refundAmount || 0),
+      0
+    );
+    const tuitionRefunds = filteredTuitions.reduce(
+      (sum, transaction) =>
+        sum + (transaction.transactionType === TuitionTransType.REFUND ? Number(transaction.amount || 0) : 0),
+      0
+    );
+    return invoiceRefunds + tuitionRefunds;
+  }, [filteredInvoices, filteredTuitions]);
 
   const paidCount =
     filteredInvoices.filter((inv) => inv.paymentStatus === 'PAID').length +
     filteredTuitions.filter((t) => t.paymentStatus === 'PAID').length;
 
-  const upcomingCount = filteredBookings.length;
-  const packagesCount = userPackages.length;
-  const enrolledCount = filteredEnrollments.length;
+  const upcomingBookings = useMemo(() => {
+    const now = new Date();
+    return bookings.filter((booking) => {
+      if (selectedBranchId !== 'ALL' && booking.branchId !== selectedBranchId) return false;
+      if (['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(String(booking.status))) return false;
+      const appointment = new Date(`${booking.bookingDate}T${booking.startTime || '00:00:00'}`);
+      return !Number.isNaN(appointment.getTime()) && appointment.getTime() >= now.getTime();
+    });
+  }, [bookings, selectedBranchId]);
+
+  const activePackages = useMemo(() => {
+    const today = realDates.todayIso;
+    return userPackages.filter((userPackage) => {
+      const remainingSessions = Number(userPackage.totalSessions || 0) - Number(userPackage.completedSessions || 0);
+      const hasNotExpired = !userPackage.expiresAt || userPackage.expiresAt.slice(0, 10) >= today;
+      return userPackage.status === PackageStatus.ACTIVE && remainingSessions > 0 && hasNotExpired;
+    });
+  }, [userPackages, realDates.todayIso]);
+
+  const activeEnrollments = useMemo(
+    () => filteredEnrollments.filter(
+      (enrollment) => enrollment.status === EnrollmentStatus.ENROLLED || enrollment.status === EnrollmentStatus.STUDYING
+    ),
+    [filteredEnrollments]
+  );
+  const activeCourseCount = useMemo(
+    () => new Set(activeEnrollments.map((enrollment) => enrollment.courseId).filter(Boolean)).size,
+    [activeEnrollments]
+  );
 
   // Thống kê Học viên học viện (Student Metrics)
+  const admittedEnrollments = useMemo(
+    () => filteredEnrollments.filter((enrollment) =>
+      [EnrollmentStatus.ENROLLED, EnrollmentStatus.STUDYING, EnrollmentStatus.GRADUATED].includes(enrollment.status)
+    ),
+    [filteredEnrollments]
+  );
   const distinctStudentIds = useMemo(() => {
-    return new Set(filteredEnrollments.map((e) => e.studentId || e.id));
-  }, [filteredEnrollments]);
+    return new Set(admittedEnrollments.map((e) => e.studentId || e.id));
+  }, [admittedEnrollments]);
   const studentsCount = distinctStudentIds.size;
-  const studyingStudentsCount = filteredEnrollments.filter(
-    (e) => e.status === EnrollmentStatus.STUDYING || e.status === EnrollmentStatus.ENROLLED
-  ).length;
-  const consultingStudentsCount = filteredEnrollments.filter(
-    (e) => e.status === EnrollmentStatus.CONSULTING || e.status === EnrollmentStatus.DEPOSITED
-  ).length;
+  const studyingStudentsCount = useMemo(
+    () => new Set(activeEnrollments.map((enrollment) => enrollment.studentId || enrollment.id)).size,
+    [activeEnrollments]
+  );
+  const consultingStudentsCount = useMemo(
+    () => new Set(
+      filteredEnrollments
+        .filter((e) => e.status === EnrollmentStatus.CONSULTING || e.status === EnrollmentStatus.DEPOSITED)
+        .map((enrollment) => enrollment.studentId || enrollment.id)
+    ).size,
+    [filteredEnrollments]
+  );
 
   // Thống kê Giảng viên đào tạo (Instructor Metrics)
-  const instructorsCount = instructors.length;
   const activeInstructorsCount = instructors.filter((i) => i.isActive !== false).length;
 
   // Keep the dashboard KPI identical to the cashier queue. A booking that was
@@ -625,7 +686,7 @@ export const W01_Dashboard: React.FC = () => {
   const kpis = [
     {
       title: 'Thực thu trong kỳ',
-      value: `${totalCollected.toLocaleString('vi-VN')}đ`,
+      value: formatKpiMoney(totalCollected),
       subtext: `${paidCount} biên nhận đã hoàn tất`,
       icon: Wallet,
       route: '/cashier-pos?tab=receipts',
@@ -634,39 +695,39 @@ export const W01_Dashboard: React.FC = () => {
     {
       title: 'Giao dịch đã thanh toán',
       value: `${paidCount}`,
-      subtext: 'Hoàn tiền: 0đ',
+      subtext: `Hoàn tiền: ${refundedAmount.toLocaleString('vi-VN')}đ`,
       icon: Receipt,
       route: '/cashier-pos?tab=receipts',
       actionLabel: 'Xem hóa đơn',
     },
     {
       title: 'Lịch hẹn sắp tới',
-      value: `${upcomingCount}`,
-      subtext: `${pendingBookings.length} lịch hẹn chờ thanh toán`,
+      value: `${upcomingBookings.length}`,
+      subtext: upcomingBookings.length > 0 ? 'Chưa hoàn tất, từ thời điểm hiện tại' : 'Không có lịch sắp tới',
       icon: Calendar,
       route: '/staff-schedule',
       actionLabel: 'Xem lịch hẹn',
     },
     {
       title: 'Gói liệu trình đang dùng',
-      value: `${packagesCount}`,
-      subtext: `${userPackages.reduce((s, p) => s + (p.totalSessions - p.completedSessions), 0)} buổi còn lại`,
+      value: `${activePackages.length}`,
+      subtext: `${activePackages.reduce((s, p) => s + Math.max(0, p.totalSessions - p.completedSessions), 0)} buổi còn lại`,
       icon: Leaf,
       route: '/treatment-management',
       actionLabel: 'Xem liệu trình',
     },
     {
-      title: 'Khóa đã ghi danh',
-      value: `${enrolledCount}`,
-      subtext: `${studyingStudentsCount} lớp đang học`,
+      title: 'Khóa đang có học viên',
+      value: `${activeCourseCount}`,
+      subtext: `${activeEnrollments.length} hồ sơ đang học`,
       icon: BookOpen,
       route: '/academy-enrollment',
       actionLabel: 'Xem ghi danh',
     },
     {
-      title: 'Giảng viên đào tạo',
-      value: `${instructorsCount}`,
-      subtext: `${activeInstructorsCount} đang giảng dạy`,
+      title: 'Giảng viên hoạt động',
+      value: `${activeInstructorsCount}`,
+      subtext: `${instructors.length} hồ sơ giảng viên`,
       icon: Award,
       route: '/instructors',
       actionLabel: 'Xem giảng viên',
