@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -50,6 +51,7 @@ export interface AdminActor {
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
   private attempts = new Map<string, { count: number; until: number }>();
   constructor(
     private readonly db: AdminDatabase,
@@ -1740,15 +1742,33 @@ export class AdminService {
       }
       const result = await client.query(
         `UPDATE cashier_shifts SET closing_cash=$2, discrepancy_amount=$2::numeric-$3::numeric,
-         status='CLOSED',closed_at=now(),notes=COALESCE($4,notes),updated_at=now()
+         status='CLOSED',closed_at=now(),notes=COALESCE($4,notes)
          WHERE id=$1 RETURNING *`,
         [id, closingCash, systemCash, typeof body.notes === 'string' ? body.notes.trim().slice(0, 1000) : null],
       );
-      await this.audit(client, actor, 'cashier_shifts', 'CLOSE', id);
+      // Closing the shift is the financial source of truth. A legacy/missing
+      // audit schema must not leave an otherwise valid shift permanently open.
+      await client.query('SAVEPOINT close_shift_audit');
+      try {
+        await this.audit(client, actor, 'cashier_shifts', 'CLOSE', id);
+        await client.query('RELEASE SAVEPOINT close_shift_audit');
+      } catch (auditError: any) {
+        await client.query('ROLLBACK TO SAVEPOINT close_shift_audit');
+        const compatibleLegacyAuditError = ['42703', '42P01', '42804'].includes(auditError?.code)
+          || (auditError?.code === '22P02' && /audit_action|invalid input value for enum/i.test(String(auditError?.message || '')));
+        if (!compatibleLegacyAuditError) throw auditError;
+        this.logger.warn(`Đã kết ca nhưng không ghi được audit CLOSE do schema cũ (${auditError.code}).`);
+      }
       await client.query('COMMIT');
       return this.cashierShiftDto(result.rows[0]);
     } catch (error) {
       await client.query('ROLLBACK');
+      const databaseError = error as { code?: string; message?: string };
+      if (!(error instanceof HttpException)) {
+        this.logger.error(
+          `Kết ca ${id} thất bại${databaseError.code ? ` [${databaseError.code}]` : ''}: ${databaseError.message || 'Unknown database error'}`,
+        );
+      }
       this.fail(error);
     } finally {
       client.release();

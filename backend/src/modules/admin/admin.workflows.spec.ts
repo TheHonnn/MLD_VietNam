@@ -135,6 +135,19 @@ describe('Admin business workflows on the complete migrated schema', () => {
     await expect(service.openCashierShift(wrongRole,{branchId:branch.id,openingCash:0})).rejects.toThrow(/Vai trò/);
     await expect(service.list('roles',scoped,{})).rejects.toThrow(/SUPER_ADMIN/);
   });
+  it('still closes a shift when a deployed legacy audit table lacks the expected action column',async()=>{
+    const shift=await service.openCashierShift(actor,{branchId:branch.id,openingCash:123000});
+    await query('ALTER TABLE audit_logs RENAME COLUMN action TO legacy_action');
+    try {
+      const closed=await service.closeCashierShift(actor,shift.id,{closingCash:123000});
+      expect(closed.status).toBe('CLOSED');
+      const persisted=(await query('SELECT status,closing_cash FROM cashier_shifts WHERE id=$1',[shift.id])).rows[0];
+      expect(persisted.status).toBe('CLOSED');
+      expect(Number(persisted.closing_cash)).toBe(123000);
+    } finally {
+      await query('ALTER TABLE audit_logs RENAME COLUMN legacy_action TO action');
+    }
+  });
   it('shows reference names, searches them and clamps pages after data removal',async()=>{
     await query("INSERT INTO staff_profiles(user_id,branch_id,employee_code,position) VALUES($1,$2,'FLOWEMP','Test')",[actor.id,branch.id]);
     const staff=await service.list('staff_profiles',actor,{search:branch.name});
