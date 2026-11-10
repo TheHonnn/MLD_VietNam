@@ -52,6 +52,7 @@ import {
   StaffWithProfile,
 } from '../services';
 import { toast } from '../components/common';
+import { MLDInvoiceDocument, MLDInvoiceLine } from '../components/invoices/MLDInvoiceDocument';
 import {
   Invoice,
   Booking,
@@ -99,6 +100,8 @@ export const POS_TIME_SLOTS = [
   { label: '18:30–19:30', startTime: '18:30:00', endTime: '19:30:00' },
   { label: '19:30–20:30', startTime: '19:30:00', endTime: '20:30:00' },
 ];
+
+const parseVnd = (value?: string) => Number(String(value || '').replace(/[^0-9-]/g, '')) || 0;
 
 export interface PosCartItem {
   id: string;
@@ -357,6 +360,14 @@ export const W07_CashierPOS: React.FC = () => {
     sourceKind?: 'BOOKING' | 'PACKAGE' | 'WALK_IN' | 'TUITION' | 'CART';
     customerId?: string;
     serviceId?: string;
+    customerEmail?: string;
+    branchPhone?: string;
+    lineItems?: MLDInvoiceLine[];
+    subtotalValue?: number;
+    discountValue?: number;
+    vatRateValue?: number;
+    vatAmountValue?: number;
+    totalValue?: number;
   } | null>(null);
 
   const copyToClipboard = (text: string, label: string) => {
@@ -543,6 +554,20 @@ export const W07_CashierPOS: React.FC = () => {
           date: detail.date,
           status: detail.status,
           shiftCode: (found as any).shiftCode || (found as any).shift_code,
+          customerEmail: found.customer?.email || undefined,
+          branchAddress: found.branch ? `${found.branch.address}, ${found.branch.district}, ${found.branch.city}` : undefined,
+          branchPhone: found.branch?.phone,
+          lineItems: found.items?.map((item) => ({
+            description: item.itemName,
+            quantity: Number(item.quantity || 1),
+            unitPrice: Number(item.unitPrice || 0),
+            amount: Number(item.amount || 0),
+          })),
+          subtotalValue: Number(found.subtotal || 0),
+          discountValue: Number(found.discountAmount || 0),
+          vatRateValue: Number(found.vatRate || 0),
+          vatAmountValue: Number(found.vatAmount || 0),
+          totalValue: Number(found.totalAmount || 0) - Number(found.refundAmount || 0),
         });
         setShowReceiptModal(true);
       }
@@ -886,8 +911,10 @@ export const W07_CashierPOS: React.FC = () => {
         customerName: selectedCustomer.fullName || 'Khách hàng',
         customerPhone: selectedCustomer.phone || '--',
         customerTier: selectedCustomer.membershipTier || 'STANDARD',
+        customerEmail: selectedCustomer.email || undefined,
         branchName: activeBranch?.name || 'Trụ sở MLD Việt Nam',
         branchAddress: activeBranch ? `${activeBranch.address}, ${activeBranch.district}, ${activeBranch.city}` : undefined,
+        branchPhone: activeBranch?.phone,
         serviceName: posCart.map((i) => `${i.name} (x${i.quantity})`).join(', '),
         category: isPkg ? 'PACKAGE' : 'SERVICE',
         method: selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : selectedMethod === 'transfer' ? 'Chuyển khoản VietQR' : 'Quẹt thẻ POS',
@@ -916,6 +943,12 @@ export const W07_CashierPOS: React.FC = () => {
         sourceKind,
         customerId: targetCustomerId !== GUEST_CUSTOMER.id ? targetCustomerId : undefined,
         serviceId: firstServiceItem?.serviceId || firstServiceItem?.id,
+        lineItems: posCart.map((item) => ({ description: item.name, quantity: item.quantity, unitPrice: item.unitPrice, amount: item.unitPrice * item.quantity })),
+        subtotalValue: cartSubtotal,
+        discountValue: discountAmount,
+        vatRateValue: vatRate,
+        vatAmountValue: cartVat,
+        totalValue: Number(collection.data.amount ?? cartTotal),
       });
 
       setShowReceiptModal(true);
@@ -1088,6 +1121,8 @@ export const W07_CashierPOS: React.FC = () => {
         customerName: getEnrollmentStudentName(selectedEnrollment),
         customerPhone: getEnrollmentStudentPhone(selectedEnrollment),
         branchName: activeBranch?.name || 'MLD Academy Nam Kỳ Khởi Nghĩa',
+        branchAddress: activeBranch ? `${activeBranch.address}, ${activeBranch.district}, ${activeBranch.city}` : undefined,
+        branchPhone: activeBranch?.phone,
         serviceName: getEnrollmentCourseTitle(selectedEnrollment),
         category: 'ACADEMY',
         method: selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : 'Chuyển khoản VietQR',
@@ -1107,6 +1142,12 @@ export const W07_CashierPOS: React.FC = () => {
         status: isFull ? 'Đã tất toán toàn khóa' : `Đã đóng đợt (còn nợ ${(selectedEnrollment.tuitionTotal! - newPaidTotal).toLocaleString('vi-VN')}đ)`,
         sourceKind: 'TUITION',
         customerId: validCustomerId !== GUEST_CUSTOMER.id ? validCustomerId : undefined,
+        lineItems: [{ description: getEnrollmentCourseTitle(selectedEnrollment), quantity: 1, unitPrice: amount, amount }],
+        subtotalValue: amount,
+        discountValue: 0,
+        vatRateValue: 0,
+        vatAmountValue: 0,
+        totalValue: amount,
       });
 
       setShowReceiptModal(true);
@@ -3679,6 +3720,12 @@ export const W07_CashierPOS: React.FC = () => {
                                       discount: `${r.discountAmount.toLocaleString('vi-VN')}đ`,
                                       date: r.date,
                                       status: r.status,
+                                      lineItems: [{ description: r.courseTitle, quantity: 1, unitPrice: r.subtotal, amount: r.subtotal }],
+                                      subtotalValue: r.subtotal,
+                                      discountValue: r.discountAmount,
+                                      vatRateValue: 0,
+                                      vatAmountValue: 0,
+                                      totalValue: r.rawAmount,
                                     });
                                     setShowReceiptModal(true);
                                   }}
@@ -3990,6 +4037,8 @@ export const W07_CashierPOS: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => {
+                            const invoice = invoices.find((item) => item.id === r.rawId);
+                            const branch = branches.find((item) => item.id === r.branchId);
                             setSelectedReceiptData({
                               id: r.id,
                               customerName: r.customerName,
@@ -4004,6 +4053,14 @@ export const W07_CashierPOS: React.FC = () => {
                               discount: `${r.discountAmount.toLocaleString('vi-VN')}đ`,
                               date: r.date,
                               status: r.status,
+                              branchAddress: branch ? `${branch.address}, ${branch.district}, ${branch.city}` : undefined,
+                              branchPhone: branch?.phone,
+                              lineItems: invoice?.items?.map((item) => ({ description: item.itemName, quantity: Number(item.quantity || 1), unitPrice: Number(item.unitPrice || 0), amount: Number(item.amount || 0) })) || [{ description: r.content, quantity: 1, unitPrice: r.subtotal, amount: r.subtotal }],
+                              subtotalValue: r.subtotal,
+                              discountValue: r.discountAmount,
+                              vatRateValue: Number(invoice?.vatRate || 0),
+                              vatAmountValue: Number(invoice?.vatAmount || 0),
+                              totalValue: r.netAmount,
                             });
                             setShowReceiptModal(true);
                           }}
@@ -4041,8 +4098,8 @@ export const W07_CashierPOS: React.FC = () => {
           aria-modal="true"
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
         >
-          <div className="bg-white rounded-3xl border border-[#EFE4D9] shadow-2xl max-w-md w-full overflow-hidden text-xs">
-            <div className="p-6 bg-[#FAF8F5] border-b border-[#EFE4D9] relative text-center">
+          <div className="flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[#DDE5DD] bg-white text-xs shadow-2xl">
+            <div className="no-print relative border-b border-[#DDE5DD] bg-white px-6 py-4 text-left">
               <button
                 type="button"
                 onClick={() => setShowReceiptModal(false)}
@@ -4050,66 +4107,45 @@ export const W07_CashierPOS: React.FC = () => {
               >
                 <X className="w-4 h-4" />
               </button>
-              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto mb-2">
-                <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
-              </div>
-              <h3 className="text-base font-extrabold text-[#2C241E]">
+              <h3 className="text-base font-extrabold text-[#153F3E]">
                 {selectedReceiptData.userPackageId ? 'Liệu trình đã được kích hoạt!' : 'Thanh toán thành công!'}
               </h3>
-              <p className="text-[11px] text-[#73675F] mt-0.5">
+              <p className="mt-0.5 text-[11px] text-[#5F7473]">
                 {selectedReceiptData.userPackageId ? 'Hóa đơn và hồ sơ liệu trình đã liên kết thành công' : 'Biên lai điện tử MLD Healthcare & Spa'}
               </p>
             </div>
 
             {/* Receipt Content Body */}
-            <div id="pos-receipt-card" className="p-6 space-y-3.5 bg-white">
-              <div className="bg-[#FAF8F5] p-4 rounded-2xl border border-[#EFE4D9] space-y-2 text-xs">
-                <div className="flex items-center justify-between pb-2 border-b border-dashed border-[#E8DFD8]">
-                  <span className="text-[#73675F]">Mã hóa đơn:</span>
-                  <span className="font-mono font-bold text-[#8A4F23]">{selectedReceiptData.id}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#73675F]">Khách hàng:</span>
-                  <span className="font-bold text-[#2C241E]">{selectedReceiptData.customerName}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#73675F]">Số điện thoại:</span>
-                  <span className="font-medium text-[#2C241E]">{selectedReceiptData.customerPhone || '--'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#73675F]">Dịch vụ / Hàng hóa:</span>
-                  <span className="font-bold text-[#2C241E] text-right max-w-[220px] truncate" title={selectedReceiptData.serviceName}>
-                    {selectedReceiptData.serviceName}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#73675F]">Hình thức:</span>
-                  <span className="font-semibold text-[#8A4F23]">{selectedReceiptData.method}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#73675F]">Thời gian:</span>
-                  <span className="text-[#2C241E]">{selectedReceiptData.date}</span>
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t border-dashed border-[#E8DFD8] text-sm font-bold text-[#2C241E]">
-                  <span>Tổng thanh toán:</span>
-                  <span className="text-base font-black text-[#0D6832]">{selectedReceiptData.amount}</span>
-                </div>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-[#E8F6ED] text-[#0D6832] text-[11px] font-semibold flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 shrink-0" />
-                <span>Trạng thái: {selectedReceiptData.status || 'Đã thanh toán'}{selectedReceiptData.status?.includes('hoàn tiền') ? ` · Giá trị thực thu: ${selectedReceiptData.amount}` : ' · Dữ liệu đã đồng bộ kế toán'}</span>
-              </div>
-              {selectedReceiptData.userPackageId && (
-                <div className="rounded-xl border border-[#D7BBA6] bg-[#FAF8F5] p-3">
-                  <p className="text-xs font-bold text-[#2C241E]">Bước tiếp theo: đặt buổi chăm sóc đầu tiên</p>
-                  <p className="text-[11px] text-[#73675F] mt-1 leading-relaxed">Mở hồ sơ vừa kích hoạt để chọn cơ sở, ngày giờ và kỹ thuật viên. Khách có thể đặt sau nếu chưa chốt lịch.</p>
-                </div>
-              )}
+            <div className="overflow-y-auto bg-[#DCE4DE] p-3 sm:p-6">
+              <MLDInvoiceDocument data={{
+                id: selectedReceiptData.id,
+                issuedAt: selectedReceiptData.date,
+                customerName: selectedReceiptData.customerName,
+                customerPhone: selectedReceiptData.customerPhone,
+                customerEmail: selectedReceiptData.customerEmail,
+                branchName: selectedReceiptData.branchName,
+                branchAddress: selectedReceiptData.branchAddress,
+                branchPhone: selectedReceiptData.branchPhone,
+                paymentMethod: selectedReceiptData.method,
+                status: selectedReceiptData.status,
+                shiftCode: selectedReceiptData.shiftCode,
+                technicianName: selectedReceiptData.technicianName,
+                lines: selectedReceiptData.lineItems?.length ? selectedReceiptData.lineItems : [{
+                  description: selectedReceiptData.serviceName,
+                  quantity: 1,
+                  unitPrice: selectedReceiptData.subtotalValue ?? (parseVnd(selectedReceiptData.subtotal) || parseVnd(selectedReceiptData.amount)),
+                  amount: selectedReceiptData.subtotalValue ?? (parseVnd(selectedReceiptData.subtotal) || parseVnd(selectedReceiptData.amount)),
+                }],
+                subtotal: selectedReceiptData.subtotalValue ?? (parseVnd(selectedReceiptData.subtotal) || parseVnd(selectedReceiptData.amount)),
+                discount: selectedReceiptData.discountValue ?? parseVnd(selectedReceiptData.discount),
+                vatRate: selectedReceiptData.vatRateValue ?? parseVnd(selectedReceiptData.vatRateText),
+                vatAmount: selectedReceiptData.vatAmountValue ?? parseVnd(selectedReceiptData.vatAmountText),
+                total: selectedReceiptData.totalValue ?? parseVnd(selectedReceiptData.amount),
+              }} />
             </div>
 
             {/* Modal Actions */}
-            <div className="p-4 bg-[#FAF8F5] border-t border-[#EFE4D9] space-y-2">
+            <div className="no-print space-y-2 border-t border-[#DDE5DD] bg-white p-4">
               {/* Branch 1: Package Registration */}
               {(selectedReceiptData.userPackageId || selectedReceiptData.sourceKind === 'PACKAGE') && (
                 <button
