@@ -614,7 +614,7 @@ export const W08_Enrollment: React.FC = () => {
             {
               timestamp: new Date().toISOString(),
               author: 'Hệ thống tuyển sinh',
-              note: `Khách hàng ${cleanName} (${cleanPhone}) đăng ký tư vấn khóa học qua hệ thống. Mã đơn: ${newOrderCode}`,
+              note: `Admin tạo hồ sơ tại quầy cho khách ${cleanName} (${cleanPhone}). Mã hồ sơ: ${newOrderCode}`,
             },
           ],
         });
@@ -626,15 +626,15 @@ export const W08_Enrollment: React.FC = () => {
         setSelectedCandidateId(enrRes.data.id);
       }
 
-      toast.success('Tạo đơn tư vấn thành công', `Đơn hàng ${newOrderCode} đã được lưu vào Supabase Cloud.`);
-      showToast(`Đã tạo đơn ${newOrderCode} cho ${cleanName}!`);
+      toast.success('Tạo hồ sơ tại quầy thành công', `Hồ sơ ${newOrderCode} đã được lưu vào Supabase Cloud.`);
+      showToast(`Đã tạo hồ sơ ${newOrderCode} cho ${cleanName}!`);
       setIsAddModalOpen(false);
       setFormName('');
       setFormPhone('');
       setFormEmail('');
     } catch (err: any) {
       console.error('Failed to create candidate enrollment:', err);
-      toast.error('Lỗi tạo đơn', err?.message || 'Không thể lưu đơn đăng ký tư vấn.');
+      toast.error('Lỗi tạo hồ sơ', err?.message || 'Không thể lưu hồ sơ tuyển sinh tại quầy.');
     } finally {
       setIsCreatingCandidate(false);
     }
@@ -1157,7 +1157,7 @@ export const W08_Enrollment: React.FC = () => {
             onClick={() => setIsAddModalOpen(true)}
             className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
           >
-            Tạo yêu cầu tư vấn mới
+            Tạo hồ sơ tại quầy
           </button>
         </div>
       </div>
@@ -1993,14 +1993,14 @@ export const W08_Enrollment: React.FC = () => {
         <span>Hệ thống quản lý tuyển sinh, thanh toán VietQR & nhập học MLD Việt Nam • Dữ liệu thật lưu tại Supabase Cloud.</span>
       </div>
 
-      {/* MODAL: Tạo yêu cầu tư vấn mới */}
+      {/* MODAL: Tạo hồ sơ tuyển sinh tại quầy */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-[#EFE4D9] w-full max-w-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF5EF]">
               <div>
-                <h3 className="text-base font-bold text-[#2C241E]">Tạo yêu cầu đăng ký tư vấn mới</h3>
-                <p className="text-xs text-[#73675F] mt-0.5">Hồ sơ sẽ bắt đầu ở trạng thái: Chờ liên hệ & Chưa thanh toán</p>
+                <h3 className="text-base font-bold text-[#2C241E]">Tạo hồ sơ tuyển sinh tại quầy</h3>
+                <p className="text-xs text-[#73675F] mt-0.5">Dành cho khách đến trực tiếp; hồ sơ bắt đầu ở trạng thái Cần tư vấn và Chưa thanh toán.</p>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -2102,7 +2102,7 @@ export const W08_Enrollment: React.FC = () => {
                   disabled={isCreatingCandidate}
                   className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  {isCreatingCandidate ? 'Đang lưu vào Supabase...' : 'Tạo đơn tư vấn'}
+                  {isCreatingCandidate ? 'Đang lưu hồ sơ...' : 'Tạo hồ sơ tại quầy'}
                 </button>
               </div>
             </form>
