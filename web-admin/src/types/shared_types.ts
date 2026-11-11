@@ -117,6 +117,7 @@ export enum ConsultationStatus {
 export enum PaymentVerificationStatus {
   UNPAID = 'UNPAID',
   PENDING_VERIFICATION = 'PENDING_VERIFICATION',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
   PAID = 'PAID',
   FAILED = 'FAILED',
   EXPIRED = 'EXPIRED',
@@ -127,6 +128,8 @@ export enum StudentAdmissionStatus {
   NOT_APPROVED = 'NOT_APPROVED',
   APPROVED = 'APPROVED',
   ENROLLED = 'ENROLLED',
+  COMPLETED = 'COMPLETED',
+  GRADUATED = 'GRADUATED',
 }
 
 export interface ConsultationNote {

@@ -48,6 +48,9 @@ export const DEFAULT_RESOURCES: Resource[] = [
 
   // 8. Tuyển sinh & Ghi danh
   { name: 'course_enrollments', title: 'Danh sách ghi danh', group: 'Tuyển sinh & Ghi danh', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'enrollment_status_history', title: 'Lịch sử xử lý hồ sơ', group: 'Tuyển sinh & Ghi danh', actions: [] },
+  { name: 'enrollment_change_requests', title: 'Bảo lưu / Chuyển lớp / Nghỉ học', group: 'Tuyển sinh & Ghi danh', actions: [] },
+  { name: 'academy_enrollment_funnel', title: 'Phễu tuyển sinh & Công nợ', group: 'Tuyển sinh & Ghi danh', actions: [] },
   { name: 'tuition_transactions', title: 'Thu học phí & Đặt cọc', group: 'Tuyển sinh & Ghi danh', actions: ['create', 'update', 'delete', 'action'] },
 
   // 9. Đội ngũ Giảng viên

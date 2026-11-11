@@ -28,6 +28,7 @@ import { supabaseService } from './supabaseService';
 import { posService } from './pos.service';
 import { legacyRead, legacyWrite } from './adminAdapter';
 import { commissionService } from './commission.service';
+import { apiClient } from './apiClient';
 
 export const academyService = {
   // --- Khóa học LMS ---
@@ -400,110 +401,14 @@ export const academyService = {
     customerCode?: string;
   }>> {
     try {
-      // 1. Thử gọi backend API
-      const apiBase = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:3000');
-      const res = await fetch(`${apiBase}/academy/enrollments/${enrollmentId}/check-payment`, {
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        return json;
-      }
-    } catch (_) {}
-
-    // 2. Fallback trực tiếp qua Supabase
-    try {
-      const enrollments = await supabaseService.getEnrollments();
-      const enr = enrollments?.find((e) => e.id === enrollmentId);
-      if (!enr) {
-        return { success: false, statusCode: 404, message: 'Không tìm thấy hồ sơ', data: { isPaid: false, approved: false } };
-      }
-
-      if (enr.approvalStatus === 'APPROVED' && (enr.amountPaid || 0) > 0) {
-        return {
-          success: true,
-          statusCode: 200,
-          message: 'Học viên đã được duyệt và xác nhận thanh toán!',
-          data: { isPaid: true, approved: true, amountPaid: enr.amountPaid, tuitionTotal: enr.tuitionTotal },
-        };
-      }
-
-      const notesCode = enr.approvalNotes?.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1] || '';
-      const customerCode = (notesCode || `HV-${enr.id.slice(-4)}`).toUpperCase();
-      const phoneDigits = (enr.studentPhone || '').replace(/\D/g, '');
-
-      // Check invoices
-      const invoices = await supabaseService.getInvoices();
-      let matchedAmount = 0;
-      if (invoices && invoices.length > 0) {
-        for (const inv of invoices) {
-          const invCode = String(inv.invoiceCode || '').toUpperCase();
-          if (
-            (customerCode && invCode.includes(customerCode)) ||
-            (phoneDigits && phoneDigits.length >= 7 && invCode.includes(phoneDigits))
-          ) {
-            matchedAmount = Number(inv.totalAmount || 0);
-            break;
-          }
-        }
-      }
-
-      if (matchedAmount === 0) {
-        const txList = await supabaseService.getTuitionTransactions(enrollmentId);
-        if (txList && txList.length > 0) {
-          matchedAmount = txList
-            .filter((t) => t.paymentStatus === 'PAID')
-            .reduce((sum, t) => sum + (t.transactionType === 'REFUND' ? -Math.abs(Number(t.amount || 0)) : Number(t.amount || 0)), 0);
-        }
-      }
-
-      if (matchedAmount > 0) {
-        await supabaseService.updateEnrollment(enrollmentId, {
-          status: EnrollmentStatus.ENROLLED,
-          approvalStatus: 'APPROVED',
-          studentAdmissionStatus: StudentAdmissionStatus.APPROVED,
-          paymentVerificationStatus: PaymentVerificationStatus.PAID,
-          consultationStatus: ConsultationStatus.CONFIRMED,
-          amountPaid: matchedAmount,
-          approvedAt: new Date().toISOString(),
-          approvedBy: 'HỆ THỐNG TỰ ĐỘNG',
-          approvalNotes: `Đã tự động duyệt: Nhận thanh toán ${matchedAmount.toLocaleString('vi-VN')}đ khớp mã KH ${customerCode}`,
-        });
-
-        // Tự động tạo bản ghi tuition_transactions qua backend POS có đối soát ca
-        try {
-          const batches = await supabaseService.getCourseBatches();
-          const branchId = batches?.find((b) => b.id === enr.batchId)?.branchId;
-          const shiftRes = await posService.getActiveShift(branchId);
-          if (shiftRes.success && shiftRes.data?.id) {
-            await posService.collectPayment({
-              kind: 'TUITION',
-              enrollmentId,
-              amount: matchedAmount,
-              shiftId: shiftRes.data.id,
-              branchId: branchId || shiftRes.data.branchId,
-              paymentMethod: PaymentMethod.BANK_TRANSFER,
-              notes: `Tự động đối soát ngân hàng khớp mã KH ${customerCode}`,
-            });
-          }
-        } catch (_) {}
-
-        return {
-          success: true,
-          statusCode: 200,
-          message: `Xác nhận khớp mã KH ${customerCode} & số tiền ${matchedAmount.toLocaleString('vi-VN')}đ! Đã tự động duyệt học viên vào khóa học.`,
-          data: { isPaid: true, approved: true, amountPaid: matchedAmount, tuitionTotal: enr.tuitionTotal, customerCode },
-        };
-      }
-
+      return await apiClient.get(`/academy/enrollments/${enrollmentId}/check-payment`);
+    } catch (error: any) {
       return {
-        success: true,
-        statusCode: 200,
-        message: `Hệ thống chưa nhận được tiền từ ngân hàng cho mã khách hàng "${customerCode}".`,
-        data: { isPaid: false, approved: false, customerCode, tuitionTotal: enr.tuitionTotal },
+        success: false,
+        statusCode: error?.statusCode || 503,
+        message: 'Không kết nối được dịch vụ đối soát. Không thay đổi trạng thái hồ sơ để tránh duyệt nhầm.',
+        data: { isPaid: false, approved: false },
       };
-    } catch (err: any) {
-      return { success: false, statusCode: 500, message: err?.message || 'Lỗi kiểm tra thanh toán', data: { isPaid: false, approved: false } };
     }
   },
 
@@ -517,49 +422,17 @@ export const academyService = {
     try {
       const enrollments = await supabaseService.getEnrollments();
       const enr = enrollments?.find((e) => e.id === enrollmentId);
-      const finalPaid = options?.amountPaid !== undefined ? options.amountPaid : (enr?.tuitionTotal || 9000000);
-
-      await supabaseService.updateEnrollment(enrollmentId, {
-        status: EnrollmentStatus.ENROLLED,
-        approvalStatus: 'APPROVED',
-        studentAdmissionStatus: StudentAdmissionStatus.APPROVED,
-        paymentVerificationStatus: PaymentVerificationStatus.PAID,
-        consultationStatus: ConsultationStatus.CONFIRMED,
-        amountPaid: finalPaid,
-        approvedAt: new Date().toISOString(),
-        approvedBy: options?.adminUser || 'Admin Tuyển Sinh',
-        approvalNotes: options?.notes || `Admin duyệt tại quầy, thu ${finalPaid.toLocaleString('vi-VN')}đ`,
+      if (!enr) return { success: false, statusCode: 404, message: 'Không tìm thấy hồ sơ', data: null };
+      await apiClient.post(`/academy/enrollments/${enrollmentId}/approve`, {
+        amountPaid: options?.amountPaid ?? enr.amountPaid,
+        notes: options?.notes,
       });
-
-      // Tự động ghi nhận giao dịch vào bảng tuition_transactions qua backend POS có đối soát ca
-      if (finalPaid > 0 && enr) {
-        try {
-          const batches = await supabaseService.getCourseBatches();
-          const branchId = batches?.find((b) => b.id === enr.batchId)?.branchId;
-          const shiftRes = await posService.getActiveShift(branchId);
-          if (shiftRes.success && shiftRes.data?.id) {
-            await posService.collectPayment({
-              kind: 'TUITION',
-              enrollmentId,
-              amount: finalPaid,
-              shiftId: shiftRes.data.id,
-              branchId: branchId || shiftRes.data.branchId,
-              paymentMethod: PaymentMethod.CASH_AT_SPA,
-              notes: options?.notes || `Admin duyệt và thu học phí tại quầy cho học viên ${enr.studentName || ''}`,
-            });
-          } else {
-            console.warn('[approveEnrollment] Không tìm thấy ca thu ngân đang mở để ghi nhận giao dịch học phí');
-          }
-        } catch (tErr) {
-          console.warn('[approveEnrollment] Lỗi tự động ghi nhận giao dịch học phí:', tErr);
-        }
-      }
 
       const updated = (await supabaseService.getEnrollments())?.find((e) => e.id === enrollmentId);
       return {
         success: true,
         statusCode: 200,
-        message: 'Đã duyệt học viên vào khóa học thành công!',
+        message: 'Đã duyệt nhập học. Hồ sơ đã chuyển sang chờ xếp lớp.',
         data: updated || null,
       };
     } catch (err: any) {
@@ -570,6 +443,10 @@ export const academyService = {
         data: null,
       };
     }
+  },
+
+  async graduateEnrollment(enrollmentId: string): Promise<ApiResponse<any>> {
+    return apiClient.post(`/academy/enrollments/${enrollmentId}/graduate`, {});
   },
 
   /**
@@ -637,32 +514,17 @@ export const academyService = {
     }
   ): Promise<ApiResponse<boolean>> {
     try {
-      const live = await supabaseService.getEnrollments();
-      const current = live?.find((e) => e.id === enrollmentId);
-      const history = [...(current?.consultationHistory || [])];
-      const noteContent = data.note
-        ? data.note
-        : `Đã chốt học phí ${data.finalTuition.toLocaleString('vi-VN')}đ tại ${data.branchName || 'Chi nhánh đã chọn'}`;
-      history.push({
-        timestamp: new Date().toISOString(),
-        author: data.authorName || 'Nhân viên tư vấn',
-        note: noteContent,
-      });
-
-      const ok = await supabaseService.updateEnrollment(enrollmentId, {
-        consultationStatus: ConsultationStatus.CONFIRMED,
+      const result = await apiClient.post<any>(`/academy/enrollments/${enrollmentId}/finalize-consultation`, {
         finalTuition: data.finalTuition,
-        tuitionTotal: data.finalTuition,
-        selectedBranch: data.branchName,
-        consultationHistory: history,
-        qrCreatedAt: new Date().toISOString(),
+        branchName: data.branchName,
+        note: data.note,
       });
 
       return {
-        success: ok,
-        statusCode: ok ? 200 : 400,
-        message: ok ? 'Đã chốt tư vấn và tạo yêu cầu thanh toán thành công' : 'Lỗi chốt tư vấn',
-        data: ok,
+        success: result.success,
+        statusCode: result.statusCode || 200,
+        message: result.message,
+        data: result.success,
       };
     } catch (err: any) {
       return { success: false, statusCode: 500, message: err?.message || 'Lỗi chốt tư vấn', data: false };
@@ -682,54 +544,14 @@ export const academyService = {
     }
   ): Promise<ApiResponse<boolean>> {
     try {
-      const live = await supabaseService.getEnrollments();
-      const enr = live?.find((e) => e.id === enrollmentId);
-      if (!enr) {
-        return { success: false, statusCode: 404, message: 'Không tìm thấy hồ sơ', data: false };
-      }
-
-      const history = [...(enr.consultationHistory || [])];
-      history.push({
-        timestamp: new Date().toISOString(),
-        author: options?.authorName || 'Kế toán / Đối soát',
-        note: options?.notes || `Đã xác nhận thanh toán đủ ${amount.toLocaleString('vi-VN')}đ`,
-      });
-
-      const ok = await supabaseService.updateEnrollment(enrollmentId, {
-        paymentVerificationStatus: PaymentVerificationStatus.PAID,
-        amountPaid: amount,
-        approvalStatus: 'APPROVED',
-        studentAdmissionStatus: StudentAdmissionStatus.APPROVED,
-        consultationStatus: ConsultationStatus.CONFIRMED,
-        status: EnrollmentStatus.ENROLLED,
-        approvedBy: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
-        approvedAt: new Date().toISOString(),
-        consultationHistory: history,
-      });
-
-      if (ok) {
-        try {
-          const batches = await supabaseService.getCourseBatches();
-          const branchId = batches?.find((batch) => batch.id === enr.batchId)?.branchId;
-          const shiftRes = await posService.getActiveShift(branchId);
-          if (shiftRes.success && shiftRes.data?.id) {
-            await posService.collectPayment({
-              kind: 'TUITION',
-              enrollmentId,
-              amount,
-              shiftId: shiftRes.data.id,
-              branchId: branchId || shiftRes.data.branchId,
-              paymentMethod: options?.paymentMethod === PaymentMethod.CASH_AT_SPA ? PaymentMethod.CASH_AT_SPA : PaymentMethod.BANK_TRANSFER,
-              notes: options?.notes || `Thanh toán học phí cho hồ sơ ${enr.orderCode || ''}`,
-            });
-          }
-        } catch (_) {}
-      }
-
+      // Không cho trình duyệt tự tạo số tiền đã thu. Nút thủ công chỉ yêu cầu
+      // backend đối soát lại các invoice/tuition_transaction đã tồn tại.
+      const reconciliation = await this.checkEnrollmentPayment(enrollmentId);
+      const ok = reconciliation.success && Number(reconciliation.data?.amountPaid || 0) > 0;
       return {
         success: ok,
-        statusCode: ok ? 200 : 400,
-        message: ok ? 'Xác nhận thanh toán và duyệt học viên thành công!' : 'Lỗi cập nhật thanh toán',
+        statusCode: reconciliation.statusCode,
+        message: reconciliation.message,
         data: ok,
       };
     } catch (err: any) {
@@ -758,6 +580,15 @@ export const academyService = {
         return { success: false, statusCode: 404, message: 'Không tìm thấy hồ sơ hoặc lớp học', data: { success: false, message: 'Dữ liệu không hợp lệ' } };
       }
 
+      if (enr.approvalStatus !== 'APPROVED' || enr.studentAdmissionStatus !== StudentAdmissionStatus.APPROVED) {
+        return {
+          success: false,
+          statusCode: 409,
+          message: 'Hồ sơ phải được admin duyệt nhập học trước khi xếp lớp.',
+          data: { success: false, message: 'Hồ sơ chưa được duyệt' },
+        };
+      }
+
       // 1. Kiểm tra khóa học khớp
       if (enr.courseId !== batch.courseId) {
         return {
@@ -778,28 +609,13 @@ export const academyService = {
         };
       }
 
-      const history = [...(enr.consultationHistory || [])];
-      history.push({
-        timestamp: new Date().toISOString(),
-        author: authorName || 'Admin Tuyển Sinh',
-        note: `Đã xếp học viên vào lớp ${batch.batchCode} (${batch.scheduleText || ''})`,
-      });
-
-      const ok = await supabaseService.updateEnrollment(enrollmentId, {
-        batchId,
-        studentAdmissionStatus: StudentAdmissionStatus.ENROLLED,
-        status: EnrollmentStatus.STUDYING,
-        approvalStatus: 'APPROVED',
-        approvedBy: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
-        approvedAt: new Date().toISOString(),
-        consultationHistory: history,
-      });
+      const result = await apiClient.post<any>(`/academy/enrollments/${enrollmentId}/assign-batch`, { batchId });
 
       return {
-        success: ok,
-        statusCode: ok ? 200 : 400,
-        message: ok ? `Đã xếp học viên vào lớp ${batch.batchCode} thành công!` : 'Lỗi khi xếp lớp',
-        data: { success: ok, message: ok ? 'Xếp lớp thành công' : 'Lỗi cập nhật' },
+        success: result.success,
+        statusCode: result.statusCode || 200,
+        message: result.message || `Đã xếp học viên vào lớp ${batch.batchCode} thành công!`,
+        data: { success: result.success, message: result.message || 'Xếp lớp thành công' },
       };
     } catch (err: any) {
       return {

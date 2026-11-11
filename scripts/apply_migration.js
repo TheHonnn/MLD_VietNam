@@ -2,8 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const { Client } = require(path.join(__dirname, '../backend/node_modules/pg'));
 
+const connectionString = process.env.ADMIN_DATABASE_URL || process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error('Migration failed: ADMIN_DATABASE_URL hoặc DATABASE_URL chưa được cấu hình.');
+  process.exit(1);
+}
+
 const client = new Client({
-  connectionString: (process.env.ADMIN_DATABASE_URL || process.env.DATABASE_URL),
+  connectionString,
   ssl: { rejectUnauthorized: false }
 });
 
@@ -17,11 +23,19 @@ async function run() {
   console.log('Connecting to Supabase PostgreSQL...');
   await client.connect();
 
-  console.log('Executing SQL...');
-  await client.query(sql);
-
-  console.log('Migration executed successfully!');
-  await client.end();
+  console.log('Executing SQL in a transaction...');
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('mld-schema-migration'))");
+    await client.query(sql);
+    await client.query('COMMIT');
+    console.log('Migration executed successfully!');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    await client.end();
+  }
 }
 
 run().catch(err => {
