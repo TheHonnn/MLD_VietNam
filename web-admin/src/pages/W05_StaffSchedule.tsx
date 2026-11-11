@@ -1072,6 +1072,26 @@ export const W05_StaffSchedule: React.FC = () => {
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
 
+  // Cho phép các màn hình CRM mở thẳng biểu mẫu đặt lịch và giữ đúng hồ sơ khách.
+  useEffect(() => {
+    if (searchParams.get('action') !== 'create' || customers.length === 0) return;
+    const requestedCustomerId = searchParams.get('customerId') || '';
+    const requestedCustomer = customers.find((customer) => customer.id === requestedCustomerId);
+    if (requestedCustomer) {
+      setSelectedCustomerId(requestedCustomer.id);
+      setCustName(requestedCustomer.fullName || '');
+      setCustPhone(requestedCustomer.phone || '');
+    }
+    setAppDate(selectedDate);
+    setShowCreateModal(true);
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.delete('action');
+      next.delete('customerId');
+      return next;
+    }, { replace: true });
+  }, [customers, searchParams, selectedDate, setSearchParams]);
+
   useEffect(() => {
     if (!showCreateModal || !modalBranchId || !appDate) return;
     let isCurrent = true;

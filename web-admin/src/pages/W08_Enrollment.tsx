@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search,
   ChevronDown,
@@ -125,8 +125,9 @@ const getShortBranch = (branchStr?: string): string => {
 
 export const W08_Enrollment: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedCandidateId, setSelectedCandidateId] = useState<string>('');
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>(() => searchParams.get('search') || '');
   const [programFilter, setProgramFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<EnrollmentWorkflowTab>('ALL');

@@ -19,6 +19,11 @@ import {
   Download,
   Building2,
   FileSpreadsheet,
+  CalendarPlus,
+  ShoppingCart,
+  GraduationCap,
+  ArrowRight,
+  Clock3,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { customerService, treatmentService, branchService, supabaseService } from '../services';
@@ -44,6 +49,8 @@ const INITIAL_NEW_CUSTOMER_FORM = {
   purpose: PurposeInterest.BEAUTY_SPA,
   address: '',
 };
+
+type PostCreateAction = 'PROFILE' | 'BOOKING' | 'POS' | 'ACADEMY';
 
 const getInitials = (name: string) => {
   const parts = (name || '').trim().split(/\s+/);
@@ -103,6 +110,97 @@ const getLastVisitDate = (c: User, bookings: Booking[]) => {
   }
 
   return 'Chưa có lượt hẹn';
+};
+
+const getCustomerBookings = (customerId: string, bookings: Booking[]) =>
+  (bookings || [])
+    .filter((booking) => booking.customerId === customerId)
+    .sort(
+      (a, b) =>
+        new Date(b.bookingDate || 0).getTime() - new Date(a.bookingDate || 0).getTime()
+    );
+
+const getLastActivity = (c: User, bookings: Booking[], enrollments: CourseEnrollment[]) => {
+  const latestBooking = getCustomerBookings(c.id, bookings)[0];
+  if (latestBooking) {
+    const date = new Date(latestBooking.bookingDate);
+    const dateText = Number.isNaN(date.getTime()) ? 'Chưa rõ ngày' : date.toLocaleDateString('vi-VN');
+    const status = String(latestBooking.status || 'PENDING');
+    const statusText: Record<string, string> = {
+      PENDING: 'Đang chờ xác nhận',
+      CONFIRMED: 'Đã xác nhận lịch',
+      CHECKED_IN: 'Đã check-in',
+      IN_PROGRESS: 'Đang thực hiện',
+      COMPLETED: 'Đã hoàn thành dịch vụ',
+      CANCELLED: 'Đã hủy lịch',
+      NO_SHOW: 'Không đến',
+    };
+    return {
+      title: statusText[status] || 'Có lịch hẹn',
+      detail: `${latestBooking.bookingCode || 'Lịch hẹn'} · ${dateText}`,
+    };
+  }
+
+  const enrollment = (enrollments || []).find((item) => item.studentId === c.id);
+  if (enrollment) {
+    return {
+      title: enrollment.status === 'STUDYING' ? 'Đang học tại học viện' : 'Có hồ sơ tuyển sinh',
+      detail: `${enrollment.progressPercent || 0}% tiến độ học tập`,
+    };
+  }
+
+  return {
+    title: 'Chưa phát sinh hoạt động',
+    detail: c.createdAt ? `Tạo hồ sơ ${new Date(c.createdAt).toLocaleDateString('vi-VN')}` : 'Cần tư vấn lần đầu',
+  };
+};
+
+const getCrmStage = (
+  c: User,
+  packages: UserPackage[],
+  bookings: Booking[],
+  enrollments: CourseEnrollment[]
+) => {
+  if (c.isActive === false) return { key: 'INACTIVE', label: 'Tạm ngừng', tone: 'bg-[#F1F3F5] text-[#69717A]' };
+
+  const customerBookings = getCustomerBookings(c.id, bookings);
+  const activePackage = packages.some((item) => item.customerId === c.id && item.status === 'ACTIVE');
+  const studying = enrollments.some((item) => item.studentId === c.id && item.status === 'STUDYING');
+  const upcoming = customerBookings.some((booking) => {
+    const status = String(booking.status || '');
+    return ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'].includes(status);
+  });
+  const completed = customerBookings.some((booking) => String(booking.status) === 'COMPLETED');
+
+  if (activePackage || studying) return { key: 'ACTIVE_CUSTOMER', label: 'Đang sử dụng', tone: 'bg-[#E6F7EF] text-[#087A55]' };
+  if (upcoming) return { key: 'BOOKED', label: 'Đã có lịch', tone: 'bg-[#EAF2FF] text-[#2765A8]' };
+  if (completed || (c.totalSpent || 0) > 0) return { key: 'FOLLOW_UP', label: 'Cần chăm sóc lại', tone: 'bg-[#FFF3DD] text-[#A65A00]' };
+  return { key: 'LEAD', label: 'Khách tiềm năng', tone: 'bg-[#FBEDE4] text-[#A4532A]' };
+};
+
+const getNextAction = (
+  c: User,
+  packages: UserPackage[],
+  bookings: Booking[],
+  enrollments: CourseEnrollment[]
+) => {
+  if (c.isActive === false) return { label: 'Kiểm tra trạng thái', route: `/customer-detail?id=${c.id}` };
+  const customerBookings = getCustomerBookings(c.id, bookings);
+  const pendingBooking = customerBookings.find((booking) =>
+    ['PENDING', 'CONFIRMED'].includes(String(booking.status || ''))
+  );
+  if (pendingBooking) return { label: 'Xác nhận lịch hẹn', route: `/staff-schedule?booking=${pendingBooking.id}` };
+
+  const activePackage = packages.find((item) => item.customerId === c.id && item.status === 'ACTIVE');
+  if (activePackage) return { label: 'Đặt buổi tiếp theo', route: `/staff-schedule?action=create&customerId=${c.id}` };
+
+  const enrollment = enrollments.find((item) => item.studentId === c.id);
+  if (enrollment && enrollment.status !== 'STUDYING') {
+    return { label: 'Hoàn tất tuyển sinh', route: `/academy-enrollment?search=${encodeURIComponent(c.phone || c.fullName)}` };
+  }
+
+  if ((c.totalSpent || 0) > 0) return { label: 'Tạo lịch tái chăm sóc', route: `/staff-schedule?action=create&customerId=${c.id}` };
+  return { label: 'Tư vấn nhu cầu', route: `/customer-detail?id=${c.id}` };
 };
 
 const getPackageLine1 = (c: User, packages: UserPackage[]) => {
@@ -225,6 +323,7 @@ export const W03_Customers: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmittingCustomer, setIsSubmittingCustomer] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState(INITIAL_NEW_CUSTOMER_FORM);
+  const [postCreateAction, setPostCreateAction] = useState<PostCreateAction>('PROFILE');
 
   // Fetch all customers, branches, packages, bookings, enrollments on load directly from Supabase Cloud
   const loadCustomers = async () => {
@@ -280,28 +379,20 @@ export const W03_Customers: React.FC = () => {
       );
     }
 
-    // 2. Role filter (Khách hàng / Học viên / Kỹ thuật viên / Quản trị)
+    // 2. Phân nhóm nghiệp vụ. CRM chỉ chứa khách hàng; học viên là một vai trò bổ sung
+    // được xác định từ hồ sơ tuyển sinh, không phải một bản ghi người dùng khác.
     if (selectedRole !== 'ALL') {
-      if (selectedRole === 'CUSTOMER') {
-        result = result.filter((c) => c.role === UserRole.CUSTOMER);
-      } else if (selectedRole === 'STUDENT') {
-        result = result.filter((c) => c.role === UserRole.STUDENT);
-      } else if (selectedRole === 'TECHNICIAN') {
-        result = result.filter(
-          (c) =>
-            c.role === UserRole.TECHNICIAN ||
-            c.role === UserRole.INSTRUCTOR ||
-            c.role === UserRole.RECEPTIONIST ||
-            c.role === UserRole.CASHIER
-        );
-      } else if (selectedRole === 'ADMIN') {
-        result = result.filter(
-          (c) =>
-            c.role === UserRole.ADMIN ||
-            c.role === UserRole.SUPER_ADMIN ||
-            c.role === UserRole.BRANCH_MANAGER
-        );
-      }
+      result = result.filter((c) => {
+        const hasEnrollment = allEnrollments.some((item) => item.studentId === c.id);
+        const hasSpaActivity =
+          allPackages.some((item) => item.customerId === c.id) ||
+          allBookings.some((item) => item.customerId === c.id) ||
+          (c.totalSpent || 0) > 0;
+        if (selectedRole === 'DUAL') return hasEnrollment && hasSpaActivity;
+        if (selectedRole === 'STUDENT') return hasEnrollment;
+        if (selectedRole === 'CUSTOMER') return !hasEnrollment || hasSpaActivity;
+        return true;
+      });
     }
 
     // 3. Member Tier filter
@@ -359,7 +450,7 @@ export const W03_Customers: React.FC = () => {
     }
 
     return result;
-  }, [allCustomers, searchTerm, selectedRole, selectedTier, selectedStatus, selectedPurpose, selectedBranch, selectedSort, branches]);
+  }, [allCustomers, allEnrollments, allPackages, allBookings, searchTerm, selectedRole, selectedTier, selectedStatus, selectedPurpose, selectedBranch, selectedSort, branches]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE));
 
@@ -771,9 +862,33 @@ export const W03_Customers: React.FC = () => {
     return items;
   }, [allBookings, allEnrollments, allCustomers]);
 
+  const crmMetrics = useMemo(() => {
+    const activeCustomers = allCustomers.filter((customer) => customer.isActive !== false);
+    const activePackages = allPackages.filter((item) => item.status === 'ACTIVE');
+    const activePackageOwners = new Set(activePackages.map((item) => item.customerId));
+    const learners = new Set(allEnrollments.map((item) => item.studentId));
+    const pendingFollowUps = activeCustomers.filter((customer) => {
+      const stage = getCrmStage(customer, allPackages, allBookings, allEnrollments);
+      return ['LEAD', 'FOLLOW_UP'].includes(stage.key);
+    }).length;
+    const remainingSessions = activePackages.reduce(
+      (sum, item) => sum + Math.max(0, (item.totalSessions || 0) - (item.completedSessions || 0)),
+      0
+    );
+
+    return {
+      activeCustomers: activeCustomers.length,
+      activePackageOwners: activePackageOwners.size,
+      remainingSessions,
+      learners: learners.size,
+      pendingFollowUps,
+    };
+  }, [allCustomers, allPackages, allBookings, allEnrollments]);
+
   // CUST-01: Modal Handlers Tiếp nhận khách hàng mới
   const handleOpenCreateCustomerModal = () => {
     setNewCustomerForm(INITIAL_NEW_CUSTOMER_FORM);
+    setPostCreateAction('PROFILE');
     setIsCreateModalOpen(true);
   };
 
@@ -814,7 +929,7 @@ export const W03_Customers: React.FC = () => {
 
     // CUST-02: Kiểm tra trùng số điện thoại với danh sách khách hàng hiện có
     const isDuplicate = allCustomers.some(
-      (c) => c.phone.replace(/[\s.\-()]/g, '') === cleanPhoneDigits
+      (c) => (c.phone || '').replace(/[\s.\-()]/g, '') === cleanPhoneDigits
     );
     if (isDuplicate) {
       toast.warning(
@@ -845,6 +960,12 @@ export const W03_Customers: React.FC = () => {
         );
         setIsCreateModalOpen(false);
         setNewCustomerForm(INITIAL_NEW_CUSTOMER_FORM);
+        const customerId = res.data.id;
+        const encodedPhone = encodeURIComponent(cleanPhone);
+        if (postCreateAction === 'PROFILE') navigate(`/customer-detail?id=${customerId}`);
+        if (postCreateAction === 'BOOKING') navigate(`/staff-schedule?action=create&customerId=${customerId}`);
+        if (postCreateAction === 'POS') navigate(`/cashier-pos?customerId=${customerId}`);
+        if (postCreateAction === 'ACADEMY') navigate(`/academy-enrollment?search=${encodedPhone}`);
       } else {
         toast.error('Lỗi khởi tạo', res.message || 'Không thể tạo hồ sơ khách hàng vào lúc này.');
       }
@@ -933,7 +1054,7 @@ export const W03_Customers: React.FC = () => {
             Khách hàng CRM
           </h1>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Tra cứu đa chi nhánh · Kết nối trực tuyến qua customerService.
+            Hồ sơ trung tâm liên kết lịch hẹn, liệu trình, thanh toán và học tập của từng khách hàng.
           </p>
         </div>
         <div className="flex items-center gap-2.5 shrink-0 whitespace-nowrap">
@@ -1034,8 +1155,8 @@ export const W03_Customers: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Top 3 KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* 2. KPI tổng quan CRM — không phụ thuộc vào dòng khách hàng đang chọn */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Card 1: Tổng khách hàng */}
         <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
@@ -1045,50 +1166,58 @@ export const W03_Customers: React.FC = () => {
             <Users className="w-4 h-4 text-[#8A4F23] stroke-[1.8]" />
           </div>
           <div className="text-[28px] font-extrabold text-[#8E4002] tracking-tight mt-1">
-            {isLoading ? '...' : allCustomers.length}
+            {isLoading ? '...' : crmMetrics.activeCustomers}
           </div>
           <div className="text-[11px] text-[#73675F] font-medium mt-1">
             {hasActiveFilter
               ? `Lọc được ${filteredCustomers.length} / ${allCustomers.length} hồ sơ`
-              : 'Khách hàng & học viên đang hoạt động'}
+              : `${crmMetrics.learners} người đồng thời là học viên`}
           </div>
         </div>
 
-        {/* Card 2: Tài khoản đang chọn */}
+        {/* Card 2: Gói đang hoạt động */}
         <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11.5px] font-medium text-[#73675F]">
-              Điểm thưởng tích lũy
+              Khách đang dùng gói
             </span>
             <Crown className="w-4 h-4 text-[#8A4F23] stroke-[1.8]" />
           </div>
           <div className="text-[24px] font-bold text-[#8E4002] tracking-tight mt-1">
-            {selectedCustomer ? `${(selectedCustomer.rewardPoints || 0).toLocaleString('vi-VN')} điểm` : '—'}
+            {isLoading ? '...' : crmMetrics.activePackageOwners}
           </div>
           <div className="text-[11px] text-[#73675F] font-medium mt-1">
-            {selectedCustomer
-              ? `${selectedCustomer.fullName} · Hạng ${selectedCustomer.membershipTier}`
-              : 'Chưa chọn khách hàng'}
+            {crmMetrics.remainingSessions.toLocaleString('vi-VN')} buổi còn lại cần phục vụ
           </div>
         </div>
 
-        {/* Card 3: Liệu trình của khách hàng đang chọn */}
+        {/* Card 3: Học viên */}
         <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11.5px] font-medium text-[#73675F]">
-              Liệu trình {selectedCustomer?.fullName ? `của ${selectedCustomer.fullName.split(' ').slice(-2).join(' ')}` : ''}
+              Học viên trong CRM
             </span>
             <Leaf className="w-4 h-4 text-[#8A4F23] stroke-[1.8]" />
           </div>
           <div className="text-[24px] font-bold text-[#8E4002] tracking-tight mt-1">
-            {selectedCustomer && selectedPackages.length > 0
-              ? `${selectedPackages.reduce((s, p) => s + (p.totalSessions - p.completedSessions), 0)} buổi còn`
-              : selectedCustomer ? 'Chưa có gói' : '—'}
+            {isLoading ? '...' : crmMetrics.learners}
           </div>
           <div className="text-[11px] text-[#73675F] font-medium mt-1">
-            {selectedCustomer
-              ? `${selectedPackages.length} gói đang sở hữu · Tổng chi tiêu: ${(selectedCustomer.totalSpent || 0).toLocaleString('vi-VN')}đ`
-              : 'Chưa có thông tin'}
+            Một hồ sơ duy nhất cho dịch vụ và đào tạo
+          </div>
+        </div>
+
+        {/* Card 4: Việc cần làm */}
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11.5px] font-medium text-[#73675F]">Cần chăm sóc tiếp</span>
+            <Clock3 className="w-4 h-4 text-[#8A4F23] stroke-[1.8]" />
+          </div>
+          <div className="text-[24px] font-bold text-[#8E4002] tracking-tight mt-1">
+            {isLoading ? '...' : crmMetrics.pendingFollowUps}
+          </div>
+          <div className="text-[11px] text-[#73675F] font-medium mt-1">
+            Khách mới hoặc đã sử dụng dịch vụ cần liên hệ lại
           </div>
         </div>
       </div>
@@ -1141,11 +1270,10 @@ export const W03_Customers: React.FC = () => {
             onChange={(e) => setSelectedRole(e.target.value)}
             className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
           >
-            <option value="ALL">Vai trò</option>
-            <option value="CUSTOMER">Khách hàng</option>
-            <option value="STUDENT">Học viên</option>
-            <option value="TECHNICIAN">Kỹ thuật viên</option>
-            <option value="ADMIN">Quản trị</option>
+            <option value="ALL">Phân loại khách</option>
+            <option value="CUSTOMER">Khách dịch vụ</option>
+            <option value="STUDENT">Có hồ sơ học viên</option>
+            <option value="DUAL">Khách hàng & học viên</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -1241,17 +1369,18 @@ export const W03_Customers: React.FC = () => {
             <thead className="bg-[#F6EEE5] text-[#73675F] text-[11.5px] font-semibold border-b border-[#EFE4D9]">
               <tr>
                 <th className="py-3 px-5 whitespace-nowrap">Khách hàng / liên hệ</th>
-                <th className="py-3 px-4 whitespace-nowrap">Hạng & nguồn</th>
-                <th className="py-3 px-4 whitespace-nowrap">Lần gần nhất</th>
+                <th className="py-3 px-4 whitespace-nowrap">Phân loại & hạng</th>
+                <th className="py-3 px-4 whitespace-nowrap">Hoạt động gần nhất</th>
                 <th className="py-3 px-4 whitespace-nowrap">Gói / học tập</th>
                 <th className="py-3 px-4 whitespace-nowrap">Chi nhánh ưu tiên</th>
-                <th className="py-3 px-6 text-right sm:text-center whitespace-nowrap">Trạng thái / thao tác</th>
+                <th className="py-3 px-4 whitespace-nowrap">Giai đoạn CRM</th>
+                <th className="py-3 px-6 text-right whitespace-nowrap">Việc tiếp theo</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F4ECE3]">
               {filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-[#73675F]">
+                  <td colSpan={7} className="py-12 text-center text-[#73675F]">
                     <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                       <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
                         <Search className="w-5 h-5" />
@@ -1277,7 +1406,17 @@ export const W03_Customers: React.FC = () => {
               ) : (
                 paginatedCustomers.map((c, idx) => {
                   const isSelected = c.id === selectedCustomerId;
-                  const statusLbl = getStatusLabel(c, allPackages, allEnrollments);
+                  const crmStage = getCrmStage(c, allPackages, allBookings, allEnrollments);
+                  const lastActivity = getLastActivity(c, allBookings, allEnrollments);
+                  const nextAction = getNextAction(c, allPackages, allBookings, allEnrollments);
+                  const hasEnrollment = allEnrollments.some((item) => item.studentId === c.id);
+                  const hasSpaActivity = allPackages.some((item) => item.customerId === c.id) ||
+                    allBookings.some((item) => item.customerId === c.id);
+                  const customerType = hasEnrollment && hasSpaActivity
+                    ? 'Khách hàng & học viên'
+                    : hasEnrollment
+                    ? 'Học viên'
+                    : 'Khách dịch vụ';
                   return (
                     <tr
                       key={c.id}
@@ -1311,10 +1450,10 @@ export const W03_Customers: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* 2. Hạng & nguồn */}
+                      {/* 2. Phân loại & hạng */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <div className="text-xs font-medium text-[#2C241E] whitespace-nowrap">
-                          {getTierLabel(c.membershipTier)}
+                          {customerType} · {getTierLabel(c.membershipTier)}
                           {c.rewardPoints > 0 && ` · ${c.rewardPoints.toLocaleString('vi-VN')} điểm`}
                         </div>
                         <div className="text-[11px] text-[#73675F] whitespace-nowrap mt-0.5">
@@ -1322,9 +1461,10 @@ export const W03_Customers: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* 3. Lần gần nhất */}
-                      <td className="py-3 px-4 text-xs text-[#2C241E] whitespace-nowrap">
-                        {getLastVisitDate(c, allBookings)}
+                      {/* 3. Hoạt động gần nhất */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="text-xs font-medium text-[#2C241E]">{lastActivity.title}</div>
+                        <div className="text-[11px] text-[#73675F] mt-0.5">{lastActivity.detail}</div>
                       </td>
 
                       {/* 4. Gói / học tập */}
@@ -1342,28 +1482,38 @@ export const W03_Customers: React.FC = () => {
                         {getPreferredBranch(c, allBookings, branches)}
                       </td>
 
-                      {/* 6. Trạng thái / thao tác */}
-                      <td className="py-3 px-6 text-right sm:text-center whitespace-nowrap">
-                        <div className="flex flex-col items-end sm:items-center gap-0.5">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded text-[10.5px] font-bold whitespace-nowrap ${getStatusStyle(
-                              statusLbl
-                            )}`}
+                      {/* 6. Giai đoạn CRM */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2.5 py-1 rounded-lg text-[10.5px] font-bold ${crmStage.tone}`}>
+                          {crmStage.label}
+                        </span>
+                      </td>
+
+                      {/* 7. Việc tiếp theo */}
+                      <td className="py-3 px-6 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/customer-detail?id=${c.id}`);
+                            }}
+                            className="h-8 px-2.5 rounded-lg border border-[#E8DFD8] text-[11px] font-semibold text-[#73675F] hover:bg-[#FAF8F5] cursor-pointer"
+                            title="Mở hồ sơ 360°"
                           >
-                            {statusLbl}
-                          </span>
-                          {isSelected && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/customer-detail?id=${c.id}`);
-                              }}
-                              className="text-xs font-bold text-[#8A4F23] hover:underline cursor-pointer mt-1 whitespace-nowrap"
-                            >
-                              Xem hồ sơ
-                            </button>
-                          )}
+                            Hồ sơ
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(nextAction.route);
+                            }}
+                            className="h-8 px-3 rounded-lg bg-[#985018] text-white text-[11px] font-bold hover:bg-[#854412] inline-flex items-center gap-1.5 cursor-pointer"
+                          >
+                            {nextAction.label}
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1665,6 +1815,41 @@ export const W03_Customers: React.FC = () => {
                       className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] placeholder:text-[#A8988C] focus:outline-none focus:border-[#985018] focus:ring-1 focus:ring-[#985018]"
                     />
                   </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[#E8DFD8] bg-[#FAF7F3] p-4">
+                <div className="mb-3">
+                  <p className="text-xs font-bold text-[#2C241E]">Sau khi tạo hồ sơ</p>
+                  <p className="text-[11px] text-[#73675F] mt-0.5">
+                    Chọn bước nghiệp vụ tiếp theo để không phải tìm lại khách hàng.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { key: 'PROFILE', label: 'Mở hồ sơ', icon: UserPlus },
+                    { key: 'BOOKING', label: 'Đặt lịch', icon: CalendarPlus },
+                    { key: 'POS', label: 'Bán tại quầy', icon: ShoppingCart },
+                    { key: 'ACADEMY', label: 'Tuyển sinh', icon: GraduationCap },
+                  ].map((action) => {
+                    const ActionIcon = action.icon;
+                    const isSelected = postCreateAction === action.key;
+                    return (
+                      <button
+                        key={action.key}
+                        type="button"
+                        onClick={() => setPostCreateAction(action.key as PostCreateAction)}
+                        className={`min-h-16 rounded-xl border px-2 py-2.5 flex flex-col items-center justify-center gap-1.5 text-[11px] font-bold transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'border-[#985018] bg-[#FAF0E4] text-[#985018] ring-1 ring-[#985018]'
+                            : 'border-[#E8DFD8] bg-white text-[#73675F] hover:border-[#D7BBA6]'
+                        }`}
+                      >
+                        <ActionIcon className="w-4 h-4" />
+                        {action.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
