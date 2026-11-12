@@ -8,6 +8,16 @@ describe('Treatment Lifecycle & Reversal State Machine Tests (Web-Admin)', () =>
     assert.doesNotMatch(source, /adminApi\('user_packages\/action'/);
     assert.match(source, /adminCommand\(`treatment\/packages\/\$\{encodeURIComponent\(userPackageId\)\}\/action`/);
   });
+
+  test('production startup applies the treatment lifecycle migration before serving requests', () => {
+    const backendPackage = JSON.parse(
+      readFileSync(new URL('../../backend/package.json', import.meta.url), 'utf8')
+    );
+    assert.equal(
+      backendPackage.scripts['prestart:prod'],
+      'node ../scripts/apply_migration.js 031_treatment_lifecycle_management.sql'
+    );
+  });
   // 1. Package Status Finite State Machine
   const validTransitions = {
     PENDING_PAYMENT: ['ACTIVE', 'CANCELLED'],
