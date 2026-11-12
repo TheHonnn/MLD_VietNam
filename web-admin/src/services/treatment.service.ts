@@ -301,9 +301,24 @@ export const treatmentService = {
 
   // --- VẬN HÀNH VÒNG ĐỜI GÓI LIỆU TRÌNH (ADMIN FSM) ---
 
+  async _executePackageAction(userPackageId: string, payload: Record<string, unknown>): Promise<void> {
+    try {
+      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, payload);
+    } catch (err: any) {
+      if (err?.statusCode === 404 || err?.message?.includes('Cannot POST') || String(err?.message || '').includes('404')) {
+        await adminCommand('user_packages/action', {
+          ...payload,
+          key: { id: userPackageId },
+        });
+        return;
+      }
+      throw err;
+    }
+  },
+
   async pausePackage(userPackageId: string, reason: string): Promise<ApiResponse<boolean>> {
     try {
-      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, {
+      await this._executePackageAction(userPackageId, {
         action: 'pause',
         reason,
       });
@@ -326,7 +341,7 @@ export const treatmentService = {
 
   async resumePackage(userPackageId: string, reason?: string): Promise<ApiResponse<boolean>> {
     try {
-      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, {
+      await this._executePackageAction(userPackageId, {
         action: 'resume',
         reason: reason || 'Mở lại gói liệu trình hoạt động bình thường',
       });
@@ -353,7 +368,7 @@ export const treatmentService = {
     reason: string
   ): Promise<ApiResponse<boolean>> {
     try {
-      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, {
+      await this._executePackageAction(userPackageId, {
         action: 'extend',
         extensionMonths,
         reason,
@@ -377,7 +392,7 @@ export const treatmentService = {
 
   async cancelPackage(userPackageId: string, reason: string): Promise<ApiResponse<boolean>> {
     try {
-      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, {
+      await this._executePackageAction(userPackageId, {
         action: 'cancel',
         reason,
       });
@@ -404,7 +419,7 @@ export const treatmentService = {
     reason: string
   ): Promise<ApiResponse<boolean>> {
     try {
-      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, {
+      await this._executePackageAction(userPackageId, {
         action: 'transfer',
         newCustomerId,
         reason,
@@ -432,7 +447,7 @@ export const treatmentService = {
     reason: string
   ): Promise<ApiResponse<boolean>> {
     try {
-      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, {
+      await this._executePackageAction(userPackageId, {
         action: 'refund',
         refundAmount,
         reason,

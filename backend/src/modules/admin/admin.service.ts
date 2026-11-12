@@ -245,6 +245,10 @@ export class AdminService {
           !(table === 'course_quizzes' && c.name === 'total_questions') &&
           !(c.primary && c.hasDefault),
       }));
+    if (table === 'academy_enrollment_funnel') {
+      const pk = columns.find((c) => c.name === 'course_id');
+      if (pk) pk.primary = true;
+    }
     if (table === 'staff_profiles')
       columns.push({
         name: 'full_name',
