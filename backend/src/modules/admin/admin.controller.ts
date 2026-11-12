@@ -280,6 +280,19 @@ export class AdminController {
   treatmentDashboardStats(@Query('branchId') branchId: string, @Req() req) {
     return this.service.treatmentDashboardStats(req.admin, branchId);
   }
+  @Post('treatment/packages/:id/action')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  treatmentPackageAction(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req,
+  ) {
+    return this.service.action('user_packages', req.admin, {
+      ...body,
+      key: { id },
+    });
+  }
   @Get(':table')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()

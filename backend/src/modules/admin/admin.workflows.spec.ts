@@ -38,6 +38,16 @@ describe('Admin business workflows on the complete migrated schema', () => {
     } finally { await query('ROLLBACK'); }
   });
 
+  it('rejects a schema that is missing treatment lifecycle columns', async()=>{
+    await query('BEGIN');
+    try {
+      await query('ALTER TABLE user_packages RENAME COLUMN paused_at TO paused_at_missing');
+      const status = await inspectAdminSchema({query});
+      expect(status.ready).toBe(false);
+      expect(status.missing).toContain('user_packages.paused_at');
+    } finally { await query('ROLLBACK'); }
+  });
+
   it('receives, serves, collects and checks out a booking, recording one receipt across retries',async()=>{
     const booking=(await query("INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,status,base_total,final_price,qr_code_hash) VALUES('FLOWBOOK',$1,$2,'2026-11-08','10:00','11:00','CONFIRMED',100000,100000,'flowqr') RETURNING *",[customer.id,branch.id])).rows[0];
     await query('INSERT INTO booking_items(booking_id,service_id,price) VALUES($1,$2,100000)',[booking.id,spaService.id]);

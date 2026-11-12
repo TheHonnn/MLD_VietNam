@@ -1,7 +1,13 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 describe('Treatment Lifecycle & Reversal State Machine Tests (Web-Admin)', () => {
+  test('uses the dedicated backend lifecycle command instead of the generic resource action', () => {
+    const source = readFileSync(new URL('../src/services/treatment.service.ts', import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /adminApi\('user_packages\/action'/);
+    assert.match(source, /adminCommand\(`treatment\/packages\/\$\{encodeURIComponent\(userPackageId\)\}\/action`/);
+  });
   // 1. Package Status Finite State Machine
   const validTransitions = {
     PENDING_PAYMENT: ['ACTIVE', 'CANCELLED'],

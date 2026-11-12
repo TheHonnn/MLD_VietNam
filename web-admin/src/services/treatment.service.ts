@@ -7,7 +7,7 @@ import {
 } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 import { legacyWrite } from './adminAdapter';
-import { adminApi } from '../admin/api';
+import { adminApi, adminCommand } from '../admin/api';
 
 export const treatmentService = {
   // --- Danh mục dịch vụ ---
@@ -303,8 +303,7 @@ export const treatmentService = {
 
   async pausePackage(userPackageId: string, reason: string): Promise<ApiResponse<boolean>> {
     try {
-      await adminApi('user_packages/action', {
-        key: { id: userPackageId },
+      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, {
         action: 'pause',
         reason,
       });
@@ -327,8 +326,7 @@ export const treatmentService = {
 
   async resumePackage(userPackageId: string, reason?: string): Promise<ApiResponse<boolean>> {
     try {
-      await adminApi('user_packages/action', {
-        key: { id: userPackageId },
+      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, {
         action: 'resume',
         reason: reason || 'Mở lại gói liệu trình hoạt động bình thường',
       });
@@ -355,8 +353,7 @@ export const treatmentService = {
     reason: string
   ): Promise<ApiResponse<boolean>> {
     try {
-      await adminApi('user_packages/action', {
-        key: { id: userPackageId },
+      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, {
         action: 'extend',
         extensionMonths,
         reason,
@@ -380,8 +377,7 @@ export const treatmentService = {
 
   async cancelPackage(userPackageId: string, reason: string): Promise<ApiResponse<boolean>> {
     try {
-      await adminApi('user_packages/action', {
-        key: { id: userPackageId },
+      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, {
         action: 'cancel',
         reason,
       });
@@ -408,8 +404,7 @@ export const treatmentService = {
     reason: string
   ): Promise<ApiResponse<boolean>> {
     try {
-      await adminApi('user_packages/action', {
-        key: { id: userPackageId },
+      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, {
         action: 'transfer',
         newCustomerId,
         reason,
@@ -437,8 +432,7 @@ export const treatmentService = {
     reason: string
   ): Promise<ApiResponse<boolean>> {
     try {
-      await adminApi('user_packages/action', {
-        key: { id: userPackageId },
+      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, {
         action: 'refund',
         refundAmount,
         reason,
