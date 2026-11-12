@@ -576,7 +576,7 @@ export class PaymentsService {
   }
 
   /**
-   * Helper tạo chuỗi VietQR chuẩn Napas 247 cho MBBank 0394316963
+   * Helper tạo chuỗi VietQR chuẩn Napas 247
    */
   private generateStandardVietQR(amount: number, description: string): string {
     const amountStr = Math.round(amount).toString();

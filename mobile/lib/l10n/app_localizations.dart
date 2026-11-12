@@ -431,7 +431,7 @@ abstract class AppLocalizations {
   /// No description provided for @bankTransferQr.
   ///
   /// In vi, this message translates to:
-  /// **'Chuyển khoản ngân hàng / QR'**
+  /// **'Chuyển khoản ngân hàng'**
   String get bankTransferQr;
 
   /// No description provided for @payAtBranch.

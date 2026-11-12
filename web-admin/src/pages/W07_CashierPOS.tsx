@@ -734,10 +734,6 @@ export const W07_CashierPOS: React.FC = () => {
     return cartPreTax + cartVat;
   }, [cartPreTax, cartVat]);
 
-  // VietQR URL (MBBank 0394316963 BUI THE HOANG)
-  const vietQrTransferMemo = `HD POS ${draftInvoiceCode.slice(-9)}`;
-  const dynamicVietQrUrl = `https://api.vietqr.io/image/970422-0394316963-compact2.jpg?amount=${cartTotal}&addInfo=${encodeURIComponent(vietQrTransferMemo)}&accountName=BUI%20THE%20HOANG`;
-
   // -------------------------------------------------------------
   // PENDING BOOKINGS QUEUE
   // -------------------------------------------------------------
@@ -917,7 +913,7 @@ export const W07_CashierPOS: React.FC = () => {
         branchPhone: activeBranch?.phone,
         serviceName: posCart.map((i) => `${i.name} (x${i.quantity})`).join(', '),
         category: isPkg ? 'PACKAGE' : 'SERVICE',
-        method: selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : selectedMethod === 'transfer' ? 'Chuyển khoản VietQR' : 'Quẹt thẻ POS',
+        method: selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : selectedMethod === 'transfer' ? 'Chuyển khoản' : 'Quẹt thẻ POS',
         amount: `${Number(collection.data.amount ?? cartTotal).toLocaleString('vi-VN')}đ`,
         subtotal: `${cartSubtotal.toLocaleString('vi-VN')}đ`,
         discount: discountAmount > 0 ? `${discountAmount.toLocaleString('vi-VN')}đ` : '0đ',
@@ -1125,7 +1121,7 @@ export const W07_CashierPOS: React.FC = () => {
         branchPhone: activeBranch?.phone,
         serviceName: getEnrollmentCourseTitle(selectedEnrollment),
         category: 'ACADEMY',
-        method: selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : 'Chuyển khoản VietQR',
+        method: selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : 'Chuyển khoản',
         amount: `${amount.toLocaleString('vi-VN')}đ`,
         subtotal: `${amount.toLocaleString('vi-VN')}đ`,
         vatRateText: '0%',
@@ -1246,7 +1242,7 @@ export const W07_CashierPOS: React.FC = () => {
         ? 'Ví điện tử MoMo'
         : (inv.paymentMethod as string) === 'CREDIT_CARD'
         ? 'Quẹt thẻ POS'
-        : 'Chuyển khoản VietQR';
+        : 'Chuyển khoản';
 
     let dateStr = '16/10/2026';
     if (inv.paidAt) {
@@ -1912,7 +1908,7 @@ export const W07_CashierPOS: React.FC = () => {
                       ? 'Cần chọn chi nhánh'
                       : posCart.length === 0
                       ? 'Chờ nạp món'
-                      : `Sẵn sàng thu (${selectedMethod === 'onsite' ? 'Tiền mặt' : selectedMethod === 'transfer' ? 'VietQR' : 'Thẻ POS'})`}
+                      : `Sẵn sàng thu (${selectedMethod === 'onsite' ? 'Tiền mặt' : selectedMethod === 'transfer' ? 'Chuyển khoản' : 'Thẻ POS'})`}
                   </div>
                 </div>
               </div>
@@ -2696,7 +2692,7 @@ export const W07_CashierPOS: React.FC = () => {
                   }`}
                 >
                   <QrCode className="w-4 h-4" />
-                  <span>VietQR</span>
+                  <span>Chuyển khoản</span>
                 </button>
                 <button
                   type="button"
@@ -2713,60 +2709,15 @@ export const W07_CashierPOS: React.FC = () => {
               </div>
             </div>
 
-            {/* Dynamic VietQR Preview Card (If Transfer Selected) */}
             {selectedMethod === 'transfer' && cartTotal > 0 && (
-              <div className="p-3 bg-white rounded-2xl border border-sky-200 shadow-xs space-y-2 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-sky-800 flex items-center gap-1">
-                    <QrCode className="w-3.5 h-3.5" />
-                    <span>Mã thanh toán VietQR động</span>
-                  </span>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                    Khớp tiền tự động
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-24 h-24 bg-white p-1 rounded-xl border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
-                    <img
-                      src={dynamicVietQrUrl}
-                      alt="VietQR MLD"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <div className="text-[11px] space-y-1 flex-1">
-                    <div>
-                      <span className="text-slate-500">Ngân hàng:</span> <strong>MBBank</strong>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Số tài khoản:</span>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard('0394316963', 'STK')}
-                        className="font-mono font-bold text-sky-800 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        0394316963 <Copy className="w-3 h-3" />
-                      </button>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Chủ TK:</span> <strong>BUI THE HOANG</strong>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Số tiền:</span>
-                      <strong className="text-emerald-700 font-bold">{cartTotal.toLocaleString('vi-VN')}đ</strong>
-                    </div>
-                    <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                      <span className="text-slate-500">Nội dung CK:</span>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(vietQrTransferMemo, 'Nội dung')}
-                        className="font-mono text-[10px] font-bold text-slate-700 hover:underline flex items-center gap-0.5 cursor-pointer"
-                      >
-                        {vietQrTransferMemo} <Copy className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              <div className="p-3 bg-white rounded-2xl border border-sky-200 shadow-xs space-y-1 animate-in fade-in duration-200 text-xs">
+                <span className="font-bold text-sky-800 flex items-center gap-1">
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Chuyển khoản trực tiếp</span>
+                </span>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Thu ngân hướng dẫn khách hàng thực hiện chuyển khoản theo tài khoản chính thức tại quầy lễ tân.
+                </p>
               </div>
             )}
 
@@ -3272,7 +3223,7 @@ export const W07_CashierPOS: React.FC = () => {
                     }`}
                   >
                     <QrCode className="w-3.5 h-3.5" />
-                    <span>Chuyển khoản VietQR</span>
+                    <span>Chuyển khoản</span>
                   </button>
                 </div>
               </div>
@@ -3492,7 +3443,7 @@ export const W07_CashierPOS: React.FC = () => {
 
               <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[#73675F]">Chuyển khoản VietQR</span>
+                  <span className="text-xs font-semibold text-[#73675F]">Chuyển khoản</span>
                   <div className="w-8 h-8 rounded-xl bg-[#EAF2FA] text-[#1E5D9B] flex items-center justify-center">
                     <QrCode className="w-4 h-4" />
                   </div>
@@ -3564,7 +3515,7 @@ export const W07_CashierPOS: React.FC = () => {
                 className="h-9 px-3 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
               >
                 <option value="ALL">Tất cả phương thức</option>
-                <option value={PaymentMethod.BANK_TRANSFER}>Chuyển khoản VietQR</option>
+                <option value={PaymentMethod.BANK_TRANSFER}>Chuyển khoản</option>
                 <option value={PaymentMethod.CASH_AT_SPA}>Tiền mặt tại cơ sở</option>
               </select>
             </div>
@@ -3861,7 +3812,7 @@ export const W07_CashierPOS: React.FC = () => {
 
             <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#73675F]">Chuyển khoản VietQR</span>
+                <span className="text-xs font-semibold text-[#73675F]">Chuyển khoản</span>
                 <div className="w-8 h-8 rounded-xl bg-[#EAF2FA] text-[#1E5D9B] flex items-center justify-center">
                   <QrCode className="w-4 h-4" />
                 </div>
@@ -3929,7 +3880,7 @@ export const W07_CashierPOS: React.FC = () => {
               className="h-9 px-3 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
             >
               <option value="ALL">Tất cả phương thức</option>
-              <option value={PaymentMethod.BANK_TRANSFER}>Chuyển khoản VietQR</option>
+              <option value={PaymentMethod.BANK_TRANSFER}>Chuyển khoản</option>
               <option value={PaymentMethod.CASH_AT_SPA}>Tiền mặt tại cơ sở</option>
               <option value={PaymentMethod.MOMO}>Ví điện tử MoMo</option>
             </select>
@@ -4428,7 +4379,7 @@ export const W07_CashierPOS: React.FC = () => {
                   <span>Doanh thu ca:</span> <strong className="text-emerald-700">{(currentShift.totalSales || 0).toLocaleString('vi-VN')}đ</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span>Doanh thu VietQR:</span> <strong className="text-sky-700">{(currentShift.transferSales || 0).toLocaleString('vi-VN')}đ</strong>
+                  <span>Doanh thu chuyển khoản:</span> <strong className="text-sky-700">{(currentShift.transferSales || 0).toLocaleString('vi-VN')}đ</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Tiền mặt hệ thống tính:</span> <strong className="text-slate-800">{expectedCash.toLocaleString('vi-VN')}đ</strong>

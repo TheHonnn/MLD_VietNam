@@ -177,7 +177,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentMethod => 'Payment Method';
 
   @override
-  String get bankTransferQr => 'Bank Transfer / QR';
+  String get bankTransferQr => 'Bank Transfer';
 
   @override
   String get payAtBranch => 'Pay at Spa Branch';

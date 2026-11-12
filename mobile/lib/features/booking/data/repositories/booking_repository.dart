@@ -315,7 +315,7 @@ class BookingRepository {
       if (endTime.length == 5) endTime = '$endTime:00';
 
       String method = appointment.paymentMethod.toUpperCase();
-      if (method == 'VIETQR' || method == 'BANK_TRANSFER') {
+      if (method == 'BANK_TRANSFER') {
         method = 'BANK_TRANSFER';
       } else if (method == 'MOMO') {
         method = 'MOMO';

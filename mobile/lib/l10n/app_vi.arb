@@ -55,7 +55,7 @@
   "selectDateTime": "Chọn ngày & giờ",
   "bookingSummary": "Xác nhận đặt lịch",
   "paymentMethod": "Phương thức thanh toán",
-  "bankTransferQr": "Chuyển khoản ngân hàng / QR",
+  "bankTransferQr": "Chuyển khoản ngân hàng",
   "payAtBranch": "Thanh toán tại cơ sở",
   "depositRequiredNotice": "Yêu cầu cọc tiền trước",
   "totalPrice": "Tổng chi phí",

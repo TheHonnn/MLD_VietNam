@@ -177,7 +177,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get paymentMethod => 'Phương thức thanh toán';
 
   @override
-  String get bankTransferQr => 'Chuyển khoản ngân hàng / QR';
+  String get bankTransferQr => 'Chuyển khoản ngân hàng';
 
   @override
   String get payAtBranch => 'Thanh toán tại cơ sở';

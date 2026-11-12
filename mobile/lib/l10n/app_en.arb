@@ -55,7 +55,7 @@
   "selectDateTime": "Select Date & Time",
   "bookingSummary": "Booking Confirmation",
   "paymentMethod": "Payment Method",
-  "bankTransferQr": "Bank Transfer / QR",
+  "bankTransferQr": "Bank Transfer",
   "payAtBranch": "Pay at Spa Branch",
   "depositRequiredNotice": "Advance deposit required",
   "totalPrice": "Total Price",

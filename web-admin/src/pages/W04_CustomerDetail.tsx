@@ -492,8 +492,8 @@ export const W04_CustomerDetail: React.FC = () => {
         dateStr: formatDateVN(inv.paidAt),
         timestamp: d.getTime(),
         method:
-          inv.paymentMethod === PaymentMethod.BANK_TRANSFER || (inv.paymentMethod as string) === 'VIETQR'
-            ? 'Chuyển khoản VietQR'
+          inv.paymentMethod === PaymentMethod.BANK_TRANSFER
+            ? 'Chuyển khoản ngân hàng'
             : 'Ví MOMO / Tiền mặt',
         amount: inv.totalAmount || 0,
         status: inv.paymentStatus === 'PAID' ? 'Đã hoàn tất' : 'Chờ thanh toán',
@@ -511,8 +511,8 @@ export const W04_CustomerDetail: React.FC = () => {
         dateStr: formatDateVN(tt.paidAt),
         timestamp: d.getTime(),
         method:
-          tt.paymentMethod === PaymentMethod.BANK_TRANSFER || (tt.paymentMethod as string) === 'VIETQR'
-            ? 'Chuyển khoản VietQR'
+          tt.paymentMethod === PaymentMethod.BANK_TRANSFER
+            ? 'Chuyển khoản ngân hàng'
             : 'Chuyển khoản ngân hàng',
         amount: tt.amount || 0,
         status: tt.paymentStatus === 'PAID' ? 'Đã hoàn tất' : 'Chờ thanh toán',
@@ -532,7 +532,7 @@ export const W04_CustomerDetail: React.FC = () => {
             title: `Học phí khóa ${c?.title || 'Academy'}`,
             dateStr: formatDateVN(e.enrolledAt),
             timestamp: d.getTime(),
-            method: 'Chuyển khoản VietQR',
+            method: 'Chuyển khoản ngân hàng',
             amount: e.amountPaid || 0,
             status: 'Đã hoàn tất',
             isPaid: true,
@@ -1603,11 +1603,11 @@ export const W04_CustomerDetail: React.FC = () => {
                     Lịch sử giao dịch & Hóa đơn thu ngân ({allTransactions.length})
                   </h3>
                   <p className="text-xs text-[#73675F] mt-0.5">
-                    Hóa đơn dịch vụ Spa, biên lai học phí Academy và chuyển khoản VietQR
+                    Hóa đơn dịch vụ Spa, biên lai học phí Academy và chuyển khoản ngân hàng
                   </p>
                 </div>
                 <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-[#F5ECE3] text-[#985018]">
-                  Ví MLD Pay & VietQR
+                  Ví MLD Pay & Chuyển khoản
                 </span>
               </div>
 
