@@ -116,7 +116,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           icon: Leaf,
           subItems: [
             { name: 'Hồ sơ phác đồ MLD', path: '/medical-records' },
-            { name: 'Bảng giá & Gói liệu trình', path: '/services-catalog?tab=packages' },
             { name: 'Liệu trình khách hàng', path: '/manage/user_packages' },
             { name: 'Nhật ký điều trị', path: '/manage/treatment_journal' },
             { name: 'Hướng dẫn chăm sóc tại nhà', path: '/manage/home_care_guidelines' },
@@ -127,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           path: '/services-catalog',
           icon: Sparkles,
           subItems: [
-            { name: 'Bảng giá niêm yết MLD', path: '/services-catalog' },
+            { name: 'Bảng giá & Gói liệu trình', path: '/services-catalog' },
             { name: 'Sản phẩm mang về', path: '/home-products' },
             { name: 'Danh mục nhóm dịch vụ', path: '/manage/service_categories' },
             { name: 'Định mức tiêu hao vật tư (BOM)', path: '/manage/service_materials' },

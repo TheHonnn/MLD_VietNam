@@ -18,7 +18,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'support_faqs', title: 'Câu hỏi thường gặp', group: 'Khách hàng (CRM)', actions: ['create', 'update', 'delete'] },
 
   // 4. Quản lý Liệu trình
-  { name: 'treatment_packages', title: 'Gói liệu trình Spa', group: 'Quản lý Liệu trình', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'treatment_packages', title: 'Gói liệu trình Spa', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'user_packages', title: 'Liệu trình khách hàng', group: 'Quản lý Liệu trình', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'treatment_journal', title: 'Nhật ký điều trị', group: 'Quản lý Liệu trình', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'home_care_guidelines', title: 'Hướng dẫn chăm sóc tại nhà', group: 'Quản lý Liệu trình', actions: ['create', 'update', 'delete', 'action'] },
