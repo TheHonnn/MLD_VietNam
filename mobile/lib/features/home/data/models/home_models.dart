@@ -89,6 +89,42 @@ class TreatmentPackageModel {
 
   String get durationText => duration;
   int get totalSessions => sessionsCount;
+
+  factory TreatmentPackageModel.fromJson(Map<String, dynamic> json) {
+    final name = json['name']?.toString() ?? json['title']?.toString() ?? 'Gói liệu trình MLD';
+    final sessions = int.tryParse(json['total_sessions']?.toString() ?? json['sessionsCount']?.toString() ?? '10') ?? 10;
+    final pr = double.tryParse(json['price']?.toString() ?? '0') ?? 0.0;
+    final discPr = double.tryParse(json['discount_price']?.toString() ?? '0') ?? pr;
+    final months = int.tryParse(json['validity_months']?.toString() ?? '6') ?? 6;
+    final desc = json['description']?.toString() ?? '';
+    final img = json['image_url']?.toString() ?? json['imageUrl']?.toString() ?? 'assets/images/service_luu_phu_bach_huyet.png';
+
+    // Xác định nhóm danh mục dựa trên tên
+    String cat = 'Gói liệu trình';
+    if (name.toLowerCase().contains('khu trú')) {
+      cat = 'Chăm sóc khu trú';
+    } else if (name.toLowerCase().contains('mở rộng')) {
+      cat = 'Chăm sóc mở rộng';
+    } else if (name.toLowerCase().contains('toàn diện')) {
+      cat = 'Chăm sóc toàn diện';
+    }
+
+    return TreatmentPackageModel(
+      id: json['id']?.toString() ?? '',
+      title: name,
+      category: json['category']?.toString() ?? cat,
+      price: discPr > 0 ? discPr : pr,
+      originalPrice: (pr > discPr && discPr > 0) ? pr : 0.0,
+      duration: '$sessions buổi ($months tháng)',
+      sessionsCount: sessions,
+      rating: 5.0,
+      imageUrl: img,
+      badgeText: 'Gói $sessions buổi',
+      description: desc,
+      features: desc.isNotEmpty ? [desc] : const [],
+      validityMonths: months,
+    );
+  }
 }
 
 /// 3. Kỹ thuật viên / Chuyên viên Spa (Technician & Chuyên gia)

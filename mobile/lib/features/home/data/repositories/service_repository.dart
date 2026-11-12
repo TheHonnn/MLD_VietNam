@@ -50,6 +50,37 @@ class ServiceRepository {
   List<SpaServiceModel> _cachedServices = [];
   List<SpaServiceModel> get cachedServices => _cachedServices;
 
+  List<TreatmentPackageModel> _cachedPackages = [];
+  List<TreatmentPackageModel> get cachedPackages => _cachedPackages;
+
+  /// Lấy danh sách gói liệu trình từ Supabase
+  Future<List<TreatmentPackageModel>> getTreatmentPackages({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedPackages.isNotEmpty) {
+      return _cachedPackages;
+    }
+    try {
+      const path = '${ApiEndpoints.treatmentPackages}?is_active=eq.true&order=created_at.asc';
+      final response = await _apiClient.dio.get(path);
+
+      if (response.statusCode == 200 && response.data is List) {
+        final list = (response.data as List)
+            .map((item) => TreatmentPackageModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+
+        if (list.isNotEmpty) {
+          debugPrint('>>> [ServiceRepository] Loaded ${list.length} treatment packages from Supabase.');
+          _cachedPackages = list;
+          return list;
+        }
+      }
+    } catch (e) {
+      debugPrint('>>> [ServiceRepository] Error fetching treatment packages: $e');
+    }
+
+    _cachedPackages = MockHomeRepository.getFeaturedPackages();
+    return _cachedPackages;
+  }
+
   /// Lấy danh sách dịch vụ từ Supabase
   Future<List<SpaServiceModel>> getServices({String? categoryId, String? search}) async {
     try {

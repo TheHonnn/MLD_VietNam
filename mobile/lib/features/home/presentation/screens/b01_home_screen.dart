@@ -1234,7 +1234,14 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                     ],
                                   ),
                                   child: ElevatedButton(
-                                    onPressed: _handleBooking,
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const B02ServiceListingScreen(),
+                                        ),
+                                      );
+                                    },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppColors.accent,
                                       foregroundColor: Colors.white,

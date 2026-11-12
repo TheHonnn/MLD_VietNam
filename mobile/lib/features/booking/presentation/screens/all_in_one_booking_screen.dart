@@ -43,6 +43,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   // 1. Dịch vụ duy nhất & Thuế giá lấy động từ Admin backend
   String _serviceId = '235166f2-66c9-4231-bbe1-af91b48fc67c';
   String _serviceTitle = 'Lưu phù bạch huyết';
+  String _serviceImageUrl = 'assets/images/service_luu_phu_bach_huyet.png';
   int _serviceDuration = 60;
   double _pricePerPerson = 700000;
 
@@ -89,6 +90,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       _serviceTitle = widget.initialService!.name;
       _serviceDuration = widget.initialService!.durationMinutes;
       _pricePerPerson = widget.initialService!.displayPrice;
+      _serviceImageUrl = widget.initialService!.imageUrl;
     }
     if (widget.initialBranch != null) {
       _selectedBranch = widget.initialBranch;
@@ -128,6 +130,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
             ? widget.userPackageName!.trim()
             : coreService.name;
         _serviceDuration = coreService.durationMinutes;
+        _serviceImageUrl = widget.initialService?.imageUrl ?? (coreService.imageUrl.isNotEmpty ? coreService.imageUrl : _serviceImageUrl);
         _pricePerPerson = _usesActivePackage ? 0 : coreService.displayPrice;
         _branches = branches;
         _selectedBranch = widget.initialBranch ?? BranchRepository.instance.activeBranch ?? (branches.isNotEmpty ? branches.first : (BranchRepository.instance.cachedBranches.isNotEmpty ? BranchRepository.instance.cachedBranches.first : null));
@@ -368,7 +371,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       branchId: _selectedBranch?.id ?? 'aaaaaaaa-0001-0001-0001-000000000001',
       serviceId: _serviceId,
       serviceName: _serviceTitle,
-      serviceImage: 'assets/images/logo.webp',
+      serviceImage: _serviceImageUrl.isNotEmpty
+          ? _serviceImageUrl
+          : 'assets/images/service_luu_phu_bach_huyet.png',
       durationMinutes: _serviceDuration,
       branchName: _selectedBranch!.name,
       branchAddress: _selectedBranch!.address,
@@ -551,18 +556,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.asset(
-                            'assets/images/service_luu_phu_bach_huyet.png',
-                            width: 48,
-                            height: 48,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 48,
-                              height: 48,
-                              color: const Color(0xFFEFF6FF),
-                              child: const Icon(Icons.spa_rounded, color: AppColors.primary, size: 24),
-                            ),
-                          ),
+                          child: _buildServiceImageWidget(_serviceImageUrl),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1210,6 +1204,37 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildServiceImageWidget(String url) {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return Image.network(
+        url,
+        width: 52,
+        height: 52,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _buildServiceFallbackIcon(),
+      );
+    }
+    if (url.startsWith('assets/')) {
+      return Image.asset(
+        url,
+        width: 52,
+        height: 52,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _buildServiceFallbackIcon(),
+      );
+    }
+    return _buildServiceFallbackIcon();
+  }
+
+  Widget _buildServiceFallbackIcon() {
+    return Container(
+      width: 52,
+      height: 52,
+      color: const Color(0xFFEFF6FF),
+      child: const Icon(Icons.spa_rounded, color: AppColors.primary, size: 26),
     );
   }
 }
