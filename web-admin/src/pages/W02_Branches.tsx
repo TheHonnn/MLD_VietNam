@@ -48,7 +48,7 @@ const DEFAULT_AMENITIES = [
   'Đỗ xe ô tô miễn phí',
   'Trà thảo mộc & bánh ngọt',
   'Phòng xông hơi đá muối',
-  'Thanh toán Chuyển khoản & Thẻ VIP',
+  'Thanh toán VietQR & Thẻ VIP',
   'Học viện đào tạo chuyên sâu',
 ];
 

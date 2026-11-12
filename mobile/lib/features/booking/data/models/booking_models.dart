@@ -243,7 +243,7 @@ class BookingFlowState {
   String customerAddress;
   String specialNotes;
   bool payFullAmount; // false: cọc 150k, true: trả hết
-  String paymentMethod; // 'BANK_TRANSFER_QR', 'ONLINE', 'AT_BRANCH', 'PREPAID_PACKAGE'
+  String paymentMethod;
   bool usePrepaidPackage; // Sử dụng gói liệu trình đã mua
   String? prepaidPackageName;
   String? voucherCode;

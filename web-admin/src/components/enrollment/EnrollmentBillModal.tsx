@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { X, Printer, Download, CheckCircle2, RefreshCw, AlertCircle } from 'lucide-react';
+import { X, Printer, Download, CheckCircle2, RefreshCw, QrCode, AlertCircle, Copy, Check } from 'lucide-react';
 import { toast } from '../common';
 import { exportElementToPdf } from '../../utils/pdfExport';
 
 export interface CandidateBillInfo {
   id: string;
   name: string;
-  code: string;
-  orderCode?: string;
+  code: string; // Mã khách hàng (HV-xxxx)
+  orderCode?: string; // Mã đơn hàng (KH-xxxx)
   phone: string;
   email?: string;
   program: string;
@@ -37,6 +37,7 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
 }) => {
   const [isChecking, setIsChecking] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   if (!isOpen || !candidate) return null;
@@ -45,8 +46,20 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
   const remaining = Math.max(0, rawTuition - (candidate.amountPaid || 0));
   const amountToPay = remaining > 0 ? remaining : rawTuition;
 
+  // Prioritize unique order code for accurate payment transfer matching (Spec 5.2 & 5.3)
   const orderRef = candidate.orderCode || candidate.code || `KH-${candidate.id.slice(-6)}`;
   const cleanCode = orderRef.replace(/[^A-Za-z0-9_-]/g, '').toUpperCase();
+  const transferContent = `MLD ${cleanCode}`;
+
+  // VietQR Napas 247 generator URL
+  const vietQrUrl = `https://api.vietqr.io/image/970422-0394316963-compact2.jpg?amount=${amountToPay}&addInfo=${encodeURIComponent(transferContent)}&accountName=BUI%20THE%20HOANG`;
+
+  const handleCopy = (text: string, fieldName: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    toast.success('Đã sao chép', `Đã sao chép ${fieldName}: ${text}`);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   const handlePrint = () => {
     window.print();
@@ -136,7 +149,7 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
         <div className="no-print p-4 sm:px-6 bg-[#FAF5EF] border-b border-[#EFE4D9] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-[#F3E2CE] text-[#8D4B1A] flex items-center justify-center font-bold">
-              <Printer className="w-5 h-5" />
+              <QrCode className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-[#2C241E]">
@@ -218,7 +231,7 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
                 PHIẾU ĐĂNG KÝ KHÓA HỌC & THÔNG BÁO NỘP HỌC PHÍ
               </h1>
               <p className="text-xs text-[#73675F] mt-1">
-                Chứng từ ghi nhận thông tin đăng ký nhập học & thanh toán học phí
+                Chứng từ ghi nhận thông tin đăng ký nhập học & thông tin chuyển khoản ngân hàng tự động
               </p>
             </div>
 
@@ -314,13 +327,95 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
               </table>
             </div>
 
-            <div className="border border-[#EFE4D9] rounded-2xl p-5 bg-[#FAF7F2] text-xs space-y-2">
-              <div className="font-bold text-[#8D4B1A] text-sm pb-1 border-b border-[#EFE4D9]">
-                HƯỚNG DẪN HOÀN TẤT HỌC PHÍ
+            {/* 5. VietQR & Bank Transfer Instructions */}
+            <div className="border-2 border-dashed border-[#8D4B1A]/40 rounded-2xl p-5 bg-[#FAF7F2] flex flex-col sm:flex-row items-center gap-6">
+              {/* QR Image */}
+              <div className="flex flex-col items-center shrink-0">
+                <div className="p-2 bg-white rounded-xl shadow-xs border border-[#EFE4D9]">
+                  <img
+                    src={vietQrUrl}
+                    alt="VietQR MB Bank Napas 247"
+                    className="w-44 h-44 object-contain rounded-lg"
+                  />
+                </div>
+                <span className="text-[10px] text-[#73675F] mt-1.5 font-medium">
+                  Quét mã qua app ngân hàng bất kỳ
+                </span>
               </div>
-              <p className="text-[#2C241E] leading-relaxed">
-                Học viên nộp học phí trực tiếp tại quầy tuyển sinh / kế toán cơ sở hoặc chuyển khoản theo hướng dẫn từ chuyên viên tư vấn tuyển sinh MLD Việt Nam.
-              </p>
+
+              {/* Bank Transfer Details */}
+              <div className="flex-1 space-y-2 text-xs w-full">
+                <div className="font-bold text-[#8D4B1A] text-sm flex items-center gap-1.5 pb-1 border-b border-[#EFE4D9]">
+                  <QrCode className="w-4 h-4" />
+                  <span>THÔNG TIN CHUYỂN KHOẢN TỰ ĐỘNG ĐỐI SOÁT</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[#73675F] block text-[11px]">Ngân hàng thụ hưởng:</span>
+                    <span className="font-bold text-[#2C241E]">MB Bank (Quân Đội)</span>
+                  </div>
+
+                  <div>
+                    <span className="text-[#73675F] block text-[11px]">Số tài khoản:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-[#2C241E] text-[13px]">0394316963</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy('0394316963', 'Số tài khoản')}
+                        className="no-print p-1 hover:bg-white rounded text-[#8D4B1A] transition-colors cursor-pointer"
+                        title="Sao chép STK"
+                      >
+                        {copiedField === 'Số tài khoản' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[#73675F] block text-[11px]">Chủ tài khoản:</span>
+                    <span className="font-bold text-[#2C241E] uppercase">BUI THE HOANG</span>
+                  </div>
+
+                  <div>
+                    <span className="text-[#73675F] block text-[11px]">Số tiền chính xác:</span>
+                    <span className="font-bold text-[#8D4B1A] text-[13px]">
+                      {amountToPay.toLocaleString('vi-VN')} VNĐ
+                    </span>
+                  </div>
+                </div>
+
+                {/* Transfer Note Cú pháp */}
+                <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-900 uppercase">
+                      Nội dung chuyển khoản (bắt buộc):
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(transferContent, 'Nội dung chuyển khoản')}
+                      className="no-print text-[11px] font-semibold text-[#8D4B1A] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      {copiedField === 'Nội dung chuyển khoản' ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span>Đã sao chép</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>Sao chép</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <div className="font-mono text-base font-extrabold text-[#8D4B1A] tracking-wider">
+                    {transferContent}
+                  </div>
+                  <div className="text-[11px] text-amber-800 leading-snug">
+                    * Hệ thống sẽ tự động đối soát theo <strong>Mã khách hàng</strong> và số tiền chuyển khoản để tự động duyệt học viên vào khóa học ngay sau khi tiền về.
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* 6. Signatures */}
