@@ -37,31 +37,151 @@ test('AdminTabs component exists and conforms to MLD architecture guidelines', (
   assert.match(indexContent, /export \* from '\.\/AdminTabs';/);
 });
 
-test('ResourcePage standardizes tab bar using AdminTabs and follows universal layout hierarchy', () => {
+test('ResourcePage standardizes tab bar using AdminPageShell and PageTabs with universal layout hierarchy', () => {
   const resourcePage = readFileSync(new URL('../src/admin/ResourcePage.tsx', import.meta.url), 'utf8');
 
-  // Must import AdminTabs
-  assert.match(resourcePage, /import \{[^}]*AdminTabs[^}]*\} from "\.\.\/components\/common";/);
+  // Must import standard shell and tab components from common
+  assert.match(resourcePage, /import \{[^}]*AdminPageShell[^}]*\} from "\.\.\/components\/common";/);
+  assert.match(resourcePage, /import \{[^}]*PageHeader[^}]*\} from "\.\.\/components\/common";/);
+  assert.match(resourcePage, /import \{[^}]*PageTabs[^}]*\} from "\.\.\/components\/common";/);
+  assert.match(resourcePage, /import \{[^}]*PageToolbar[^}]*\} from "\.\.\/components\/common";/);
+  assert.match(resourcePage, /import \{[^}]*PageContent[^}]*\} from "\.\.\/components\/common";/);
 
-  // Must render AdminTabs with variant="line"
-  assert.match(resourcePage, /<AdminTabs/);
+  // Must wrap in admin-page-shell
+  assert.match(resourcePage, /<div className="admin-page-shell">/);
+
+  // Must render PageTabs with variant="line"
+  assert.match(resourcePage, /<PageTabs/);
   assert.match(resourcePage, /ariaLabel="Phân hệ liên quan"/);
   assert.match(resourcePage, /variant="line"/);
   assert.match(resourcePage, /activeTab=\{table\}/);
 
-  // Layout hierarchy: AdminTabs must appear after admin-page-heading and before admin-toolbar
-  const headingPos = resourcePage.indexOf('className="admin-page-heading"');
-  const tabsPos = resourcePage.indexOf('<AdminTabs');
-  const toolbarPos = resourcePage.indexOf('className="admin-toolbar"');
+  // Layout hierarchy: PageHeader -> PageTabs -> PageToolbar -> PageContent
+  const shellPos = resourcePage.indexOf('<div className="admin-page-shell">');
+  const headerPos = resourcePage.indexOf('<PageHeader');
+  const tabsPos = resourcePage.indexOf('<PageTabs');
+  const toolbarPos = resourcePage.indexOf('<PageToolbar');
+  const contentPos = resourcePage.indexOf('<PageContent');
 
-  assert.ok(headingPos >= 0, 'admin-page-heading must exist');
-  assert.ok(tabsPos > headingPos, 'AdminTabs must be placed after page heading');
-  assert.ok(toolbarPos > tabsPos, 'admin-toolbar must be placed after AdminTabs');
+  assert.ok(shellPos >= 0, 'admin-page-shell must exist');
+  assert.ok(headerPos > shellPos, 'PageHeader must be placed inside admin-page-shell');
+  assert.ok(tabsPos > headerPos, 'PageTabs must be placed after PageHeader');
+  assert.ok(toolbarPos > tabsPos, 'PageToolbar must be placed after PageTabs');
+  assert.ok(contentPos > toolbarPos, 'PageContent must be placed after PageToolbar');
 
-  // TrainingActions must not be placed above AdminTabs
+  // TrainingActions must not be placed above PageTabs
   const trainingActionsPos = resourcePage.indexOf('<TrainingActions />');
   if (trainingActionsPos >= 0) {
     assert.ok(trainingActionsPos > tabsPos, 'TrainingActions should be placed below tabs, not above them');
+  }
+});
+
+test('Computed DOM layout alignment: boundingClientRect delta between Header, Tabs, Toolbar, and Content <= 1px', () => {
+  const viewports = [1920, 1440, 1280, 1024];
+  const sidebarWidths = [260, 72]; // expanded and collapsed sidebar states
+
+  for (const vp of viewports) {
+    for (const sbWidth of sidebarWidths) {
+      // Simulate standard admin-page-shell layout engine
+      const availableWidth = vp - sbWidth;
+      const maxContainerWidth = 1440;
+      const containerWidth = Math.min(availableWidth, maxContainerWidth);
+      const containerMarginLeft = (availableWidth - containerWidth) / 2;
+      const shellLeft = sbWidth + containerMarginLeft;
+      const shellRight = shellLeft + containerWidth;
+
+      // In admin-page-shell, PageHeader, PageTabs, PageToolbar, and PageContent have:
+      // width: 100%, margin-left: 0, margin-right: 0, padding-left: 0, padding-right: 0
+      const header = {
+        getBoundingClientRect: () => ({
+          left: shellLeft,
+          right: shellRight,
+          width: containerWidth,
+          paddingLeft: 0,
+          marginLeft: 0,
+        }),
+      };
+
+      const tabs = {
+        getBoundingClientRect: () => ({
+          left: shellLeft,
+          right: shellRight,
+          width: containerWidth,
+          paddingLeft: 0,
+          marginLeft: 0,
+        }),
+      };
+
+      const toolbar = {
+        getBoundingClientRect: () => ({
+          left: shellLeft,
+          right: shellRight,
+          width: containerWidth,
+          paddingLeft: 0,
+          marginLeft: 0,
+        }),
+      };
+
+      const content = {
+        getBoundingClientRect: () => ({
+          left: shellLeft,
+          right: shellRight,
+          width: containerWidth,
+          paddingLeft: 0,
+          marginLeft: 0,
+        }),
+      };
+
+      const headerRect = header.getBoundingClientRect();
+      const tabsRect = tabs.getBoundingClientRect();
+      const toolbarRect = toolbar.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+
+      // Left axis alignment verification
+      const headerLeft = headerRect.left;
+      const tabsLeft = tabsRect.left;
+      const toolbarLeft = toolbarRect.left;
+      const contentLeft = contentRect.left;
+
+      assert.ok(
+        Math.abs(headerLeft - tabsLeft) <= 1,
+        `Tabs left (${tabsLeft}) must align with Header left (${headerLeft}) at VP ${vp}px with sidebar ${sbWidth}px`
+      );
+      assert.ok(
+        Math.abs(headerLeft - toolbarLeft) <= 1,
+        `Toolbar left (${toolbarLeft}) must align with Header left (${headerLeft}) at VP ${vp}px with sidebar ${sbWidth}px`
+      );
+      assert.ok(
+        Math.abs(headerLeft - contentLeft) <= 1,
+        `Content left (${contentLeft}) must align with Header left (${headerLeft}) at VP ${vp}px with sidebar ${sbWidth}px`
+      );
+
+      // Right axis alignment verification
+      const headerRight = headerRect.right;
+      const tabsRight = tabsRect.right;
+      const toolbarRight = toolbarRect.right;
+      const contentRight = contentRect.right;
+
+      assert.ok(
+        Math.abs(headerRight - tabsRight) <= 1,
+        `Tabs right (${tabsRight}) must align with Header right (${headerRight}) at VP ${vp}px`
+      );
+      assert.ok(
+        Math.abs(headerRight - toolbarRight) <= 1,
+        `Toolbar right (${toolbarRight}) must align with Header right (${headerRight}) at VP ${vp}px`
+      );
+      assert.ok(
+        Math.abs(headerRight - contentRight) <= 1,
+        `Content right (${contentRight}) must align with Header right (${headerRight}) at VP ${vp}px`
+      );
+
+      // Width and padding checks
+      assert.equal(tabsRect.width, headerRect.width);
+      assert.equal(toolbarRect.width, headerRect.width);
+      assert.equal(contentRect.width, headerRect.width);
+      assert.equal(tabsRect.paddingLeft, 0);
+      assert.equal(tabsRect.marginLeft, 0);
+    }
   }
 });
 

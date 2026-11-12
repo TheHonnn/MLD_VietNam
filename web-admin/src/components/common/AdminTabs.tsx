@@ -23,16 +23,17 @@ export interface AdminTabsProps {
 }
 
 /**
- * AdminTabs - Unified tab bar component for MLD Web-Admin.
+ * AdminTabs / PageTabs - Unified tab bar component for MLD Web-Admin.
  * Follows MLD Brand Design (warm sand canvas, signature brown accents #985018 / #8A4F23).
  * Ensures exact horizontal alignment with Page Header, Search/Filters, and Content Table.
+ * Height: 48px, Tab touch target: 44-48px, Active underline at bottom-0, no text stickiness.
  */
 export const AdminTabs: React.FC<AdminTabsProps> = ({
   tabs,
   activeTab,
   onChange,
   variant = 'line',
-  ariaLabel = 'Điều hướng phân hệ',
+  ariaLabel = 'Äiá»u hÆ°á»›ng phĂ¢n há»‡',
   className = '',
   autoScrollIntoView = true,
 }) => {
@@ -59,32 +60,30 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
 
   // Keyboard navigation handler for accessibility
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
-    if (variant === 'line' || variant === 'pill') {
-      const enabledTabs = tabs.filter((t) => !t.disabled);
-      if (enabledTabs.length <= 1) return;
+    const enabledTabs = tabs.filter((t) => !t.disabled);
+    if (enabledTabs.length <= 1) return;
 
-      const currentIndex = enabledTabs.findIndex((t) => t.id === tabs[index]?.id);
-      let targetTab: AdminTabItem | null = null;
+    const currentIndex = enabledTabs.findIndex((t) => t.id === tabs[index]?.id);
+    let targetTab: AdminTabItem | null = null;
 
-      if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        const nextIdx = (currentIndex + 1) % enabledTabs.length;
-        targetTab = enabledTabs[nextIdx];
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        const prevIdx = (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
-        targetTab = enabledTabs[prevIdx];
-      } else if (e.key === 'Home') {
-        e.preventDefault();
-        targetTab = enabledTabs[0];
-      } else if (e.key === 'End') {
-        e.preventDefault();
-        targetTab = enabledTabs[enabledTabs.length - 1];
-      }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const nextIdx = (currentIndex + 1) % enabledTabs.length;
+      targetTab = enabledTabs[nextIdx];
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prevIdx = (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
+      targetTab = enabledTabs[prevIdx];
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      targetTab = enabledTabs[0];
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      targetTab = enabledTabs[enabledTabs.length - 1];
+    }
 
-      if (targetTab && onChange) {
-        onChange(targetTab.id);
-      }
+    if (targetTab && onChange) {
+      onChange(targetTab.id);
     }
   };
 
@@ -108,11 +107,11 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
         <span className="whitespace-nowrap">{tab.label}</span>
         {tab.count !== undefined && (
           <span
-            className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-colors ${
+            className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold transition-colors ${
               isActive
                 ? variant === 'pill'
                   ? 'bg-white/20 text-white'
-                  : 'bg-[#FAF0E4] text-[#8A4F23]'
+                  : 'bg-[#FAF0E4] text-[#8A4F23] border border-[#EAD8C7]'
                 : 'bg-[#F4ECE3] text-[#73675F] group-hover:bg-[#EFE4D9]'
             }`}
           >
@@ -126,13 +125,13 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
 
   const containerClasses =
     variant === 'line'
-      ? 'w-full border-b border-[#E8DFD8] mb-5'
-      : 'w-full border-b border-[#EFE4D9] pb-2.5 mb-4';
+      ? 'admin-page-tabs w-full h-12 min-h-[48px] border-b border-[#E8DFD8] mb-5 box-border'
+      : 'admin-page-tabs w-full border-b border-[#EFE4D9] pb-2.5 mb-5 box-border';
 
   const listClasses =
     variant === 'line'
-      ? 'flex items-center gap-6 overflow-x-auto scroll-smooth scrollbar-none px-0 py-0 text-xs'
-      : 'flex flex-wrap items-center gap-2 overflow-x-auto scroll-smooth scrollbar-none text-xs';
+      ? 'w-full h-12 flex items-center gap-7 overflow-x-auto scroll-smooth scrollbar-none px-0 py-0 text-xs box-border'
+      : 'w-full flex flex-wrap items-center gap-2 overflow-x-auto scroll-smooth scrollbar-none text-xs box-border';
 
   const NavWrapper = isNavigation ? 'nav' : 'div';
 
@@ -140,6 +139,7 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
     <NavWrapper
       className={`${containerClasses} ${className}`}
       aria-label={ariaLabel}
+      style={{ paddingLeft: 0, paddingRight: 0, marginLeft: 0, marginRight: 0 }}
       {...(!isNavigation ? { role: 'tablist' } : {})}
     >
       <div
@@ -154,14 +154,15 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
           const isActive = tab.id === activeTab;
           const tabRef = isActive ? (activeTabRef as React.RefObject<any>) : undefined;
 
-          // Common style classes
-          const lineClasses = `group relative inline-flex items-center gap-2 py-3 text-xs font-semibold tracking-wide transition-all duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#985018]/40 rounded-t-md ${
+          // Line tab item: height 48px (full height of container), zero horizontal padding,
+          // so the active underline is exactly beneath the tab label and active indicator is bottom-0
+          const lineClasses = `group relative inline-flex items-center gap-2 h-12 min-h-[44px] px-0 text-xs font-semibold tracking-wide transition-colors duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#985018]/50 focus-visible:ring-offset-2 ${
             isActive
               ? 'text-[#985018] font-bold'
               : 'text-[#73675F] hover:text-[#2C241E]'
           } ${tab.disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`;
 
-          const pillClasses = `group inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer select-none border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#985018]/40 ${
+          const pillClasses = `group inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer select-none border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#985018]/50 focus-visible:ring-offset-2 ${
             isActive
               ? 'bg-[#985018] text-white border-[#985018] shadow-xs'
               : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border-slate-200'
@@ -183,7 +184,7 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
                 {renderTabContent(tab, isActive)}
                 {variant === 'line' && isActive && (
                   <span
-                    className="absolute -bottom-px left-0 right-0 h-0.5 bg-[#985018] rounded-t-full transition-all"
+                    className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#985018] rounded-t-full transition-all"
                     aria-hidden="true"
                   />
                 )}
@@ -214,7 +215,7 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
               {renderTabContent(tab, isActive)}
               {variant === 'line' && isActive && (
                 <span
-                  className="absolute -bottom-px left-0 right-0 h-0.5 bg-[#985018] rounded-t-full transition-all"
+                  className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#985018] rounded-t-full transition-all"
                   aria-hidden="true"
                 />
               )}

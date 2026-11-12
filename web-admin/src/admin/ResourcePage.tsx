@@ -22,7 +22,7 @@ import { BookingDetailDialog } from "./BookingDetailDialog";
 import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
 import { ShareJournalModal, ShareJournalItem } from "../components/treatment/ShareJournalModal";
 import CertificateTemplateEditor from "../components/certificates/CertificateTemplateEditor";
-import { AdminTabs } from "../components/common";
+import { AdminPageShell, PageHeader, PageTabs, AdminTabs, PageToolbar, PageContent } from "../components/common";
 import { portalService } from "../services/portal.service";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
@@ -5650,113 +5650,113 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   };
 
   return (
-    <section className="admin-resource">
-      <div className="admin-page-heading">
-        <div>
-          <p className="admin-eyebrow">{resource?.group || "QUẢN TRỊ"}</p>
-          <h1>{resource?.title || "Đang tải phân hệ…"}</h1>
-          {table === "bookings" && (
+    <div className="admin-page-shell">
+      <PageHeader
+        eyebrow={resource?.group || "QUẢN TRỊ"}
+        title={resource?.title || "Đang tải phân hệ…"}
+        subtitle={
+          table === "bookings" ? (
             <p className="mt-1 text-xs text-[#73675F]">Theo dõi khách từ lúc đặt lịch, đến cơ sở, thực hiện dịch vụ và thanh toán.</p>
-          )}
-          {table === "booking_items" && (
+          ) : table === "booking_items" ? (
             <p className="mt-1 text-xs text-[#73675F]">Kiểm tra dịch vụ, chuyên viên, thời lượng và giá cấu thành của từng lịch hẹn.</p>
-          )}
-          {table === "invoice_items" && (
+          ) : table === "invoice_items" ? (
             <p className="mt-1 text-xs text-[#73675F]">Đối chiếu nội dung thu, số lượng, đơn giá và thành tiền của từng hóa đơn.</p>
-          )}
-        </div>
-        <div className="admin-toolbar-actions">
-          {table === "certificate_templates" && (
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-md border border-[#D9C3AD] bg-white px-3 py-2 text-xs font-semibold text-[#7D431C] transition hover:bg-[#FAF3EA]"
-              onClick={() => setCertificateTemplatePreview({
-                id: "mld-course-completion",
-                name: "Mẫu chứng nhận hoàn thành khóa học MLD",
-                code: "MLD-COURSE-CERT",
-                signer_title: "GIÁM ĐỐC",
-              })}
-            >
-              <Eye size={15} />
-              Xem mẫu mới
-            </button>
-          )}
-          {["services", "treatment_packages"].includes(table) && (
-            <Link
-              to="/services-catalog"
-              className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 transition hover:bg-amber-100 shadow-xs"
-            >
-              <Sparkles size={15} className="text-amber-600" />
-              Xem Ma Trận Bảng Giá Niêm Yết MLD ↗
-            </Link>
-          )}
-          <button
-            className="admin-icon"
-            title="Tải lại"
-            onClick={() => setVersion((v) => v + 1)}
-            disabled={loading}
-          >
-            <RefreshCw size={18} />
-          </button>
-          {resource?.actions?.includes("create") && listing && (
-            table === "invoice_items" ? (
-              <Link to="/cashier-pos" className="admin-primary">
-                <CreditCard size={16} />
-                Mở Thu ngân POS
+          ) : undefined
+        }
+        actions={
+          <>
+            {table === "certificate_templates" && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-md border border-[#D9C3AD] bg-white px-3 py-2 text-xs font-semibold text-[#7D431C] transition hover:bg-[#FAF3EA]"
+                onClick={() => setCertificateTemplatePreview({
+                  id: "mld-course-completion",
+                  name: "Mẫu chứng nhận hoàn thành khóa học MLD",
+                  code: "MLD-COURSE-CERT",
+                  signer_title: "GIÁM ĐỐC",
+                })}
+              >
+                <Eye size={15} />
+                Xem mẫu mới
+              </button>
+            )}
+            {["services", "treatment_packages"].includes(table) && (
+              <Link
+                to="/services-catalog"
+                className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 transition hover:bg-amber-100 shadow-xs"
+              >
+                <Sparkles size={15} className="text-amber-600" />
+                Xem Ma Trận Bảng Giá Niêm Yết MLD ↗
               </Link>
-            ) : (
+            )}
             <button
-              className="admin-primary"
-              onClick={() => {
-                if (table === "course_enrollments" && selectedBatch) {
-                  setEdit({
-                    row: {
-                      batch_id: selectedBatch.id,
-                      course_id: selectedBatch.course_id,
-                    },
-                    mode: "create",
-                  });
-                } else if (table === "student_attendance" && effectiveScheduleId) {
-                  setEdit({
-                    row: {
-                      schedule_id: effectiveScheduleId,
-                      status: "PRESENT",
-                      check_in_time: new Date().toISOString(),
-                    },
-                    mode: "create",
-                  });
-                } else if (table === "course_batch_assistants") {
-                  setEdit({
-                    row: {
-                      ...(selectedBatchId && selectedBatchId !== "__ALL__" ? { batch_id: selectedBatchId } : {}),
-                      can_mark_attendance: true,
-                      can_enter_grades: true,
-                    },
-                    mode: "create",
-                  });
-                } else {
-                  setEdit({ row: {}, mode: "create" });
-                }
-              }}
+              className="admin-icon"
+              title="Tải lại"
+              onClick={() => setVersion((v) => v + 1)}
+              disabled={loading}
             >
-              <Plus />
-              {table === "booking_items" ? "Thêm dịch vụ vào lịch" : "Thêm mới"}
+              <RefreshCw size={18} />
             </button>
-            )
-          )}
-          {["course_quizzes", "quiz_questions"].includes(table) && (
-            <button
-              type="button"
-              className="btn btn-outline flex items-center gap-1.5 border-[#22C55E]/40 text-[#15803D] bg-[#F0FDF4] hover:bg-[#DCFCE7] font-bold text-xs px-3 py-2 rounded-xl transition-all shadow-xs cursor-pointer ml-2"
-              onClick={() => setShowExcelImportModal(true)}
-            >
-              <FileSpreadsheet className="w-4 h-4 text-[#16A34A]" />
-              <span>Nhập từ Excel</span>
-            </button>
-          )}
-        </div>
-      </div>
-      <AdminTabs
+            {resource?.actions?.includes("create") && listing && (
+              table === "invoice_items" ? (
+                <Link to="/cashier-pos" className="admin-primary">
+                  <CreditCard size={16} />
+                  Mở Thu ngân POS
+                </Link>
+              ) : (
+                <button
+                  className="admin-primary"
+                  onClick={() => {
+                    if (table === "course_enrollments" && selectedBatch) {
+                      setEdit({
+                        row: {
+                          batch_id: selectedBatch.id,
+                          course_id: selectedBatch.course_id,
+                        },
+                        mode: "create",
+                      });
+                    } else if (table === "student_attendance" && effectiveScheduleId) {
+                      setEdit({
+                        row: {
+                          schedule_id: effectiveScheduleId,
+                          status: "PRESENT",
+                          check_in_time: new Date().toISOString(),
+                        },
+                        mode: "create",
+                      });
+                    } else if (table === "course_batch_assistants") {
+                      setEdit({
+                        row: {
+                          ...(selectedBatchId && selectedBatchId !== "__ALL__" ? { batch_id: selectedBatchId } : {}),
+                          can_mark_attendance: true,
+                          can_enter_grades: true,
+                        },
+                        mode: "create",
+                      });
+                    } else {
+                      setEdit({ row: {}, mode: "create" });
+                    }
+                  }}
+                >
+                  <Plus />
+                  {table === "booking_items" ? "Thêm dịch vụ vào lịch" : "Thêm mới"}
+                </button>
+              )
+            )}
+            {["course_quizzes", "quiz_questions"].includes(table) && (
+              <button
+                type="button"
+                className="btn btn-outline flex items-center gap-1.5 border-[#22C55E]/40 text-[#15803D] bg-[#F0FDF4] hover:bg-[#DCFCE7] font-bold text-xs px-3 py-2 rounded-xl transition-all shadow-xs cursor-pointer ml-2"
+                onClick={() => setShowExcelImportModal(true)}
+              >
+                <FileSpreadsheet className="w-4 h-4 text-[#16A34A]" />
+                <span>Nhập từ Excel</span>
+              </button>
+            )}
+          </>
+        }
+      />
+      <PageTabs
         ariaLabel="Phân hệ liên quan"
         variant="line"
         activeTab={table}
@@ -5785,7 +5785,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </div>
         </div>
       )}
-      <div className="admin-toolbar">
+      <PageToolbar>
         <div className="admin-search">
           <Search size={17} />
           <input
@@ -5976,7 +5976,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             Xóa bộ lọc
           </button>
         )}
-      </div>
+      </PageToolbar>
+      <PageContent>
       {error ? (
         <div className="admin-error" role="alert">
           <AlertCircle size={18} />
@@ -7449,6 +7450,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           setNotice("Nhập câu hỏi trắc nghiệm từ file Excel thành công!");
         }}
       />
-    </section>
+      </PageContent>
+    </div>
   );
 }
