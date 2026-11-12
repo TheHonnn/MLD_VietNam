@@ -15,7 +15,11 @@ export const ADMIN_RESOURCES: Record<
   treatment_packages: { title: 'Gói liệu trình', group: 'Dịch vụ' },
   bookings: { title: 'Lịch hẹn / Check-in / Check-out', group: 'Thu ngân' },
   booking_items: { title: 'Dịch vụ trong lịch hẹn', group: 'Thu ngân' },
-  users: { title: 'Tài khoản', group: 'Khách hàng' },
+  users: {
+    title: 'Tài khoản & Quyền truy cập',
+    group: 'Phân quyền',
+    actions: ['create', 'update', 'action'],
+  },
   reviews: { title: 'Đánh giá', group: 'Khách hàng' },
   support_tickets: {
     title: 'Yêu cầu hỗ trợ',

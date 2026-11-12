@@ -13,7 +13,6 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'home_products', title: 'Sản phẩm mang về', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete'] },
 
   // 3. Khách hàng (CRM)
-  { name: 'users', title: 'Hồ sơ khách hàng', group: 'Khách hàng (CRM)', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'reviews', title: 'Đánh giá từ khách', group: 'Khách hàng (CRM)', actions: ['update', 'delete', 'action'] },
   { name: 'support_tickets', title: 'Yêu cầu hỗ trợ', group: 'Khách hàng (CRM)', actions: ['update'] },
   { name: 'support_faqs', title: 'Câu hỏi thường gặp', group: 'Khách hàng (CRM)', actions: ['create', 'update', 'delete'] },
@@ -77,6 +76,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'student_certificates', title: 'Danh sách đã cấp', group: 'Giấy chứng nhận', actions: ['create', 'update', 'delete', 'action'] },
 
   // 13. Phân quyền & Bảo mật
+  { name: 'users', title: 'Tài khoản & Quyền truy cập', group: 'Phân quyền & Bảo mật', actions: ['create', 'update', 'action'] },
   { name: 'roles', title: 'Danh sách Vai trò', group: 'Phân quyền & Bảo mật', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'permissions', title: 'Danh mục quyền hạn', group: 'Phân quyền & Bảo mật', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'role_permissions', title: 'Quyền của vai trò', group: 'Phân quyền & Bảo mật', actions: ['create', 'update', 'delete', 'action'] },

@@ -68,6 +68,7 @@ import {
   FileSpreadsheet,
   Share2,
   MoreHorizontal,
+  ShieldCheck,
 } from "lucide-react";
 import {
   adminApi,
@@ -3303,11 +3304,14 @@ function RecordDialog({
   const generated =
     resource.name === "users"
       ? [
+        "password_hash",
         "referral_code",
         "locked_reason",
         "locked_at",
         "fcm_device_token",
-        ...(mode === "create" ? ["reward_points", "total_spent", "membership_tier"] : []),
+        "reward_points",
+        "total_spent",
+        "membership_tier",
       ]
       : resource.name === "services"
         ? ["slug", "discount_price"]
@@ -5218,7 +5222,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       mode: "create",
       row:
         table === "users"
-          ? { role: "CUSTOMER", membership_tier: "STANDARD", is_active: true }
+          ? { role: "CUSTOMER", is_active: true }
           : table === "course_lessons" && params.get("lesson_type") === "VIDEO"
             ? { lesson_type: "VIDEO" }
             : table === "course_enrollments" && selectedBatch
@@ -5261,7 +5265,9 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   };
   const filterColumns =
     listing?.columns.filter(
-      (c) => (c.options.length || c.type === "bool") && !(table === "users" && c.name === "role")
+      (c) =>
+        (c.options.length || c.type === "bool") &&
+        !(table === "users" && ["membership_tier", "purpose"].includes(c.name))
     ) || [];
   const preferred = [
     "name",
@@ -5333,10 +5339,9 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "phone",
       "email",
       "role",
-      "membership_tier",
-      "reward_points",
-      "total_spent",
       "is_active",
+      "locked_at",
+      "created_at",
     ],
     consultation_surveys: [
       "customer_id",
@@ -5532,6 +5537,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     "role_permissions",
     "user_roles",
     "audit_logs",
+    "users",
     "loyalty_point_settings",
     "voucher_distribution_rules",
     "membership_tier_rules",
@@ -5661,6 +5667,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             <p className="mt-1 text-xs text-[#73675F]">Kiểm tra dịch vụ, chuyên viên, thời lượng và giá cấu thành của từng lịch hẹn.</p>
           ) : table === "invoice_items" ? (
             <p className="mt-1 text-xs text-[#73675F]">Đối chiếu nội dung thu, số lượng, đơn giá và thành tiền của từng hóa đơn.</p>
+          ) : table === "users" ? (
+            <p className="mt-1 text-xs text-[#73675F]">Quản lý danh tính đăng nhập, vai trò và trạng thái truy cập. Hồ sơ chăm sóc khách hàng được quản lý riêng tại CRM.</p>
           ) : undefined
         }
         actions={
@@ -5739,7 +5747,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   }}
                 >
                   <Plus />
-                  {table === "booking_items" ? "Thêm dịch vụ vào lịch" : "Thêm mới"}
+                  {table === "booking_items"
+                    ? "Thêm dịch vụ vào lịch"
+                    : table === "users"
+                      ? "Thêm tài khoản"
+                      : "Thêm mới"}
                 </button>
               )
             )}
@@ -5774,6 +5786,22 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         "quiz_questions",
         "course_chapters",
       ].includes(table) && <TrainingActions />}
+      {table === "users" && (
+        <div className="mb-4 flex items-start justify-between gap-4 rounded-xl border border-[#D9E4ED] bg-[#F5F9FC] px-4 py-3 text-sm text-[#36556D]">
+          <div className="flex items-start gap-3">
+            <ShieldCheck size={18} className="mt-0.5 shrink-0 text-[#1F668F]" />
+            <div>
+              <p className="font-semibold text-[#24485F]">Danh tính đăng nhập, không phải hồ sơ CRM</p>
+              <p className="mt-0.5 text-xs leading-5 text-[#587184]">
+                Trang này dùng để cấp hoặc khóa quyền truy cập hệ thống. Hạng hội viên, điểm, chi tiêu, liệu trình và hoạt động chăm sóc được quản lý tại Hồ sơ Khách hàng.
+              </p>
+            </div>
+          </div>
+          <Link to="/customers" className="shrink-0 rounded-lg border border-[#BFD2DE] bg-white px-3 py-2 text-xs font-bold text-[#245675] transition hover:bg-[#EDF5F9]">
+            Mở CRM khách hàng
+          </Link>
+        </div>
+      )}
       {table === "support_tickets" && (
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-[#D7E8E0] bg-[#F4FBF7] px-4 py-3 text-sm text-[#315B49]">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-[#0B7A53]" />

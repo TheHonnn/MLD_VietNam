@@ -232,6 +232,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           path: '/manage/roles',
           icon: ShieldCheck,
           subItems: [
+            { name: 'Tài khoản & Quyền truy cập', path: '/manage/users' },
             { name: 'Danh sách Vai trò', path: '/manage/roles' },
             { name: 'Danh mục quyền hạn', path: '/manage/permissions' },
             { name: 'Quyền của vai trò', path: '/manage/role_permissions' },
