@@ -667,6 +667,24 @@ export class AdminService {
         operation === 'delete' ? null : result,
         previous,
       );
+      if (table === 'treatment_journal' && operation === 'create' && result) {
+        await this.syncTreatmentJournalArtifacts(client, result, data, actor);
+      }
+      if (table === 'user_packages' && operation === 'update' && data.status && previous && data.status !== previous.status) {
+        await client.query(
+          `INSERT INTO user_package_lifecycle_logs(user_package_id, from_status, to_status, action, reason, performed_by, metadata)
+           VALUES($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+          [
+            result.id,
+            previous.status,
+            data.status,
+            data.status === 'PAUSED' ? 'PAUSE' : (data.status === 'ACTIVE' ? 'RESUME' : 'STATUS_CHANGE'),
+            body.reason?.trim() || 'Cập nhật trạng thái gói',
+            actor.id,
+            JSON.stringify({ updatedVia: 'mutate' }),
+          ],
+        );
+      }
       if (table === 'student_academic_records' && operation !== 'delete') {
         const gradeFields = [
           'theory_score', 'practical_score', 'attended_sessions',
@@ -932,7 +950,7 @@ export class AdminService {
         (previous?.status === 'ACTIVE' && data.status === 'PAUSED') ||
         (previous?.status === 'PAUSED' && data.status === 'ACTIVE' && new Date(previous.expires_at).getTime() > Date.now())
       ))
-        throw new ConflictException('Trạng thái gói chỉ được tạm dừng hoặc tiếp tục khi còn hạn.');
+        throw new ConflictException('Không sửa trạng thái gói tùy ý. Hãy dùng các thao tác chuyên biệt (tạm dừng, tiếp tục, gia hạn, chuyển nhượng, hủy, hoàn tiền).');
     }
     if (table === 'student_attendance') {
       const match = await client.query(
@@ -972,6 +990,10 @@ export class AdminService {
       }
     }
     if (table === 'treatment_journal') {
+      if (operation === 'delete')
+        throw new ConflictException('Không thể xóa nhật ký điều trị đã ghi nhận. Hãy sử dụng thao tác hoàn tác buổi điều trị.');
+      if (previous?.is_reversed)
+        throw new ConflictException('Không thể chỉnh sửa buổi điều trị đã được hoàn tác.');
       if (operation === 'create' && !next.booking_id)
         throw new BadRequestException(
           'Nhật ký điều trị phải liên kết với một ca đang phục vụ.',
@@ -1234,7 +1256,7 @@ export class AdminService {
     if (table === 'treatment_journal')
       for (const id of ids('user_package_id'))
         await client.query(
-          "UPDATE user_packages SET completed_sessions=(SELECT count(*) FROM treatment_journal WHERE user_package_id=$1),status=CASE WHEN (SELECT count(*) FROM treatment_journal WHERE user_package_id=$1)>=total_sessions THEN 'COMPLETED'::package_status WHEN status='COMPLETED' THEN 'ACTIVE'::package_status ELSE status END WHERE id=$1",
+          "UPDATE user_packages SET completed_sessions=(SELECT count(*) FROM treatment_journal WHERE user_package_id=$1 AND is_reversed IS NOT TRUE),status=CASE WHEN (SELECT count(*) FROM treatment_journal WHERE user_package_id=$1 AND is_reversed IS NOT TRUE)>=total_sessions THEN 'COMPLETED'::package_status WHEN status='COMPLETED' THEN 'ACTIVE'::package_status ELSE status END WHERE id=$1",
           [id],
         );
     if (table === 'booking_items')
@@ -1635,10 +1657,335 @@ export class AdminService {
           "UPDATE student_certificates SET status='REVOKED',revoked_at=now(),revocation_reason=$2 WHERE id=$1",
           [row.id, body.reason.trim().slice(0, 2000)],
         );
+      } else if (table === 'user_packages') {
+        const action = body.action || '';
+        const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+        if (action === 'pause') {
+          if (!['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER', 'RECEPTIONIST'].includes(actor.role))
+            throw new ForbiddenException('Tài khoản chưa được cấp quyền tạm dừng gói liệu trình.');
+          if (!reason || reason.length < 3)
+            throw new BadRequestException('Bắt buộc nhập lý do tạm dừng gói liệu trình.');
+          if (row.status !== 'ACTIVE')
+            throw new ConflictException('Chỉ có thể tạm dừng gói đang ở trạng thái hoạt động.');
+          if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now())
+            throw new ConflictException('Gói đã hết hạn sử dụng, không thể tạm dừng.');
+          await client.query(
+            "UPDATE user_packages SET status='PAUSED', paused_at=now() WHERE id=$1",
+            [row.id],
+          );
+          await client.query(
+            `INSERT INTO user_package_lifecycle_logs(user_package_id, from_status, to_status, action, reason, performed_by, metadata)
+             VALUES($1, 'ACTIVE', 'PAUSED', 'PAUSE', $2, $3, $4::jsonb)`,
+            [row.id, reason.slice(0, 2000), actor.id, JSON.stringify({ pausedAt: new Date().toISOString() })],
+          );
+        } else if (action === 'resume') {
+          if (!['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER', 'RECEPTIONIST'].includes(actor.role))
+            throw new ForbiddenException('Tài khoản chưa được cấp quyền mở lại gói liệu trình.');
+          if (row.status !== 'PAUSED')
+            throw new ConflictException('Chỉ có thể mở lại gói đang tạm dừng.');
+          if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now())
+            throw new ConflictException('Gói đã hết hạn sử dụng trong thời gian tạm dừng. Vui lòng gia hạn trước.');
+          await client.query(
+            "UPDATE user_packages SET status='ACTIVE', resumed_at=now() WHERE id=$1",
+            [row.id],
+          );
+          await client.query(
+            `INSERT INTO user_package_lifecycle_logs(user_package_id, from_status, to_status, action, reason, performed_by, metadata)
+             VALUES($1, 'PAUSED', 'ACTIVE', 'RESUME', $2, $3, $4::jsonb)`,
+            [row.id, (reason || 'Mở lại gói liệu trình').slice(0, 2000), actor.id, JSON.stringify({ resumedAt: new Date().toISOString() })],
+          );
+        } else if (action === 'extend') {
+          if (!['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(actor.role))
+            throw new ForbiddenException('Tài khoản chưa được cấp quyền gia hạn gói liệu trình.');
+          const extensionMonths = Number((body as any).extensionMonths ?? 1);
+          if (!Number.isInteger(extensionMonths) || extensionMonths < 1 || extensionMonths > 24)
+            throw new BadRequestException('Số tháng gia hạn phải là số nguyên từ 1 đến 24 tháng.');
+          if (!reason || reason.length < 3)
+            throw new BadRequestException('Bắt buộc nhập lý do gia hạn gói liệu trình.');
+          if (['CANCELLED', 'REFUNDED', 'TRANSFERRED'].includes(row.status))
+            throw new ConflictException('Không thể gia hạn gói đã hủy, hoàn tiền hoặc chuyển nhượng.');
+          const currentExpiry = row.expires_at ? new Date(row.expires_at).getTime() : Date.now();
+          const baseDate = currentExpiry > Date.now() ? row.expires_at : new Date().toISOString();
+          const newStatus = (row.status === 'EXPIRED' && Number(row.completed_sessions) < Number(row.total_sessions))
+            ? 'ACTIVE'
+            : row.status;
+          await client.query(
+            `UPDATE user_packages
+             SET expires_at = ($2::timestamptz + ($3::int * interval '1 month')),
+                 extension_months = COALESCE(extension_months, 0) + $3::int,
+                 original_expires_at = COALESCE(original_expires_at, expires_at),
+                 status = $4
+             WHERE id=$1`,
+            [row.id, baseDate, extensionMonths, newStatus],
+          );
+          await client.query(
+            `INSERT INTO user_package_lifecycle_logs(user_package_id, from_status, to_status, action, reason, performed_by, metadata)
+             VALUES($1, $2, $3, 'EXTEND_EXPIRY', $4, $5, $6::jsonb)`,
+            [row.id, row.status, newStatus, reason.slice(0, 2000), actor.id, JSON.stringify({ extensionMonths, previousExpiry: row.expires_at })],
+          );
+        } else if (action === 'cancel') {
+          if (!['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(actor.role))
+            throw new ForbiddenException('Tài khoản chưa được cấp quyền hủy gói liệu trình.');
+          if (!reason || reason.length < 5)
+            throw new BadRequestException('Bắt buộc nhập lý do hủy gói chi tiết (tối thiểu 5 ký tự).');
+          if (['CANCELLED', 'REFUNDED', 'TRANSFERRED'].includes(row.status))
+            throw new ConflictException('Gói đã ở trạng thái kết thúc, không thể hủy.');
+          const activeBookings = await client.query(
+            `SELECT 1 FROM bookings b
+             WHERE b.customer_id=$1 AND b.status IN ('CHECKED_IN', 'IN_SERVICE')
+               AND EXISTS (
+                 SELECT 1 FROM user_packages up JOIN treatment_packages tp ON tp.id=up.package_id
+                 JOIN booking_items bi ON bi.booking_id=b.id AND bi.service_id=tp.service_id
+                 WHERE up.id=$2
+               ) LIMIT 1`,
+            [row.customer_id, row.id],
+          );
+          if (activeBookings.rowCount)
+            throw new ConflictException('Không thể hủy gói khi đang có ca dịch vụ diễn ra.');
+          await client.query(
+            "UPDATE user_packages SET status='CANCELLED', cancelled_at=now(), cancelled_reason=$2 WHERE id=$1",
+            [row.id, reason.slice(0, 2000)],
+          );
+          await client.query(
+            `INSERT INTO user_package_lifecycle_logs(user_package_id, from_status, to_status, action, reason, performed_by, metadata)
+             VALUES($1, $2, 'CANCELLED', 'CANCEL', $3, $4, $5::jsonb)`,
+            [row.id, row.status, reason.slice(0, 2000), actor.id, JSON.stringify({ cancelledAt: new Date().toISOString() })],
+          );
+        } else if (action === 'transfer') {
+          if (!['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(actor.role))
+            throw new ForbiddenException('Tài khoản chưa được cấp quyền chuyển nhượng gói.');
+          const newCustomerId = String((body as any).newCustomerId || '');
+          if (!this.isUuid(newCustomerId))
+            throw new BadRequestException('Vui lòng chọn khách hàng nhận chuyển nhượng hợp lệ.');
+          if (newCustomerId === row.customer_id)
+            throw new BadRequestException('Không thể chuyển nhượng cho chính chủ sở hữu hiện tại.');
+          if (!reason || reason.length < 5)
+            throw new BadRequestException('Bắt buộc nhập lý do chuyển nhượng chi tiết.');
+          if (['CANCELLED', 'REFUNDED', 'TRANSFERRED', 'COMPLETED'].includes(row.status))
+            throw new ConflictException('Không thể chuyển nhượng gói đã kết thúc hoặc đã chuyển nhượng.');
+          const newCustomer = (await client.query(
+            'SELECT id, full_name, is_active FROM users WHERE id=$1',
+            [newCustomerId],
+          )).rows[0];
+          if (!newCustomer || !newCustomer.is_active)
+            throw new NotFoundException('Khách hàng nhận chuyển nhượng không tồn tại hoặc đã bị khóa.');
+          const remainingSessions = Number(row.total_sessions) - Number(row.completed_sessions);
+          if (remainingSessions <= 0)
+            throw new ConflictException('Gói không còn buổi để chuyển nhượng.');
+          await client.query(
+            `UPDATE user_packages
+             SET status='TRANSFERRED', transferred_to_user_id=$2, transferred_at=now(), transfer_reason=$3
+             WHERE id=$1`,
+            [row.id, newCustomerId, reason.slice(0, 2000)],
+          );
+          const transferredPackage = (await client.query(
+            `INSERT INTO user_packages(
+               customer_id, package_id, total_sessions, completed_sessions, status,
+               purchased_at, expires_at, transferred_from_package_id
+             ) VALUES($1, $2, $3, 0, 'ACTIVE', now(), $4, $5)
+             RETURNING id`,
+            [newCustomerId, row.package_id, remainingSessions, row.expires_at, row.id],
+          )).rows[0];
+          await client.query(
+            `INSERT INTO user_package_lifecycle_logs(user_package_id, from_status, to_status, action, reason, performed_by, metadata)
+             VALUES($1, $2, 'TRANSFERRED', 'TRANSFER', $3, $4, $5::jsonb)`,
+            [
+              row.id,
+              row.status,
+              reason.slice(0, 2000),
+              actor.id,
+              JSON.stringify({ previousCustomerId: row.customer_id, newCustomerId, newCustomerName: newCustomer.full_name, transferredPackageId: transferredPackage.id }),
+            ],
+          );
+        } else if (action === 'refund') {
+          if (!['ADMIN', 'SUPER_ADMIN'].includes(actor.role))
+            throw new ForbiddenException('Chỉ Quản trị viên mới được thực hiện hoàn tiền gói.');
+          if (!reason || reason.length < 5)
+            throw new BadRequestException('Bắt buộc nhập lý do hoàn tiền chi tiết.');
+          if (['REFUNDED', 'CANCELLED'].includes(row.status))
+            throw new ConflictException('Gói đã được hoàn tiền hoặc hủy trước đó.');
+          const refundAmount = Number((body as any).refundAmount ?? 0);
+          if (!Number.isFinite(refundAmount) || refundAmount < 0)
+            throw new BadRequestException('Số tiền hoàn không hợp lệ.');
+          await client.query(
+            `UPDATE user_packages
+             SET status='REFUNDED', refunded_at=now(), refund_amount=$2, refund_reason=$3
+             WHERE id=$1`,
+            [row.id, refundAmount, reason.slice(0, 2000)],
+          );
+          const commissions = await client.query(
+            `SELECT * FROM staff_commissions
+             WHERE user_package_id=$1 AND reversal_of_id IS NULL AND commission_amount > 0 FOR UPDATE`,
+            [row.id],
+          );
+          for (const comm of commissions.rows) {
+            await client.query(
+              `INSERT INTO staff_commissions(
+                 staff_id, branch_id, invoice_id, user_package_id, commission_type, base_amount,
+                 percentage, commission_amount, status, cycle_month, notes, reversal_of_id, reversed_at, source_session_status
+               ) VALUES (
+                 $1, $2, $3, $4, $5, -($6::numeric), $7, -($8::numeric), 'PENDING', to_char(now(), 'YYYY-MM'),
+                 $9, $10, now(), 'REFUNDED'
+               ) ON CONFLICT (reversal_of_id) WHERE reversal_of_id IS NOT NULL DO NOTHING`,
+              [
+                comm.staff_id, comm.branch_id, comm.invoice_id, null, 'REVERSAL',
+                comm.base_amount, comm.percentage, comm.commission_amount,
+                `Đảo hoa hồng do hoàn tiền gói: ${reason.slice(0, 500)}`, comm.id,
+              ],
+            );
+            await client.query('UPDATE staff_commissions SET reversed_at=now(), source_session_status=\'REFUNDED\' WHERE id=$1', [comm.id]);
+          }
+          await client.query(
+            `INSERT INTO user_package_lifecycle_logs(user_package_id, from_status, to_status, action, reason, performed_by, metadata)
+             VALUES($1, $2, 'REFUNDED', 'REFUND', $3, $4, $5::jsonb)`,
+            [row.id, row.status, reason.slice(0, 2000), actor.id, JSON.stringify({ refundAmount, refundedAt: new Date().toISOString() })],
+          );
+        } else {
+          throw new BadRequestException(`Thao tác ${action} trên gói liệu trình không được hỗ trợ.`);
+        }
+      } else if (table === 'treatment_journal') {
+        const action = body.action || '';
+        const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+        if (action === 'reverse') {
+          if (!['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(actor.role))
+            throw new ForbiddenException('Chỉ Quản lý chi nhánh hoặc Quản trị viên mới được hoàn tác buổi.');
+          if (!reason || reason.length < 5)
+            throw new BadRequestException('Bắt buộc nhập lý do hoàn tác buổi chi tiết (tối thiểu 5 ký tự).');
+          if (row.is_reversed)
+            throw new ConflictException('Buổi điều trị này đã được hoàn tác trước đó.');
+
+          const idempotencyKey = String((body as any).idempotencyKey || `rev-${row.id}`);
+          const existingRev = await client.query(
+            'SELECT id FROM treatment_session_reversals WHERE journal_id=$1 OR idempotency_key=$2 LIMIT 1',
+            [row.id, idempotencyKey],
+          );
+          if (existingRev.rowCount)
+            throw new ConflictException('Buổi điều trị này đã có bản ghi hoàn tác.');
+
+          let userPackageId = row.user_package_id;
+          let targetPackage: any = null;
+          if (userPackageId) {
+            targetPackage = (await client.query(
+              'SELECT * FROM user_packages WHERE id=$1 FOR UPDATE',
+              [userPackageId],
+            )).rows[0];
+            if (targetPackage) {
+              const currentCompleted = Number(targetPackage.completed_sessions || 0);
+              const nextCompleted = Math.max(0, currentCompleted - 1);
+              const nextStatus = targetPackage.status === 'COMPLETED' ? 'ACTIVE' : targetPackage.status;
+              await client.query(
+                'UPDATE user_packages SET completed_sessions=$2, status=$3 WHERE id=$1',
+                [userPackageId, nextCompleted, nextStatus],
+              );
+              await client.query(
+                `INSERT INTO user_package_lifecycle_logs(user_package_id, from_status, to_status, action, reason, performed_by, metadata)
+                 VALUES($1, $2, $3, 'SESSION_REVERSED', $4, $5, $6::jsonb)`,
+                [
+                  userPackageId,
+                  targetPackage.status,
+                  nextStatus,
+                  `Hoàn tác buổi ${row.session_number}: ${reason.slice(0, 1000)}`,
+                  actor.id,
+                  JSON.stringify({ journalId: row.id, sessionNumber: row.session_number, previousCompleted: currentCompleted, nextCompleted }),
+                ],
+              );
+            }
+          }
+
+          const revRecord = (await client.query(
+            `INSERT INTO treatment_session_reversals(
+               journal_id, user_package_id, booking_id, session_number, reason, reversed_by, reversed_at, idempotency_key, metadata
+             ) VALUES ($1, $2, $3, $4, $5, $6, now(), $7, $8::jsonb) RETURNING *`,
+            [
+              row.id,
+              userPackageId,
+              row.booking_id,
+              row.session_number,
+              reason.slice(0, 2000),
+              actor.id,
+              idempotencyKey,
+              JSON.stringify({ reversedAt: new Date().toISOString(), sessionDate: row.session_date }),
+            ],
+          )).rows[0];
+
+          await client.query(
+            `UPDATE treatment_journal
+             SET is_reversed=TRUE, reversed_at=now(), reversed_by=$2, reversal_reason=$3, reversal_id=$4, confirmation_status='REVERSED'
+             WHERE id=$1`,
+            [row.id, actor.id, reason.slice(0, 2000), revRecord.id],
+          );
+
+          if (row.booking_id) {
+            await client.query(
+              "UPDATE bookings SET session_status='REVERSED' WHERE id=$1",
+              [row.booking_id],
+            );
+          }
+
+          const commissions = await client.query(
+            `SELECT * FROM staff_commissions
+             WHERE (treatment_journal_id=$1 OR (booking_id=$2 AND $2::uuid IS NOT NULL))
+               AND reversal_of_id IS NULL AND commission_amount > 0 FOR UPDATE`,
+            [row.id, row.booking_id],
+          );
+          for (const comm of commissions.rows) {
+            await client.query(
+              `INSERT INTO staff_commissions(
+                 staff_id, branch_id, booking_id, treatment_journal_id, commission_type, base_amount,
+                 percentage, commission_amount, status, cycle_month, notes, reversal_of_id, reversed_at, source_session_status
+               ) VALUES (
+                 $1, $2, $3, $4, $5, -($6::numeric), $7, -($8::numeric), 'PENDING', to_char(now(), 'YYYY-MM'),
+                 $9, $10, now(), 'REVERSED'
+               ) ON CONFLICT (reversal_of_id) WHERE reversal_of_id IS NOT NULL DO NOTHING`,
+              [
+                comm.staff_id, comm.branch_id, comm.booking_id, null, 'REVERSAL',
+                comm.base_amount, comm.percentage, comm.commission_amount,
+                `Đảo hoa hồng do hoàn tác buổi ${row.session_number}: ${reason.slice(0, 500)}`, comm.id,
+              ],
+            );
+            await client.query('UPDATE staff_commissions SET reversed_at=now(), source_session_status=\'REVERSED\' WHERE id=$1', [comm.id]);
+          }
+
+          if (Array.isArray(row.consumables_used) && row.consumables_used.length > 0) {
+            const bookingBranch = row.booking_id
+              ? (await client.query('SELECT branch_id FROM bookings WHERE id=$1', [row.booking_id])).rows[0]?.branch_id
+              : null;
+            await client.query(
+              `INSERT INTO treatment_inventory_outbox(branch_id, treatment_journal_id, booking_id, operation_type, items, sync_status, notes)
+               VALUES($1, $2, $3, 'REVERSE_RESTORE', $4::jsonb, 'PENDING_SYNC', $5)`,
+              [bookingBranch, row.id, row.booking_id, JSON.stringify(row.consumables_used), `Hoàn trả kho khi hoàn tác buổi ${row.session_number}`],
+            );
+          }
+        } else if (action === 'approve-clinical') {
+          if (!['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(actor.role))
+            throw new ForbiddenException('Chỉ bác sĩ / chuyên gia được duyệt hồ sơ chuyên môn.');
+          await client.query(
+            "UPDATE treatment_journal SET confirmation_status='CONFIRMED', clinical_approved_by=$2, clinical_approved_at=now() WHERE id=$1",
+            [row.id, actor.id],
+          );
+        } else if (action === 'update-post-care') {
+          const instructions = typeof (body as any).instructions === 'string' ? (body as any).instructions.trim() : '';
+          await client.query(
+            "UPDATE treatment_journal SET home_care_instructions=$2, post_care_status='DRAFT' WHERE id=$1",
+            [row.id, instructions],
+          );
+          if (instructions) {
+            await client.query(
+              `INSERT INTO post_care_outbox(treatment_journal_id, customer_id, channel, content, status)
+               VALUES($1, $2, 'IN_APP', $3, 'PENDING')`,
+              [row.id, row.customer_id, instructions],
+            );
+          }
+        } else {
+          throw new BadRequestException(`Thao tác ${action} trên nhật ký điều trị không được hỗ trợ.`);
+        }
       } else throw new BadRequestException('Thao tác không được hỗ trợ.');
+      const updatedRow = (
+        await client.query(`SELECT * FROM public.${quote(table)} WHERE ${key.clause}`, key.values)
+      ).rows[0];
       await this.audit(client, actor, table, body.action, row.id);
       await client.query('COMMIT');
-      return { completed: true };
+      return updatedRow || { completed: true };
     } catch (error) {
       await client.query('ROLLBACK');
       this.fail(error);
@@ -2094,6 +2441,63 @@ export class AdminService {
     await this.updateCashierShiftTotals(client, shift.id, paymentMethod, total);
     await this.audit(client, actor, 'invoices', 'COLLECT', invoice.id);
     return { kind: 'CART', amount: total, invoice: paid, paymentStatus: 'PAID' };
+  }
+
+  async treatmentDashboardStats(actor: AdminActor, branchId?: string) {
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      const stats = await client.query(`
+        SELECT
+          (SELECT count(*)::int FROM user_packages WHERE status='ACTIVE' AND (expires_at IS NULL OR expires_at > now())) AS "activePackages",
+          (SELECT count(*)::int FROM user_packages WHERE status='PAUSED') AS "pausedPackages",
+          (SELECT count(*)::int FROM user_packages WHERE status='ACTIVE' AND expires_at IS NOT NULL AND expires_at > now() AND expires_at <= (now() + interval '30 days')) AS "expiringSoonPackages",
+          (SELECT count(*)::int FROM user_packages WHERE status='EXPIRED' OR (status='ACTIVE' AND expires_at IS NOT NULL AND expires_at <= now())) AS "expiredPackages",
+          (SELECT count(*)::int FROM user_packages WHERE status='COMPLETED') AS "completedPackages",
+          (SELECT count(*)::int FROM user_packages WHERE status='CANCELLED') AS "cancelledPackages",
+          (SELECT count(*)::int FROM user_packages WHERE status='REFUNDED') AS "refundedPackages",
+          (SELECT count(*)::int FROM user_packages WHERE status='TRANSFERRED') AS "transferredPackages",
+          (SELECT coalesce(sum(completed_sessions), 0)::int FROM user_packages WHERE status IN ('ACTIVE', 'PAUSED', 'COMPLETED')) AS "usedSessions",
+          (SELECT coalesce(sum(GREATEST(0, total_sessions - completed_sessions)), 0)::int FROM user_packages WHERE status IN ('ACTIVE', 'PAUSED')) AS "remainingSessions",
+          (SELECT count(*)::int FROM treatment_session_reversals) AS "reversalsCount",
+          (SELECT count(*)::int FROM treatment_journal WHERE has_abnormal_reaction = TRUE) AS "abnormalReactionsCount",
+          (SELECT count(*)::int FROM treatment_inventory_outbox WHERE sync_status = 'PENDING_SYNC') AS "pendingInventorySync",
+          (SELECT count(*)::int FROM staff_commissions WHERE status = 'PENDING') AS "pendingCommissionsCount",
+          (SELECT count(*)::int FROM bookings b WHERE b.booking_date >= (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AND b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE')) AS "upcomingBookingsCount"
+      `);
+      await client.query('COMMIT');
+      return stats.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.fail(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  private async syncTreatmentJournalArtifacts(
+    client: PoolClient,
+    result: Record<string, any>,
+    data: Record<string, any>,
+    actor: AdminActor,
+  ) {
+    if (Array.isArray(data.consumables_used) && data.consumables_used.length > 0) {
+      const bookingBranch = result.booking_id
+        ? (await client.query('SELECT branch_id FROM bookings WHERE id=$1', [result.booking_id])).rows[0]?.branch_id
+        : null;
+      await client.query(
+        `INSERT INTO treatment_inventory_outbox(branch_id, treatment_journal_id, booking_id, operation_type, items, sync_status, notes)
+         VALUES($1, $2, $3, 'DEDUCT', $4::jsonb, 'PENDING_SYNC', $5)`,
+        [bookingBranch, result.id, result.booking_id, JSON.stringify(data.consumables_used), `Tiêu hao theo buổi ${result.session_number}`],
+      );
+    }
+    if (data.home_care_instructions && typeof data.home_care_instructions === 'string') {
+      await client.query(
+        `INSERT INTO post_care_outbox(treatment_journal_id, customer_id, channel, content, status)
+         VALUES($1, $2, 'IN_APP', $3, 'PENDING')`,
+        [result.id, result.customer_id, data.home_care_instructions],
+      );
+    }
   }
 
   private requireCashier(actor: AdminActor) {

@@ -7,6 +7,7 @@ import {
 } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 import { legacyWrite } from './adminAdapter';
+import { adminApi } from '../admin/api';
 
 export const treatmentService = {
   // --- Danh mục dịch vụ ---
@@ -296,5 +297,311 @@ export const treatmentService = {
         : 'Đã lưu buổi điều trị và cập nhật tiến trình gói.',
       data: true,
     };
+  },
+
+  // --- VẬN HÀNH VÒNG ĐỜI GÓI LIỆU TRÌNH (ADMIN FSM) ---
+
+  async pausePackage(userPackageId: string, reason: string): Promise<ApiResponse<boolean>> {
+    try {
+      await adminApi('user_packages/action', {
+        key: { id: userPackageId },
+        action: 'pause',
+        reason,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã tạm dừng gói liệu trình thành công.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] pausePackage failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể tạm dừng gói liệu trình.',
+        data: false,
+      };
+    }
+  },
+
+  async resumePackage(userPackageId: string, reason?: string): Promise<ApiResponse<boolean>> {
+    try {
+      await adminApi('user_packages/action', {
+        key: { id: userPackageId },
+        action: 'resume',
+        reason: reason || 'Mở lại gói liệu trình hoạt động bình thường',
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã kích hoạt lại gói liệu trình thành công.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] resumePackage failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể kích hoạt lại gói liệu trình.',
+        data: false,
+      };
+    }
+  },
+
+  async extendPackage(
+    userPackageId: string,
+    extensionMonths: number,
+    reason: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      await adminApi('user_packages/action', {
+        key: { id: userPackageId },
+        action: 'extend',
+        extensionMonths,
+        reason,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: `Đã gia hạn gói thêm ${extensionMonths} tháng thành công.`,
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] extendPackage failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể gia hạn gói liệu trình.',
+        data: false,
+      };
+    }
+  },
+
+  async cancelPackage(userPackageId: string, reason: string): Promise<ApiResponse<boolean>> {
+    try {
+      await adminApi('user_packages/action', {
+        key: { id: userPackageId },
+        action: 'cancel',
+        reason,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã hủy gói liệu trình thành công.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] cancelPackage failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể hủy gói liệu trình.',
+        data: false,
+      };
+    }
+  },
+
+  async transferPackage(
+    userPackageId: string,
+    newCustomerId: string,
+    reason: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      await adminApi('user_packages/action', {
+        key: { id: userPackageId },
+        action: 'transfer',
+        newCustomerId,
+        reason,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã chuyển nhượng gói liệu trình sang khách hàng mới thành công.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] transferPackage failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể chuyển nhượng gói liệu trình.',
+        data: false,
+      };
+    }
+  },
+
+  async refundPackage(
+    userPackageId: string,
+    refundAmount: number,
+    reason: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      await adminApi('user_packages/action', {
+        key: { id: userPackageId },
+        action: 'refund',
+        refundAmount,
+        reason,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã ghi nhận hoàn tiền gói liệu trình thành công.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] refundPackage failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể hoàn tiền gói liệu trình.',
+        data: false,
+      };
+    }
+  },
+
+  // --- HOÀN TÁC BUỔI ĐIỀU TRỊ AN TOÀN (REVERSAL) ---
+
+  async reverseSession(
+    journalId: string,
+    reason: string,
+    idempotencyKey?: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      await adminApi('treatment_journal/action', {
+        key: { id: journalId },
+        action: 'reverse',
+        reason,
+        idempotencyKey,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã hoàn tác buổi điều trị, hoàn lại số buổi và điều chỉnh đối soát thành công.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] reverseSession failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể hoàn tác buổi điều trị.',
+        data: false,
+      };
+    }
+  },
+
+  async approveClinicalSession(journalId: string): Promise<ApiResponse<boolean>> {
+    try {
+      await adminApi('treatment_journal/action', {
+        key: { id: journalId },
+        action: 'approve-clinical',
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã duyệt xác nhận chuyên môn cho buổi điều trị.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] approveClinicalSession failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể duyệt xác nhận chuyên môn.',
+        data: false,
+      };
+    }
+  },
+
+  async updatePostCareInstructions(
+    journalId: string,
+    instructions: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      await adminApi('treatment_journal/action', {
+        key: { id: journalId },
+        action: 'update-post-care',
+        instructions,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã cập nhật hướng dẫn chăm sóc sau buổi.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] updatePostCareInstructions failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể cập nhật hướng dẫn chăm sóc.',
+        data: false,
+      };
+    }
+  },
+
+  // --- SỐ LIỆU DASHBOARD VẬN HÀNH THỰC TẾ ---
+
+  async getTreatmentDashboardStats(branchId?: string): Promise<ApiResponse<any>> {
+    try {
+      const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
+      const stats = await adminApi<any>(`treatment/dashboard-stats${query}`);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Số liệu dashboard liệu trình trực tiếp từ hệ thống',
+        data: stats,
+      };
+    } catch (err: any) {
+      console.warn('[treatmentService] getTreatmentDashboardStats fallback:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi tải số liệu dashboard',
+        data: null,
+      };
+    }
+  },
+
+  async getPackageLifecycleLogs(userPackageId: string): Promise<ApiResponse<any[]>> {
+    try {
+      const res = await adminApi<any>(
+        `user_package_lifecycle_logs?filter=${encodeURIComponent(JSON.stringify({ user_package_id: userPackageId }))}&limit=100`
+      );
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Lịch sử vòng đời gói',
+        data: res?.rows || [],
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Không thể nạp lịch sử vòng đời',
+        data: [],
+      };
+    }
+  },
+
+  async getSessionReversals(userPackageId?: string): Promise<ApiResponse<any[]>> {
+    try {
+      const filter = userPackageId ? `?filter=${encodeURIComponent(JSON.stringify({ user_package_id: userPackageId }))}` : '';
+      const res = await adminApi<any>(`treatment_session_reversals${filter}&limit=100`);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Sổ cái hoàn tác buổi',
+        data: res?.rows || [],
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Không thể nạp sổ cái hoàn tác',
+        data: [],
+      };
+    }
   },
 };

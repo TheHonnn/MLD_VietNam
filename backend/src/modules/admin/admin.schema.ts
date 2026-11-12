@@ -14,6 +14,12 @@ export const ADMIN_SCHEMA_REQUIREMENTS: Record<string, string[]> = {
   home_products: ['price_min','price_max','sort_order'],
   admin_payment_requests: ['actor_id', 'request_id', 'payload', 'result'],
   student_academic_record_history: ['academic_record_id', 'before_data', 'after_data'],
+  user_packages: ['id', 'customer_id', 'package_id', 'status', 'completed_sessions', 'total_sessions'],
+  treatment_journal: ['id', 'user_package_id', 'session_number', 'is_reversed'],
+  treatment_session_reversals: ['id', 'journal_id', 'user_package_id', 'session_number', 'reason', 'reversed_by'],
+  user_package_lifecycle_logs: ['id', 'user_package_id', 'action', 'reason'],
+  treatment_inventory_outbox: ['id', 'operation_type', 'sync_status'],
+  post_care_outbox: ['id', 'treatment_journal_id', 'customer_id', 'status'],
 };
 
 export async function inspectAdminSchema(connection: { query: (sql: string, values?: any[]) => Promise<any> }) {

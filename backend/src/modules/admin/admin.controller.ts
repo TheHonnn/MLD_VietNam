@@ -274,6 +274,12 @@ export class AdminController {
   summary(@Query('from') from: string, @Query('to') to: string) {
     return this.service.summary(from, to);
   }
+  @Get('treatment/dashboard-stats')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  treatmentDashboardStats(@Query('branchId') branchId: string, @Req() req) {
+    return this.service.treatmentDashboardStats(req.admin, branchId);
+  }
   @Get(':table')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()
