@@ -33,7 +33,7 @@ import {
   Course,
   CourseEnrollment,
 } from '../types/shared_types';
-import { toast } from '../components/common';
+import { toast, AdminTabs } from '../components/common';
 import { useSearchParams } from 'react-router-dom';
 
 const STORAGE_KEY = 'mld.certificate-template.v2';
@@ -569,49 +569,20 @@ export const W16_Certificates: React.FC = () => {
       </div>
 
       {/* NAVIGATION TABS */}
-      <div className="flex items-center gap-2 border-b border-gray-200">
-        <button
-          type="button"
-          onClick={() => handleTabChange('list')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition ${
-            activeTab === 'list'
-              ? 'border-sky-700 text-sky-800 bg-sky-50/50'
-              : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          Danh sách chứng nhận đã cấp
-          <span className="ml-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-200 text-gray-800">
-            {certificates.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleTabChange('template')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition ${
-            activeTab === 'template'
-              ? 'border-sky-700 text-sky-800 bg-sky-50/50'
-              : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-          }`}
-        >
-          <Eye className="w-4 h-4" />
-          Mẫu phôi & Xem trước in ấn
-        </button>
-
-        <button
-          type="button"
-          onClick={() => { setIssueCode(makeCertificateCode()); handleTabChange('issue'); }}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition ${
-            activeTab === 'issue'
-              ? 'border-sky-700 text-sky-800 bg-sky-50/50'
-              : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-          }`}
-        >
-          <Plus className="w-4 h-4" />
-          Cấp chứng nhận mới
-        </button>
-      </div>
+      <AdminTabs
+        ariaLabel="Quản lý chứng nhận"
+        variant="line"
+        activeTab={activeTab}
+        onChange={(tabId) => {
+          if (tabId === 'issue') setIssueCode(makeCertificateCode());
+          handleTabChange(tabId as any);
+        }}
+        tabs={[
+          { id: 'list', label: 'Danh sách chứng nhận đã cấp', count: certificates.length, icon: FileText },
+          { id: 'template', label: 'Mẫu phôi & Xem trước in ấn', icon: Eye },
+          { id: 'issue', label: 'Cấp chứng nhận mới', icon: Plus },
+        ]}
+      />
 
       {/* ========================================================================= */}
       {/* TAB 1: DANH SÁCH CHỨNG NHẬN ĐÃ CẤP                                        */}

@@ -37,7 +37,7 @@ import {
   supabaseService,
   emailService,
 } from '../services';
-import { toast } from '../components/common';
+import { toast, AdminTabs } from '../components/common';
 import { useAdmin } from '../admin/Auth';
 import {
   User,
@@ -853,25 +853,17 @@ export const W04_CustomerDetail: React.FC = () => {
         <div className="px-2 py-1"><p className="text-[11px] text-[#73675F]">Còn phải thu</p><p className="mt-1 text-sm font-bold text-amber-800">{financialStats.totalDueImmediately.toLocaleString('vi-VN')}đ</p></div>
         <div className="px-2 py-1"><p className="text-[11px] text-[#73675F]">Khóa học</p><p className="mt-1 text-sm font-bold">{enrollments.length}</p><p className="text-[11px] text-[#73675F]">{enrollments.filter((item) => ['STUDYING', 'IN_PROGRESS'].includes(String(item.status))).length} đang học</p></div>
       </section>
-      {/* 1. Horizontal Sub-Navigation Tabs matching media_1792570156063.png */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs whitespace-nowrap border-b border-[#EFE4D9]/60">
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab;
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                isActive
-                  ? 'bg-[#F4ECE3] text-[#3E200C] font-bold shadow-2xs'
-                  : 'text-[#73675F] hover:text-[#2C241E] hover:bg-white/60'
-              }`}
-            >
-              {tab}
-            </button>
-          );
-        })}
-      </div>
+      {/* 1. Horizontal Sub-Navigation Tabs */}
+      <AdminTabs
+        ariaLabel="Phân hệ hồ sơ khách hàng"
+        variant="line"
+        activeTab={activeTab}
+        onChange={(tabId) => setActiveTab(tabId)}
+        tabs={tabs.map((tab) => ({
+          id: tab,
+          label: tab,
+        }))}
+      />
 
       {/* 2. Main 2-Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">

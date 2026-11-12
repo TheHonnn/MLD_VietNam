@@ -22,6 +22,7 @@ import { BookingDetailDialog } from "./BookingDetailDialog";
 import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
 import { ShareJournalModal, ShareJournalItem } from "../components/treatment/ShareJournalModal";
 import CertificateTemplateEditor from "../components/certificates/CertificateTemplateEditor";
+import { AdminTabs } from "../components/common";
 import { portalService } from "../services/portal.service";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
@@ -5755,25 +5756,24 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           )}
         </div>
       </div>
+      <AdminTabs
+        ariaLabel="Phân hệ liên quan"
+        variant="line"
+        activeTab={table}
+        tabs={resources
+          .filter((r) => r.group === resource?.group)
+          .map((r) => ({
+            id: r.name,
+            label: r.name === "invoices" ? "Hóa đơn & Đối soát" : r.title,
+            href: r.name === "invoices" ? "/cashier-pos?tab=receipts" : `/manage/${r.name}`,
+          }))}
+      />
       {[
         "course_lessons",
         "course_quizzes",
         "quiz_questions",
         "course_chapters",
       ].includes(table) && <TrainingActions />}
-      <nav className="admin-related-tabs" aria-label="Phân hệ liên quan">
-        {resources
-          .filter((r) => r.group === resource?.group)
-          .map((r) => (
-            <Link
-              key={r.name}
-              to={r.name === "invoices" ? "/cashier-pos?tab=receipts" : `/manage/${r.name}`}
-              aria-current={r.name === table ? "page" : undefined}
-            >
-              {r.name === "invoices" ? "Hóa đơn & Đối soát" : r.title}
-            </Link>
-          ))}
-      </nav>
       {table === "support_tickets" && (
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-[#D7E8E0] bg-[#F4FBF7] px-4 py-3 text-sm text-[#315B49]">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-[#0B7A53]" />

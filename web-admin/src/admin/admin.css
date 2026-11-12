@@ -684,23 +684,45 @@
 }
 .admin-related-tabs {
   display: flex;
-  gap: 18px;
-  overflow: auto;
+  gap: 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
   border-bottom: 1px solid #e8e0d7;
-  margin: -4px 0 20px;
+  margin: 0 0 20px 0;
+  padding: 0;
   white-space: nowrap;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  width: 100%;
+}
+.admin-related-tabs::-webkit-scrollbar {
+  display: none;
 }
 .admin-related-tabs a {
-  padding: 9px 0 12px;
+  position: relative;
+  padding: 10px 0 12px;
   color: #887564;
   text-decoration: none;
   font-size: 12px;
+  font-weight: 600;
   border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.admin-related-tabs a:hover {
+  color: #2c241e;
+}
+.admin-related-tabs a:focus-visible {
+  outline: 2px solid rgba(152, 80, 24, 0.4);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 .admin-related-tabs a[aria-current="page"] {
   border-color: #985018;
   color: #985018;
-  font-weight: 650;
+  font-weight: 700;
 }
 @media (max-width: 1100px) {
   .admin-main {

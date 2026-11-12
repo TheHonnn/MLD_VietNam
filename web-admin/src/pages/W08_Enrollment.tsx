@@ -29,7 +29,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { academyService, customerService, staffService, supabaseService, StaffWithProfile } from '../services';
-import { toast } from '../components/common';
+import { toast, AdminTabs } from '../components/common';
 import {
   CourseEnrollment,
   Course,
@@ -1164,89 +1164,20 @@ export const W08_Enrollment: React.FC = () => {
       </div>
 
       {/* Hồ sơ được lọc tại một nơi duy nhất theo bước xử lý */}
-      <div className="flex border-b border-[#EFE4D9] gap-1 overflow-x-auto pb-px">
-        <button
-          onClick={() => setActiveWorkflowTab('ALL')}
-          className={`pb-3 px-3.5 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeWorkflowTab === 'ALL'
-              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
-              : 'text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <span>Tất cả hồ sơ</span>
-          <span className="px-2 py-0.5 rounded-full text-[11px] bg-[#FAF5EF] text-[#73675F]">{countAll}</span>
-        </button>
-
-        <button
-          onClick={() => setActiveWorkflowTab('PENDING_CONSULTATION')}
-          className={`pb-3 px-3.5 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeWorkflowTab === 'PENDING_CONSULTATION'
-              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
-              : 'text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <span>1. Cần tư vấn</span>
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#FAF0E4] text-[#8D4B1A]">
-            {countPendingConsultation}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveWorkflowTab('CONFIRMED_PENDING_PAY')}
-          className={`pb-3 px-3.5 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeWorkflowTab === 'CONFIRMED_PENDING_PAY'
-              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
-              : 'text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <span>2. Chờ học phí</span>
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800">
-            {countConfirmedPendingPay}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveWorkflowTab('AWAITING_APPROVAL')}
-          className={`pb-3 px-3.5 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeWorkflowTab === 'AWAITING_APPROVAL'
-              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
-              : 'text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <span>3. Chờ duyệt</span>
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800">
-            {countAwaitingApproval}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveWorkflowTab('PAID_WAITING_CLASS')}
-          className={`pb-3 px-3.5 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeWorkflowTab === 'PAID_WAITING_CLASS'
-              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
-              : 'text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <span>4. Chờ xếp lớp</span>
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#E8F6ED] text-emerald-800">
-            {countPaidWaitingClass}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveWorkflowTab('ENROLLED_STUDYING')}
-          className={`pb-3 px-3.5 text-xs font-bold transition-all relative flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeWorkflowTab === 'ENROLLED_STUDYING'
-              ? 'text-[#8D4B1A] border-b-2 border-[#8D4B1A]'
-              : 'text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <span>5. Đã xếp lớp / Đang học</span>
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-800">
-            {countEnrolledStudying}
-          </span>
-        </button>
-      </div>
+      <AdminTabs
+        ariaLabel="Lọc hồ sơ theo bước xử lý"
+        variant="line"
+        activeTab={activeWorkflowTab}
+        onChange={(tabId) => setActiveWorkflowTab(tabId as any)}
+        tabs={[
+          { id: 'ALL', label: 'Tất cả hồ sơ', count: countAll },
+          { id: 'PENDING_CONSULTATION', label: '1. Cần tư vấn', count: countPendingConsultation },
+          { id: 'CONFIRMED_PENDING_PAY', label: '2. Chờ học phí', count: countConfirmedPendingPay },
+          { id: 'AWAITING_APPROVAL', label: '3. Chờ duyệt', count: countAwaitingApproval },
+          { id: 'PAID_WAITING_CLASS', label: '4. Chờ xếp lớp', count: countPaidWaitingClass },
+          { id: 'ENROLLED_STUDYING', label: '5. Đã xếp lớp / Đang học', count: countEnrolledStudying },
+        ]}
+      />
 
       {/* 4. Search and Filter Bar */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">

@@ -32,7 +32,7 @@ import {
   ShoppingBag,
 } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
-import { toast } from '../components/common';
+import { toast, AdminTabs } from '../components/common';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { matchSearch } from '../utils/searchUtils';
 
@@ -481,49 +481,18 @@ export const W06_ServicesCatalog: React.FC = () => {
       </div>
 
       {/* 3. Navigation Tabs (Pill style matching W07_CashierPOS) */}
-      <div className="catalog-tabs no-print flex flex-wrap items-center gap-2 border-b border-[#EFE4D9] pb-3" aria-label="Chế độ xem bảng giá">
-        <button
-          type="button"
-          onClick={() => handleTabChange('matrix')}
-          aria-pressed={activeTab === 'matrix'}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'matrix'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          <span>Bảng giá tổng hợp</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleTabChange('services')}
-          aria-pressed={activeTab === 'services'}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'services'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
-          }`}
-        >
-          <HeartPulse className="w-4 h-4" />
-          <span>Dịch vụ buổi lẻ · 3</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleTabChange('packages')}
-          aria-pressed={activeTab === 'packages'}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'packages'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>Gói liệu trình · 9</span>
-        </button>
-      </div>
+      <AdminTabs
+        ariaLabel="Chế độ xem bảng giá"
+        variant="pill"
+        className="no-print"
+        activeTab={activeTab}
+        onChange={(tabId) => handleTabChange(tabId as 'matrix' | 'services' | 'packages')}
+        tabs={[
+          { id: 'matrix', label: 'Bảng giá tổng hợp', icon: FileText },
+          { id: 'services', label: 'Dịch vụ buổi lẻ · 3', icon: HeartPulse },
+          { id: 'packages', label: 'Gói liệu trình · 9', icon: Layers },
+        ]}
+      />
 
       {/* ========================================================================= */}
       {/* TAB 1: PRICING MATRIX (LUXURY COHESIVE FLYER BOARD)                         */}

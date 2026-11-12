@@ -28,7 +28,7 @@ import {
 import { znsService } from '../services';
 import { ZaloCloudConfig } from '../services/zns.service';
 import { ZNSTemplate, ZaloZnsLog } from '../types/shared_types';
-import { toast } from '../components/common';
+import { toast, AdminTabs } from '../components/common';
 
 export const W14_ZaloZNS: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'templates' | 'logs' | 'config'>('templates');
@@ -240,48 +240,26 @@ export const W14_ZaloZNS: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#EFE4D9] gap-4">
-        <button
-          onClick={() => setActiveTab('templates')}
-          className={`pb-3 px-2 text-xs font-bold transition-colors cursor-pointer flex items-center gap-2 border-b-2 ${
-            activeTab === 'templates'
-              ? 'border-[#8A4F23] text-[#8A4F23]'
-              : 'border-transparent text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <Sliders className="w-4 h-4" />
-          <span>4 Kịch bản ZNS Chuẩn ({templates.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('logs')}
-          className={`pb-3 px-2 text-xs font-bold transition-colors cursor-pointer flex items-center gap-2 border-b-2 ${
-            activeTab === 'logs'
-              ? 'border-[#8A4F23] text-[#8A4F23]'
-              : 'border-transparent text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>Nhật ký gửi tin ({logs.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('config')}
-          className={`pb-3 px-2 text-xs font-bold transition-colors cursor-pointer flex items-center gap-2 border-b-2 ${
-            activeTab === 'config'
-              ? 'border-[#8A4F23] text-[#8A4F23]'
-              : 'border-transparent text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <Settings className="w-4 h-4" />
-          <span>Cấu hình Zalo Cloud API</span>
-          {zaloConfig.accessToken && zaloConfig.accessToken.trim() ? (
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Đã có Access Token"></span>
-          ) : (
-            <span className="w-2 h-2 rounded-full bg-amber-500" title="Chờ cấu hình Access Token"></span>
-          )}
-        </button>
-      </div>
+      <AdminTabs
+        ariaLabel="Phân hệ Zalo ZNS"
+        variant="line"
+        activeTab={activeTab}
+        onChange={(tabId) => setActiveTab(tabId as any)}
+        tabs={[
+          { id: 'templates', label: `4 Kịch bản ZNS Chuẩn (${templates.length})`, icon: Sliders },
+          { id: 'logs', label: `Nhật ký gửi tin (${logs.length})`, icon: Clock },
+          {
+            id: 'config',
+            label: 'Cấu hình Zalo Cloud API',
+            icon: Settings,
+            badge: zaloConfig.accessToken && zaloConfig.accessToken.trim() ? (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" title="Đã có Access Token" />
+            ) : (
+              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" title="Chờ cấu hình Access Token" />
+            ),
+          },
+        ]}
+      />
 
       {/* Tab 1: Templates */}
       {activeTab === 'templates' && (

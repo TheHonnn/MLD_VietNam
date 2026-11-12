@@ -32,7 +32,7 @@ import {
   AttendanceStatus,
 } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
-import { toast } from '../components/common';
+import { toast, AdminTabs } from '../components/common';
 
 interface CompletedCourseRecord {
   courseName: string;
@@ -515,46 +515,26 @@ export const W10_Attendance: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* View Switcher Tabs */}
-          <div className="flex items-center p-1 bg-[#FAF5EF] border border-[#EFE4D9] rounded-2xl shadow-2xs">
-            <button
-              type="button"
-              onClick={() => setActiveTab('matrix')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                activeTab === 'matrix'
-                  ? 'bg-[#8D4B1A] text-white shadow-xs'
-                  : 'text-[#73675F] hover:text-[#2C241E]'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Ma trận Buổi học</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('roster')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                activeTab === 'roster'
-                  ? 'bg-[#8D4B1A] text-white shadow-xs'
-                  : 'text-[#73675F] hover:text-[#2C241E]'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Hồ sơ Chuyên cần</span>
-            </button>
-          </div>
-
-          {activeTab === 'roster' && (
-            <button
-              onClick={() => setIsUpdateModalOpen(true)}
-              className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
-            >
-              Cập nhật học tập
-            </button>
-          )}
-        </div>
+        {activeTab === 'roster' && (
+          <button
+            onClick={() => setIsUpdateModalOpen(true)}
+            className="px-5 py-2.5 bg-[#985018] hover:bg-[#824218] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
+          >
+            Cập nhật học tập
+          </button>
+        )}
       </div>
+
+      <AdminTabs
+        ariaLabel="Chế độ xem chuyên cần"
+        variant="line"
+        activeTab={activeTab}
+        onChange={(tabId) => setActiveTab(tabId as 'matrix' | 'roster')}
+        tabs={[
+          { id: 'matrix', label: 'Ma trận Buổi học', icon: Calendar },
+          { id: 'roster', label: 'Hồ sơ Chuyên cần', icon: Users },
+        ]}
+      />
 
       {activeTab === 'matrix' && (
         <div className="space-y-4">

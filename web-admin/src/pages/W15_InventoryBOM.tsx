@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { inventoryService, treatmentService, branchService } from '../services';
 import { ServiceMaterial, InventoryConsumptionLog, Service, Branch } from '../types/shared_types';
-import { toast } from '../components/common';
+import { toast, AdminTabs } from '../components/common';
 
 export const W15_InventoryBOM: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'bom' | 'logs'>('bom');
@@ -152,31 +152,16 @@ export const W15_InventoryBOM: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#E2E8F0] gap-4">
-        <button
-          onClick={() => setActiveTab('bom')}
-          className={`pb-3 px-2 text-xs font-bold transition-colors cursor-pointer flex items-center gap-2 border-b-2 ${
-            activeTab === 'bom'
-              ? 'border-sky-600 text-sky-600'
-              : 'border-transparent text-[#64748B] hover:text-[#0F172A]'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>Định mức tiêu hao theo Dịch vụ (BOM)</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('logs')}
-          className={`pb-3 px-2 text-xs font-bold transition-colors cursor-pointer flex items-center gap-2 border-b-2 ${
-            activeTab === 'logs'
-              ? 'border-sky-600 text-sky-600'
-              : 'border-transparent text-[#64748B] hover:text-[#0F172A]'
-          }`}
-        >
-          <History className="w-4 h-4" />
-          <span>Nhật ký trừ kho tự động ({logs.length})</span>
-        </button>
-      </div>
+      <AdminTabs
+        ariaLabel="Định mức tiêu hao và nhật ký trừ kho"
+        variant="line"
+        activeTab={activeTab}
+        onChange={(tabId) => setActiveTab(tabId as any)}
+        tabs={[
+          { id: 'bom', label: 'Định mức tiêu hao theo Dịch vụ (BOM)', icon: Layers },
+          { id: 'logs', label: `Nhật ký trừ kho tự động (${logs.length})`, icon: History },
+        ]}
+      />
 
       {/* Tab 1: BOM Cards */}
       {activeTab === 'bom' && (

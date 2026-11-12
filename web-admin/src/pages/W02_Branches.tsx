@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 import { branchService, treatmentService } from '../services';
 import { portalService } from '../services/portal.service';
-import { toast } from '../components/common';
+import { toast, AdminTabs } from '../components/common';
 import { Branch, BranchRoom, Service, RoomType } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 import { VIETNAM_LOCATIONS_2026, VIETNAM_PROVINCE_NAMES } from '../data/vietnamLocations';
@@ -2364,57 +2364,26 @@ export const W02_Branches: React.FC = () => {
       </div>
 
       {/* 2. Sub-Navigation Tabs: Chi nhánh | Phòng dịch vụ */}
-      <div className="flex items-center gap-1 border-b border-[#EFE4D9] pb-0 bg-transparent">
-        <button
-          type="button"
-          onClick={() => handleTabChange('branches')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative cursor-pointer ${
-            activeMainTab === 'branches'
-              ? 'text-[#985018]'
-              : 'text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          <span>Chi nhánh</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-              activeMainTab === 'branches'
-                ? 'bg-[#FAF0E4] text-[#8A4F23]'
-                : 'bg-[#F4ECE3] text-[#73675F]'
-            }`}
-          >
-            {branches.length}
-          </span>
-          {activeMainTab === 'branches' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#985018] rounded-t-full" />
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleTabChange('rooms')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative cursor-pointer ${
-            activeMainTab === 'rooms'
-              ? 'text-[#985018]'
-              : 'text-[#73675F] hover:text-[#2C241E]'
-          }`}
-        >
-          <DoorOpen className="w-4 h-4" />
-          <span>Phòng dịch vụ</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-              activeMainTab === 'rooms'
-                ? 'bg-[#FAF0E4] text-[#8A4F23]'
-                : 'bg-[#F4ECE3] text-[#73675F]'
-            }`}
-          >
-            {activeRoomsCount}
-          </span>
-          {activeMainTab === 'rooms' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#985018] rounded-t-full" />
-          )}
-        </button>
-      </div>
+      <AdminTabs
+        ariaLabel="Chuyển đổi Chi nhánh và Phòng dịch vụ"
+        variant="line"
+        activeTab={activeMainTab}
+        onChange={(tabId) => handleTabChange(tabId as 'branches' | 'rooms')}
+        tabs={[
+          {
+            id: 'branches',
+            label: 'Chi nhánh',
+            count: branches.length,
+            icon: Building2,
+          },
+          {
+            id: 'rooms',
+            label: 'Phòng dịch vụ',
+            count: activeRoomsCount,
+            icon: DoorOpen,
+          },
+        ]}
+      />
 
       {/* 3. Tab Content */}
       {activeMainTab === 'branches' ? (

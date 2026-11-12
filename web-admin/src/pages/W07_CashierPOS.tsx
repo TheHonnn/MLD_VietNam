@@ -51,7 +51,7 @@ import {
   staffService,
   StaffWithProfile,
 } from '../services';
-import { toast } from '../components/common';
+import { toast, AdminTabs } from '../components/common';
 import { MLDInvoiceDocument, MLDInvoiceLine } from '../components/invoices/MLDInvoiceDocument';
 import {
   Invoice,
@@ -1742,11 +1742,18 @@ export const W07_CashierPOS: React.FC = () => {
       {/* ========================================================================= */}
       {/* 2. PRIMARY WORKSTATION NAVIGATION TABS                                    */}
       {/* ========================================================================= */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-[#EFE4D9] pb-2">
-        {/* Source 1: Walk-in / direct cart */}
-        <button
-          type="button"
-          onClick={() => {
+      <AdminTabs
+        ariaLabel="Nguồn giao dịch và chế độ POS"
+        variant="pill"
+        activeTab={
+          activeTab === 'pos'
+            ? catalogCategory === 'PACKAGE'
+              ? 'package'
+              : 'pos'
+            : activeTab
+        }
+        onChange={(tabId) => {
+          if (tabId === 'pos') {
             setActiveTab('pos');
             setCatalogCategory('ALL');
             setSearchParams((prev) => {
@@ -1755,57 +1762,7 @@ export const W07_CashierPOS: React.FC = () => {
               next.delete('source');
               return next;
             });
-          }}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'pos' && catalogCategory !== 'PACKAGE'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
-          }`}
-        >
-          <CreditCard className="w-4 h-4" />
-          <span>Walk-in / Bán lẻ</span>
-          {posCart.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-white text-[#985018]">
-              {posCart.length}
-            </span>
-          )}
-        </button>
-
-        {/* Source 2: Existing booking */}
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab('queue');
-            setSearchParams((prev) => {
-              const next = new URLSearchParams(prev);
-              next.set('tab', 'queue');
-              return next;
-            });
-          }}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'queue'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>Lịch hẹn cần thu</span>
-          <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-            activeTab === 'queue' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-900'
-          }`}>
-            {pendingBookings.length}
-          </span>
-          {completedQueueCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500 text-white animate-pulse">
-              ★ {completedQueueCount} xong
-            </span>
-          )}
-        </button>
-
-        {/* Source 3: Treatment package registration */}
-        <button
-          type="button"
-          onClick={() => {
+          } else if (tabId === 'package') {
             setActiveTab('pos');
             setCatalogCategory('PACKAGE');
             setSearchParams((prev) => {
@@ -1814,64 +1771,65 @@ export const W07_CashierPOS: React.FC = () => {
               next.set('source', 'package');
               return next;
             });
-          }}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'pos' && catalogCategory === 'PACKAGE'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>Đăng ký gói liệu trình</span>
-        </button>
-
-        {/* Source 4: Tuition */}
-        <button
-          type="button"
-          onClick={() => {
+          } else if (tabId === 'queue') {
+            setActiveTab('queue');
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set('tab', 'queue');
+              return next;
+            });
+          } else if (tabId === 'tuition') {
             setActiveTab('tuition');
             setSearchParams((prev) => {
               const next = new URLSearchParams(prev);
               next.set('tab', 'tuition');
               return next;
             });
-          }}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'tuition'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
-          }`}
-        >
-          <GraduationCap className="w-4 h-4" />
-          <span>Thu học phí ({tuitionReceiptsList.length || allEnrollments.length})</span>
-        </button>
-
-        {/* Tab 4: Hóa đơn & Đối soát */}
-        <button
-          type="button"
-          onClick={() => {
+          } else if (tabId === 'receipts') {
             setActiveTab('receipts');
             setSearchParams((prev) => {
               const next = new URLSearchParams(prev);
               next.set('tab', 'receipts');
               return next;
             });
-          }}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'receipts'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border border-slate-200'
-          }`}
-        >
-          <Receipt className="w-4 h-4" />
-          <span>Hóa đơn & Đối soát</span>
-          <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-            activeTab === 'receipts' ? 'bg-white/20 text-white' : 'bg-sky-100 text-sky-800'
-          }`}>
-            {pastReceipts.length}
-          </span>
-        </button>
-      </div>
+          }
+        }}
+        tabs={[
+          {
+            id: 'pos',
+            label: 'Walk-in / Bán lẻ',
+            icon: CreditCard,
+            count: posCart.length > 0 ? posCart.length : undefined,
+          },
+          {
+            id: 'queue',
+            label: 'Lịch hẹn cần thu',
+            icon: Clock,
+            count: pendingBookings.length,
+            badge: completedQueueCount > 0 ? (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500 text-white animate-pulse">
+                ★ {completedQueueCount} xong
+              </span>
+            ) : undefined,
+          },
+          {
+            id: 'package',
+            label: 'Đăng ký gói liệu trình',
+            icon: Sparkles,
+          },
+          {
+            id: 'tuition',
+            label: `Thu học phí (${tuitionReceiptsList.length || allEnrollments.length})`,
+            icon: GraduationCap,
+          },
+          {
+            id: 'receipts',
+            label: 'Hóa đơn & Đối soát',
+            icon: Receipt,
+            count: pastReceipts.length,
+          },
+        ]}
+      />
 
       {/* ========================================================================= */}
       {/* TAB 1: BÁN HÀNG TẠI QUẦY (POS WORKSTATION - MENU + CART + CHECKOUT)       */}

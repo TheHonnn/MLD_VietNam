@@ -57,7 +57,7 @@ import {
   EmailTemplate,
   EmailLog,
 } from '../types/shared_types';
-import { toast } from '../components/common';
+import { toast, AdminTabs } from '../components/common';
 
 const EMAIL_VARIABLE_LABELS: Record<string, string> = {
   student_name: 'Tên học viên',
@@ -1545,60 +1545,27 @@ export const W18_PortalContent: React.FC = () => {
       </div>
 
       {/* 3. Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-[#E8DFD8] pb-1 overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setActiveTab('banners')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'banners'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-[#73675F] hover:bg-[#FAF8F5] border border-[#E8DFD8]'
-            }`}
-        >
-          <ImageIcon className="w-4 h-4" />
-          <span>1. Banner Trang Chủ ({banners.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('documents')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'documents'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-[#73675F] hover:bg-[#FAF8F5] border border-[#E8DFD8]'
-            }`}
-        >
-          <FileText className="w-4 h-4" />
-          <span>2. Thư viện Giáo trình PDF ({documents.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('community')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'community'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-[#73675F] hover:bg-[#FAF8F5] border border-[#E8DFD8]'
-            }`}
-        >
-          <MessageSquare className="w-4 h-4" />
-          <span>3. Bài viết Cộng đồng ({communityPosts.length})</span>
-          {pendingPostsCount > 0 && (
-            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white font-extrabold">
-              {pendingPostsCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('email')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-2xl flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === 'email'
-              ? 'bg-[#985018] text-white shadow-xs'
-              : 'bg-white text-[#73675F] hover:bg-[#FAF8F5] border border-[#E8DFD8]'
-            }`}
-        >
-          <Mail className="w-4 h-4" />
-          <span>4. Kênh Email Thông báo Đào tạo ({emailTemplates.length})</span>
-        </button>
-      </div>
+      <AdminTabs
+        ariaLabel="Quản lý nội dung Portal"
+        variant="pill"
+        activeTab={activeTab}
+        onChange={(tabId) => setActiveTab(tabId as any)}
+        tabs={[
+          { id: 'banners', label: `1. Banner Trang Chủ (${banners.length})`, icon: ImageIcon },
+          { id: 'documents', label: `2. Thư viện Giáo trình PDF (${documents.length})`, icon: FileText },
+          {
+            id: 'community',
+            label: `3. Bài viết Cộng đồng (${communityPosts.length})`,
+            icon: MessageSquare,
+            badge: pendingPostsCount > 0 ? (
+              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white font-extrabold">
+                {pendingPostsCount}
+              </span>
+            ) : undefined,
+          },
+          { id: 'email', label: `4. Kênh Email Thông báo Đào tạo (${emailTemplates.length})`, icon: Mail },
+        ]}
+      />
 
       {/* ============================================================== */}
       {/* TAB 1: BANNERS TRANG CHỦ                                      */}
