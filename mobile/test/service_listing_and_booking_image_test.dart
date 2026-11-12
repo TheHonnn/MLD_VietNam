@@ -133,5 +133,39 @@ void main() {
       expect(find.text('Chăm sóc mở rộng (60\')'), findsAtLeastNWidgets(1));
       expect(find.textContaining('60 phút / ca'), findsOneWidget);
     });
+
+    testWidgets('B02ServiceListingScreen shows contact button and center dialog with Zalo/Messenger on products tab', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        _buildWrapper(
+          const B02ServiceListingScreen(
+            initialSegment: 1,
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(tester.takeException(), isNull);
+
+      // Check "Liên hệ" button exists on product cards
+      final contactBtn = find.text('Liên hệ');
+      expect(contactBtn, findsWidgets);
+
+      // Tap first "Liên hệ" button
+      await tester.tap(contactBtn.first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Verify Center Dialog pops up with Zalo and Messenger
+      expect(find.text('Liên hệ tư vấn sản phẩm'), findsOneWidget);
+      expect(find.text('Zalo'), findsOneWidget);
+      expect(find.text('Messenger'), findsOneWidget);
+      expect(find.textContaining('096.7786.399'), findsOneWidget);
+    });
   });
 }

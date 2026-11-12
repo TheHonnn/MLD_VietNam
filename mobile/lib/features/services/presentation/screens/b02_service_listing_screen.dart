@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/motion/app_page_transitions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/launcher_helper.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
@@ -110,7 +112,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
 
   // Sản phẩm bổ trợ tại nhà
   bool _isLoadingProducts = false;
-  List<HomeProductModel> _products = [];
+  List<HomeProductModel> _products = ProductRepository.defaultFallbackProducts;
   List<String> _productCategories = ['Tất cả', 'Băng ép', 'Chăm sóc da', 'Dụng cụ tập luyện', 'Tài liệu'];
   String _selectedProductCategory = 'Tất cả';
 
@@ -220,13 +222,17 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   }
 
   Future<void> _loadProductsFromDb() async {
-    setState(() => _isLoadingProducts = true);
+    if (_products.isEmpty) {
+      setState(() => _isLoadingProducts = true);
+    }
     final products = await ProductRepository.instance.getProducts(forceRefresh: true);
     final categories = await ProductRepository.instance.getCategories();
 
     if (mounted) {
       setState(() {
-        _products = products;
+        if (products.isNotEmpty) {
+          _products = products;
+        }
         if (categories.isNotEmpty) {
           _productCategories = categories;
         }
@@ -652,20 +658,15 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Chuyên viên MLD sẽ hỗ trợ tư vấn sản phẩm "${product.name}" cho quý khách!'),
-                        backgroundColor: AppColors.primary,
-                      ),
-                    );
+                    _showProductContactDialog(product);
                   },
-                  icon: const Icon(Icons.phone_in_talk_rounded, size: 18),
+                  icon: const Icon(Icons.support_agent_rounded, size: 20),
                   label: Text(
-                    'Tư vấn & Mua tại cơ sở',
+                    'Liên hệ tư vấn (Zalo / Messenger)',
                     style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w700),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: const Color(0xFF00693F),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
@@ -679,15 +680,392 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     );
   }
 
-  Widget _buildProductPlaceholder(String category) {
+  /// Mở liên kết ngoài (Zalo / Messenger)
+  Future<void> _launchContactUrl(String url) async {
+    final uri = Uri.parse(url);
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        AppLauncherHelper.openWebUrl(context, url);
+      }
+    } catch (e) {
+      debugPrint('[B02ServiceListing] Error launching contact url $url: $e');
+      if (mounted) {
+        AppLauncherHelper.openWebUrl(context, url);
+      }
+    }
+  }
+
+  /// Hiển thị Hộp thoại truy cập ở GIỮA MÀN HÌNH (Zalo hoặc Messenger) khi bấm "Liên hệ"
+  void _showProductContactDialog(HomeProductModel product) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        elevation: 16,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Header: Badge & Nút đóng
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F6ED),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.verified_user_rounded, size: 14, color: Color(0xFF00693F)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'TƯ VẤN Y KHOA MLD',
+                            style: AppTypography.zaloFont(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF00693F),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => Navigator.pop(dialogCtx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Icon lớn ở giữa
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.support_agent_rounded,
+                      size: 32,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Tiêu đề & Lời nhắn
+                Text(
+                  'Liên hệ tư vấn sản phẩm',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.zaloFont(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textHeading,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Quý khách vui lòng chọn kênh liên hệ để Chuyên viên MLD hỗ trợ tư vấn và hướng dẫn đặt mua thuận tiện nhất:',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.zaloFont(
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Tóm tắt sản phẩm đang liên hệ
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 46,
+                          height: 46,
+                          color: const Color(0xFFF1F5F9),
+                          child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                              ? _buildImageWidget(product.imageUrl!)
+                              : _buildProductPlaceholder(product.category, size: 28, showText: false),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              product.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.zaloFont(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textHeading,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${product.formattedPrice} / ${product.unit}',
+                              style: AppTypography.zaloFont(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF00693F),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // NÚT TRUY CẬP 1: ZALO
+                _buildContactChannelTile(
+                  channelName: 'Zalo',
+                  description: 'Tư vấn trực tiếp qua Zalo OA chính thức',
+                  badgeText: 'Chat ngay',
+                  accentColor: const Color(0xFF0068FF),
+                  iconWidget: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.asset(
+                      'assets/icons/logo-zalo-vector-03.webp',
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0068FF),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'Z',
+                          style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                    ),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(dialogCtx);
+                    await _launchContactUrl('https://zalo.me/1424469774232439257?src=qr');
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // NÚT TRUY CẬP 2: MESSENGER
+                _buildContactChannelTile(
+                  channelName: 'Messenger',
+                  description: 'Nhắn tin Fanpage Hệ Bạch Huyết MLD',
+                  badgeText: 'Nhắn tin',
+                  accentColor: const Color(0xFF0084FF),
+                  iconWidget: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.asset(
+                      'assets/icons/mesenger.jpg',
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF00B2FE), Color(0xFF006AFF), Color(0xFF9B00E8)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 24),
+                      ),
+                    ),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(dialogCtx);
+                    await _launchContactUrl('https://m.me/hebachhuyet.mldvietnam');
+                  },
+                ),
+                const SizedBox(height: 18),
+
+                // Hotline liên hệ trực tiếp
+                InkWell(
+                  onTap: () {
+                    Navigator.pop(dialogCtx);
+                    AppLauncherHelper.makePhoneCall(context, '0967786399');
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        const Icon(Icons.phone_in_talk_rounded, size: 15, color: Color(0xFF00693F)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Hoặc gọi Hotline: 096.7786.399',
+                          style: AppTypography.zaloFont(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF00693F),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Thẻ kênh liên hệ truy cập (Zalo / Messenger)
+  Widget _buildContactChannelTile({
+    required String channelName,
+    required String description,
+    required String badgeText,
+    required Color accentColor,
+    required Widget iconWidget,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: accentColor.withValues(alpha: 0.35), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              iconWidget,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 2,
+                      children: [
+                        Text(
+                          channelName,
+                          style: AppTypography.zaloFont(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textHeading,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: accentColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            badgeText,
+                            style: AppTypography.zaloFont(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: accentColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.zaloFont(
+                        fontSize: 11.5,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 13,
+                  color: accentColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductPlaceholder(String category, {double size = 40, bool showText = true}) {
     IconData icon;
     Color color;
     switch (category) {
       case 'Băng ép':
+      case 'Băng ép y khoa':
         icon = Icons.healing_rounded;
         color = const Color(0xFFE11D48);
         break;
       case 'Chăm sóc da':
+      case 'Kem dưỡng da y khoa':
         icon = Icons.clean_hands_rounded;
         color = const Color(0xFF0284C7);
         break;
@@ -700,26 +1078,46 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
         color = const Color(0xFF00693F);
     }
 
+    if (!showText) {
+      return Center(
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: size * 0.55),
+        ),
+      );
+    }
+
     return Center(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: size,
+            height: size,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 30),
+            child: Icon(icon, color: color, size: size * 0.55),
           ),
-          const SizedBox(height: 8),
-          Text(
-            category,
-            style: AppTypography.zaloFont(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color,
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              category,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.zaloFont(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ),
         ],
@@ -1493,7 +1891,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           crossAxisCount: 2,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 14,
-                          childAspectRatio: 0.65,
+                          childAspectRatio: 0.58,
                         ),
                         itemCount: currentPageProducts.length,
                         itemBuilder: (ctx, index) {
@@ -1566,9 +1964,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                 ),
               ),
 
-              // Thông tin sản phẩm
+              // Thông tin sản phẩm & Nút liên hệ
               Expanded(
-                flex: 6,
+                flex: 7,
                 child: Padding(
                   padding: const EdgeInsets.all(10),
                   child: Column(
@@ -1581,7 +1979,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
+                              color: const Color(0xFFE8F6ED),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -1591,7 +1989,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                               style: AppTypography.zaloFont(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
+                                color: const Color(0xFF00693F),
                               ),
                             ),
                           ),
@@ -1627,6 +2025,34 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                             style: AppTypography.zaloFont(
                               fontSize: 10.5,
                               color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+
+                          // Nút "Liên hệ" mở Dialog truy cập Zalo / Messenger ở giữa màn hình
+                          SizedBox(
+                            width: double.infinity,
+                            height: 32,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _showProductContactDialog(product),
+                              icon: const Icon(Icons.support_agent_rounded, size: 14),
+                              label: Text(
+                                'Liên hệ',
+                                style: AppTypography.zaloFont(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFE8F6ED),
+                                foregroundColor: const Color(0xFF00693F),
+                                elevation: 0,
+                                padding: EdgeInsets.zero,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: const BorderSide(color: Color(0xFF22C55E), width: 0.8),
+                                ),
+                              ),
                             ),
                           ),
                         ],
