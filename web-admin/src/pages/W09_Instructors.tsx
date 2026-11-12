@@ -9,10 +9,17 @@ import {
   Search,
   Settings2,
   CalendarX,
+  Plus,
+  Pencil,
+  Users,
+  BookOpen,
+  Clock3,
 } from 'lucide-react';
 import { academyService, supabaseService } from '../services';
 import { Course, CourseBatch } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
+import { adminApi } from '../admin/api';
+import { InstructorFormEditor, InstructorFormValues } from '../admin/InstructorFormEditor';
 
 export interface ScheduleItem {
   id: string;
@@ -96,6 +103,12 @@ export const W09_Instructors: React.FC = () => {
   const [dbInstructors, setDbInstructors] = useState<any[]>([]);
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
+  const [profileModal, setProfileModal] = useState<'create' | 'edit' | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileValues, setProfileValues] = useState<InstructorFormValues>({
+    full_name: '', title: '', avatar_url: '', experience_years: 1,
+    bio: '', achievements: [], is_active: true,
+  });
 
   const fetchInstructorData = async () => {
     try {
@@ -252,6 +265,73 @@ export const W09_Instructors: React.FC = () => {
     instructorsData.find((ins) => ins.id === selectedInstructorId) ||
     instructorsData[0] ||
     defaultInstructor;
+
+  const selectedRawInstructor = dbInstructors.find((ins) => ins.id === selectedInstructor.id);
+  const activeInstructorCount = dbInstructors.filter((ins) => ins.isActive !== false).length;
+  const assignedInstructorCount = instructorsData.filter((ins) => ins.hasAssignedClasses).length;
+  const unassignedBatchCount = liveBatches.filter((batch) => !batch.instructorId).length;
+
+  const weekLabel = useMemo(() => {
+    const now = new Date();
+    const monday = new Date(now);
+    const day = monday.getDay() || 7;
+    monday.setDate(monday.getDate() - day + 1);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const format = (date: Date) => new Intl.DateTimeFormat('vi-VN').format(date);
+    return `${format(monday)} – ${format(sunday)}`;
+  }, []);
+
+  const openCreateProfile = () => {
+    setProfileValues({ full_name: '', title: '', avatar_url: '', experience_years: 1, bio: '', achievements: [], is_active: true });
+    setProfileModal('create');
+  };
+
+  const openEditProfile = () => {
+    if (!selectedRawInstructor) return;
+    setProfileValues({
+      user_id: selectedRawInstructor.userId || undefined,
+      full_name: selectedRawInstructor.fullName || '',
+      title: selectedRawInstructor.title || '',
+      avatar_url: selectedRawInstructor.avatarUrl || '',
+      experience_years: Number(selectedRawInstructor.experienceYears || 1),
+      bio: selectedRawInstructor.bio || '',
+      achievements: selectedRawInstructor.achievements || [],
+      is_active: selectedRawInstructor.isActive !== false,
+    });
+    setProfileModal('edit');
+  };
+
+  const saveProfile = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!profileValues.full_name.trim()) return showToast('Vui lòng nhập họ tên giảng viên.');
+    setSavingProfile(true);
+    try {
+      const values = {
+        user_id: profileValues.user_id || null,
+        full_name: profileValues.full_name.trim(),
+        title: profileValues.title?.trim() || 'Giảng viên',
+        avatar_url: profileValues.avatar_url || null,
+        experience_years: Number(profileValues.experience_years || 0),
+        bio: profileValues.bio?.trim() || '',
+        achievements: Array.isArray(profileValues.achievements) ? profileValues.achievements : [],
+        is_active: profileValues.is_active !== false,
+      };
+      if (profileModal === 'create') {
+        await adminApi('instructors/create', { values });
+        showToast(`Đã tạo hồ sơ giảng viên ${values.full_name}.`);
+      } else if (selectedRawInstructor) {
+        await adminApi('instructors/update', { key: { id: selectedRawInstructor.id }, values });
+        showToast(`Đã cập nhật hồ sơ ${values.full_name}.`);
+      }
+      setProfileModal(null);
+      await fetchInstructorData();
+    } catch (error: any) {
+      showToast(error?.message || 'Không thể lưu hồ sơ giảng viên.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   // Filtering
   const hasActiveFilter =
@@ -410,6 +490,22 @@ export const W09_Instructors: React.FC = () => {
             Hồ sơ giảng viên, phân công lớp và lịch giảng dạy học viện MLD.
           </p>
         </div>
+        <button type="button" onClick={openCreateProfile} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#8D4B1A] px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#733B14] active:scale-[0.98]">
+          <Plus className="h-4 w-4" /> Thêm giảng viên
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[
+          { label: 'Hồ sơ đang hoạt động', value: activeInstructorCount, note: `${instructorsData.length} hồ sơ trong hệ thống`, icon: Users },
+          { label: 'Đang được phân công', value: assignedInstructorCount, note: `${weeklyTeachingSchedule.length} lịch giảng dạy`, icon: BookOpen },
+          { label: 'Lớp chờ phân công', value: unassignedBatchCount, note: unassignedBatchCount ? 'Cần bố trí giảng viên' : 'Đã bố trí đầy đủ', icon: Clock3 },
+        ].map((metric) => (
+          <div key={metric.label} className="flex items-center justify-between rounded-2xl border border-[#EFE4D9] bg-white px-4 py-3.5 shadow-xs">
+            <div><p className="text-[11px] font-semibold text-[#73675F]">{metric.label}</p><p className="mt-1 text-2xl font-bold text-[#2C241E]">{metric.value}</p><p className="mt-0.5 text-[11px] text-[#8C7A6B]">{metric.note}</p></div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F5EADF] text-[#8A4F23]"><metric.icon className="h-5 w-5" /></div>
+          </div>
+        ))}
       </div>
 
       {/* 2. Search & Filter Bar */}
@@ -644,11 +740,11 @@ export const W09_Instructors: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 2: Lịch giảng dạy tuần · 12/10/2026 – 18/10/2026 */}
+          {/* Lịch tuần hiện tại được tính theo múi giờ của trình duyệt. */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-[#2C241E]">
-                Lịch giảng dạy tuần · 12/10/2026 – 18/10/2026
+                Lịch giảng dạy tuần · {weekLabel}
               </h2>
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#FAF3EC] text-[#8A4F23] border border-[#EFE4D9]">
                 {weeklyTeachingSchedule.length} lịch giảng dạy
@@ -823,6 +919,11 @@ export const W09_Instructors: React.FC = () => {
             <div className="text-[11px] text-[#73675F] leading-relaxed pt-0.5 text-center sm:text-left">
               Hồ sơ giảng viên & chuyên gia đào tạo thuộc chuỗi học viện MLD Vietnam.
             </div>
+            {selectedRawInstructor && (
+              <button type="button" onClick={openEditProfile} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#D7BBA6] bg-white px-3 py-2.5 text-xs font-bold text-[#8A4F23] transition hover:bg-[#FAF5EF] active:scale-[0.98]">
+                <Pencil className="h-3.5 w-3.5" /> Chỉnh sửa hồ sơ chuyên môn
+              </button>
+            )}
           </div>
 
           {/* Card 2: Khả dụng & lưu ý */}
@@ -858,6 +959,22 @@ export const W09_Instructors: React.FC = () => {
       </div>
 
       {/* MODAL: Xác nhận hủy lịch dạy */}
+      {profileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-xs">
+          <form onSubmit={saveProfile} className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#E7D8CA] bg-[#FCFAF7] shadow-2xl">
+            <div className="flex items-start justify-between border-b border-[#E7D8CA] bg-white px-6 py-4">
+              <div><p className="text-[11px] font-semibold text-[#9A6A45]">Hồ sơ đội ngũ đào tạo</p><h3 className="mt-1 text-lg font-bold text-[#2C241E]">{profileModal === 'create' ? 'Thêm giảng viên mới' : `Chỉnh sửa ${selectedInstructor.name}`}</h3><p className="mt-1 text-xs text-[#73675F]">Hoàn thiện hồ sơ chuyên môn trước khi phân công lớp.</p></div>
+              <button type="button" onClick={() => setProfileModal(null)} className="rounded-lg p-2 text-[#73675F] hover:bg-[#F5EADF]"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="overflow-y-auto p-6"><InstructorFormEditor values={profileValues} isCreate={profileModal === 'create'} onChange={(field, value) => setProfileValues((current) => ({ ...current, [field]: value }))} /></div>
+            <div className="flex items-center justify-between border-t border-[#E7D8CA] bg-white px-6 py-4">
+              <p className="hidden text-[11px] text-[#8C7A6B] sm:block">Sau khi lưu, hồ sơ có thể được phân công vào lớp đang chờ.</p>
+              <div className="ml-auto flex gap-2"><button type="button" onClick={() => setProfileModal(null)} className="rounded-xl border border-[#E2D7CB] px-4 py-2.5 text-xs font-semibold text-[#73675F] hover:bg-[#FAF7F2]">Hủy</button><button disabled={savingProfile} className="rounded-xl bg-[#8D4B1A] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#733B14] disabled:opacity-50">{savingProfile ? 'Đang lưu...' : 'Lưu hồ sơ'}</button></div>
+            </div>
+          </form>
+        </div>
+      )}
+
       {cancelTargetSchedule && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-[#EFE4D9] w-full max-w-md shadow-xl overflow-hidden p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">

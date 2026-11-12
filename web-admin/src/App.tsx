@@ -338,6 +338,14 @@ const AppContent: React.FC = () => {
             <Route path="manage/services" element={<Navigate to="/services-catalog?tab=services" replace />} />
             <Route path="manage/treatment_packages" element={<Navigate to="/services-catalog?tab=packages" replace />} />
             <Route path="manage/staff_leaves" element={<Navigate to="/staff-schedule" replace />} />
+            <Route
+              path="manage/instructors"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'INSTRUCTOR']}>
+                  <W09_Instructors />
+                </RoleRoute>
+              }
+            />
             <Route path="manage/:table" element={<div className="admin-module"><ResourcePage /></div>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
