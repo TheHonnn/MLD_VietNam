@@ -32,6 +32,7 @@ class _CancelBookingDialogState extends State<CancelBookingDialog> {
     final isPending = widget.appointment.status == AppointmentStatus.pending;
     final isPaid = widget.appointment.paymentStatus.toUpperCase() == 'PAID';
     final isApproved = widget.appointment.status == AppointmentStatus.confirmed ||
+        widget.appointment.status == AppointmentStatus.checkedIn ||
         widget.appointment.status == AppointmentStatus.inService ||
         widget.appointment.status == AppointmentStatus.completed;
 

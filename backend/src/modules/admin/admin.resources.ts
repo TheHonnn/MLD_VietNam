@@ -1,7 +1,12 @@
 // Explicit ownership boundary: never accept arbitrary table names from HTTP requests.
 export const ADMIN_RESOURCES: Record<
   string,
-  { title: string; group: string; readonly?: boolean }
+  {
+    title: string;
+    group: string;
+    readonly?: boolean;
+    actions?: Array<'create' | 'update' | 'delete' | 'action'>;
+  }
 > = {
   branches: { title: 'Chi nhánh', group: 'Cơ sở' },
   branch_rooms: { title: 'Phòng dịch vụ', group: 'Cơ sở' },
@@ -12,14 +17,17 @@ export const ADMIN_RESOURCES: Record<
   booking_items: { title: 'Dịch vụ trong lịch hẹn', group: 'Thu ngân' },
   users: { title: 'Tài khoản', group: 'Khách hàng' },
   reviews: { title: 'Đánh giá', group: 'Khách hàng' },
-  support_tickets: { title: 'Yêu cầu hỗ trợ', group: 'Khách hàng' },
+  support_tickets: {
+    title: 'Yêu cầu hỗ trợ',
+    group: 'Khách hàng',
+    actions: ['update'],
+  },
   support_faqs: { title: 'Câu hỏi thường gặp', group: 'Khách hàng' },
   staff_profiles: { title: 'Hồ sơ nhân viên', group: 'Nhân sự' },
   departments: { title: 'Bộ phận', group: 'Nhân sự' },
   technicians: { title: 'Chuyên viên', group: 'Nhân sự' },
   technician_shifts: { title: 'Ca làm việc', group: 'Nhân sự' },
   technician_slots: { title: 'Khung giờ chuyên viên', group: 'Nhân sự' },
-  staff_leaves: { title: 'Đơn nghỉ phép', group: 'Nhân sự' },
   coupons: { title: 'Mã giảm giá', group: 'Voucher' },
   voucher_distribution_rules: { title: 'Quy tắc phân phối', group: 'Voucher' },
   user_vouchers: { title: 'Voucher khách hàng', group: 'Voucher' },
@@ -42,12 +50,19 @@ export const ADMIN_RESOURCES: Record<
   user_packages: { title: 'Liệu trình khách hàng', group: 'Điều trị' },
   treatment_journal: { title: 'Nhật ký điều trị', group: 'Điều trị' },
   home_care_guidelines: { title: 'Chăm sóc tại nhà', group: 'Điều trị' },
+  user_package_lifecycle_logs: { title: 'Lịch sử gói liệu trình', group: 'Điều trị', readonly: true },
+  treatment_session_reversals: { title: 'Sổ hoàn tác buổi', group: 'Điều trị', readonly: true },
+  treatment_inventory_outbox: { title: 'Đồng bộ tiêu hao kho', group: 'Điều trị', readonly: true },
+  post_care_outbox: { title: 'Nhật ký chăm sóc sau buổi', group: 'Điều trị', readonly: true },
   course_categories: { title: 'Danh mục khóa học', group: 'Đào tạo' },
   courses: { title: 'Khóa học', group: 'Đào tạo' },
   instructors: { title: 'Giảng viên', group: 'Giảng viên' },
   course_batches: { title: 'Lớp học', group: 'Đào tạo' },
   course_batch_assistants: { title: 'Trợ giảng theo lớp', group: 'Đào tạo' },
   course_enrollments: { title: 'Ghi danh', group: 'Đào tạo' },
+  enrollment_status_history: { title: 'Lịch sử xử lý tuyển sinh', group: 'Đào tạo', readonly: true },
+  enrollment_change_requests: { title: 'Yêu cầu thay đổi học tập', group: 'Đào tạo', readonly: true },
+  academy_enrollment_funnel: { title: 'Phễu tuyển sinh & Công nợ', group: 'Đào tạo', readonly: true },
   batch_schedules: { title: 'Thời khóa biểu', group: 'Đào tạo' },
   student_attendance: { title: 'Điểm danh', group: 'Đào tạo' },
   student_academic_records: { title: 'Bảng điểm', group: 'Đào tạo' },

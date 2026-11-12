@@ -57,6 +57,12 @@ describe('Admin shared-schema integration', () => {
       ).toBe(false);
     }
   });
+  it('treats support tickets as an inbox that admins may process but never create manually', async () => {
+    const catalog = await service.catalog(actor);
+    expect(catalog.find((resource) => resource.name === 'support_tickets')?.actions).toEqual(['update']);
+    await expect(service.mutate('support_tickets', actor, 'create', { values: {} }))
+      .rejects.toThrow(/khách hàng gửi từ ứng dụng/i);
+  });
   it('treats the all-classes UI filter as an unfiltered listing', async () => {
     for (const table of ['course_enrollments', 'student_attendance', 'student_academic_records']) {
       const result = await service.list(table, actor, { filter: JSON.stringify({ batch_id: '__ALL__' }) });
@@ -249,12 +255,43 @@ describe('Admin shared-schema integration', () => {
        VALUES($1,$2,2,now()+interval '3 months') RETURNING id`,
       [customer.id, treatmentPackage.id],
     )).rows[0];
-    const session = (sessionNumber: number) => service.mutate('treatment_journal', actor, 'create', {
+    const branch = (await pg.query<any>(
+      `INSERT INTO branches(name,code,phone,address,district,latitude,longitude,image_url)
+       VALUES('Treatment lifecycle branch',$1,'0900000088','Test','Test',10,106,'https://example.invalid/branch.png')
+       RETURNING id`,
+      [`TREAT-${Date.now()}`],
+    )).rows[0];
+    await expect(service.mutate('treatment_journal', actor, 'create', {
       values: {
-        user_package_id: owner.id, customer_id: customer.id,
-        session_number: sessionNumber, session_date: new Date().toISOString().slice(0, 10),
+        user_package_id: owner.id,
+        customer_id: customer.id,
+        session_number: 1,
+        session_date: new Date().toISOString().slice(0, 10),
       },
-    });
+    })).rejects.toThrow(/ca đang phục vụ/);
+    let bookingSequence = 0;
+    const session = async (sessionNumber: number) => {
+      bookingSequence += 1;
+      const booking = (await pg.query<any>(
+        `INSERT INTO bookings(
+          booking_code,customer_id,branch_id,booking_date,start_time,end_time,
+          status,session_status,payment_status,payment_method,base_total,final_price,qr_code_hash
+        ) VALUES($1,$2,$3,CURRENT_DATE,'09:00','10:00','IN_SERVICE','IN_SERVICE','PAID','MEMBERSHIP_WALLET',0,0,$4)
+        RETURNING id`,
+        [`PKG-SESSION-${bookingSequence}-${Date.now()}`, customer.id, branch.id, `pkg-session-${bookingSequence}-${Date.now()}`],
+      )).rows[0];
+      await pg.query(
+        `INSERT INTO booking_items(booking_id,service_id,duration_minutes,price)
+         VALUES($1,$2,60,0)`,
+        [booking.id, treatment.id],
+      );
+      return service.mutate('treatment_journal', actor, 'create', {
+        values: {
+          user_package_id: owner.id, booking_id: booking.id, customer_id: customer.id,
+          session_number: sessionNumber, session_date: new Date().toISOString().slice(0, 10),
+        },
+      });
+    };
     await expect(session(2)).rejects.toThrow(/buổi 1/);
     await session(1);
     await session(2);
@@ -630,7 +667,20 @@ describe('Admin shared-schema integration', () => {
         key: { id: booking.id },
         action: 'checkout',
       }),
-    ).rejects.toThrow(/thanh toán/);
+    ).rejects.toThrow(/chuyên môn/);
+    await service.mutate('treatment_journal', actor, 'create', {
+      values: {
+        booking_id: booking.id,
+        customer_id: customer.id,
+        session_number: 1,
+        session_date: '2026-10-16',
+        treatment_notes: 'Đã hoàn tất chuyên môn',
+      },
+    });
+    await service.action('bookings', actor, {
+      key: { id: booking.id },
+      action: 'finish-service',
+    });
     const invoice = await service.mutate('invoices', actor, 'create', {
       values: {
         invoice_code: 'TESTINVOICE',
@@ -660,10 +710,6 @@ describe('Admin shared-schema integration', () => {
     await service.action('invoices', actor, {
       key: { id: invoice.id },
       action: 'confirm-payment',
-    });
-    await service.action('bookings', actor, {
-      key: { id: booking.id },
-      action: 'checkout',
     });
     expect(
       (

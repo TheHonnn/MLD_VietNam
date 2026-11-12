@@ -369,7 +369,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                 ),
                 child: Text(
-                  context.tr('Khám phá dịch vụ', 'Explore Services'),
+                  context.tr('Đăng ký tư vấn liệu trình', 'Request Treatment Consultation'),
                   style: const TextStyle(
                     
                     fontSize: 13.5,
@@ -674,7 +674,10 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const AllInOneBookingScreen(),
+                                  builder: (_) => AllInOneBookingScreen(
+                                    userPackageId: package.id,
+                                    userPackageName: package.packageName,
+                                  ),
                                 ),
                               );
                             },

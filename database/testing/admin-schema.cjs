@@ -8,6 +8,9 @@ const ADMIN_MIGRATIONS = [
   '026_receipt_items_refund_commission.sql',
   '027_admin_reliability.sql',
   '028_admin_access_hardening.sql',
+  '029_academy_enrollment_lifecycle.sql',
+  '030_treatment_lifecycle_integrity.sql',
+  '031_treatment_lifecycle_management.sql',
 ];
 async function loadAdminSchema(database) {
   await database.exec(`

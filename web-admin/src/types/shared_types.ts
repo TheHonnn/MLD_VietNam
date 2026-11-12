@@ -76,11 +76,27 @@ export enum BookingStatus {
 }
 
 export enum PackageStatus {
+  PENDING_PAYMENT = 'PENDING_PAYMENT',
   ACTIVE = 'ACTIVE',
+  PAUSED = 'PAUSED',
   COMPLETED = 'COMPLETED',
   EXPIRED = 'EXPIRED',
   CANCELLED = 'CANCELLED',
-  PAUSED = 'PAUSED',
+  TRANSFERRED = 'TRANSFERRED',
+  REFUNDED = 'REFUNDED',
+}
+
+export enum SessionLifecycleStatus {
+  UNSCHEDULED = 'UNSCHEDULED',
+  SCHEDULED = 'SCHEDULED',
+  CONFIRMED = 'CONFIRMED',
+  CHECKED_IN = 'CHECKED_IN',
+  IN_SERVICE = 'IN_SERVICE',
+  CLINICAL_COMPLETED = 'CLINICAL_COMPLETED',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+  NO_SHOW = 'NO_SHOW',
+  REVERSED = 'REVERSED',
 }
 
 export enum CourseLevel {
@@ -117,6 +133,7 @@ export enum ConsultationStatus {
 export enum PaymentVerificationStatus {
   UNPAID = 'UNPAID',
   PENDING_VERIFICATION = 'PENDING_VERIFICATION',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
   PAID = 'PAID',
   FAILED = 'FAILED',
   EXPIRED = 'EXPIRED',
@@ -127,6 +144,8 @@ export enum StudentAdmissionStatus {
   NOT_APPROVED = 'NOT_APPROVED',
   APPROVED = 'APPROVED',
   ENROLLED = 'ENROLLED',
+  COMPLETED = 'COMPLETED',
+  GRADUATED = 'GRADUATED',
 }
 
 export interface ConsultationNote {
@@ -486,7 +505,36 @@ export interface UserPackage {
   status: PackageStatus;
   purchasedAt: string;
   expiresAt: string;
+  pausedAt?: string | null;
+  resumedAt?: string | null;
+  cancelledAt?: string | null;
+  cancelledReason?: string | null;
+  transferredToUserId?: string | null;
+  transferredAt?: string | null;
+  transferReason?: string | null;
+  refundedAt?: string | null;
+  refundAmount?: number;
+  refundReason?: string | null;
+  extensionMonths?: number;
+  originalExpiresAt?: string | null;
+  commissionStaffId?: string | null;
   package?: TreatmentPackage;
+}
+
+export interface PhotoMetadata {
+  url: string;
+  type: 'BEFORE' | 'AFTER' | 'DURING' | 'REACTION';
+  takenAt?: string;
+  uploadedBy?: string;
+  consent: boolean;
+  notes?: string;
+}
+
+export interface ConsumableItem {
+  name: string;
+  quantity: number;
+  unit: string;
+  notes?: string;
 }
 
 export interface TreatmentJournal {
@@ -503,6 +551,26 @@ export interface TreatmentJournal {
   conditionBefore?: string | null;
   conditionAfter?: string | null;
   treatmentNotes?: string | null;
+  treatmentAreas?: string[];
+  targetGoals?: string | null;
+  treatmentProtocol?: string | null;
+  technicalParameters?: Record<string, any>;
+  consumablesUsed?: ConsumableItem[];
+  hasAbnormalReaction?: boolean;
+  adverseReactions?: string | null;
+  clinicalApprovedBy?: string | null;
+  clinicalApprovedAt?: string | null;
+  confirmationStatus?: string;
+  isReversed?: boolean;
+  reversedAt?: string | null;
+  reversedBy?: string | null;
+  reversalReason?: string | null;
+  reversalId?: string | null;
+  photosMetadata?: PhotoMetadata[];
+  homeCareInstructions?: string | null;
+  postCareStatus?: string;
+  nextSessionRecommendedAt?: string | null;
+  nextSessionNotes?: string | null;
   beforePhotos: string[];
   afterPhotos: string[];
   specialistAdvice?: string | null;

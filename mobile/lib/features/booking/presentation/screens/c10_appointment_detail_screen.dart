@@ -87,11 +87,14 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
         return 1;
       case AppointmentStatus.confirmed:
         return 2;
-      case AppointmentStatus.inService:
+      case AppointmentStatus.checkedIn:
         return 3;
-      case AppointmentStatus.completed:
+      case AppointmentStatus.inService:
         return 4;
+      case AppointmentStatus.completed:
+        return 5;
       case AppointmentStatus.cancelled:
+      case AppointmentStatus.noShow:
         return 0;
     }
   }
@@ -192,7 +195,7 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
               // ==========================================
               // TIẾN TRÌNH TRỊ LIỆU TỐI GIẢN (Mục 5.4)
               // ==========================================
-              if (app.status != AppointmentStatus.cancelled) ...[
+              if (app.status != AppointmentStatus.cancelled && app.status != AppointmentStatus.noShow) ...[
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -214,9 +217,11 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                           _buildTimelineConnector(step >= 2),
                           _buildTimelineStep(2, context.tr('Xác nhận', 'Confirmed'), step >= 2),
                           _buildTimelineConnector(step >= 3),
-                          _buildTimelineStep(3, context.tr('Thực hiện', 'In Service'), step >= 3),
+                          _buildTimelineStep(3, context.tr('Tiếp đón', 'Checked in'), step >= 3),
                           _buildTimelineConnector(step >= 4),
-                          _buildTimelineStep(4, context.tr('Hoàn thành', 'Completed'), step >= 4),
+                          _buildTimelineStep(4, context.tr('Thực hiện', 'In service'), step >= 4),
+                          _buildTimelineConnector(step >= 5),
+                          _buildTimelineStep(5, context.tr('Hoàn tất', 'Completed'), step >= 5),
                         ],
                       ),
                     ],

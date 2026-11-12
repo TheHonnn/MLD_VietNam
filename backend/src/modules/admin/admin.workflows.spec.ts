@@ -38,12 +38,25 @@ describe('Admin business workflows on the complete migrated schema', () => {
     } finally { await query('ROLLBACK'); }
   });
 
+  it('rejects a schema that is missing treatment lifecycle columns', async()=>{
+    await query('BEGIN');
+    try {
+      await query('ALTER TABLE user_packages RENAME COLUMN paused_at TO paused_at_missing');
+      const status = await inspectAdminSchema({query});
+      expect(status.ready).toBe(false);
+      expect(status.missing).toContain('user_packages.paused_at');
+    } finally { await query('ROLLBACK'); }
+  });
+
   it('receives, serves, collects and checks out a booking, recording one receipt across retries',async()=>{
     const booking=(await query("INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,status,base_total,final_price,qr_code_hash) VALUES('FLOWBOOK',$1,$2,'2026-11-08','10:00','11:00','CONFIRMED',100000,100000,'flowqr') RETURNING *",[customer.id,branch.id])).rows[0];
     await query('INSERT INTO booking_items(booking_id,service_id,price) VALUES($1,$2,100000)',[booking.id,spaService.id]);
     await service.action('bookings',actor,{key:{id:booking.id},action:'checkin'});
     await service.action('bookings',actor,{key:{id:booking.id},action:'start'});
-    await expect(service.action('bookings',actor,{key:{id:booking.id},action:'checkout'})).rejects.toThrow(/thanh toán/);
+    await expect(service.action('bookings',actor,{key:{id:booking.id},action:'checkout'})).rejects.toThrow(/chuyên môn/);
+    await query("INSERT INTO treatment_journal(booking_id,customer_id,session_number,session_date,treatment_notes) VALUES($1,$2,1,'2026-11-08','Flow completed')",[booking.id,customer.id]);
+    await service.action('bookings',actor,{key:{id:booking.id},action:'finish-service'});
+    expect((await query('SELECT status,session_status FROM bookings WHERE id=$1',[booking.id])).rows[0]).toMatchObject({status:'IN_SERVICE',session_status:'COMPLETED'});
     const shift=await service.openCashierShift(actor,{branchId:branch.id,openingCash:50000});
     const body={kind:'BOOKING',bookingId:booking.id,shiftId:shift.id,paymentMethod:'CASH_AT_SPA',vatRate:8,expectedTotal:108000,requestId:randomUUID()};
     const receipt=await service.collectCashierPayment(actor,body);
@@ -51,23 +64,52 @@ describe('Admin business workflows on the complete migrated schema', () => {
     expect((await query('SELECT count(*)::int n FROM invoices WHERE booking_id=$1',[booking.id])).rows[0].n).toBe(1);
     expect((await service.activeCashierShift(actor,branch.id))?.systemCash).toBe(158000);
     await expect(service.collectCashierPayment(actor,{...body,expectedTotal:100000})).rejects.toThrow(/nội dung khác/);
-    await service.action('bookings',actor,{key:{id:booking.id},action:'checkout'});
     expect((await query('SELECT status FROM bookings WHERE id=$1',[booking.id])).rows[0].status).toBe('COMPLETED');
+    await expect(service.closeCashierShift(actor,shift.id,{closingCash:150000})).rejects.toThrow(/lý do giải trình/);
     await service.closeCashierShift(actor,shift.id,{closingCash:158000});
     expect((await service.collectCashierPayment(actor,body)).invoice.id).toBe(receipt.invoice.id);
+    await expect(service.collectCashierPayment(actor,{...body,requestId:randomUUID()})).rejects.toThrow(/mở ca/);
+
+    const inServiceBk=(await query("INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,status,session_status,base_total,final_price,qr_code_hash) VALUES('INSERVICE-PAY',$1,$2,'2026-11-08','14:00','15:00','IN_SERVICE','IN_SERVICE',100000,100000,'in-service-qr') RETURNING *",[customer.id,branch.id])).rows[0];
+    await query('INSERT INTO booking_items(booking_id,service_id,price) VALUES($1,$2,100000)',[inServiceBk.id,spaService.id]);
+    const shift2=await service.openCashierShift(actor,{branchId:branch.id,openingCash:0});
+    await service.collectCashierPayment(actor,{kind:'BOOKING',bookingId:inServiceBk.id,shiftId:shift2.id,paymentMethod:'CASH_AT_SPA',vatRate:0,expectedTotal:100000,requestId:randomUUID()});
+    const checkedBk=(await query('SELECT status,session_status,payment_status FROM bookings WHERE id=$1',[inServiceBk.id])).rows[0];
+    expect(checkedBk.payment_status).toBe('PAID');
+    expect(checkedBk.status).toBe('IN_SERVICE');
+    await service.closeCashierShift(actor,shift2.id,{closingCash:100000});
   });
 
-  it('rolls back stale cart prices and activates a package only with its paid invoice',async()=>{
+  it('verifies a prepaid package on check-in without consuming a session early',async()=>{
+    const owner=(await query("INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,expires_at) VALUES($1,$2,5,0,'ACTIVE',now()+interval '3 months') RETURNING *",[customer.id,spaPackage.id])).rows[0];
+    const booking=(await query("INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,status,payment_status,payment_method,base_total,final_price,qr_code_hash) VALUES('PACKAGE-CHECKIN',$1,$2,'2026-11-08','12:00','13:00','CONFIRMED','UNPAID','MEMBERSHIP_WALLET',0,0,'package-checkin-qr') RETURNING *",[customer.id,branch.id])).rows[0];
+    await query('INSERT INTO booking_items(booking_id,service_id,price) VALUES($1,$2,0)',[booking.id,spaService.id]);
+    await expect(service.action('bookings',actor,{key:{id:booking.id},action:'checkin'})).rejects.toThrow(/chọn gói/);
+    await service.action('bookings',actor,{key:{id:booking.id},action:'checkin',userPackageId:owner.id});
+    expect((await query('SELECT status,payment_status FROM bookings WHERE id=$1',[booking.id])).rows[0]).toMatchObject({status:'CHECKED_IN',payment_status:'PAID'});
+    expect((await query('SELECT completed_sessions FROM user_packages WHERE id=$1',[owner.id])).rows[0].completed_sessions).toBe(0);
+  });
+
+  it('keeps package sales out of generic carts and activates a package only with its paid invoice',async()=>{
     const shift=await service.openCashierShift(actor,{branchId:branch.id,openingCash:0});
-    const body={kind:'CART',shiftId:shift.id,customerId:customer.id,paymentMethod:'BANK_TRANSFER',requestId:randomUUID(),items:[{type:'SERVICE',id:spaService.id,quantity:2},{type:'PACKAGE',id:spaPackage.id,quantity:1}],expectedTotal:700000};
+    const mixedCart={kind:'CART',shiftId:shift.id,customerId:customer.id,paymentMethod:'BANK_TRANSFER',requestId:randomUUID(),items:[{type:'SERVICE',id:spaService.id,quantity:2},{type:'PACKAGE',id:spaPackage.id,quantity:1}],expectedTotal:700000};
     const before=(await query('SELECT count(*)::int n FROM invoices')).rows[0].n;
-    await expect(service.collectCashierPayment(actor,{...body,expectedTotal:1})).rejects.toThrow(/Giá hoặc tổng tiền/);
+    const packagesBefore=(await query('SELECT count(*)::int n FROM user_packages WHERE customer_id=$1',[customer.id])).rows[0].n;
+    await expect(service.collectCashierPayment(actor,mixedCart)).rejects.toThrow(/phiếu riêng/);
     expect((await query('SELECT count(*)::int n FROM invoices')).rows[0].n).toBe(before);
+    expect((await query('SELECT count(*)::int n FROM user_packages WHERE customer_id=$1',[customer.id])).rows[0].n).toBe(packagesBefore);
+    const body={...mixedCart,requestId:randomUUID(),items:[{type:'SERVICE',id:spaService.id,quantity:2}],expectedTotal:200000};
+    await expect(service.collectCashierPayment(actor,{...body,expectedTotal:1})).rejects.toThrow(/Giá hoặc tổng tiền/);
     const paid=await service.collectCashierPayment(actor,body);
-    expect(paid.amount).toBe(700000);
+    expect(paid.amount).toBe(200000);
     await service.collectCashierPayment(actor,body);
-    expect((await query('SELECT count(*)::int n FROM user_packages WHERE customer_id=$1',[customer.id])).rows[0].n).toBe(1);
-    expect((await query('SELECT count(*)::int n FROM invoice_items WHERE invoice_id=$1',[paid.invoice.id])).rows[0].n).toBe(2);
+    expect((await query('SELECT count(*)::int n FROM user_packages WHERE customer_id=$1',[customer.id])).rows[0].n).toBe(packagesBefore);
+    expect((await query('SELECT count(*)::int n FROM invoice_items WHERE invoice_id=$1',[paid.invoice.id])).rows[0].n).toBe(1);
+    await expect(service.collectCashierPayment(actor,{kind:'PACKAGE',shiftId:shift.id,branchId:branch.id,customerId:'bbbbbbbb-0001-0001-0001-000000000001',packageId:spaPackage.id,paymentMethod:'BANK_TRANSFER',vatRate:8,requestId:randomUUID()})).rejects.toThrow(/khách vãng lai/);
+    const registration=await service.collectCashierPayment(actor,{kind:'PACKAGE',shiftId:shift.id,branchId:branch.id,customerId:customer.id,packageId:spaPackage.id,paymentMethod:'BANK_TRANSFER',vatRate:8,requestId:randomUUID()});
+    expect(registration.userPackage.id).toBeTruthy();
+    expect(registration.invoice.user_package_id).toBe(registration.userPackage.id);
+    expect((await query('SELECT payment_status FROM invoices WHERE id=$1',[registration.invoice.id])).rows[0].payment_status).toBe('PAID');
     await service.closeCashierShift(actor,shift.id,{closingCash:0});
   });
 
@@ -102,6 +144,19 @@ describe('Admin business workflows on the complete migrated schema', () => {
     const wrongRole={...scoped,role:'RECEPTIONIST'};
     await expect(service.openCashierShift(wrongRole,{branchId:branch.id,openingCash:0})).rejects.toThrow(/Vai trò/);
     await expect(service.list('roles',scoped,{})).rejects.toThrow(/SUPER_ADMIN/);
+  });
+  it('still closes a shift when a deployed legacy audit table lacks the expected action column',async()=>{
+    const shift=await service.openCashierShift(actor,{branchId:branch.id,openingCash:123000});
+    await query('ALTER TABLE audit_logs RENAME COLUMN action TO legacy_action');
+    try {
+      const closed=await service.closeCashierShift(actor,shift.id,{closingCash:123000});
+      expect(closed.status).toBe('CLOSED');
+      const persisted=(await query('SELECT status,closing_cash FROM cashier_shifts WHERE id=$1',[shift.id])).rows[0];
+      expect(persisted.status).toBe('CLOSED');
+      expect(Number(persisted.closing_cash)).toBe(123000);
+    } finally {
+      await query('ALTER TABLE audit_logs RENAME COLUMN legacy_action TO action');
+    }
   });
   it('shows reference names, searches them and clamps pages after data removal',async()=>{
     await query("INSERT INTO staff_profiles(user_id,branch_id,employee_code,position) VALUES($1,$2,'FLOWEMP','Test')",[actor.id,branch.id]);

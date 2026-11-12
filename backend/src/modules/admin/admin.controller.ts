@@ -274,6 +274,25 @@ export class AdminController {
   summary(@Query('from') from: string, @Query('to') to: string) {
     return this.service.summary(from, to);
   }
+  @Get('treatment/dashboard-stats')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  treatmentDashboardStats(@Query('branchId') branchId: string, @Req() req) {
+    return this.service.treatmentDashboardStats(req.admin, branchId);
+  }
+  @Post('treatment/packages/:id/action')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  treatmentPackageAction(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req,
+  ) {
+    return this.service.action('user_packages', req.admin, {
+      ...body,
+      key: { id },
+    });
+  }
   @Get(':table')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()
@@ -320,7 +339,7 @@ export class AdminController {
   @ApiBearerAuth()
   action(
     @Param('table') table: string,
-    @Body() body: { key?: unknown; action?: string; reason?: string },
+    @Body() body: { key?: unknown; action?: string; reason?: string; userPackageId?: string },
     @Req() req,
   ) {
     return this.service.action(table, req.admin, body);

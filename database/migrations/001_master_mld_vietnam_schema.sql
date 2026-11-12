@@ -442,6 +442,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     status booking_status NOT NULL DEFAULT 'PENDING',
+    session_status VARCHAR(30) NOT NULL DEFAULT 'NOT_STARTED',
     payment_status payment_status NOT NULL DEFAULT 'UNPAID',
     payment_method payment_method NOT NULL DEFAULT 'CASH_AT_SPA',
     base_total NUMERIC(12, 2) NOT NULL,

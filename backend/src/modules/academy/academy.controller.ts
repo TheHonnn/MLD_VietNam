@@ -77,9 +77,87 @@ export class AcademyController {
   }
 
   @Get('enrollments/:id/check-payment')
-  @ApiOperation({ summary: 'Kiểm tra tiền về theo mã KH & tự động duyệt học viên' })
-  async checkEnrollmentPayment(@Param('id') id: string) {
-    return this.academyService.checkEnrollmentPayment(id);
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Đối soát tiền theo hồ sơ, không tự động duyệt nhập học' })
+  async checkEnrollmentPayment(
+    @CurrentUser('id') adminId: string,
+    @Param('id') id: string,
+  ) {
+    return this.academyService.checkEnrollmentPayment(id, adminId);
+  }
+
+  @Post('enrollments/:id/approve')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin duyệt nhập học sau khi tư vấn và đủ mức cọc' })
+  async approveEnrollment(
+    @CurrentUser('id') adminId: string,
+    @Param('id') id: string,
+    @Body() body: { amountPaid?: number; notes?: string },
+  ) {
+    return this.academyService.approveEnrollment(id, adminId, body?.amountPaid, body?.notes);
+  }
+
+  @Post('enrollments/:id/graduate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Kiểm tra điều kiện, xét tốt nghiệp và cấp chứng nhận' })
+  async graduateEnrollment(
+    @CurrentUser('id') adminId: string,
+    @Param('id') id: string,
+  ) {
+    return this.academyService.graduateEnrollment(id, adminId);
+  }
+
+  @Post('enrollments/:id/assign-batch')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Xếp hoặc chuyển lớp có khóa sĩ số và audit' })
+  async assignEnrollmentBatch(
+    @CurrentUser('id') adminId: string,
+    @Param('id') id: string,
+    @Body() body: { batchId: string },
+  ) {
+    return this.academyService.assignEnrollmentBatch(id, body.batchId, adminId);
+  }
+
+  @Post('enrollments/:id/finalize-consultation')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Chốt tư vấn, học phí và tạo bước chờ cọc' })
+  async finalizeEnrollmentConsultation(
+    @CurrentUser('id') adminId: string,
+    @Param('id') id: string,
+    @Body() body: { finalTuition: number; branchName?: string; note?: string },
+  ) {
+    return this.academyService.finalizeEnrollmentConsultation(
+      id, adminId, Number(body.finalTuition), body.branchName, body.note,
+    );
+  }
+
+  @Post('enrollments/:id/change-requests')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Tạo yêu cầu bảo lưu, chuyển lớp, nghỉ học, gia hạn hoặc thi lại' })
+  async createEnrollmentChangeRequest(
+    @CurrentUser('id') actorId: string,
+    @Param('id') id: string,
+    @Body() body: { requestType: string; reason: string; requestData?: Record<string, unknown> },
+  ) {
+    return this.academyService.createEnrollmentChangeRequest(id, actorId, body.requestType, body.reason, body.requestData);
+  }
+
+  @Post('enrollment-change-requests/:id/resolve')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Phê duyệt hoặc từ chối yêu cầu thay đổi học tập' })
+  async resolveEnrollmentChangeRequest(
+    @CurrentUser('id') actorId: string,
+    @Param('id') id: string,
+    @Body() body: { approve: boolean; reviewNote?: string },
+  ) {
+    return this.academyService.resolveEnrollmentChangeRequest(id, actorId, Boolean(body.approve), body.reviewNote);
   }
 
   @Get('courses/:courseId/lessons/:lessonId/access')

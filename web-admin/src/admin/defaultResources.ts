@@ -6,11 +6,11 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'branch_rooms', title: 'Phòng & Giường trị liệu', group: 'Cơ sở vật chất', actions: ['create', 'update', 'delete', 'action'] },
 
   // 2. Thu ngân & Tiếp đón (Lịch hẹn, Hóa đơn & Bảng kê thanh toán)
-  { name: 'bookings', title: 'Lịch hẹn & Tiếp đón', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'bookings', title: 'Lịch hẹn / Check-in / Check-out', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'booking_items', title: 'Dịch vụ trong lịch hẹn', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'invoices', title: 'Hóa đơn thanh toán', group: 'Thu ngân & Tiếp đón', actions: ['action'] },
+  { name: 'invoices', title: 'Hóa đơn & Đối soát', group: 'Thu ngân & Tiếp đón', actions: ['action'] },
   { name: 'invoice_items', title: 'Chi tiết hóa đơn', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'home_products', title: 'Sản phẩm mang về', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete'] },
+  { name: 'home_products', title: 'Sản phẩm mang về', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete'] },
 
   // 3. Khách hàng (CRM)
   { name: 'users', title: 'Hồ sơ khách hàng', group: 'Khách hàng (CRM)', actions: ['create', 'update', 'delete', 'action'] },
@@ -36,7 +36,6 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'technicians', title: 'Đội ngũ Chuyên viên KTV', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'technician_shifts', title: 'Ca làm việc', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'technician_slots', title: 'Khung giờ chuyên viên', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'staff_leaves', title: 'Đơn nghỉ phép', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'staff_commissions', title: 'Hoa hồng KTV & Thưởng', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
 
   // 7. Voucher & Hội viên
@@ -49,6 +48,9 @@ export const DEFAULT_RESOURCES: Resource[] = [
 
   // 8. Tuyển sinh & Ghi danh
   { name: 'course_enrollments', title: 'Danh sách ghi danh', group: 'Tuyển sinh & Ghi danh', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'enrollment_status_history', title: 'Lịch sử xử lý hồ sơ', group: 'Tuyển sinh & Ghi danh', actions: [] },
+  { name: 'enrollment_change_requests', title: 'Bảo lưu / Chuyển lớp / Nghỉ học', group: 'Tuyển sinh & Ghi danh', actions: [] },
+  { name: 'academy_enrollment_funnel', title: 'Phễu tuyển sinh & Công nợ', group: 'Tuyển sinh & Ghi danh', actions: [] },
   { name: 'tuition_transactions', title: 'Thu học phí & Đặt cọc', group: 'Tuyển sinh & Ghi danh', actions: ['create', 'update', 'delete', 'action'] },
 
   // 9. Đội ngũ Giảng viên

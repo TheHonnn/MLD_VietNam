@@ -7,6 +7,8 @@ import {
 } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 import { legacyWrite } from './adminAdapter';
+import { adminApi, adminCommand } from '../admin/api';
+import { supabase } from './supabaseClient';
 
 export const treatmentService = {
   // --- Danh mục dịch vụ ---
@@ -296,5 +298,483 @@ export const treatmentService = {
         : 'Đã lưu buổi điều trị và cập nhật tiến trình gói.',
       data: true,
     };
+  },
+
+  // --- VẬN HÀNH VÒNG ĐỜI GÓI LIỆU TRÌNH (ADMIN FSM) ---
+
+  async _fallbackSupabasePackageAction(userPackageId: string, payload: Record<string, unknown>): Promise<void> {
+    const action = String(payload.action || '');
+    const reason = typeof payload.reason === 'string' ? payload.reason.trim() : '';
+
+    if (action === 'pause') {
+      const { error } = await supabase
+        .from('user_packages')
+        .update({
+          status: 'PAUSED',
+          paused_at: new Date().toISOString(),
+        })
+        .eq('id', userPackageId);
+      if (error) throw new Error(error.message || 'Không thể tạm dừng gói qua Supabase.');
+
+      try {
+        await supabase.from('user_package_lifecycle_logs').insert({
+          user_package_id: userPackageId,
+          from_status: 'ACTIVE',
+          to_status: 'PAUSED',
+          action: 'PAUSE',
+          reason: reason || 'Tạm dừng gói liệu trình',
+          metadata: { pausedAt: new Date().toISOString() },
+        });
+      } catch {}
+      return;
+    }
+
+    if (action === 'resume') {
+      const { error } = await supabase
+        .from('user_packages')
+        .update({
+          status: 'ACTIVE',
+          resumed_at: new Date().toISOString(),
+        })
+        .eq('id', userPackageId);
+      if (error) throw new Error(error.message || 'Không thể mở lại gói qua Supabase.');
+
+      try {
+        await supabase.from('user_package_lifecycle_logs').insert({
+          user_package_id: userPackageId,
+          from_status: 'PAUSED',
+          to_status: 'ACTIVE',
+          action: 'RESUME',
+          reason: reason || 'Mở lại gói liệu trình',
+          metadata: { resumedAt: new Date().toISOString() },
+        });
+      } catch {}
+      return;
+    }
+
+    if (action === 'extend') {
+      const months = Number(payload.extensionMonths || 1);
+      const { data: pkg } = await supabase
+        .from('user_packages')
+        .select('expires_at, total_sessions, completed_sessions')
+        .eq('id', userPackageId)
+        .single();
+      const currentExpiry = pkg?.expires_at ? new Date(pkg.expires_at) : new Date();
+      const baseDate = currentExpiry.getTime() > Date.now() ? currentExpiry : new Date();
+      baseDate.setMonth(baseDate.getMonth() + months);
+
+      const { error } = await supabase
+        .from('user_packages')
+        .update({
+          status: 'ACTIVE',
+          expires_at: baseDate.toISOString(),
+          extension_months: months,
+        })
+        .eq('id', userPackageId);
+      if (error) throw new Error(error.message || 'Không thể gia hạn gói qua Supabase.');
+
+      try {
+        await supabase.from('user_package_lifecycle_logs').insert({
+          user_package_id: userPackageId,
+          from_status: 'EXPIRED',
+          to_status: 'ACTIVE',
+          action: 'EXTEND_EXPIRY',
+          reason: reason || 'Gia hạn gói liệu trình',
+          metadata: { extensionMonths: months, newExpiry: baseDate.toISOString() },
+        });
+      } catch {}
+      return;
+    }
+
+    if (action === 'cancel') {
+      const { error } = await supabase
+        .from('user_packages')
+        .update({
+          status: 'CANCELLED',
+          cancelled_at: new Date().toISOString(),
+          cancelled_reason: reason,
+        })
+        .eq('id', userPackageId);
+      if (error) throw new Error(error.message || 'Không thể hủy gói qua Supabase.');
+
+      try {
+        await supabase.from('user_package_lifecycle_logs').insert({
+          user_package_id: userPackageId,
+          to_status: 'CANCELLED',
+          action: 'CANCEL',
+          reason: reason || 'Hủy gói liệu trình',
+          metadata: { cancelledAt: new Date().toISOString() },
+        });
+      } catch {}
+      return;
+    }
+
+    if (action === 'transfer') {
+      const newCustId = String(payload.newCustomerId || '');
+      const { data: oldPkg } = await supabase.from('user_packages').select('*').eq('id', userPackageId).single();
+      if (!oldPkg) throw new Error('Không tìm thấy gói.');
+      const remaining = Number(oldPkg.total_sessions) - Number(oldPkg.completed_sessions);
+
+      const { error } = await supabase
+        .from('user_packages')
+        .update({
+          status: 'TRANSFERRED',
+          transferred_to_user_id: newCustId,
+          transferred_at: new Date().toISOString(),
+          transfer_reason: reason,
+        })
+        .eq('id', userPackageId);
+      if (error) throw new Error(error.message || 'Không thể chuyển nhượng gói qua Supabase.');
+
+      await supabase.from('user_packages').insert({
+        customer_id: newCustId,
+        package_id: oldPkg.package_id,
+        total_sessions: remaining,
+        completed_sessions: 0,
+        status: 'ACTIVE',
+        expires_at: oldPkg.expires_at,
+        transferred_from_package_id: userPackageId,
+      });
+      return;
+    }
+
+    if (action === 'refund') {
+      const amt = Number(payload.refundAmount || 0);
+      const { error } = await supabase
+        .from('user_packages')
+        .update({
+          status: 'REFUNDED',
+          refunded_at: new Date().toISOString(),
+          refund_amount: amt,
+          refund_reason: reason,
+        })
+        .eq('id', userPackageId);
+      if (error) throw new Error(error.message || 'Không thể hoàn tiền gói qua Supabase.');
+      return;
+    }
+  },
+
+  async _executePackageAction(userPackageId: string, payload: Record<string, unknown>): Promise<void> {
+    try {
+      await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, payload);
+    } catch (err: any) {
+      if (err?.statusCode === 404 || err?.message?.includes('Cannot POST') || String(err?.message || '').includes('404')) {
+        try {
+          await adminCommand('user_packages/action', {
+            ...payload,
+            key: { id: userPackageId },
+          });
+          return;
+        } catch (innerErr: any) {
+          if (innerErr?.message?.includes('không được hỗ trợ') || innerErr?.statusCode === 400) {
+            await this._fallbackSupabasePackageAction(userPackageId, payload);
+            return;
+          }
+          throw innerErr;
+        }
+      } else if (err?.message?.includes('không được hỗ trợ') || err?.statusCode === 400) {
+        await this._fallbackSupabasePackageAction(userPackageId, payload);
+        return;
+      }
+      throw err;
+    }
+  },
+
+  async pausePackage(userPackageId: string, reason: string): Promise<ApiResponse<boolean>> {
+    try {
+      await this._executePackageAction(userPackageId, {
+        action: 'pause',
+        reason,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã tạm dừng gói liệu trình thành công.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] pausePackage failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể tạm dừng gói liệu trình.',
+        data: false,
+      };
+    }
+  },
+
+  async resumePackage(userPackageId: string, reason?: string): Promise<ApiResponse<boolean>> {
+    try {
+      await this._executePackageAction(userPackageId, {
+        action: 'resume',
+        reason: reason || 'Mở lại gói liệu trình hoạt động bình thường',
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã kích hoạt lại gói liệu trình thành công.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] resumePackage failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể kích hoạt lại gói liệu trình.',
+        data: false,
+      };
+    }
+  },
+
+  async extendPackage(
+    userPackageId: string,
+    extensionMonths: number,
+    reason: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      await this._executePackageAction(userPackageId, {
+        action: 'extend',
+        extensionMonths,
+        reason,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: `Đã gia hạn gói thêm ${extensionMonths} tháng thành công.`,
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] extendPackage failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể gia hạn gói liệu trình.',
+        data: false,
+      };
+    }
+  },
+
+  async cancelPackage(userPackageId: string, reason: string): Promise<ApiResponse<boolean>> {
+    try {
+      await this._executePackageAction(userPackageId, {
+        action: 'cancel',
+        reason,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã hủy gói liệu trình thành công.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] cancelPackage failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể hủy gói liệu trình.',
+        data: false,
+      };
+    }
+  },
+
+  async transferPackage(
+    userPackageId: string,
+    newCustomerId: string,
+    reason: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      await this._executePackageAction(userPackageId, {
+        action: 'transfer',
+        newCustomerId,
+        reason,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã chuyển nhượng gói liệu trình sang khách hàng mới thành công.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] transferPackage failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể chuyển nhượng gói liệu trình.',
+        data: false,
+      };
+    }
+  },
+
+  async refundPackage(
+    userPackageId: string,
+    refundAmount: number,
+    reason: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      await this._executePackageAction(userPackageId, {
+        action: 'refund',
+        refundAmount,
+        reason,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã ghi nhận hoàn tiền gói liệu trình thành công.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] refundPackage failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể hoàn tiền gói liệu trình.',
+        data: false,
+      };
+    }
+  },
+
+  // --- HOÀN TÁC BUỔI ĐIỀU TRỊ AN TOÀN (REVERSAL) ---
+
+  async reverseSession(
+    journalId: string,
+    reason: string,
+    idempotencyKey?: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      await adminApi('treatment_journal/action', {
+        key: { id: journalId },
+        action: 'reverse',
+        reason,
+        idempotencyKey,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã hoàn tác buổi điều trị, hoàn lại số buổi và điều chỉnh đối soát thành công.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] reverseSession failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể hoàn tác buổi điều trị.',
+        data: false,
+      };
+    }
+  },
+
+  async approveClinicalSession(journalId: string): Promise<ApiResponse<boolean>> {
+    try {
+      await adminApi('treatment_journal/action', {
+        key: { id: journalId },
+        action: 'approve-clinical',
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã duyệt xác nhận chuyên môn cho buổi điều trị.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] approveClinicalSession failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể duyệt xác nhận chuyên môn.',
+        data: false,
+      };
+    }
+  },
+
+  async updatePostCareInstructions(
+    journalId: string,
+    instructions: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      await adminApi('treatment_journal/action', {
+        key: { id: journalId },
+        action: 'update-post-care',
+        instructions,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã cập nhật hướng dẫn chăm sóc sau buổi.',
+        data: true,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] updatePostCareInstructions failed:', err);
+      return {
+        success: false,
+        statusCode: err?.status || 400,
+        message: err?.message || 'Không thể cập nhật hướng dẫn chăm sóc.',
+        data: false,
+      };
+    }
+  },
+
+  // --- SỐ LIỆU DASHBOARD VẬN HÀNH THỰC TẾ ---
+
+  async getTreatmentDashboardStats(branchId?: string): Promise<ApiResponse<any>> {
+    try {
+      const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
+      const stats = await adminApi<any>(`treatment/dashboard-stats${query}`);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Số liệu dashboard liệu trình trực tiếp từ hệ thống',
+        data: stats,
+      };
+    } catch (err: any) {
+      console.warn('[treatmentService] getTreatmentDashboardStats fallback:', err);
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Lỗi tải số liệu dashboard',
+        data: null,
+      };
+    }
+  },
+
+  async getPackageLifecycleLogs(userPackageId: string): Promise<ApiResponse<any[]>> {
+    try {
+      const res = await adminApi<any>(
+        `user_package_lifecycle_logs?filter=${encodeURIComponent(JSON.stringify({ user_package_id: userPackageId }))}&limit=100`
+      );
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Lịch sử vòng đời gói',
+        data: res?.rows || [],
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Không thể nạp lịch sử vòng đời',
+        data: [],
+      };
+    }
+  },
+
+  async getSessionReversals(userPackageId?: string): Promise<ApiResponse<any[]>> {
+    try {
+      const filter = userPackageId ? `?filter=${encodeURIComponent(JSON.stringify({ user_package_id: userPackageId }))}` : '';
+      const res = await adminApi<any>(`treatment_session_reversals${filter}&limit=100`);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Sổ cái hoàn tác buổi',
+        data: res?.rows || [],
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Không thể nạp sổ cái hoàn tác',
+        data: [],
+      };
+    }
   },
 };

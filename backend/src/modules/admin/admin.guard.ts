@@ -207,6 +207,12 @@ export class AdminGuard implements CanActivate {
       const route = String(req.route?.path || '');
       const commandPermission = route.includes('cashier/')
         ? (route.endsWith('/collect') ? 'cashier.collect' : 'cashier.shifts') : null;
+      const isTreatmentDashboard = route.includes('treatment/dashboard-stats');
+      if (isTreatmentDashboard) {
+        const canViewTreatment = ['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST'].includes(user.role) ||
+          permissions.some((p) => ['user_packages.read', 'treatment_journal.read'].includes(p));
+        if (!canViewTreatment) throw new ForbiddenException('Tài khoản chưa được cấp quyền xem số liệu quản trị liệu trình.');
+      }
       const table = req.params.table;
       const operation =
         req.method === 'GET'
@@ -218,7 +224,7 @@ export class AdminGuard implements CanActivate {
         !permissions.length ||
         (commandPermission && !permissions.includes(commandPermission)) ||
         (table && !permissions.includes(`${table}.${operation}`)) ||
-        (!table && String(req.route?.path || '').endsWith('summary'))
+        (!table && !isTreatmentDashboard && String(req.route?.path || '').endsWith('summary'))
       )
         throw new ForbiddenException(
           'Tài khoản chưa được cấp quyền cho thao tác này.',

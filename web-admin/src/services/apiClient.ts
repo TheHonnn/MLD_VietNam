@@ -7,8 +7,18 @@ import { getAdminAuthToken } from './supabaseClient';
  * Lỗi backend được trả về rõ ràng, không thay bằng dữ liệu mô phỏng.
  */
 
-const API_BASE_URL =
-  (import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api/v1';
+export function cleanServiceApiBase(url: string): string {
+  let clean = String(url || '').trim().replace(/\/+$/, '');
+  clean = clean.replace(/\/health$/i, '');
+  if (!clean.endsWith('/api/v1') && !clean.endsWith('/api')) {
+    clean = `${clean}/api/v1`;
+  }
+  return clean.replace(/\/+$/, '');
+}
+
+const API_BASE_URL = cleanServiceApiBase(
+  (import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api/v1',
+);
 
 export class ApiError extends Error {
   statusCode: number;
@@ -26,11 +36,11 @@ interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
 }
 
-class ApiClient {
+export class ApiClient {
   private baseUrl: string;
 
   constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
+    this.baseUrl = cleanServiceApiBase(baseUrl);
   }
 
   private getAuthHeaders(): Record<string, string> {
@@ -51,7 +61,7 @@ class ApiClient {
 
   private buildUrl(endpoint: string, params?: Record<string, any>): string {
     const url = new URL(
-      endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`
+      endpoint.startsWith('http') ? endpoint : `${this.baseUrl}/${endpoint.replace(/^\/+/, '')}`
     );
     if (params) {
       Object.entries(params).forEach(([key, val]) => {

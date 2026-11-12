@@ -31,6 +31,11 @@ class BookingStatusBadge extends StatelessWidget {
         textColor = AppColors.accent;
         label = isSimulated ? 'Đã xác nhận' : 'Đã xác nhận';
         break;
+      case AppointmentStatus.checkedIn:
+        bg = const Color(0xFFECFDF3);
+        textColor = const Color(0xFF166534);
+        label = 'Đã check-in';
+        break;
       case AppointmentStatus.inService:
         bg = AppColors.mintBackground;
         textColor = AppColors.accent;
@@ -45,6 +50,11 @@ class BookingStatusBadge extends StatelessWidget {
         bg = AppColors.surfaceDisabled;
         textColor = AppColors.errorDark;
         label = 'Đã hủy';
+        break;
+      case AppointmentStatus.noShow:
+        bg = const Color(0xFFF3F4F6);
+        textColor = const Color(0xFF4B5563);
+        label = 'Không đến';
         break;
     }
 

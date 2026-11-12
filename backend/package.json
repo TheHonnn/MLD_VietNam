@@ -12,6 +12,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
+    "prestart:prod": "node ../scripts/apply_migration.js 031_treatment_lifecycle_management.sql",
     "start:prod": "node dist/main",
     "lint": "oxlint src/ test/",
     "test": "vitest run",

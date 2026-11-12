@@ -21,7 +21,7 @@ export const menuResources: Record<string, string[]> = {
   '/attendance': ['student_attendance', 'student_academic_records'],
   '/curriculum': ['course_categories', 'courses', 'course_batches', 'batch_schedules', 'course_chapters', 'course_lessons', 'course_quizzes', 'quiz_questions', 'quiz_submissions', 'user_lesson_progress'],
   '/manage/services': ['service_categories', 'services', 'service_materials'],
-  '/manage/staff_profiles': ['staff_profiles', 'technicians', 'staff_leaves'],
+  '/manage/staff_profiles': ['staff_profiles', 'technicians'],
   '/manage/coupons': ['coupons', 'voucher_distribution_rules', 'user_vouchers', 'membership_tier_rules', 'loyalty_point_settings', 'point_transactions'],
   '/manage/roles': ['roles', 'permissions', 'role_permissions', 'user_roles', 'audit_logs'],
 };

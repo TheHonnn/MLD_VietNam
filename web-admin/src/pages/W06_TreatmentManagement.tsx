@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Leaf,
   Calendar,
@@ -21,6 +21,16 @@ import {
   Phone,
   Crown,
   Share2,
+  RotateCcw,
+  Pause,
+  Play,
+  ArrowRightLeft,
+  DollarSign,
+  Ban,
+  History,
+  ShieldAlert,
+  Award,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   treatmentService,
@@ -46,6 +56,7 @@ import {
   PaymentMethod,
   PackageStatus,
   DualSlotAvailability,
+  Booking,
 } from '../types/shared_types';
 
 export const STANDARD_SPA_SLOTS = [
@@ -64,6 +75,7 @@ export const STANDARD_SPA_SLOTS = [
 interface TreatmentPackageUI {
   id: string;
   packageId: string;
+  serviceId?: string | null;
   name: string;
   customerId: string;
   sessionsTotal: number;
@@ -101,23 +113,36 @@ interface TreatmentPackageUI {
     beforePhotos?: string[];
     afterPhotos?: string[];
     treatmentNotes?: string | null;
+    isReversed?: boolean;
+    reversedAt?: string | null;
+    reversalReason?: string | null;
+    clinicalApprovedAt?: string | null;
+    clinicalApprovedBy?: string | null;
+    hasAbnormalReaction?: boolean;
+    adverseReactions?: string | null;
+    treatmentAreas?: string[] | null;
+    treatmentProtocol?: string | null;
+    consumablesUsed?: any[];
   }[];
   historySubtitle: string;
   historyNote: string;
 }
 
 export const W06_TreatmentManagement: React.FC = () => {
+  const navigate = useNavigate();
   const [livePackages, setLivePackages] = useState<SharedTreatmentPackage[]>([]);
   const [liveUserPackages, setLiveUserPackages] = useState<UserPackage[]>([]);
   const [liveServices, setLiveServices] = useState<Service[]>([]);
   const [liveJournals, setLiveJournals] = useState<TreatmentJournal[]>([]);
-  const [liveBookings, setLiveBookings] = useState<import('../types/shared_types').Booking[]>([]);
+  const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const [searchParams] = useSearchParams();
   const packageIdParam = searchParams.get('packageId') || '';
+  const userPackageIdParam = searchParams.get('userPackageId') || '';
+  const registrationAction = searchParams.get('action') || '';
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -140,6 +165,7 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [isBookNextModalOpen, setIsBookNextModalOpen] = useState(false);
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
   const [isAssignPackageModalOpen, setIsAssignPackageModalOpen] = useState(false);
+  const [handledRegistrationAction, setHandledRegistrationAction] = useState(false);
   const [shareModalJournal, setShareModalJournal] = useState<ShareJournalItem | null>(null);
 
   // Form States
@@ -164,17 +190,56 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [treatmentNotes, setTreatmentNotes] = useState('');
   const [treatmentStartTime, setTreatmentStartTime] = useState('');
   const [treatmentEndTime, setTreatmentEndTime] = useState('');
+  const [conditionBefore, setConditionBefore] = useState('');
+  const [conditionAfter, setConditionAfter] = useState('');
+  const [specialistAdvice, setSpecialistAdvice] = useState('');
+  const [selectedSessionBookingId, setSelectedSessionBookingId] = useState('');
   const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
   const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
 
   // Assign Package Form
   const [assignCustomerId, setAssignCustomerId] = useState('');
   const [assignPackageId, setAssignPackageId] = useState('');
+  const [assignStep, setAssignStep] = useState<1 | 2 | 3>(1);
+  const [assignCustomerSearch, setAssignCustomerSearch] = useState('');
+
+  // Extended Clinical Session Form State
+  const [treatmentAreas, setTreatmentAreas] = useState('');
+  const [treatmentProtocol, setTreatmentProtocol] = useState('');
+  const [hasAbnormalReaction, setHasAbnormalReaction] = useState(false);
+  const [adverseReactions, setAdverseReactions] = useState('');
+  const [photoConsentGranted, setPhotoConsentGranted] = useState(true);
+  const [consumablesList, setConsumablesList] = useState<Array<{ name: string; quantity: number; unit: string }>>([]);
+  const [consumableNameInput, setConsumableNameInput] = useState('');
+  const [consumableQtyInput, setConsumableQtyInput] = useState(1);
+  const [consumableUnitInput, setConsumableUnitInput] = useState('ống');
+
+  // Dashboard Stats State
+  const [dashboardStats, setDashboardStats] = useState<any>(null);
+
+  // Reversal Modal State
+  const [reversalTargetJournal, setReversalTargetJournal] = useState<any | null>(null);
+  const [reversalReason, setReversalReason] = useState('');
+  const [isSubmittingReversal, setIsSubmittingReversal] = useState(false);
+
+  // Package Lifecycle Actions State
+  const [actionModalType, setActionModalType] = useState<'pause' | 'resume' | 'extend' | 'cancel' | 'transfer' | 'refund' | null>(null);
+  const [actionReason, setActionReason] = useState('');
+  const [actionExtensionMonths, setActionExtensionMonths] = useState(3);
+  const [actionTransferCustomerId, setActionTransferCustomerId] = useState('');
+  const [actionTransferCustomerSearch, setActionTransferCustomerSearch] = useState('');
+  const [actionRefundAmount, setActionRefundAmount] = useState(0);
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+
+  // Timeline / Audit Log State
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [timelineLogs, setTimelineLogs] = useState<any[]>([]);
+  const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
 
   const fetchTreatmentData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [pkgRes, upkgRes, srvRes, jrnRes, custRes, brRes, techList, bookings] = await Promise.all([
+      const [pkgRes, upkgRes, srvRes, jrnRes, custRes, brRes, techList, bookings, statsRes] = await Promise.all([
         treatmentService.getTreatmentPackages(),
         treatmentService.getUserPackagesByCustomer(),
         treatmentService.getServices(),
@@ -183,7 +248,10 @@ export const W06_TreatmentManagement: React.FC = () => {
         branchService.getAllBranches(),
         supabaseService.getTechnicians(),
         bookingService.getBookings(),
+        treatmentService.getTreatmentDashboardStats(),
       ]);
+
+      if (statsRes.success) setDashboardStats(statsRes.data);
 
       if (pkgRes.success) setLivePackages(pkgRes.data);
       if (upkgRes.success) setLiveUserPackages(upkgRes.data);
@@ -230,12 +298,24 @@ export const W06_TreatmentManagement: React.FC = () => {
         .filter((j) => j.userPackageId === up.id)
         .sort((a, b) => a.sessionNumber - b.sessionNumber);
 
-      const used = up.completedSessions ?? journals.length;
+      // Nhật ký là sổ cái nghiệp vụ; chỉ tính các buổi chưa bị hoàn tác
+      const activeJournals = journals.filter((j) => !j.isReversed);
+      const used = Math.max(Number(up.completedSessions || 0), activeJournals.length);
       const total = up.totalSessions || pkgDef?.totalSessions || 0;
       const remaining = Math.max(0, total - used);
       const progressPercent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
       const expired = Boolean(up.expiresAt && new Date(up.expiresAt).getTime() <= Date.now());
-      const effectiveStatus = expired && up.status === 'ACTIVE'
+      const effectiveStatus = up.status === 'PAUSED'
+        ? 'PAUSED'
+        : up.status === 'CANCELLED'
+        ? 'CANCELLED'
+        : up.status === 'TRANSFERRED'
+        ? 'TRANSFERRED'
+        : up.status === 'REFUNDED'
+        ? 'REFUNDED'
+        : up.status === 'PENDING_PAYMENT'
+        ? 'PENDING_PAYMENT'
+        : expired && up.status === 'ACTIVE'
         ? 'EXPIRED'
         : total > 0 && used >= total
         ? 'COMPLETED'
@@ -256,11 +336,29 @@ export const W06_TreatmentManagement: React.FC = () => {
         EXPIRED: 'Hết hạn',
         CANCELLED: 'Đã hủy',
         PAUSED: 'Tạm dừng',
+        PENDING_PAYMENT: 'Chờ thanh toán',
+        TRANSFERRED: 'Đã chuyển nhượng',
+        REFUNDED: 'Đã hoàn tiền',
       };
       const basePrice = Number(pkgDef?.price || 0);
       const discount = Number(pkgDef?.discountPrice || 0);
       const rawPrice = discount > 0 && discount < basePrice ? discount : basePrice;
       const priceText = `${rawPrice.toLocaleString('vi-VN')}đ`;
+
+      const completedBookingIds = new Set(journals.map((journal) => journal.bookingId).filter(Boolean));
+      const relatedBookings = liveBookings
+        .filter((booking) => {
+          if (booking.customerId !== up.customerId || completedBookingIds.has(booking.id)) return false;
+          if (pkgDef?.serviceId) {
+            return (booking.items || []).some((item) => item.serviceId === pkgDef.serviceId);
+          }
+          return String(booking.specialNotes || '').includes(`user_package_id=${up.id}`);
+        })
+        .sort((a, b) => {
+          const aTime = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
+          const bTime = new Date(`${b.bookingDate}T${b.startTime || '00:00:00'}`).getTime();
+          return aTime - bTime;
+        });
 
       const sessionsHistory: TreatmentPackageUI['sessionsHistory'] = journals.map((j) => {
         const booking = j.bookingId ? bookingMap.get(j.bookingId) : undefined;
@@ -285,16 +383,59 @@ export const W06_TreatmentManagement: React.FC = () => {
           time: timeFromBooking,
           staff: booking?.technician?.fullName,
           room: booking?.room?.name,
-          statusBadge: 'Đã hoàn thành',
+          statusBadge: j.isReversed ? 'Đã hoàn tác' : 'Đã hoàn thành',
+          isReversed: Boolean(j.isReversed),
+          reversedAt: j.reversedAt,
+          reversalReason: j.reversalReason,
+          clinicalApprovedAt: j.clinicalApprovedAt,
+          clinicalApprovedBy: j.clinicalApprovedBy,
+          hasAbnormalReaction: Boolean(j.hasAbnormalReaction),
+          adverseReactions: j.adverseReactions,
+          treatmentAreas: j.treatmentAreas,
+          treatmentProtocol: j.treatmentProtocol,
+          consumablesUsed: j.consumablesUsed || [],
         };
       });
 
+      relatedBookings.forEach((booking, index) => {
+        const statusLabels: Record<string, string> = {
+          PENDING: 'Chờ xác nhận',
+          CONFIRMED: 'Đã xếp lịch',
+          CHECKED_IN: 'Đã check-in',
+          IN_SERVICE: 'Đang phục vụ',
+          CANCELLED: 'Đã hủy',
+          NO_SHOW: 'Không đến',
+        };
+        sessionsHistory.push({
+          id: booking.id,
+          number: String(Math.min(total, used + index + 1)).padStart(2, '0'),
+          totalSessions: total,
+          date: booking.bookingDate
+            ? new Intl.DateTimeFormat('vi-VN').format(new Date(booking.bookingDate))
+            : '—',
+          serviceName,
+          isUpcoming: true,
+          bookingCode: booking.bookingCode,
+          time: `${booking.startTime?.slice(0, 5) || '—'}–${booking.endTime?.slice(0, 5) || '—'}`,
+          staff: booking.technician?.fullName,
+          room: booking.room?.name || booking.assignedBedNumber || undefined,
+          statusBadge: statusLabels[String(booking.status)] || String(booking.status),
+        });
+      });
+
       // Branch determination
-      const branchName = '—';
+      const latestRelatedBooking = [...relatedBookings].sort((a, b) =>
+        new Date(`${b.bookingDate}T${b.startTime || '00:00:00'}`).getTime() -
+        new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime()
+      )[0];
+      const branchName = latestRelatedBooking?.branch?.name ||
+        (latestRelatedBooking?.branchId ? branchMap.get(latestRelatedBooking.branchId)?.name : undefined) ||
+        'Chưa xếp cơ sở';
 
       return {
         id: up.id,
         packageId: up.packageId,
+        serviceId: pkgDef?.serviceId,
         name: treatmentName,
         treatmentName,
         serviceName,
@@ -317,7 +458,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         sessionsHistory,
       };
     });
-  }, [liveUserPackages, livePackages, liveJournals, custMap, serviceMap, bookingMap]);
+  }, [liveUserPackages, livePackages, liveJournals, liveBookings, custMap, serviceMap, bookingMap, branchMap]);
 
   // Filter Logic
   const filteredPackages = useMemo(() => {
@@ -343,6 +484,13 @@ export const W06_TreatmentManagement: React.FC = () => {
       if (filterStatus) {
         if (filterStatus === 'ACTIVE' && pkg.rawStatus !== 'ACTIVE') return false;
         if (filterStatus === 'COMPLETED' && pkg.rawStatus !== 'COMPLETED') return false;
+        if (filterStatus === 'PAUSED' && pkg.rawStatus !== 'PAUSED') return false;
+        if (filterStatus === 'CANCELLED' && pkg.rawStatus !== 'CANCELLED') return false;
+        if (filterStatus === 'REFUNDED' && pkg.rawStatus !== 'REFUNDED') return false;
+        if (filterStatus === 'TRANSFERRED' && pkg.rawStatus !== 'TRANSFERRED') return false;
+        if (filterStatus === 'PENDING_PAYMENT' && pkg.rawStatus !== 'PENDING_PAYMENT') return false;
+        if (filterStatus === 'REVERSED' && !pkg.sessionsHistory.some((s) => s.isReversed)) return false;
+        if (filterStatus === 'ABNORMAL_REACTION' && !pkg.sessionsHistory.some((s) => s.hasAbnormalReaction)) return false;
       }
 
       // 4. Expiry filter
@@ -372,6 +520,12 @@ export const W06_TreatmentManagement: React.FC = () => {
     }
   }, [filteredPackages, selectedPkgId]);
 
+  useEffect(() => {
+    if (userPackageIdParam && packages.some((pkg) => pkg.id === userPackageIdParam)) {
+      setSelectedPkgId(userPackageIdParam);
+    }
+  }, [packages, userPackageIdParam]);
+
   // Fetch DRC slot availability when booking modal is opened
   useEffect(() => {
     if (isBookNextModalOpen && bookingDate) {
@@ -397,6 +551,7 @@ export const W06_TreatmentManagement: React.FC = () => {
     packages[0] || {
       id: '',
       packageId: '',
+      serviceId: null,
       name: 'Chưa có gói liệu trình',
       customerId: '',
       sessionsTotal: 0,
@@ -418,6 +573,22 @@ export const W06_TreatmentManagement: React.FC = () => {
     };
 
   const selectedCustomer = custMap.get(selectedPkg.customerId);
+  const selectedPackageBookings = useMemo(() => {
+    const journalBookingIds = new Set(liveJournals.map((journal) => journal.bookingId).filter(Boolean));
+    return liveBookings
+      .filter((booking) => {
+        if (booking.customerId !== selectedPkg.customerId || journalBookingIds.has(booking.id)) return false;
+        if (!selectedPkg.serviceId) return true;
+        return (booking.items || []).some((item) => item.serviceId === selectedPkg.serviceId);
+      })
+      .sort((a, b) => {
+        const aTime = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
+        const bTime = new Date(`${b.bookingDate}T${b.startTime || '00:00:00'}`).getTime();
+        return bTime - aTime;
+      });
+  }, [liveBookings, liveJournals, selectedPkg.customerId, selectedPkg.serviceId]);
+
+  const selectedSessionBooking = selectedPackageBookings.find((booking) => booking.id === selectedSessionBookingId);
 
   const totalActivePackages = packages.filter((p) => p.rawStatus === 'ACTIVE').length;
   const totalRemainingSessions = packages.reduce((acc, p) => acc + p.remainingSessions, 0);
@@ -436,6 +607,15 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   // --- ACTION: Đặt lịch hẹn buổi tiếp theo ---
   const handleOpenBookModal = () => {
+    if (selectedPkg.rawStatus !== 'ACTIVE') {
+      toast.warning(
+        'Gói không thể đặt lịch',
+        selectedPkg.rawStatus === 'EXPIRED'
+          ? 'Gói đã hết hạn. Hãy gia hạn hoặc đăng ký gói mới trước khi xếp lịch.'
+          : 'Chỉ gói đang hoạt động mới được sử dụng để đặt buổi.'
+      );
+      return;
+    }
     if (!selectedPkg.id || selectedPkg.remainingSessions <= 0) {
       toast.warning('Gói đã hoàn tất', 'Gói liệu trình này đã hoàn thành đầy đủ các buổi.');
       return;
@@ -449,6 +629,18 @@ export const W06_TreatmentManagement: React.FC = () => {
     setBookingNotes(`Buổi ${selectedPkg.usedSessions + 1}/${selectedPkg.sessionsTotal} - ${selectedPkg.name}`);
     setIsBookNextModalOpen(true);
   };
+
+  useEffect(() => {
+    if (
+      !handledRegistrationAction
+      && registrationAction === 'book-first-session'
+      && userPackageIdParam
+      && selectedPkg.id === userPackageIdParam
+    ) {
+      handleOpenBookModal();
+      setHandledRegistrationAction(true);
+    }
+  }, [handledRegistrationAction, registrationAction, selectedPkg.id, userPackageIdParam]);
 
   const handleSubmitBooking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -474,13 +666,16 @@ export const W06_TreatmentManagement: React.FC = () => {
         startTime: selectedSlotObj.startTime,
         endTime: selectedSlotObj.endTime,
         status: BookingStatus.CONFIRMED,
-        paymentStatus: PaymentStatus.PAID,
+        paymentStatus: PaymentStatus.UNPAID,
         paymentMethod: PaymentMethod.MEMBERSHIP_WALLET,
         baseTotal: 0,
         finalPrice: 0,
-        notes: `[Gói ${selectedPkg.name}] ${bookingNotes}`,
+        notes: `[Gói liệu trình: ${selectedPkg.name} | user_package_id=${selectedPkg.id}] ${bookingNotes}`,
+        serviceId: selectedPkg.serviceId || undefined,
         serviceName: selectedPkg.name,
-        durationMinutes: 60,
+        durationMinutes: selectedPkg.serviceId
+          ? serviceMap.get(selectedPkg.serviceId)?.durationMinutes || 60
+          : 60,
       });
 
       if (res.success) {
@@ -510,19 +705,69 @@ export const W06_TreatmentManagement: React.FC = () => {
       );
       return;
     }
-    const now = new Date();
-    setSessionDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
+    const inServiceBooking = selectedPackageBookings.find(
+      (booking) => String(booking.status) === 'IN_SERVICE' && booking.sessionStatus !== 'COMPLETED'
+    );
+    if (!inServiceBooking) {
+      const pendingWorkflowBooking = selectedPackageBookings.find((booking) =>
+        ['PENDING', 'CONFIRMED', 'CHECKED_IN'].includes(String(booking.status))
+      );
+      if (pendingWorkflowBooking) {
+        toast.warning(
+          'Chưa thể ghi nhật ký',
+          'Lịch phải được check-in và bắt đầu phục vụ trước khi ghi nhận buổi chăm sóc.'
+        );
+        navigate(`/staff-schedule?booking=${encodeURIComponent(pendingWorkflowBooking.bookingCode || pendingWorkflowBooking.id)}`);
+      } else {
+        toast.warning(
+          'Chưa có ca đang phục vụ',
+          'Hãy đặt lịch, check-in và bắt đầu phục vụ trước. Hệ thống không trừ buổi bằng ghi nhận thủ công.'
+        );
+        handleOpenBookModal();
+      }
+      return;
+    }
+    setSelectedSessionBookingId(inServiceBooking.id);
+    setSessionDate(inServiceBooking.bookingDate);
     setSessionNumberInput(selectedPkg.usedSessions + 1);
     setTreatmentNotes('');
-    setTreatmentStartTime('');
+    setTreatmentStartTime(
+      inServiceBooking.serviceStartedAt
+        ? new Date(inServiceBooking.serviceStartedAt).toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          })
+        : (inServiceBooking.startTime || '').slice(0, 5)
+    );
     setTreatmentEndTime('');
+    setConditionBefore('');
+    setConditionAfter('');
+    setSpecialistAdvice('');
+    setTreatmentAreas('');
+    setTreatmentProtocol('');
+    setHasAbnormalReaction(false);
+    setAdverseReactions('');
+    setPhotoConsentGranted(true);
+    setConsumablesList([]);
     setEvidenceFiles([]);
     setIsLogSessionModalOpen(true);
   };
 
   const handleSubmitLogSession = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPkg.id) return;
+    if (!selectedPkg.id || !selectedSessionBooking) {
+      toast.error('Thiếu ca phục vụ', 'Không tìm thấy lịch đang thực hiện để liên kết nhật ký.');
+      return;
+    }
+    if (String(selectedSessionBooking.status) !== 'IN_SERVICE' || selectedSessionBooking.sessionStatus === 'COMPLETED') {
+      toast.error('Ca không hợp lệ', 'Chỉ ca đang phục vụ mới được ghi nhật ký và trừ buổi.');
+      return;
+    }
+    if (!conditionBefore.trim() || !conditionAfter.trim() || !treatmentNotes.trim() || !specialistAdvice.trim()) {
+      toast.error('Thiếu hồ sơ chuyên môn', 'Nhập tình trạng trước/sau, nội dung thực hiện và lời dặn chăm sóc.');
+      return;
+    }
 
     setIsSubmittingSession(true);
     try {
@@ -536,20 +781,54 @@ export const W06_TreatmentManagement: React.FC = () => {
         selectedPkg.sessionsTotal,
         {
           customerId: selectedPkg.customerId,
+          bookingId: selectedSessionBooking.id,
+          technicianId: selectedSessionBooking.technicianId || null,
+          assignedRoomId: selectedSessionBooking.assignedRoomId || null,
           sessionNumber: sessionNumberInput,
-          sessionDate,
+          sessionDate: selectedSessionBooking.bookingDate,
+          conditionBefore: conditionBefore.trim(),
+          conditionAfter: conditionAfter.trim(),
           treatmentNotes,
+          specialistAdvice: specialistAdvice.trim(),
           treatmentStartTime: treatmentStartTime || null,
           treatmentEndTime: treatmentEndTime || null,
           afterPhotos: uploadedEvidence,
+          treatmentAreas: treatmentAreas
+            .split(',')
+            .map((area) => area.trim())
+            .filter(Boolean),
+          treatmentProtocol: treatmentProtocol.trim() || null,
+          hasAbnormalReaction,
+          adverseReactions: hasAbnormalReaction ? adverseReactions.trim() : null,
+          consumablesUsed: consumablesList.length > 0 ? consumablesList : null,
+          photosMetadata: {
+            consentGranted: photoConsentGranted,
+            uploadedCount: uploadedEvidence.length,
+            photoType: 'AFTER',
+            capturedAt: new Date().toISOString(),
+          },
         }
       );
 
       if (res.success) {
         const nextUsed = selectedPkg.usedSessions + 1;
+        const finishResult = await bookingService.runWorkflowAction(
+          selectedSessionBooking.id,
+          'finish-service'
+        );
+        if (!finishResult.success) {
+          toast.warning(
+            'Đã lưu hồ sơ nhưng chưa đóng ca',
+            finishResult.message || 'Mở lịch hẹn để hoàn tất chuyên môn và check-out.'
+          );
+          setIsLogSessionModalOpen(false);
+          await fetchTreatmentData();
+          navigate(`/staff-schedule?booking=${encodeURIComponent(selectedSessionBooking.bookingCode || selectedSessionBooking.id)}`);
+          return;
+        }
         toast.success(
-          'Đã ghi nhận buổi chăm sóc',
-          `Hoàn tất buổi ${nextUsed}/${selectedPkg.sessionsTotal}. Hồ sơ điện tử đã được đồng bộ lên Supabase Cloud.`
+          nextUsed >= selectedPkg.sessionsTotal ? 'Đã hoàn tất liệu trình' : 'Đã hoàn tất buổi chăm sóc',
+          `Buổi ${nextUsed}/${selectedPkg.sessionsTotal} đã được ghi nhận và ca phục vụ đã đóng đúng quy trình.`
         );
         setIsLogSessionModalOpen(false);
         await fetchTreatmentData();
@@ -565,24 +844,163 @@ export const W06_TreatmentManagement: React.FC = () => {
     }
   };
 
+  // --- ACTION: Hoàn tác buổi điều trị an toàn ---
+  const handleOpenReversalModal = (journal: any) => {
+    setReversalTargetJournal(journal);
+    setReversalReason('');
+    setIsSubmittingReversal(false);
+  };
+
+  const handleConfirmReversal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reversalTargetJournal?.id) {
+      toast.error('Thiếu thông tin', 'Không tìm thấy buổi điều trị cần hoàn tác.');
+      return;
+    }
+    if (!reversalReason.trim() || reversalReason.trim().length < 5) {
+      toast.error('Lý do không hợp lệ', 'Vui lòng nhập lý do hoàn tác chi tiết (tối thiểu 5 ký tự).');
+      return;
+    }
+
+    setIsSubmittingReversal(true);
+    try {
+      const res = await treatmentService.reverseSession(reversalTargetJournal.id, reversalReason.trim());
+      if (res.success) {
+        toast.success(
+          'Hoàn tác buổi thành công',
+          `Đã hoàn lại 1 buổi cho gói liệu trình, ghi sổ cái hoàn tác và điều chỉnh đối soát.`
+        );
+        setReversalTargetJournal(null);
+        await fetchTreatmentData();
+      } else {
+        toast.error('Lỗi hoàn tác buổi', res.message || 'Không thể hoàn tác buổi điều trị.');
+      }
+    } catch (err: any) {
+      toast.error('Lỗi hệ thống', err.message || 'Không thể kết nối máy chủ.');
+    } finally {
+      setIsSubmittingReversal(false);
+    }
+  };
+
+  // --- ACTION: Duyệt chuyên môn buổi điều trị ---
+  const handleApproveClinical = async (journalId: string) => {
+    try {
+      const res = await treatmentService.approveClinicalSession(journalId);
+      if (res.success) {
+        toast.success('Duyệt chuyên môn thành công', 'Buổi điều trị đã được ghi nhận phê duyệt chuyên môn.');
+        await fetchTreatmentData();
+      } else {
+        toast.error('Lỗi duyệt chuyên môn', res.message || 'Không thể duyệt buổi điều trị.');
+      }
+    } catch (err: any) {
+      toast.error('Lỗi hệ thống', err.message || 'Không thể kết nối máy chủ.');
+    }
+  };
+
+  // --- ACTION: Vận hành vòng đời gói (Pause, Resume, Extend, Cancel, Transfer, Refund) ---
+  const handleExecutePackageAction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPkg.id || !actionModalType) return;
+
+    if (['pause', 'extend', 'cancel', 'transfer', 'refund'].includes(actionModalType) && (!actionReason.trim() || actionReason.trim().length < 3)) {
+      toast.error('Thiếu lý do', 'Vui lòng nhập lý do thực hiện thao tác.');
+      return;
+    }
+
+    setIsSubmittingAction(true);
+    try {
+      let res: any;
+      if (actionModalType === 'pause') {
+        res = await treatmentService.pausePackage(selectedPkg.id, actionReason.trim());
+      } else if (actionModalType === 'resume') {
+        res = await treatmentService.resumePackage(selectedPkg.id);
+      } else if (actionModalType === 'extend') {
+        res = await treatmentService.extendPackage(selectedPkg.id, Number(actionExtensionMonths) || 3, actionReason.trim());
+      } else if (actionModalType === 'cancel') {
+        res = await treatmentService.cancelPackage(selectedPkg.id, actionReason.trim());
+      } else if (actionModalType === 'transfer') {
+        if (!actionTransferCustomerId) {
+          toast.error('Thiếu khách hàng nhận', 'Vui lòng chọn khách hàng nhận chuyển nhượng.');
+          setIsSubmittingAction(false);
+          return;
+        }
+        res = await treatmentService.transferPackage(selectedPkg.id, actionTransferCustomerId, actionReason.trim());
+      } else if (actionModalType === 'refund') {
+        if (!actionRefundAmount || actionRefundAmount <= 0) {
+          toast.error('Số tiền không hợp lệ', 'Vui lòng nhập số tiền hoàn hợp lệ lớn hơn 0đ.');
+          setIsSubmittingAction(false);
+          return;
+        }
+        res = await treatmentService.refundPackage(selectedPkg.id, actionRefundAmount, actionReason.trim());
+      }
+
+      if (res?.success) {
+        toast.success('Thao tác thành công', res.message || 'Cập nhật vòng đời gói thành công.');
+        setActionModalType(null);
+        setActionReason('');
+        setActionTransferCustomerId('');
+        setActionRefundAmount(0);
+        await fetchTreatmentData();
+      } else {
+        toast.error('Lỗi thực hiện', res?.message || 'Không thể thực hiện thao tác.');
+      }
+    } catch (err: any) {
+      toast.error('Lỗi hệ thống', err.message || 'Không thể kết nối máy chủ.');
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
+
+  // --- ACTION: Xem Timeline kiểm toán gói ---
+  const handleOpenTimeline = async () => {
+    if (!selectedPkg.id) return;
+    setIsTimelineOpen(true);
+    setIsLoadingTimeline(true);
+    try {
+      const res = await treatmentService.getPackageLifecycleLogs(selectedPkg.id);
+      if (res.success) {
+        setTimelineLogs(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoadingTimeline(false);
+    }
+  };
+
   // --- ACTION: Đăng ký gói liệu trình mới ---
   const handleOpenAssignPackageModal = () => {
     setAssignCustomerId('');
     setAssignPackageId('');
+    setAssignStep(1);
+    setAssignCustomerSearch('');
     setIsAssignPackageModalOpen(true);
   };
 
-  const handleSubmitAssignPackage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitAssignPackage = () => {
     const pkg = livePackages.find((p) => p.id === assignPackageId && p.isActive);
     const cust = customers.find((c) => c.id === assignCustomerId);
 
     if (!pkg || !cust) {
-      toast.error('Thiếu thông tin', 'Chọn khách hàng và gói đang mở bán.');
+      toast.error('Thiếu thông tin', 'Thông tin khách hàng hoặc liệu trình không còn hợp lệ. Vui lòng kiểm tra lại.');
       return;
     }
-    window.location.href = `/cashier-pos?packageId=${encodeURIComponent(pkg.id)}&packageName=${encodeURIComponent(pkg.name)}&customerId=${encodeURIComponent(cust.id)}`;
+    window.location.href = `/cashier-pos?flow=treatment-registration&packageId=${encodeURIComponent(pkg.id)}&packageName=${encodeURIComponent(pkg.name)}&customerId=${encodeURIComponent(cust.id)}`;
   };
+
+  const selectedAssignCustomer = customers.find((customer) => customer.id === assignCustomerId);
+  const selectedAssignPackage = livePackages.find((pkg) => pkg.id === assignPackageId && pkg.isActive);
+  const assignPackagePrice = selectedAssignPackage
+    ? Number(selectedAssignPackage.discountPrice) > 0 && Number(selectedAssignPackage.discountPrice) < Number(selectedAssignPackage.price)
+      ? Number(selectedAssignPackage.discountPrice)
+      : Number(selectedAssignPackage.price)
+    : 0;
+  const assignPackageSavings = selectedAssignPackage
+    ? Math.max(0, Number(selectedAssignPackage.price) - assignPackagePrice)
+    : 0;
+  const filteredAssignCustomers = customers.filter((customer) =>
+    matchSearch([customer.fullName, customer.phone, customer.email], assignCustomerSearch)
+  );
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -624,47 +1042,71 @@ export const W06_TreatmentManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Top 3 Metric Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        {/* Metric 1 */}
-        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 sm:p-5 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-[#73675F] whitespace-nowrap">
-            <span>Gói đang sử dụng</span>
+      {/* 2. Operational KPI Summary Dashboard */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* KPI 1: Vòng đời gói */}
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs">
+          <div className="flex items-center justify-between text-xs text-[#73675F]">
+            <span>Gói đang lưu hành</span>
             <Leaf className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
-          <div className="text-[28px] sm:text-[32px] font-extrabold text-[#2C241E] leading-none mt-2 whitespace-nowrap">
-            {totalActivePackages}
+          <div className="text-[28px] font-extrabold text-[#2C241E] leading-none mt-2">
+            {dashboardStats?.activePackages ?? totalActivePackages}
           </div>
-          <div className="text-[11px] text-[#73675F] mt-2 whitespace-nowrap">
-            Gói đang lưu hành trên hệ thống
+          <div className="flex items-center gap-2 text-[11px] text-[#73675F] mt-2 flex-wrap">
+            <span className="text-[#B45309] font-medium">Tạm dừng: {dashboardStats?.pausedPackages ?? 0}</span>
+            <span>•</span>
+            <span className="text-[#DC2626] font-medium">Hết hạn: {dashboardStats?.expiredPackages ?? 0}</span>
           </div>
         </div>
 
-        {/* Metric 2 */}
-        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 sm:p-5 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-[#73675F] whitespace-nowrap">
-            <span>Buổi còn lại</span>
+        {/* KPI 2: Buổi liệu trình & Sổ cái */}
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs">
+          <div className="flex items-center justify-between text-xs text-[#73675F]">
+            <span>Buổi khả dụng / Đã dùng</span>
             <Calendar className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
-          <div className="text-[28px] sm:text-[32px] font-extrabold text-[#2C241E] leading-none mt-2 whitespace-nowrap">
-            {totalRemainingSessions}
+          <div className="text-[28px] font-extrabold text-[#2C241E] leading-none mt-2">
+            {dashboardStats?.remainingSessions ?? totalRemainingSessions}
+            <span className="text-sm font-normal text-[#73675F] ml-1.5">
+              / {dashboardStats?.usedSessions ?? totalUsedSessions} đã dùng
+            </span>
           </div>
-          <div className="text-[11px] text-[#73675F] mt-2 whitespace-nowrap">
-            Buổi khả dụng chờ xếp lịch
+          <div className="text-[11px] text-[#73675F] mt-2">
+            Tổng phác đồ: {(dashboardStats?.remainingSessions ?? totalRemainingSessions) + (dashboardStats?.usedSessions ?? totalUsedSessions)} buổi
           </div>
         </div>
 
-        {/* Metric 3 */}
-        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 sm:p-5 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-[#73675F] whitespace-nowrap">
-            <span>Buổi đã sử dụng</span>
+        {/* KPI 3: Vận hành & Hoàn tác */}
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs">
+          <div className="flex items-center justify-between text-xs text-[#73675F]">
+            <span>Lịch hẹn & Đối soát</span>
             <SlidersHorizontal className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
-          <div className="text-[28px] sm:text-[32px] font-extrabold text-[#2C241E] leading-none mt-2 whitespace-nowrap">
-            {totalUsedSessions}
+          <div className="text-[28px] font-extrabold text-[#2C241E] leading-none mt-2">
+            {dashboardStats?.upcomingBookings ?? 0}
+            <span className="text-xs font-normal text-[#73675F] ml-1.5">lịch sắp tới</span>
           </div>
-          <div className="text-[11px] text-[#73675F] mt-2 whitespace-nowrap">
-            Buổi đã trị liệu thực tế
+          <div className="flex items-center gap-1.5 text-[11px] text-[#73675F] mt-2">
+            <RotateCcw className="w-3.5 h-3.5 text-[#B45309]" />
+            <span>Đã hoàn tác: <strong className="text-[#B45309]">{dashboardStats?.reversalsCount ?? 0}</strong> ca</span>
+          </div>
+        </div>
+
+        {/* KPI 4: Lâm sàng & Đồng bộ Outbox */}
+        <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs">
+          <div className="flex items-center justify-between text-xs text-[#73675F]">
+            <span>Giám sát chuyên môn</span>
+            <ShieldAlert className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
+          </div>
+          <div className="text-[28px] font-extrabold text-[#2C241E] leading-none mt-2">
+            {dashboardStats?.abnormalReactionsCount ?? 0}
+            <span className="text-xs font-normal text-[#DC2626] ml-1.5">phản ứng bất thường</span>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-[#73675F] mt-2 flex-wrap">
+            <span>Kho chờ sync: <strong>{dashboardStats?.pendingInventorySync ?? 0}</strong></span>
+            <span>•</span>
+            <span>Hoa hồng chờ: <strong>{dashboardStats?.pendingCommissionsCount ?? 0}</strong></span>
           </div>
         </div>
       </div>
@@ -713,7 +1155,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         </div>
 
         {/* Dropdown 2: Trạng thái */}
-        <div className="relative min-w-[140px] flex-1 sm:flex-none">
+        <div className="relative min-w-[160px] flex-1 sm:flex-none">
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -721,7 +1163,14 @@ export const W06_TreatmentManagement: React.FC = () => {
           >
             <option value="">Tất cả trạng thái</option>
             <option value="ACTIVE">Đang sử dụng</option>
+            <option value="PAUSED">Tạm dừng</option>
             <option value="COMPLETED">Hoàn tất</option>
+            <option value="EXPIRED">Hết hạn</option>
+            <option value="CANCELLED">Đã hủy</option>
+            <option value="TRANSFERRED">Đã chuyển nhượng</option>
+            <option value="REFUNDED">Đã hoàn tiền</option>
+            <option value="REVERSED">Có buổi đã hoàn tác</option>
+            <option value="ABNORMAL_REACTION">Có phản ứng bất thường</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -855,6 +1304,14 @@ export const W06_TreatmentManagement: React.FC = () => {
                           className={`inline-block mt-1 px-2.5 py-0.5 rounded-md text-[10.5px] font-semibold whitespace-nowrap ${
                             pkg.rawStatus === 'COMPLETED'
                               ? 'bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]'
+                              : pkg.rawStatus === 'PAUSED'
+                              ? 'bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]'
+                              : pkg.rawStatus === 'EXPIRED'
+                              ? 'bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA]'
+                              : pkg.rawStatus === 'CANCELLED' || pkg.rawStatus === 'REFUNDED'
+                              ? 'bg-[#F3F4F6] text-[#6B7280] border border-[#E5E7EB]'
+                              : pkg.rawStatus === 'TRANSFERRED'
+                              ? 'bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE]'
                               : 'bg-[#F5E9DB] text-[#8A4F23] border border-[#E8DFD8]'
                           }`}
                         >
@@ -959,13 +1416,51 @@ export const W06_TreatmentManagement: React.FC = () => {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-[#E8F5E9] text-[#2E7D32] border border-[#C8E6C9] flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Đã hoàn thành
-                        </span>
+                        {s.isReversed ? (
+                          <span className="px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA] flex items-center gap-1">
+                            <RotateCcw className="w-3 h-3" /> Đã hoàn tác
+                          </span>
+                        ) : s.isUpcoming ? (
+                          <span className="px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> {s.statusBadge}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-[#E8F5E9] text-[#2E7D32] border border-[#C8E6C9] flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Đã hoàn thành
+                          </span>
+                        )}
                         <span className="text-xs font-bold text-[#2C241E]">Buổi {s.number} · {s.date}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-[#73675F] font-medium">{s.treatmentNotes || '—'}</span>
+                        {s.id && !s.isReversed && !s.isUpcoming && (
+                          <>
+                            {s.clinicalApprovedAt ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 text-[10.5px] font-semibold text-[#1E40AF] bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg">
+                                <Award className="w-3 h-3" /> Đã duyệt
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveClinical(s.id!)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-[#1E40AF] bg-white hover:bg-[#EFF6FF] border border-[#93C5FD] rounded-lg transition-all shadow-xs cursor-pointer"
+                                title="Xác nhận duyệt chuyên môn cho buổi điều trị này"
+                              >
+                                <Award className="w-3.5 h-3.5" />
+                                <span>Duyệt</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenReversalModal(s)}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-[#DC2626] bg-white hover:bg-[#FEF2F2] border border-[#FECACA] rounded-lg transition-all shadow-xs cursor-pointer"
+                              title="Hoàn tác buổi này và hoàn trả lại 1 buổi vào gói liệu trình"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Hoàn tác</span>
+                            </button>
+                          </>
+                        )}
                         {s.id && (
                           <button
                             type="button"
@@ -988,6 +1483,36 @@ export const W06_TreatmentManagement: React.FC = () => {
                         )}
                       </div>
                     </div>
+
+                    {s.isReversed && (
+                      <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-lg p-2.5 text-xs text-[#991B1B] space-y-1">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Buổi này đã được hoàn tác an toàn và hoàn trả lại vào gói</span>
+                        </div>
+                        <div><strong>Lý do hoàn tác:</strong> {s.reversalReason || '—'}</div>
+                        <div className="text-[10.5px] text-[#B91C1C]">
+                          Thời điểm: {s.reversedAt ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(s.reversedAt)) : '—'}
+                        </div>
+                      </div>
+                    )}
+
+                    {s.hasAbnormalReaction && (
+                      <div className="p-2.5 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-xs text-[#991B1B] flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-[#DC2626]" />
+                        <div>
+                          <span className="font-bold">Cảnh báo phản ứng bất thường: </span>
+                          <span>{s.adverseReactions || 'Có ghi nhận phản ứng bất thường cần theo dõi lâm sàng.'}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {s.consumablesUsed && s.consumablesUsed.length > 0 && (
+                      <div className="text-[11px] text-[#554A41] bg-white p-2.5 rounded-lg border border-[#EFE4D9]">
+                        <span className="font-semibold text-[#8A4F23]">Vật tư tiêu hao ghi nhận: </span>
+                        <span>{s.consumablesUsed.map((c: any) => `${c.name} (${c.quantity} ${c.unit || ''})`).join(' • ')}</span>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-[#554A41]">
                       <div><span className="font-semibold text-[#8A4F23]">Giờ điều trị:</span> {s.treatmentStartTime?.slice(0, 5) || '—'}{s.treatmentEndTime ? `–${s.treatmentEndTime.slice(0, 5)}` : ''}</div>
@@ -1114,24 +1639,189 @@ export const W06_TreatmentManagement: React.FC = () => {
               </span>
             </div>
 
-            {/* Action Button: Ghi nhận buổi chăm sóc */}
-            <button
-              type="button"
-              onClick={handleOpenLogSessionModal}
-              disabled={selectedPkg.remainingSessions <= 0}
-              className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all text-center shadow-2xs mt-2 flex items-center justify-center gap-1.5 ${
-                selectedPkg.remainingSessions > 0
-                  ? 'bg-white border border-[#D7BBA6] text-[#8A4F23] hover:bg-[#FAF8F5] cursor-pointer'
-                  : 'bg-[#F5F2EB] text-[#A69788] border border-[#E8DFD8] cursor-not-allowed'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              <span>
-                {selectedPkg.remainingSessions > 0
-                  ? 'Ghi nhận buổi chăm sóc'
-                  : 'Liệu trình đã hoàn tất'}
-              </span>
-            </button>
+            {/* Contextual Status Banner & Việc tiếp theo */}
+            {selectedPkg.rawStatus === 'PAUSED' && (
+              <div className="p-3 rounded-xl bg-[#FEF3C7] border border-[#FDE68A] text-xs text-[#92400E] space-y-2">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <Pause className="w-4 h-4 text-[#D97706]" />
+                  <span>Gói đang tạm dừng</span>
+                </div>
+                <p className="text-[11px] leading-relaxed">Khách hàng tạm thời không thể đặt lịch mới. Mở lại gói để tiếp tục phác đồ.</p>
+                <button
+                  type="button"
+                  onClick={() => setActionModalType('resume')}
+                  className="w-full py-2 bg-[#D97706] hover:bg-[#B45309] text-white font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>Mở lại gói ngay</span>
+                </button>
+              </div>
+            )}
+
+            {selectedPkg.rawStatus === 'EXPIRED' && (
+              <div className="p-3 rounded-xl bg-[#FEE2E2] border border-[#FECACA] text-xs text-[#991B1B] space-y-2">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <AlertCircle className="w-4 h-4 text-[#DC2626]" />
+                  <span>Gói đã hết hạn ({selectedPkg.expiryDate})</span>
+                </div>
+                <p className="text-[11px] leading-relaxed">Vui lòng gia hạn thêm thời hạn hoặc tư vấn khách đăng ký gói mới.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionModalType('extend');
+                    setActionReason('');
+                    setActionExtensionMonths(3);
+                  }}
+                  className="w-full py-2 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Gia hạn thời hạn gói</span>
+                </button>
+              </div>
+            )}
+
+            {selectedPkg.rawStatus === 'ACTIVE' && selectedPkg.remainingSessions > 0 && (
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleOpenBookModal}
+                  className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>Đặt buổi tiếp theo ({selectedPkg.usedSessions + 1}/{selectedPkg.sessionsTotal})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenLogSessionModal}
+                  className="w-full py-2 bg-white border border-[#D7BBA6] text-[#8A4F23] hover:bg-[#FAF8F5] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Ghi nhận ca đang phục vụ</span>
+                </button>
+              </div>
+            )}
+
+            {selectedPkg.rawStatus === 'COMPLETED' && (
+              <div className="p-3 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0] text-xs text-[#065F46] space-y-2">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <CheckCircle2 className="w-4 h-4 text-[#059669]" />
+                  <span>Đã hoàn thành toàn bộ phác đồ</span>
+                </div>
+                <p className="text-[11px] leading-relaxed">Đã thực hiện đủ {selectedPkg.sessionsTotal} buổi. Đăng ký liệu trình mới nếu khách cần duy trì.</p>
+                <button
+                  type="button"
+                  onClick={handleOpenAssignPackageModal}
+                  className="w-full py-2 bg-[#059669] hover:bg-[#047857] text-white font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Đăng ký gói mới</span>
+                </button>
+              </div>
+            )}
+
+            {['CANCELLED', 'REFUNDED', 'TRANSFERRED'].includes(selectedPkg.rawStatus) && (
+              <div className="p-3 rounded-xl bg-[#F3F4F6] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-1">
+                <div className="font-bold">Gói ở trạng thái: {selectedPkg.status}</div>
+                <p className="text-[11px]">Hồ sơ lưu trữ bất biến. Không thể thực hiện đặt buổi mới.</p>
+              </div>
+            )}
+
+            {/* Vận hành vòng đời gói (Admin Controls) */}
+            <div className="pt-2 border-t border-[#EFE4D9] space-y-2">
+              <div className="text-[11px] font-bold text-[#73675F] uppercase tracking-wide">
+                Vận hành gói (Chỉ Admin)
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 text-xs">
+                {selectedPkg.rawStatus === 'ACTIVE' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionModalType('pause');
+                      setActionReason('');
+                    }}
+                    className="p-2 border border-[#E8DFD8] rounded-xl hover:bg-[#FAF8F5] text-[#73675F] flex items-center justify-center gap-1 cursor-pointer font-medium"
+                  >
+                    <Pause className="w-3.5 h-3.5 text-[#D97706]" />
+                    <span>Tạm dừng</span>
+                  </button>
+                )}
+                {selectedPkg.rawStatus === 'PAUSED' && (
+                  <button
+                    type="button"
+                    onClick={() => setActionModalType('resume')}
+                    className="p-2 border border-[#E8DFD8] rounded-xl hover:bg-[#FAF8F5] text-[#73675F] flex items-center justify-center gap-1 cursor-pointer font-medium"
+                  >
+                    <Play className="w-3.5 h-3.5 text-[#059669]" />
+                    <span>Mở lại</span>
+                  </button>
+                )}
+                {['ACTIVE', 'PAUSED', 'EXPIRED'].includes(selectedPkg.rawStatus) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionModalType('extend');
+                      setActionReason('');
+                      setActionExtensionMonths(3);
+                    }}
+                    className="p-2 border border-[#E8DFD8] rounded-xl hover:bg-[#FAF8F5] text-[#73675F] flex items-center justify-center gap-1 cursor-pointer font-medium"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-[#8A4F23]" />
+                    <span>Gia hạn</span>
+                  </button>
+                )}
+                {['ACTIVE', 'PAUSED'].includes(selectedPkg.rawStatus) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionModalType('transfer');
+                      setActionReason('');
+                      setActionTransferCustomerId('');
+                    }}
+                    className="p-2 border border-[#E8DFD8] rounded-xl hover:bg-[#FAF8F5] text-[#73675F] flex items-center justify-center gap-1 cursor-pointer font-medium"
+                  >
+                    <ArrowRightLeft className="w-3.5 h-3.5 text-[#4F46E5]" />
+                    <span>Chuyển nhượng</span>
+                  </button>
+                )}
+                {['ACTIVE', 'PAUSED'].includes(selectedPkg.rawStatus) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionModalType('refund');
+                      setActionReason('');
+                      setActionRefundAmount(selectedPkg.rawPrice);
+                    }}
+                    className="p-2 border border-[#E8DFD8] rounded-xl hover:bg-[#FAF8F5] text-[#73675F] flex items-center justify-center gap-1 cursor-pointer font-medium"
+                  >
+                    <DollarSign className="w-3.5 h-3.5 text-[#059669]" />
+                    <span>Hoàn tiền</span>
+                  </button>
+                )}
+                {['ACTIVE', 'PAUSED'].includes(selectedPkg.rawStatus) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionModalType('cancel');
+                      setActionReason('');
+                    }}
+                    className="p-2 border border-[#E8DFD8] rounded-xl hover:bg-[#FEF2F2] text-[#DC2626] flex items-center justify-center gap-1 cursor-pointer font-medium"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>Hủy gói</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Xem Timeline bất biến */}
+              <button
+                type="button"
+                onClick={handleOpenTimeline}
+                className="w-full py-2 bg-[#FAF8F5] hover:bg-[#F3EBE1] border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#8A4F23] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>Xem Timeline kiểm toán vòng đời</span>
+              </button>
+            </div>
           </div>
 
           {/* Card 2: Session Ledger Policy */}
@@ -1168,7 +1858,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* ======================================================== */}
       {isBookNextModalOpen && (
         <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
             {/* Modal Header */}
             <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5]">
               <div className="flex items-center gap-2.5">
@@ -1363,7 +2053,7 @@ export const W06_TreatmentManagement: React.FC = () => {
             </div>
 
             {/* Modal Body */}
-            <form onSubmit={handleSubmitLogSession} className="p-5 space-y-3.5">
+            <form onSubmit={handleSubmitLogSession} className="p-5 space-y-3.5 overflow-y-auto">
               <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] text-xs space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Khách hàng:</span>
@@ -1372,6 +2062,12 @@ export const W06_TreatmentManagement: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Liệu trình:</span>
                   <span className="font-semibold text-[#8A4F23]">{selectedPkg.name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#73675F]">Ca phục vụ:</span>
+                  <span className="font-semibold text-[#2C241E]">
+                    {selectedSessionBooking?.bookingCode} · {selectedSessionBooking?.startTime?.slice(0, 5)}–{selectedSessionBooking?.endTime?.slice(0, 5)}
+                  </span>
                 </div>
               </div>
 
@@ -1397,22 +2093,165 @@ export const W06_TreatmentManagement: React.FC = () => {
                 <input
                   type="date"
                   required
+                  readOnly
                   value={sessionDate}
-                  onChange={(e) => setSessionDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E]"
                 />
+                <p className="mt-1 text-[10px] text-[#8C7A6B]">Ngày được khóa theo lịch hẹn đang phục vụ.</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Giờ bắt đầu điều trị</label>
                   <input type="time" value={treatmentStartTime} onChange={(e) => setTreatmentStartTime(e.target.value)} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]" />
-                  <p className="mt-1 text-[10px] text-[#8C7A6B]">Tự điền nếu không có lịch hẹn liên kết.</p>
+                  <p className="mt-1 text-[10px] text-[#8C7A6B]">Lấy từ thời điểm bắt đầu phục vụ; có thể hiệu chỉnh theo thực tế.</p>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Giờ kết thúc điều trị</label>
                   <input type="time" value={treatmentEndTime} onChange={(e) => setTreatmentEndTime(e.target.value)} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]" />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Tình trạng trước buổi <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={conditionBefore}
+                    onChange={(e) => setConditionBefore(e.target.value)}
+                    placeholder="Ghi nhận tình trạng, vùng cần can thiệp, chống chỉ định..."
+                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Tình trạng sau buổi <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={conditionAfter}
+                    onChange={(e) => setConditionAfter(e.target.value)}
+                    placeholder="Phản ứng sau chăm sóc, mức cải thiện và lưu ý theo dõi..."
+                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Vùng điều trị / Mục tiêu
+                  </label>
+                  <input
+                    type="text"
+                    value={treatmentAreas}
+                    onChange={(e) => setTreatmentAreas(e.target.value)}
+                    placeholder="Ví dụ: Vùng mặt, cổ, vai gáy..."
+                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Phác đồ / Protocol áp dụng
+                  </label>
+                  <input
+                    type="text"
+                    value={treatmentProtocol}
+                    onChange={(e) => setTreatmentProtocol(e.target.value)}
+                    placeholder="Ví dụ: MLD-FACIAL-STANDARD-01..."
+                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+              </div>
+
+              {/* Vật tư tiêu hao trong buổi */}
+              <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] space-y-2">
+                <label className="block text-xs font-bold text-[#2C241E]">
+                  Khai báo vật tư tiêu hao (Kho tự động đồng bộ)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Tên vật tư (vd: Tinh chất B5)"
+                    value={consumableNameInput}
+                    onChange={(e) => setConsumableNameInput(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs"
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    value={consumableQtyInput}
+                    onChange={(e) => setConsumableQtyInput(Number(e.target.value) || 1)}
+                    className="w-16 px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs text-center"
+                  />
+                  <input
+                    type="text"
+                    placeholder="ĐVT"
+                    value={consumableUnitInput}
+                    onChange={(e) => setConsumableUnitInput(e.target.value)}
+                    className="w-16 px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!consumableNameInput.trim()) return;
+                      setConsumablesList((prev) => [
+                        ...prev,
+                        { name: consumableNameInput.trim(), quantity: consumableQtyInput, unit: consumableUnitInput.trim() || 'ống' },
+                      ]);
+                      setConsumableNameInput('');
+                      setConsumableQtyInput(1);
+                    }}
+                    className="px-3 py-1.5 bg-[#8A4F23] hover:bg-[#6D3D1A] text-white rounded-lg text-xs font-semibold cursor-pointer shrink-0"
+                  >
+                    + Thêm
+                  </button>
+                </div>
+                {consumablesList.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {consumablesList.map((item, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs bg-white border border-[#E8DFD8] text-[#554A41]"
+                      >
+                        <span>{item.name}: <strong>{item.quantity} {item.unit}</strong></span>
+                        <button
+                          type="button"
+                          onClick={() => setConsumablesList((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-[#991B1B] hover:text-red-700 font-bold ml-1 cursor-pointer"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Phản ứng bất thường */}
+              <div className="space-y-2 p-3 rounded-xl border border-[#E8DFD8]">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#2C241E]">
+                  <input
+                    type="checkbox"
+                    checked={hasAbnormalReaction}
+                    onChange={(e) => setHasAbnormalReaction(e.target.checked)}
+                    className="w-4 h-4 rounded text-[#985018] focus:ring-[#985018]"
+                  />
+                  <span>Ghi nhận phản ứng bất thường / Chống chỉ định lâm sàng</span>
+                </label>
+                {hasAbnormalReaction && (
+                  <textarea
+                    rows={2}
+                    value={adverseReactions}
+                    onChange={(e) => setAdverseReactions(e.target.value)}
+                    placeholder="Mô tả cụ thể phản ứng (ví dụ: đỏ rát kéo dài, ngứa, kích ứng nhẹ vùng má)..."
+                    className="w-full px-3 py-2 bg-white border border-red-300 rounded-xl text-xs text-red-900 focus:outline-none focus:border-red-500"
+                  />
+                )}
               </div>
 
               <div>
@@ -1430,10 +2269,36 @@ export const W06_TreatmentManagement: React.FC = () => {
               </div>
 
               <div>
+                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  Lời dặn chăm sóc sau buổi <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={specialistAdvice}
+                  onChange={(e) => setSpecialistAdvice(e.target.value)}
+                  placeholder="Hướng dẫn tại nhà, điều cần tránh và thời điểm nên đặt buổi tiếp theo..."
+                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Hình ảnh minh chứng</label>
                 <input type="file" accept="image/*" multiple onChange={(e) => setEvidenceFiles(Array.from(e.target.files || []))} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E]" />
-                <p className="mt-1 text-[10px] text-[#8C7A6B]">Admin tự tải ảnh lên; ảnh sẽ lưu vào nhật ký điều trị.</p>
+                <p className="mt-1 text-[10px] text-[#8C7A6B]">Admin tự tải ảnh lên; ảnh sẽ lưu vào nhật ký điều trị (storage reference).</p>
                 {evidenceFiles.length > 0 && <p className="mt-1 text-[10px] text-[#2E7D32]">Đã chọn {evidenceFiles.length} ảnh.</p>}
+              </div>
+
+              <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9]">
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-[#554A41]">
+                  <input
+                    type="checkbox"
+                    checked={photoConsentGranted}
+                    onChange={(e) => setPhotoConsentGranted(e.target.checked)}
+                    className="w-4 h-4 rounded text-[#985018] focus:ring-[#985018]"
+                  />
+                  <span>Khách hàng đã ký cam kết đồng ý lưu trữ / theo dõi hình ảnh chuyên môn</span>
+                </label>
               </div>
 
               {/* Modal Footer */}
@@ -1474,85 +2339,576 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* ======================================================== */}
       {isAssignPackageModalOpen && (
         <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5]">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-5 border-b border-[#EFE4D9] bg-[#FAF8F5]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-extrabold text-[#3E200C]">Đăng ký liệu trình cho khách hàng</h3>
+                  <p className="text-xs text-[#73675F] mt-1">Chọn đúng khách, kiểm tra gói và chuyển sang thu ngân để kích hoạt hồ sơ.</p>
+                </div>
+              <button
+                type="button"
+                onClick={() => setIsAssignPackageModalOpen(false)}
+                  aria-label="Đóng quy trình đăng ký"
+                  className="p-2 text-[#8C7A6B] hover:text-[#2C241E] rounded-lg hover:bg-[#EFE4D9] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              </div>
+              <ol className="grid grid-cols-3 gap-2 mt-5" aria-label="Tiến trình đăng ký liệu trình">
+                {[
+                  { step: 1, label: 'Chọn khách hàng' },
+                  { step: 2, label: 'Chọn gói liệu trình' },
+                  { step: 3, label: 'Kiểm tra & thanh toán' },
+                ].map((item) => {
+                  const active = assignStep === item.step;
+                  const completed = assignStep > item.step;
+                  return (
+                    <li key={item.step} className="min-w-0">
+                      <div className={`h-1 rounded-full ${active || completed ? 'bg-[#985018]' : 'bg-[#E8DFD8]'}`} />
+                      <div className={`mt-2 flex items-center gap-2 text-[11px] font-semibold ${active ? 'text-[#8A4F23]' : completed ? 'text-[#2C241E]' : 'text-[#8C7A6B]'}`}>
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${active || completed ? 'bg-[#985018] text-white' : 'bg-[#EFE4D9]'}`}>
+                          {completed ? <CheckCircle2 className="w-3.5 h-3.5" /> : item.step}
+                        </span>
+                        <span className="truncate">{item.label}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+
+            <form onSubmit={(event) => event.preventDefault()} className="min-h-0 flex flex-1 flex-col">
+              <div className="p-6 overflow-y-auto flex-1">
+                {assignStep === 1 && (
+                  <section aria-labelledby="assign-customer-heading">
+                    <div className="mb-4">
+                      <h4 id="assign-customer-heading" className="text-sm font-bold text-[#2C241E]">Khách hàng nào đăng ký liệu trình?</h4>
+                      <p className="text-xs text-[#73675F] mt-1">Tìm theo tên, số điện thoại hoặc email. Hồ sơ này sẽ đứng tên gói và hóa đơn.</p>
+                    </div>
+                    <label className="relative block mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8C7A6B]" />
+                      <input
+                        autoFocus
+                        value={assignCustomerSearch}
+                        onChange={(event) => setAssignCustomerSearch(event.target.value)}
+                        placeholder="Tìm tên, số điện thoại hoặc email..."
+                        className="w-full pl-10 pr-3 py-2.5 border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
+                      />
+                    </label>
+                    <div className="border border-[#EFE4D9] rounded-xl divide-y divide-[#EFE4D9] max-h-[340px] overflow-y-auto">
+                      {filteredAssignCustomers.length === 0 ? (
+                        <div className="p-8 text-center text-xs text-[#73675F]">Không tìm thấy khách hàng phù hợp.</div>
+                      ) : filteredAssignCustomers.map((customer) => {
+                        const selected = assignCustomerId === customer.id;
+                        return (
+                          <button
+                            key={customer.id}
+                            type="button"
+                            onClick={() => setAssignCustomerId(customer.id)}
+                            className={`w-full p-3.5 text-left flex items-center gap-3 transition-colors ${selected ? 'bg-[#FAF0E4]' : 'bg-white hover:bg-[#FAF8F5]'}`}
+                          >
+                            <span className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${selected ? 'bg-[#985018] text-white' : 'bg-[#EFE4D9] text-[#73675F]'}`}>
+                              {(customer.fullName || 'K').split(' ').slice(-1)[0]?.charAt(0).toUpperCase()}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-xs font-bold text-[#2C241E] truncate">{customer.fullName || 'Chưa có tên'}</span>
+                              <span className="block text-[11px] text-[#73675F] mt-0.5 truncate">{customer.phone || 'Chưa có SĐT'}{customer.email ? ` · ${customer.email}` : ''}</span>
+                            </span>
+                            <span className="text-[10px] font-semibold text-[#8A4F23]">{customer.membershipTier || 'STANDARD'}</span>
+                            {selected && <CheckCircle2 className="w-5 h-5 text-[#985018] shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+
+                {assignStep === 2 && (
+                  <section aria-labelledby="assign-package-heading">
+                    <div className="mb-4">
+                      <h4 id="assign-package-heading" className="text-sm font-bold text-[#2C241E]">Chọn gói phù hợp với nhu cầu tư vấn</h4>
+                      <p className="text-xs text-[#73675F] mt-1">Giá, số buổi và hạn dùng lấy trực tiếp từ bảng giá đang mở bán.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[420px] overflow-y-auto pr-1">
+                      {livePackages.filter((pkg) => pkg.isActive).map((pkg) => {
+                        const effectivePrice = Number(pkg.discountPrice) > 0 && Number(pkg.discountPrice) < Number(pkg.price) ? Number(pkg.discountPrice) : Number(pkg.price);
+                        const selected = assignPackageId === pkg.id;
+                        return (
+                          <button
+                            key={pkg.id}
+                            type="button"
+                            onClick={() => setAssignPackageId(pkg.id)}
+                            className={`p-4 rounded-xl border text-left transition-all ${selected ? 'border-[#985018] bg-[#FAF0E4] shadow-sm' : 'border-[#E8DFD8] bg-white hover:border-[#D7BBA6]'}`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <h5 className="text-xs font-extrabold text-[#2C241E] line-clamp-2">{pkg.name}</h5>
+                                <p className="text-[11px] text-[#73675F] mt-1 line-clamp-2">{pkg.description || 'Liệu trình chăm sóc theo phác đồ MLD.'}</p>
+                              </div>
+                              <span className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${selected ? 'border-[#985018] bg-[#985018] text-white' : 'border-[#D7BBA6]'}`}>
+                                {selected && <CheckCircle2 className="w-3.5 h-3.5" />}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mt-4 text-[11px]">
+                              <span className="flex items-center gap-1.5 text-[#73675F]"><Sparkles className="w-3.5 h-3.5" />{pkg.totalSessions} buổi</span>
+                              <span className="flex items-center gap-1.5 text-[#73675F]"><Clock className="w-3.5 h-3.5" />Hiệu lực {pkg.validityMonths} tháng</span>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-[#E8DFD8] flex items-end justify-between gap-3">
+                              <span className="text-[11px] text-[#73675F]">Giá niêm yết</span>
+                              <span className="text-sm font-black text-[#8A4F23]">{effectivePrice.toLocaleString('vi-VN')}đ</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+
+                {assignStep === 3 && selectedAssignCustomer && selectedAssignPackage && (
+                  <section aria-labelledby="assign-review-heading">
+                    <div className="mb-4">
+                      <h4 id="assign-review-heading" className="text-sm font-bold text-[#2C241E]">Kiểm tra trước khi chuyển sang thu ngân</h4>
+                      <p className="text-xs text-[#73675F] mt-1">Hồ sơ liệu trình chỉ được tạo sau khi thanh toán thành công.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_1.2fr] gap-4">
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-[#EFE4D9] p-4">
+                          <span className="text-[10px] font-bold text-[#8C7A6B] uppercase tracking-wide">Khách hàng</span>
+                          <p className="text-sm font-extrabold text-[#2C241E] mt-1">{selectedAssignCustomer.fullName}</p>
+                          <p className="text-xs text-[#73675F] mt-1 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />{selectedAssignCustomer.phone || 'Chưa có số điện thoại'}</p>
+                        </div>
+                        <div className="rounded-xl border border-[#EFE4D9] p-4">
+                          <span className="text-[10px] font-bold text-[#8C7A6B] uppercase tracking-wide">Gói đã chọn</span>
+                          <p className="text-sm font-extrabold text-[#2C241E] mt-1">{selectedAssignPackage.name}</p>
+                          <div className="mt-3 space-y-2 text-xs">
+                            <div className="flex justify-between"><span className="text-[#73675F]">Số buổi</span><strong>{selectedAssignPackage.totalSessions} buổi</strong></div>
+                            <div className="flex justify-between"><span className="text-[#73675F]">Hạn sử dụng</span><strong>{selectedAssignPackage.validityMonths} tháng từ ngày mua</strong></div>
+                            {assignPackageSavings > 0 && <div className="flex justify-between"><span className="text-[#73675F]">Tiết kiệm</span><strong className="text-[#0D6832]">{assignPackageSavings.toLocaleString('vi-VN')}đ</strong></div>}
+                            <div className="flex justify-between pt-2 border-t border-[#EFE4D9]"><span className="font-semibold">Tạm tính trước VAT</span><strong className="text-base text-[#8A4F23]">{assignPackagePrice.toLocaleString('vi-VN')}đ</strong></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-[#D7BBA6] bg-[#FAF8F5] p-4">
+                        <h5 className="text-xs font-bold text-[#2C241E]">Điều gì xảy ra tiếp theo?</h5>
+                        <ol className="mt-4 space-y-4">
+                          {[
+                            ['1', 'Thu ngân xác nhận', 'Kiểm tra khách hàng, gói, chi nhánh, nhân viên tư vấn và phương thức thanh toán.'],
+                            ['2', 'Thanh toán & kích hoạt', 'Hệ thống tạo hóa đơn và hồ sơ liệu trình trong cùng một giao dịch, tránh kích hoạt khi thu tiền thất bại.'],
+                            ['3', 'Đặt buổi đầu tiên', 'Sau thanh toán, mở hồ sơ liệu trình để chọn cơ sở, ngày giờ, kỹ thuật viên và phòng phù hợp.'],
+                            ['4', 'Theo dõi từng buổi', 'Mỗi buổi có nhật ký, ảnh trước sau, tư vấn chăm sóc và số buổi còn lại.'],
+                          ].map(([number, title, description]) => (
+                            <li key={number} className="flex gap-3">
+                              <span className="w-6 h-6 rounded-full bg-[#985018] text-white text-[11px] font-bold flex items-center justify-center shrink-0">{number}</span>
+                              <span><strong className="block text-xs text-[#2C241E]">{title}</strong><span className="block text-[11px] text-[#73675F] mt-0.5 leading-relaxed">{description}</span></span>
+                            </li>
+                          ))}
+                        </ol>
+                        <div className="mt-4 p-3 rounded-lg bg-white border border-[#EFE4D9] text-[11px] text-[#73675F] flex gap-2">
+                          <AlertCircle className="w-4 h-4 text-[#985018] shrink-0" />
+                          <span>Thu ngân cần mở ca. Tổng cuối cùng có thể gồm VAT; giá sẽ được kiểm tra lại từ máy chủ trước khi ghi nhận.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
+              </div>
+
+              <div className="px-6 py-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => assignStep === 1 ? setIsAssignPackageModalOpen(false) : setAssignStep((assignStep - 1) as 1 | 2)}
+                  className="px-4 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                >
+                  {assignStep === 1 ? 'Hủy' : 'Quay lại'}
+                </button>
+                <div className="flex items-center gap-3">
+                  <span className="hidden sm:block text-[11px] text-[#73675F]">Bước {assignStep}/3</span>
+                  {assignStep < 3 ? (
+                    <button
+                      type="button"
+                      disabled={assignStep === 1 ? !selectedAssignCustomer : !selectedAssignPackage}
+                      onClick={() => setAssignStep((assignStep + 1) as 2 | 3)}
+                      className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                    >
+                      Tiếp tục
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSubmitAssignPackage}
+                      className="px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Chuyển sang thu ngân</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ======================================================== */}
+      {/* MODAL 4: HOÀN TÁC BUỔI ĐIỀU TRỊ AN TOÀN (SESSION REVERSAL) */}
+      {/* ======================================================== */}
+      {reversalTargetJournal && (
+        <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FEF2F2]">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
-                  <Plus className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl bg-red-100 text-red-700 flex items-center justify-center">
+                  <RotateCcw className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#3E200C]">Kích hoạt gói liệu trình mới</h3>
-                  <p className="text-[11px] text-[#73675F]">Cấp phát hồ sơ gói trị liệu chuyên sâu cho khách hàng</p>
+                  <h3 className="text-sm font-bold text-red-900">Hoàn tác buổi điều trị #{reversalTargetJournal.number}</h3>
+                  <p className="text-[11px] text-red-700">Khôi phục 1 buổi vào gói và điều chỉnh đối soát</p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setIsAssignPackageModalOpen(false)}
-                className="p-1.5 text-[#8C7A6B] hover:text-[#2C241E] rounded-lg hover:bg-[#EFE4D9] transition-colors cursor-pointer"
+                onClick={() => setReversalTargetJournal(null)}
+                className="p-1.5 text-red-500 hover:text-red-800 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleSubmitAssignPackage} className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Khách hàng <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={assignCustomerId}
-                  onChange={(e) => setAssignCustomerId(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
-                >
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.fullName} - {c.phone} ({c.membershipTier || 'Thành viên'})
-                    </option>
-                  ))}
-                </select>
+            <form onSubmit={handleConfirmReversal} className="p-5 space-y-4">
+              <div className="p-3 bg-[#FEF2F2] rounded-xl border border-[#FECACA] text-xs text-red-900 space-y-2">
+                <div className="flex items-center gap-1.5 font-bold text-[#991B1B]">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>CẢNH BÁO QUY TRÌNH KIỂM TOÁN VÀ ĐỐI SOÁT:</span>
+                </div>
+                <ul className="list-disc pl-4 space-y-1 text-[11px] leading-relaxed text-red-800">
+                  <li>Nhật ký gốc không bị xóa; hệ thống đánh dấu đã hoàn tác và lưu ID kiểm toán bất biến.</li>
+                  <li>Hoàn lại đúng 1 buổi vào gói liệu trình (tự động kích hoạt lại ACTIVE nếu gói đã hoàn tất).</li>
+                  <li>Tự động tạo bút toán đảo ngược hoa hồng KTV và vật tư tiêu hao (PENDING_SYNC).</li>
+                  <li>Không thể hoàn tác 2 lần cho cùng một buổi điều trị.</li>
+                </ul>
+              </div>
+
+              <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-[#73675F]">Khách hàng:</span>
+                  <span className="font-bold text-[#2C241E]">{selectedCustomer?.fullName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#73675F]">Gói liệu trình:</span>
+                  <span className="font-semibold text-[#8A4F23]">{selectedPkg.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#73675F]">Ngày thực hiện:</span>
+                  <span className="font-medium text-[#2C241E]">{reversalTargetJournal.date}</span>
+                </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Gói liệu trình dịch vụ <span className="text-red-500">*</span>
+                  Lý do hoàn tác buổi <span className="text-red-500">*</span>
                 </label>
-                <select
+                <textarea
                   required
-                  value={assignPackageId}
-                  onChange={(e) => setAssignPackageId(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
-                >
-                  {livePackages.filter((p) => p.isActive).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} · {p.totalSessions} buổi ({(p.discountPrice && p.discountPrice < p.price ? p.discountPrice : p.price).toLocaleString('vi-VN')}đ)
-                    </option>
-                  ))}
-                </select>
+                  rows={3}
+                  value={reversalReason}
+                  onChange={(e) => setReversalReason(e.target.value)}
+                  placeholder="Bắt buộc nhập lý do chi tiết (ví dụ: KTV chọn nhầm khách hàng / Khách dừng buổi giữa chừng do kích ứng / Yêu cầu bảo lưu buổi)..."
+                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-red-500"
+                />
+                <p className="mt-1 text-[10px] text-[#8C7A6B]">Lý do sẽ được ghi vào sổ cái hoàn tác và không thể chỉnh sửa sau khi lưu.</p>
               </div>
 
-              <p className="text-[11px] text-[#73675F]">Giá, số buổi và hạn dùng được lấy từ cấu hình gói. Gói chỉ được kích hoạt sau khi thu ngân hoàn tất thanh toán.</p>
-
-              {/* Modal Footer */}
               <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setIsAssignPackageModalOpen(false)}
+                  onClick={() => setReversalTargetJournal(null)}
+                  disabled={isSubmittingReversal}
                   className="px-4 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#985018] hover:bg-[#854412] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  disabled={isSubmittingReversal}
+                  className="px-5 py-2 bg-[#DC2626] hover:bg-[#B91C1C] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Tiếp tục thanh toán</span>
+                  {isSubmittingReversal ? (
+                    <>
+                      <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang xử lý hoàn tác...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Xác nhận hoàn tác</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 5: VẬN HÀNH VÒNG ĐỜI GÓI (PACKAGE LIFECYCLE ACTION) */}
+      {/* ======================================================== */}
+      {actionModalType && (
+        <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
+                  {actionModalType === 'pause' && <Pause className="w-5 h-5 text-[#D97706]" />}
+                  {actionModalType === 'resume' && <Play className="w-5 h-5 text-[#059669]" />}
+                  {actionModalType === 'extend' && <Clock className="w-5 h-5 text-[#8A4F23]" />}
+                  {actionModalType === 'transfer' && <ArrowRightLeft className="w-5 h-5 text-[#4F46E5]" />}
+                  {actionModalType === 'refund' && <DollarSign className="w-5 h-5 text-[#059669]" />}
+                  {actionModalType === 'cancel' && <Ban className="w-5 h-5 text-[#DC2626]" />}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#3E200C]">
+                    {actionModalType === 'pause' && 'Tạm dừng gói liệu trình'}
+                    {actionModalType === 'resume' && 'Mở lại gói liệu trình'}
+                    {actionModalType === 'extend' && 'Gia hạn thời hạn gói liệu trình'}
+                    {actionModalType === 'transfer' && 'Chuyển nhượng gói sang khách hàng khác'}
+                    {actionModalType === 'refund' && 'Hoàn tiền / Đóng gói liệu trình'}
+                    {actionModalType === 'cancel' && 'Hủy gói liệu trình'}
+                  </h3>
+                  <p className="text-[11px] text-[#73675F]">{selectedPkg.name} · {selectedCustomer?.fullName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActionModalType(null)}
+                className="p-1.5 text-[#8C7A6B] hover:text-[#2C241E] rounded-lg hover:bg-[#EFE4D9] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleExecutePackageAction} className="p-5 space-y-4">
+              {actionModalType === 'extend' && (
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Số tháng gia hạn thêm <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={24}
+                    required
+                    value={actionExtensionMonths}
+                    onChange={(e) => setActionExtensionMonths(Math.max(1, Number(e.target.value) || 1))}
+                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  />
+                  <p className="mt-1 text-[10px] text-[#8C7A6B]">Thời hạn mới sẽ được cộng dồn từ ngày hết hạn hiện tại.</p>
+                </div>
+              )}
+
+              {actionModalType === 'transfer' && (
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Chọn khách hàng nhận chuyển nhượng <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={actionTransferCustomerSearch}
+                    onChange={(e) => setActionTransferCustomerSearch(e.target.value)}
+                    placeholder="Tìm theo tên hoặc số điện thoại khách hàng mới..."
+                    className="w-full px-3 py-2 mb-2 bg-white border border-[#E8DFD8] rounded-xl text-xs"
+                  />
+                  <div className="max-h-40 overflow-y-auto border border-[#EFE4D9] rounded-xl divide-y divide-[#EFE4D9]">
+                    {customers
+                      .filter((c) => c.id !== selectedPkg.customerId && matchSearch([c.fullName, c.phone], actionTransferCustomerSearch))
+                      .slice(0, 10)
+                      .map((c) => {
+                        const isChosen = actionTransferCustomerId === c.id;
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setActionTransferCustomerId(c.id)}
+                            className={`w-full p-2.5 text-left text-xs flex items-center justify-between transition-colors ${
+                              isChosen ? 'bg-[#FAF0E4]' : 'hover:bg-[#FAF8F5]'
+                            }`}
+                          >
+                            <div>
+                              <div className="font-bold text-[#2C241E]">{c.fullName}</div>
+                              <div className="text-[10px] text-[#73675F]">{c.phone || 'Chưa có SĐT'}</div>
+                            </div>
+                            {isChosen && <CheckCircle2 className="w-4 h-4 text-[#985018]" />}
+                          </button>
+                        );
+                      })}
+                  </div>
+                  <p className="mt-1 text-[10px] text-[#8C7A6B]">Số buổi còn lại sẽ được chuyển giao, lịch sử cũ được bảo lưu vĩnh viễn.</p>
+                </div>
+              )}
+
+              {actionModalType === 'refund' && (
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Số tiền hoàn lại (VNĐ) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={selectedPkg.rawPrice}
+                    required
+                    value={actionRefundAmount}
+                    onChange={(e) => setActionRefundAmount(Math.max(0, Number(e.target.value) || 0))}
+                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  />
+                  <p className="mt-1 text-[10px] text-[#8C7A6B]">Tối đa {selectedPkg.rawPrice.toLocaleString('vi-VN')}đ. Hoa hồng bán gói sẽ được đánh dấu đảo ngược.</p>
+                </div>
+              )}
+
+              {['pause', 'extend', 'cancel', 'transfer', 'refund'].includes(actionModalType) && (
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Lý do thực hiện <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={actionReason}
+                    onChange={(e) => setActionReason(e.target.value)}
+                    placeholder="Bắt buộc nhập lý do để ghi vết kiểm toán..."
+                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+              )}
+
+              {actionModalType === 'resume' && (
+                <div className="p-3 bg-[#ECFDF5] rounded-xl border border-[#A7F3D0] text-xs text-[#065F46]">
+                  Mở lại gói sẽ cho phép khách hàng tiếp tục đặt lịch hẹn các buổi còn lại theo phác đồ.
+                </div>
+              )}
+
+              {actionModalType === 'cancel' && (
+                <div className="p-3 bg-[#FEF2F2] rounded-xl border border-[#FECACA] text-xs text-[#991B1B]">
+                  <strong>CẢNH BÁO:</strong> Hủy gói sẽ vô hiệu hóa tất cả các buổi còn lại. Hành động này không thể hoàn tác.
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setActionModalType(null)}
+                  disabled={isSubmittingAction}
+                  className="px-4 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingAction}
+                  className="px-5 py-2 bg-[#985018] hover:bg-[#854412] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isSubmittingAction ? (
+                    <>
+                      <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang thực hiện...</span>
+                    </>
+                  ) : (
+                    <span>Xác nhận thực hiện</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 6: TIMELINE KIỂM TOÁN VÒNG ĐỜI (AUDIT TIMELINE) */}
+      {/* ======================================================== */}
+      {isTimelineOpen && (
+        <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
+                  <History className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#3E200C]">Nhật ký kiểm toán vòng đời liệu trình</h3>
+                  <p className="text-[11px] text-[#73675F]">{selectedPkg.name} · Sổ cái bất biến</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTimelineOpen(false)}
+                className="p-1.5 text-[#8C7A6B] hover:text-[#2C241E] rounded-lg hover:bg-[#EFE4D9] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+              {isLoadingTimeline ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-2 text-xs text-[#73675F]">
+                  <LoaderCircle className="w-6 h-6 text-[#985018] animate-spin" />
+                  <span>Đang tải lịch sử kiểm toán...</span>
+                </div>
+              ) : timelineLogs.length === 0 ? (
+                <div className="py-12 text-center text-xs text-[#73675F] bg-[#FAF8F5] rounded-xl border border-dashed border-[#E8DFD8]">
+                  Chưa có sự kiện kiểm toán vòng đời nào được ghi nhận cho gói này.
+                </div>
+              ) : (
+                <div className="relative border-l-2 border-[#E8DFD8] ml-4 pl-4 space-y-6">
+                  {timelineLogs.map((log: any, idx: number) => {
+                    const actionLabels: Record<string, { label: string; color: string }> = {
+                      CREATED: { label: 'Tạo mới gói', color: 'bg-green-100 text-green-800 border-green-200' },
+                      PAUSED: { label: 'Tạm dừng gói', color: 'bg-amber-100 text-amber-800 border-amber-200' },
+                      RESUMED: { label: 'Mở lại gói', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+                      EXTENDED: { label: 'Gia hạn thời hạn', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+                      CANCELLED: { label: 'Hủy gói', color: 'bg-red-100 text-red-800 border-red-200' },
+                      TRANSFERRED: { label: 'Chuyển nhượng', color: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
+                      REFUNDED: { label: 'Hoàn tiền', color: 'bg-slate-100 text-slate-800 border-slate-200' },
+                      REVERSED_SESSION: { label: 'Hoàn tác buổi', color: 'bg-rose-100 text-rose-800 border-rose-200' },
+                    };
+                    const badge = actionLabels[log.action] || { label: log.action, color: 'bg-gray-100 text-gray-800 border-gray-200' };
+
+                    return (
+                      <div key={log.id || idx} className="relative">
+                        <span className="absolute -left-[25px] top-1 w-4 h-4 rounded-full bg-[#985018] border-2 border-white" />
+                        <div className="bg-white p-3.5 rounded-xl border border-[#EFE4D9] shadow-2xs space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold border ${badge.color}`}>
+                              {badge.label}
+                            </span>
+                            <span className="text-[10.5px] text-[#8C7A6B]">
+                              {log.performed_at ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(log.performed_at)) : '—'}
+                            </span>
+                          </div>
+                          {log.reason && (
+                            <div className="text-xs text-[#2C241E]">
+                              <strong>Lý do:</strong> {log.reason}
+                            </div>
+                          )}
+                          <div className="text-[11px] text-[#73675F] flex items-center justify-between pt-1 border-t border-[#F5EDE5]">
+                            <span>Trạng thái: <code>{log.previous_status || '—'}</code> ➔ <code>{log.new_status || '—'}</code></span>
+                            <span>Người thực hiện: {log.performed_by || 'Admin'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsTimelineOpen(false)}
+                className="px-4 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}
