@@ -13,6 +13,7 @@ import {
   HeartPulse,
   Info,
   Calendar,
+  CalendarCheck,
   CreditCard,
   TrendingUp,
   Tag,
@@ -35,6 +36,7 @@ import { supabase } from '../services/supabaseClient';
 import { toast, AdminTabs } from '../components/common';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { matchSearch } from '../utils/searchUtils';
+import { adminApi } from '../admin/api';
 
 interface ServiceItem {
   id: string;
@@ -227,30 +229,49 @@ export const W06_ServicesCatalog: React.FC = () => {
   const pkgToanDien20 = getPackage(serviceToanDien.id, 20);
   const pkgToanDien30 = getPackage(serviceToanDien.id, 30);
 
-  // Copy pricing text for Zalo / Message sharing
+  const activeServices = services.filter((service) => service.is_active);
+  const activePackages = packages.filter((pkg) => pkg.is_active);
+  const invalidPackages = packages.filter(
+    (pkg) => !pkg.service_id || Number(pkg.price) <= 0 || Number(pkg.total_sessions) <= 0 || Number(pkg.validity_months) <= 0
+  );
+
+  const openPackageInPos = (pkg?: TreatmentPackageItem) => {
+    if (!pkg) {
+      toast.error('Gói liệu trình chưa tồn tại trong dữ liệu niêm yết.');
+      return;
+    }
+    if (!pkg.is_active) {
+      toast.error('Gói đang tạm ngừng và chưa thể bán tại POS.');
+      return;
+    }
+    if (!pkg.service_id || Number(pkg.price) <= 0 || Number(pkg.total_sessions) <= 0) {
+      toast.error('Gói chưa đủ dịch vụ, giá hoặc số buổi để mở bán.');
+      return;
+    }
+    const query = new URLSearchParams({
+      packageId: pkg.id,
+      packageName: pkg.name,
+      source: 'pricing-catalog',
+    });
+    navigate(`/cashier-pos?${query.toString()}`);
+  };
+
+  // Generate the share text from the currently published catalog. Never send stale hard-coded prices.
   const handleCopyPricing = () => {
-    const text = `🌸 MLD VIỆT NAM - BẢNG GIÁ DỊCH VỤ & GÓI LIỆU TRÌNH CHUẨN Y KHOA VODDER
-(Bao gồm chăm sóc cả hệ bạch huyết sâu và hệ bạch huyết nông)
-
-1️⃣ CHĂM SÓC KHU TRÚ (45'):
-• Buổi lẻ: 500.000 VNĐ
-• Gói 10 buổi: 4.800.000 VNĐ (480k/buổi - Tiết kiệm 200k) ⭐
-• Gói 20 buổi: 9.200.000 VNĐ (460k/buổi - Tiết kiệm 800k)
-• Gói 30 buổi: 13.200.000 VNĐ (440k/buổi - Tiết kiệm 1.8M)
-
-2️⃣ CHĂM SÓC MỞ RỘNG (60'):
-• Buổi lẻ: 900.000 VNĐ
-• Gói 10 buổi: 8.600.000 VNĐ (860k/buổi - Tiết kiệm 400k) ⭐
-• Gói 20 buổi: 16.400.000 VNĐ (820k/buổi - Tiết kiệm 1.6M)
-• Gói 30 buổi: 23.400.000 VNĐ (780k/buổi - Tiết kiệm 3.6M) ⭐
-
-3️⃣ CHĂM SÓC TOÀN DIỆN (90'):
-• Buổi lẻ: 1.700.000 VNĐ
-• Gói 10 buổi: 16.200.000 VNĐ (1.620k/buổi - Tiết kiệm 800k) ⭐
-• Gói 20 buổi: 30.800.000 VNĐ (1.540k/buổi - Tiết kiệm 3.2M) ⭐
-• Gói 30 buổi: 43.800.000 VNĐ (1.460k/buổi - Tiết kiệm 7.2M)
-
-📌 Lưu ý: Đơn vị VNĐ. Giá dịch vụ đã bao gồm thuế VAT 8% theo quy định áp dụng. Phạm vi chăm sóc và số buổi đề xuất dựa trên kết quả đánh giá chuyên môn, tình trạng sức khỏe và mục tiêu theo dõi của từng khách hàng.`;
+    if (!activeServices.length) {
+      toast.error('Chưa có dịch vụ đang hoạt động để chia sẻ bảng giá.');
+      return;
+    }
+    const sections = activeServices.map((service, index) => {
+      const servicePackages = activePackages
+        .filter((pkg) => pkg.service_id === service.id)
+        .sort((a, b) => a.total_sessions - b.total_sessions);
+      const packageLines = servicePackages.map((pkg) =>
+        `• Gói ${pkg.total_sessions} buổi: ${formatVND(pkg.price)} VNĐ (${formatVND(Math.round(pkg.price / pkg.total_sessions))}đ/buổi, hiệu lực ${pkg.validity_months} tháng)`
+      );
+      return `${index + 1}. ${service.name.toUpperCase()}\n• Buổi lẻ: ${formatVND(service.price)} VNĐ\n${packageLines.join('\n')}`;
+    });
+    const text = `MLD VIỆT NAM - BẢNG GIÁ DỊCH VỤ & GÓI LIỆU TRÌNH\n\n${sections.join('\n\n')}\n\nLưu ý: Giá đã bao gồm VAT 8%. Gói phù hợp được xác định sau khi tư vấn và đánh giá chuyên môn.`;
 
     navigator.clipboard.writeText(text);
     setCopySuccess(true);
@@ -267,41 +288,37 @@ export const W06_ServicesCatalog: React.FC = () => {
   const handleSaveEdit = async () => {
     if (!editingItem) return;
     try {
+      if (!editingItem.name.trim()) throw new Error('Tên niêm yết không được để trống.');
+      if (!Number.isFinite(editingItem.price) || editingItem.price <= 0) throw new Error('Giá niêm yết phải lớn hơn 0.');
+      if (editingItem.type === 'service' && (!editingItem.duration || editingItem.duration <= 0)) throw new Error('Thời lượng dịch vụ phải lớn hơn 0 phút.');
+      if (editingItem.type === 'package' && (!editingItem.sessions || editingItem.sessions <= 0 || !editingItem.validityMonths || editingItem.validityMonths <= 0)) {
+        throw new Error('Số buổi và thời hạn gói phải lớn hơn 0.');
+      }
       setSavingEdit(true);
       if (editingItem.type === 'service') {
-        const { data, error } = await supabase
-          .from('services')
-          .update({
+        await adminApi('services/update', {
+          key: { id: editingItem.id },
+          values: {
             price: editingItem.price,
             discount_price: editingItem.price,
-            name: editingItem.name,
+            name: editingItem.name.trim(),
             duration_minutes: editingItem.duration,
             full_description: editingItem.description,
-          })
-          .eq('id', editingItem.id)
-          .select('id')
-          .maybeSingle();
-
-        if (error) throw error;
-        if (!data) throw new Error('Dịch vụ không còn tồn tại hoặc bạn không có quyền sửa.');
+          },
+        });
         toast.success(`Đã cập nhật dịch vụ "${editingItem.name}" thành công!`);
       } else {
-        const { data, error } = await supabase
-          .from('treatment_packages')
-          .update({
+        await adminApi('treatment_packages/update', {
+          key: { id: editingItem.id },
+          values: {
             price: editingItem.price,
             discount_price: editingItem.price,
-            name: editingItem.name,
+            name: editingItem.name.trim(),
             total_sessions: editingItem.sessions,
             validity_months: editingItem.validityMonths,
             description: editingItem.description,
-          })
-          .eq('id', editingItem.id)
-          .select('id')
-          .maybeSingle();
-
-        if (error) throw error;
-        if (!data) throw new Error('Gói liệu trình không còn tồn tại hoặc bạn không có quyền sửa.');
+          },
+        });
         toast.success(`Đã cập nhật gói liệu trình "${editingItem.name}" thành công!`);
       }
 
@@ -489,10 +506,38 @@ export const W06_ServicesCatalog: React.FC = () => {
         onChange={(tabId) => handleTabChange(tabId as 'matrix' | 'services' | 'packages')}
         tabs={[
           { id: 'matrix', label: 'Bảng giá tổng hợp', icon: FileText },
-          { id: 'services', label: 'Dịch vụ buổi lẻ · 3', icon: HeartPulse },
-          { id: 'packages', label: 'Gói liệu trình · 9', icon: Layers },
+          { id: 'services', label: `Dịch vụ buổi lẻ · ${activeServices.length}`, icon: HeartPulse },
+          { id: 'packages', label: `Gói liệu trình · ${activePackages.length}`, icon: Layers },
         ]}
       />
+
+      {/* Operational lifecycle: catalog -> consultation -> payment -> treatment */}
+      <div className="no-print rounded-2xl border border-[#E7D8CA] bg-white p-4 shadow-xs" aria-label="Quy trình bán và vận hành gói liệu trình">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-sm font-extrabold text-[#2C241E]">Quy trình bán và kích hoạt liệu trình</h2>
+            <p className="mt-0.5 text-[11px] text-[#73675F]">Mỗi gói phải đủ dữ liệu và đang hoạt động trước khi chuyển sang thu ngân.</p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
+            <span className="rounded-full bg-[#EAF7EF] px-2.5 py-1 text-[#17623A]">{activeServices.length} dịch vụ đang bán</span>
+            <span className="rounded-full bg-[#EAF2FA] px-2.5 py-1 text-[#1E5D9B]">{activePackages.length} gói đã công bố</span>
+            {invalidPackages.length > 0 && <span className="rounded-full bg-[#FFF3E2] px-2.5 py-1 text-[#9A5A12]">{invalidPackages.length} gói cần hoàn thiện</span>}
+          </div>
+        </div>
+        <ol className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4">
+          {[
+            { step: '01', title: 'Chuẩn hóa bảng giá', detail: 'Dịch vụ, giá, số buổi và thời hạn hợp lệ.', icon: SlidersHorizontal },
+            { step: '02', title: 'Tư vấn chọn gói', detail: 'Đánh giá nhu cầu và thống nhất liệu trình.', icon: HeartPulse },
+            { step: '03', title: 'Thu tiền tại POS', detail: 'Chọn khách, ưu đãi và phương thức thanh toán.', icon: CreditCard },
+            { step: '04', title: 'Kích hoạt & xếp buổi', detail: 'Theo dõi số buổi, lịch hẹn và nhật ký điều trị.', icon: CalendarCheck },
+          ].map((item) => (
+            <li key={item.step} className="flex gap-3 rounded-xl border border-[#EFE4D9] bg-[#FCFAF7] p-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FAEEDF] text-[#8A4F23]"><item.icon className="h-4 w-4" /></div>
+              <div><p className="text-[10px] font-bold text-[#A06A42]">BƯỚC {item.step}</p><p className="mt-0.5 text-xs font-bold text-[#2C241E]">{item.title}</p><p className="mt-0.5 text-[10.5px] leading-4 text-[#73675F]">{item.detail}</p></div>
+            </li>
+          ))}
+        </ol>
+      </div>
 
       {/* ========================================================================= */}
       {/* TAB 1: PRICING MATRIX (LUXURY COHESIVE FLYER BOARD)                         */}
@@ -778,11 +823,7 @@ export const W06_ServicesCatalog: React.FC = () => {
                           <button
                             type="button"
                             onClick={() =>
-                              navigate(
-                                pkgKhuTru10
-                                  ? `/cashier-pos?packageId=${pkgKhuTru10.id}`
-                                  : '/cashier-pos'
-                              )
+                              openPackageInPos(pkgKhuTru10)
                             }
                             className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-[#985018] hover:bg-[#854412] text-white transition-colors cursor-pointer shadow-2xs"
                           >
@@ -828,11 +869,7 @@ export const W06_ServicesCatalog: React.FC = () => {
                           <button
                             type="button"
                             onClick={() =>
-                              navigate(
-                                pkgMoRong10
-                                  ? `/cashier-pos?packageId=${pkgMoRong10.id}`
-                                  : '/cashier-pos'
-                              )
+                              openPackageInPos(pkgMoRong10)
                             }
                             className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-[#985018] hover:bg-[#854412] text-white transition-colors cursor-pointer shadow-2xs"
                           >
@@ -878,11 +915,7 @@ export const W06_ServicesCatalog: React.FC = () => {
                           <button
                             type="button"
                             onClick={() =>
-                              navigate(
-                                pkgToanDien10
-                                  ? `/cashier-pos?packageId=${pkgToanDien10.id}`
-                                  : '/cashier-pos'
-                              )
+                              openPackageInPos(pkgToanDien10)
                             }
                             className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-[#985018] hover:bg-[#854412] text-white transition-colors cursor-pointer shadow-2xs"
                           >
@@ -936,11 +969,7 @@ export const W06_ServicesCatalog: React.FC = () => {
                           <button
                             type="button"
                             onClick={() =>
-                              navigate(
-                                pkgKhuTru20
-                                  ? `/cashier-pos?packageId=${pkgKhuTru20.id}`
-                                  : '/cashier-pos'
-                              )
+                              openPackageInPos(pkgKhuTru20)
                             }
                             className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs"
                           >
@@ -986,11 +1015,7 @@ export const W06_ServicesCatalog: React.FC = () => {
                           <button
                             type="button"
                             onClick={() =>
-                              navigate(
-                                pkgMoRong20
-                                  ? `/cashier-pos?packageId=${pkgMoRong20.id}`
-                                  : '/cashier-pos'
-                              )
+                              openPackageInPos(pkgMoRong20)
                             }
                             className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs"
                           >
@@ -1036,11 +1061,7 @@ export const W06_ServicesCatalog: React.FC = () => {
                           <button
                             type="button"
                             onClick={() =>
-                              navigate(
-                                pkgToanDien20
-                                  ? `/cashier-pos?packageId=${pkgToanDien20.id}`
-                                  : '/cashier-pos'
-                              )
+                              openPackageInPos(pkgToanDien20)
                             }
                             className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs"
                           >
@@ -1094,11 +1115,7 @@ export const W06_ServicesCatalog: React.FC = () => {
                           <button
                             type="button"
                             onClick={() =>
-                              navigate(
-                                pkgKhuTru30
-                                  ? `/cashier-pos?packageId=${pkgKhuTru30.id}`
-                                  : '/cashier-pos'
-                              )
+                              openPackageInPos(pkgKhuTru30)
                             }
                             className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs"
                           >
@@ -1144,11 +1161,7 @@ export const W06_ServicesCatalog: React.FC = () => {
                           <button
                             type="button"
                             onClick={() =>
-                              navigate(
-                                pkgMoRong30
-                                  ? `/cashier-pos?packageId=${pkgMoRong30.id}`
-                                  : '/cashier-pos'
-                              )
+                              openPackageInPos(pkgMoRong30)
                             }
                             className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs"
                           >
@@ -1194,11 +1207,7 @@ export const W06_ServicesCatalog: React.FC = () => {
                           <button
                             type="button"
                             onClick={() =>
-                              navigate(
-                                pkgToanDien30
-                                  ? `/cashier-pos?packageId=${pkgToanDien30.id}`
-                                  : '/cashier-pos'
-                              )
+                              openPackageInPos(pkgToanDien30)
                             }
                             className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs"
                           >
@@ -1689,10 +1698,11 @@ export const W06_ServicesCatalog: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => navigate(`/cashier-pos?packageId=${pkg.id}`)}
-                      className="flex-1 py-2 text-xs font-bold rounded-xl bg-[#985018] hover:bg-[#854412] text-white transition-colors flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                      onClick={() => openPackageInPos(pkg)}
+                      disabled={!pkg.is_active || !pkg.service_id || Number(pkg.price) <= 0}
+                      className="flex-1 py-2 text-xs font-bold rounded-xl bg-[#985018] hover:bg-[#854412] text-white transition-colors flex items-center justify-center gap-1 shadow-xs cursor-pointer disabled:cursor-not-allowed disabled:bg-[#B8ADA4]"
                     >
-                      Bán gói này
+                      {pkg.is_active ? 'Bán gói này' : 'Gói đang tạm ngừng'}
                     </button>
                   </div>
                 </div>
