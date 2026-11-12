@@ -972,6 +972,10 @@ export class AdminService {
       }
     }
     if (table === 'treatment_journal') {
+      if (operation === 'create' && !next.booking_id)
+        throw new BadRequestException(
+          'Nhật ký điều trị phải liên kết với một ca đang phục vụ.',
+        );
       if (next.user_package_id) {
         const pkg = (
           await client.query(
@@ -1016,13 +1020,25 @@ export class AdminService {
         ).rows[0];
         if (booking?.customer_id !== next.customer_id)
           throw new BadRequestException('Lịch hẹn không thuộc khách hàng.');
-        if (operation === 'create' && !next.user_package_id) {
+        if (operation === 'create') {
+          const workflowBooking = (
+            await client.query(
+              'SELECT status,session_status,technician_id,assigned_room_id FROM bookings WHERE id=$1 FOR UPDATE',
+              [next.booking_id],
+            )
+          ).rows[0];
+          if (!workflowBooking || workflowBooking.status !== 'IN_SERVICE' || workflowBooking.session_status === 'COMPLETED')
+            throw new ConflictException('Chỉ ghi nhật ký cho lịch đang trong quá trình phục vụ.');
           const duplicate = await client.query(
-            'SELECT 1 FROM treatment_journal WHERE booking_id=$1 AND user_package_id IS NULL LIMIT 1',
+            'SELECT 1 FROM treatment_journal WHERE booking_id=$1 LIMIT 1',
             [next.booking_id],
           );
           if (duplicate.rowCount)
             throw new ConflictException('Lịch hẹn đã có nhật ký điều trị.');
+          if (workflowBooking.technician_id && next.technician_id !== workflowBooking.technician_id)
+            throw new BadRequestException('Kỹ thuật viên trong nhật ký không khớp ca phục vụ.');
+          if (workflowBooking.assigned_room_id && next.assigned_room_id !== workflowBooking.assigned_room_id)
+            throw new BadRequestException('Phòng trong nhật ký không khớp ca phục vụ.');
         }
         if (next.user_package_id) {
           const packageService = (await client.query(

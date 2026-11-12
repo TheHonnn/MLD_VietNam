@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Leaf,
   Calendar,
@@ -46,6 +46,7 @@ import {
   PaymentMethod,
   PackageStatus,
   DualSlotAvailability,
+  Booking,
 } from '../types/shared_types';
 
 export const STANDARD_SPA_SLOTS = [
@@ -64,6 +65,7 @@ export const STANDARD_SPA_SLOTS = [
 interface TreatmentPackageUI {
   id: string;
   packageId: string;
+  serviceId?: string | null;
   name: string;
   customerId: string;
   sessionsTotal: number;
@@ -107,11 +109,12 @@ interface TreatmentPackageUI {
 }
 
 export const W06_TreatmentManagement: React.FC = () => {
+  const navigate = useNavigate();
   const [livePackages, setLivePackages] = useState<SharedTreatmentPackage[]>([]);
   const [liveUserPackages, setLiveUserPackages] = useState<UserPackage[]>([]);
   const [liveServices, setLiveServices] = useState<Service[]>([]);
   const [liveJournals, setLiveJournals] = useState<TreatmentJournal[]>([]);
-  const [liveBookings, setLiveBookings] = useState<import('../types/shared_types').Booking[]>([]);
+  const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -167,6 +170,10 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [treatmentNotes, setTreatmentNotes] = useState('');
   const [treatmentStartTime, setTreatmentStartTime] = useState('');
   const [treatmentEndTime, setTreatmentEndTime] = useState('');
+  const [conditionBefore, setConditionBefore] = useState('');
+  const [conditionAfter, setConditionAfter] = useState('');
+  const [specialistAdvice, setSpecialistAdvice] = useState('');
+  const [selectedSessionBookingId, setSelectedSessionBookingId] = useState('');
   const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
   const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
 
@@ -235,7 +242,9 @@ export const W06_TreatmentManagement: React.FC = () => {
         .filter((j) => j.userPackageId === up.id)
         .sort((a, b) => a.sessionNumber - b.sessionNumber);
 
-      const used = up.completedSessions ?? journals.length;
+      // Nhật ký là sổ cái nghiệp vụ; lấy giá trị lớn hơn để không hiển thị thiếu buổi
+      // trong lúc bộ đếm gói đang được backend đồng bộ sau giao dịch.
+      const used = Math.max(Number(up.completedSessions || 0), journals.length);
       const total = up.totalSessions || pkgDef?.totalSessions || 0;
       const remaining = Math.max(0, total - used);
       const progressPercent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
@@ -267,6 +276,21 @@ export const W06_TreatmentManagement: React.FC = () => {
       const rawPrice = discount > 0 && discount < basePrice ? discount : basePrice;
       const priceText = `${rawPrice.toLocaleString('vi-VN')}đ`;
 
+      const completedBookingIds = new Set(journals.map((journal) => journal.bookingId).filter(Boolean));
+      const relatedBookings = liveBookings
+        .filter((booking) => {
+          if (booking.customerId !== up.customerId || completedBookingIds.has(booking.id)) return false;
+          if (pkgDef?.serviceId) {
+            return (booking.items || []).some((item) => item.serviceId === pkgDef.serviceId);
+          }
+          return String(booking.specialNotes || '').includes(`user_package_id=${up.id}`);
+        })
+        .sort((a, b) => {
+          const aTime = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
+          const bTime = new Date(`${b.bookingDate}T${b.startTime || '00:00:00'}`).getTime();
+          return aTime - bTime;
+        });
+
       const sessionsHistory: TreatmentPackageUI['sessionsHistory'] = journals.map((j) => {
         const booking = j.bookingId ? bookingMap.get(j.bookingId) : undefined;
         const timeFromBooking = booking?.startTime
@@ -294,12 +318,45 @@ export const W06_TreatmentManagement: React.FC = () => {
         };
       });
 
+      relatedBookings.forEach((booking, index) => {
+        const statusLabels: Record<string, string> = {
+          PENDING: 'Chờ xác nhận',
+          CONFIRMED: 'Đã xếp lịch',
+          CHECKED_IN: 'Đã check-in',
+          IN_SERVICE: 'Đang phục vụ',
+          CANCELLED: 'Đã hủy',
+          NO_SHOW: 'Không đến',
+        };
+        sessionsHistory.push({
+          id: booking.id,
+          number: String(Math.min(total, used + index + 1)).padStart(2, '0'),
+          totalSessions: total,
+          date: booking.bookingDate
+            ? new Intl.DateTimeFormat('vi-VN').format(new Date(booking.bookingDate))
+            : '—',
+          serviceName,
+          isUpcoming: true,
+          bookingCode: booking.bookingCode,
+          time: `${booking.startTime?.slice(0, 5) || '—'}–${booking.endTime?.slice(0, 5) || '—'}`,
+          staff: booking.technician?.fullName,
+          room: booking.room?.name || booking.assignedBedNumber || undefined,
+          statusBadge: statusLabels[String(booking.status)] || String(booking.status),
+        });
+      });
+
       // Branch determination
-      const branchName = '—';
+      const latestRelatedBooking = [...relatedBookings].sort((a, b) =>
+        new Date(`${b.bookingDate}T${b.startTime || '00:00:00'}`).getTime() -
+        new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime()
+      )[0];
+      const branchName = latestRelatedBooking?.branch?.name ||
+        (latestRelatedBooking?.branchId ? branchMap.get(latestRelatedBooking.branchId)?.name : undefined) ||
+        'Chưa xếp cơ sở';
 
       return {
         id: up.id,
         packageId: up.packageId,
+        serviceId: pkgDef?.serviceId,
         name: treatmentName,
         treatmentName,
         serviceName,
@@ -322,7 +379,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         sessionsHistory,
       };
     });
-  }, [liveUserPackages, livePackages, liveJournals, custMap, serviceMap, bookingMap]);
+  }, [liveUserPackages, livePackages, liveJournals, liveBookings, custMap, serviceMap, bookingMap, branchMap]);
 
   // Filter Logic
   const filteredPackages = useMemo(() => {
@@ -408,6 +465,7 @@ export const W06_TreatmentManagement: React.FC = () => {
     packages[0] || {
       id: '',
       packageId: '',
+      serviceId: null,
       name: 'Chưa có gói liệu trình',
       customerId: '',
       sessionsTotal: 0,
@@ -429,6 +487,22 @@ export const W06_TreatmentManagement: React.FC = () => {
     };
 
   const selectedCustomer = custMap.get(selectedPkg.customerId);
+  const selectedPackageBookings = useMemo(() => {
+    const journalBookingIds = new Set(liveJournals.map((journal) => journal.bookingId).filter(Boolean));
+    return liveBookings
+      .filter((booking) => {
+        if (booking.customerId !== selectedPkg.customerId || journalBookingIds.has(booking.id)) return false;
+        if (!selectedPkg.serviceId) return true;
+        return (booking.items || []).some((item) => item.serviceId === selectedPkg.serviceId);
+      })
+      .sort((a, b) => {
+        const aTime = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
+        const bTime = new Date(`${b.bookingDate}T${b.startTime || '00:00:00'}`).getTime();
+        return bTime - aTime;
+      });
+  }, [liveBookings, liveJournals, selectedPkg.customerId, selectedPkg.serviceId]);
+
+  const selectedSessionBooking = selectedPackageBookings.find((booking) => booking.id === selectedSessionBookingId);
 
   const totalActivePackages = packages.filter((p) => p.rawStatus === 'ACTIVE').length;
   const totalRemainingSessions = packages.reduce((acc, p) => acc + p.remainingSessions, 0);
@@ -447,6 +521,15 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   // --- ACTION: Đặt lịch hẹn buổi tiếp theo ---
   const handleOpenBookModal = () => {
+    if (selectedPkg.rawStatus !== 'ACTIVE') {
+      toast.warning(
+        'Gói không thể đặt lịch',
+        selectedPkg.rawStatus === 'EXPIRED'
+          ? 'Gói đã hết hạn. Hãy gia hạn hoặc đăng ký gói mới trước khi xếp lịch.'
+          : 'Chỉ gói đang hoạt động mới được sử dụng để đặt buổi.'
+      );
+      return;
+    }
     if (!selectedPkg.id || selectedPkg.remainingSessions <= 0) {
       toast.warning('Gói đã hoàn tất', 'Gói liệu trình này đã hoàn thành đầy đủ các buổi.');
       return;
@@ -502,8 +585,11 @@ export const W06_TreatmentManagement: React.FC = () => {
         baseTotal: 0,
         finalPrice: 0,
         notes: `[Gói liệu trình: ${selectedPkg.name} | user_package_id=${selectedPkg.id}] ${bookingNotes}`,
+        serviceId: selectedPkg.serviceId || undefined,
         serviceName: selectedPkg.name,
-        durationMinutes: 60,
+        durationMinutes: selectedPkg.serviceId
+          ? serviceMap.get(selectedPkg.serviceId)?.durationMinutes || 60
+          : 60,
       });
 
       if (res.success) {
@@ -533,19 +619,63 @@ export const W06_TreatmentManagement: React.FC = () => {
       );
       return;
     }
-    const now = new Date();
-    setSessionDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
+    const inServiceBooking = selectedPackageBookings.find(
+      (booking) => String(booking.status) === 'IN_SERVICE' && booking.sessionStatus !== 'COMPLETED'
+    );
+    if (!inServiceBooking) {
+      const pendingWorkflowBooking = selectedPackageBookings.find((booking) =>
+        ['PENDING', 'CONFIRMED', 'CHECKED_IN'].includes(String(booking.status))
+      );
+      if (pendingWorkflowBooking) {
+        toast.warning(
+          'Chưa thể ghi nhật ký',
+          'Lịch phải được check-in và bắt đầu phục vụ trước khi ghi nhận buổi chăm sóc.'
+        );
+        navigate(`/staff-schedule?booking=${encodeURIComponent(pendingWorkflowBooking.bookingCode || pendingWorkflowBooking.id)}`);
+      } else {
+        toast.warning(
+          'Chưa có ca đang phục vụ',
+          'Hãy đặt lịch, check-in và bắt đầu phục vụ trước. Hệ thống không trừ buổi bằng ghi nhận thủ công.'
+        );
+        handleOpenBookModal();
+      }
+      return;
+    }
+    setSelectedSessionBookingId(inServiceBooking.id);
+    setSessionDate(inServiceBooking.bookingDate);
     setSessionNumberInput(selectedPkg.usedSessions + 1);
     setTreatmentNotes('');
-    setTreatmentStartTime('');
+    setTreatmentStartTime(
+      inServiceBooking.serviceStartedAt
+        ? new Date(inServiceBooking.serviceStartedAt).toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          })
+        : (inServiceBooking.startTime || '').slice(0, 5)
+    );
     setTreatmentEndTime('');
+    setConditionBefore('');
+    setConditionAfter('');
+    setSpecialistAdvice('');
     setEvidenceFiles([]);
     setIsLogSessionModalOpen(true);
   };
 
   const handleSubmitLogSession = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPkg.id) return;
+    if (!selectedPkg.id || !selectedSessionBooking) {
+      toast.error('Thiếu ca phục vụ', 'Không tìm thấy lịch đang thực hiện để liên kết nhật ký.');
+      return;
+    }
+    if (String(selectedSessionBooking.status) !== 'IN_SERVICE' || selectedSessionBooking.sessionStatus === 'COMPLETED') {
+      toast.error('Ca không hợp lệ', 'Chỉ ca đang phục vụ mới được ghi nhật ký và trừ buổi.');
+      return;
+    }
+    if (!conditionBefore.trim() || !conditionAfter.trim() || !treatmentNotes.trim() || !specialistAdvice.trim()) {
+      toast.error('Thiếu hồ sơ chuyên môn', 'Nhập tình trạng trước/sau, nội dung thực hiện và lời dặn chăm sóc.');
+      return;
+    }
 
     setIsSubmittingSession(true);
     try {
@@ -559,9 +689,15 @@ export const W06_TreatmentManagement: React.FC = () => {
         selectedPkg.sessionsTotal,
         {
           customerId: selectedPkg.customerId,
+          bookingId: selectedSessionBooking.id,
+          technicianId: selectedSessionBooking.technicianId || null,
+          assignedRoomId: selectedSessionBooking.assignedRoomId || null,
           sessionNumber: sessionNumberInput,
-          sessionDate,
+          sessionDate: selectedSessionBooking.bookingDate,
+          conditionBefore: conditionBefore.trim(),
+          conditionAfter: conditionAfter.trim(),
           treatmentNotes,
+          specialistAdvice: specialistAdvice.trim(),
           treatmentStartTime: treatmentStartTime || null,
           treatmentEndTime: treatmentEndTime || null,
           afterPhotos: uploadedEvidence,
@@ -570,9 +706,23 @@ export const W06_TreatmentManagement: React.FC = () => {
 
       if (res.success) {
         const nextUsed = selectedPkg.usedSessions + 1;
+        const finishResult = await bookingService.runWorkflowAction(
+          selectedSessionBooking.id,
+          'finish-service'
+        );
+        if (!finishResult.success) {
+          toast.warning(
+            'Đã lưu hồ sơ nhưng chưa đóng ca',
+            finishResult.message || 'Mở lịch hẹn để hoàn tất chuyên môn và check-out.'
+          );
+          setIsLogSessionModalOpen(false);
+          await fetchTreatmentData();
+          navigate(`/staff-schedule?booking=${encodeURIComponent(selectedSessionBooking.bookingCode || selectedSessionBooking.id)}`);
+          return;
+        }
         toast.success(
-          'Đã ghi nhận buổi chăm sóc',
-          `Hoàn tất buổi ${nextUsed}/${selectedPkg.sessionsTotal}. Hồ sơ điện tử đã được đồng bộ lên Supabase Cloud.`
+          nextUsed >= selectedPkg.sessionsTotal ? 'Đã hoàn tất liệu trình' : 'Đã hoàn tất buổi chăm sóc',
+          `Buổi ${nextUsed}/${selectedPkg.sessionsTotal} đã được ghi nhận và ca phục vụ đã đóng đúng quy trình.`
         );
         setIsLogSessionModalOpen(false);
         await fetchTreatmentData();
@@ -1206,7 +1356,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* ======================================================== */}
       {isBookNextModalOpen && (
         <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
             {/* Modal Header */}
             <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5]">
               <div className="flex items-center gap-2.5">
@@ -1401,7 +1551,7 @@ export const W06_TreatmentManagement: React.FC = () => {
             </div>
 
             {/* Modal Body */}
-            <form onSubmit={handleSubmitLogSession} className="p-5 space-y-3.5">
+            <form onSubmit={handleSubmitLogSession} className="p-5 space-y-3.5 overflow-y-auto">
               <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] text-xs space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Khách hàng:</span>
@@ -1410,6 +1560,12 @@ export const W06_TreatmentManagement: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Liệu trình:</span>
                   <span className="font-semibold text-[#8A4F23]">{selectedPkg.name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#73675F]">Ca phục vụ:</span>
+                  <span className="font-semibold text-[#2C241E]">
+                    {selectedSessionBooking?.bookingCode} · {selectedSessionBooking?.startTime?.slice(0, 5)}–{selectedSessionBooking?.endTime?.slice(0, 5)}
+                  </span>
                 </div>
               </div>
 
@@ -1435,21 +1591,51 @@ export const W06_TreatmentManagement: React.FC = () => {
                 <input
                   type="date"
                   required
+                  readOnly
                   value={sessionDate}
-                  onChange={(e) => setSessionDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                  className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E]"
                 />
+                <p className="mt-1 text-[10px] text-[#8C7A6B]">Ngày được khóa theo lịch hẹn đang phục vụ.</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Giờ bắt đầu điều trị</label>
                   <input type="time" value={treatmentStartTime} onChange={(e) => setTreatmentStartTime(e.target.value)} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]" />
-                  <p className="mt-1 text-[10px] text-[#8C7A6B]">Tự điền nếu không có lịch hẹn liên kết.</p>
+                  <p className="mt-1 text-[10px] text-[#8C7A6B]">Lấy từ thời điểm bắt đầu phục vụ; có thể hiệu chỉnh theo thực tế.</p>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Giờ kết thúc điều trị</label>
                   <input type="time" value={treatmentEndTime} onChange={(e) => setTreatmentEndTime(e.target.value)} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Tình trạng trước buổi <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={conditionBefore}
+                    onChange={(e) => setConditionBefore(e.target.value)}
+                    placeholder="Ghi nhận tình trạng, vùng cần can thiệp, chống chỉ định..."
+                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                    Tình trạng sau buổi <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={conditionAfter}
+                    onChange={(e) => setConditionAfter(e.target.value)}
+                    placeholder="Phản ứng sau chăm sóc, mức cải thiện và lưu ý theo dõi..."
+                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
+                  />
                 </div>
               </div>
 
@@ -1464,6 +1650,20 @@ export const W06_TreatmentManagement: React.FC = () => {
                   onChange={(e) => setTreatmentNotes(e.target.value)}
                   placeholder="Nhập dịch vụ đã thực hiện và kết quả điều trị trong ngày..."
                   className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                  Lời dặn chăm sóc sau buổi <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={specialistAdvice}
+                  onChange={(e) => setSpecialistAdvice(e.target.value)}
+                  placeholder="Hướng dẫn tại nhà, điều cần tránh và thời điểm nên đặt buổi tiếp theo..."
+                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
                 />
               </div>
 
