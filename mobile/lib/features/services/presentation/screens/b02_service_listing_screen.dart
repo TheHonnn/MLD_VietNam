@@ -340,12 +340,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
 
     final packageService = SpaServiceModel(
       id: package.id,
-      name: package.name,
+      name: package.title,
       categoryName: package.category.isNotEmpty ? package.category : 'Trị liệu',
-      price: package.price,
-      originalPrice: package.originalPrice > 0 ? package.originalPrice : package.price,
+      price: package.originalPrice > 0 ? package.originalPrice : package.price,
+      discountPrice: package.price,
       durationMinutes: 60,
-      description: package.description,
+      shortDescription: package.description,
       imageUrl: package.imageUrl,
     );
 
@@ -358,7 +358,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
           initialBranch: chosenBranch,
           initialSpecialty: package.category.isNotEmpty ? package.category : null,
           userPackageId: package.id,
-          userPackageName: package.name,
+          userPackageName: package.title,
         ),
       ),
     );
@@ -738,357 +738,138 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     }
   }
 
-  /// Hiển thị Hộp thoại truy cập ở GIỮA MÀN HÌNH (Zalo hoặc Messenger) khi bấm "Liên hệ"
   void _showProductContactDialog(HomeProductModel product) {
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (dialogCtx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: Colors.white,
-        elevation: 16,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Header: Badge & Nút đóng
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        elevation: 8,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8), size: 22),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => Navigator.pop(dialogCtx),
+                ),
+              ),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 140,
+                  height: 140,
+                  color: const Color(0xFFF8FAFC),
+                  child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                      ? _buildImageWidget(product.imageUrl!)
+                      : _buildProductPlaceholder(product.category, size: 36, showText: false),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                product.name,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.zaloFont(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textHeading,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  InkWell(
+                    onTap: () async {
+                      Navigator.pop(dialogCtx);
+                      await _launchContactUrl(PortalSettingsService.instance.zaloOaUrl);
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE8F6ED),
+                        color: const Color(0xFF0068FF),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.verified_user_rounded, size: 14, color: Color(0xFF00693F)),
-                          const SizedBox(width: 4),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: Image.asset(
+                              'assets/icons/logo-zalo-vector-03.webp',
+                              width: 18,
+                              height: 18,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 16),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
                           Text(
-                            PortalSettingsService.instance.consultationBadgeText,
+                            'Zalo',
                             style: AppTypography.zaloFont(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF00693F),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => Navigator.pop(dialogCtx),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                // Icon lớn ở giữa
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.12),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
                   ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.support_agent_rounded,
-                      size: 32,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Tiêu đề & Lời nhắn
-                Text(
-                  'Liên hệ tư vấn sản phẩm',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.zaloFont(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textHeading,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Quý khách vui lòng chọn kênh liên hệ để Chuyên viên MLD hỗ trợ tư vấn và hướng dẫn đặt mua thuận tiện nhất:',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.zaloFont(
-                    fontSize: 12.5,
-                    color: AppColors.textSecondary,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Tóm tắt sản phẩm đang liên hệ
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
+                  const SizedBox(width: 12),
+                  InkWell(
+                    onTap: () async {
+                      Navigator.pop(dialogCtx);
+                      await _launchContactUrl(PortalSettingsService.instance.messengerUrl);
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0084FF),
                         borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          width: 46,
-                          height: 46,
-                          color: const Color(0xFFF1F5F9),
-                          child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                              ? _buildImageWidget(product.imageUrl!)
-                              : _buildProductPlaceholder(product.category, size: 28, showText: false),
-                        ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              product.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.zaloFont(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textHeading,
-                              ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: Image.asset(
+                              'assets/icons/mesenger.jpg',
+                              width: 18,
+                              height: 18,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.messenger_outline, color: Colors.white, size: 16),
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '${product.formattedPrice} / ${product.unit}',
-                              style: AppTypography.zaloFont(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF00693F),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // NÚT TRUY CẬP 1: ZALO
-                _buildContactChannelTile(
-                  channelName: 'Zalo',
-                  description: 'Tư vấn trực tiếp qua Zalo OA chính thức',
-                  badgeText: 'Chat ngay',
-                  accentColor: const Color(0xFF0068FF),
-                  iconWidget: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.asset(
-                      'assets/icons/logo-zalo-vector-03.webp',
-                      width: 44,
-                      height: 44,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0068FF),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'Z',
-                          style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                    ),
-                  ),
-                  onTap: () async {
-                    Navigator.pop(dialogCtx);
-                    await _launchContactUrl(PortalSettingsService.instance.zaloOaUrl);
-                  },
-                ),
-                const SizedBox(height: 12),
-
-                // NÚT TRUY CẬP 2: MESSENGER
-                _buildContactChannelTile(
-                  channelName: 'Messenger',
-                  description: 'Nhắn tin Fanpage Hệ Bạch Huyết MLD',
-                  badgeText: 'Nhắn tin',
-                  accentColor: const Color(0xFF0084FF),
-                  iconWidget: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.asset(
-                      'assets/icons/mesenger.jpg',
-                      width: 44,
-                      height: 44,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF00B2FE), Color(0xFF006AFF), Color(0xFF9B00E8)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
                           ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 24),
-                      ),
-                    ),
-                  ),
-                  onTap: () async {
-                    Navigator.pop(dialogCtx);
-                    await _launchContactUrl(PortalSettingsService.instance.messengerUrl);
-                  },
-                ),
-                const SizedBox(height: 18),
-
-                // Hotline liên hệ trực tiếp
-                InkWell(
-                  onTap: () {
-                    Navigator.pop(dialogCtx);
-                    AppLauncherHelper.makePhoneCall(context, PortalSettingsService.instance.hotlineSupport);
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    child: Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        const Icon(Icons.phone_in_talk_rounded, size: 15, color: Color(0xFF00693F)),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Hoặc gọi Hotline: ${PortalSettingsService.instance.hotlineSupport}',
-                          style: AppTypography.zaloFont(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF00693F),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Thẻ kênh liên hệ truy cập (Zalo / Messenger)
-  Widget _buildContactChannelTile({
-    required String channelName,
-    required String description,
-    required String badgeText,
-    required Color accentColor,
-    required Widget iconWidget,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: accentColor.withValues(alpha: 0.35), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: accentColor.withValues(alpha: 0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              iconWidget,
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 6,
-                      runSpacing: 2,
-                      children: [
-                        Text(
-                          channelName,
-                          style: AppTypography.zaloFont(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textHeading,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: accentColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            badgeText,
+                          const SizedBox(width: 6),
+                          Text(
+                            'Messenger',
                             style: AppTypography.zaloFont(
-                              fontSize: 10,
+                              fontSize: 12.5,
                               fontWeight: FontWeight.w700,
-                              color: accentColor,
+                              color: Colors.white,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.zaloFont(
-                        fontSize: 11.5,
-                        color: AppColors.textSecondary,
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 13,
-                  color: accentColor,
-                ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1168,6 +949,20 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   }
 
   Widget _buildImageWidget(String url) {
+    if (url.startsWith('data:image/') || url.startsWith('data:')) {
+      try {
+        final commaIdx = url.indexOf(',');
+        final base64Str = commaIdx != -1 ? url.substring(commaIdx + 1).trim() : url.trim();
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildFallbackImage(),
+        );
+      } catch (_) {
+        return _buildFallbackImage();
+      }
+    }
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return Image.network(
         url,
@@ -1182,6 +977,16 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
         errorBuilder: (_, __, ___) => _buildFallbackImage(),
       );
     }
+    try {
+      if (url.length > 50) {
+        final bytes = base64Decode(url.trim());
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildFallbackImage(),
+        );
+      }
+    } catch (_) {}
     return _buildFallbackImage();
   }
 
@@ -1566,7 +1371,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
 
         const Divider(height: 1, color: Color(0xFFE2E8F0)),
 
-        // 3. Lưới hiển thị 2 thẻ 1 hàng (GridView)
         Expanded(
           child: _isLoadingTherapy
               ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
@@ -1586,42 +1390,53 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                   : RefreshIndicator(
                       onRefresh: _loadTherapyDataFromDb,
                       color: AppColors.primary,
-                      child: GridView.builder(
+                      child: CustomScrollView(
                         controller: _therapyScrollController,
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 14,
-                          childAspectRatio: 0.62,
-                        ),
-                        itemCount: currentPageItems.length,
-                        itemBuilder: (context, index) {
-                          final item = currentPageItems[index];
-                          return _buildTherapyGridCard(item);
-                        },
+                        slivers: [
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                            sliver: SliverGrid(
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 14,
+                                childAspectRatio: 0.60,
+                              ),
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final item = currentPageItems[index];
+                                  return _buildTherapyGridCard(item);
+                                },
+                                childCount: currentPageItems.length,
+                              ),
+                            ),
+                          ),
+                          if (totalPages > 1 && !_isLoadingTherapy)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 24),
+                                child: _buildPaginationBar(
+                                  currentPage: _currentTherapyPage,
+                                  totalPages: totalPages,
+                                  totalItems: totalItems,
+                                  onPageChanged: (newPage) {
+                                    setState(() => _currentTherapyPage = newPage);
+                                    if (_therapyScrollController.hasClients) {
+                                      _therapyScrollController.animateTo(
+                                        0,
+                                        duration: const Duration(milliseconds: 300),
+                                        curve: Curves.easeOut,
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
         ),
-
-        // 4. Thanh phân trang 1, 2, 3... đúng 6 thẻ mỗi trang
-        if (totalPages > 1 && !_isLoadingTherapy)
-          _buildPaginationBar(
-            currentPage: _currentTherapyPage,
-            totalPages: totalPages,
-            totalItems: totalItems,
-            onPageChanged: (newPage) {
-              setState(() => _currentTherapyPage = newPage);
-              if (_therapyScrollController.hasClients) {
-                _therapyScrollController.animateTo(
-                  0,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOut,
-                );
-              }
-            },
-          ),
       ],
     );
   }
@@ -1795,39 +1610,32 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           ),
                           const SizedBox(height: 6),
 
-                          // Nút bấm: "Đặt lịch" cho Dịch vụ lẻ hoặc "Tư vấn gói" cho Gói liệu trình
                           SizedBox(
                             width: double.infinity,
                             height: 32,
                             child: ElevatedButton(
                               onPressed: () {
-                                if (item.isPackage) {
-                                  _showPackageDetailModal(item.package!);
-                                } else if (item.singleService != null) {
+                                if (item.singleService != null) {
                                   _handleBooking(item.singleService!);
+                                } else if (item.package != null) {
+                                  _handlePackageBooking(item.package!);
                                 }
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: item.isPackage
-                                    ? const Color(0xFFE8F6ED)
-                                    : AppColors.primary,
-                                foregroundColor: item.isPackage
-                                    ? const Color(0xFF00693F)
-                                    : Colors.white,
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
                                 elevation: 0,
                                 padding: EdgeInsets.zero,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
-                                  side: item.isPackage
-                                      ? const BorderSide(color: Color(0xFF22C55E), width: 0.8)
-                                      : BorderSide.none,
                                 ),
                               ),
                               child: Text(
-                                item.isPackage ? 'Tư vấn gói' : 'Đặt lịch',
+                                'Đặt lịch',
                                 style: AppTypography.zaloFont(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
@@ -1905,7 +1713,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
         ),
         const Divider(height: 1, color: Color(0xFFE2E8F0)),
 
-        // Lưới sản phẩm (Grid)
         Expanded(
           child: RefreshIndicator(
             onRefresh: _loadProductsFromDb,
@@ -1925,42 +1732,53 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           ],
                         ),
                       )
-                    : GridView.builder(
+                    : CustomScrollView(
                         controller: _productScrollController,
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 14,
-                          childAspectRatio: 0.58,
-                        ),
-                        itemCount: currentPageProducts.length,
-                        itemBuilder: (ctx, index) {
-                          final product = currentPageProducts[index];
-                          return _buildProductCard(product);
-                        },
+                        slivers: [
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                            sliver: SliverGrid(
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 14,
+                                childAspectRatio: 0.58,
+                              ),
+                              delegate: SliverChildBuilderDelegate(
+                                (ctx, index) {
+                                  final product = currentPageProducts[index];
+                                  return _buildProductCard(product);
+                                },
+                                childCount: currentPageProducts.length,
+                              ),
+                            ),
+                          ),
+                          if (totalPages > 1 && !_isLoadingProducts)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 24),
+                                child: _buildPaginationBar(
+                                  currentPage: _currentProductPage,
+                                  totalPages: totalPages,
+                                  totalItems: totalItems,
+                                  onPageChanged: (newPage) {
+                                    setState(() => _currentProductPage = newPage);
+                                    if (_productScrollController.hasClients) {
+                                      _productScrollController.animateTo(
+                                        0,
+                                        duration: const Duration(milliseconds: 300),
+                                        curve: Curves.easeOut,
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
           ),
         ),
-
-        // Phân trang sản phẩm
-        if (totalPages > 1 && !_isLoadingProducts)
-          _buildPaginationBar(
-            currentPage: _currentProductPage,
-            totalPages: totalPages,
-            totalItems: totalItems,
-            onPageChanged: (newPage) {
-              setState(() => _currentProductPage = newPage);
-              if (_productScrollController.hasClients) {
-                _productScrollController.animateTo(
-                  0,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOut,
-                );
-              }
-            },
-          ),
       ],
     );
   }
@@ -2175,7 +1993,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     final endIndex = (currentPage * _pageSize).clamp(1, totalItems);
 
     return Container(
-      color: Colors.white,
+      color: Colors.transparent,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,

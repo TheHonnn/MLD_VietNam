@@ -161,11 +161,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      // Verify Center Dialog pops up with Zalo and Messenger
-      expect(find.text('Liên hệ tư vấn sản phẩm'), findsOneWidget);
       expect(find.text('Zalo'), findsOneWidget);
       expect(find.text('Messenger'), findsOneWidget);
-      expect(find.textContaining('096.7786.399'), findsOneWidget);
+      expect(find.byIcon(Icons.close_rounded), findsWidgets);
     });
   });
 }
