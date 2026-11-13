@@ -209,6 +209,23 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
     await pg.query('DELETE FROM staff_commissions WHERE id=ANY($1::uuid[])',[[first.id,second.id,reversal.id]]);
   });
 
+  it('validates voucher issuance and protects issued coupon terms', async () => {
+    const couponData = { code: 'LOYALTY-TEST', title: 'Ưu đãi kiểm thử', discount_amount: 100000, min_order_amount: 0, valid_from: '2020-01-01T00:00:00Z', valid_to: '2099-12-01T00:00:00Z', usage_limit: 10 };
+    await expect(service.mutate('coupons', superAdminActor, 'create', { values: { ...couponData, discount_percent: 10 } })).rejects.toThrow('Chọn một mức');
+    const coupon = await service.mutate('coupons', superAdminActor, 'create', { values: couponData });
+    const voucher = await service.mutate('user_vouchers', superAdminActor, 'create', { values: {
+      user_id: customerOneId, coupon_id: coupon.id, expires_at: '2099-11-01T00:00:00Z',
+    } });
+    expect(voucher).toMatchObject({ status: 'AVAILABLE', source_trigger: 'MANUAL_BY_ADMIN' });
+    await expect(service.mutate('user_vouchers', superAdminActor, 'create', { values: {
+      user_id: customerOneId, coupon_id: coupon.id, expires_at: '2099-11-01T00:00:00Z',
+    } })).rejects.toThrow('đã có voucher');
+    await expect(service.mutate('coupons', superAdminActor, 'update', { key: {id:coupon.id}, values: { discount_amount: 200000 } })).rejects.toThrow('đã phát hành');
+    await expect(service.mutate('user_vouchers', superAdminActor, 'update', { key: {id:voucher.id}, values: {status:'USED'} })).rejects.toThrow();
+    await pg.query('DELETE FROM user_vouchers WHERE id=$1',[voucher.id]);
+    await pg.query('DELETE FROM coupons WHERE id=$1',[coupon.id]);
+  });
+
   afterAll(async () => {
     await pg?.close();
   });

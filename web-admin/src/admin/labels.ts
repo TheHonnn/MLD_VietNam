@@ -459,6 +459,9 @@ export const enums: Record<string, string> = {
   INTERN: "Thực tập sinh",
 };
 export const label = (name: string, table?: string) => {
+  if (table === "membership_tier_rules" && name === "point_earning_rate") return "Tỷ lệ hoàn giá trị thành điểm (%)";
+  if (table === "loyalty_point_settings" && name === "earn_amount_per_point") return "Chi tiêu cho 1 điểm (đ)";
+  if (table === "loyalty_point_settings" && name === "redeem_value_per_point") return "Giá trị 1 điểm (đ)";
   if (table === "treatment_packages") {
     if (name === "name") return "Gói liệu trình & Dịch vụ";
     if (name === "total_sessions") return "Số buổi";

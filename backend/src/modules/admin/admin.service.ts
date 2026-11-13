@@ -17,6 +17,7 @@ import { randomBytes, randomUUID } from 'crypto';
 import { AdminDatabase } from './admin.database';
 import { inspectAdminSchema } from './admin.schema';
 import { createTreatmentBooking } from './treatment-booking';
+import { validateLoyaltyWrite } from './loyalty-workflow';
 import { validateStaffWorkflow } from './staff-workflow';
 import { assignStaffBooking, createStaffBooking, scheduleAvailability } from './staff-booking';
 import { recordMaterialCount, syncInventoryItem } from './treatment-inventory';
@@ -806,6 +807,7 @@ export class AdminService {
   ) {
     const next = { ...previous, ...data };
     await validateStaffWorkflow(client, table, next, previous, operation);
+    await validateLoyaltyWrite(client, table, data, previous, operation, actor);
     if (table === 'home_care_guidelines') {
       if (operation === 'delete') throw new ConflictException('Hãy gỡ xuất bản mẫu hướng dẫn để giữ lịch sử đã giao cho khách.');
       delete data.version;

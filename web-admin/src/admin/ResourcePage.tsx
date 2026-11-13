@@ -914,6 +914,15 @@ const KNOWN_BRANCH_FALLBACKS: Record<string, { name: string; code?: string }> = 
   },
 };
 
+const loyaltyPages: Record<string, { title: string; description: string; create?: string; fields: string[] }> = {
+  coupons: { title: "Mã giảm giá", description: "Tạo điều kiện ưu đãi trước khi cấp voucher cho khách.", create: "Tạo mã giảm giá", fields: ["code","title","discount_percent","discount_amount","min_order_amount","max_discount","valid_from","valid_to","usage_limit","is_active","description"] },
+  voucher_distribution_rules: { title: "Quy tắc phân phối", description: "Thiết lập điều kiện nhận, hạng áp dụng và hạn dùng sau khi nhận.", create: "Thêm quy tắc", fields: ["coupon_id","trigger_event","target_tier","valid_days_after_claim","is_auto_grant","notify_user","is_active","description"] },
+  user_vouchers: { title: "Voucher khách hàng", description: "Tra cứu ví voucher và cấp ưu đãi cho khách cụ thể. Trạng thái sử dụng do hệ thống ghi nhận.", create: "Cấp voucher cho khách", fields: ["user_id","coupon_id","expires_at"] },
+  membership_tier_rules: { title: "Hạng thành viên", description: "Cấu hình mốc chi tiêu và quyền lợi của từng hạng. Khách được xếp hạng từ giao dịch thực tế.", fields: ["tier","min_accumulated_spent","point_earning_rate","discount_service_percent","free_head_spa_sessions","birthday_voucher_id","priority_booking","description"] },
+  loyalty_point_settings: { title: "Cấu hình điểm thưởng", description: "Kiểm tra tỷ lệ quy đổi và giới hạn sử dụng điểm trước khi lưu.", fields: ["earn_amount_per_point","redeem_value_per_point","max_redeem_percent_per_order","point_expiry_months","is_active"] },
+  point_transactions: { title: "Lịch sử điểm", description: "Tra cứu số điểm tăng giảm và số dư sau mỗi giao dịch.", fields: [] },
+};
+
 const todayAtBranch = () => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
 
 const staffPages: Record<string, { description: string; create: string; next: string; nextLabel: string }> = {
@@ -1613,7 +1622,18 @@ function formatCell(row: Row, c: Column, table?: string): React.ReactNode {
   if (table === "technicians" && c.name === "staff_profile_id") return row.staff_profile_id ? "Đã liên kết" : "Chưa liên kết";
   if (table === "staff_profiles" && c.name === "department_id") return row.department_name || row.departments?.name || (row.department ? enums[row.department] || String(row.department) : "Chưa chọn bộ phận");
   if (table === "technician_shifts" && c.name === "assigned_room_id") return row.assigned_room_name || "Phân phòng khi đặt";
+  if (table === "point_transactions" && ["points_change","balance_after"].includes(c.name)) return <span className={Number(row[c.name]) < 0 ? "text-red-700" : "text-[#1B6E44]"}>{c.name === "points_change" && Number(row[c.name]) > 0 ? "+" : ""}{Number(row[c.name]).toLocaleString("vi-VN")} điểm</span>;
+  if (table && loyaltyPages[table] && ["min_order_amount","min_accumulated_spent","earn_amount_per_point","redeem_value_per_point"].includes(c.name)) return Number(row[c.name]).toLocaleString("vi-VN") + " đ";
+  if (table === "coupons" && c.name === "code") return <span>{row.code}<small className="block font-normal text-[#73675F]">{row.title}</small></span>;
+  if (table === "coupons" && c.name === "discount_amount") return Number(row.discount_percent) > 0 ? Number(row.discount_percent) + "%" : Number(row.discount_amount).toLocaleString("vi-VN") + " đ";
+  if (table === "coupons" && c.name === "used_count") return Number(row.used_count) + " / " + Number(row.usage_limit);
+  if (table === "coupons" && c.name === "is_active") {
+    const state = !row.is_active ? "Ngừng áp dụng" : Number(row.used_count) >= Number(row.usage_limit) ? "Hết lượt" : Date.parse(row.valid_to) <= Date.now() ? "Hết hạn" : Date.parse(row.valid_from) > Date.now() ? "Chưa bắt đầu" : "Đang áp dụng";
+    return <span className="rounded-md bg-[#FAF0E4] px-2 py-1 text-xs">{state}</span>;
+  }
+  if (table === "user_vouchers" && c.name === "status") return row.status === "USED" ? "Đã dùng" : row.status === "EXPIRED" || Date.parse(row.expires_at) <= Date.now() ? "Hết hạn" : "Chưa dùng";
   if (c.name === "is_cancelled" && table === "technician_shifts") return row.is_cancelled ? "Đã hủy ca" : "Đã phân ca";
+  if (c.name === "is_active" && table && loyaltyPages[table]) return row.is_active ? "Đang áp dụng" : "Ngừng áp dụng";
   if (c.name === "is_active") {
     const active = Boolean(row[c.name]);
     return active ? (
@@ -3346,9 +3366,11 @@ function RecordDialog({
             : [];
   const rosterForm = ["technician_shifts", "technician_slots"].includes(resource.name);
   const linkedTechnician = resource.name === "technicians" && (mode === "create" || row.staff_profile_id || values.staff_profile_id);
+  const loyaltyForm = loyaltyPages[resource.name];
   const fields = columns.filter(
     (c) =>
       !generated.includes(c.name) &&
+      !(mode !== "view" && loyaltyForm && !loyaltyForm.fields.includes(c.name)) &&
       !(mode !== "view" && resource.name === "departments" && c.name === "created_by_id") &&
       !(mode !== "view" && linkedTechnician && ["user_id", "branch_id", "full_name"].includes(c.name)) &&
       !(mode === "update" && resource.name === "technicians" && row.staff_profile_id && c.name === "staff_profile_id") &&
@@ -3359,7 +3381,7 @@ function RecordDialog({
   );
   const fieldOrder = rosterForm
     ? ["branch_id", "technician_id", resource.name === "technician_shifts" ? "shift_date" : "slot_date", "assigned_room_id", "start_time", "end_time"]
-    : resource.name === "technicians" ? ["staff_profile_id"]
+    : loyaltyForm ? loyaltyForm.fields : resource.name === "technicians" ? ["staff_profile_id"]
       : resource.name === "departments" ? ["name", "code", "description", "sort_order", "is_active"] : [];
   const orderedFields = [...fieldOrder.flatMap(name => fields.filter(field => field.name === name)),
     ...fields.filter(field => !fieldOrder.includes(field.name))];
@@ -3378,6 +3400,8 @@ function RecordDialog({
           next.code = toCategoryCode(String(value || ""));
         }
       }
+      if (resource.name === "coupons" && name === "discount_percent" && Number(value) > 0) next.discount_amount = 0;
+      if (resource.name === "coupons" && name === "discount_amount" && Number(value) > 0) next.discount_percent = 0;
       if (resource.name === "services" && name === "name") {
         next.slug = toServiceSlug(String(value || ""));
       }
@@ -3404,6 +3428,11 @@ function RecordDialog({
   const current = (c: Column) => {
     if (values[c.name] !== undefined) return values[c.name];
     if (mode === "create") {
+      if (resource.name === "coupons") {
+        if (["discount_percent","discount_amount","min_order_amount"].includes(c.name)) return 0;
+        if (c.name === "usage_limit") return 1000;
+      }
+      if (resource.name === "voucher_distribution_rules" && c.name === "valid_days_after_claim") return 30;
       if (resource.name === "service_categories") {
         if (c.name === "display_order") return 1;
         if (c.name === "icon_url") return "";
@@ -3595,7 +3624,7 @@ function RecordDialog({
         payload.can_enter_grades = payload.can_enter_grades !== undefined ? Boolean(payload.can_enter_grades) : (values.can_enter_grades !== undefined ? Boolean(values.can_enter_grades) : true);
       }
       if (resource.name === "technician_slots") payload.status = "BLOCKED";
-      const write = staffPages[resource.name] ? adminCommand : adminApi;
+      const write = staffPages[resource.name] || loyaltyForm ? adminCommand : adminApi;
       await write(`${resource.name}/${mode}`, {
         values: payload,
         ...(mode === "update"
@@ -3712,7 +3741,7 @@ function RecordDialog({
                     : mode === "view"
                       ? "Chi tiết"
                       : mode === "create"
-                        ? staffPages[resource.name]?.create || "Thêm mới"
+                        ? loyaltyForm?.create || staffPages[resource.name]?.create || "Thêm mới"
                         : resource.name === "technician_shifts" ? "Sửa ca trực" : "Chỉnh sửa"}
               </h2>
             </div>
@@ -3825,6 +3854,14 @@ function RecordDialog({
           ) : (
             <div className={resource.name === "certificate_templates" && mode !== "view" ? "certificate-template-form-layout" : "certificate-template-form-layout--plain"}>
               <div className={resource.name === "certificate_templates" && mode !== "view" ? "admin-form-grid certificate-template-fields" : "admin-form-grid"}>
+                {loyaltyForm && mode !== "view" && (
+                  <p className="admin-field-wide text-xs text-[#73675F]">
+                    {resource.name === "coupons" ? "Nhập mức giảm phần trăm hoặc số tiền. Mã đã phát hành giữ nguyên điều kiện để đối soát." :
+                      resource.name === "user_vouchers" ? "Chọn khách và mã ưu đãi. Hạn dùng phải nằm trong thời gian hiệu lực của mã." :
+                      resource.name === "voucher_distribution_rules" ? "Quy tắc được lưu để hệ thống phân phối sử dụng. Theo dõi voucher thực tế đã cấp tại Ví khách hàng." :
+                      "Thay đổi cấu hình được ghi nhận sau khi lưu thành công."}
+                  </p>
+                )}
                 {linkedTechnician && mode !== "view" && (
                   <p className="admin-field-wide text-xs text-[#73675F]">
                     Họ tên, tài khoản và chi nhánh lấy từ hồ sơ nhân viên. Có thể dùng ảnh từ tài khoản hoặc tải ảnh riêng.
@@ -5337,6 +5374,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       row:
         staffDateField
           ? staffDraft(params.get("technician") || undefined, params.get("branch") || undefined)
+          : table === "user_vouchers" && params.get("coupon") ? { coupon_id: params.get("coupon") }
           : table === "users"
           ? { role: "CUSTOMER", is_active: true }
           : table === "course_lessons" && params.get("lesson_type") === "VIDEO"
@@ -5413,17 +5451,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     "is_published",
   ];
   const columnOrder: Record<string, string[]> = {
-    coupons: [
-      "code",
-      "title",
-      "discount_percent",
-      "discount_amount",
-      "valid_from",
-      "valid_to",
-      "usage_limit",
-      "used_count",
-      "is_active",
-    ],
+    coupons: ["code","discount_amount","min_order_amount","valid_to","used_count","is_active"],
+    user_vouchers: ["user_id","coupon_id","expires_at","status","source_trigger"],
+    voucher_distribution_rules: ["coupon_id","trigger_event","target_tier","valid_days_after_claim","is_auto_grant","is_active"],
+    membership_tier_rules: ["tier","min_accumulated_spent","point_earning_rate","discount_service_percent","priority_booking"],
+    loyalty_point_settings: ["earn_amount_per_point","redeem_value_per_point","max_redeem_percent_per_order","is_active"],
+    point_transactions: ["created_at","user_id","points_change","balance_after","action_type","description"],
     branches: ["name", "code", "phone", "address", "city", "is_active"],
     branch_rooms: ["name", "branch_id", "room_type", "bed_capacity", "is_available"],
     services: [
@@ -5635,6 +5668,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       const next = new URLSearchParams(params);
       next.delete("create");
       next.delete("lesson_type");
+      next.delete("coupon");
       next.delete("technician");
       next.delete("branch");
       setParams(next, { replace: true });
@@ -5780,7 +5814,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     <div className="admin-page-shell">
       <PageHeader
         eyebrow={resource?.group || "QUẢN TRỊ"}
-        title={table === "service_categories" ? "Nhóm dịch vụ" : resource?.title || "Đang tải phân hệ…"}
+        title={loyaltyPages[table]?.title || (table === "service_categories" ? "Nhóm dịch vụ" : resource?.title || "Đang tải phân hệ…")}
         subtitle={
           table === "bookings" ? (
             <p className="mt-1 text-xs text-[#73675F]">Theo dõi khách từ lúc đặt lịch, đến cơ sở, thực hiện dịch vụ và thanh toán.</p>
@@ -5790,10 +5824,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             <p className="mt-1 text-xs text-[#73675F]">Đối chiếu nội dung thu, số lượng, đơn giá và thành tiền của từng hóa đơn.</p>
           ) : table === "users" ? (
             <p className="mt-1 text-xs text-[#73675F]">Quản lý danh tính đăng nhập, vai trò và trạng thái truy cập. Hồ sơ chăm sóc khách hàng được quản lý riêng tại CRM.</p>
-          ) : staffPages[table] ? <p className="mt-1 text-xs text-[#73675F]">{staffPages[table].description}</p> : undefined
+          ) : loyaltyPages[table] ? <p className="mt-1 text-xs text-[#73675F]">{loyaltyPages[table].description}</p> : staffPages[table] ? <p className="mt-1 text-xs text-[#73675F]">{staffPages[table].description}</p> : undefined
         }
         actions={
           <>
+            {table === "coupons" && resources.some(item => item.name === "user_vouchers") && <Link to="/manage/user_vouchers" className="admin-secondary">Ví voucher khách hàng</Link>}
             {staffPages[table] && (staffPages[table].next === "/staff-schedule" ||
               resources.some(item => "/manage/" + item.name === staffPages[table].next)) && (
               <Link to={staffPages[table].next} className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-[#7D431C]">
@@ -5880,7 +5915,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                       ? "Thêm tài khoản"
                       : table === "service_categories"
                         ? "Thêm nhóm"
-                        : staffPages[table]?.create || "Thêm mới"}
+                        : loyaltyPages[table]?.create || staffPages[table]?.create || "Thêm mới"}
                 </button>
               )
             )}
@@ -5944,7 +5979,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </div>
         </div>
       )}
-      <PageToolbar className={staffPages[table] ? "!justify-start rounded-xl border border-[#EFE4D9] bg-white !px-3 py-3" : ""}>
+      <PageToolbar className={staffPages[table] || loyaltyPages[table] ? "!justify-start rounded-xl border border-[#EFE4D9] bg-white !px-3 py-3" : ""}>
         {staffDateField && (
           <div className="flex flex-wrap items-end gap-2">
             <label className="grid gap-1 text-xs font-semibold">
@@ -7136,7 +7171,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                                 setParams(next);
                               }}
                             >
-                              {label(c.name, table)}
+                              {table === "coupons" && c.name === "discount_amount" ? "Ưu đãi" : table === "coupons" && c.name === "used_count" ? "Lượt dùng / giới hạn" : table === "coupons" && c.name === "is_active" ? "Trạng thái" : label(c.name, table)}
                               {params.get("sort") === c.name
                                 ? params.get("direction") === "asc"
                                   ? " ↑"
@@ -7220,6 +7255,9 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           ))}
                           <td>
                             <div className="admin-row-actions">
+                              {table === "coupons" && row.is_active && Date.parse(row.valid_to) > Date.now() && Number(row.used_count) < Number(row.usage_limit) && resources.some(item => item.name === "user_vouchers" && item.actions?.includes("create")) && (
+                                <Link className="admin-secondary whitespace-nowrap" to={"/manage/user_vouchers?" + new URLSearchParams({ create: "1", coupon: row.id })}>Cấp cho khách</Link>
+                              )}
                               {table === "departments" && resources.some(item => item.name === "staff_profiles") && (
                                 <Link className="admin-secondary whitespace-nowrap" to={"/manage/staff_profiles?" + new URLSearchParams({ filter: JSON.stringify({ department_id: row.id }) })}>Xem nhân viên</Link>
                               )}
@@ -7599,7 +7637,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   }
                   const isDeleteAction = confirmation.action === "delete";
 
-                  const runAction = staffPages[table] ? adminCommand : adminApi;
+                  const runAction = staffPages[table] || loyaltyPages[table] ? adminCommand : adminApi;
                   await runAction(
                     `${table}/${isDeleteAction ? "delete" : "action"}`,
                     {
