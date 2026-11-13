@@ -72,6 +72,7 @@ import {
 } from "lucide-react";
 import {
   adminApi,
+  adminCommand,
   branchCache,
   Column,
   Listing,
@@ -913,6 +914,16 @@ const KNOWN_BRANCH_FALLBACKS: Record<string, { name: string; code?: string }> = 
   },
 };
 
+const todayAtBranch = () => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+
+const staffPages: Record<string, { description: string; create: string; next: string; nextLabel: string }> = {
+  staff_profiles: { description: "Liên kết tài khoản nhân viên với bộ phận và chi nhánh làm việc.", create: "Thêm hồ sơ nhân viên", next: "/manage/technicians", nextLabel: "Hồ sơ kỹ thuật viên" },
+  departments: { description: "Quản lý bộ phận dùng chung khi phân công nhân viên.", create: "Thêm bộ phận", next: "/manage/staff_profiles", nextLabel: "Hồ sơ nhân viên" },
+  technicians: { description: "Quản lý chuyên môn và liên kết hồ sơ nhân viên trước khi phân ca trực.", create: "Thêm kỹ thuật viên", next: "/manage/technician_shifts", nextLabel: "Phân ca trực" },
+  technician_shifts: { description: "Phân ca theo chi nhánh, ngày và kỹ thuật viên để Lịch kỹ thuật viên tính giờ có thể đặt.", create: "Tạo ca trực", next: "/manage/technician_slots", nextLabel: "Quản lý giờ khóa" },
+  technician_slots: { description: "Khóa thời gian nghỉ hoặc bận đột xuất. Giờ có thể đặt được tính từ ca trực và lịch hẹn.", create: "Khóa khung giờ", next: "/staff-schedule", nextLabel: "Mở lịch kỹ thuật viên" },
+};
+
 function formatCell(row: Row, c: Column, table?: string): React.ReactNode {
   // Gói liệu trình Spa: Gộp Thumbnail + Tên gói + Dịch vụ đẹp mắt
   if ((table === "treatment_packages" || (row.total_sessions !== undefined && row.validity_months !== undefined && row.price !== undefined)) && c.name === "name") {
@@ -1599,12 +1610,16 @@ function formatCell(row: Row, c: Column, table?: string): React.ReactNode {
       <span className="text-[#A69788] text-xs">—</span>
     );
   }
+  if (table === "technicians" && c.name === "staff_profile_id") return row.staff_profile_id ? "Đã liên kết" : "Chưa liên kết";
+  if (table === "staff_profiles" && c.name === "department_id") return row.department_name || row.departments?.name || (row.department ? enums[row.department] || String(row.department) : "Chưa chọn bộ phận");
+  if (table === "technician_shifts" && c.name === "assigned_room_id") return row.assigned_room_name || "Phân phòng khi đặt";
+  if (c.name === "is_cancelled" && table === "technician_shifts") return row.is_cancelled ? "Đã hủy ca" : "Đã phân ca";
   if (c.name === "is_active") {
     const active = Boolean(row[c.name]);
     return active ? (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-bold bg-[#E8F6ED] text-[#0D6832] border border-[#BDE8CD]">
         <span className="w-1.5 h-1.5 rounded-full bg-[#0D6832]" />
-        <span>Đang kinh doanh</span>
+        <span>{table && staffPages[table] ? (table === "staff_profiles" ? "Đang làm việc" : "Đang hoạt động") : "Đang kinh doanh"}</span>
       </span>
     ) : (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-medium bg-[#F5F5F5] text-[#73675F] border border-[#E5E5E5]">
@@ -2355,11 +2370,13 @@ function ReferenceInput({
   value,
   onChange,
   required,
+  branchId,
 }: {
   column: Column;
   value: string;
   onChange: (v: string) => void;
   required: boolean;
+  branchId?: string;
 }) {
   const [rows, setRows] = useState<Row[]>([]),
     [page, setPage] = useState(1),
@@ -2370,8 +2387,10 @@ function ReferenceInput({
     const controller = new AbortController();
     setBusy(true);
     const timer = setTimeout(() => {
+      const query = new URLSearchParams({ limit: "100", page: String(page) });
+      if (branchId) query.set("filter", JSON.stringify({ branch_id: branchId }));
       adminApi<Listing>(
-        `${column.reference!.table}?limit=100&page=${page}`,
+        column.reference!.table + "?" + query,
         undefined,
         controller.signal,
       )
@@ -2391,7 +2410,7 @@ function ReferenceInput({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [column.reference!.table, page]);
+  }, [column.reference!.table, page, branchId]);
   return (
     <div className="admin-reference">
       <select
@@ -3323,6 +3342,8 @@ function RecordDialog({
   const fields = columns.filter(
     (c) =>
       !generated.includes(c.name) &&
+      !(mode !== "view" && resource.name === "technician_shifts" && c.name === "is_cancelled") &&
+      !(mode !== "view" && resource.name === "technician_slots" && ["status", "held_by_user_id", "hold_expires_at"].includes(c.name)) &&
       (mode === "view" ||
         (c.writable && !(mode === "update" && c.primary))),
   );
@@ -3330,6 +3351,10 @@ function RecordDialog({
   const set = (name: string, value: any) =>
     setValues((old) => {
       const next = { ...old, [name]: value };
+      if (name === "branch_id" && ["technician_shifts", "technician_slots"].includes(resource.name)) {
+        next.technician_id = "";
+        if (resource.name === "technician_shifts") next.assigned_room_id = "";
+      }
       if (resource.name === "service_categories" && mode === "create") {
         if (name === "code") {
           setCodeManuallyEdited(true);
@@ -3367,6 +3392,7 @@ function RecordDialog({
         if (c.name === "display_order") return 1;
         if (c.name === "icon_url") return "";
       }
+      if (resource.name === "technician_shifts" && c.name === "is_cancelled") return false;
       if (c.type === "bool") return c.defaultValue === "true" || c.name.startsWith("is_");
       if (c.name === "valid_from") {
         return formatDatetimeForInput(new Date());
@@ -3542,7 +3568,9 @@ function RecordDialog({
         payload.can_mark_attendance = payload.can_mark_attendance !== undefined ? Boolean(payload.can_mark_attendance) : (values.can_mark_attendance !== undefined ? Boolean(values.can_mark_attendance) : true);
         payload.can_enter_grades = payload.can_enter_grades !== undefined ? Boolean(payload.can_enter_grades) : (values.can_enter_grades !== undefined ? Boolean(values.can_enter_grades) : true);
       }
-      await adminApi(`${resource.name}/${mode}`, {
+      if (resource.name === "technician_slots") payload.status = "BLOCKED";
+      const write = staffPages[resource.name] ? adminCommand : adminApi;
+      await write(`${resource.name}/${mode}`, {
         values: payload,
         ...(mode === "update"
           ? { key: rowKey(columns, row), expectedUpdatedAt: row.updated_at }
@@ -3658,8 +3686,8 @@ function RecordDialog({
                     : mode === "view"
                       ? "Chi tiết"
                       : mode === "create"
-                        ? "Thêm mới"
-                        : "Chỉnh sửa"}
+                        ? staffPages[resource.name]?.create || "Thêm mới"
+                        : resource.name === "technician_shifts" ? "Sửa ca trực" : "Chỉnh sửa"}
               </h2>
             </div>
             <button
@@ -4077,7 +4105,9 @@ function RecordDialog({
                         </select>
                       ) : c.reference ? (
                         <ReferenceInput
+                          key={c.name + (["technician_shifts", "technician_slots"].includes(resource.name) ? String(values.branch_id ?? row.branch_id ?? "") : "")}
                           column={c}
+                          branchId={["technician_shifts", "technician_slots"].includes(resource.name) && ["technician_id", "assigned_room_id"].includes(c.name) ? String(values.branch_id ?? row.branch_id ?? "") : undefined}
                           value={String(value)}
                           onChange={(v) => set(c.name, v)}
                           required={required}
@@ -4788,6 +4818,25 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const confirmDialog = useRef<HTMLDialogElement>(null);
   const page = Number(params.get("page")) || 1;
   const resource = resources.find((r) => r.name === table);
+  const staffDateField = table === "technician_shifts" ? "shift_date" : table === "technician_slots" ? "slot_date" : "";
+  const [staffBranches, setStaffBranches] = useState<Row[]>([]);
+  useEffect(() => {
+    if (!staffDateField || !resources.some(item => item.name === "branches")) return;
+    const controller = new AbortController();
+    adminApi<Listing>("branches?limit=100&sort=name&direction=asc", undefined, controller.signal)
+      .then(result => setStaffBranches(result.rows))
+      .catch(() => { if (!controller.signal.aborted) setStaffBranches([]); });
+    return () => controller.abort();
+  }, [staffDateField, resources]);
+  const [staffDepartments, setStaffDepartments] = useState<Row[]>([]);
+  useEffect(() => {
+    if (table !== "staff_profiles" || !resources.some(item => item.name === "departments")) return;
+    const controller = new AbortController();
+    adminApi<Listing>("departments?limit=100&sort=sort_order&direction=asc", undefined, controller.signal)
+      .then(result => setStaffDepartments(result.rows))
+      .catch(() => { if (!controller.signal.aborted) setStaffDepartments([]); });
+    return () => controller.abort();
+  }, [table, resources]);
 
   // Dữ liệu phục vụ bộ lọc liên kết giữa Khóa học & Danh mục khóa học & Lớp học
   const [coursesForFilter, setCoursesForFilter] = useState<
@@ -4964,8 +5013,19 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     setEdit(null);
     setConfirmation(null);
     setNotice("");
+    const listParams = new URLSearchParams(params);
+    if (staffDateField && !listParams.has("sort")) {
+      listParams.set("sort", "start_time");
+      listParams.set("direction", "asc");
+    }
+    if (staffDateField && !params.has("allDates")) {
+      try {
+        const selection = JSON.parse(params.get("filter") || "{}");
+        listParams.set("filter", JSON.stringify({ [staffDateField]: todayAtBranch(), ...selection }));
+      } catch { /* The API validates explicit filters. */ }
+    }
     adminApi<Listing>(
-      `${table}?${params.toString()}`,
+      table + "?" + listParams.toString(),
       undefined,
       controller.signal,
     )
@@ -4977,7 +5037,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [table, params.toString(), version]);
+  }, [table, params.toString(), version, staffDateField]);
   useEffect(() => {
     if (confirmation) confirmDialog.current?.showModal();
   }, [confirmation]);
@@ -4985,6 +5045,26 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   try {
     filter = JSON.parse(params.get("filter") || "{}");
   } catch { }
+  const updateStaffFilter = (field: string, value: string) => {
+    const next = new URLSearchParams(params);
+    const selected = { ...filter };
+    if (value) selected[field] = value;
+    else delete selected[field];
+    if (field === staffDateField) {
+      if (value) next.delete("allDates");
+      else next.set("allDates", "1");
+    }
+    if (Object.keys(selected).length) next.set("filter", JSON.stringify(selected));
+    else next.delete("filter");
+    next.delete("page");
+    setParams(next);
+  };
+  const staffDraft = (technicianId?: string, branchId?: string): Row => ({
+    [staffDateField]: filter[staffDateField] || todayAtBranch(),
+    ...(branchId || filter.branch_id ? { branch_id: branchId || filter.branch_id } : {}),
+    ...(technicianId ? { technician_id: technicianId } : {}),
+    ...(table === "technician_slots" ? { status: "BLOCKED" } : {}),
+  });
   const selectedBatchId =
     filter.batch_id !== undefined
       ? String(filter.batch_id)
@@ -5221,7 +5301,9 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     setEdit({
       mode: "create",
       row:
-        table === "users"
+        staffDateField
+          ? staffDraft(params.get("technician") || undefined, params.get("branch") || undefined)
+          : table === "users"
           ? { role: "CUSTOMER", is_active: true }
           : table === "course_lessons" && params.get("lesson_type") === "VIDEO"
             ? { lesson_type: "VIDEO" }
@@ -5267,7 +5349,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     listing?.columns.filter(
       (c) =>
         (c.options.length || c.type === "bool") &&
-        !(table === "users" && ["membership_tier", "purpose"].includes(c.name))
+        !(table === "users" && ["membership_tier", "purpose"].includes(c.name)) &&
+        !(table === "staff_profiles" && c.name === "department")
     ) || [];
   const preferred = [
     "name",
@@ -5388,11 +5471,13 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       "display_order",
       "is_active",
     ],
+    departments: ["name", "code", "sort_order", "is_active"],
+    technicians: ["full_name", "title", "staff_profile_id", "branch_id", "is_active"],
+    technician_shifts: ["shift_date", "technician_id", "branch_id", "assigned_room_id", "start_time", "end_time", "is_cancelled"],
+    technician_slots: ["slot_date", "technician_id", "branch_id", "start_time", "end_time", "status"],
     staff_profiles: [
       "full_name",
-      "employee_code",
-      "department",
-      "position",
+      "department_id",
       "branch_id",
       "phone",
       "is_active",
@@ -5516,6 +5601,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       const next = new URLSearchParams(params);
       next.delete("create");
       next.delete("lesson_type");
+      next.delete("technician");
+      next.delete("branch");
       setParams(next, { replace: true });
     } else setVersion((v) => v + 1);
   };
@@ -5669,10 +5756,16 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             <p className="mt-1 text-xs text-[#73675F]">Đối chiếu nội dung thu, số lượng, đơn giá và thành tiền của từng hóa đơn.</p>
           ) : table === "users" ? (
             <p className="mt-1 text-xs text-[#73675F]">Quản lý danh tính đăng nhập, vai trò và trạng thái truy cập. Hồ sơ chăm sóc khách hàng được quản lý riêng tại CRM.</p>
-          ) : undefined
+          ) : staffPages[table] ? <p className="mt-1 text-xs text-[#73675F]">{staffPages[table].description}</p> : undefined
         }
         actions={
           <>
+            {staffPages[table] && (staffPages[table].next === "/staff-schedule" ||
+              resources.some(item => "/manage/" + item.name === staffPages[table].next)) && (
+              <Link to={staffPages[table].next} className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold text-[#7D431C]">
+                {staffPages[table].nextLabel}
+              </Link>
+            )}
             {table === "certificate_templates" && (
               <button
                 type="button"
@@ -5742,7 +5835,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                         mode: "create",
                       });
                     } else {
-                      setEdit({ row: {}, mode: "create" });
+                      setEdit({ row: staffDateField ? staffDraft() : {}, mode: "create" });
                     }
                   }}
                 >
@@ -5753,7 +5846,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                       ? "Thêm tài khoản"
                       : table === "service_categories"
                         ? "Thêm nhóm"
-                        : "Thêm mới"}
+                        : staffPages[table]?.create || "Thêm mới"}
                 </button>
               )
             )}
@@ -5817,7 +5910,26 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </div>
         </div>
       )}
-      <PageToolbar>
+      <PageToolbar className={staffPages[table] ? "!justify-start rounded-xl border border-[#EFE4D9] bg-white !px-3 py-3" : ""}>
+        {staffDateField && (
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="grid gap-1 text-xs font-semibold">
+              Ngày
+              <input type="date" value={filter[staffDateField] || (params.has("allDates") ? "" : todayAtBranch())}
+                onChange={event => updateStaffFilter(staffDateField, event.target.value)} />
+            </label>
+            <button type="button" className="admin-secondary" onClick={() => updateStaffFilter(staffDateField, "")}>Mọi ngày</button>
+            {staffBranches.length > 0 && (
+              <label className="grid gap-1 text-xs font-semibold">
+                Chi nhánh
+                <select value={filter.branch_id || ""} onChange={event => updateStaffFilter("branch_id", event.target.value)}>
+                  <option value="">Tất cả chi nhánh</option>
+                  {staffBranches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                </select>
+              </label>
+            )}
+          </div>
+        )}
         <div className="admin-search">
           <Search size={17} />
           <input
@@ -5961,6 +6073,17 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                 {cat.name} {cat.code ? `(${cat.code})` : ""}
               </option>
             ))}
+          </select>
+        )}
+        {table === "staff_profiles" && staffDepartments.length > 0 && (
+          <select aria-label="Lọc theo bộ phận" value={String(filter.department_id || "")} onChange={event => {
+            const next = { ...filter };
+            if (event.target.value) next.department_id = event.target.value;
+            else delete next.department_id;
+            updateParam("filter", Object.keys(next).length ? JSON.stringify(next) : "");
+          }}>
+            <option value="">Tất cả bộ phận</option>
+            {staffDepartments.map(item => <option key={item.id} value={item.id}>{item.name}{item.is_active ? "" : " (Ngừng hoạt động)"}</option>)}
           </select>
         )}
         {filterColumns.slice(0, 3).map((c) => (
@@ -7020,6 +7143,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                                   onClick={() => openRecordPreview(row)}
                                 >
                                   {formatCell(row, c, table)}
+                                  {table === "staff_profiles" && <small className="block text-left font-normal text-[#73675F]">{[row.employee_code, row.position].filter(Boolean).join(" · ")}</small>}
                                 </button>
                               ) : (
                                 <span
@@ -7062,6 +7186,21 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           ))}
                           <td>
                             <div className="admin-row-actions">
+                              {table === "departments" && resources.some(item => item.name === "staff_profiles") && (
+                                <Link className="admin-secondary whitespace-nowrap" to={"/manage/staff_profiles?" + new URLSearchParams({ filter: JSON.stringify({ department_id: row.id }) })}>Xem nhân viên</Link>
+                              )}
+                              {table === "technicians" && row.is_active && resources.some(item => item.name === "technician_shifts" && item.actions?.includes("create")) && (
+                                <Link className="admin-secondary whitespace-nowrap" to={"/manage/technician_shifts?" + new URLSearchParams({ create: "1", technician: row.id, branch: row.branch_id })}>Phân ca</Link>
+                              )}
+                              {table === "technician_shifts" && resource?.actions?.includes("update") && (
+                                <>
+                                  <button type="button" className="admin-secondary whitespace-nowrap" onClick={() => setEdit({ row, mode: "update" })}>Sửa ca</button>
+                                  {!row.is_cancelled && <button type="button" className="admin-secondary whitespace-nowrap" onClick={() => setConfirmation({ row, action: "cancel-shift", title: "Hủy ca trực" })}>Hủy ca</button>}
+                                </>
+                              )}
+                              {table === "technician_slots" && row.status === "BLOCKED" && resource?.actions?.includes("delete") && (
+                                <button type="button" className="admin-secondary whitespace-nowrap" onClick={() => setConfirmation({ row, action: "delete", title: "Mở lại khung giờ" })}>Mở lại</button>
+                              )}
                               {table === "student_academic_records" && gradeDrafts[String(row.id)] && (
                                 <button
                                   className="admin-icon"
@@ -7137,7 +7276,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                         <span>Xem hồ sơ chi tiết</span>
                       </button>
 
-                      {resource?.actions?.includes("update") && (
+                      {resource?.actions?.includes("update") && (table !== "technician_slots" || activeRowMenu.row.status === "BLOCKED") && (
                         <button
                           type="button"
                           className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#2C241E] hover:bg-[#FAF4ED] hover:text-[#985018] rounded-xl transition-colors text-left cursor-pointer"
@@ -7148,7 +7287,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           }}
                         >
                           <Pencil size={14} className="text-[#985018]" />
-                          <span>Chỉnh sửa thông tin</span>
+                          <span>{table === "technician_shifts" ? "Sửa ca" : "Chỉnh sửa thông tin"}</span>
                         </button>
                       )}
 
@@ -7172,7 +7311,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           );
                         })}
 
-                      {resource?.actions?.includes("delete") && (
+                      {resource?.actions?.includes("delete") && (!staffPages[table] || (table === "technician_slots" && activeRowMenu.row.status === "BLOCKED")) && (
                         <>
                           <div className="my-1 border-t border-[#F0E5D9]" />
                           <button
@@ -7185,12 +7324,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                               setConfirmation({
                                 row: targetRow,
                                 action: "delete",
-                                title: "Xóa bản ghi",
+                                title: table === "technician_slots" ? "Mở lại khung giờ" : "Xóa bản ghi",
                               });
                             }}
                           >
                             <Trash2 size={14} className="text-rose-600" />
-                            <span>Xóa bản ghi này</span>
+                            <span>{table === "technician_slots" ? "Mở lại khung giờ" : "Xóa bản ghi này"}</span>
                           </button>
                         </>
                       )}
@@ -7231,7 +7370,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                         <p>
                           {params.get("search") || params.get("filter")
                             ? "Không có kết quả phù hợp."
-                            : "Chưa có dữ liệu."}
+                            : staffDateField ? "Không có bản ghi trong ngày và chi nhánh đang xem." : "Chưa có dữ liệu."}
                         </p>
                       )}
                     </div>
@@ -7337,8 +7476,10 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </header>
           <p>{recordLabel(confirmation.row)}</p>
           <p>
-            {confirmation.action === "delete"
-              ? "Bản ghi sẽ bị xóa khỏi database chung."
+            {confirmation.action === "cancel-shift"
+              ? "Ca sẽ ngừng nhận lịch mới. Nếu ca đang có lịch hẹn, hãy điều phối lịch hẹn trước."
+              : confirmation.action === "delete"
+              ? table === "technician_slots" ? "Lịch kỹ thuật viên sẽ tính lại các giờ có thể đặt sau khi gỡ khóa." : "Bản ghi sẽ bị xóa khỏi database chung."
               : confirmation.action === "confirm-payment"
                 ? "Chỉ xác nhận khi thực tế đã nhận đủ tiền mặt hoặc kiểm tra giao dịch chuyển khoản."
                 : confirmation.action === "handover-tech"
@@ -7412,9 +7553,20 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   }
 
                   const targetRow = confirmation.row;
+                  if (table === "technician_shifts" && confirmation.action === "cancel-shift") {
+                    await adminCommand("technician_shifts/update", {
+                      key: rowKey(listing.columns, targetRow),
+                      expectedUpdatedAt: targetRow.updated_at,
+                      values: { is_cancelled: true },
+                    });
+                    setConfirmation(null);
+                    setVersion(value => value + 1);
+                    return;
+                  }
                   const isDeleteAction = confirmation.action === "delete";
 
-                  await adminApi(
+                  const runAction = staffPages[table] ? adminCommand : adminApi;
+                  await runAction(
                     `${table}/${isDeleteAction ? "delete" : "action"}`,
                     {
                       key: {
@@ -7446,7 +7598,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                         : null,
                     );
                     const labelStr = recordLabel(targetRow);
-                    setNotice(`Đã xóa "${labelStr || targetRow?.name || targetRow?.title || "bản ghi"}" thành công.`);
+                    setNotice(table === "technician_slots" ? "Đã mở lại khung giờ." : `Đã xóa "${labelStr || targetRow?.name || targetRow?.title || "bản ghi"}" thành công.`);
                   }
 
                   setConfirmation(null);

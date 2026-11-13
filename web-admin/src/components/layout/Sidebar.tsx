@@ -143,7 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             { name: 'Bộ phận', path: '/manage/departments' },
             { name: 'Đội ngũ Chuyên viên KTV', path: '/manage/technicians' },
             { name: 'Ca làm việc', path: '/manage/technician_shifts' },
-            { name: 'Khung giờ chuyên viên', path: '/manage/technician_slots' },
+            { name: 'Giờ nghỉ & khóa lịch', path: '/manage/technician_slots' },
             { name: 'Hoa hồng KTV & Thưởng', path: '/commissions' },
           ],
         },

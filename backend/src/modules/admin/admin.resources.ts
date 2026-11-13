@@ -32,7 +32,7 @@ export const ADMIN_RESOURCES: Record<
   departments: { title: 'Bộ phận', group: 'Nhân sự' },
   technicians: { title: 'Chuyên viên', group: 'Nhân sự' },
   technician_shifts: { title: 'Ca làm việc', group: 'Nhân sự' },
-  technician_slots: { title: 'Khung giờ chuyên viên', group: 'Nhân sự' },
+  technician_slots: { title: 'Giờ nghỉ & khóa lịch', group: 'Nhân sự' },
   coupons: { title: 'Mã giảm giá', group: 'Voucher' },
   voucher_distribution_rules: { title: 'Quy tắc phân phối', group: 'Voucher' },
   user_vouchers: { title: 'Voucher khách hàng', group: 'Voucher' },

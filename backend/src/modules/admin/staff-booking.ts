@@ -19,7 +19,7 @@ export async function scheduleAvailability(client: PoolClient, actor: AdminActor
   if (!branch || !service || !(Number(service.duration_minutes) > 0))
     throw new ConflictException('Chi nhánh hoặc dịch vụ chưa sẵn sàng nhận lịch.');
   const shifts = (await client.query(
-    'SELECT s.*,t.full_name FROM technician_shifts s JOIN technicians t ON t.id=s.technician_id WHERE s.branch_id=$1 AND s.shift_date=$2 AND NOT s.is_cancelled AND t.is_active AND t.branch_id=s.branch_id AND NOT EXISTS (SELECT 1 FROM staff_leaves l WHERE l.staff_id=t.staff_profile_id AND l.status=\'APPROVED\' AND s.shift_date BETWEEN l.start_date AND l.end_date) ORDER BY s.start_time,s.id',
+    'SELECT s.*,t.full_name FROM technician_shifts s JOIN technicians t ON t.id=s.technician_id WHERE s.branch_id=$1 AND s.shift_date=$2 AND NOT s.is_cancelled AND t.is_active AND t.branch_id=s.branch_id AND (t.staff_profile_id IS NULL OR EXISTS (SELECT 1 FROM staff_profiles p WHERE p.id=t.staff_profile_id AND p.is_active AND p.branch_id=s.branch_id)) AND NOT EXISTS (SELECT 1 FROM staff_leaves l WHERE l.staff_id=t.staff_profile_id AND l.status=\'APPROVED\' AND s.shift_date BETWEEN l.start_date AND l.end_date) ORDER BY s.start_time,s.id',
     [branchId, day],
   )).rows;
   const blocks = (await client.query(

@@ -145,7 +145,28 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
     await expect(service.action('bookings', superAdminActor, {
       key: { id: booking.id }, action: 'checkout', requireEnded: true,
     })).rejects.toThrow('Ca chưa hết giờ');
+    await pg.query("UPDATE bookings SET status='COMPLETED' WHERE id=$1", [booking.id]);
 
+  });
+
+  it('keeps staff scheduling changes consistent with existing appointments', async () => {
+    const date = '2099-04-16';
+    const shift = { technician_id: technicianId, branch_id: branchId, shift_date: date, start_time: '09:00', end_time: '12:00' };
+    const makeShift = (values: object) => service.mutate('technician_shifts', superAdminActor, 'create', { values });
+    await expect(makeShift({ ...shift, end_time: '08:00' })).rejects.toThrow('Giờ kết thúc');
+    const created = await makeShift(shift);
+    await expect(makeShift({ ...shift, start_time: '11:00' })).rejects.toThrow('bị trùng');
+    const block = { technician_id: technicianId, branch_id: branchId, slot_date: date, start_time: '10:00', end_time: '11:00' };
+    await expect(service.mutate('technician_slots', superAdminActor, 'create', { values: { ...block, status: 'BOOKED' } })).rejects.toThrow('giờ khóa');
+    const locked = await service.mutate('technician_slots', superAdminActor, 'create', { values: { ...block, status: 'BLOCKED' } });
+    const available = await service.staffScheduleSlots(superAdminActor, { branchId, date, serviceId });
+    expect(available.slots.some(slot => slot.start === '10:00')).toBe(false);
+    await service.mutate('technician_slots', superAdminActor, 'delete', { key: { id: locked.id } });
+    await pg.query("INSERT INTO bookings(booking_code,customer_id,branch_id,technician_id,booking_date,start_time,end_time,status,base_total,final_price,qr_code_hash) VALUES('STAFF-ROSTER-TEST',$1,$2,$3,$4,'10:00','11:00','CONFIRMED',500000,500000,'staff-roster-test')",
+      [customerOneId, branchId, technicianId, date]);
+    await expect(service.mutate('technician_shifts', superAdminActor, 'update', { key: { id: created.id }, values: { is_cancelled: true } })).rejects.toThrow('đã có lịch hẹn');
+    await expect(service.mutate('technician_slots', superAdminActor, 'create', { values: { ...block, status: 'BLOCKED' } })).rejects.toThrow('đã có lịch hẹn');
+    await pg.query("DELETE FROM bookings WHERE booking_code='STAFF-ROSTER-TEST'");
   });
 
   afterAll(async () => {

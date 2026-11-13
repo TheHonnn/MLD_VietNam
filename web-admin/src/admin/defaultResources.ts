@@ -34,7 +34,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'departments', title: 'Bộ phận', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete'] },
   { name: 'technicians', title: 'Đội ngũ Chuyên viên KTV', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'technician_shifts', title: 'Ca làm việc', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'technician_slots', title: 'Khung giờ chuyên viên', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'technician_slots', title: 'Giờ nghỉ & khóa lịch', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'staff_commissions', title: 'Hoa hồng KTV & Thưởng', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
 
   // 7. Voucher & Hội viên

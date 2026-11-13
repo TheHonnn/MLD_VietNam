@@ -17,6 +17,7 @@ import { randomBytes, randomUUID } from 'crypto';
 import { AdminDatabase } from './admin.database';
 import { inspectAdminSchema } from './admin.schema';
 import { createTreatmentBooking } from './treatment-booking';
+import { validateStaffWorkflow } from './staff-workflow';
 import { assignStaffBooking, createStaffBooking, scheduleAvailability } from './staff-booking';
 import { recordMaterialCount, syncInventoryItem } from './treatment-inventory';
 import { enrichReferenceLabels } from './admin.labels';
@@ -766,6 +767,7 @@ export class AdminService {
     allocateTreatmentSession = false,
   ) {
     const next = { ...previous, ...data };
+    await validateStaffWorkflow(client, table, next, previous, operation);
     if (table === 'home_care_guidelines') {
       if (operation === 'delete') throw new ConflictException('Hãy gỡ xuất bản mẫu hướng dẫn để giữ lịch sử đã giao cho khách.');
       delete data.version;
@@ -1140,26 +1142,6 @@ export class AdminService {
           }
         }
       }
-    }
-    if (
-      ['technician_shifts', 'technician_slots'].includes(table) &&
-      operation !== 'delete'
-    ) {
-      const day = table === 'technician_shifts' ? 'shift_date' : 'slot_date';
-      const overlaps = await client.query(
-        `SELECT 1 FROM ${quote(table)} WHERE technician_id=$1 AND ${quote(day)}=$2 AND start_time<$4::time AND end_time>$3::time AND id<>$5 ${table === 'technician_shifts' ? 'AND is_cancelled=false' : ''} LIMIT 1`,
-        [
-          next.technician_id,
-          next[day],
-          next.start_time,
-          next.end_time,
-          previous?.id || '00000000-0000-4000-8000-000000000000',
-        ],
-      );
-      if (overlaps.rowCount && !next.is_cancelled)
-        throw new ConflictException(
-          'Ca làm / khung giờ bị trùng với lịch đã có.',
-        );
     }
     if (
       [

@@ -14,11 +14,10 @@ import {
   Save,
   Pencil,
   LoaderCircle,
-  Link as LinkIcon,
   Sparkles,
   AlertCircle,
 } from "lucide-react";
-import { adminApi, Listing, Row } from "./api";
+import { adminApi, adminCommand, Listing, Row } from "./api";
 import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
 
 export interface StaffProfileEditorSheetProps {
@@ -46,6 +45,7 @@ const ROLES = [
   { value: "INSTRUCTOR", label: "Giảng viên đào tạo" },
   { value: "BRANCH_MANAGER", label: "Quản lý cơ sở / Chi nhánh" },
   { value: "ADMIN", label: "Quản trị viên hệ thống" },
+  { value: "SUPER_ADMIN", label: "Quản trị cao nhất" },
 ];
 
 const EMPLOYMENT_TYPES = [
@@ -90,7 +90,7 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
   );
 
   // Existing user link toggle
-  const [linkExistingUser, setLinkExistingUser] = useState(false);
+  const linkExistingUser = mode === "create";
   const [userId, setUserId] = useState(row.user_id || "");
   const [existingUsers, setExistingUsers] = useState<any[]>([]);
   const [searchingUsers, setSearchingUsers] = useState(false);
@@ -158,8 +158,8 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
       }
     };
     fetchBranches();
-    adminApi<Listing>("departments?limit=200&page=1&sort=sort_order&direction=asc")
-      .then((res) => { if (mounted) setDepartments(res.rows.filter((item) => item.is_active)); })
+    adminApi<Listing>("departments?limit=100&page=1&sort=sort_order&direction=asc")
+      .then((res) => { if (mounted) setDepartments(res.rows.filter((item) => item.is_active || item.id === row.department_id)); })
       .catch((err) => console.warn("Lỗi load danh mục bộ phận:", err));
     return () => {
       mounted = false;
@@ -173,16 +173,9 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
     const fetchUsers = async () => {
       setSearchingUsers(true);
       try {
-        const query = userSearchTerm.trim()
-          ? `or=(full_name.ilike.*${encodeURIComponent(userSearchTerm)}*,phone.ilike.*${encodeURIComponent(userSearchTerm)}*)`
-          : "order=full_name.asc";
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/users?select=id,full_name,phone,email,role&limit=30&${query}`, {
-          headers: getSupabaseHeaders(),
-        });
-        const data = await res.json();
-        if (mounted && Array.isArray(data)) {
-          setExistingUsers(data);
-        }
+        const query = new URLSearchParams({ limit: '30', search: userSearchTerm.trim() });
+        const result = await adminCommand<Listing>('users?' + query);
+        if (mounted) setExistingUsers(result.rows.filter(user => user.is_active !== false && !["CUSTOMER", "STUDENT", "GUEST"].includes(user.role)));
       } catch (err) {
         console.warn("Lỗi load users:", err);
       } finally {
@@ -210,16 +203,16 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
     e.preventDefault();
     setError("");
 
-    if (!fullName.trim()) {
-      setError("Vui lòng nhập Họ và tên nhân viên.");
-      return;
-    }
-    if (!phone.trim()) {
-      setError("Vui lòng nhập Số điện thoại nhân viên để liên hệ và cấp tài khoản.");
+    if (isCreate && !userId) {
+      setError("Chọn tài khoản nhân viên đã có trong hệ thống.");
       return;
     }
     if (!branchId) {
       setError("Vui lòng chọn Cơ sở / Chi nhánh làm việc.");
+      return;
+    }
+    if (!departmentId && (isCreate || row.department_id)) {
+      setError("Vui lòng chọn bộ phận đang hoạt động.");
       return;
     }
     if (!position.trim()) {
@@ -230,11 +223,7 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
     setBusy(true);
     try {
       const payload: Record<string, any> = {
-        full_name: fullName.trim(),
-        phone: phone.trim(),
-        email: email.trim() || null,
-        role: role,
-        employee_code: employeeCode.trim() || `NV-${Math.floor(1000 + Math.random() * 9000)}`,
+        employee_code: employeeCode.trim(),
         branch_id: branchId,
         department,
         department_id: departmentId || null,
@@ -250,12 +239,12 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
         is_active: isActive,
       };
 
-      if (linkExistingUser && userId) {
+      if (isCreate && userId) {
         payload.user_id = userId;
       }
 
       if (isCreate) {
-        await adminApi("staff_profiles/create", { values: payload });
+        await adminCommand("staff_profiles/create", { values: payload });
       } else {
         await adminApi("staff_profiles/update", {
           key: { id: row.id, user_id: row.user_id },
@@ -277,7 +266,7 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
     const code = (newDepartmentCode.trim() || name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "")).slice(0, 40);
     if (!name || !code) return;
     try {
-      const created = await adminApi<Row>("departments/create", { values: { name, code, is_active: true, sort_order: 100 } });
+      const created = await adminCommand<Row>("departments/create", { values: { name, code, is_active: true, sort_order: 100 } });
       setDepartments((current) => [...current, created]);
       setDepartmentId(created.id);
       setShowNewDepartment(false);
@@ -347,23 +336,9 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
                 Thông tin cá nhân & Tài khoản đăng nhập
               </h3>
             </div>
-            {isCreate && (
-              <label className="flex items-center gap-2 text-xs text-[#766554] cursor-pointer hover:text-[#2C241E]">
-                <input
-                  type="checkbox"
-                  checked={linkExistingUser}
-                  onChange={(e) => setLinkExistingUser(e.target.checked)}
-                  className="rounded border-[#E8DFD8] text-[#B38A58] focus:ring-[#B38A58]"
-                />
-                <span className="flex items-center gap-1">
-                  <LinkIcon size={12} />
-                  Chọn tài khoản đã có sẵn
-                </span>
-              </label>
-            )}
           </div>
 
-          {linkExistingUser && isCreate && (
+          {isCreate && (
             <div className="p-3.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl space-y-2">
               <span className="text-xs font-semibold text-[#766554]">
                 Tìm kiếm tài khoản người dùng theo tên hoặc số điện thoại:
@@ -415,7 +390,7 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
                 <input
                   type="text"
                   placeholder="Ví dụ: Nguyễn Thị Mai"
-                  disabled={isView}
+                  disabled
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5] disabled:text-[#766554]"
@@ -432,7 +407,7 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
                 <input
                   type="tel"
                   placeholder="Ví dụ: 0912345678"
-                  disabled={isView}
+                  disabled
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5] disabled:text-[#766554]"
@@ -448,7 +423,7 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
               <input
                 type="email"
                 placeholder="Ví dụ: mai.nguyen@mldspa.vn"
-                disabled={isView}
+                disabled
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5] disabled:text-[#766554]"
@@ -475,7 +450,7 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
                 Vai trò tài khoản hệ thống <span className="text-red-500">*</span>
               </label>
               <select
-                disabled={isView}
+                disabled
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5] disabled:text-[#766554]"
@@ -487,7 +462,7 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
                 ))}
               </select>
               <p className="text-[11px] text-[#766554] mt-1">
-                Phân quyền quyết định các chức năng nhân viên được phép truy cập trên hệ thống Web Admin / KTV Mobile.
+                Tạo hoặc cập nhật quyền đăng nhập tại mục Tài khoản hệ thống. Mỗi hồ sơ nhân viên liên kết với một tài khoản.
               </p>
             </div>
           </div>
@@ -541,12 +516,12 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
                 }}
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5] disabled:text-[#766554]"
               >
+                <option value="">Chọn bộ phận</option>
                 {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
+                  <option key={d.id} value={d.id} disabled={!d.is_active}>
                     {d.name}
                   </option>
                 ))}
-                {!departmentId && departments.length === 0 && DEPARTMENTS.map((d) => <option key={d.value} value="">{d.label}</option>)}
               </select>
               {showNewDepartment && (
                 <div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2">
