@@ -1,5 +1,6 @@
 // MLD Healthcare & Academy - W18 Portal Content Management & Automated Email Channel
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Image as ImageIcon,
   FileText,
@@ -870,11 +871,27 @@ const MobileHomeMockup: React.FC<MobileHomeMockupProps> = ({
 // ==========================================
 // MAIN COMPONENT: W18_PortalContent
 // ==========================================
+type PortalTab = 'banners' | 'contacts' | 'taxonomies' | 'faqs' | 'legal' | 'documents' | 'community' | 'email';
+
 export const W18_PortalContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<
-    'banners' | 'contacts' | 'taxonomies' | 'faqs' | 'legal' | 'documents' | 'community' | 'email'
-  >('banners');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as PortalTab | null;
+  const validTabs: PortalTab[] = ['banners', 'contacts', 'taxonomies', 'faqs', 'legal', 'documents', 'community', 'email'];
+  const initialTab = tabParam && validTabs.includes(tabParam) ? tabParam : 'banners';
+
+  const [activeTab, setActiveTab] = useState<PortalTab>(initialTab);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (tabParam && validTabs.includes(tabParam) && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (newTab: PortalTab) => {
+    setActiveTab(newTab);
+    setSearchParams({ tab: newTab });
+  };
 
   // Content States
   const [banners, setBanners] = useState<PortalContentItem[]>([]);
@@ -1558,7 +1575,7 @@ export const W18_PortalContent: React.FC = () => {
         ariaLabel="Quản lý nội dung Portal"
         variant="pill"
         activeTab={activeTab}
-        onChange={(tabId) => setActiveTab(tabId as any)}
+        onChange={(tabId) => handleTabChange(tabId as any)}
         tabs={[
           { id: 'banners', label: `1. Banner Trang Chủ (${banners.length})`, icon: ImageIcon },
           { id: 'contacts', label: '2. Kênh Liên Hệ & MXH', icon: Phone },
