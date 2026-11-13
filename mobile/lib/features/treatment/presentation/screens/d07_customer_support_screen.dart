@@ -684,7 +684,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                       ),
-                      child: const Column(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -697,7 +697,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                           ),
                           SizedBox(height: 12),
                           Text(
-                            'Đào tạo & hợp tác: 096.7786.399',
+                            'Đào tạo & hợp tác: ${PortalSettingsService.instance.hotlineTraining}',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -706,7 +706,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                           ),
                           SizedBox(height: 6),
                           Text(
-                            'Giờ hỗ trợ: 09:00–20:00 · Ví dụ',
+                            'Giờ hỗ trợ: ${PortalSettingsService.instance.workingHours}',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,

@@ -112,15 +112,18 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   final TextEditingController _serviceSearchController = TextEditingController();
   String _selectedBranchFilter = 'Tất cả cơ sở';
 
-  static const List<String> _serviceCategories = [
-    'Tất cả dịch vụ',
-    'Dẫn lưu Bạch huyết Giảm phù',
-    'Dẫn lưu ngực',
-    'Dẫn lưu đầu',
-    'Dẫn lưu cổ vai gáy lưng',
-    'Dẫn lưu chân',
-    'Dẫn lưu bụng',
-  ];
+  List<String> get _serviceCategories {
+    final list = <String>['Tất cả dịch vụ', 'Dịch vụ lẻ', 'Gói liệu trình'];
+    for (final s in ServiceRepository.instance.cachedServices) {
+      final name = s.categoryName.trim();
+      if (name.isNotEmpty && !list.contains(name)) list.add(name);
+    }
+    for (final p in ServiceRepository.instance.cachedPackages) {
+      final cat = p.category.trim();
+      if (cat.isNotEmpty && !list.contains(cat)) list.add(cat);
+    }
+    return list;
+  }
   String _selectedServiceCategory = 'Tất cả dịch vụ';
 
   List<String> _getBranchFilterOptions() {

@@ -99,14 +99,16 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
 
   // Bộ lọc Trị liệu (Theo chuẩn giao diện Đào tạo)
   ServiceFilterExpanded? _expandedFilter;
-  final List<String> _therapyCategories = [
-    'Tất cả',
-    'Dịch vụ lẻ',
-    'Gói liệu trình',
-    'Chăm sóc khu trú',
-    'Chăm sóc mở rộng',
-    'Chăm sóc toàn diện',
-  ];
+  List<String> get _therapyCategories {
+    final list = <String>['Tất cả', 'Dịch vụ lẻ', 'Gói liệu trình'];
+    for (final item in _allTherapyItems) {
+      final cat = item.category.trim();
+      if (cat.isNotEmpty && !list.contains(cat)) {
+        list.add(cat);
+      }
+    }
+    return list;
+  }
   String _selectedTherapyCategory = 'Tất cả';
 
   List<BranchModel> _branches = [];
