@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 async function verifyDialogAndRecovery(page, frontendUrl, requests, output) {
   await page.goto(frontendUrl + '/manage/service_categories');
   await page.locator('.admin-pagination').waitFor();
-  await page.getByRole('button',{name:'Thêm mới',exact:true}).click();
+  await page.getByRole('button',{name:/Thêm mới|Thêm nhóm/}).click();
   await page.getByRole('dialog').getByLabel(/^Tên/).fill('Thông tin chưa lưu');
   page.once('dialog', dialog => dialog.dismiss());
   await page.getByRole('dialog').getByRole('button',{name:'Đóng',exact:true}).last().click();
@@ -11,7 +11,7 @@ async function verifyDialogAndRecovery(page, frontendUrl, requests, output) {
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('dialog').getByRole('button',{name:'Đóng',exact:true}).last().click();
   await page.getByRole('dialog').waitFor({state:'hidden'});
-  await page.getByRole('button',{name:'Thêm mới',exact:true}).click();
+  await page.getByRole('button',{name:/Thêm mới|Thêm nhóm/}).click();
   await page.getByRole('dialog').getByRole('button',{name:'Lưu thay đổi',exact:true}).click();
   assert.equal(await page.getByRole('dialog').getByLabel(/^Tên/).getAttribute('aria-invalid'),'true');
   await page.getByRole('dialog').getByRole('button',{name:'Đóng',exact:true}).last().click();

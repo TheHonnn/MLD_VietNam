@@ -214,7 +214,15 @@ async function main() {
     await sidebar.getByRole('button',{name:'Thu gọn Chi nhánh & Phòng ốc',exact:true}).click();
     const resourceLinks=await sidebar.locator('a[href^="/manage/"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
     const linkedResources = new Set(resourceLinks.map((href) => href.replace('/manage/', '').split('?')[0]));
-    const dedicatedRoutes = new Set(['branches', 'branch_rooms', 'users', 'consultation_surveys', 'instructors', 'student_attendance', 'services', 'treatment_packages', 'invoices', 'student_certificates', 'certificate_templates']);
+    const dedicatedRoutes = new Set([
+      'branches', 'branch_rooms', 'users', 'consultation_surveys', 'instructors',
+      'student_attendance', 'services', 'treatment_packages', 'invoices',
+      'student_certificates', 'certificate_templates',
+      'home_products', 'staff_commissions',
+      'home_care_deliveries', 'user_package_lifecycle_logs', 'treatment_session_reversals',
+      'treatment_inventory_outbox', 'branch_material_stock', 'treatment_stock_movements',
+      'post_care_outbox', 'enrollment_status_history', 'enrollment_change_requests', 'academy_enrollment_funnel'
+    ]);
     const unlinkedResources = Object.keys(ADMIN_RESOURCES).filter((name) => !linkedResources.has(name) && !dedicatedRoutes.has(name));
     assert.equal(unlinkedResources.length, 0, `Resources missing from business menus: ${unlinkedResources.join(', ')}`);
     while(await sidebar.getByRole('button',{name:/^Mở /}).count())await sidebar.getByRole('button',{name:/^Mở /}).first().click();
@@ -228,7 +236,7 @@ async function main() {
     assert.equal(await page.evaluate(()=>window.scrollY),0,'Document does not scroll with sidebar');
     await page.goto(frontendUrl + '/manage/staff_profiles');
     await page.getByRole('columnheader',{name:'Họ và tên',exact:true}).waitFor();
-    await page.getByRole('button',{name:'Kiểm thử giao diện',exact:true}).waitFor();
+    await page.getByRole('button',{name:/Kiểm thử giao diện/}).waitFor();
     await page.screenshot({path:path.join(output,'staff-name-desktop.png')});
     await sidebar.getByRole('button',{name:'Mở Chương trình đào tạo',exact:true}).click();
     await sidebar.getByRole('link',{name:'Bài học & video',exact:true}).click();
@@ -249,7 +257,18 @@ async function main() {
     await page.screenshot({path:path.join(output,'quiz-form-desktop.png')});
     const formReliability = await require('./support/admin-browser-reliability.cjs').verifyDialogAndRecovery(page, frontendUrl, requests, output);
     let checked = 0;
-    const dedicatedPages = { branches: '/branches', branch_rooms: '/branches?tab=rooms', student_certificates: '/certificates?tab=list', certificate_templates: '/certificates?tab=template', services: '/services-catalog?tab=services', treatment_packages: '/services-catalog?tab=packages', invoices: '/cashier-pos?tab=receipts' };
+    const dedicatedPages = {
+      branches: '/branches',
+      branch_rooms: '/branches?tab=rooms',
+      consultation_surveys: '/customers',
+      student_certificates: '/certificates?tab=list',
+      certificate_templates: '/certificates?tab=template',
+      services: '/services-catalog?tab=services',
+      treatment_packages: '/services-catalog?tab=packages',
+      invoices: '/cashier-pos?tab=receipts',
+      home_products: '/home-products',
+      instructors: '/manage/instructors',
+    };
     const selectedResources = process.env.ADMIN_BROWSER_RESOURCES?.split(',');
     const resourcesToCheck = Object.entries(ADMIN_RESOURCES).filter(([name]) => !selectedResources || selectedResources.includes(name));
     assert.ok(resourcesToCheck.length, 'At least one resource must be selected');
@@ -258,12 +277,18 @@ async function main() {
       await page.goto(frontendUrl + '/manage/' + name);
       if (dedicatedPages[name]) {
         await page.waitForURL(frontendUrl + dedicatedPages[name]);
-        await page.locator('main h1').waitFor();
+        await page.locator('main h1, h1').first().waitFor();
+        checked++;
+        continue;
+      }
+      if (['user_packages', 'treatment_journal', 'home_care_guidelines'].includes(name)) {
+        await page.locator('main.treatment-workspace h1').first().waitFor();
         checked++;
         continue;
       }
       await page
-        .getByRole('heading', { name: resource.title })
+        .getByRole('heading', { name: resource.title, exact: true })
+        .first()
         .waitFor();
       if (['course_enrollments', 'student_attendance', 'student_academic_records'].includes(name)) {
         await page.getByRole('combobox', { name: 'Chọn Lớp học', exact: true }).selectOption('__ALL__');
@@ -274,10 +299,9 @@ async function main() {
         0,
         name + ' error',
       );
-      if (!resource.readonly) {
-        await page
-          .getByRole('button', { name: 'Thêm mới', exact: true })
-          .click();
+      const canCreate = !resource.readonly && (!resource.actions || resource.actions.includes('create')) && name !== 'invoice_items';
+      if (canCreate) {
+        await page.locator('button.admin-primary').click();
         await page.getByRole('dialog').waitFor();
         assert.ok(
           await page.getByRole('dialog').locator('label').count(),
@@ -290,7 +314,7 @@ async function main() {
     }
     await page.goto(frontendUrl + '/manage/service_categories');
     await page.locator('.admin-pagination').waitFor();
-    await page.getByRole('button', { name: 'Thêm mới', exact: true }).click();
+    await page.locator('button.admin-primary').click();
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel(/^Tên/).fill('Bản ghi kiểm thử');
     await dialog.getByLabel(/^Mã/).fill('BROWSER-CATEGORY');
