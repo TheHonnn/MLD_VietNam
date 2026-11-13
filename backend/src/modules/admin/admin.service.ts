@@ -17,6 +17,7 @@ import { randomBytes, randomUUID } from 'crypto';
 import { AdminDatabase } from './admin.database';
 import { inspectAdminSchema } from './admin.schema';
 import { createTreatmentBooking } from './treatment-booking';
+import { assignStaffBooking, createStaffBooking, scheduleAvailability } from './staff-booking';
 import { recordMaterialCount, syncInventoryItem } from './treatment-inventory';
 import { enrichReferenceLabels } from './admin.labels';
 import { allowedBranches, branchPredicate, assertRowScope, assertCashierBranch, packageBranchIdsSql } from './admin.scope';
@@ -1408,7 +1409,7 @@ export class AdminService {
   async action(
     table: string,
     actor: AdminActor,
-    body: { key?: unknown; action?: string; reason?: string; userPackageId?: string },
+    body: { key?: unknown; action?: string; reason?: string; userPackageId?: string; requireEnded?: boolean },
   ) {
     this.resource(table, actor, true);
     const columns = await this.columns(table, actor);
@@ -1516,6 +1517,9 @@ export class AdminService {
             [row.id, actor.id],
           );
         } else if (action === 'checkout') {
+          if (body.requireEnded === true && !(await client.query(
+            "SELECT booking_date + end_time <= now() AT TIME ZONE 'Asia/Ho_Chi_Minh' AS ended FROM bookings WHERE id=$1", [row.id],
+          )).rows[0]?.ended) throw new ConflictException('Ca chưa hết giờ theo lịch.');
           if (row.status !== 'IN_SERVICE' || row.session_status !== 'COMPLETED')
             throw new ConflictException('Cần hoàn tất hồ sơ chuyên môn trước khi check-out.');
           if (row.payment_status !== 'PAID')
@@ -2335,6 +2339,29 @@ export class AdminService {
 
   async bookTreatmentSession(actor: AdminActor, packageId: string, body: Record<string, unknown>) {
     return createTreatmentBooking(this.db.connection,actor,packageId,body);
+  }
+
+  async staffScheduleSlots(actor: AdminActor, query: Record<string,string>) {
+    const client = await this.db.connection.connect();
+    try {
+      const {slots, shifts} = await scheduleAvailability(client, actor, query.branchId || '', query.date || '', query.serviceId || '');
+      return {slots, shifts: shifts.map(shift => ({
+        technicianId: shift.technician_id,
+        start: String(shift.start_time).slice(0, 5),
+        end: String(shift.end_time).slice(0, 5),
+      }))};
+    } finally { client.release(); }
+  }
+
+  async createScheduleBooking(actor: AdminActor, body: Record<string, unknown>) {
+    try { return await createStaffBooking(this.db.connection, actor, body); }
+    catch (error) { return this.fail(error); }
+  }
+
+  async assignScheduleBooking(actor: AdminActor, body: Record<string, unknown>) {
+    try {
+      return await assignStaffBooking(this.db.connection, actor, String(body.bookingId || ''), String(body.technicianId || ''));
+    } catch (error) { return this.fail(error); }
   }
 
   async startTreatmentDraft(actor: AdminActor, packageId: string, bookingId: string) {

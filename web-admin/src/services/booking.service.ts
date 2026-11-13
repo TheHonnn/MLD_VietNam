@@ -7,7 +7,7 @@ export const bookingService = {
   async runWorkflowAction(
     id: string,
     action: 'confirm' | 'checkin' | 'start' | 'finish-service' | 'checkout' | 'cancel' | 'no-show',
-    options: { reason?: string; userPackageId?: string } = {}
+    options: { reason?: string; userPackageId?: string; requireEnded?: boolean } = {}
   ): Promise<ApiResponse<{ completed: boolean }>> {
     try {
       if (!isUuid(id)) throw new Error('Mã lịch hẹn không hợp lệ.');

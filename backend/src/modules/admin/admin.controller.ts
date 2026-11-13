@@ -339,6 +339,22 @@ export class AdminController {
   bookTreatmentSession(@Param('id') id: string, @Body() body: Record<string, unknown>, @Req() req) {
     return this.service.bookTreatmentSession(req.admin,id,body);
   }
+  @Get('staff-schedule/slots')
+  @UseGuards(AdminGuard)
+  staffScheduleSlots(@Query() query: Record<string,string>, @Req() req) {
+    return this.service.staffScheduleSlots(req.admin, query);
+  }
+  @Post('staff-schedule/book')
+  @UseGuards(AdminGuard)
+  createScheduleBooking(@Body() body: Record<string,unknown>, @Req() req) {
+    return this.service.createScheduleBooking(req.admin, body);
+  }
+  @Post('staff-schedule/assign')
+  @UseGuards(AdminGuard)
+  assignScheduleBooking(@Body() body: Record<string, unknown>, @Req() req) {
+    return this.service.assignScheduleBooking(req.admin, body);
+  }
+
   @Post('treatment/inventory/count')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()

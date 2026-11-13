@@ -115,6 +115,39 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
     );
   }, 60000);
 
+  it('books a rostered slot with a real bed and rejects overlapping reservations', async () => {
+    const date = '2099-04-15';
+    const room = (await pg.query<{ id: string }>(
+      "INSERT INTO branch_rooms(branch_id,name,bed_capacity) VALUES($1,'Phòng lịch trực',1) RETURNING id", [branchId],
+    )).rows[0];
+    await pg.query("INSERT INTO technician_shifts(branch_id,technician_id,assigned_room_id,shift_date,start_time,end_time) VALUES($1,$2,$3,$4,'09:00','12:00')",
+      [branchId, technicianId, room.id, date]);
+    const lookup = { branchId, date, serviceId };
+    const availability = await service.staffScheduleSlots(superAdminActor, lookup);
+    expect(availability.slots[0]).toMatchObject({ start: '09:00', end: '10:00', roomId: room.id, bed: 'B-1' });
+    expect(availability.slots.some(slot => slot.start === '11:00')).toBe(false);
+    await expect(service.staffScheduleSlots(staffActor, lookup)).rejects.toThrow(ForbiddenException);
+    const request = { branchId, bookingDate: date, serviceId, customerId: customerOneId, technicianId, startTime: '09:00', requestId: randomUUID() };
+    const booking = await service.createScheduleBooking(superAdminActor, request);
+    expect(await service.createScheduleBooking(superAdminActor, request)).toEqual(booking);
+    await expect(service.createScheduleBooking(superAdminActor, { ...request, startTime: '10:00', requestId: randomUUID() })).rejects.toThrow(ConflictException);
+    const updated = await service.staffScheduleSlots(superAdminActor, lookup);
+    expect(updated.slots[0]?.start).toBe('10:15');
+    const unassigned = (await pg.query<{ id: string }>(
+      "INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,base_total,final_price,qr_code_hash) VALUES('SCHED-UNASSIGNED',$1,$2,$3,'10:15','11:15',500000,500000,'schedule-unassigned') RETURNING id",
+      [customerOneId, branchId, date],
+    )).rows[0];
+    await pg.query('INSERT INTO booking_items(booking_id,service_id,duration_minutes,price) VALUES($1,$2,60,500000)', [unassigned.id, serviceId]);
+    await service.assignScheduleBooking(superAdminActor, { bookingId: unassigned.id, technicianId });
+    expect((await pg.query('SELECT technician_id,assigned_room_id FROM bookings WHERE id=$1', [unassigned.id])).rows[0])
+      .toEqual({ technician_id: technicianId, assigned_room_id: room.id });
+    await pg.query("UPDATE bookings SET status='IN_SERVICE', session_status='COMPLETED', payment_status='PAID' WHERE id=$1", [booking.id]);
+    await expect(service.action('bookings', superAdminActor, {
+      key: { id: booking.id }, action: 'checkout', requireEnded: true,
+    })).rejects.toThrow('Ca chưa hết giờ');
+
+  });
+
   afterAll(async () => {
     await pg?.close();
   });

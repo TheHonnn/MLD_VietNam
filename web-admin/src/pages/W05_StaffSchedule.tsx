@@ -1,3 +1,4 @@
+import { adminApi } from '../admin/api';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -33,7 +34,6 @@ import {
 import {
   bookingService,
   branchService,
-  notificationService,
   customerService,
   supabaseService,
   inventoryService,
@@ -50,10 +50,8 @@ import {
   PaymentStatus,
   PaymentMethod,
   Service,
-  BranchRoom,
   UserPackage,
   TreatmentJournal,
-  DualSlotAvailability,
 } from '../types/shared_types';
 import { matchSearch, isUuid } from '../utils/searchUtils';
 
@@ -132,16 +130,6 @@ export interface ScheduleTechnician {
   avatar?: string;
   branchId?: string;
 }
-
-export const TECHNICIAN_ROOM_MAP: Record<string, string> = {
-  'cccccccc-0001-0001-0001-000000000001': 'Phòng VIP 01 - Hoa Sen',
-  'cccccccc-0001-0001-0001-000000000002': 'Phòng Massage Body 02',
-  'cccccccc-0001-0001-0001-000000000003': 'Phòng Gội Đầu Dưỡng Sinh 03',
-  'cccccccc-0001-0001-0001-000000000004': 'Phòng Trị Liệu Đông Y 04',
-  'cccccccc-0001-0001-0001-000000000005': 'Phòng Massage Thư Giãn',
-  'cccccccc-0001-0001-0001-000000000006': 'Phòng Thực Hành Lab 01',
-  'cccccccc-0001-0001-0001-000000000007': 'Phòng Thải Độc Thảo Dược',
-};
 
 export const DEFAULT_FALLBACK_TECHNICIANS: ScheduleTechnician[] = [];
 
@@ -272,11 +260,7 @@ export const W05_StaffSchedule: React.FC = () => {
   const [customers, setCustomers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [rooms, setRooms] = useState<BranchRoom[]>([]);
   const [consultationSurveys, setConsultationSurveys] = useState<any[]>([]);
-  const [drcSlots, setDrcSlots] = useState<DualSlotAvailability[]>([]);
-  const [createDrcSlots, setCreateDrcSlots] = useState<DualSlotAvailability[]>([]);
-  const [createDrcStatus, setCreateDrcStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [isReleasing, setIsReleasing] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -300,16 +284,13 @@ export const W05_StaffSchedule: React.FC = () => {
   const fetchScheduleData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const targetBranch = selectedBranchId !== 'ALL' ? selectedBranchId : 'aaaaaaaa-0001-0001-0001-000000000001';
-      const [bkRes, techRes, custRes, brRes, srvRes, roomRes, surveysRes, slotsRes] = await Promise.all([
+      const [bkRes, techRes, custRes, brRes, srvRes, surveysRes] = await Promise.all([
         bookingService.getBookings(),
         supabaseService.getTechnicians(),
         customerService.getCustomers(),
         branchService.getAllBranches(),
         supabaseService.getServices(),
-        supabaseService.getRooms(),
         supabaseService.getConsultationSurveys(),
-        bookingService.getDaySlotsDualAvailability(targetBranch, selectedDate),
       ]);
 
       if (bkRes.success && bkRes.data) setLiveBookings(bkRes.data);
@@ -317,9 +298,7 @@ export const W05_StaffSchedule: React.FC = () => {
       if (custRes.success && custRes.data) setCustomers(custRes.data);
       if (brRes.success && brRes.data) setBranches(brRes.data);
       if (srvRes && srvRes.length > 0) setServices(srvRes);
-      if (roomRes && roomRes.length > 0) setRooms(roomRes);
       if (Array.isArray(surveysRes)) setConsultationSurveys(surveysRes);
-      if (slotsRes.success && slotsRes.data) setDrcSlots(slotsRes.data);
     } catch (err) {
       console.error('Failed to load schedule data:', err);
       toast.error('Lỗi tải dữ liệu', 'Không thể kết nối đến máy chủ. Vui lòng thử lại.');
@@ -328,19 +307,26 @@ export const W05_StaffSchedule: React.FC = () => {
     }
   }, [selectedBranchId, selectedDate]);
 
-  const handleAutoRelease = async () => {
+  const [releaseIds, setReleaseIds] = useState<string[]>([]);
+  const previewRelease = () => {
+    const now = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 16);
+    const eligible = liveBookings.filter(b => b.branchId === selectedBranchId &&
+      b.bookingDate?.slice(0, 10) === selectedDate && b.status === 'IN_SERVICE' &&
+      b.sessionStatus === 'COMPLETED' && b.paymentStatus === 'PAID' && b.endTime &&
+      selectedDate + 'T' + b.endTime.slice(0, 5) <= now);
+    if (eligible.length) setReleaseIds(eligible.map(b => b.id));
+    else toast.warning('Chưa có ca đủ điều kiện', 'Chỉ kết thúc ca đã hết giờ, hoàn tất chuyên môn và thanh toán.');
+  };
+
+  const confirmRelease = async () => {
     setIsReleasing(true);
     try {
-      const branchForRelease = selectedBranchId !== 'ALL' ? selectedBranchId : undefined;
-      const res = await bookingService.releaseCompletedBookings(branchForRelease);
-      if (res.success) {
-        toast.success('Nhả ca thành công', res.message || `Đã giải phóng ${res.data.releasedCount} ca trị liệu hoàn tất.`);
-        await fetchScheduleData();
-      } else {
-        toast.error('Lỗi nhả ca', res.message || 'Không thể giải phóng ca.');
-      }
-    } catch (err: any) {
-      toast.error('Lỗi', err?.message || 'Lỗi khi thực thi auto-release.');
+      const results = await Promise.allSettled(releaseIds.map(id => bookingService.runWorkflowAction(id, 'checkout', { requireEnded: true })));
+      const done = results.filter(result => result.status === 'fulfilled' && result.value.success).length;
+      if (done) toast.success('Đã kết thúc ca', done + ' ca đã được cập nhật.');
+      if (done < results.length) toast.warning('Có ca chưa kết thúc', (results.length - done) + ' ca cần kiểm tra lại.');
+      setReleaseIds([]);
+      await fetchScheduleData();
     } finally {
       setIsReleasing(false);
     }
@@ -425,40 +411,13 @@ export const W05_StaffSchedule: React.FC = () => {
   }, [liveBookings]);
 
   // Technicians matching active branch
-  const branchTechnicians = useMemo(() => {
-    let list = liveTechnicians;
-    if (selectedBranchId !== 'ALL') {
-      const branchOnly = list.filter((t) => t.branchId === selectedBranchId);
-      if (branchOnly.length > 0) list = branchOnly;
-    }
-
-    if (list.length === 0) {
-      return [];
-    }
-
-    const validRooms = rooms.filter(
-      (r) =>
-        r.isAvailable &&
-        !r.name?.toLowerCase().startsWith('test') &&
-        !r.name?.startsWith('[') &&
-        (!selectedBranchId || selectedBranchId === 'ALL' || r.branchId === selectedBranchId)
-    );
-
-    return list.map((t, idx) => {
-      const matchedRoom =
-        TECHNICIAN_ROOM_MAP[t.id] ||
-        validRooms[idx % Math.max(1, validRooms.length)]?.name ||
-        `Phòng Trị Liệu 0${idx + 1}`;
-      return {
-        id: t.id,
-        name: t.fullName,
-        room: matchedRoom,
-        role: t.title || 'Chuyên viên chăm sóc & trị liệu',
-        avatar: t.avatarUrl,
-        branchId: t.branchId,
-      };
-    });
-  }, [liveTechnicians, selectedBranchId, rooms]);
+  const branchTechnicians = useMemo(() => liveTechnicians
+    .filter(tech => selectedBranchId === 'ALL' || tech.branchId === selectedBranchId)
+    .map(tech => ({
+      id: tech.id, name: tech.fullName, branchId: tech.branchId, avatar: tech.avatarUrl,
+      room: branches.find(branch => branch.id === tech.branchId)?.name || 'Chưa rõ chi nhánh',
+      role: tech.title || 'Kỹ thuật viên',
+    })), [branches, liveTechnicians, selectedBranchId]);
 
   // Filtered technician columns for the matrix
   const visibleTechnicians = useMemo(() => {
@@ -485,7 +444,7 @@ export const W05_StaffSchedule: React.FC = () => {
       const [eH, eM] = (b.endTime || '10:00').split(':').map(Number);
       const startHour = (isNaN(sH) ? 9 : sH) + (isNaN(sM) ? 0 : sM) / 60;
       const endHour = (isNaN(eH) ? 10 : eH) + (isNaN(eM) ? 0 : eM) / 60;
-      const durationHours = Math.max(0.75, endHour - startHour);
+      const durationHours = Math.max(0.25, endHour - startHour);
 
       const customerName = cust?.fullName || b.bookedForName || 'Khách hàng';
       const customerPhone = cust?.phone || b.bookedForPhone || '';
@@ -528,16 +487,16 @@ export const W05_StaffSchedule: React.FC = () => {
         ? '0đ (Chờ đối chiếu gói)'
         : isPaid
         ? '0đ (Đã thanh toán đủ)'
-        : `${Math.max(0, priceVal - (b.discountAmount || 0)).toLocaleString('vi-VN')}đ`;
+        : `${Math.max(0, priceVal).toLocaleString('vi-VN')}đ`;
 
-      const dateRaw = b.bookingDate || '2026-10-16';
+      const dateRaw = b.bookingDate?.slice(0, 10) || '';
       const dateParts = dateRaw.split('-');
       const dateDisplay = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : dateRaw;
       const timeRange = `${(b.startTime || '').slice(0, 5)}–${(b.endTime || '').slice(0, 5)}`;
 
       const roomDesc = b.room?.name
-        ? `${b.room.name} · ${b.assignedBedNumber || 'Giường 01'}`
-        : b.assignedBedNumber || 'Phòng Trị Liệu';
+        ? [b.room.name, b.assignedBedNumber].filter(Boolean).join(' · ')
+        : b.assignedBedNumber || 'Chưa phân phòng';
 
       return {
         id: b.id,
@@ -696,19 +655,11 @@ export const W05_StaffSchedule: React.FC = () => {
     }
     const chosenTech = branchTechnicians.find((t) => t.id === techId);
     const chosenTechName = chosenTech?.name || liveTechnicians.find((t) => t.id === techId)?.fullName || 'KTV';
-    const chosenTechRoom = chosenTech?.room || 'Phòng Trị Liệu';
     setIsAssigningTech(true);
     try {
-      await bookingService.updateBooking(bookingId, {
-        technicianId: techId,
-        assignedBedNumber: chosenTechRoom,
-      });
-
-      // Cập nhật liveBookings
-      setLiveBookings((prev) =>
-        prev.map((b) => (b.id === bookingId || b.bookingCode === bookingId ? { ...b, technicianId: techId } : b))
-      );
-
+      await adminApi('staff-schedule/assign', { bookingId, technicianId: techId });
+      supabaseService.invalidateCache('bookings');
+      await fetchScheduleData();
 
       toast.success(
         'Phân công KTV thành công',
@@ -723,61 +674,9 @@ export const W05_StaffSchedule: React.FC = () => {
     }
   };
 
-  // Tự động gán KTV cho toàn bộ lịch hẹn chưa có KTV trong ngày
-  const handleAutoAssignUnassigned = async () => {
-    if (unassignedAppointments.length === 0 || branchTechnicians.length === 0) return;
-    setIsAssigningTech(true);
-    try {
-      let count = 0;
-      for (let i = 0; i < unassignedAppointments.length; i++) {
-        const app = unassignedAppointments[i];
-        const assignedTech = branchTechnicians[i % branchTechnicians.length];
-        await bookingService.updateBooking(app.id, {
-          technicianId: assignedTech.id,
-          assignedBedNumber: assignedTech.room,
-        });
-        count++;
-      }
-      // Nạp lại danh sách lịch hẹn
-      const bRes = await bookingService.getBookings({ branchId: selectedBranchId });
-      if (bRes.success && bRes.data) {
-        setLiveBookings(bRes.data);
-      }
-      toast.success(
-        'Đã tự động phân công KTV',
-        `Đã tự động gán KTV cho ${count} lịch hẹn theo danh sách chuyên viên trực chi nhánh.`
-      );
-    } catch (err) {
-      console.error('Auto assign error:', err);
-      toast.error('Lỗi tự động phân công', 'Vui lòng thử lại sau.');
-    } finally {
-      setIsAssigningTech(false);
-    }
-  };
+  const selectedApp = allAppointments.find(app => app.id === selectedAppId);
+  useEffect(() => setQuickAssignTechId(''), [selectedAppId]);
 
-  // Auto select active appointment when day or search changes
-  useEffect(() => {
-    if (displayedAppointments.length > 0) {
-      if (!selectedAppId || !displayedAppointments.some((a) => a.id === selectedAppId)) {
-        setSelectedAppId(displayedAppointments[0].id);
-      }
-    } else if (allAppointments.length > 0) {
-      if (!selectedAppId || !allAppointments.some((a) => a.id === selectedAppId)) {
-        setSelectedAppId(allAppointments[0].id);
-      }
-    }
-  }, [displayedAppointments, allAppointments, selectedAppId]);
-
-  // Currently selected appointment for the right sidebar
-  const selectedApp: ScheduleAppointment | undefined = useMemo(() => {
-    return (
-      allAppointments.find((a) => a.id === selectedAppId) ||
-      displayedAppointments[0] ||
-      allAppointments[0]
-    );
-  }, [allAppointments, displayedAppointments, selectedAppId]);
-
-  // Consultation survey for the currently selected appointment
   const surveyForSelectedApp = useMemo(() => {
     if (!selectedApp) return null;
     return consultationSurveys.find(
@@ -827,8 +726,8 @@ export const W05_StaffSchedule: React.FC = () => {
   const handleStepDay = (step: number) => {
     try {
       const [y, m, d] = selectedDate.split('-').map(Number);
-      const cur = new Date(y, m - 1, d);
-      cur.setDate(cur.getDate() + step);
+      const cur = new Date(Date.UTC(y, m - 1, d));
+      cur.setUTCDate(cur.getUTCDate() + step);
       const nextDateStr = cur.toISOString().split('T')[0];
       handleSelectDate(nextDateStr);
     } catch {
@@ -910,29 +809,6 @@ export const W05_StaffSchedule: React.FC = () => {
     } catch (err) {
       console.error('Delete booking error:', err);
       toast.error('Lỗi khi xóa', 'Không thể xóa lịch hẹn. Vui lòng thử lại.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // Xóa toàn bộ tất cả lịch hẹn đã đặt của KTV
-  const handleDeleteAllBookings = async () => {
-    if (
-      !window.confirm(
-        'CẢNH BÁO: Bạn có chắc chắn muốn xóa TOÀN BỘ lịch hẹn của kỹ thuật viên trong hệ thống không? Thao tác này sẽ xóa vĩnh viễn và không thể khôi phục.'
-      )
-    ) {
-      return;
-    }
-    setIsDeleting(true);
-    try {
-      await bookingService.deleteAllBookings();
-      setLiveBookings([]);
-      setSelectedAppId('');
-      toast.success('Đã dọn sạch', 'Đã xóa toàn bộ lịch hẹn kỹ thuật viên thành công.');
-    } catch (err) {
-      console.error('Delete all bookings error:', err);
-      toast.error('Lỗi dọn dẹp', 'Không thể xóa toàn bộ lịch hẹn. Vui lòng thử lại.');
     } finally {
       setIsDeleting(false);
     }
@@ -1027,36 +903,6 @@ export const W05_StaffSchedule: React.FC = () => {
     }
   };
 
-  // Dynamic Empty Slot Suggestions based on the day's schedule
-  const emptySlotSuggestions = useMemo(() => {
-    const suggestions: string[] = [];
-    visibleTechnicians.slice(0, 3).forEach((tech) => {
-      const techApps = displayedAppointments.filter((a) => a.technicianId === tech.id);
-      if (techApps.length === 0) {
-        suggestions.push(`${tech.name} · ${tech.room}: Trống lịch phục vụ cả ngày (từ 09:00 đến 20:00).`);
-      } else {
-        const sorted = [...techApps].sort((a, b) => a.startHour - b.startHour);
-        const lastApp = sorted[sorted.length - 1];
-        const endHourVal = lastApp.startHour + lastApp.durationHours + 0.25; // add 15m cleaning
-        const endH = Math.floor(endHourVal);
-        const endM = Math.round((endHourVal - endH) * 60);
-        const freeTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
-        suggestions.push(
-          `${tech.name} · ${tech.room}: Sẵn sàng nhận khách mới từ ${freeTimeStr} (sau 15p khử khuẩn).`
-        );
-      }
-    });
-
-    if (suggestions.length === 0) {
-      return [
-        'Trần Lan Anh · Phòng VIP 01: từ 11:15 (gồm 15 phút vệ sinh sau liệu trình).',
-        'Lê Quỳnh Nga · Phòng Massage Body 02: từ 15:45.',
-        'Nguyễn Thu Hà · Phòng Gội Dưỡng Sinh 03: trống ca chiều từ 13:30.',
-      ];
-    }
-    return suggestions;
-  }, [visibleTechnicians, displayedAppointments]);
-
   // Modal Form State
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
@@ -1065,12 +911,46 @@ export const W05_StaffSchedule: React.FC = () => {
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [selectedTechId, setSelectedTechId] = useState<string>('');
   const [appDate, setAppDate] = useState<string>(selectedDate);
-  const [selectedSlotIndex, setSelectedSlotIndex] = useState<number>(1);
+  const [selectedTime, setSelectedTime] = useState('');
+  const [requestId, setRequestId] = useState('');
+  const [slotRevision, refreshSlots] = useState(0);
   const [modalBranchId, setModalBranchId] = useState<string>('');
   const [statusType, setStatusType] = useState<'waiting_payment' | 'independent'>('independent');
   const [notes, setNotes] = useState<string>('');
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
+
+  type Slot = { technicianId: string; technicianName: string; start: string; end: string; roomName: string; bed: string };
+  const slotBranch = showCreateModal ? modalBranchId : activeBranch?.id;
+  const slotDate = showCreateModal ? appDate : selectedDate;
+  const slotKey = slotBranch && selectedServiceId ? [slotBranch, slotDate, selectedServiceId, slotRevision].join('/') : '';
+  type Shift = { technicianId: string; start: string; end: string };
+  const [availability, setAvailability] = useState<{ key: string; slots: Slot[]; shifts?: Shift[]; error?: string }>();
+  const shifts = slotKey && availability?.key === slotKey ? availability.shifts : undefined;
+  const slots = slotKey && availability?.key === slotKey ? availability.slots : [];
+  const slotError = availability?.key === slotKey ? availability.error : '';
+  const chosenSlot = slots.find(slot => slot.technicianId === selectedTechId && slot.start === selectedTime);
+
+  useEffect(() => {
+    if (!slotKey || !slotBranch) return;
+    let current = true;
+    const params = new URLSearchParams({ branchId: slotBranch, date: slotDate, serviceId: selectedServiceId });
+    adminApi<{ slots: Slot[]; shifts: Shift[] }>('staff-schedule/slots?' + params).then(result => {
+      if (current) setAvailability({ key: slotKey, ...result });
+    }).catch(error => {
+      if (current) setAvailability({ key: slotKey, slots: [], error: error instanceof Error ? error.message : 'Không tải được khung giờ.' });
+    });
+    return () => { current = false; };
+  }, [slotKey, slotBranch, slotDate, selectedServiceId, liveBookings]);
+
+  const openBooking = (slot?: Slot) => {
+    setRequestId(crypto.randomUUID());
+    setAppDate(selectedDate);
+    setModalBranchId(activeBranch?.id || '');
+    setSelectedTechId(slot?.technicianId || '');
+    setSelectedTime(slot?.start || '');
+    setShowCreateModal(true);
+  };
 
   // Cho phép các màn hình CRM mở thẳng biểu mẫu đặt lịch và giữ đúng hồ sơ khách.
   useEffect(() => {
@@ -1082,8 +962,7 @@ export const W05_StaffSchedule: React.FC = () => {
       setCustName(requestedCustomer.fullName || '');
       setCustPhone(requestedCustomer.phone || '');
     }
-    setAppDate(selectedDate);
-    setShowCreateModal(true);
+    openBooking();
     setSearchParams((previous) => {
       const next = new URLSearchParams(previous);
       next.delete('action');
@@ -1092,24 +971,7 @@ export const W05_StaffSchedule: React.FC = () => {
     }, { replace: true });
   }, [customers, searchParams, selectedDate, setSearchParams]);
 
-  useEffect(() => {
-    if (!showCreateModal || !modalBranchId || !appDate) return;
-    let isCurrent = true;
-    setCreateDrcStatus('loading');
-    setCreateDrcSlots([]);
-    bookingService.getDaySlotsDualAvailability(modalBranchId, appDate).then((result) => {
-      if (!isCurrent) return;
-      if (result.success && result.data.length > 0) {
-        setCreateDrcSlots(result.data);
-        setCreateDrcStatus('ready');
-      } else {
-        setCreateDrcStatus('error');
-      }
-    }).catch(() => {
-      if (isCurrent) setCreateDrcStatus('error');
-    });
-    return () => { isCurrent = false; };
-  }, [showCreateModal, modalBranchId, appDate]);
+
 
   // Fast Check-in Modal State
   const [showFastCheckInModal, setShowFastCheckInModal] = useState<boolean>(false);
@@ -1303,164 +1165,51 @@ export const W05_StaffSchedule: React.FC = () => {
     }
   };
 
-  // Set defaults for Create Modal
-  useEffect(() => {
-    if (services.length > 0 && !selectedServiceId) {
-      setSelectedServiceId(services[0].id);
-    }
-  }, [services, selectedServiceId]);
-
-  useEffect(() => {
-    if (branchTechnicians.length > 0 && !selectedTechId) {
-      setSelectedTechId(branchTechnicians[0].id);
-    }
-  }, [branchTechnicians, selectedTechId]);
-
-  useEffect(() => {
-    if (!modalBranchId) {
-      setModalBranchId(selectedBranchId !== 'ALL' ? selectedBranchId : branches[0]?.id || '');
-    }
-  }, [selectedBranchId, branches, modalBranchId]);
-
   // Create new appointment handler
-  const handleCreateAppointment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCustomerId || !customers.some((customer) => customer.id === selectedCustomerId)) {
-      toast.error('Chưa chọn hồ sơ khách', 'Chọn khách hàng trong danh sách để lịch được lưu đúng hồ sơ.');
-      return;
-    }
-
+  const handleCreateAppointment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedCustomerId || !chosenSlot || isCreating) return;
     setIsCreating(true);
     try {
-      const srv = services.find((s) => s.id === selectedServiceId) || services[0];
-      if (!srv) {
-        toast.error('Chưa có dịch vụ', 'Vui lòng cấu hình dịch vụ trước khi lên lịch hẹn.');
-        setIsCreating(false);
-        return;
-      }
-
-      const tech = branchTechnicians.find((t) => t.id === selectedTechId) || branchTechnicians[0];
-      const slot = TIME_SLOT_OPTIONS[selectedSlotIndex] || TIME_SLOT_OPTIONS[0];
-      const slotAvailability = createDrcSlots.find((candidate) => candidate.startTime?.startsWith(slot.startTime.slice(0, 5)));
-      if (createDrcStatus !== 'ready' || !slotAvailability) {
-        toast.error('Chưa kiểm tra được khung giờ', 'Tải lại tình trạng lịch của ngày và chi nhánh đã chọn rồi thử lại.');
-        return;
-      }
-      if (!slotAvailability.isAvailable) {
-        toast.warning('Khung giờ đã kín', slotAvailability.statusText || 'Chọn một khung giờ còn chỗ.');
-        return;
-      }
-      if (!modalBranchId || !tech) {
-        toast.error('Thiếu thông tin xếp lịch', 'Chọn chi nhánh và kỹ thuật viên trước khi tạo lịch.');
-        return;
-      }
-
-      const startH = Math.floor(slot.startHour);
-      const startM = Math.round((slot.startHour - startH) * 60);
-      const startTimeStr = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}:00`;
-
-      const endHourNum = slot.startHour + slot.durationHours;
-      const endH = Math.floor(endHourNum);
-      const endM = Math.round((endHourNum - endH) * 60);
-      const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
-
-      const targetBranchId = modalBranchId;
-
-      const res = await bookingService.createBooking({
-        customerId: selectedCustomerId || undefined,
-        customerName: custName.trim(),
-        customerPhone: custPhone.trim(),
-        branchId: targetBranchId,
-        serviceId: srv.id,
-        serviceName: srv.name,
-        technicianId: tech?.id,
-        technicianName: tech?.name,
-        bookingDate: appDate,
-        startTime: startTimeStr,
-        endTime: endTimeStr,
-        status: statusType === 'waiting_payment' ? BookingStatus.PENDING : BookingStatus.CONFIRMED,
-        paymentStatus: PaymentStatus.UNPAID,
-        baseTotal: srv.price,
-        depositAmount: 0,
-        finalPrice: srv.price,
-        notes: notes.trim(),
-        durationMinutes: srv.durationMinutes || 75,
+      const result = await adminApi<{ id: string; bookingCode: string }>('staff-schedule/book', {
+        branchId: modalBranchId, bookingDate: appDate, serviceId: selectedServiceId,
+        customerId: selectedCustomerId, technicianId: chosenSlot.technicianId,
+        startTime: chosenSlot.start, requestId: requestId || crypto.randomUUID(),
+        status: statusType === 'waiting_payment' ? 'PENDING' : 'CONFIRMED', notes,
       });
-
-      if (!res.success || !res.data?.id) {
-        toast.error('Không tạo được lịch', res.message || 'Kiểm tra lại khách, khung giờ và kết nối rồi thử lại.');
-        return;
-      }
-
-      {
-        setLiveBookings((prev) => [res.data, ...prev]);
-        setSelectedAppId(res.data.id);
-        if (appDate !== selectedDate) {
-          handleSelectDate(appDate);
-        }
-
-        // Giai đoạn 2: Tự động kích hoạt Zalo ZNS Xác nhận đặt lịch
-        if (custPhone.trim()) {
-          znsService.sendZns({
-            recipientPhone: custPhone.trim(),
-            recipientName: custName.trim(),
-            templateCode: 'BOOKING_CONFIRMATION',
-            bookingId: res.data.id,
-            paramsSent: {
-              customer_name: custName.trim(),
-              service_name: srv.name,
-              booking_time: startTimeStr.slice(0, 5),
-              booking_date: appDate,
-              branch_name: branches.find((b) => b.id === targetBranchId)?.name || 'MLD Vietnam',
-              staff_name: tech?.name || 'KTV MLD',
-              checkin_code: `MLD-${Math.floor(1000 + Math.random() * 9000)}`,
-            },
-          });
-        }
-      }
-
-      toast.success(
-        'Tạo lịch hẹn thành công',
-        `Đã lên lịch "${srv.name}" cho ${custName.trim()} lúc ${slot.label} ngày ${appDate}. Thanh toán sẽ được ghi nhận tại quầy.`
-      );
-
-
-      // Gửi thông báo hệ thống
-      notificationService.addNotification({
-        title: 'Lịch hẹn mới được tạo',
-        message: `Khách hàng ${custName.trim()} đã đặt lịch "${srv.name}" lúc ${slot.label} ngày ${appDate}.`,
-        type: 'BOOKING',
-        link: `/staff-schedule?date=${appDate}&booking=${res.data?.bookingCode || ''}`,
-      });
-
+      handleSelectDate(appDate);
+      setSelectedBranchId(modalBranchId);
+      setSearchParams(previous => {
+        const next = new URLSearchParams(previous);
+        next.set('branchId', modalBranchId);
+        next.set('date', appDate);
+        return next;
+      }, { replace: true });
+      setSelectedTechFilter('ALL');
+      supabaseService.invalidateCache('bookings');
+      await fetchScheduleData();
+      setSelectedAppId(result.id);
+      toast.success('Đã tạo lịch hẹn', result.bookingCode);
       setShowCreateModal(false);
       setCustName('');
       setCustPhone('');
       setSelectedCustomerId('');
       setNotes('');
-    } catch (err) {
-      console.error('Failed to create appointment:', err);
-      toast.error('Lỗi tạo lịch hẹn', 'Không thể hoàn tất tạo lịch hẹn. Vui lòng thử lại.');
+    } catch (error) {
+      toast.error('Không tạo được lịch', error instanceof Error ? error.message : 'Vui lòng thử lại.');
+      refreshSlots(value => value + 1);
     } finally {
       setIsCreating(false);
     }
   };
 
-  // Time hours from 09:00 to 20:00 (12 intervals)
-  const hours = [
-    '09:00',
-    '10:00',
-    '11:00',
-    '12:00',
-    '13:00',
-    '14:00',
-    '15:00',
-    '16:00',
-    '17:00',
-    '18:00',
-    '19:00',
-    '20:00',
-  ];
+  const toHour = (time?: string) => time ? [Number(time.slice(0, 2)) + Number(time.slice(3, 5)) / 60] : [];
+  const visibleBranches = activeBranch ? [activeBranch] : branches;
+  const opening = visibleBranches.flatMap(branch => toHour(branch.openingTime));
+  const closing = visibleBranches.flatMap(branch => toHour(branch.closingTime));
+  const firstHour = Math.floor(Math.min(...(opening.length ? opening : [9]), ...displayedAppointments.map(app => app.startHour)));
+  const lastHour = Math.ceil(Math.max(...(closing.length ? closing : [20]), ...displayedAppointments.map(app => app.startHour + app.durationHours)));
+  const hours = Array.from({ length: lastHour - firstHour }, (_, index) => String(firstHour + index).padStart(2, '0') + ':00');
 
   const ROW_HEIGHT = 58;
 
@@ -1479,37 +1228,24 @@ export const W05_StaffSchedule: React.FC = () => {
               </span>
             )}
             <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-[#FAF8F5] text-[#985018] border border-[#EFE4D9]">
-              {displayedAppointments.length} lịch hẹn trong ngày
+              {displayedAppointments.length} lịch theo bộ lọc
             </span>
           </div>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            <strong className="text-[#3E200C] font-bold">{formattedDateHeader}</strong> · {activeBranch ? `${activeBranch.name} · ${activeBranch.district}` : 'Toàn hệ thống chi nhánh'} · Mở cửa {activeBranch?.openingTime ? activeBranch.openingTime.slice(0, 5) : '08:30'}–{activeBranch?.closingTime ? activeBranch.closingTime.slice(0, 5) : '20:30'}
+            <strong className="text-[#3E200C] font-bold">{formattedDateHeader}</strong> · {activeBranch ? `${activeBranch.name} · ${activeBranch.district}` : 'Toàn hệ thống chi nhánh'}{activeBranch?.openingTime && activeBranch.closingTime && ' · Mở cửa ' + activeBranch.openingTime.slice(0, 5) + '–' + activeBranch.closingTime.slice(0, 5)}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {allAppointments.length > 0 && (
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={handleDeleteAllBookings}
-              className="px-4 py-2.5 bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA] text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-              title="Xóa tất cả các lịch hẹn đã đặt của kỹ thuật viên"
-            >
-              <Trash2 className="w-4 h-4 stroke-[2]" />
-              <span>{isDeleting ? 'Đang xóa...' : 'Xóa hết lịch đã đặt'}</span>
-            </button>
-          )}
-
           <button
             type="button"
-            onClick={handleAutoRelease}
-            disabled={isReleasing}
+            onClick={previewRelease}
+            disabled={isReleasing || !activeBranch}
             className="px-4 py-2.5 bg-[#E7F4EE] hover:bg-[#D3EEDB] text-[#1B6E44] border border-[#BDE3CF] text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-            title="Quét và tự động giải phóng giường, chuyên viên cho các ca đã hết giờ (Auto-Release)"
+            title="Chọn một chi nhánh để kiểm tra các ca đủ điều kiện"
           >
             <RotateCcw className={`w-4 h-4 ${isReleasing ? 'animate-spin' : ''}`} />
-            <span>{isReleasing ? 'Đang nhả ca...' : 'Nhả phòng & KTV hết ca'}</span>
+            <span>{isReleasing ? 'Đang nhả ca...' : 'Xem ca đủ điều kiện kết thúc'}</span>
           </button>
 
           <button
@@ -1527,8 +1263,7 @@ export const W05_StaffSchedule: React.FC = () => {
 
           <button
             onClick={() => {
-              setAppDate(selectedDate);
-              setShowCreateModal(true);
+              openBooking();
             }}
             className="px-6 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
           >
@@ -1566,10 +1301,12 @@ export const W05_StaffSchedule: React.FC = () => {
         {/* Branch dropdown */}
         <div className="relative shrink-0">
           <select
+            aria-label="Chi nhánh của lịch"
             value={selectedBranchId}
             onChange={(e) => {
               const bId = e.target.value;
               setSelectedBranchId(bId);
+              setSelectedTechFilter('ALL');
               localStorage.setItem('mld_selected_branch_id', bId);
               window.dispatchEvent(new CustomEvent('mld_branch_changed', { detail: { branchId: bId } }));
               if (bId !== 'ALL') {
@@ -1641,11 +1378,12 @@ export const W05_StaffSchedule: React.FC = () => {
         {/* Technician / Room dropdown */}
         <div className="relative shrink-0">
           <select
+            aria-label="Kỹ thuật viên"
             value={selectedTechFilter}
             onChange={(e) => setSelectedTechFilter(e.target.value)}
             className="h-9 pl-3 pr-8 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#2C241E] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
           >
-            <option value="ALL">Tất cả kỹ thuật viên & phòng ({branchTechnicians.length})</option>
+            <option value="ALL">Tất cả kỹ thuật viên ({branchTechnicians.length})</option>
             {branchTechnicians.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name} · {t.room}
@@ -1658,6 +1396,7 @@ export const W05_StaffSchedule: React.FC = () => {
         {/* Status dropdown */}
         <div className="relative shrink-0">
           <select
+            aria-label="Trạng thái lịch hẹn"
             value={selectedStatusFilter}
             onChange={(e) => setSelectedStatusFilter(e.target.value)}
             className="h-9 pl-3 pr-8 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#2C241E] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer"
@@ -1677,6 +1416,7 @@ export const W05_StaffSchedule: React.FC = () => {
         {/* Booking Group dropdown */}
         <div className="relative shrink-0">
           <select
+            aria-label="Nhóm đặt lịch"
             value={selectedGroupFilter}
             onChange={(e) => setSelectedGroupFilter(e.target.value)}
             className="h-9 pl-3 pr-8 rounded-xl border border-sky-200 bg-sky-50/50 text-xs font-bold text-sky-800 hover:bg-sky-50 transition-colors appearance-none focus:outline-none focus:border-sky-500 cursor-pointer"
@@ -1688,6 +1428,12 @@ export const W05_StaffSchedule: React.FC = () => {
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-sky-700 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
+        {(selectedStatusFilter !== 'ALL' || selectedGroupFilter !== 'ALL' || selectedTechFilter !== 'ALL' || searchTerm) && (
+          <button type="button" className="rounded-lg px-2 py-2 text-xs font-semibold text-[#985018] hover:bg-[#FAF0E4]"
+            onClick={() => { setSelectedStatusFilter('ALL'); setSelectedGroupFilter('ALL'); setSelectedTechFilter('ALL'); setSearchTerm(''); }}>
+            Xóa bộ lọc
+          </button>
+        )}
       </div>
 
       {/* Overdue Bookings Alert Banner */}
@@ -1774,9 +1520,22 @@ export const W05_StaffSchedule: React.FC = () => {
       </div>
 
       {/* 3. Main Content: Schedule Timetable Matrix (Left) + Detail Sidebar (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-white p-3 text-sm">
+        <label className="flex flex-wrap items-center gap-2">Dịch vụ để tìm giờ trống
+          <select value={selectedServiceId} onChange={event => { setSelectedServiceId(event.target.value); setSelectedTime(''); }} className="max-w-full rounded-lg border p-2">
+            <option value="">Chọn dịch vụ</option>
+            {services.filter(service => service.isActive !== false).map(service => <option key={service.id} value={service.id}>{service.name} · {service.durationMinutes} phút</option>)}
+          </select>
+        </label>
+        <span role={slotError ? 'alert' : 'status'}>{!activeBranch ? 'Chọn một chi nhánh để đặt lịch theo giờ trống.' : slotError ||
+          (slotKey && (availability?.key !== slotKey ? 'Đang tải giờ trống…' : !slots.length ? 'Không có giờ phù hợp trong ngày đã chọn.' : 'Chọn giờ màu xanh để tạo lịch. Ô nền xám nằm ngoài ca trực.'))}</span>
+        {slotError && <button type="button" onClick={() => refreshSlots(value => value + 1)} className="underline">Thử lại</button>}
+        <details className="basis-full"><summary className="cursor-pointer">Quy tắc xếp lịch</summary><p className="mt-1">Giờ trống theo ca trực, lịch đã đặt, phòng và giường thực tế. Hệ thống giữ thêm 15 phút sau dịch vụ.</p></details>
+      </div>
+
+      <div className="space-y-4">
         {/* Left Column (Matrix + Legend) - min-w-0 prevents grid blowout */}
-        <div className="lg:col-span-8 space-y-3 min-w-0">
+        <div className="space-y-3 min-w-0">
           {/* Cảnh báo lịch hẹn chưa phân công KTV */}
           {unassignedAppointments.length > 0 && (
             <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl p-3.5 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in">
@@ -1789,25 +1548,16 @@ export const W05_StaffSchedule: React.FC = () => {
                     Phát hiện {unassignedAppointments.length} lịch hẹn chưa phân công Kỹ thuật viên
                   </div>
                   <div className="text-[#B45309] text-[11px] mt-0.5">
-                    Lịch đã được gom vào cột <strong>"Chờ gán KTV"</strong> ở cuối bảng ca trực. Bạn có thể chọn để gán KTV ngay hoặc bấm tự động gán.
+                    Lịch đã được gom vào cột <strong>"Chờ gán KTV"</strong> ở cuối bảng ca trực. Mở lịch hẹn để kiểm tra thông tin phân công.
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleAutoAssignUnassigned}
-                  disabled={isAssigningTech}
-                  className="px-3.5 py-2 bg-[#985018] hover:bg-[#854412] text-white font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{isAssigningTech ? 'Đang phân công...' : 'Tự động gán KTV'}</span>
-                </button>
               </div>
             </div>
           )}
 
-          {timetableColumns.length === 0 ? (
+          {isLoading && !liveBookings.length && !liveTechnicians.length ? (
+            <p role="status" className="rounded-xl border bg-white p-5 text-sm">Đang tải lịch kỹ thuật viên…</p>
+          ) : timetableColumns.length === 0 ? (
             <div className="bg-white rounded-2xl border border-[#EFE4D9] p-12 text-center shadow-xs">
               <UserIcon className="w-10 h-10 mx-auto text-[#BA7E4C] opacity-40 mb-3" />
               <p className="font-bold text-sm text-[#2C241E]">Chưa có kỹ thuật viên trực tại chi nhánh</p>
@@ -1816,14 +1566,13 @@ export const W05_StaffSchedule: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-x-auto shadow-xs">
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-auto max-h-[65vh] shadow-xs">
             <div className="w-max min-w-full inline-block align-top">
               {/* Timetable Header Row */}
-              <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE] w-max min-w-full">
+              <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE] w-max min-w-full sticky top-0 z-30">
                 {/* Corner spacer - Sticky on horizontal scroll */}
                 <div className="w-20 sm:w-24 shrink-0 sticky left-0 z-30 bg-[#F3E2CE] border-r border-[#EFE4D9] flex flex-col items-center justify-center p-2 text-[10.5px] font-bold text-[#73675F] shadow-[1px_0_0_#EFE4D9]">
                   <span>Khung giờ</span>
-                  <span className="text-[9px] text-[#985018] font-semibold">Công suất</span>
                 </div>
 
                 {/* Technician Headers - Uniform fixed column width */}
@@ -1862,7 +1611,6 @@ export const W05_StaffSchedule: React.FC = () => {
                 {/* Left Column: Time Labels + DRC Capacity Indicator - Sticky on horizontal scroll */}
                 <div className="w-20 sm:w-24 shrink-0 sticky left-0 z-20 bg-white border-r border-[#EFE4D9] select-none shadow-[1px_0_0_#EFE4D9]">
                   {hours.map((hour) => {
-                    const drcForHour = drcSlots.find((d) => d.startTime?.startsWith(hour));
                     return (
                       <div
                         key={hour}
@@ -1870,18 +1618,6 @@ export const W05_StaffSchedule: React.FC = () => {
                         className="border-b border-[#F0E6DC] text-center pt-1.5 px-1 flex flex-col items-center justify-start text-[11px] sm:text-xs text-[#73675F] font-medium"
                       >
                         <span className="font-bold text-[#2C241E]">{hour}</span>
-                        {drcForHour && (
-                          <span
-                            className={`text-[9.5px] font-bold px-1 py-0.2 rounded mt-0.5 ${
-                              drcForHour.isAvailable
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : 'bg-red-50 text-red-600 border border-red-200'
-                            }`}
-                            title={`Giường trống: ${drcForHour.freeBeds}/6 | KTV rảnh: ${drcForHour.freeStaff}/6`}
-                          >
-                            {drcForHour.isAvailable ? `${drcForHour.remainingCapacity} chỗ` : 'Hết'}
-                          </span>
-                        )}
                       </div>
                     );
                   })}
@@ -1901,33 +1637,22 @@ export const W05_StaffSchedule: React.FC = () => {
                       } ${colIdx === timetableColumns.length - 1 ? 'border-r-0' : ''}`}
                     >
                       {/* Background Grid Lines extending full width of column */}
-                      {hours.map((hour) => (
-                        <div
-                          key={hour}
-                          style={{ height: `${ROW_HEIGHT}px` }}
-                          className={`border-b ${col.isUnassignedColumn ? 'border-[#FEF3C7]' : 'border-[#F0E6DC]'} w-full`}
-                        />
-                      ))}
-
-                      {/* Shared Lunch Break Block: 12:00 to 13:00 (only on regular technician columns) */}
-                      {!col.isUnassignedColumn && (
-                        <div
-                          style={{
-                            top: `${(12 - 9) * ROW_HEIGHT + 3}px`,
-                            height: `${ROW_HEIGHT - 6}px`,
-                          }}
-                          className="absolute inset-x-2 rounded-xl bg-[#F6EFE8] flex items-center justify-center text-center p-1 select-none pointer-events-none z-5"
-                        >
-                          <span className="text-[11px] text-[#73675F] font-medium">
-                            12:00–13:00 · Nghỉ trưa
-                          </span>
+                      {hours.map(hour => (
+                        <div key={hour} style={{ height: ROW_HEIGHT }} className={'border-b border-[#F0E6DC] flex flex-wrap content-center gap-1 px-2 ' +
+                          (shifts && !col.isUnassignedColumn && !shifts.some(shift => shift.technicianId === col.id &&
+                            shift.end > hour && (Number(shift.start.slice(0, 2)) <= Number(hour.slice(0, 2)))) ? 'bg-[#F7F3EE]' : '')}>
+                          {slots.filter(slot => slot.technicianId === col.id && slot.start.slice(0, 2) === hour.slice(0, 2)).map(slot => (
+                            <button type="button" key={slot.start} onClick={() => openBooking(slot)}
+                              title={slot.roomName + ' · ' + slot.bed + ' · đến ' + slot.end}
+                              className="rounded-md bg-emerald-50 px-1.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100">{slot.start}</button>
+                          ))}
                         </div>
-                      )}
+                      ))}
 
                       {/* Dynamic Appointment Cards for this column */}
                       {colAppointments.map((app) => {
-                        const topOffset = Math.max(0, (app.startHour - 9) * ROW_HEIGHT);
-                        const blockHeight = Math.max(36, app.durationHours * ROW_HEIGHT);
+                        const topOffset = Math.max(0, (app.startHour - firstHour) * ROW_HEIGHT);
+                        const blockHeight = app.durationHours * ROW_HEIGHT;
                         const isSelected = selectedApp?.id === app.id;
 
                         const isCompleted = app.statusRaw === 'COMPLETED';
@@ -1939,12 +1664,14 @@ export const W05_StaffSchedule: React.FC = () => {
                           <div key={app.id}>
                             {/* Main Appointment Card */}
                             <div
+                              role="button" tabIndex={0} aria-label={app.customer + ' · ' + app.timeRange + ' · ' + app.status}
+                              onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedAppId(app.id); } }}
                               onClick={() => setSelectedAppId(app.id)}
                               style={{
                                 top: `${topOffset}px`,
                                 height: `${blockHeight}px`,
                               }}
-                              className={`absolute inset-x-2 p-2.5 text-left cursor-pointer transition-all duration-150 z-10 flex flex-col justify-between ${
+                              className={`absolute inset-x-2 p-2.5 text-left cursor-pointer transition-all duration-150 z-10 flex flex-col justify-between overflow-hidden ${
                                 app.hasCleaningBuffer && !isUnassigned ? 'rounded-t-xl' : 'rounded-xl'
                               } ${
                                 isSelected
@@ -1998,7 +1725,7 @@ export const W05_StaffSchedule: React.FC = () => {
                               <div
                                 style={{
                                   top: `${topOffset + blockHeight}px`,
-                                  height: '20px',
+                                  height: ROW_HEIGHT / 4,
                                 }}
                                 className="absolute inset-x-2 rounded-b-md bg-[#DEC6B0] border-x border-b border-[#CDB59E] px-2 flex items-center text-[9.5px] font-medium text-[#4A3E34] truncate z-10"
                               >
@@ -2030,8 +1757,7 @@ export const W05_StaffSchedule: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setAppDate(selectedDate);
-                    setShowCreateModal(true);
+                    openBooking();
                   }}
                   className="px-4 py-2 bg-[#985018] text-white text-xs font-bold rounded-xl hover:bg-[#854412] transition-colors cursor-pointer inline-flex items-center gap-1.5"
                 >
@@ -2063,7 +1789,14 @@ export const W05_StaffSchedule: React.FC = () => {
         </div>
 
         {/* Right Column (Sidebar Cards) */}
-        <div className="lg:col-span-4 space-y-4">
+        {selectedApp && (
+          <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setSelectedAppId('')}>
+            <aside role="dialog" aria-modal="true" aria-label="Chi tiết lịch hẹn" className="ml-auto h-full w-full max-w-lg space-y-4 overflow-y-auto bg-[#FAF8F5] p-4 shadow-xl" onClick={event => event.stopPropagation()}
+              onKeyDown={event => { if (event.key === 'Escape') setSelectedAppId(''); }}>
+              <div className="flex items-center justify-between">
+                <h2 className="font-bold">Chi tiết lịch hẹn</h2>
+                <button type="button" autoFocus onClick={() => setSelectedAppId('')} aria-label="Đóng chi tiết" className="rounded-lg border bg-white p-2"><X size={16} /></button>
+              </div>
           {selectedApp ? (
             /* Card 1: Selected Appointment Details */
             <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
@@ -2167,7 +1900,7 @@ export const W05_StaffSchedule: React.FC = () => {
                         : 'text-[#2C241E]'
                     }`}
                   >
-                    {(!selectedApp.technicianId || !visibleTechnicians.some((t) => t.id === selectedApp.technicianId)) && (
+                    {(!selectedApp.technicianId && ['PENDING', 'CONFIRMED'].includes(String(selectedApp.statusRaw))) && (
                       <AlertTriangle className="w-3.5 h-3.5 text-[#D97706]" />
                     )}
                     <span>{selectedApp.technicianName}</span>
@@ -2208,7 +1941,7 @@ export const W05_StaffSchedule: React.FC = () => {
                       className="flex-1 px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#2C241E] focus:outline-none focus:border-[#985018]"
                     >
                       <option value="">-- Chọn kỹ thuật viên --</option>
-                      {branchTechnicians.map((t) => (
+                      {branchTechnicians.filter(t => t.branchId === selectedApp.branchId).map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.name} ({t.room})
                         </option>
@@ -2238,43 +1971,6 @@ export const W05_StaffSchedule: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="bg-[#F0FDF4] border border-[#DCFCE7] rounded-xl p-2.5 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-[#166534] flex items-center gap-1.5">
-                      <Send className="w-3 h-3 text-[#166534]" />
-                      <span>Zalo ZNS tự động</span>
-                    </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#DCFCE7] text-[#166534]">
-                      Sẵn sàng
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-[#15803D] leading-snug">
-                    Tự động gửi thông báo xác nhận và tin nhắn ZNS nhắc hẹn trước 2 giờ tới {selectedApp.customerPhone || 'SĐT khách hàng'}.
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await notificationService.sendZaloZNS(
-                        'PRE_REMINDER_2H',
-                        selectedApp.customerPhone || '0334750241',
-                        selectedApp.customer,
-                        {
-                          serviceName: selectedApp.service,
-                          appointmentTime: selectedApp.timeRange,
-                          branchName: 'MLD Clinic',
-                        }
-                      );
-                      toast.success(
-                        'Gửi Zalo ZNS thành công!',
-                        `Đã gửi tin nhắn nhắc hẹn 2h tới ${selectedApp.customer} (${selectedApp.customerPhone || '0334750241'}).`
-                      );
-                    }}
-                    className="w-full py-1.5 bg-white border border-[#86EFAC] text-[#15803D] hover:bg-[#F0FDF4] rounded-lg text-[11px] font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
-                  >
-                    <Send className="w-3 h-3" />
-                    <span>Gửi thử Zalo ZNS nhắc hẹn 2h</span>
-                  </button>
-                </div>
               </div>
 
               {/* Consultation Survey / Customer Intake Card */}
@@ -2409,6 +2105,8 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
               )}
 
+              <p className="text-xs text-[#73675F]">Chi nhánh <strong>{branches.find(branch => branch.id === selectedApp.branchId)?.name || 'Chưa rõ'}</strong></p>
+
               {/* Resource Hold Alert Box or Overdue Warning */}
               {isOverdue ? (
                 <div className="bg-[#FFF5F5] border border-[#F5C2C7] rounded-2xl p-3.5 space-y-1.5 text-xs text-[#7A1D28]">
@@ -2535,8 +2233,11 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
               )}
 
-              {/* Cashier Invoice Action Button */}
-              <button
+              {selectedApp.statusRaw === 'IN_SERVICE' && selectedApp.sessionStatus === 'COMPLETED' && selectedApp.paymentStatus === 'PAID' && (
+                <button type="button" disabled={isUpdatingStatus} onClick={() => handleBookingAction(selectedApp, 'checkout')}
+                  className="w-full rounded-xl bg-emerald-800 py-2.5 text-sm font-semibold text-white">Kết thúc ca</button>
+              )}
+              {selectedApp.statusRaw === 'COMPLETED' && <button
                 type="button"
                 onClick={() => {
                   const bCode = selectedApp.customerCode?.split('·')[1]?.trim() || selectedApp.id;
@@ -2546,7 +2247,7 @@ export const W05_StaffSchedule: React.FC = () => {
               >
                 <span>Xem đơn thu ngân POS</span>
                 <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
+              </button>}
 
               {/* Permanent Delete Button for any appointment (real or custom) */}
               <button
@@ -2559,49 +2260,26 @@ export const W05_StaffSchedule: React.FC = () => {
                 <span>{isDeleting ? 'Đang xóa...' : 'Xóa vĩnh viễn lịch hẹn này'}</span>
               </button>
             </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-[#EFE4D9] p-6 text-center space-y-3">
-              <Calendar className="w-10 h-10 text-[#985018] mx-auto opacity-50" />
-              <h3 className="text-sm font-bold text-[#2C241E]">Chưa chọn lịch hẹn</h3>
-              <p className="text-xs text-[#73675F]">
-                Nhấp vào bất kỳ khung lịch hẹn nào trên bảng để xem chi tiết khách hàng và quản lý tiến trình.
-              </p>
-            </div>
-          )}
-
-          {/* Card 2: Empty Slot Suggestions (Dynamically Calculated) */}
-          <div className="bg-[#F3E2CE] rounded-2xl p-5 space-y-3">
-            <h3 className="text-base font-bold text-[#5A280C]">Gợi ý khung trống trong ngày</h3>
-            <div className="space-y-2.5 text-xs text-[#50443D] leading-relaxed">
-              {emptySlotSuggestions.map((sug, idx) => (
-                <div key={idx} className="flex items-start gap-1.5">
-                  <span className="text-[#985018] font-bold">●</span>
-                  <span>{sug}</span>
-                </div>
-              ))}
-            </div>
-            <div className="text-[11px] text-[#73675F] pt-1 border-t border-[#E8DACB]">
-              Khung giờ tự động tính theo thời lượng dịch vụ và 15 phút vùng đệm khử khuẩn.
-            </div>
+          ) : null}
+            </aside>
           </div>
+        )}
+      </div>
 
-          {/* Card 3: Scheduling Rules Note */}
-          <div className="bg-[#F3E2CE] rounded-2xl p-5 space-y-2">
-            <h3 className="text-base font-bold text-[#5A280C]">Quy tắc xếp lịch vận hành</h3>
-            <p className="text-xs text-[#50443D] leading-relaxed">
-              Không trùng chuyên viên hoặc giường phòng; đảm bảo đúng chuyên môn, đủ thời lượng liệu trình và 15 phút vùng đệm khử khuẩn chuẩn y khoa, không vượt quá giờ đóng cửa chi nhánh.
-            </p>
-          </div>
+      {releaseIds.length > 0 && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/30 p-4">
+          <section role="dialog" aria-modal="true" aria-label="Xác nhận kết thúc ca" className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
+            <h2 className="font-bold">Xác nhận kết thúc ca</h2>
+            <ul className="my-4 max-h-52 space-y-2 overflow-auto text-sm">
+              {liveBookings.filter(b => releaseIds.includes(b.id)).map(b => <li key={b.id}>{b.bookingCode} · {b.bookedForName || 'Khách hàng'} · {b.endTime?.slice(0, 5)}</li>)}
+            </ul>
+            <div className="flex justify-end gap-2">
+              <button type="button" disabled={isReleasing} onClick={() => setReleaseIds([])} className="rounded-lg border px-3 py-2">Hủy</button>
+              <button type="button" disabled={isReleasing} onClick={confirmRelease} className="rounded-lg bg-[#985018] px-3 py-2 text-white">{isReleasing ? 'Đang xử lý…' : 'Xác nhận kết thúc'}</button>
+            </div>
+          </section>
         </div>
-      </div>
-
-      {/* 4. Footer Disclaimer */}
-      <div className="flex items-center gap-2 text-xs text-[#73675F] pt-2">
-        <Info className="w-4 h-4 shrink-0 text-[#985018]" />
-        <span>
-          Hệ thống điều phối lịch làm việc kỹ thuật viên & phòng trị liệu · MLD Beauty & Academy.
-        </span>
-      </div>
+      )}
 
       {/* 5. Create Appointment Modal */}
       {showCreateModal && (
@@ -2740,10 +2418,12 @@ export const W05_StaffSchedule: React.FC = () => {
                   <div className="relative">
                     <Building2 className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <select
+                      aria-label="Chi nhánh đặt lịch"
                       value={modalBranchId}
-                      onChange={(e) => setModalBranchId(e.target.value)}
+                      onChange={(e) => { setModalBranchId(e.target.value); setSelectedTime(''); }}
                       className="w-full pl-9 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] font-medium focus:outline-none focus:border-[#985018] appearance-none cursor-pointer"
                     >
+                      <option value="">Chọn chi nhánh</option>
                       {branches.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.name} ({b.code})
@@ -2762,10 +2442,10 @@ export const W05_StaffSchedule: React.FC = () => {
                     <Sparkles className="w-4 h-4 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <select
                       value={selectedServiceId}
-                      onChange={(e) => setSelectedServiceId(e.target.value)}
+                      onChange={(e) => { setSelectedServiceId(e.target.value); setSelectedTime(''); }}
                       className="w-full pl-9 pr-8 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] font-medium focus:outline-none focus:border-[#985018] appearance-none cursor-pointer"
                     >
-                      {services.map((srv) => (
+                      {services.filter(service => service.isActive !== false).map((srv) => (
                         <option key={srv.id} value={srv.id}>
                           {srv.name} — {srv.durationMinutes} phút ({srv.price.toLocaleString('vi-VN')}đ)
                         </option>
@@ -2773,36 +2453,6 @@ export const W05_StaffSchedule: React.FC = () => {
                     </select>
                     <ChevronDown className="w-4 h-4 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
-                </div>
-              </div>
-
-              {/* Row 3: Chọn Chuyên viên kỹ thuật */}
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Kỹ thuật viên & Phòng phân bổ <span className="text-[#985018]">*</span>
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
-                  {branchTechnicians.map((tech) => {
-                    const isSelected = selectedTechId === tech.id;
-                    return (
-                      <div
-                        key={tech.id}
-                        onClick={() => setSelectedTechId(tech.id)}
-                        className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                          isSelected
-                            ? 'bg-[#FAF0E4] border-[#985018] ring-1 ring-[#985018]'
-                            : 'bg-white border-[#E8DFD8] hover:border-[#D7BBA6]'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-[#2C241E]">{tech.name}</span>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-[#985018]" />}
-                        </div>
-                        <div className="text-[11px] text-[#73675F] mt-1">{tech.room}</div>
-                        <div className="text-[10px] text-[#985018] font-medium mt-0.5 truncate">{tech.role}</div>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
 
@@ -2840,53 +2490,23 @@ export const W05_StaffSchedule: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 max-h-48 overflow-y-auto p-1.5 border border-[#E8DFD8] rounded-xl bg-[#FAF8F5]">
-                  {TIME_SLOT_OPTIONS.map((slot, idx) => {
-                    const isSelected = selectedSlotIndex === idx;
-                    const drcInfo = createDrcSlots.find((d) => d.startTime?.startsWith(slot.startTime.slice(0, 5)));
-                    const availabilityPending = createDrcStatus === 'loading';
-                    const availabilityUnavailable = createDrcStatus !== 'ready' || !drcInfo;
-                    const isFull = availabilityPending || availabilityUnavailable || !drcInfo?.isAvailable;
-                    const freeBeds = drcInfo?.freeBeds;
-                    const freeStaff = drcInfo?.freeStaff;
-                    const capacity = drcInfo?.remainingCapacity;
-
-                    return (
-                      <button
-                        type="button"
-                        key={slot.label}
-                        disabled={isFull}
-                        onClick={() => {
-                          if (!isFull) setSelectedSlotIndex(idx);
-                        }}
-                        className={`p-2 rounded-xl text-left transition-all border ${
-                          isFull
-                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
-                            : isSelected
-                            ? 'bg-[#985018] text-white border-[#985018] shadow-sm'
-                            : 'bg-white text-[#2C241E] border-[#E8DFD8] hover:border-[#985018] cursor-pointer'
-                        }`}
-                      >
-                        <div className="text-xs font-bold">{slot.label}</div>
-                        <div
-                          className={`text-[10px] mt-0.5 font-medium ${
-                            isSelected ? 'text-white/90' : isFull ? 'text-red-500' : 'text-emerald-700'
-                          }`}
-                        >
-                          {availabilityPending
-                            ? 'Đang kiểm tra…'
-                            : availabilityUnavailable
-                              ? 'Chưa kiểm tra được'
-                              : isFull
-                                ? freeBeds === 0
-                                  ? 'Hết giường'
-                                  : 'Hết KTV'
-                                : `Còn ${capacity} chỗ (${freeBeds} giường/${freeStaff} KTV)`}
-                        </div>
+                {slots.length ? (
+                  <div className="grid grid-cols-2 gap-2 overflow-auto sm:grid-cols-3 max-h-56">
+                    {slots.map(slot => (
+                      <button type="button" key={slot.technicianId + slot.start} aria-pressed={chosenSlot === slot}
+                        onClick={() => { setSelectedTechId(slot.technicianId); setSelectedTime(slot.start); }}
+                        className={'rounded-lg border p-2 text-left text-xs ' + (chosenSlot === slot ? 'border-[#985018] bg-[#FAF0E4]' : 'bg-white')}>
+                        <strong>{slot.start}–{slot.end} · {slot.technicianName}</strong>
+                        <span className="block">{slot.roomName} · {slot.bed}</span>
                       </button>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm" role={slotError ? 'alert' : 'status'}>{slotError ||
+                    (!slotKey ? 'Chọn chi nhánh, ngày và dịch vụ để kiểm tra lịch.' :
+                    availability?.key !== slotKey ? 'Đang kiểm tra khung giờ…' : 'Không có giờ phù hợp với ca trực và sức chứa phòng.')}</p>
+                )}
+                {slotError && <button type="button" onClick={() => refreshSlots(value => value + 1)} className="text-sm underline">Thử lại</button>}
               </div>
 
               {/* Row 5: Trạng thái lịch */}
@@ -2943,10 +2563,10 @@ export const W05_StaffSchedule: React.FC = () => {
 
               {/* Summary Card Box */}
               {(() => {
-                const srv = services.find((s) => s.id === selectedServiceId) || services[0];
-                const tech = branchTechnicians.find((t) => t.id === selectedTechId) || branchTechnicians[0];
-                const slot = TIME_SLOT_OPTIONS[selectedSlotIndex] || TIME_SLOT_OPTIONS[0];
-                const br = branches.find((b) => b.id === modalBranchId) || branches[0];
+                const srv = services.find(service => service.id === selectedServiceId);
+                const tech = chosenSlot ? { name: chosenSlot.technicianName, room: chosenSlot.roomName } : undefined;
+                const slot = chosenSlot;
+                const br = branches.find(branch => branch.id === modalBranchId);
 
                 return (
                   <div className="bg-[#FAF0E4] border border-[#E8DFD8] rounded-2xl p-4 space-y-2">
@@ -2956,7 +2576,7 @@ export const W05_StaffSchedule: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-[#73675F] pt-1">
                       <div>
-                        Chuyên viên: <span className="font-semibold text-[#2C241E]">{tech?.name || 'KTV'}</span>
+                        Chuyên viên: <span className="font-semibold text-[#2C241E]">{tech?.name || 'Chưa chọn'}</span>
                       </div>
                       <div>
                         Phòng: <span className="font-semibold text-[#2C241E]">{tech?.room || 'Chưa phân phòng'}</span>
@@ -2965,7 +2585,7 @@ export const W05_StaffSchedule: React.FC = () => {
                         Cơ sở: <span className="font-semibold text-[#2C241E]">{br?.name || 'Chưa chọn cơ sở'}</span>
                       </div>
                       <div>
-                        Thời gian: <span className="font-semibold text-[#2C241E]">{slot.label} ({appDate})</span>
+                        Thời gian: <span className="font-semibold text-[#2C241E]">{slot ? slot.start + '–' + slot.end : 'Chưa chọn giờ'} ({appDate})</span>
                       </div>
                       <div>
                         Thanh toán tại quầy: <span className="font-semibold text-[#2C241E]">{srv ? `${srv.price.toLocaleString('vi-VN')}đ` : '—'}</span>
@@ -2987,7 +2607,7 @@ export const W05_StaffSchedule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isCreating || createDrcStatus !== 'ready' || !selectedCustomerId}
+                  disabled={isCreating || !chosenSlot || !selectedCustomerId}
                   className="px-6 py-2.5 rounded-xl bg-[#985018] hover:bg-[#854412] disabled:opacity-60 text-white text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer flex items-center gap-2"
                 >
                   {isCreating ? (
@@ -3128,8 +2748,8 @@ export const W05_StaffSchedule: React.FC = () => {
                       }
                       const today = new Date();
                       const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                      openBooking();
                       setAppDate(todayStr);
-                      setShowCreateModal(true);
                     }}
                     className="w-full py-2 bg-white hover:bg-[#FAF8F5] border border-[#D7BBA6] text-[#8A4F23] font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
