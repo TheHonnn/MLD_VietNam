@@ -23,7 +23,8 @@ Production uncovered a legacy validity trigger from migration 011 which reset SU
 ## Validation
 - Web admin test suite: 50 passed.
 - Targeted backend academy + cashier workflow suite: 23 passed.
-- TypeScript and backend build passed before integration.
+- TypeScript and backend build passed; frontend production build passed after integration.
+- Final bounded serial backend suite after integrating remote CI fixes: 111/111 passed across 17 files. Frontend: 50/50 passed.
 - Full backend run before integrating remote CI fixes: 107 passed, 3 failed (existing loyalty/staff fixture validation and local CORS connection permission). Parallel attempt exhausted memory; bounded serial execution was used afterward.
 - Live Edge session observed the deployed enrollment screen under the existing administrator account; no live student transfer or financial submission was made in the browser.
 
@@ -31,6 +32,6 @@ Production uncovered a legacy validity trigger from migration 011 which reset SU
 - Production readiness query found 5 receiving classes, 3 with upcoming structured schedules. The other 2 require real meeting dates/times entered by staff; no schedule data was invented.
 - Past attendance remains tied to original sessions; records are retained rather than copied to the new class.
 - Actual money payout and full browser submission for transfer/hold/refund were not performed against live customer records. Do not label these as completed financial end-to-end acceptance.
-- Backend Render reads TheHonnn/MLD_VietNam; frontend Vercel reads XuanTruong205/mld-vietnam. Both develop branches require deployment of the final integration commit.
+- Backend Render reads TheHonnn/MLD_VietNam; frontend Vercel reads XuanTruong205/mld-vietnam. Final code is pushed to both develop branches; runtime rollout must be verified separately.
 
 Repeat production probe: provide ADMIN_DATABASE_URL securely to node scripts/verify_academy_acceptance.cjs. It always rolls back fixture writes.
