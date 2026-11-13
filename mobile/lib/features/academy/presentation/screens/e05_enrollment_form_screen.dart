@@ -3,6 +3,7 @@ import '../../../../core/localization/app_translation.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/academy_models.dart';
@@ -678,23 +679,31 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               ),
               const SizedBox(height: 22),
 
-              // 5. Lựa chọn đối tượng học viên (1 là Người mới bắt đầu, 2 là Đang làm nghề)
+              // 5. Lựa chọn đối tượng học viên (Đồng bộ động từ portal_taxonomies)
               _buildSectionHeader(context.tr('3. Bạn thuộc nhóm đối tượng nào?', '3. Which target group do you belong to?')),
               const SizedBox(height: 10),
-              _buildTargetGroupCard(
-                index: 0,
-                title: 'Người mới bắt đầu',
-                subtitle: 'Chưa có kinh nghiệm, muốn học kiến thức nền tảng và tự chăm sóc cơ bản theo chuẩn Vodder.',
-                icon: Icons.person_add_alt_1_rounded,
-              ),
+              ...PortalSettingsService.instance.audienceCardsForEnrollment.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final data = entry.value;
+                final title = data['name'] as String? ?? '';
+                final subtitle = data['description'] as String? ?? '';
+                IconData ic = Icons.person_add_alt_1_rounded;
+                final iconName = data['icon_name'] as String? ?? '';
+                if (iconName == 'spa') ic = Icons.spa_outlined;
+                if (iconName == 'medical_services') ic = Icons.medical_services_outlined;
+                if (iconName == 'favorite') ic = Icons.favorite_border_rounded;
+                if (iconName == 'briefcase') ic = Icons.work_outline_rounded;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _buildTargetGroupCard(
+                    index: idx,
+                    title: title,
+                    subtitle: subtitle,
+                    icon: ic,
+                  ),
+                );
+              }),
               const SizedBox(height: 10),
-              _buildTargetGroupCard(
-                index: 1,
-                title: 'Đang làm nghề',
-                subtitle: 'Kỹ thuật viên Spa, Điều dưỡng, Bác sĩ muốn nâng cao tay nghề và tích hợp liệu pháp y khoa.',
-                icon: Icons.medical_services_outlined,
-              ),
-              const SizedBox(height: 20),
 
 
             ],

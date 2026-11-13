@@ -9,6 +9,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/widgets/smart_image.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import '../../../../core/services/supabase_data_service.dart';
 import '../../../auth/widgets/update_phone_modal.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
@@ -87,41 +88,42 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   // Controller & Dropdown cho Tab Khóa học
   final TextEditingController _courseSearchController = TextEditingController();
   List<String> get _audienceCategories {
-    final list = <String>['Tất cả đối tượng'];
-    final seen = <String>{};
+    final list = <String>[];
+    for (final aud in PortalSettingsService.instance.audienceFilterList) {
+      if (!list.contains(aud)) list.add(aud);
+    }
     for (final c in AcademyRepository.instance.cachedCourses) {
       final aud = c.targetAudience.trim();
-      if (aud.isNotEmpty && aud != 'Tất cả đối tượng' && !seen.contains(aud)) {
-        seen.add(aud);
+      if (aud.isNotEmpty && aud != 'Tất cả đối tượng' && !list.contains(aud)) {
         list.add(aud);
       }
     }
-    list.add('Khóa học đã đăng ký');
+    if (!list.contains('Khóa học đã đăng ký')) {
+      list.add('Khóa học đã đăng ký');
+    }
     return list;
   }
   String _selectedAudience = 'Tất cả đối tượng';
 
-  static const List<String> _needCategories = [
-    'Tất cả nhu cầu',
-    'Kiến thức nền tảng & Tự chăm sóc',
-    'Tích hợp dịch vụ mới',
-    'Mở cơ sở chăm sóc',
-  ];
+  List<String> get _needCategories => PortalSettingsService.instance.needFilterList;
   String _selectedNeed = 'Tất cả nhu cầu';
 
   // Controller & Dropdown cho Tab Dịch vụ & Cơ sở
   final TextEditingController _serviceSearchController = TextEditingController();
   String _selectedBranchFilter = 'Tất cả cơ sở';
 
-  static const List<String> _serviceCategories = [
-    'Tất cả dịch vụ',
-    'Dẫn lưu Bạch huyết Giảm phù',
-    'Dẫn lưu ngực',
-    'Dẫn lưu đầu',
-    'Dẫn lưu cổ vai gáy lưng',
-    'Dẫn lưu chân',
-    'Dẫn lưu bụng',
-  ];
+  List<String> get _serviceCategories {
+    final list = <String>['Tất cả dịch vụ', 'Dịch vụ lẻ', 'Gói liệu trình'];
+    for (final s in ServiceRepository.instance.cachedServices) {
+      final name = s.categoryName.trim();
+      if (name.isNotEmpty && !list.contains(name)) list.add(name);
+    }
+    for (final p in ServiceRepository.instance.cachedPackages) {
+      final cat = p.category.trim();
+      if (cat.isNotEmpty && !list.contains(cat)) list.add(cat);
+    }
+    return list;
+  }
   String _selectedServiceCategory = 'Tất cả dịch vụ';
 
   List<String> _getBranchFilterOptions() {
@@ -1278,7 +1280,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                                     ],
                                   ),
                                   child: ElevatedButton(
-                                    onPressed: () => _launchExternal('tel:0966838383'),
+                                    onPressed: () => _launchExternal('tel:${PortalSettingsService.instance.hotlineSupport.replaceAll(RegExp(r'\D'), '')}'),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.white,
                                       foregroundColor: AppColors.primary,

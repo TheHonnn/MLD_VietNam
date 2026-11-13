@@ -2,13 +2,6 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-      - main
-    paths:
-      - 'mobile/**'
-      - '.github/workflows/build-apk.yml'
 
 jobs:
   build:
@@ -41,7 +34,7 @@ jobs:
 
       - name: Build Release APK
         working-directory: mobile
-        run: flutter build apk --release
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4

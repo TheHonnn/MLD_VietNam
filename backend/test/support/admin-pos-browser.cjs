@@ -20,13 +20,15 @@ async function verifyPosPayment(page,pg,frontendUrl,output) {
   const shift=(await pg.query('SELECT * FROM cashier_shifts WHERE id=$1',[invoices[0].shift_id])).rows[0];
   assert.equal(Number(shift.total_sales),Number(invoices[0].total_amount));
   await page.screenshot({path:path.join(output,'pos-paid-desktop.png')});
+  const identifiedCustomer='bbbbbbbb-0002-0002-0002-000000000002';
+  await pg.query("INSERT INTO users(id,phone,full_name,role,referral_code) VALUES($1,'0911223344','Khách Hàng Định Danh','CUSTOMER','POSIDENTIFIED')",[identifiedCustomer]);
   const treatmentPackage=(await pg.query("INSERT INTO treatment_packages(name,service_id,total_sessions,price,validity_months,description,image_url) VALUES('Liệu trình kiểm thử đăng ký',$1,10,500000,6,'Kiểm thử luồng đăng ký','https://example.invalid/package.png') RETURNING id",[service.id])).rows[0];
   await page.goto(frontendUrl+'/medical-records');
   await page.getByRole('heading',{name:'Quản lý liệu trình',exact:true}).waitFor();
   await page.getByRole('button',{name:/Đăng ký gói mới/}).click();
   await page.getByRole('heading',{name:'Đăng ký liệu trình cho khách hàng',exact:true}).waitFor();
-  await page.getByPlaceholder('Tìm tên, số điện thoại hoặc email...').fill('0900000000');
-  await page.getByRole('button',{name:/Khách hàng Vãng lai/}).click();
+  await page.getByPlaceholder('Tìm tên, số điện thoại hoặc email...').fill('0911223344');
+  await page.getByRole('button',{name:/Khách Hàng Định Danh/}).click();
   await page.getByRole('button',{name:'Tiếp tục',exact:true}).click();
   await page.getByRole('button',{name:/Liệu trình kiểm thử đăng ký/}).click();
   await page.getByRole('button',{name:'Tiếp tục',exact:true}).click();
@@ -36,7 +38,7 @@ async function verifyPosPayment(page,pg,frontendUrl,output) {
   await page.getByTitle('Liệu trình kiểm thử đăng ký',{exact:true}).waitFor();
   await page.getByRole('button',{name:/Xác nhận thanh toán & In hóa đơn/}).click();
   await page.getByText('Liệu trình đã được kích hoạt!',{exact:true}).waitFor();
-  const owner=(await pg.query('SELECT * FROM user_packages WHERE customer_id=$1 AND package_id=$2',[guest,treatmentPackage.id])).rows[0];
+  const owner=(await pg.query('SELECT * FROM user_packages WHERE customer_id=$1 AND package_id=$2',[identifiedCustomer,treatmentPackage.id])).rows[0];
   assert.ok(owner?.id,'Paid registration creates the customer treatment file');
   const packageInvoice=(await pg.query('SELECT * FROM invoices WHERE user_package_id=$1',[owner.id])).rows[0];
   assert.equal(packageInvoice.payment_status,'PAID','Package invoice is linked and paid');

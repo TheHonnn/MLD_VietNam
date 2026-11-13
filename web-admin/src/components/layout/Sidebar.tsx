@@ -224,7 +224,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
     {
       title: 'HỆ THỐNG',
       items: [
-        { name: 'Nội dung Portal', path: '/portal-content', icon: Layers },
+        {
+          name: 'Nội dung Portal & App',
+          path: '/portal-content',
+          icon: Layers,
+          subItems: [
+            { name: '1. Banner Trang chủ', path: '/portal-content?tab=banners' },
+            { name: '2. Kênh Liên hệ & MXH', path: '/portal-content?tab=contacts' },
+            { name: '3. Đối tượng & Nhu cầu', path: '/portal-content?tab=taxonomies' },
+            { name: '4. Hỏi đáp thường gặp FAQs', path: '/portal-content?tab=faqs' },
+            { name: '5. Chính sách & Pháp lý', path: '/portal-content?tab=legal' },
+            { name: '6. Thư viện Giáo trình PDF', path: '/portal-content?tab=documents' },
+            { name: '7. Bài viết Cộng đồng', path: '/portal-content?tab=community' },
+            { name: '8. Kênh Email Thông báo', path: '/portal-content?tab=email' },
+          ],
+        },
         { name: 'CSKH Zalo ZNS', path: '/zalo-zns', icon: Smartphone },
         {
           name: 'Phân quyền & Bảo mật',

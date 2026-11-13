@@ -36,6 +36,10 @@ class ApiEndpoints {
   static const String homeCareGuidelines = '/rest/v1/home_care_guidelines';
   static const String miniappSharedContent = '/rest/v1/miniapp_shared_content';
   static const String portalContent = '/rest/v1/miniapp_shared_content';
+  static const String portalContacts = '/rest/v1/portal_contacts';
+  static const String portalTaxonomies = '/rest/v1/portal_taxonomies';
+  static const String supportFaqs = '/rest/v1/support_faqs';
+  static const String legalPolicies = '/rest/v1/legal_policies';
 
   static const String bookings = '/rest/v1/bookings';
   static String bookingDetail(String id) => '/rest/v1/bookings?id=eq.$id&select=*,branches(name,address,phone)';

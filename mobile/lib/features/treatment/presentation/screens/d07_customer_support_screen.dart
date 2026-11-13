@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/launcher_helper.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import '../../data/models/treatment_models.dart';
 import '../../data/repositories/treatment_repository.dart';
 
@@ -106,14 +107,14 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Hotline đào tạo & hợp tác: 096.7786.399\nGiờ phục vụ: 09:00 – 20:00 hàng ngày',
-              style: TextStyle(fontSize: 14, color: AppColors.textHeading, height: 1.5),
+            Text(
+              'Hotline CSKH: ${PortalSettingsService.instance.hotlineSupport}\nGiờ phục vụ: ${PortalSettingsService.instance.workingHours}',
+              style: const TextStyle(fontSize: 14, color: AppColors.textHeading, height: 1.5),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Địa chỉ: Chi nhánh Quận 3, 123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
+            Text(
+              'Địa chỉ: ${PortalSettingsService.instance.headquartersAddress}',
+              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -122,12 +123,12 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
               child: ElevatedButton.icon(
                 onPressed: () {
                   Navigator.of(ctx).pop();
-                  AppLauncherHelper.makePhoneCall(context, '0967786399');
+                  AppLauncherHelper.makePhoneCall(context, PortalSettingsService.instance.hotlineSupport);
                 },
                 icon: const Icon(Icons.phone, color: Colors.white),
-                label: const Text(
-                  'Gọi ngay 096.7786.399',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                label: Text(
+                  'Gọi ngay ${PortalSettingsService.instance.hotlineSupport}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accent,
@@ -139,6 +140,151 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showFaqModal() {
+    final faqs = PortalSettingsService.instance.faqs;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.82,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.help_outline_rounded, color: AppColors.accent, size: 22),
+                        SizedBox(width: 8),
+                        Text(
+                          'Câu hỏi thường gặp FAQs',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1F2937),
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Giải đáp nhanh các thắc mắc về kỹ thuật dẫn lưu MLD, đào tạo và đặt lịch:',
+                  style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 14),
+                Expanded(
+                  child: faqs.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'Chưa có câu hỏi thường gặp nào.',
+                            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: faqs.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final item = faqs[index];
+                            final q = item['question'] as String? ?? '';
+                            final a = item['answer'] as String? ?? '';
+                            final cat = item['category'] as String? ?? '';
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Theme(
+                                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                child: ExpansionTile(
+                                  tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                                  childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                                  title: Text(
+                                    q,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1F2937),
+                                    ),
+                                  ),
+                                  subtitle: cat.isNotEmpty
+                                      ? Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Text(
+                                            cat == 'DAO_TAO'
+                                                ? 'Đào tạo học viện'
+                                                : (cat == 'DICH_VU' ? 'Dịch vụ trị liệu' : 'Hỗ trợ chung'),
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.accent,
+                                            ),
+                                          ),
+                                        )
+                                      : null,
+                                  children: [
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                                      ),
+                                      child: Text(
+                                        a,
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          color: Color(0xFF475569),
+                                          height: 1.45,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -323,9 +469,9 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                         ),
                         const SizedBox(width: 8),
                         _buildQuickActionItem(
-                          icon: Icons.school_outlined,
-                          label: 'Hỗ trợ học viên.',
-                          onTap: () => _sendMessage('Tôi muốn hỏi thông tin các khóa đào tạo spa.'),
+                          icon: Icons.help_outline_rounded,
+                          label: 'Câu hỏi thường gặp FAQs',
+                          onTap: _showFaqModal,
                         ),
                       ],
                     ),
@@ -538,7 +684,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
                       ),
-                      child: const Column(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -551,7 +697,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                           ),
                           SizedBox(height: 12),
                           Text(
-                            'Đào tạo & hợp tác: 096.7786.399',
+                            'Đào tạo & hợp tác: ${PortalSettingsService.instance.hotlineTraining}',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -560,7 +706,7 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                           ),
                           SizedBox(height: 6),
                           Text(
-                            'Giờ hỗ trợ: 09:00–20:00 · Ví dụ',
+                            'Giờ hỗ trợ: ${PortalSettingsService.instance.workingHours}',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,

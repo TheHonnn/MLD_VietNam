@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/portal_settings_service.dart';
 
 enum LegalDocType {
   privacyPolicy,
@@ -25,7 +26,19 @@ class LegalDocumentScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sections = isPrivacy ? _privacySections : _termsSections;
+    final slug = isPrivacy ? 'privacy_policy' : 'terms_of_service';
+    final policy = PortalSettingsService.instance.getLegalPolicy(slug);
+    List<_LegalSection> sections = isPrivacy ? _privacySections : _termsSections;
+
+    if (policy != null && policy['content_markdown'] != null) {
+      final md = policy['content_markdown'] as String;
+      final parsed = _parseMarkdownSections(md);
+      if (parsed.isNotEmpty) {
+        sections = parsed;
+      }
+    }
+
+    final displayTitle = policy?['title'] as String? ?? shortTitle;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -34,7 +47,7 @@ class LegalDocumentScreen extends StatelessWidget {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: Text(
-          shortTitle,
+          displayTitle,
           style: const TextStyle(
             color: AppColors.textPrimary,
             fontSize: 18,
@@ -344,6 +357,21 @@ class LegalDocumentScreen extends StatelessWidget {
       content: '– Điều khoản sử dụng được điều chỉnh và giải thích bởi pháp luật nước Cộng hòa Xã hội Chủ nghĩa Việt Nam.\n\n– Một điều khoản sử dụng bị vô hiệu theo quyết định của tòa án có thẩm quyền sẽ không làm ảnh hưởng đến tính hiệu lực của các điều khoản còn lại.\n\n– Hệ Bạch Huyết luôn hoan nghênh những ý kiến/góp ý của bạn về nội dung. Nếu có phần nào bạn cho rằng có dấu hiệu vi phạm bản quyền, vui lòng gửi phản hồi về cho chúng tôi.\n\n– Thông báo này và tất cả các điều khoản sử dụng tạo thành toàn bộ thỏa thuận giữa Hệ Bạch Huyết và bạn liên quan đến việc sử dụng. Các điều chỉnh có hiệu lực ngay khi cập nhật trên ứng dụng.',
     ),
   ];
+  static List<_LegalSection> _parseMarkdownSections(String markdown) {
+    final list = <_LegalSection>[];
+    final blocks = markdown.split(RegExp(r'\n(?=##\s+)'));
+    for (final block in blocks) {
+      final trimmed = block.trim();
+      if (trimmed.isEmpty) continue;
+      if (trimmed.startsWith('## ')) {
+        final lines = trimmed.split('\n');
+        final title = lines.first.replaceFirst('## ', '').trim();
+        final content = lines.skip(1).join('\n').trim();
+        list.add(_LegalSection(title: title, content: content));
+      }
+    }
+    return list;
+  }
 }
 
 class _LegalSection {

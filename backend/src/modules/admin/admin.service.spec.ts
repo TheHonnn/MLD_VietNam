@@ -824,6 +824,7 @@ describe('Admin shared-schema integration', () => {
       values: {
         code: 'TESTTIME',
         title: 'Time test',
+        discount_percent: 10,
         valid_from: '2026-01-01T00:00:00Z',
         valid_to: '2026-02-28T23:59:00Z',
       },
@@ -843,10 +844,13 @@ describe('Admin shared-schema integration', () => {
   it('lists and searches the current linked employee name without copying it into staff_profiles', async () => {
     const branch = (await pg.query<any>('SELECT id FROM branches LIMIT 1'))
       .rows[0];
+    const department = (await pg.query<any>('SELECT id FROM departments LIMIT 1'))
+      .rows[0];
     await service.mutate('staff_profiles', actor, 'create', {
       values: {
         user_id: actor.id,
         branch_id: branch.id,
+        department_id: department.id,
         employee_code: 'TESTSTAFF',
         position: 'Test position',
       },
