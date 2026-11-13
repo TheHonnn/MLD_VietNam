@@ -46,8 +46,15 @@ import {
   Shield,
   ShieldCheck,
   ShieldAlert,
+  Phone,
+  Tag,
+  HelpCircle,
 } from 'lucide-react';
 import { portalService, emailService, academyService } from '../services';
+import { PortalContactsTab } from './portal/PortalContactsTab';
+import { PortalTaxonomiesTab } from './portal/PortalTaxonomiesTab';
+import { PortalFaqsTab } from './portal/PortalFaqsTab';
+import { PortalLegalPoliciesTab } from './portal/PortalLegalPoliciesTab';
 
 import {
   PortalContentItem,
@@ -864,7 +871,9 @@ const MobileHomeMockup: React.FC<MobileHomeMockupProps> = ({
 // MAIN COMPONENT: W18_PortalContent
 // ==========================================
 export const W18_PortalContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'banners' | 'documents' | 'community' | 'email'>('banners');
+  const [activeTab, setActiveTab] = useState<
+    'banners' | 'contacts' | 'taxonomies' | 'faqs' | 'legal' | 'documents' | 'community' | 'email'
+  >('banners');
   const [isLoading, setIsLoading] = useState(true);
 
   // Content States
@@ -1552,10 +1561,14 @@ export const W18_PortalContent: React.FC = () => {
         onChange={(tabId) => setActiveTab(tabId as any)}
         tabs={[
           { id: 'banners', label: `1. Banner Trang Chủ (${banners.length})`, icon: ImageIcon },
-          { id: 'documents', label: `2. Thư viện Giáo trình PDF (${documents.length})`, icon: FileText },
+          { id: 'contacts', label: '2. Kênh Liên Hệ & MXH', icon: Phone },
+          { id: 'taxonomies', label: '3. Đối Tượng & Nhu Cầu', icon: Tag },
+          { id: 'faqs', label: '4. Hỏi Đáp FAQs', icon: HelpCircle },
+          { id: 'legal', label: '5. Chính Sách & Pháp Lý', icon: Shield },
+          { id: 'documents', label: `6. Thư viện Giáo trình PDF (${documents.length})`, icon: FileText },
           {
             id: 'community',
-            label: `3. Bài viết Cộng đồng (${communityPosts.length})`,
+            label: `7. Bài viết Cộng đồng (${communityPosts.length})`,
             icon: MessageSquare,
             badge: pendingPostsCount > 0 ? (
               <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white font-extrabold">
@@ -1563,7 +1576,7 @@ export const W18_PortalContent: React.FC = () => {
               </span>
             ) : undefined,
           },
-          { id: 'email', label: `4. Kênh Email Thông báo Đào tạo (${emailTemplates.length})`, icon: Mail },
+          { id: 'email', label: `8. Kênh Email Thông báo (${emailTemplates.length})`, icon: Mail },
         ]}
       />
 
@@ -1920,7 +1933,27 @@ export const W18_PortalContent: React.FC = () => {
       )}
 
       {/* ============================================================== */}
-      {/* TAB 2: THƯ VIỆN GIÁO TRÌNH & TÀI LIỆU PDF                      */}
+      {/* TAB 2: KÊNH LIÊN HỆ & MẠNG XÃ HỘI (PORTAL CONTACTS)          */}
+      {/* ============================================================== */}
+      {activeTab === 'contacts' && <PortalContactsTab />}
+
+      {/* ============================================================== */}
+      {/* TAB 3: DANH MỤC ĐỐI TƯỢNG & NHU CẦU (TAXONOMIES)              */}
+      {/* ============================================================== */}
+      {activeTab === 'taxonomies' && <PortalTaxonomiesTab />}
+
+      {/* ============================================================== */}
+      {/* TAB 4: HỎI ĐÁP THƯỜNG GẶP FAQS                                 */}
+      {/* ============================================================== */}
+      {activeTab === 'faqs' && <PortalFaqsTab />}
+
+      {/* ============================================================== */}
+      {/* TAB 5: CHÍNH SÁCH & ĐIỀU KHOẢN PHÁP LÝ (LEGAL POLICIES)        */}
+      {/* ============================================================== */}
+      {activeTab === 'legal' && <PortalLegalPoliciesTab />}
+
+      {/* ============================================================== */}
+      {/* TAB 6: THƯ VIỆN GIÁO TRÌNH & TÀI LIỆU PDF                      */}
       {/* ============================================================== */}
       {activeTab === 'documents' && (
         <div className="space-y-4">

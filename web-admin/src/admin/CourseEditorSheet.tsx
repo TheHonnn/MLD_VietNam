@@ -246,6 +246,20 @@ export const CourseEditorSheet: React.FC<CourseEditorSheetProps> = ({
                 if (typeof grp === "string" && grp.trim().length > 0) grpSet.add(grp.trim());
               }
             }
+
+            // Đồng bộ danh mục Đối tượng & Nhu cầu từ portal_taxonomies
+            try {
+              const taxonomiesRes = await portalService.getTaxonomies();
+              if (taxonomiesRes.data && Array.isArray(taxonomiesRes.data)) {
+                for (const t of taxonomiesRes.data) {
+                  if (t.isActive && t.name) {
+                    if (t.type === 'TARGET_AUDIENCE') audSet.add(t.name.trim());
+                    if (t.type === 'TARGET_NEED') needSet.add(t.name.trim());
+                  }
+                }
+              }
+            } catch (_) {}
+
             setAudienceSuggestions(Array.from(audSet));
             setNeedSuggestions(Array.from(needSet));
             setGroupSuggestions(Array.from(grpSet));

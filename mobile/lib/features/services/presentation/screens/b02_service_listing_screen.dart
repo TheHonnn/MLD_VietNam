@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,6 +7,7 @@ import '../../../../core/localization/app_translation.dart';
 import '../../../../core/motion/app_page_transitions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/launcher_helper.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
@@ -321,6 +323,47 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     );
   }
 
+  void _handlePackageBooking(TreatmentPackageModel package) async {
+    final ok = await GuestAuthPrompt.ensureLoggedIn(
+      context,
+      title: 'Đăng nhập để đặt lịch',
+      message: 'Quý khách vui lòng đăng nhập để đặt lịch gói liệu trình.',
+    );
+    if (!ok || !mounted) return;
+
+    BranchModel? chosenBranch;
+    if (_selectedBranch != 'Tất cả cơ sở' && _selectedBranch != 'Tất cả') {
+      try {
+        chosenBranch = _branches.firstWhere((b) => b.name == _selectedBranch);
+      } catch (_) {}
+    }
+
+    final packageService = SpaServiceModel(
+      id: package.id,
+      name: package.name,
+      categoryName: package.category.isNotEmpty ? package.category : 'Trị liệu',
+      price: package.price,
+      originalPrice: package.originalPrice > 0 ? package.originalPrice : package.price,
+      durationMinutes: 60,
+      description: package.description,
+      imageUrl: package.imageUrl,
+    );
+
+    Navigator.push(
+      context,
+      AppPageTransitions.modalSlideUp(
+        page: AllInOneBookingScreen(
+          onBack: () => Navigator.pop(context),
+          initialService: packageService,
+          initialBranch: chosenBranch,
+          initialSpecialty: package.category.isNotEmpty ? package.category : null,
+          userPackageId: package.id,
+          userPackageName: package.name,
+        ),
+      ),
+    );
+  }
+
   /// Hiển thị Modal chi tiết Gói Liệu Trình
   void _showPackageDetailModal(TreatmentPackageModel package) {
     final formatter = NumberFormat('#,###', 'vi_VN');
@@ -463,18 +506,17 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Nút Đăng ký tư vấn gói
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pop(ctx);
-                    _handlePackageConsultation(package);
+                    _handlePackageBooking(package);
                   },
-                  icon: const Icon(Icons.support_agent_rounded, size: 20),
+                  icon: const Icon(Icons.calendar_month_rounded, size: 20),
                   label: Text(
-                    'Đăng ký tư vấn gói liệu trình',
+                    'Đặt lịch ngay',
                     style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w700),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -729,7 +771,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           const Icon(Icons.verified_user_rounded, size: 14, color: Color(0xFF00693F)),
                           const SizedBox(width: 4),
                           Text(
-                            'TƯ VẤN Y KHOA MLD',
+                            PortalSettingsService.instance.consultationBadgeText,
                             style: AppTypography.zaloFont(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w800,
@@ -879,7 +921,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                   ),
                   onTap: () async {
                     Navigator.pop(dialogCtx);
-                    await _launchContactUrl('https://zalo.me/1424469774232439257?src=qr');
+                    await _launchContactUrl(PortalSettingsService.instance.zaloOaUrl);
                   },
                 ),
                 const SizedBox(height: 12),
@@ -915,7 +957,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                   ),
                   onTap: () async {
                     Navigator.pop(dialogCtx);
-                    await _launchContactUrl('https://m.me/hebachhuyet.mldvietnam');
+                    await _launchContactUrl(PortalSettingsService.instance.messengerUrl);
                   },
                 ),
                 const SizedBox(height: 18),
@@ -924,7 +966,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                 InkWell(
                   onTap: () {
                     Navigator.pop(dialogCtx);
-                    AppLauncherHelper.makePhoneCall(context, '0967786399');
+                    AppLauncherHelper.makePhoneCall(context, PortalSettingsService.instance.hotlineSupport);
                   },
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
@@ -936,7 +978,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         const Icon(Icons.phone_in_talk_rounded, size: 15, color: Color(0xFF00693F)),
                         const SizedBox(width: 6),
                         Text(
-                          'Hoặc gọi Hotline: 096.7786.399',
+                          'Hoặc gọi Hotline: ${PortalSettingsService.instance.hotlineSupport}',
                           style: AppTypography.zaloFont(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,

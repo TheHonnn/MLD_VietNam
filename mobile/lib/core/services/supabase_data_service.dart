@@ -208,7 +208,145 @@ class SupabaseDataService {
   }
 
   // ==========================================
-    // ==========================================
+  // 9c. THÔNG TIN LIÊN HỆ & MẠNG XÃ HỘI (PORTAL CONTACTS)
+  // Quản trị viên cấu hình động từ web-admin
+  // ==========================================
+  Future<Map<String, dynamic>?> fetchPortalContacts() async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return null;
+      }
+    } catch (_) {}
+
+    try {
+      final response = await _client.get<List<dynamic>>(
+        ApiEndpoints.portalContacts,
+        queryParameters: {
+          'id': 'eq.primary_mld_contacts',
+          'select': '*',
+          'limit': '1',
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+      if (response.data == null || response.data!.isEmpty) return null;
+      return Map<String, dynamic>.from(response.data!.first);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ==========================================
+  // 9d. DANH MỤC ĐỐI TƯỢNG & NHU CẦU (TAXONOMIES)
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchTaxonomies({String? type}) async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return [];
+      }
+    } catch (_) {}
+
+    try {
+      final queryParams = <String, dynamic>{
+        'is_active': 'eq.true',
+        'select': '*',
+        'order': 'sort_order.asc,created_at.asc',
+      };
+      if (type != null) {
+        queryParams['type'] = 'eq.$type';
+      }
+
+      final response = await _client.get<List<dynamic>>(
+        ApiEndpoints.portalTaxonomies,
+        queryParameters: queryParams,
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+      if (response.data == null) return [];
+      return List<Map<String, dynamic>>.from(response.data!);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ==========================================
+  // 9e. HỎI ĐÁP THƯỜNG GẶP FAQS
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchFaqs({String? category}) async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return [];
+      }
+    } catch (_) {}
+
+    try {
+      final queryParams = <String, dynamic>{
+        'is_active': 'eq.true',
+        'select': '*',
+        'order': 'display_order.asc,created_at.desc',
+      };
+      if (category != null && category != 'ALL') {
+        queryParams['category'] = 'eq.$category';
+      }
+
+      final response = await _client.get<List<dynamic>>(
+        ApiEndpoints.supportFaqs,
+        queryParameters: queryParams,
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+      if (response.data == null) return [];
+      return List<Map<String, dynamic>>.from(response.data!);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ==========================================
+  // 9f. CHÍNH SÁCH & ĐIỀU KHOẢN PHÁP LÝ (LEGAL POLICIES)
+  // ==========================================
+  Future<List<Map<String, dynamic>>> fetchLegalPolicies() async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return [];
+      }
+    } catch (_) {}
+
+    try {
+      final response = await _client.get<List<dynamic>>(
+        ApiEndpoints.legalPolicies,
+        queryParameters: {
+          'is_published': 'eq.true',
+          'select': '*',
+          'order': 'created_at.asc',
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+      if (response.data == null) return [];
+      return List<Map<String, dynamic>>.from(response.data!);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ==========================================
   // 9b. BÀI VIẾT CỘNG ĐỒNG Y KHOA & TÀI LIỆU PDF (COMMUNITY)
   // Lấy danh sách bài viết chuyên môn do Admin đăng tải từ Supabase Cloud
   // ==========================================

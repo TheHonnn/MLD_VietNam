@@ -1,4 +1,15 @@
-import { PortalContentItem, PortalContentKind, PortalContentStatus, DocumentAccessLevel, ApiResponse } from '../types/shared_types';
+import {
+  PortalContentItem,
+  PortalContentKind,
+  PortalContentStatus,
+  DocumentAccessLevel,
+  ApiResponse,
+  PortalContacts,
+  PortalTaxonomyItem,
+  TaxonomyType,
+  SupportFaqItem,
+  LegalPolicyItem,
+} from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 import { getAdminAuthToken, supabase } from './supabaseClient';
 import { compressImageFile } from '../utils/imageCompressor';
@@ -34,6 +45,80 @@ function mapDbToPortalContent(item: any): PortalContentItem {
     publishedAt: item.published_at || null,
     createdAt: item.created_at || new Date().toISOString(),
     updatedAt: item.updated_at || new Date().toISOString(),
+  };
+}
+
+const DEFAULT_PORTAL_CONTACTS: PortalContacts = {
+  id: 'primary_mld_contacts',
+  hotlineSupport: '096.7786.399',
+  hotlineTraining: '096.7786.399',
+  zaloOaUrl: 'https://zalo.me/1424469774232439257?src=qr',
+  messengerUrl: 'https://m.me/hebachhuyet.mldvietnam',
+  fanpageUrl: 'https://facebook.com/hebachhuyet.mldvietnam',
+  tiktokUrl: 'https://tiktok.com/@mldvietnam',
+  youtubeUrl: '',
+  workingHours: '09:00 – 20:00 hàng ngày',
+  headquartersAddress: 'Chi nhánh Quận 3, 123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
+  consultationBadgeText: 'TƯ VẤN Y KHOA MLD',
+  updatedAt: new Date().toISOString(),
+};
+
+function mapDbToContacts(row: any): PortalContacts {
+  if (!row) return DEFAULT_PORTAL_CONTACTS;
+  return {
+    id: row.id || 'primary_mld_contacts',
+    hotlineSupport: row.hotline_support || DEFAULT_PORTAL_CONTACTS.hotlineSupport,
+    hotlineTraining: row.hotline_training || DEFAULT_PORTAL_CONTACTS.hotlineTraining,
+    zaloOaUrl: row.zalo_oa_url || DEFAULT_PORTAL_CONTACTS.zaloOaUrl,
+    messengerUrl: row.messenger_url || DEFAULT_PORTAL_CONTACTS.messengerUrl,
+    fanpageUrl: row.fanpage_url || DEFAULT_PORTAL_CONTACTS.fanpageUrl,
+    tiktokUrl: row.tiktok_url || DEFAULT_PORTAL_CONTACTS.tiktokUrl,
+    youtubeUrl: row.youtube_url || '',
+    workingHours: row.working_hours || DEFAULT_PORTAL_CONTACTS.workingHours,
+    headquartersAddress: row.headquarters_address || DEFAULT_PORTAL_CONTACTS.headquartersAddress,
+    consultationBadgeText: row.consultation_badge_text || DEFAULT_PORTAL_CONTACTS.consultationBadgeText,
+    updatedAt: row.updated_at || new Date().toISOString(),
+  };
+}
+
+function mapDbToTaxonomy(row: any): PortalTaxonomyItem {
+  return {
+    id: row.id,
+    type: row.type as TaxonomyType,
+    code: row.code || '',
+    name: row.name || '',
+    description: row.description || '',
+    iconName: row.icon_name || 'person',
+    sortOrder: Number(row.sort_order) || 0,
+    isActive: row.is_active !== undefined ? Boolean(row.is_active) : true,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapDbToFaq(row: any): SupportFaqItem {
+  return {
+    id: row.id,
+    category: row.category || 'CHUNG',
+    question: row.question || '',
+    answer: row.answer || '',
+    displayOrder: Number(row.display_order) || 0,
+    isActive: row.is_active !== undefined ? Boolean(row.is_active) : true,
+    createdAt: row.created_at,
+  };
+}
+
+function mapDbToPolicy(row: any): LegalPolicyItem {
+  return {
+    id: row.id,
+    slug: row.slug || '',
+    title: row.title || '',
+    version: row.version || '1.0',
+    contentMarkdown: row.content_markdown || '',
+    effectiveDate: row.effective_date || new Date().toISOString().slice(0, 10),
+    isPublished: row.is_published !== undefined ? Boolean(row.is_published) : true,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -387,5 +472,226 @@ export const portalService = {
       reader.onerror = () => reject(new Error('Lỗi khi đọc tệp từ thiết bị của bạn.'));
       reader.readAsDataURL(file);
     });
+  },
+
+  // ==========================================
+  // 1. THÔNG TIN LIÊN HỆ & MẠNG XÃ HỘI (PORTAL CONTACTS)
+  // ==========================================
+  async getContacts(): Promise<ApiResponse<PortalContacts>> {
+    try {
+      const raw = await supabaseService.query<any[]>('portal_contacts?id=eq.primary_mld_contacts&select=*');
+      if (!raw || raw.length === 0) {
+        return { success: true, statusCode: 200, message: 'Dữ liệu liên hệ mặc định', data: DEFAULT_PORTAL_CONTACTS };
+      }
+      return { success: true, statusCode: 200, message: 'Tải thông tin liên hệ thành công', data: mapDbToContacts(raw[0]) };
+    } catch (err: any) {
+      console.warn('[portalService] getContacts fallback to defaults:', err);
+      return { success: true, statusCode: 200, message: 'Dữ liệu liên hệ dự phòng', data: DEFAULT_PORTAL_CONTACTS };
+    }
+  },
+
+  async updateContacts(data: Partial<PortalContacts>): Promise<ApiResponse<PortalContacts>> {
+    try {
+      const payload: Record<string, any> = {
+        id: 'primary_mld_contacts',
+        updated_at: new Date().toISOString(),
+      };
+      if (data.hotlineSupport !== undefined) payload.hotline_support = data.hotlineSupport;
+      if (data.hotlineTraining !== undefined) payload.hotline_training = data.hotlineTraining;
+      if (data.zaloOaUrl !== undefined) payload.zalo_oa_url = data.zaloOaUrl;
+      if (data.messengerUrl !== undefined) payload.messenger_url = data.messengerUrl;
+      if (data.fanpageUrl !== undefined) payload.fanpage_url = data.fanpageUrl;
+      if (data.tiktokUrl !== undefined) payload.tiktok_url = data.tiktokUrl;
+      if (data.youtubeUrl !== undefined) payload.youtube_url = data.youtubeUrl;
+      if (data.workingHours !== undefined) payload.working_hours = data.workingHours;
+      if (data.headquartersAddress !== undefined) payload.headquarters_address = data.headquartersAddress;
+      if (data.consultationBadgeText !== undefined) payload.consultation_badge_text = data.consultationBadgeText;
+
+      const res = await supabaseService.query<any[]>('portal_contacts?id=eq.primary_mld_contacts', {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+
+      if (!res || res.length === 0) {
+        const inserted = await supabaseService.query<any[]>('portal_contacts', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        const saved = inserted && inserted.length > 0 ? mapDbToContacts(inserted[0]) : { ...DEFAULT_PORTAL_CONTACTS, ...data };
+        return { success: true, statusCode: 200, message: 'Cập nhật thông tin liên hệ thành công', data: saved };
+      }
+
+      return { success: true, statusCode: 200, message: 'Cập nhật thông tin liên hệ thành công', data: mapDbToContacts(res[0]) };
+    } catch (err: any) {
+      console.error('[portalService] updateContacts error:', err);
+      return { success: false, statusCode: 500, message: err.message || 'Lỗi cập nhật thông tin liên hệ', data: { ...DEFAULT_PORTAL_CONTACTS, ...data } };
+    }
+  },
+
+  // ==========================================
+  // 2. DANH MỤC ĐỐI TƯỢNG & NHU CẦU (TAXONOMIES)
+  // ==========================================
+  async getTaxonomies(type?: TaxonomyType): Promise<ApiResponse<PortalTaxonomyItem[]>> {
+    try {
+      let path = 'portal_taxonomies?select=*&order=sort_order.asc,created_at.asc';
+      if (type) {
+        path += `&type=eq.${type}`;
+      }
+      const raw = await supabaseService.query<any[]>(path);
+      if (!raw) {
+        return { success: true, statusCode: 200, message: 'Danh sách phân loại', data: [] };
+      }
+      return { success: true, statusCode: 200, message: 'Tải danh mục thành công', data: raw.map(mapDbToTaxonomy) };
+    } catch (err: any) {
+      console.error('[portalService] getTaxonomies error:', err);
+      return { success: false, statusCode: 500, message: err.message || 'Lỗi tải danh mục', data: [] };
+    }
+  },
+
+  async saveTaxonomy(item: Partial<PortalTaxonomyItem>): Promise<ApiResponse<PortalTaxonomyItem | null>> {
+    try {
+      const payload: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (item.type !== undefined) payload.type = item.type;
+      if (item.code !== undefined) payload.code = item.code.trim();
+      if (item.name !== undefined) payload.name = item.name.trim();
+      if (item.description !== undefined) payload.description = item.description.trim();
+      if (item.iconName !== undefined) payload.icon_name = item.iconName.trim();
+      if (item.sortOrder !== undefined) payload.sort_order = Number(item.sortOrder);
+      if (item.isActive !== undefined) payload.is_active = Boolean(item.isActive);
+
+      if (item.id) {
+        const res = await supabaseService.query<any[]>(`portal_taxonomies?id=eq.${item.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+        return { success: true, statusCode: 200, message: 'Cập nhật danh mục thành công', data: res && res[0] ? mapDbToTaxonomy(res[0]) : null };
+      } else {
+        const res = await supabaseService.query<any[]>('portal_taxonomies', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        return { success: true, statusCode: 201, message: 'Thêm mới danh mục thành công', data: res && res[0] ? mapDbToTaxonomy(res[0]) : null };
+      }
+    } catch (err: any) {
+      console.error('[portalService] saveTaxonomy error:', err);
+      return { success: false, statusCode: 500, message: err.message || 'Lỗi lưu danh mục', data: null };
+    }
+  },
+
+  async deleteTaxonomy(id: string): Promise<ApiResponse<boolean>> {
+    try {
+      await supabaseService.query<any[]>(`portal_taxonomies?id=eq.${id}`, { method: 'DELETE' });
+      return { success: true, statusCode: 200, message: 'Xóa mục danh mục thành công', data: true };
+    } catch (err: any) {
+      console.error('[portalService] deleteTaxonomy error:', err);
+      return { success: false, statusCode: 500, message: err.message || 'Lỗi xóa danh mục', data: false };
+    }
+  },
+
+  // ==========================================
+  // 3. HỎI ĐÁP THƯỜNG GẶP (FAQS)
+  // ==========================================
+  async getFaqs(category?: string): Promise<ApiResponse<SupportFaqItem[]>> {
+    try {
+      let path = 'support_faqs?select=*&order=display_order.asc,created_at.desc';
+      if (category && category !== 'ALL') {
+        path += `&category=eq.${category}`;
+      }
+      const raw = await supabaseService.query<any[]>(path);
+      if (!raw) {
+        return { success: true, statusCode: 200, message: 'Danh sách FAQs', data: [] };
+      }
+      return { success: true, statusCode: 200, message: 'Tải FAQs thành công', data: raw.map(mapDbToFaq) };
+    } catch (err: any) {
+      console.error('[portalService] getFaqs error:', err);
+      return { success: false, statusCode: 500, message: err.message || 'Lỗi tải FAQs', data: [] };
+    }
+  },
+
+  async saveFaq(item: Partial<SupportFaqItem>): Promise<ApiResponse<SupportFaqItem | null>> {
+    try {
+      const payload: Record<string, any> = {};
+      if (item.category !== undefined) payload.category = item.category;
+      if (item.question !== undefined) payload.question = item.question.trim();
+      if (item.answer !== undefined) payload.answer = item.answer.trim();
+      if (item.displayOrder !== undefined) payload.display_order = Number(item.displayOrder);
+      if (item.isActive !== undefined) payload.is_active = Boolean(item.isActive);
+
+      if (item.id) {
+        const res = await supabaseService.query<any[]>(`support_faqs?id=eq.${item.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+        return { success: true, statusCode: 200, message: 'Cập nhật câu hỏi thành công', data: res && res[0] ? mapDbToFaq(res[0]) : null };
+      } else {
+        const res = await supabaseService.query<any[]>('support_faqs', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        return { success: true, statusCode: 201, message: 'Thêm mới câu hỏi thành công', data: res && res[0] ? mapDbToFaq(res[0]) : null };
+      }
+    } catch (err: any) {
+      console.error('[portalService] saveFaq error:', err);
+      return { success: false, statusCode: 500, message: err.message || 'Lỗi lưu câu hỏi', data: null };
+    }
+  },
+
+  async deleteFaq(id: string): Promise<ApiResponse<boolean>> {
+    try {
+      await supabaseService.query<any[]>(`support_faqs?id=eq.${id}`, { method: 'DELETE' });
+      return { success: true, statusCode: 200, message: 'Xóa câu hỏi thành công', data: true };
+    } catch (err: any) {
+      console.error('[portalService] deleteFaq error:', err);
+      return { success: false, statusCode: 500, message: err.message || 'Lỗi xóa câu hỏi', data: false };
+    }
+  },
+
+  // ==========================================
+  // 4. CHÍNH SÁCH & ĐIỀU KHOẢN PHÁP LÝ (LEGAL POLICIES)
+  // ==========================================
+  async getLegalPolicies(): Promise<ApiResponse<LegalPolicyItem[]>> {
+    try {
+      const raw = await supabaseService.query<any[]>('legal_policies?select=*&order=created_at.asc');
+      if (!raw) {
+        return { success: true, statusCode: 200, message: 'Danh sách chính sách pháp lý', data: [] };
+      }
+      return { success: true, statusCode: 200, message: 'Tải chính sách pháp lý thành công', data: raw.map(mapDbToPolicy) };
+    } catch (err: any) {
+      console.error('[portalService] getLegalPolicies error:', err);
+      return { success: false, statusCode: 500, message: err.message || 'Lỗi tải chính sách pháp lý', data: [] };
+    }
+  },
+
+  async saveLegalPolicy(item: Partial<LegalPolicyItem>): Promise<ApiResponse<LegalPolicyItem | null>> {
+    try {
+      const payload: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (item.slug !== undefined) payload.slug = item.slug.trim();
+      if (item.title !== undefined) payload.title = item.title.trim();
+      if (item.version !== undefined) payload.version = item.version.trim();
+      if (item.contentMarkdown !== undefined) payload.content_markdown = item.contentMarkdown;
+      if (item.effectiveDate !== undefined) payload.effective_date = item.effectiveDate;
+      if (item.isPublished !== undefined) payload.is_published = Boolean(item.isPublished);
+
+      if (item.id) {
+        const res = await supabaseService.query<any[]>(`legal_policies?id=eq.${item.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+        return { success: true, statusCode: 200, message: 'Cập nhật chính sách thành công', data: res && res[0] ? mapDbToPolicy(res[0]) : null };
+      } else {
+        const res = await supabaseService.query<any[]>('legal_policies', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        return { success: true, statusCode: 201, message: 'Thêm mới chính sách thành công', data: res && res[0] ? mapDbToPolicy(res[0]) : null };
+      }
+    } catch (err: any) {
+      console.error('[portalService] saveLegalPolicy error:', err);
+      return { success: false, statusCode: 500, message: err.message || 'Lỗi lưu chính sách', data: null };
+    }
   },
 };
