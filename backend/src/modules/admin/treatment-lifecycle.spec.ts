@@ -189,6 +189,26 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
     await pg.query("DELETE FROM bookings WHERE booking_code='STAFF-ROSTER-TEST'");
   });
 
+  it('approves commissions atomically and prevents repeated payout', async () => {
+    const create = async (amount: number, status = 'PENDING') => (await pg.query<{ id: string }>(
+      "INSERT INTO staff_commissions(staff_id,branch_id,commission_type,base_amount,percentage,commission_amount,status,cycle_month) VALUES($1,$2,'SERVICE_DIRECT',100000,10,$3,$4,'2099-05') RETURNING id",
+      [staffActor.id, branchId, amount, status],
+    )).rows[0];
+    const first = await create(10000);
+    const second = await create(20000);
+    await expect(service.transitionCommissions(superAdminActor, { action: 'approve', entries: [{id:first.id,amount:10000},{id:second.id,amount:1}] })).rejects.toThrow(ConflictException);
+    expect((await pg.query<{status:string}>('SELECT status FROM staff_commissions WHERE id=$1',[first.id])).rows[0].status).toBe('PENDING');
+    await service.transitionCommissions(superAdminActor, { action: 'approve', entries: [{id:first.id,amount:10000}] });
+    await service.transitionCommissions(superAdminActor, { action: 'record-payment', entries: [{id:first.id,amount:10000}] });
+    await expect(service.transitionCommissions(superAdminActor, { action: 'record-payment', entries: [{id:first.id,amount:10000}] })).rejects.toThrow(ConflictException);
+    const reversal = await create(-10000);
+    await expect(service.transitionCommissions(superAdminActor, { action: 'approve', entries: [{id:reversal.id,amount:-10000}] })).rejects.toThrow(ConflictException);
+    await expect(service.commissionsWorkspace(staffActor,'2099-05')).rejects.toThrow(ForbiddenException);
+    const workspace = await service.commissionsWorkspace(superAdminActor,'2099-05');
+    expect(workspace.rows.some(row => row.id === first.id && row.status === 'PAID')).toBe(true);
+    await pg.query('DELETE FROM staff_commissions WHERE id=ANY($1::uuid[])',[[first.id,second.id,reversal.id]]);
+  });
+
   afterAll(async () => {
     await pg?.close();
   });

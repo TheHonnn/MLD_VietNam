@@ -28,6 +28,7 @@ export const ADMIN_RESOURCES: Record<
     actions: ['update'],
   },
   support_faqs: { title: 'Câu hỏi thường gặp', group: 'Khách hàng' },
+  staff_commissions: { title: 'Hoa hồng & thưởng', group: 'Nhân sự', actions: ['action'] },
   staff_profiles: { title: 'Hồ sơ nhân viên', group: 'Nhân sự' },
   departments: { title: 'Bộ phận', group: 'Nhân sự' },
   technicians: { title: 'Chuyên viên', group: 'Nhân sự' },

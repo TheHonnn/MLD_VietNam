@@ -570,6 +570,7 @@ export class AdminService {
     if (table === 'user_packages' && operation === 'create') {
       throw new BadRequestException('Chỉ luồng POS mới được kích hoạt gói cho khách hàng.');
     }
+    if (table === 'staff_commissions') throw new ForbiddenException('Dùng quy trình duyệt và ghi nhận chi trả hoa hồng.');
     const columns = await this.columns(table, actor);
     let input = body?.values;
     let password: string | undefined;
@@ -2358,6 +2359,60 @@ export class AdminService {
 
   async bookTreatmentSession(actor: AdminActor, packageId: string, body: Record<string, unknown>) {
     return createTreatmentBooking(this.db.connection,actor,packageId,body);
+  }
+
+  async commissionsWorkspace(actor: AdminActor, month: string) {
+    const branches = allowedBranches(actor, 'staff_commissions.read');
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month || ''))
+      throw new BadRequestException('Chọn kỳ hoa hồng hợp lệ.');
+    const rows = (await this.db.connection.query(
+      `SELECT c.id,c.staff_id,c.branch_id,c.cycle_month,c.status,c.notes,c.commission_type,
+        c.base_amount,c.percentage,c.commission_amount,c.reversed_at,c.reversal_of_id,
+        u.full_name AS staff_name,b.name AS branch_name,i.invoice_code,bk.booking_code
+       FROM staff_commissions c JOIN users u ON u.id=c.staff_id JOIN branches b ON b.id=c.branch_id
+       LEFT JOIN invoices i ON i.id=c.invoice_id LEFT JOIN bookings bk ON bk.id=c.booking_id
+       WHERE c.cycle_month=$1 AND ($2::uuid[] IS NULL OR c.branch_id=ANY($2))
+       ORDER BY c.created_at DESC,c.id DESC`, [month, branches],
+    )).rows;
+    let actionBranches: string[] | null = [];
+    try { actionBranches = allowedBranches(actor, 'staff_commissions.action'); }
+    catch (error) { if (!(error instanceof ForbiddenException)) throw error; }
+    return { rows, actionBranches };
+  }
+
+  async transitionCommissions(actor: AdminActor, body: { action?: string; entries?: unknown }) {
+    const branches = allowedBranches(actor, 'staff_commissions.action');
+    const { action, entries } = body;
+    if (!['approve', 'record-payment'].includes(action || '') || !Array.isArray(entries) ||
+      !entries.length || entries.length > 100 || (action === 'record-payment' && entries.length !== 1) ||
+      entries.some(item => !item || typeof item.id !== 'string' || !this.isUuid(item.id) || !Number.isFinite(item.amount)))
+      throw new BadRequestException('Danh sách khoản hoa hồng cần xử lý không hợp lệ.');
+    const expected = new Map<string, number>(entries.map(item => [item.id, item.amount]));
+    if (expected.size !== entries.length) throw new BadRequestException('Khoản hoa hồng bị chọn trùng.');
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mld-admin-mutation'))");
+      const { rows } = await client.query(
+        'SELECT id,branch_id,status,commission_amount,reversed_at,reversal_of_id FROM staff_commissions WHERE id=ANY($1::uuid[]) AND ($2::uuid[] IS NULL OR branch_id=ANY($2)) ORDER BY id FOR UPDATE',
+        [[...expected.keys()], branches],
+      );
+      const validStatus = action === 'approve' ? ['PENDING', 'PENDING_APPROVAL'] : ['APPROVED'];
+      if (rows.length !== expected.size || rows.some(row => !validStatus.includes(row.status) || row.reversed_at ||
+        row.reversal_of_id || Number(row.commission_amount) <= 0 || Number(row.commission_amount) !== expected.get(row.id)))
+        throw new ConflictException('Danh sách đã thay đổi hoặc có khoản không đủ điều kiện. Tải lại và đối soát trước khi xác nhận.');
+      await client.query('UPDATE staff_commissions SET status=$2 WHERE id=ANY($1::uuid[])',
+        [[...expected.keys()], action === 'approve' ? 'APPROVED' : 'PAID']);
+      for (const row of rows)
+        await this.audit(client, actor, 'staff_commissions', action === 'approve' ? 'APPROVE_COMMISSION' : 'RECORD_COMMISSION_PAYMENT', row.id);
+      await client.query('COMMIT');
+      return { count: rows.length };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      return this.fail(error);
+    } finally {
+      client.release();
+    }
   }
 
   async staffScheduleSlots(actor: AdminActor, query: Record<string,string>) {

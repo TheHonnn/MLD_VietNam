@@ -339,6 +339,18 @@ export class AdminController {
   bookTreatmentSession(@Param('id') id: string, @Body() body: Record<string, unknown>, @Req() req) {
     return this.service.bookTreatmentSession(req.admin,id,body);
   }
+  @Get('commissions/workspace')
+  @UseGuards(AdminGuard)
+  commissionsWorkspace(@Query('month') month: string, @Req() req) {
+    return this.service.commissionsWorkspace(req.admin, month);
+  }
+
+  @Post('commissions/transition')
+  @UseGuards(AdminGuard)
+  transitionCommissions(@Body() body: { action?: string; entries?: unknown }, @Req() req) {
+    return this.service.transitionCommissions(req.admin, body);
+  }
+
   @Get('staff-schedule/slots')
   @UseGuards(AdminGuard)
   staffScheduleSlots(@Query() query: Record<string,string>, @Req() req) {
