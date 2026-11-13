@@ -5659,7 +5659,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     <div className="admin-page-shell">
       <PageHeader
         eyebrow={resource?.group || "QUẢN TRỊ"}
-        title={resource?.title || "Đang tải phân hệ…"}
+        title={table === "service_categories" ? "Nhóm dịch vụ" : resource?.title || "Đang tải phân hệ…"}
         subtitle={
           table === "bookings" ? (
             <p className="mt-1 text-xs text-[#73675F]">Theo dõi khách từ lúc đặt lịch, đến cơ sở, thực hiện dịch vụ và thanh toán.</p>
@@ -5751,7 +5751,9 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                     ? "Thêm dịch vụ vào lịch"
                     : table === "users"
                       ? "Thêm tài khoản"
-                      : "Thêm mới"}
+                      : table === "service_categories"
+                        ? "Thêm nhóm"
+                        : "Thêm mới"}
                 </button>
               )
             )}
@@ -5768,18 +5770,20 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </>
         }
       />
-      <PageTabs
-        ariaLabel="Phân hệ liên quan"
-        variant="line"
-        activeTab={table}
-        tabs={resources
-          .filter((r) => r.group === resource?.group)
-          .map((r) => ({
-            id: r.name,
-            label: r.name === "invoices" ? "Hóa đơn & Đối soát" : r.title,
-            href: r.name === "invoices" ? "/cashier-pos?tab=receipts" : `/manage/${r.name}`,
-          }))}
-      />
+      {table !== "service_categories" && (
+        <PageTabs
+          ariaLabel="Phân hệ liên quan"
+          variant="line"
+          activeTab={table}
+          tabs={resources
+            .filter((r) => r.group === resource?.group)
+            .map((r) => ({
+              id: r.name,
+              label: r.name === "invoices" ? "Hóa đơn & Đối soát" : r.title,
+              href: r.name === "invoices" ? "/cashier-pos?tab=receipts" : `/manage/${r.name}`,
+            }))}
+        />
+      )}
       {[
         "course_lessons",
         "course_quizzes",

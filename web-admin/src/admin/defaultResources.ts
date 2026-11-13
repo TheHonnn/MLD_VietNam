@@ -24,7 +24,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'home_care_guidelines', title: 'Hướng dẫn chăm sóc tại nhà', group: 'Quản lý Liệu trình', actions: ['create', 'update'] },
 
   // 5. Dịch vụ & Định mức
-  { name: 'service_categories', title: 'Danh mục dịch vụ', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'service_categories', title: 'Nhóm dịch vụ', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'services', title: 'Bảng giá dịch vụ', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'service_materials', title: 'Định mức tiêu hao vật tư (BOM)', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'inventory_consumption_logs', title: 'Xuất kho vật tư tiêu hao (BOM)', group: 'Dịch vụ & Định mức', readonly: true, actions: [] },

@@ -10,7 +10,7 @@ export const ADMIN_RESOURCES: Record<
 > = {
   branches: { title: 'Chi nhánh', group: 'Cơ sở' },
   branch_rooms: { title: 'Phòng dịch vụ', group: 'Cơ sở' },
-  service_categories: { title: 'Danh mục dịch vụ', group: 'Dịch vụ' },
+  service_categories: { title: 'Nhóm dịch vụ', group: 'Dịch vụ' },
   services: { title: 'Dịch vụ', group: 'Dịch vụ' },
   treatment_packages: { title: 'Gói liệu trình', group: 'Dịch vụ' },
   home_products: { title: 'Sản phẩm mang về', group: 'Dịch vụ', actions: ['create', 'update', 'delete'] },

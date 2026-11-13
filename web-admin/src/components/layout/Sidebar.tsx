@@ -128,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           subItems: [
             { name: 'Bảng giá & Gói liệu trình', path: '/services-catalog' },
             { name: 'Sản phẩm mang về', path: '/home-products' },
-            { name: 'Danh mục nhóm dịch vụ', path: '/manage/service_categories' },
+            { name: 'Nhóm dịch vụ', path: '/manage/service_categories' },
             { name: 'Định mức tiêu hao vật tư (BOM)', path: '/manage/service_materials' },
             { name: 'Xuất kho vật tư tiêu hao (BOM)', path: '/manage/inventory_consumption_logs' },
           ],
