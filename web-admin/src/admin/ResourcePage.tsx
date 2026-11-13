@@ -5939,6 +5939,14 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           activeTab={table}
           tabs={resources
             .filter((r) => r.group === resource?.group)
+            .sort((a, b) => {
+              const order = ["coupons", "user_vouchers", "voucher_distribution_rules", "membership_tier_rules", "loyalty_point_settings", "point_transactions"];
+              const rank = (name: string) => {
+                const index = order.indexOf(name);
+                return index < 0 ? order.length : index;
+              };
+              return rank(a.name) - rank(b.name);
+            })
             .map((r) => ({
               id: r.name,
               label: r.name === "invoices" ? "Hóa đơn & Đối soát" : r.title,
