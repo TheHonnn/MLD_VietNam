@@ -2371,12 +2371,14 @@ function ReferenceInput({
   onChange,
   required,
   branchId,
+  activeOnly = false,
 }: {
   column: Column;
   value: string;
   onChange: (v: string) => void;
   required: boolean;
   branchId?: string;
+  activeOnly?: boolean;
 }) {
   const [rows, setRows] = useState<Row[]>([]),
     [page, setPage] = useState(1),
@@ -2388,7 +2390,10 @@ function ReferenceInput({
     setBusy(true);
     const timer = setTimeout(() => {
       const query = new URLSearchParams({ limit: "100", page: String(page) });
-      if (branchId) query.set("filter", JSON.stringify({ branch_id: branchId }));
+      if (branchId || activeOnly) query.set("filter", JSON.stringify({
+        ...(branchId ? { branch_id: branchId } : {}),
+        ...(activeOnly ? { [column.reference?.table === "branch_rooms" ? "is_available" : "is_active"]: true } : {}),
+      }));
       adminApi<Listing>(
         column.reference!.table + "?" + query,
         undefined,
@@ -2410,7 +2415,7 @@ function ReferenceInput({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [column.reference!.table, page, branchId]);
+  }, [column.reference!.table, page, branchId, activeOnly]);
   return (
     <div className="admin-reference">
       <select
@@ -3339,14 +3344,25 @@ function RecordDialog({
           : resource.name === "student_certificates"
             ? ["qr_verification_code"]
             : [];
+  const rosterForm = ["technician_shifts", "technician_slots"].includes(resource.name);
+  const linkedTechnician = resource.name === "technicians" && (mode === "create" || row.staff_profile_id || values.staff_profile_id);
   const fields = columns.filter(
     (c) =>
       !generated.includes(c.name) &&
+      !(mode !== "view" && resource.name === "departments" && c.name === "created_by_id") &&
+      !(mode !== "view" && linkedTechnician && ["user_id", "branch_id", "full_name"].includes(c.name)) &&
+      !(mode === "update" && resource.name === "technicians" && row.staff_profile_id && c.name === "staff_profile_id") &&
       !(mode !== "view" && resource.name === "technician_shifts" && c.name === "is_cancelled") &&
       !(mode !== "view" && resource.name === "technician_slots" && ["status", "held_by_user_id", "hold_expires_at"].includes(c.name)) &&
       (mode === "view" ||
         (c.writable && !(mode === "update" && c.primary))),
   );
+  const fieldOrder = rosterForm
+    ? ["branch_id", "technician_id", resource.name === "technician_shifts" ? "shift_date" : "slot_date", "assigned_room_id", "start_time", "end_time"]
+    : resource.name === "technicians" ? ["staff_profile_id"]
+      : resource.name === "departments" ? ["name", "code", "description", "sort_order", "is_active"] : [];
+  const orderedFields = [...fieldOrder.flatMap(name => fields.filter(field => field.name === name)),
+    ...fields.filter(field => !fieldOrder.includes(field.name))];
   const [codeManuallyEdited, setCodeManuallyEdited] = useState(false);
   const set = (name: string, value: any) =>
     setValues((old) => {
@@ -3355,7 +3371,7 @@ function RecordDialog({
         next.technician_id = "";
         if (resource.name === "technician_shifts") next.assigned_room_id = "";
       }
-      if (resource.name === "service_categories" && mode === "create") {
+      if (["service_categories", "departments"].includes(resource.name) && mode === "create") {
         if (name === "code") {
           setCodeManuallyEdited(true);
         } else if (name === "name" && !codeManuallyEdited) {
@@ -3428,6 +3444,12 @@ function RecordDialog({
     setError("");
     setBusy(true);
     try {
+      if (resource.name === "technicians" && mode === "create" && !values.staff_profile_id) {
+        throw new Error("Chọn hồ sơ nhân viên trước khi lưu.");
+      }
+      if (rosterForm && String(values.start_time ?? row.start_time ?? "").slice(0, 5) >= String(values.end_time ?? row.end_time ?? "").slice(0, 5)) {
+        throw new Error("Giờ kết thúc phải sau giờ bắt đầu.");
+      }
       const payload: Row = {};
       const mergedValues: Row = { ...values };
 
@@ -3460,6 +3482,10 @@ function RecordDialog({
         }
         if (!c) continue;
         if (value === "") {
+          if (resource.name === "technicians" && name === "avatar_url") {
+            if (mode === "update") payload[name] = "";
+            continue;
+          }
           if (mode === "update" || !c.hasDefault) payload[name] = null;
           continue;
         }
@@ -3799,11 +3825,16 @@ function RecordDialog({
           ) : (
             <div className={resource.name === "certificate_templates" && mode !== "view" ? "certificate-template-form-layout" : "certificate-template-form-layout--plain"}>
               <div className={resource.name === "certificate_templates" && mode !== "view" ? "admin-form-grid certificate-template-fields" : "admin-form-grid"}>
-                {fields.map((c) => {
+                {linkedTechnician && mode !== "view" && (
+                  <p className="admin-field-wide text-xs text-[#73675F]">
+                    Họ tên, tài khoản và chi nhánh lấy từ hồ sơ nhân viên. Có thể dùng ảnh từ tài khoản hoặc tải ảnh riêng.
+                  </p>
+                )}
+                {orderedFields.map((c) => {
                   const value = current(c),
                     structured =
                       ["json", "jsonb"].includes(c.type) || c.type.startsWith("_");
-                  const required = c.required && !c.hasDefault && mode === "create";
+                  const required = c.required && !c.hasDefault && mode === "create" && !(linkedTechnician && c.name === "avatar_url");
                   const text =
                     structured && typeof value === "object"
                       ? JSON.stringify(value, null, 2)
@@ -4103,14 +4134,17 @@ function RecordDialog({
                             </option>
                           ))}
                         </select>
+                      ) : c.reference && rosterForm && ["technician_id", "assigned_room_id"].includes(c.name) && !(values.branch_id ?? row.branch_id) ? (
+                        <p className="text-xs text-[#73675F]">Chọn chi nhánh trước.</p>
                       ) : c.reference ? (
                         <ReferenceInput
                           key={c.name + (["technician_shifts", "technician_slots"].includes(resource.name) ? String(values.branch_id ?? row.branch_id ?? "") : "")}
                           column={c}
+                          activeOnly={(rosterForm && ["branch_id", "technician_id", "assigned_room_id"].includes(c.name)) || (resource.name === "technicians" && c.name === "staff_profile_id")}
                           branchId={["technician_shifts", "technician_slots"].includes(resource.name) && ["technician_id", "assigned_room_id"].includes(c.name) ? String(values.branch_id ?? row.branch_id ?? "") : undefined}
                           value={String(value)}
                           onChange={(v) => set(c.name, v)}
-                          required={required}
+                          required={required || (resource.name === "technicians" && mode === "create" && c.name === "staff_profile_id")}
                         />
                       ) : c.options.length ? (
                         <select

@@ -86,7 +86,7 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
   const [email, setEmail] = useState(row.email || row.users?.email || "");
   const [role, setRole] = useState(row.role || row.user_role || row.users?.role || "TECHNICIAN");
   const [employeeCode, setEmployeeCode] = useState(
-    row.employee_code || (isCreate ? `NV-${Math.floor(1000 + Math.random() * 9000)}` : "")
+    row.employee_code || ""
   );
 
   // Existing user link toggle
@@ -94,6 +94,7 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
   const [userId, setUserId] = useState(row.user_id || "");
   const [existingUsers, setExistingUsers] = useState<any[]>([]);
   const [searchingUsers, setSearchingUsers] = useState(false);
+  const [userSearchError, setUserSearchError] = useState("");
   const [userSearchTerm, setUserSearchTerm] = useState("");
 
   // Assignment
@@ -172,12 +173,13 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
     let mounted = true;
     const fetchUsers = async () => {
       setSearchingUsers(true);
+      setUserSearchError("");
       try {
-        const query = new URLSearchParams({ limit: '30', search: userSearchTerm.trim() });
+        const query = new URLSearchParams({ limit: '30', search: userSearchTerm.trim(), staffCandidates: '1' });
         const result = await adminCommand<Listing>('users?' + query);
         if (mounted) setExistingUsers(result.rows.filter(user => user.is_active !== false && !["CUSTOMER", "STUDENT", "GUEST"].includes(user.role)));
       } catch (err) {
-        console.warn("Lỗi load users:", err);
+        if (mounted) { setExistingUsers([]); setUserSearchError(err instanceof Error ? err.message : "Không tải được tài khoản."); }
       } finally {
         if (mounted) setSearchingUsers(false);
       }
@@ -353,9 +355,11 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
               <div className="max-h-36 overflow-y-auto border border-[#E8DFD8] rounded-lg bg-white divide-y divide-[#F4EFEA]">
                 {searchingUsers ? (
                   <div className="p-3 text-center text-xs text-[#766554]">Đang tìm kiếm...</div>
+                ) : userSearchError ? (
+                  <div role="alert" className="p-3 text-xs text-red-700">{userSearchError}</div>
                 ) : existingUsers.length === 0 ? (
                   <div className="p-3 text-center text-xs text-[#766554]">
-                    Không tìm thấy tài khoản phù hợp. Bạn có thể tự nhập thông tin bên dưới để tạo mới.
+                    Không có tài khoản nhân viên phù hợp chưa liên kết. Tạo tài khoản tại mục Tài khoản & Quyền truy cập.
                   </div>
                 ) : (
                   existingUsers.map((u) => (

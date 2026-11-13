@@ -149,6 +149,26 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
 
   });
 
+  it('derives technician identity and records the actual department creator', async () => {
+    const department = await service.mutate('departments', superAdminActor, 'create', {
+      values: { name: 'Điều phối thử nghiệm', code: 'dieu_phoi_test', created_by_id: staffActor.id },
+    });
+    expect(department).toMatchObject({ code: 'DIEU_PHOI_TEST', created_by_id: superAdminActor.id });
+    const account = (await pg.query<{ id: string }>(
+      "INSERT INTO users(phone,full_name,role,referral_code) VALUES('0912345432','Điều phối thử','TECHNICIAN','STAFF-FORM-TEST') RETURNING id",
+    )).rows[0];
+    const profile = await service.mutate('staff_profiles', superAdminActor, 'create', {
+      values: { user_id: account.id, branch_id: branchId, department_id: department.id, position: 'Kỹ thuật viên', employee_code: 'STAFF-FORM-TEST' },
+    });
+    const technician = await service.mutate('technicians', superAdminActor, 'create', {
+      values: { staff_profile_id: profile.id, full_name: 'Tên tự nhập' },
+    });
+    expect(technician).toMatchObject({ user_id: account.id, branch_id: branchId, full_name: 'Điều phối thử' });
+    await expect(service.mutate('technicians', superAdminActor, 'create', {
+      values: { staff_profile_id: profile.id },
+    })).rejects.toThrow('đã có hồ sơ kỹ thuật viên');
+  });
+
   it('keeps staff scheduling changes consistent with existing appointments', async () => {
     const date = '2099-04-16';
     const shift = { technician_id: technicianId, branch_id: branchId, shift_date: date, start_time: '09:00', end_time: '12:00' };

@@ -114,6 +114,8 @@ export const labels: Record<string, string> = {
   booking_date: "Ngày hẹn",
   start_time: "Giờ bắt đầu",
   end_time: "Giờ kết thúc",
+  sort_order: "Thứ tự hiển thị",
+  created_by_id: "Người tạo",
   shift_date: "Ngày trực",
   slot_date: "Ngày áp dụng",
   assigned_room_id: "Phòng",

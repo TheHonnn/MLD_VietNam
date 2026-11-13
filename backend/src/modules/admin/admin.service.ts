@@ -337,6 +337,9 @@ export class AdminService {
       values.push(scopedBranches);
       where.push(branchPredicate(table, quote(table), `$${values.length}`, columns.map(column => column.name)));
     }
+    if (table === 'users' && query.staffCandidates === '1') {
+      where.push("is_active AND role::text NOT IN ('CUSTOMER','STUDENT','GUEST') AND NOT EXISTS (SELECT 1 FROM staff_profiles p WHERE p.user_id=users.id)");
+    }
     if (query.search?.trim()) {
       const text = columns.filter((c) =>
         ['varchar', 'text', 'uuid'].includes(c.type),
@@ -584,10 +587,15 @@ export class AdminService {
         password = raw;
       }
     }
+    const derivedTechnicianFields = ['full_name', 'user_id', 'branch_id', 'avatar_url'];
+    const derivesTechnician = table === 'technicians' && Boolean((input as Record<string, unknown>)?.staff_profile_id);
+    const validationColumns = derivesTechnician
+      ? columns.map(column => derivedTechnicianFields.includes(column.name) ? { ...column, required: false } : column)
+      : columns;
     const data =
       operation === 'delete'
         ? {}
-        : this.validate(columns, input, operation === 'create');
+        : this.validate(validationColumns, input, operation === 'create');
     if (operation === 'create' && table === 'users')
       data.referral_code = 'MLD' + randomBytes(6).toString('hex').toUpperCase();
     if (password) data.password_hash = await bcrypt.hash(password, 12);
@@ -610,6 +618,35 @@ export class AdminService {
       if (key && !previous)
         throw new NotFoundException('Bản ghi không còn tồn tại.');
       if (previous) await assertRowScope(client, table, previous, columns.map(column => column.name), actor, operation);
+      if (table === 'technicians' && operation !== 'delete') {
+        const profileId = data.staff_profile_id ?? previous?.staff_profile_id;
+        if (operation === 'create' && !profileId) throw new BadRequestException('Chọn hồ sơ nhân viên trước khi tạo kỹ thuật viên.');
+        if (previous?.staff_profile_id && data.staff_profile_id !== undefined && data.staff_profile_id !== previous.staff_profile_id)
+          throw new ConflictException('Hồ sơ kỹ thuật viên đã liên kết với nhân viên.');
+        if (profileId && (derivesTechnician || derivedTechnicianFields.some(field => field !== 'avatar_url' && field in data))) {
+          const staff = (await client.query(
+            'SELECT p.branch_id,p.user_id,u.full_name,u.avatar_url FROM staff_profiles p JOIN users u ON u.id=p.user_id WHERE p.id=$1 AND p.is_active AND u.is_active',
+            [profileId],
+          )).rows[0];
+          if (!staff) throw new ConflictException('Chọn hồ sơ nhân viên có tài khoản đang hoạt động.');
+          Object.assign(data, {
+            branch_id: staff.branch_id, user_id: staff.user_id, full_name: staff.full_name,
+            ...(operation === 'create' && !data.avatar_url ? { avatar_url: staff.avatar_url || '' } : {}),
+          });
+        }
+      }
+      if (table === 'departments' && operation !== 'delete') {
+        delete data.created_by_id;
+        if (operation === 'create') data.created_by_id = actor.id;
+        if (typeof data.name === 'string') data.name = data.name.trim();
+        if (typeof data.code === 'string') {
+          const code = data.code.trim().toUpperCase();
+          if (!/^[A-Z0-9_-]+$/.test(code)) throw new BadRequestException('Mã bộ phận chỉ gồm chữ, số, dấu gạch ngang hoặc gạch dưới.');
+          data.code = code;
+        }
+        if (data.sort_order !== undefined && Number(data.sort_order) < 0)
+          throw new BadRequestException('Thứ tự hiển thị phải từ 0 trở lên.');
+      }
       if (operation !== 'delete') await assertRowScope(client, table, { ...previous, ...data }, columns.map(column => column.name), actor, operation);
       if (
         previous?.updated_at &&
