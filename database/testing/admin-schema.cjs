@@ -14,6 +14,7 @@ const ADMIN_MIGRATIONS = [
   '032_home_care_delivery_snapshots.sql',
   '033_treatment_replacement_sessions.sql',
   '034_treatment_inventory_stock.sql',
+  '035_academy_admission_safeguards.sql',
 ];
 async function loadAdminSchema(database) {
   await database.exec(`

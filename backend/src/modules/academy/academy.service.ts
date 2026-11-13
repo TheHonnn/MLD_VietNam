@@ -483,7 +483,7 @@ export class AcademyService {
       if (!adminUser || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(adminUser)) {
         return { success: false, message: 'Không xác định được admin thực hiện thao tác' };
       }
-      const verifiedPaid = Number(amountPaid ?? enr.amount_paid ?? 0);
+      const verifiedPaid = Number(enr.amount_paid ?? 0);
       const requiredDeposit = Number(enr.required_deposit || (enr.courses as any)?.deposit_amount || 2000000);
       const tuitionTotal = Number(enr.tuition_total || 0);
       const decision = decideEnrollmentAction('APPROVE_ADMISSION', {

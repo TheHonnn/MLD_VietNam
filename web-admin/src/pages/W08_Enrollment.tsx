@@ -297,9 +297,9 @@ export const W08_Enrollment: React.FC = () => {
 
       const statusBadge =
         isGraduated
-          ? '🎓 Đã tốt nghiệp xuất sắc'
+          ? 'Đã tốt nghiệp'
           : studentAdmissionStatus === StudentAdmissionStatus.ENROLLED || isStudying
-          ? '🎓 Đã xếp lớp & Đang học'
+          ? (isStudying ? 'Đang học' : 'Đã xếp lớp')
           : studentAdmissionStatus === StudentAdmissionStatus.APPROVED
           ? '✅ Đã duyệt · Chờ xếp lớp'
           : paymentVerificationStatus === PaymentVerificationStatus.PAID
@@ -837,6 +837,10 @@ export const W08_Enrollment: React.FC = () => {
 
   // Open class batch assignment modal (Section 4.4)
   const handleOpenAssignModal = (candidate: CandidateRecord) => {
+    if (candidate.isExpired || ![StudentAdmissionStatus.APPROVED, StudentAdmissionStatus.ENROLLED].includes(candidate.studentAdmissionStatus) || candidate.rawStatus === EnrollmentStatus.GRADUATED) {
+      toast.error("Chưa thể xếp lớp", "Hồ sơ phải được duyệt nhập học, còn hiệu lực và chưa tốt nghiệp.");
+      return;
+    }
     setAssignCandidate({
       id: candidate.id,
       name: candidate.name,
@@ -1138,7 +1142,7 @@ export const W08_Enrollment: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#2C241E]">Quản lý Tuyển sinh & Nhập học</h1>
           <p className="text-xs text-[#73675F] mt-1">
-            Một hồ sơ đi theo 3 bước: tư vấn → xác nhận học phí → xếp lớp.
+            Tiếp nhận → tư vấn → thu học phí → duyệt nhập học → xếp lớp.
           </p>
         </div>
 
@@ -1146,12 +1150,12 @@ export const W08_Enrollment: React.FC = () => {
           <button
             type="button"
             disabled={isSweepingExpiry}
-            onClick={handleSweepExpired}
+            onClick={() => { if (window.confirm("Kiểm tra thời hạn toàn bộ học viên? Hồ sơ quá hạn sẽ bị khóa quyền học theo chính sách hiện hành.")) void handleSweepExpired(); }}
             className="px-4 py-2.5 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF5EF] text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
             title="Kích hoạt kiểm tra thời hạn 365 ngày của toàn bộ học viên và tự động khóa học viên quá hạn"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSweepingExpiry ? 'animate-spin' : ''}`} />
-            <span>{isSweepingExpiry ? 'Đang quét...' : 'Quét hạn 365 ngày'}</span>
+            <span>{isSweepingExpiry ? 'Đang quét...' : 'Kiểm tra hồ sơ hết hạn'}</span>
           </button>
 
           <button
@@ -1254,8 +1258,8 @@ export const W08_Enrollment: React.FC = () => {
           <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
             <div className="p-4 border-b border-[#EFE4D9] flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-bold text-[#2C241E]">Danh sách yêu cầu & Đơn đăng ký tuyển sinh</h2>
-                <p className="text-[11px] text-[#73675F] mt-0.5">Hiển thị độc lập 3 nhóm trạng thái: Tư vấn, Thanh toán và Nhập học</p>
+                <h2 className="text-sm font-bold text-[#2C241E]">Hồ sơ tuyển sinh</h2>
+                <p className="text-[11px] text-[#73675F] mt-0.5">Chọn hồ sơ để xem tiến trình và xử lý bước tiếp theo.</p>
               </div>
               <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-[#F3E2CE] text-[#8A4F23]">
                 {filteredCandidates.length} hồ sơ
@@ -1317,8 +1321,8 @@ export const W08_Enrollment: React.FC = () => {
                                 <div className="font-bold text-xs text-[#2C241E] truncate" title={candidate.name}>
                                   {candidate.name}
                                 </div>
-                                <div className="text-[10.5px] text-[#73675F] flex items-center gap-1 mt-0.5">
-                                  <span className="font-mono font-bold text-[#8D4B1A] bg-amber-50 px-1 rounded border border-amber-200">
+                                <div className="text-[10.5px] text-[#73675F] flex flex-col items-start gap-1 mt-0.5">
+                                  <span className="whitespace-nowrap font-mono font-bold text-[#8D4B1A] bg-amber-50 px-1 rounded border border-amber-200">
                                     {candidate.orderCode}
                                   </span>
                                   <span className="truncate">{candidate.phone}</span>
@@ -1329,7 +1333,7 @@ export const W08_Enrollment: React.FC = () => {
 
                           {/* 2. Khóa học & Cơ sở */}
                           <td className="py-2.5 px-3">
-                            <div className="font-medium text-xs text-[#2C241E] truncate max-w-[190px]" title={candidate.program}>
+                            <div className="font-medium text-xs text-[#2C241E] whitespace-normal max-w-[230px]" title={candidate.program}>
                               {candidate.program}
                             </div>
                             <div className="text-[11px] text-[#73675F] mt-0.5 flex items-center gap-1 max-w-[190px]" title={candidate.branch}>
@@ -1343,28 +1347,15 @@ export const W08_Enrollment: React.FC = () => {
                             <div className="font-bold text-xs text-[#2C241E]">
                               {candidate.tuitionTotal}
                             </div>
-                            <div className="text-[10.5px] mt-0.5">
-                              {candidate.paymentVerificationStatus === PaymentVerificationStatus.PAID ? (
-                                <span className="text-emerald-700 font-medium">Đã thu: {candidate.tuitionDeposit || candidate.tuitionTotal}</span>
-                              ) : candidate.tuitionDeposit ? (
-                                <span className="text-amber-700 font-medium">Cọc: {candidate.tuitionDeposit}</span>
-                              ) : (
-                                <span className="text-stone-500">Chưa thu cọc</span>
-                              )}
-                            </div>
+                            <div className="text-[11px] text-emerald-700 mt-1">Đã thu: {candidate.rawAmountPaid.toLocaleString('vi-VN')}đ</div>
+                            <div className="text-[11px] text-[#73675F] mt-1">Còn thiếu: {candidate.remainingAmount}</div>
                           </td>
 
                           {/* 4. Trạng thái (Thanh toán & Lớp học) */}
                           <td className="py-2.5 px-3">
                             <div className="flex flex-col gap-1 max-w-[210px]">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {renderPaymentBadge(candidate.paymentVerificationStatus)}
-                                {renderStudentBadge(candidate.studentAdmissionStatus, candidate.rawStatus)}
-                              </div>
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {renderConsultationBadge(candidate.consultationStatus)}
-                                {candidate.isExpired && renderValidityBadge(candidate)}
-                              </div>
+                              <span className="text-xs font-semibold text-[#8D4B1A]">{candidate.statusBadge}</span>
+                              {candidate.isExpired && renderValidityBadge(candidate)}
                             </div>
                           </td>
 
@@ -1375,10 +1366,10 @@ export const W08_Enrollment: React.FC = () => {
                                 type="button"
                                 onClick={() => handleOpenBillModal(candidate)}
                                 className="px-2 py-1 bg-[#FAF5EF] hover:bg-[#F3E2CE] text-[#8D4B1A] border border-[#BA7E4C]/40 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
-                                title="In Bill & Xem mã VietQR"
+                                title="Xem chứng từ và thông tin thanh toán học phí"
                               >
                                 <Printer className="w-3 h-3" />
-                                <span>Bill/QR</span>
+                                <span>{candidate.paymentVerificationStatus === PaymentVerificationStatus.PAID ? 'Xem phiếu thu' : 'Học phí / QR'}</span>
                               </button>
 
                               {candidate.paymentVerificationStatus !== PaymentVerificationStatus.PAID && (
@@ -1393,7 +1384,7 @@ export const W08_Enrollment: React.FC = () => {
                                 </button>
                               )}
 
-                              {candidate.paymentVerificationStatus === PaymentVerificationStatus.PAID && (
+                              {!candidate.isExpired && candidate.rawStatus !== EnrollmentStatus.GRADUATED && [StudentAdmissionStatus.APPROVED, StudentAdmissionStatus.ENROLLED].includes(candidate.studentAdmissionStatus) && (
                                 <button
                                   type="button"
                                   onClick={() => handleOpenAssignModal(candidate)}
@@ -1417,7 +1408,7 @@ export const W08_Enrollment: React.FC = () => {
             <div className="p-4 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F]">
               <span>Hiển thị {filteredCandidates.length} / {candidatesData.length} yêu cầu</span>
               <div className="flex items-center gap-1">
-                <span>Dữ liệu thực tế từ Supabase Cloud PostgreSQL</span>
+                <span>Chọn hồ sơ để xem lịch sử và thao tác</span>
               </div>
             </div>
           </div>
@@ -1448,7 +1439,7 @@ export const W08_Enrollment: React.FC = () => {
         {/* Right Column (4 cols): Detailed Action Panel strictly implementing Section 4 & 5 */}
         <div className="xl:col-span-4 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4 min-w-0">
           <div className="border-b border-[#EFE4D9] pb-3">
-            <h2 className="text-base font-bold text-[#2C241E]">Chi tiết đơn & Thao tác quy trình</h2>
+            <h2 className="text-base font-bold text-[#2C241E]">Chi tiết hồ sơ & Bước tiếp theo</h2>
             <p className="text-[11px] text-[#73675F] mt-0.5">Cập nhật tư vấn, chốt học phí, QR thanh toán và xếp lớp</p>
           </div>
 
@@ -1791,7 +1782,7 @@ export const W08_Enrollment: React.FC = () => {
                 ) : selectedCandidate.studentAdmissionStatus === StudentAdmissionStatus.NOT_APPROVED ? (
                   <div className="space-y-2">
                     <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px]">
-                      Đã có khoản thanh toán. Admin cần kiểm tra hồ sơ, kết quả tư vấn và mức cọc trước khi duyệt nhập học.
+                      Chỉ duyệt sau khi chốt tư vấn và đối soát đủ mức cọc. Học phí còn thiếu tiếp tục được theo dõi sau khi xếp lớp.
                     </div>
                     <button
                       type="button"
