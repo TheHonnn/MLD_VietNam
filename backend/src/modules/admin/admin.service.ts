@@ -2836,12 +2836,9 @@ export class AdminService {
         }
         await client.query(
           `UPDATE course_enrollments SET amount_paid=$2,
-           approval_status=CASE WHEN $2>=tuition_total THEN 'APPROVED' ELSE approval_status END,
-           status=CASE WHEN $2>=tuition_total THEN 'ENROLLED'::enrollment_status ELSE status END,
-           approved_by=CASE WHEN $2>=tuition_total THEN $3 ELSE approved_by END,
-           approved_at=CASE WHEN $2>=tuition_total THEN now() ELSE approved_at END
+           payment_status=CASE WHEN $2>=tuition_total THEN 'PAID' ELSE 'PARTIALLY_PAID' END
            WHERE id=$1`,
-          [enrollment.id,nextPaid,actor.id],
+          [enrollment.id,nextPaid],
         );
         await this.updateCashierShiftTotals(client, shiftId, paymentMethod, amount);
         await this.audit(client, actor, 'tuition_transactions', 'COLLECT', transaction.id);

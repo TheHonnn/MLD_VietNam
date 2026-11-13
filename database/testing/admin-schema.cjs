@@ -15,6 +15,8 @@ const ADMIN_MIGRATIONS = [
   '033_treatment_replacement_sessions.sql',
   '034_treatment_inventory_stock.sql',
   '035_academy_admission_safeguards.sql',
+  '036_academy_schedule_and_transfers.sql',
+  '037_academy_preserve_suspended_access.sql',
 ];
 async function loadAdminSchema(database) {
   await database.exec(`

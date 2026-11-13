@@ -1,26 +1,36 @@
-# Academy admission review
+# Academy admission acceptance — 2026-11-14
 
-Scope: admin enrollment UI, AcademyService, lifecycle SQL migration 029 and safeguards 035. No production records were changed.
+Scope: admin enrollment, class assignment/transfers, structured schedules, hold/resume and refund authorization. Mobile application code is outside the change.
 
-## Confirmed locally
-- Consultation must be finalized before reconciliation or approval.
-- Verified deposit is sufficient for admission; outstanding tuition remains tracked.
-- Admission approval now uses persisted reconciled amount, never the amount supplied by the browser.
-- Assignment checks actor role, course identity, receiving class status and capacity in SQL.
-- Class assignment starts STUDYING only for a started class; otherwise ENROLLED.
-- Repeating the same assignment does not change capacity, extend validity or duplicate notifications.
-- Suspended, expired, withdrawn and graduated records cannot be assigned.
-- Graduation checks configurable academic requirements and payment policy, with certificate issuance in the same database workflow.
-- Change requests record reviewer/history; REFUND approval alone does not move money (cashier workflow required).
+## Production database deployment
+Migrations 035, 036 and 037 were applied and verified against the configured Supabase pooler. No existing student enrollments or paid amounts were edited for acceptance.
+
+The rollback production probe uses an existing active SUPER_ADMIN as SQL actor with temporary fixture records inside one transaction. Transfer, reason requirement, preserved validity, preserved attendance, HOLD, RESUME and refund authorization passed. All fixture writes were rolled back; enrollment count was unchanged and the temporary student no longer existed. This is database acceptance, not a browser/JWT end-to-end financial transaction.
+
+Production uncovered a legacy validity trigger from migration 011 which reset SUSPENDED to ACTIVE. Migration 037 preserves explicit holds and is included in the local schema harness.
+
+## Behavior delivered
+- Approval uses persisted reconciled payments. POS tuition collection no longer approves admission automatically.
+- Upcoming class assignment remains ENROLLED; started classes become STUDYING.
+- Transferring requires a reason of at least 5 characters; cross-branch changes require ADMIN/SUPER_ADMIN, not a branch manager outside their branch.
+- Transfers retain existing attendance and expiry, update the selected branch and audit the reason.
+- Assignment and schedule editing reject overlapping structured meeting times; same-class, room and primary instructor overlaps are guarded as well.
+- No free-text schedule parsing or automatic fabricated meeting times. A target class needs at least one upcoming dated meeting before assignment.
+- HOLD/RESUME checks access, terminal states, actor scope and schedule on resume.
+- Refund authorization alone never changes paid amount or creates a refund receipt. Actual refund remains a cashier operation.
+- Enrollment screen removes invented class/date/instructor defaults and distinguishes admission approval from class assignment.
 
 ## Validation
-Web admin: 50 tests passed. Academy workflow and PostgreSQL contract: 8 tests passed, including forged payment amount, unauthorized assignment, repeated assignment, suspended/expired access and graduation safeguards.
+- Web admin test suite: 50 passed.
+- Targeted backend academy + cashier workflow suite: 23 passed.
+- TypeScript and backend build passed before integration.
+- Full backend run before integrating remote CI fixes: 107 passed, 3 failed (existing loyalty/staff fixture validation and local CORS connection permission). Parallel attempt exhausted memory; bounded serial execution was used afterward.
+- Live Edge session observed the deployed enrollment screen under the existing administrator account; no live student transfer or financial submission was made in the browser.
 
-## Deployment
-Apply database/migrations/035_academy_admission_safeguards.sql to the same database used by the backend before accepting this change as deployed. This review did not apply production migrations.
+## Operational requirements and limits
+- Production readiness query found 5 receiving classes, 3 with upcoming structured schedules. The other 2 require real meeting dates/times entered by staff; no schedule data was invented.
+- Past attendance remains tied to original sessions; records are retained rather than copied to the new class.
+- Actual money payout and full browser submission for transfer/hold/refund were not performed against live customer records. Do not label these as completed financial end-to-end acceptance.
+- Backend Render reads TheHonnn/MLD_VietNam; frontend Vercel reads XuanTruong205/mld-vietnam. Both develop branches require deployment of the final integration commit.
 
-## Remaining acceptance limits
-- Class schedule is free text; reliable automatic overlap checking needs structured meeting times.
-- Existing transfer SQL retains enrollment-linked academic records, but per-session attendance carryover and cross-branch authorization need dedicated acceptance scenarios.
-- UI still contains graduation controls; moving these into the academic workstation is a separate follow-up.
-- No live-account browser or production refund/hold/resume test was performed. Do not treat unit/database tests as full end-to-end acceptance.
+Repeat production probe: provide ADMIN_DATABASE_URL securely to node scripts/verify_academy_acceptance.cjs. It always rolls back fixture writes.

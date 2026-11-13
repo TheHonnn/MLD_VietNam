@@ -19,6 +19,7 @@ describe('academy enrollment lifecycle database contract', () => {
     const categoryId = (await one("INSERT INTO course_categories(name,code,icon_url) VALUES('Academy lifecycle','ACADEMY-LIFE','https://invalid') RETURNING id")).id;
     const courseId = (await one("INSERT INTO courses(category_id,title,code,short_description,full_description,image_url,total_lessons,tuition_fee,deposit_amount) VALUES($1,'Lifecycle course','LIFECYCLE','Test','Test','https://invalid',1,1000000,200000) RETURNING id", [categoryId])).id;
     batchId = (await one("INSERT INTO course_batches(course_id,branch_id,batch_code,start_date,end_date,schedule_text,max_students) VALUES($1,$2,'LIFE-01',CURRENT_DATE,CURRENT_DATE+30,'Test',1) RETURNING id", [courseId, branchId])).id;
+    await pg.query("INSERT INTO batch_schedules(batch_id,session_date,start_time,end_time,topic) VALUES($1,CURRENT_DATE+1,'09:00','10:00','Lifecycle session')",[batchId]);
     enrollmentId = (await one("INSERT INTO course_enrollments(student_id,course_id,student_name,student_phone,tuition_total,required_deposit) VALUES($1,$2,'Academy Student','0900999002',1000000,200000) RETURNING id", [studentId, courseId])).id;
   }, 60_000);
 

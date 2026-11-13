@@ -217,7 +217,7 @@ export const W08_Enrollment: React.FC = () => {
     return liveEnrollments.map((enr, idx) => {
       const cust = custMap.get(enr.studentId);
       const crs = crsMap.get(enr.courseId);
-      const bat = batMap.get(enr.batchId || '') || liveBatches.find((b) => b.courseId === enr.courseId);
+      const bat = batMap.get(enr.batchId || '');
 
       const custName = enr.studentName || cust?.fullName || `Học viên ${idx + 1}`;
       const custPhone = enr.studentPhone || cust?.phone || '—';
@@ -266,7 +266,7 @@ export const W08_Enrollment: React.FC = () => {
 
       const startDateFormatted = bat?.startDate
         ? new Intl.DateTimeFormat('vi-VN').format(new Date(bat.startDate))
-        : '05/11/2026 (Đợt gần nhất)';
+        : 'Chưa có ngày khai giảng';
 
       const initials = custName
         .split(' ')
@@ -284,16 +284,10 @@ export const W08_Enrollment: React.FC = () => {
           ? 'Đã có kinh nghiệm y khoa'
           : 'Người mới bắt đầu';
 
-      const scheduleDisplay = bat?.scheduleText || 'Thứ 6 – Thứ 7 – Chủ nhật (13:00 – 17:00)';
-      const timeSlotDisplay = scheduleDisplay.includes('13:00')
-        ? '13:00 – 17:00 (Ca chiều)'
-        : scheduleDisplay.includes('18:00')
-        ? '18:00 – 21:00 (Ca tối)'
-        : scheduleDisplay.includes('08:30')
-        ? '08:30 – 16:30 (Cả ngày)'
-        : '13:00 – 17:00';
+      const scheduleDisplay = bat?.scheduleText || 'Chưa có thời khóa biểu';
+      const timeSlotDisplay = scheduleDisplay;
 
-      const instructorDisplay = bat?.instructorId ? 'Lâm Xuân Trường (Master Trainer)' : 'Master Trainer MLD';
+      const instructorDisplay = instructors.find((i) => i.id === bat?.instructorId)?.fullName || 'Chưa phân công giảng viên';
 
       const statusBadge =
         isGraduated
@@ -393,7 +387,7 @@ export const W08_Enrollment: React.FC = () => {
         extensionReason,
       };
     });
-  }, [liveEnrollments, liveCourses, liveBatches, customers, staffMembers]);
+  }, [liveEnrollments, liveCourses, liveBatches, customers, staffMembers, instructors]);
 
 
 
@@ -547,7 +541,7 @@ export const W08_Enrollment: React.FC = () => {
       .slice(0, 2)
       .forEach((c) => {
         tasks.push({
-          title: 'Xếp lớp cho học viên đã đóng học phí',
+          title: 'Xếp lớp cho học viên đã được duyệt',
           desc: `Học viên ${c.name} (${c.orderCode}): Đã thanh toán ${c.tuitionDeposit}, cần xếp vào đợt khai giảng ${c.branch}.`,
           type: 'admission',
         });
@@ -857,9 +851,9 @@ export const W08_Enrollment: React.FC = () => {
   };
 
   // Confirm batch assignment into Supabase Cloud (Section 4.4 & 7.2)
-  const handleConfirmAssignBatch = async (enrollmentId: string, batchId: string) => {
+  const handleConfirmAssignBatch = async (enrollmentId: string, batchId: string, reason?: string) => {
     try {
-      const res = await academyService.assignBatchToStudent(enrollmentId, batchId, 'Admin Tuyển Sinh');
+      const res = await academyService.assignBatchToStudent(enrollmentId, batchId, 'Admin Tuyển Sinh', reason);
       if (res.data?.success) {
         const refreshed = await supabaseService.getEnrollments();
         if (refreshed) setLiveEnrollments(refreshed);
@@ -1104,7 +1098,6 @@ export const W08_Enrollment: React.FC = () => {
   };
 
   const hasActiveFilter = Boolean(searchTerm.trim() || programFilter !== 'all' || branchFilter !== 'all' || activeWorkflowTab !== 'ALL');
-  const isCandidatePaid = selectedCandidate?.paymentVerificationStatus === PaymentVerificationStatus.PAID;
   const nextStep = !selectedCandidate
     ? null
     : selectedCandidate.batchId
@@ -1114,22 +1107,24 @@ export const W08_Enrollment: React.FC = () => {
         description: `Lớp ${selectedCandidate.classBatch}. Có thể xem lịch học và điểm danh.`,
         action: 'Mở danh sách lớp',
       }
-    : isCandidatePaid
+    : selectedCandidate.studentAdmissionStatus === StudentAdmissionStatus.APPROVED
     ? {
-        step: 'Bước 3/3',
+        step: 'Bước 5/5',
         title: 'Xếp học viên vào lớp',
         description: 'Chọn lớp đúng khóa học, còn chỗ và có lịch phù hợp.',
         action: 'Chọn lớp',
       }
+    : selectedCandidate.consultationStatus === ConsultationStatus.CONFIRMED && selectedCandidate.rawAmountPaid >= selectedCandidate.rawRequiredDeposit
+    ? {step: 'Bước 4/5', title: 'Kiểm tra và duyệt nhập học', description: 'Đã đủ mức cọc. Kiểm tra hồ sơ trước khi duyệt; số tiền còn thiếu tiếp tục theo dõi.', action: 'Duyệt nhập học'}
     : selectedCandidate.consultationStatus === ConsultationStatus.CONFIRMED
     ? {
-        step: 'Bước 2/3',
+        step: 'Bước 3/5',
         title: 'Chờ xác nhận học phí',
         description: 'Gửi phiếu thanh toán hoặc xác nhận tiền đã thu. Sau đó mới xếp lớp.',
         action: 'Mở phiếu học phí',
       }
     : {
-        step: 'Bước 1/3',
+        step: 'Bước 2/5',
         title: 'Liên hệ và chốt tư vấn',
         description: 'Ghi nhận trao đổi, chốt học phí và tạo phiếu thanh toán.',
         action: 'Mở bước tư vấn',
@@ -1494,8 +1489,10 @@ export const W08_Enrollment: React.FC = () => {
                     onClick={() => {
                       if (selectedCandidate.batchId) {
                         navigate('/attendance');
-                      } else if (isCandidatePaid) {
+                       } else if (selectedCandidate.studentAdmissionStatus === StudentAdmissionStatus.APPROVED) {
                         handleOpenAssignModal(selectedCandidate);
+                      } else if (selectedCandidate.consultationStatus === ConsultationStatus.CONFIRMED && selectedCandidate.rawAmountPaid >= selectedCandidate.rawRequiredDeposit) {
+                        void handleApproveEnrollment(selectedCandidate);
                       } else if (selectedCandidate.consultationStatus === ConsultationStatus.CONFIRMED) {
                         handleOpenBillModal(selectedCandidate);
                       } else {

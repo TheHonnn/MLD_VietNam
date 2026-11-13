@@ -117,9 +117,9 @@ export class AcademyController {
   async assignEnrollmentBatch(
     @CurrentUser('id') adminId: string,
     @Param('id') id: string,
-    @Body() body: { batchId: string },
+    @Body() body: { batchId: string; reason?: string },
   ) {
-    return this.academyService.assignEnrollmentBatch(id, body.batchId, adminId);
+    return this.academyService.assignEnrollmentBatch(id, body.batchId, adminId, body.reason);
   }
 
   @Post('enrollments/:id/finalize-consultation')

@@ -527,12 +527,13 @@ export class AcademyService {
     return { success: true, message: 'Học viên đã đủ điều kiện tốt nghiệp và được cấp chứng nhận.', data };
   }
 
-  async assignEnrollmentBatch(enrollmentId: string, batchId: string, adminUser: string) {
+  async assignEnrollmentBatch(enrollmentId: string, batchId: string, adminUser: string, reason?: string) {
     if (!adminUser) return { success: false, message: 'Không xác định được admin thực hiện thao tác' };
     const { data, error } = await this.supabaseService.adminClient.rpc('fn_assign_enrollment_batch', {
       p_enrollment_id: enrollmentId,
       p_batch_id: batchId,
       p_actor_id: adminUser,
+      p_transfer_reason: reason?.trim() || null,
     });
     if (error) return { success: false, message: error.message };
     return { success: true, message: 'Đã xếp lớp và gửi thông báo cho học viên.', data };
