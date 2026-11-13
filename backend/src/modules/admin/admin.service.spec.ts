@@ -40,6 +40,17 @@ describe('Admin shared-schema integration', () => {
   afterAll(async () => {
     await pg?.close();
   });
+  it('exposes persisted takeaway products through the admin catalog and CRUD API', async () => {
+    expect((await service.catalog(actor)).some(resource => resource.name === 'home_products')).toBe(true);
+    const product = await service.mutate('home_products',actor,'create',{values:{name:'Sản phẩm kiểm thử cô lập',category:'Băng ép',price_min:100000,price_max:150000,unit:'Chiếc',details:['Quy cách kiểm thử'],sort_order:100}});
+    const listing = await service.list('home_products',actor,{filter:JSON.stringify({id:product.id})});
+    expect(listing.total).toBe(1);
+    expect(listing.rows[0].details).toEqual(['Quy cách kiểm thử']);
+    await service.mutate('home_products',actor,'update',{key:{id:product.id},values:{price_min:120000}});
+    expect(Number((await pg.query<any>('SELECT price_min FROM home_products WHERE id=$1',[product.id])).rows[0].price_min)).toBe(120000);
+    await expect(service.list('home_products',{id:actor.id,role:'RECEPTIONIST',permissions:[],scopes:[]},{})).rejects.toThrow();
+    await service.mutate('home_products',actor,'delete',{key:{id:product.id}});
+  });
   it('loads all allowlisted resources against the canonical schema', async () => {
     for (const table of Object.keys(ADMIN_RESOURCES)) {
       const result = await service.list(table, actor, {});

@@ -13,6 +13,7 @@ export const ADMIN_RESOURCES: Record<
   service_categories: { title: 'Danh mục dịch vụ', group: 'Dịch vụ' },
   services: { title: 'Dịch vụ', group: 'Dịch vụ' },
   treatment_packages: { title: 'Gói liệu trình', group: 'Dịch vụ' },
+  home_products: { title: 'Sản phẩm mang về', group: 'Dịch vụ', actions: ['create', 'update', 'delete'] },
   bookings: { title: 'Lịch hẹn / Check-in / Check-out', group: 'Thu ngân' },
   booking_items: { title: 'Dịch vụ trong lịch hẹn', group: 'Thu ngân' },
   users: {
