@@ -1715,7 +1715,25 @@ export async function adminApi<T>(path: string, body?: unknown, signal?: AbortSi
     (location?.protocol === "https:" && base.startsWith("http://")) ||
     (!local && base.includes("127.0.0.1"))
   ));
-  if (direct) return querySupabaseFallback<T>(path, body, signal);
+  if (direct) {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    const timeout = (window.setTimeout || globalThis.setTimeout)(abort, body === undefined ? 15000 : 30000);
+    try {
+      return await querySupabaseFallback<T>(path, body, controller.signal);
+    } catch (error) {
+      if (!signal?.aborted && controller.signal.aborted) {
+        throw new AdminRequestError(body === undefined
+          ? "Tải dữ liệu quá thời gian. Vui lòng thử tải lại."
+          : "Chưa xác minh được kết quả lưu. Hãy tải lại dữ liệu để kiểm tra trước khi gửi lại thao tác.", 0, body !== undefined);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
+    }
+  }
   return body === undefined ? requestBackend<T>(path, body, signal) : sendMutation<T>(path, body, signal);
 }
 
