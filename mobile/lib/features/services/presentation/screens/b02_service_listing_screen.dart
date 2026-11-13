@@ -16,7 +16,6 @@ import '../../../home/data/repositories/branch_repository.dart';
 import '../../../home/data/repositories/service_repository.dart';
 import '../../data/models/home_product_model.dart';
 import '../../data/repositories/product_repository.dart';
-import 'b03_service_detail_screen.dart';
 
 enum ServiceFilterExpanded { service, branch }
 enum TherapyItemType { singleService, package }
@@ -323,404 +322,11 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     );
   }
 
-  void _handlePackageBooking(TreatmentPackageModel package) async {
-    final ok = await GuestAuthPrompt.ensureLoggedIn(
-      context,
-      title: 'Đăng nhập để đặt lịch',
-      message: 'Quý khách vui lòng đăng nhập để đặt lịch gói liệu trình.',
-    );
-    if (!ok || !mounted) return;
 
-    BranchModel? chosenBranch;
-    if (_selectedBranch != 'Tất cả cơ sở' && _selectedBranch != 'Tất cả') {
-      try {
-        chosenBranch = _branches.firstWhere((b) => b.name == _selectedBranch);
-      } catch (_) {}
-    }
 
-    final packageService = SpaServiceModel(
-      id: package.id,
-      name: package.title,
-      categoryName: package.category.isNotEmpty ? package.category : 'Trị liệu',
-      price: package.originalPrice > 0 ? package.originalPrice : package.price,
-      discountPrice: package.price,
-      durationMinutes: 60,
-      shortDescription: package.description,
-      imageUrl: package.imageUrl,
-    );
 
-    Navigator.push(
-      context,
-      AppPageTransitions.modalSlideUp(
-        page: AllInOneBookingScreen(
-          onBack: () => Navigator.pop(context),
-          initialService: packageService,
-          initialBranch: chosenBranch,
-          initialSpecialty: package.category.isNotEmpty ? package.category : null,
-          userPackageId: package.id,
-          userPackageName: package.title,
-        ),
-      ),
-    );
-  }
 
-  /// Hiển thị Modal chi tiết Gói Liệu Trình
-  void _showPackageDetailModal(TreatmentPackageModel package) {
-    final formatter = NumberFormat('#,###', 'vi_VN');
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
-        padding: const EdgeInsets.all(20),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8F6ED),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'GÓI ${package.sessionsCount} BUỔI CHUẨN Y KHOA',
-                      style: AppTypography.zaloFont(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF00693F),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
 
-              // Ảnh gói liệu trình
-              Container(
-                width: double.infinity,
-                height: 180,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  color: const Color(0xFFF1F5F9),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: _buildImageWidget(package.imageUrl),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              Text(
-                package.title,
-                style: AppTypography.zaloFont(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textHeading,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    '${formatter.format(package.price)} ₫',
-                    style: AppTypography.zaloFont(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF00693F),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '/ ${package.sessionsCount} buổi',
-                    style: AppTypography.zaloFont(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Thời hạn liệu trình: ${package.validityMonths} tháng kể từ ngày kích hoạt',
-                style: AppTypography.zaloFont(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const Divider(height: 24, color: Color(0xFFE5E7EB)),
-
-              Text(
-                'Mô tả & Lợi ích trị liệu y khoa:',
-                style: AppTypography.zaloFont(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textHeading,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                package.description.isNotEmpty
-                    ? package.description
-                    : 'Gói liệu trình dẫn lưu phù bạch huyết chuẩn kỹ thuật Vodder quốc tế, tối ưu hóa quá trình tiêu sưng, tăng cường tuần hoàn và hỗ trợ phục hồi sức khỏe bền vững.',
-                style: AppTypography.zaloFont(
-                  fontSize: 13,
-                  color: AppColors.textPrimary,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Quyền lợi gói
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Column(
-                  children: [
-                    _buildBenefitRow('Tiết kiệm chi phí so với đặt lẻ từng buổi'),
-                    const SizedBox(height: 6),
-                    _buildBenefitRow('Theo dõi hồ sơ và nhật ký lâm sàng từng buổi trên app'),
-                    const SizedBox(height: 6),
-                    _buildBenefitRow('Ưu tiên giữ phòng và chuyên viên trị liệu theo yêu cầu'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _handlePackageBooking(package);
-                  },
-                  icon: const Icon(Icons.calendar_month_rounded, size: 20),
-                  label: Text(
-                    'Đặt lịch ngay',
-                    style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w700),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00693F),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _handlePackageConsultation(TreatmentPackageModel package) async {
-    final ok = await GuestAuthPrompt.ensureLoggedIn(
-      context,
-      title: 'Đăng nhập để đăng ký',
-      message: 'Quý khách vui lòng đăng nhập để đăng ký tư vấn gói liệu trình.',
-    );
-    if (!ok || !mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Chuyên viên MLD sẽ liên hệ tư vấn "${package.title}" sớm nhất cho quý khách!'),
-        backgroundColor: const Color(0xFF00693F),
-      ),
-    );
-  }
-
-  Widget _buildBenefitRow(String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(Icons.check_circle_rounded, color: Color(0xFF00693F), size: 16),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: AppTypography.zaloFont(fontSize: 12.5, color: AppColors.textPrimary),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Chi tiết sản phẩm modal sheet
-  void _showProductDetailModal(HomeProductModel product) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-        padding: const EdgeInsets.all(20),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF4FE),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      product.category.toUpperCase(),
-                      style: AppTypography.zaloFont(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-
-              // Ảnh sản phẩm
-              Container(
-                width: double.infinity,
-                height: 180,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: _buildImageWidget(product.imageUrl!),
-                      )
-                    : _buildProductPlaceholder(product.category),
-              ),
-              const SizedBox(height: 16),
-
-              Text(
-                product.name,
-                style: AppTypography.zaloFont(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textHeading,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Text(
-                    product.formattedPrice,
-                    style: AppTypography.zaloFont(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF00693F),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '/ ${product.unit}',
-                    style: AppTypography.zaloFont(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 24, color: Color(0xFFE5E7EB)),
-
-              Text(
-                'Chi tiết & Xuất xứ Y khoa:',
-                style: AppTypography.zaloFont(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textHeading,
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (product.details.isEmpty)
-                Text(
-                  'Sản phẩm hỗ trợ phục hồi và dẫn lưu bạch huyết đạt chuẩn y khoa MLD.',
-                  style: AppTypography.zaloFont(fontSize: 12.5, color: AppColors.textSecondary),
-                )
-              else
-                ...product.details.map((d) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.check_circle_rounded, color: Color(0xFF00693F), size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            d,
-                            style: AppTypography.zaloFont(fontSize: 13, color: AppColors.textHeading),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              const SizedBox(height: 24),
-
-              // Nút tư vấn và đặt mua
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _showProductContactDialog(product);
-                  },
-                  icon: const Icon(Icons.support_agent_rounded, size: 20),
-                  label: Text(
-                    'Liên hệ tư vấn (Zalo / Messenger)',
-                    style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w700),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00693F),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   /// Mở liên kết ngoài (Zalo / Messenger)
   Future<void> _launchContactUrl(String url) async {
@@ -738,7 +344,11 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     }
   }
 
-  void _showProductContactDialog(HomeProductModel product) {
+  void _showContactDialog({
+    required String title,
+    required String? imageUrl,
+    required String category,
+  }) {
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -769,14 +379,14 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                   width: 140,
                   height: 140,
                   color: const Color(0xFFF8FAFC),
-                  child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                      ? _buildImageWidget(product.imageUrl!)
-                      : _buildProductPlaceholder(product.category, size: 36, showText: false),
+                  child: imageUrl != null && imageUrl.isNotEmpty
+                      ? _buildImageWidget(imageUrl)
+                      : _buildProductPlaceholder(category, size: 36, showText: false),
                 ),
               ),
               const SizedBox(height: 12),
               Text(
-                product.name,
+                title,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -875,6 +485,14 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showProductContactDialog(HomeProductModel product) {
+    _showContactDialog(
+      title: product.name,
+      imageUrl: product.imageUrl,
+      category: product.category,
     );
   }
 
@@ -1450,14 +1068,13 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       child: InkWell(
         onTap: () {
           if (item.isPackage) {
-            _showPackageDetailModal(item.package!);
-          } else if (item.singleService != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => B03ServiceDetailScreen(serviceModel: item.singleService!),
-              ),
+            _showContactDialog(
+              title: item.title,
+              imageUrl: item.imageUrl,
+              category: item.category,
             );
+          } else if (item.singleService != null) {
+            _handleBooking(item.singleService!);
           }
         },
         borderRadius: BorderRadius.circular(16),
@@ -1465,19 +1082,17 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Ảnh dịch vụ / Gói
               Expanded(
                 flex: 9,
                 child: Stack(
@@ -1486,25 +1101,24 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                       width: double.infinity,
                       decoration: const BoxDecoration(
                         color: Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                       ),
                       child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                         child: _buildImageWidget(item.imageUrl),
                       ),
                     ),
-                    // Badge nhận diện Dịch vụ lẻ vs Gói liệu trình
                     Positioned(
                       top: 8,
                       left: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
-                          color: item.isPackage ? const Color(0xFF00693F) : AppColors.primary,
+                          color: item.isPackage ? AppColors.accent : AppColors.primary,
                           borderRadius: BorderRadius.circular(6),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
+                              color: Colors.black.withValues(alpha: 0.15),
                               blurRadius: 4,
                               offset: const Offset(0, 1),
                             ),
@@ -1526,8 +1140,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                   ],
                 ),
               ),
-
-              // 2. Thông tin nội dung
               Expanded(
                 flex: 11,
                 child: Padding(
@@ -1539,7 +1151,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Tên dịch vụ
                           Text(
                             item.title,
                             maxLines: 2,
@@ -1552,8 +1163,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                             ),
                           ),
                           const SizedBox(height: 4),
-
-                          // Thời lượng / Số buổi
                           Row(
                             children: [
                               Icon(
@@ -1578,8 +1187,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           ),
                         ],
                       ),
-
-                      // Giá tiền & Nút thao tác
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1592,7 +1199,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                 style: AppTypography.zaloFont(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.w800,
-                                  color: item.isPackage ? const Color(0xFF00693F) : const Color(0xFFDC2626),
+                                  color: AppColors.servicePrice,
                                 ),
                               ),
                               if (item.originalPrice > item.price) ...[
@@ -1609,34 +1216,58 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                             ],
                           ),
                           const SizedBox(height: 6),
-
                           SizedBox(
                             width: double.infinity,
                             height: 32,
                             child: ElevatedButton(
                               onPressed: () {
-                                if (item.singleService != null) {
+                                if (item.isPackage) {
+                                  _showContactDialog(
+                                    title: item.title,
+                                    imageUrl: item.imageUrl,
+                                    category: item.category,
+                                  );
+                                } else if (item.singleService != null) {
                                   _handleBooking(item.singleService!);
-                                } else if (item.package != null) {
-                                  _handlePackageBooking(item.package!);
                                 }
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
+                                backgroundColor: item.isPackage
+                                    ? const Color(0xFFEFF6EE)
+                                    : AppColors.accent,
+                                foregroundColor: item.isPackage
+                                    ? AppColors.accent
+                                    : Colors.white,
                                 elevation: 0,
                                 padding: EdgeInsets.zero,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
-                              child: Text(
-                                'Đặt lịch',
-                                style: AppTypography.zaloFont(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    item.isPackage
+                                        ? Icons.support_agent_rounded
+                                        : Icons.calendar_month_outlined,
+                                    size: 14,
+                                    color: item.isPackage
+                                        ? AppColors.accent
+                                        : Colors.white,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    item.isPackage ? 'Liên hệ' : 'Đặt lịch',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: item.isPackage
+                                          ? AppColors.accent
+                                          : Colors.white,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -1788,43 +1419,39 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _showProductDetailModal(product),
+        onTap: () => _showProductContactDialog(product),
         borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Ảnh sản phẩm / Placeholder
               Expanded(
                 flex: 5,
                 child: Container(
                   width: double.infinity,
                   decoration: const BoxDecoration(
                     color: Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                   ),
                   child: product.imageUrl != null && product.imageUrl!.isNotEmpty
                       ? ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                           child: _buildImageWidget(product.imageUrl!),
                         )
                       : _buildProductPlaceholder(product.category),
                 ),
               ),
-
-              // Thông tin sản phẩm & Nút liên hệ
               Expanded(
                 flex: 7,
                 child: Padding(
@@ -1839,7 +1466,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE8F6ED),
+                              color: AppColors.iceBlue,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -1849,7 +1476,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                               style: AppTypography.zaloFont(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.w700,
-                                color: const Color(0xFF00693F),
+                                color: AppColors.primaryNavy,
                               ),
                             ),
                           ),
@@ -1877,7 +1504,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                             style: AppTypography.zaloFont(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
-                              color: const Color(0xFF00693F),
+                              color: AppColors.accent,
                             ),
                           ),
                           Text(
@@ -1888,8 +1515,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-
-                          // Nút "Liên hệ" mở Dialog truy cập Zalo / Messenger ở giữa màn hình
                           SizedBox(
                             width: double.infinity,
                             height: 32,
@@ -1904,13 +1529,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFE8F6ED),
-                                foregroundColor: const Color(0xFF00693F),
+                                backgroundColor: const Color(0xFFEFF6EE),
+                                foregroundColor: AppColors.accent,
                                 elevation: 0,
                                 padding: EdgeInsets.zero,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
-                                  side: const BorderSide(color: Color(0xFF22C55E), width: 0.8),
                                 ),
                               ),
                             ),
