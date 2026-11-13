@@ -16,6 +16,7 @@ import '../../../home/data/repositories/branch_repository.dart';
 import '../../../home/data/repositories/service_repository.dart';
 import '../../data/models/home_product_model.dart';
 import '../../data/repositories/product_repository.dart';
+import 'home_product_detail_screen.dart';
 
 enum ServiceFilterExpanded { service, branch }
 enum TherapyItemType { singleService, package }
@@ -344,155 +345,255 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     }
   }
 
-  void _showContactDialog({
+  void _showContactSheet({
     required String title,
     required String? imageUrl,
     required String category,
+    String? priceText,
+    String? subtitle,
   }) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
-      builder: (dialogCtx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: Colors.white,
-        elevation: 8,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Align(
-                alignment: Alignment.topRight,
-                child: IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8), size: 22),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => Navigator.pop(dialogCtx),
-                ),
-              ),
-              const SizedBox(height: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: 140,
-                  height: 140,
-                  color: const Color(0xFFF8FAFC),
-                  child: imageUrl != null && imageUrl.isNotEmpty
-                      ? _buildImageWidget(imageUrl)
-                      : _buildProductPlaceholder(category, size: 36, showText: false),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.zaloFont(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textHeading,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  InkWell(
-                    onTap: () async {
-                      Navigator.pop(dialogCtx);
-                      await _launchContactUrl(PortalSettingsService.instance.zaloOaUrl);
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0068FF),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: Image.asset(
-                              'assets/icons/logo-zalo-vector-03.webp',
-                              width: 18,
-                              height: 18,
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 16),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Zalo',
-                            style: AppTypography.zaloFont(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  InkWell(
-                    onTap: () async {
-                      Navigator.pop(dialogCtx);
-                      await _launchContactUrl(PortalSettingsService.instance.messengerUrl);
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0084FF),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: Image.asset(
-                              'assets/icons/mesenger.jpg',
-                              width: 18,
-                              height: 18,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(Icons.messenger_outline, color: Colors.white, size: 16),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Messenger',
-                            style: AppTypography.zaloFont(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetCtx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-        ),
-      ),
-    );
-  }
-
-  void _showProductContactDialog(HomeProductModel product) {
-    _showContactDialog(
-      title: product.name,
-      imageUrl: product.imageUrl,
-      category: product.category,
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 72,
+                        height: 72,
+                        color: const Color(0xFFF1F5F9),
+                        child: imageUrl != null && imageUrl.isNotEmpty
+                            ? _buildImageWidget(imageUrl)
+                            : _buildProductPlaceholder(category, size: 32, showText: false),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.iceBlue,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              category,
+                              style: AppTypography.zaloFont(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryNavy,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.zaloFont(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textHeading,
+                              height: 1.25,
+                            ),
+                          ),
+                          if (priceText != null && priceText.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              priceText,
+                              style: AppTypography.zaloFont(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.servicePrice,
+                              ),
+                            ),
+                          ],
+                          if (subtitle != null && subtitle.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              style: AppTypography.zaloFont(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8), size: 22),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => Navigator.pop(bottomSheetCtx),
+                    ),
+                  ],
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                ),
+                Text(
+                  'Chọn kênh liên hệ tư vấn',
+                  style: AppTypography.zaloFont(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textHeading,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () async {
+                          Navigator.pop(bottomSheetCtx);
+                          await _launchContactUrl(PortalSettingsService.instance.zaloOaUrl);
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0068FF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: Image.asset(
+                                  'assets/icons/logo-zalo-vector-03.webp',
+                                  width: 20,
+                                  height: 20,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 18),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Zalo',
+                                style: AppTypography.zaloFont(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () async {
+                          Navigator.pop(bottomSheetCtx);
+                          await _launchContactUrl(PortalSettingsService.instance.messengerUrl);
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0084FF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: Image.asset(
+                                  'assets/icons/mesenger.jpg',
+                                  width: 20,
+                                  height: 20,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Icon(Icons.messenger_outline, color: Colors.white, size: 18),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Messenger',
+                                style: AppTypography.zaloFont(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                InkWell(
+                  onTap: () async {
+                    Navigator.pop(bottomSheetCtx);
+                    final hotline = PortalSettingsService.instance.hotlineSupport.replaceAll(RegExp(r'[^0-9+]'), '');
+                    await _launchContactUrl('tel:$hotline');
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    height: 44,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.phone_in_talk_rounded, size: 18, color: AppColors.primary),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Gọi hotline ${PortalSettingsService.instance.hotlineSupport}',
+                          style: AppTypography.zaloFont(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -574,6 +675,8 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
         final bytes = base64Decode(base64Str);
         return Image.memory(
           bytes,
+          width: double.infinity,
+          height: double.infinity,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => _buildFallbackImage(),
         );
@@ -584,6 +687,8 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return Image.network(
         url,
+        width: double.infinity,
+        height: double.infinity,
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => _buildFallbackImage(),
       );
@@ -591,6 +696,8 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     if (url.startsWith('assets/')) {
       return Image.asset(
         url,
+        width: double.infinity,
+        height: double.infinity,
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => _buildFallbackImage(),
       );
@@ -600,6 +707,8 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
         final bytes = base64Decode(url.trim());
         return Image.memory(
           bytes,
+          width: double.infinity,
+          height: double.infinity,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => _buildFallbackImage(),
         );
@@ -1059,7 +1168,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     );
   }
 
-  /// Card Trị liệu hiển thị 2 thẻ 1 hàng (Dịch vụ lẻ vs Gói liệu trình)
   Widget _buildTherapyGridCard(TherapyDisplayItem item) {
     final formatter = NumberFormat('#,###', 'vi_VN');
 
@@ -1068,10 +1176,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       child: InkWell(
         onTap: () {
           if (item.isPackage) {
-            _showContactDialog(
+            _showContactSheet(
               title: item.title,
               imageUrl: item.imageUrl,
               category: item.category,
+              priceText: '${formatter.format(item.price)} ₫',
+              subtitle: item.durationOrSessions,
             );
           } else if (item.singleService != null) {
             _handleBooking(item.singleService!);
@@ -1096,15 +1206,14 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               Expanded(
                 flex: 9,
                 child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    Container(
-                      width: double.infinity,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      child: Container(
+                        color: const Color(0xFFF1F5F9),
+                        width: double.infinity,
+                        height: double.infinity,
                         child: _buildImageWidget(item.imageUrl),
                       ),
                     ),
@@ -1143,135 +1252,127 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               Expanded(
                 flex: 11,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Text(
+                        item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.zaloFont(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textHeading,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
                         children: [
-                          Text(
-                            item.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.zaloFont(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textHeading,
-                              height: 1.25,
-                            ),
+                          Icon(
+                            item.isPackage ? Icons.calendar_today_rounded : Icons.access_time_rounded,
+                            size: 12,
+                            color: AppColors.textSecondary,
                           ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(
-                                item.isPackage ? Icons.calendar_today_rounded : Icons.access_time_rounded,
-                                size: 12,
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              item.durationOrSessions,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.zaloFont(
+                                fontSize: 11,
                                 color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w500,
                               ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  item.durationOrSessions,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTypography.zaloFont(
-                                    fontSize: 11,
-                                    color: AppColors.textSecondary,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 6),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
                         children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text(
-                                '${formatter.format(item.price)} ₫',
-                                style: AppTypography.zaloFont(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.servicePrice,
-                                ),
-                              ),
-                              if (item.originalPrice > item.price) ...[
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${formatter.format(item.originalPrice)} ₫',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    decoration: TextDecoration.lineThrough,
-                                    color: Color(0xFF94A3B8),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 32,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                if (item.isPackage) {
-                                  _showContactDialog(
-                                    title: item.title,
-                                    imageUrl: item.imageUrl,
-                                    category: item.category,
-                                  );
-                                } else if (item.singleService != null) {
-                                  _handleBooking(item.singleService!);
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: item.isPackage
-                                    ? const Color(0xFFEFF6EE)
-                                    : AppColors.accent,
-                                foregroundColor: item.isPackage
-                                    ? AppColors.accent
-                                    : Colors.white,
-                                elevation: 0,
-                                padding: EdgeInsets.zero,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    item.isPackage
-                                        ? Icons.support_agent_rounded
-                                        : Icons.calendar_month_outlined,
-                                    size: 14,
-                                    color: item.isPackage
-                                        ? AppColors.accent
-                                        : Colors.white,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    item.isPackage ? 'Liên hệ' : 'Đặt lịch',
-                                    style: AppTypography.zaloFont(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: item.isPackage
-                                          ? AppColors.accent
-                                          : Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          Text(
+                            '${formatter.format(item.price)} ₫',
+                            style: AppTypography.zaloFont(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.servicePrice,
                             ),
                           ),
+                          if (item.originalPrice > item.price) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              '${formatter.format(item.originalPrice)} ₫',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                decoration: TextDecoration.lineThrough,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ],
                         ],
+                      ),
+                      const Spacer(),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 32,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (item.isPackage) {
+                              _showContactSheet(
+                                title: item.title,
+                                imageUrl: item.imageUrl,
+                                category: item.category,
+                                priceText: '${formatter.format(item.price)} ₫',
+                                subtitle: item.durationOrSessions,
+                              );
+                            } else if (item.singleService != null) {
+                              _handleBooking(item.singleService!);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: item.isPackage
+                                ? const Color(0xFFEFF6EE)
+                                : AppColors.accent,
+                            foregroundColor: item.isPackage
+                                ? AppColors.accent
+                                : Colors.white,
+                            elevation: 0,
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                item.isPackage
+                                    ? Icons.support_agent_rounded
+                                    : Icons.calendar_month_outlined,
+                                size: 14,
+                                color: item.isPackage
+                                    ? AppColors.accent
+                                    : Colors.white,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                item.isPackage ? 'Liên hệ' : 'Đặt lịch',
+                                style: AppTypography.zaloFont(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: item.isPackage
+                                      ? AppColors.accent
+                                      : Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1374,7 +1475,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                 crossAxisCount: 2,
                                 crossAxisSpacing: 12,
                                 mainAxisSpacing: 14,
-                                childAspectRatio: 0.58,
+                                childAspectRatio: 0.60,
                               ),
                               delegate: SliverChildBuilderDelegate(
                                 (ctx, index) {
@@ -1414,12 +1515,18 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     );
   }
 
-  // Card Sản phẩm chuẩn y khoa
   Widget _buildProductCard(HomeProductModel product) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _showProductContactDialog(product),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => HomeProductDetailScreen(product: product),
+            ),
+          );
+        },
         borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
@@ -1437,9 +1544,10 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                flex: 5,
+                flex: 9,
                 child: Container(
                   width: double.infinity,
+                  height: double.infinity,
                   decoration: const BoxDecoration(
                     color: Color(0xFFF9FAFB),
                     borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -1447,99 +1555,98 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                   child: product.imageUrl != null && product.imageUrl!.isNotEmpty
                       ? ClipRRect(
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                          child: _buildImageWidget(product.imageUrl!),
+                          child: SizedBox.expand(
+                            child: _buildImageWidget(product.imageUrl!),
+                          ),
                         )
                       : _buildProductPlaceholder(product.category),
                 ),
               ),
               Expanded(
-                flex: 7,
+                flex: 11,
                 child: Padding(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.iceBlue,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              product.category,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.zaloFont(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primaryNavy,
-                              ),
-                            ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.iceBlue,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          product.category,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.zaloFont(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primaryNavy,
                           ),
-                          const SizedBox(height: 5),
-                          Text(
-                            product.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.zaloFont(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textHeading,
-                              height: 1.25,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            product.formattedPrice,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 3),
+                      Text(
+                        product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.zaloFont(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textHeading,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        product.formattedPrice,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.zaloFont(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.servicePrice,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        'Đơn vị: ${product.unit}',
+                        style: AppTypography.zaloFont(
+                          fontSize: 10,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const Spacer(),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 30,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showContactSheet(
+                            title: product.name,
+                            imageUrl: product.imageUrl,
+                            category: product.category,
+                            priceText: product.formattedPrice,
+                            subtitle: 'Đơn vị: ${product.unit}',
+                          ),
+                          icon: const Icon(Icons.support_agent_rounded, size: 14),
+                          label: Text(
+                            'Liên hệ',
                             style: AppTypography.zaloFont(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.accent,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-                          Text(
-                            'Đơn vị: ${product.unit}',
-                            style: AppTypography.zaloFont(
-                              fontSize: 10.5,
-                              color: AppColors.textSecondary,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFEFF6EE),
+                            foregroundColor: AppColors.accent,
+                            elevation: 0,
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 32,
-                            child: ElevatedButton.icon(
-                              onPressed: () => _showProductContactDialog(product),
-                              icon: const Icon(Icons.support_agent_rounded, size: 14),
-                              label: Text(
-                                'Liên hệ',
-                                style: AppTypography.zaloFont(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFEFF6EE),
-                                foregroundColor: AppColors.accent,
-                                elevation: 0,
-                                padding: EdgeInsets.zero,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),

@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/l10n/app_localizations.dart';
 import 'package:medical_healthcare_app/features/home/data/models/home_models.dart';
 import 'package:medical_healthcare_app/features/services/presentation/screens/b02_service_listing_screen.dart';
+import 'package:medical_healthcare_app/features/services/presentation/screens/home_product_detail_screen.dart';
+import 'package:medical_healthcare_app/features/services/data/models/home_product_model.dart';
 import 'package:medical_healthcare_app/features/booking/presentation/screens/all_in_one_booking_screen.dart';
 
 Widget _buildWrapper(Widget child) {
@@ -164,6 +166,39 @@ void main() {
       expect(find.text('Zalo'), findsOneWidget);
       expect(find.text('Messenger'), findsOneWidget);
       expect(find.byIcon(Icons.close_rounded), findsWidgets);
+    });
+
+    testWidgets('HomeProductDetailScreen renders product info, details list, and contact buttons', (tester) async {
+      final product = HomeProductModel(
+        id: 'p-1',
+        name: 'Băng thun y tế nén ép Rosidal K',
+        category: 'Băng ép',
+        priceMin: 280000,
+        priceMax: 350000,
+        unit: 'cuộn',
+        details: [
+          'Xuất xứ: Đức 🇩🇪',
+          'Chất liệu 100% cotton y khoa',
+          'Độ co giãn ngắn chuyên dụng',
+        ],
+      );
+
+      await tester.pumpWidget(
+        _buildWrapper(
+          HomeProductDetailScreen(product: product),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Chi tiết sản phẩm'), findsOneWidget);
+      expect(find.text('Băng thun y tế nén ép Rosidal K'), findsOneWidget);
+      expect(find.text('Băng ép'), findsWidgets);
+      expect(find.text('Xuất xứ: Đức 🇩🇪'), findsOneWidget);
+      expect(find.text('Chất liệu 100% cotton y khoa'), findsOneWidget);
+      expect(find.text('Tư vấn Zalo'), findsOneWidget);
+      expect(find.text('Messenger'), findsOneWidget);
     });
   });
 }
