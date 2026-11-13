@@ -547,55 +547,7 @@ export const W04_CustomerDetail: React.FC = () => {
 
   // Handler: Complete 1 Session of Package
   const handleCompleteSession = async (pkg: UserPackage) => {
-    if (!customer?.id) return;
-
-    if (pkg.completedSessions >= pkg.totalSessions) {
-      toast.warning(
-        'Gói đã hoàn tất',
-        'Tất cả các buổi trong gói liệu trình này đã được ghi nhận hoàn thành 100%.'
-      );
-      return;
-    }
-
-    setIsProcessingSession(true);
-    try {
-      const res = await treatmentService.completePackageSession(
-        pkg.id,
-        pkg.completedSessions,
-        pkg.totalSessions,
-        {
-          customerId: customer.id,
-          conditionBefore: 'Theo dõi liệu trình định kỳ',
-          conditionAfter: 'Hoàn tất buổi chăm sóc theo phác đồ',
-          specialistAdvice: 'Uống đủ 2 lít nước ấm, giữ ấm vùng cổ vai gáy',
-        }
-      );
-      if (res.success) {
-        setPackages((prev) =>
-          prev.map((p) => {
-            if (p.id === pkg.id) {
-              const nextCount = p.completedSessions + 1;
-              return {
-                ...p,
-                completedSessions: nextCount,
-                status: nextCount >= p.totalSessions ? PackageStatus.COMPLETED : p.status,
-              };
-            }
-            return p;
-          })
-        );
-        toast.success(
-          'Ghi nhận buổi trị liệu',
-          `Đã hoàn thành buổi #${pkg.completedSessions + 1} cho gói "${pkg.package?.name || 'Liệu trình'}"!`
-        );
-      } else {
-        toast.error('Lỗi', res.message || 'Không thể ghi nhận buổi trị liệu');
-      }
-    } catch (err) {
-      toast.error('Lỗi', 'Không thể hoàn tất thao tác.');
-    } finally {
-      setIsProcessingSession(false);
-    }
+    navigate(`/medical-records?userPackageId=${encodeURIComponent(pkg.id)}`);
   };
 
   // Handler: Assign Package Submit

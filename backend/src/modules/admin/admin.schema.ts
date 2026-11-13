@@ -30,7 +30,11 @@ export const ADMIN_SCHEMA_REQUIREMENTS: Record<string, string[]> = {
   treatment_session_reversals: ['id', 'journal_id', 'user_package_id', 'session_number', 'reason', 'reversed_by'],
   user_package_lifecycle_logs: ['id', 'user_package_id', 'action', 'reason'],
   treatment_inventory_outbox: ['id', 'operation_type', 'sync_status'],
+  branch_material_stock: ['id','branch_id','quantity','material_name','unit'],
+  treatment_stock_movements: ['id','stock_id','outbox_id','delta'],
   post_care_outbox: ['id', 'treatment_journal_id', 'customer_id', 'status'],
+  home_care_guidelines: ['id', 'version', 'service_id'],
+  home_care_deliveries: ['id', 'guideline_version', 'content_snapshot'],
 };
 
 export async function inspectAdminSchema(connection: { query: (sql: string, values?: any[]) => Promise<any> }) {

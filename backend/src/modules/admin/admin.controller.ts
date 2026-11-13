@@ -303,6 +303,50 @@ export class AdminController {
   ) {
     return this.service.list(table, req.admin, query);
   }
+  @Get('treatment/packages/:id/detail')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  treatmentPackageDetail(@Param('id') id: string, @Req() req) {
+    return this.service.treatmentPackageDetail(req.admin, id);
+  }
+  @Get('treatment/journals/:id/confirmation-preview')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  treatmentConfirmationPreview(@Param('id') id: string, @Req() req) {
+    return this.service.treatmentConfirmationPreview(req.admin, id);
+  }
+  @Post('treatment/journals/:id/home-care')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  assignHomeCare(@Param('id') id: string, @Body() body: { guidelineId: string }, @Req() req) {
+    return this.service.assignHomeCare(req.admin, id, body.guidelineId);
+  }
+  @Get('treatment/journals/:id/home-care-templates')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  homeCareTemplatesForSession(@Param('id') id: string, @Req() req) {
+    return this.service.homeCareTemplatesForSession(req.admin, id);
+  }
+  @Post('treatment/packages/:id/start-draft')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  startTreatmentDraft(@Param('id') id: string, @Body() body: { bookingId: string }, @Req() req) {
+    return this.service.startTreatmentDraft(req.admin,id,body.bookingId);
+  }
+  @Post('treatment/packages/:id/book-session')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  bookTreatmentSession(@Param('id') id: string, @Body() body: Record<string, unknown>, @Req() req) {
+    return this.service.bookTreatmentSession(req.admin,id,body);
+  }
+  @Post('treatment/inventory/count')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  recordMaterialCount(@Body() body:Record<string,unknown>,@Req() req){return this.service.recordMaterialCount(req.admin,body);}
+  @Post('treatment/inventory/:id/sync')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  syncTreatmentInventory(@Param('id') id:string,@Req() req){return this.service.syncInventory(req.admin,id);}
   @Post(':table/create')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()

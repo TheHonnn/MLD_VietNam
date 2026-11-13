@@ -940,6 +940,8 @@ class SupabaseService {
     return raw.map((j) => ({
       id: j.id,
       userPackageId: j.user_package_id,
+      confirmationStatus: j.confirmation_status,
+      isReversed: Boolean(j.is_reversed),
       bookingId: j.booking_id,
       customerId: j.customer_id,
       technicianId: j.technician_id,

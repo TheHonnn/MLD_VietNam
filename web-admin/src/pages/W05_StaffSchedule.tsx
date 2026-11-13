@@ -1153,7 +1153,7 @@ export const W05_StaffSchedule: React.FC = () => {
             const requestedPackageId = targetBooking?.specialNotes
               ?.match(/user_package_id=([0-9a-f-]{36})/i)?.[1];
             const requestedPackage = activePkgs.find((pkg) => pkg.id === requestedPackageId);
-            setSelectedUserPackageId(requestedPackage?.id || activePkgs[0].id);
+            setSelectedUserPackageId(requestedPackage?.id || '');
           } else {
             setSelectedUserPackageId('');
           }
@@ -1203,6 +1203,11 @@ export const W05_StaffSchedule: React.FC = () => {
 
       let sessionNum = 1;
       let chosenPkg = clinicalCustomerPackages.find((p) => p.id === selectedUserPackageId);
+      const linkedPackageId = targetBooking?.specialNotes?.match(/\[user_package_id=([0-9a-f-]{36})\]/i)?.[1];
+      if (linkedPackageId && chosenPkg?.id !== linkedPackageId) {
+        toast.error('Không khớp liệu trình', 'Lịch đã gắn với một gói cụ thể. Hãy kiểm tra trạng thái gói trước khi ghi nhận.');
+        return;
+      }
       const journalHistory = await treatmentService.getTreatmentJournalsByCustomer(targetCustomerId);
       if (!journalHistory.success) {
         toast.error('Chưa kiểm tra được nhật ký', 'Tải lại lịch sử điều trị trước khi hoàn tất để tránh ghi trùng.');
@@ -1212,10 +1217,8 @@ export const W05_StaffSchedule: React.FC = () => {
 
       if (chosenPkg) {
         sessionNum = existingBookingJournal?.sessionNumber || (chosenPkg.completedSessions || 0) + 1;
-        const packageResult = await treatmentService.completePackageSession(
+        const packageResult = await treatmentService.saveSessionDraftFromBooking(
           chosenPkg.id,
-          chosenPkg.completedSessions,
-          chosenPkg.totalSessions,
           {
             bookingId: clinicalApp.id,
             sessionNumber: sessionNum,
@@ -1232,6 +1235,10 @@ export const W05_StaffSchedule: React.FC = () => {
           toast.error('Chưa lưu được buổi điều trị', packageResult.message);
           return;
         }
+        toast.success('Đã lưu bản nháp', 'Mở Nhật ký điều trị để gửi và xác nhận buổi. Chưa trừ lượt hoặc vật tư.');
+        setShowClinicalModal(false);
+        navigate('/manage/treatment_journal');
+        return;
       } else if (!existingBookingJournal) {
         const journalResult = await treatmentService.createTreatmentJournal({
           bookingId: clinicalApp.id,
@@ -1286,9 +1293,7 @@ export const W05_StaffSchedule: React.FC = () => {
       setShowClinicalModal(false);
       toast.success(
         clinicalApp.paymentStatus === 'PAID' ? 'Hoàn tất buổi điều trị' : 'Đã xong chuyên môn, chờ thanh toán',
-        `Đã lưu hồ sơ điều trị cho ${clinicalApp.customer}${
-          chosenPkg ? ` (Buổi ${sessionNum}/${chosenPkg.totalSessions} của gói)` : ''
-        } và ghi nhận vật tư theo định mức.${clinicalApp.paymentStatus === 'PAID' ? '' : ' Chuyển sang POS để đóng ca.'}`
+        `Đã lưu hồ sơ điều trị cho ${clinicalApp.customer} và ghi nhận vật tư theo định mức.${clinicalApp.paymentStatus === 'PAID' ? '' : ' Chuyển sang POS để đóng ca.'}`
       );
     } catch (err: any) {
       console.error('Lỗi hoàn tất ca:', err);

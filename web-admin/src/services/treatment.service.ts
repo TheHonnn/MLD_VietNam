@@ -199,7 +199,9 @@ export const treatmentService = {
     afterPhotos?: string[];
   }): Promise<ApiResponse<any>> {
     try {
-      const res = await legacyWrite<TreatmentJournal>('treatment_journal', journal);
+      const values = Object.fromEntries(Object.entries(journal).map(([key, value]) => [key.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase()), value]));
+      const saved = await adminCommand<any>('treatment_journal/create', { values: { ...values, confirmation_status: 'DRAFT' } });
+      const res = { success: true, statusCode: 200, message: 'Đã lưu bản nháp. Chưa trừ buổi.', data: saved };
       if (!res.success || !res.data?.id) {
         return {
           success: false,
@@ -220,260 +222,44 @@ export const treatmentService = {
     }
   },
 
-  // Tiến trình FSM: Thực hiện 1 buổi và tự động hoàn thành gói khi đủ số buổi
-  async completePackageSession(
+  async bookPackageSession(userPackageId: string, input: { branchId: string; technicianId?: string | null; bookingDate: string; startTime: string; notes?: string; requestId: string }): Promise<ApiResponse<any>> {
+    try {
+      const row = await adminCommand<any>(`treatment/packages/${encodeURIComponent(userPackageId)}/book-session`, input);
+      return { success: true,statusCode:201,message:'Đã lưu lịch và dịch vụ.',data:{ ...row,bookingCode:row.booking_code } };
+    } catch (error: any) {
+      return { success:false,statusCode:error?.statusCode || 400,message:error?.message || 'Chưa xác minh được kết quả đặt lịch.',data:null };
+    }
+  },
+
+  async saveSessionDraftFromBooking(
     userPackageId: string,
-    currentCompleted: number,
-    totalSessions: number,
     journalData?: any
   ): Promise<ApiResponse<boolean>> {
-    if (!journalData) {
-      return {
-        success: false,
-        statusCode: 400,
-        message: 'Thiếu thông tin buổi điều trị.',
-        data: false,
-      };
+    if (!journalData?.bookingId) return { success: false, statusCode: 400, message: 'Cần chọn ca đang phục vụ để ghi nhận.', data: false };
+    try {
+      const draft = await adminCommand<any>(`treatment/packages/${encodeURIComponent(userPackageId)}/start-draft`, { bookingId: journalData.bookingId });
+      if (draft.is_reversed || !['DRAFT', 'PENDING'].includes(draft.confirmation_status)) {
+        return { success: false, statusCode: 409, message: 'Ca đã có hồ sơ được gửi hoặc xác nhận. Mở Nhật ký điều trị để xem.', data: false };
+      }
+      const values = Object.fromEntries(Object.entries(journalData).map(([key, value]) => [key.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase()), value]));
+      const result = await this.saveTreatmentDraft(draft.id, values);
+      return { success: result.success, statusCode: result.statusCode, message: result.message, data: result.success };
+    } catch (error: any) {
+      return { success: false, statusCode: error?.statusCode || 400, message: error?.message || 'Không thể lưu hồ sơ. Hãy kiểm tra nhật ký trước khi thử lại.', data: false };
     }
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidPattern.test(userPackageId) || !uuidPattern.test(journalData.customerId)) {
-      return {
-        success: false,
-        statusCode: 400,
-        message: 'Mã gói hoặc khách hàng không hợp lệ.',
-        data: false,
-      };
-    }
-
-    const existingJournals = await this.getTreatmentJournalsByCustomer(journalData.customerId);
-    if (!existingJournals.success) {
-      return {
-        success: false,
-        statusCode: 503,
-        message: 'Không thể kiểm tra nhật ký hiện có. Buổi điều trị chưa được lưu.',
-        data: false,
-      };
-    }
-    const nextCompleted = currentCompleted + 1;
-    const existingJournal = existingJournals.data.find((journal) =>
-      journal.userPackageId === userPackageId && (
-        journalData.bookingId
-          ? journal.bookingId === journalData.bookingId
-          : journal.sessionNumber === Number(journalData.sessionNumber || nextCompleted)
-      )
-    );
-    if (currentCompleted >= totalSessions && !existingJournal) {
-      return {
-        success: false,
-        statusCode: 400,
-        message: 'Gói liệu trình này đã hoàn tất đầy đủ các buổi theo phác đồ.',
-        data: false,
-      };
-    }
-    const requestedSession = Number(journalData.sessionNumber || existingJournal?.sessionNumber || nextCompleted);
-    if (!existingJournal && requestedSession !== nextCompleted) {
-      return {
-        success: false,
-        statusCode: 409,
-        message: `Buổi tiếp theo cần cập nhật là buổi ${nextCompleted}.`,
-        data: false,
-      };
-    }
-    const journalRes = existingJournal
-      ? { success: true, statusCode: 200, message: 'Buổi điều trị đã được ghi nhận.', data: existingJournal }
-      : await this.createTreatmentJournal({
-          ...journalData,
-          userPackageId,
-          sessionNumber: requestedSession,
-          sessionDate: journalData.sessionDate || new Date().toISOString().slice(0, 10),
-        });
-
-    if (!journalRes.success) return journalRes;
-
-    return {
-      success: true,
-      statusCode: journalRes.statusCode,
-      message: requestedSession >= totalSessions
-        ? 'Đã lưu buổi cuối và hoàn tất gói liệu trình.'
-        : 'Đã lưu buổi điều trị và cập nhật tiến trình gói.',
-      data: true,
-    };
   },
 
   // --- VẬN HÀNH VÒNG ĐỜI GÓI LIỆU TRÌNH (ADMIN FSM) ---
-
-  async _fallbackSupabasePackageAction(userPackageId: string, payload: Record<string, unknown>): Promise<void> {
-    const action = String(payload.action || '');
-    const reason = typeof payload.reason === 'string' ? payload.reason.trim() : '';
-
-    if (action === 'pause') {
-      const { error } = await supabase
-        .from('user_packages')
-        .update({
-          status: 'PAUSED',
-          paused_at: new Date().toISOString(),
-        })
-        .eq('id', userPackageId);
-      if (error) throw new Error(error.message || 'Không thể tạm dừng gói qua Supabase.');
-
-      try {
-        await supabase.from('user_package_lifecycle_logs').insert({
-          user_package_id: userPackageId,
-          from_status: 'ACTIVE',
-          to_status: 'PAUSED',
-          action: 'PAUSE',
-          reason: reason || 'Tạm dừng gói liệu trình',
-          metadata: { pausedAt: new Date().toISOString() },
-        });
-      } catch {}
-      return;
-    }
-
-    if (action === 'resume') {
-      const { error } = await supabase
-        .from('user_packages')
-        .update({
-          status: 'ACTIVE',
-          resumed_at: new Date().toISOString(),
-        })
-        .eq('id', userPackageId);
-      if (error) throw new Error(error.message || 'Không thể mở lại gói qua Supabase.');
-
-      try {
-        await supabase.from('user_package_lifecycle_logs').insert({
-          user_package_id: userPackageId,
-          from_status: 'PAUSED',
-          to_status: 'ACTIVE',
-          action: 'RESUME',
-          reason: reason || 'Mở lại gói liệu trình',
-          metadata: { resumedAt: new Date().toISOString() },
-        });
-      } catch {}
-      return;
-    }
-
-    if (action === 'extend') {
-      const months = Number(payload.extensionMonths || 1);
-      const { data: pkg } = await supabase
-        .from('user_packages')
-        .select('expires_at, total_sessions, completed_sessions')
-        .eq('id', userPackageId)
-        .single();
-      const currentExpiry = pkg?.expires_at ? new Date(pkg.expires_at) : new Date();
-      const baseDate = currentExpiry.getTime() > Date.now() ? currentExpiry : new Date();
-      baseDate.setMonth(baseDate.getMonth() + months);
-
-      const { error } = await supabase
-        .from('user_packages')
-        .update({
-          status: 'ACTIVE',
-          expires_at: baseDate.toISOString(),
-          extension_months: months,
-        })
-        .eq('id', userPackageId);
-      if (error) throw new Error(error.message || 'Không thể gia hạn gói qua Supabase.');
-
-      try {
-        await supabase.from('user_package_lifecycle_logs').insert({
-          user_package_id: userPackageId,
-          from_status: 'EXPIRED',
-          to_status: 'ACTIVE',
-          action: 'EXTEND_EXPIRY',
-          reason: reason || 'Gia hạn gói liệu trình',
-          metadata: { extensionMonths: months, newExpiry: baseDate.toISOString() },
-        });
-      } catch {}
-      return;
-    }
-
-    if (action === 'cancel') {
-      const { error } = await supabase
-        .from('user_packages')
-        .update({
-          status: 'CANCELLED',
-          cancelled_at: new Date().toISOString(),
-          cancelled_reason: reason,
-        })
-        .eq('id', userPackageId);
-      if (error) throw new Error(error.message || 'Không thể hủy gói qua Supabase.');
-
-      try {
-        await supabase.from('user_package_lifecycle_logs').insert({
-          user_package_id: userPackageId,
-          to_status: 'CANCELLED',
-          action: 'CANCEL',
-          reason: reason || 'Hủy gói liệu trình',
-          metadata: { cancelledAt: new Date().toISOString() },
-        });
-      } catch {}
-      return;
-    }
-
-    if (action === 'transfer') {
-      const newCustId = String(payload.newCustomerId || '');
-      const { data: oldPkg } = await supabase.from('user_packages').select('*').eq('id', userPackageId).single();
-      if (!oldPkg) throw new Error('Không tìm thấy gói.');
-      const remaining = Number(oldPkg.total_sessions) - Number(oldPkg.completed_sessions);
-
-      const { error } = await supabase
-        .from('user_packages')
-        .update({
-          status: 'TRANSFERRED',
-          transferred_to_user_id: newCustId,
-          transferred_at: new Date().toISOString(),
-          transfer_reason: reason,
-        })
-        .eq('id', userPackageId);
-      if (error) throw new Error(error.message || 'Không thể chuyển nhượng gói qua Supabase.');
-
-      await supabase.from('user_packages').insert({
-        customer_id: newCustId,
-        package_id: oldPkg.package_id,
-        total_sessions: remaining,
-        completed_sessions: 0,
-        status: 'ACTIVE',
-        expires_at: oldPkg.expires_at,
-        transferred_from_package_id: userPackageId,
-      });
-      return;
-    }
-
-    if (action === 'refund') {
-      const amt = Number(payload.refundAmount || 0);
-      const { error } = await supabase
-        .from('user_packages')
-        .update({
-          status: 'REFUNDED',
-          refunded_at: new Date().toISOString(),
-          refund_amount: amt,
-          refund_reason: reason,
-        })
-        .eq('id', userPackageId);
-      if (error) throw new Error(error.message || 'Không thể hoàn tiền gói qua Supabase.');
-      return;
-    }
-  },
 
   async _executePackageAction(userPackageId: string, payload: Record<string, unknown>): Promise<void> {
     try {
       await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, payload);
     } catch (err: any) {
       if (err?.statusCode === 404 || err?.message?.includes('Cannot POST') || String(err?.message || '').includes('404')) {
-        try {
-          await adminCommand('user_packages/action', {
-            ...payload,
-            key: { id: userPackageId },
-          });
-          return;
-        } catch (innerErr: any) {
-          if (innerErr?.message?.includes('không được hỗ trợ') || innerErr?.statusCode === 400) {
-            await this._fallbackSupabasePackageAction(userPackageId, payload);
-            return;
-          }
-          throw innerErr;
-        }
-      } else if (err?.message?.includes('không được hỗ trợ') || err?.statusCode === 400) {
-        await this._fallbackSupabasePackageAction(userPackageId, payload);
+        await adminCommand('user_packages/action', {
+          ...payload,
+          key: { id: userPackageId },
+        });
         return;
       }
       throw err;
@@ -774,6 +560,89 @@ export const treatmentService = {
         statusCode: 500,
         message: 'Không thể nạp sổ cái hoàn tác',
         data: [],
+      };
+    }
+  },
+
+  // --- CÁC COMMAND QUẢN LÝ VÒNG ĐỜI BUỔI ĐIỀU TRỊ ---
+
+  async saveTreatmentDraft(
+    journalId: string,
+    data: Record<string, any>
+  ): Promise<ApiResponse<any>> {
+    try {
+      const res = await adminCommand('treatment_journal/action', {
+        key: { id: journalId },
+        action: 'save-draft',
+        values: data,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã lưu bản nháp nhật ký điều trị.',
+        data: res,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] saveTreatmentDraft failed:', err);
+      return {
+        success: false,
+        statusCode: err?.statusCode || 400,
+        message: err?.message || 'Không thể lưu bản nháp nhật ký.',
+        data: null,
+      };
+    }
+  },
+
+  async submitTreatmentSession(
+    journalId: string,
+    data?: Record<string, any>
+  ): Promise<ApiResponse<any>> {
+    try {
+      const res = await adminCommand('treatment_journal/action', {
+        key: { id: journalId },
+        action: 'submit-session',
+        values: data,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã gửi duyệt hồ sơ chuyên môn.',
+        data: res,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] submitTreatmentSession failed:', err);
+      return {
+        success: false,
+        statusCode: err?.statusCode || 400,
+        message: err?.message || 'Không thể gửi hồ sơ chuyên môn.',
+        data: null,
+      };
+    }
+  },
+
+  async confirmTreatmentSession(
+    journalId: string,
+    idempotencyKey?: string
+  ): Promise<ApiResponse<any>> {
+    try {
+      const res = await adminCommand('treatment_journal/action', {
+        key: { id: journalId },
+        action: 'confirm-session',
+        idempotencyKey,
+      });
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã xác nhận hoàn thành buổi điều trị và trừ lượt thành công.',
+        data: res,
+      };
+    } catch (err: any) {
+      console.error('[treatmentService] confirmTreatmentSession failed:', err);
+      return {
+        success: false,
+        statusCode: err?.statusCode || 400,
+        message: err?.message || 'Không thể xác nhận buổi điều trị.',
+        data: null,
       };
     }
   },
