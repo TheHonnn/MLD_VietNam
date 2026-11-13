@@ -14,7 +14,7 @@ test('pricing catalog exposes the complete package lifecycle', () => {
 
 test('catalog sends only valid active packages to POS with identity preserved', () => {
   assert.match(source, /if \(!pkg\.is_active\)/);
-  assert.match(source, /!pkg\.service_id \|\| Number\(pkg\.price\) <= 0 \|\| Number\(pkg\.total_sessions\) <= 0/);
+  assert.match(source, /!pkg\.service_id\s*\|\|\s*Number\(pkg\.price\) <= 0\s*\|\|\s*Number\(pkg\.total_sessions\) <= 0/);
   assert.match(source, /packageId: pkg\.id/);
   assert.match(source, /packageName: pkg\.name/);
   assert.match(source, /navigate\(`\/cashier-pos\?\$\{query\.toString\(\)\}`\)/);
