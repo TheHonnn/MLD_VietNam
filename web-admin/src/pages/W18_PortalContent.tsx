@@ -1,4 +1,4 @@
-// MLD Healthcare & Academy - W18 Portal Content Management & Automated Email Channel
+// MLD Healthcare & Academy - W18 Portal Content Management (Contacts, Taxonomies, FAQs, Legal Policies, Banners, Email)
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
