@@ -166,17 +166,15 @@ class _TopNotificationState extends State<TopNotification> with TickerProviderSt
       right: 14,
       child: SlideTransition(
         position: _slideAnimation,
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: GestureDetector(
-            onVerticalDragUpdate: (details) {
-              // Vuốt lên trên để cho thông báo biến mất
-              if (details.primaryDelta! < -3) {
-                _dismiss();
-              }
-            },
-            child: Material(
-              color: Colors.white,
+        child: GestureDetector(
+          onVerticalDragUpdate: (details) {
+            // Vuốt lên trên để cho thông báo biến mất
+            if (details.primaryDelta! < -3) {
+              _dismiss();
+            }
+          },
+          child: Material(
+            color: Colors.white,
               elevation: 10,
               shadowColor: Colors.black.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(16),
@@ -315,7 +313,6 @@ class _TopNotificationState extends State<TopNotification> with TickerProviderSt
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }
