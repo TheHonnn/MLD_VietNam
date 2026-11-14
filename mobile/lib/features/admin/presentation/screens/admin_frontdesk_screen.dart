@@ -569,195 +569,90 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
   );
   }
 
-  void _openStatusPickerSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE5E7EB),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Chọn trạng thái ca hẹn',
-                    style: AppTypography.zaloFont(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textHeading,
-                    ),
-                  ),
-                  Text(
-                    '${_bookings.length} ca',
-                    style: AppTypography.zaloFont(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF00693F),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 10,
-                children: _statusFilters.map((sf) {
-                  final key = sf['key']!;
-                  final isSel = _selectedStatus == key;
-                  final count = key == 'ALL'
-                      ? _bookings.length
-                      : _bookings.where((b) => b.status == key).length;
-                  final label = key == 'CHECKED_IN' ? 'Tiếp đón' : sf['label']!;
-
-                  return InkWell(
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      setState(() {
-                        _selectedStatus = key;
-                        if (key == 'PENDING') _isAllDates = true;
-                      });
-                      _fetchBookings();
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                      decoration: BoxDecoration(
-                        color: isSel ? const Color(0xFF00693F) : const Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSel ? const Color(0xFF00693F) : const Color(0xFFE5E7EB),
-                          width: isSel ? 1.5 : 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            label,
-                            style: AppTypography.zaloFont(
-                              fontSize: 13,
-                              fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                              color: isSel ? Colors.white : const Color(0xFF374151),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isSel ? Colors.white.withValues(alpha: 0.25) : const Color(0xFFE5E7EB),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              '$count',
-                              style: AppTypography.zaloFont(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: isSel ? Colors.white : const Color(0xFF4B5563),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildMicroPill({
     required String label,
     required bool isSelected,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
     Color activeColor = const Color(0xFF00693F),
     Color? activeBgColor,
     Color inactiveBgColor = const Color(0xFFF3F4F6),
     Color inactiveTextColor = const Color(0xFF4B5563),
     IconData? icon,
     String? badgeText,
+    bool showDropdownArrow = false,
   }) {
+    final pillWidget = AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      height: 27,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: isSelected ? (activeBgColor ?? activeColor) : inactiveBgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isSelected ? activeColor : const Color(0xFFE5E7EB),
+          width: isSelected ? 1.2 : 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: 13,
+              color: isSelected ? Colors.white : inactiveTextColor,
+            ),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: AppTypography.zaloFont(
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? Colors.white : inactiveTextColor,
+            ),
+          ),
+          if (badgeText != null && badgeText.isNotEmpty) ...[
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white.withValues(alpha: 0.25) : const Color(0xFFE5E7EB),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                badgeText,
+                style: AppTypography.zaloFont(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? Colors.white : const Color(0xFF374151),
+                ),
+              ),
+            ),
+          ],
+          if (showDropdownArrow) ...[
+            const SizedBox(width: 3),
+            Icon(
+              Icons.arrow_drop_down_rounded,
+              size: 14,
+              color: isSelected ? Colors.white : inactiveTextColor,
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (onTap == null) {
+      return pillWidget;
+    }
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(6),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: 27,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isSelected ? (activeBgColor ?? activeColor) : inactiveBgColor,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: isSelected ? activeColor : const Color(0xFFE5E7EB),
-              width: isSelected ? 1.2 : 0.8,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(
-                  icon,
-                  size: 13,
-                  color: isSelected ? Colors.white : inactiveTextColor,
-                ),
-                const SizedBox(width: 4),
-              ],
-              Text(
-                label,
-                style: AppTypography.zaloFont(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? Colors.white : inactiveTextColor,
-                ),
-              ),
-              if (badgeText != null && badgeText.isNotEmpty) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.white.withValues(alpha: 0.25) : const Color(0xFFE5E7EB),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    badgeText,
-                    style: AppTypography.zaloFont(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected ? Colors.white : const Color(0xFF374151),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+        child: pillWidget,
       ),
     );
   }
@@ -914,50 +809,284 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                 ),
                 const SizedBox(height: 6),
 
-                // Dòng 2: ĐÚNG 2 NÚT LỌC (Chọn ngày & Tất cả). Khi bấm Tất cả sẽ hiện các nút trạng thái: chờ duyệt, tiếp đón, hoàn thành...
+                // Dòng 2: ĐÚNG 2 NÚT LỌC (Ngày & Trạng thái). Xổ menu từ chính nút ra (PopupMenuButton)
                 Row(
                   children: [
-                    // Nút 1: Chọn ngày (bấm mở DatePicker, hiện ngày đã chọn)
-                    _buildMicroPill(
-                      label: _isAllDates ? 'Chọn ngày' : DateFormat('dd/MM').format(_selectedDate),
-                      icon: Icons.calendar_month_rounded,
-                      isSelected: !_isAllDates,
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedDate,
-                          firstDate: DateTime(2025),
-                          lastDate: DateTime(2030),
-                        );
-                        if (picked != null) {
+                    // NÚT 1: CHỌN NGÀY (Mặc định hôm nay thời gian thực, xổ menu từ nút)
+                    PopupMenuButton<String>(
+                      offset: const Offset(0, 32),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                      elevation: 6,
+                      color: Colors.white,
+                      tooltip: 'Lọc ngày',
+                      onSelected: (val) async {
+                        if (val == 'TODAY') {
                           setState(() {
-                            _selectedDate = picked;
+                            _selectedDate = DateTime.now();
                             _isAllDates = false;
                           });
                           _fetchBookings();
+                        } else if (val == 'TOMORROW') {
+                          setState(() {
+                            _selectedDate = DateTime.now().add(const Duration(days: 1));
+                            _isAllDates = false;
+                          });
+                          _fetchBookings();
+                        } else if (val == 'ALL_DATES') {
+                          setState(() {
+                            _isAllDates = true;
+                          });
+                          _fetchBookings();
+                        } else if (val == 'PICK_CALENDAR') {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedDate,
+                            firstDate: DateTime(2025),
+                            lastDate: DateTime(2030),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _selectedDate = picked;
+                              _isAllDates = false;
+                            });
+                            _fetchBookings();
+                          }
                         }
                       },
+                      itemBuilder: (ctx) => [
+                        PopupMenuItem<String>(
+                          value: 'TODAY',
+                          height: 38,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.today_rounded,
+                                size: 16,
+                                color: (!_isAllDates && DateUtils.isSameDay(_selectedDate, DateTime.now()))
+                                    ? const Color(0xFF00693F)
+                                    : const Color(0xFF4B5563),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Hôm nay (${DateFormat('dd/MM').format(DateTime.now())})',
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 12,
+                                    fontWeight: (!_isAllDates && DateUtils.isSameDay(_selectedDate, DateTime.now()))
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: (!_isAllDates && DateUtils.isSameDay(_selectedDate, DateTime.now()))
+                                        ? const Color(0xFF00693F)
+                                        : AppColors.textHeading,
+                                  ),
+                                ),
+                              ),
+                              if (!_isAllDates && DateUtils.isSameDay(_selectedDate, DateTime.now()))
+                                const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'TOMORROW',
+                          height: 38,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.event_rounded,
+                                size: 16,
+                                color: (!_isAllDates && DateUtils.isSameDay(_selectedDate, DateTime.now().add(const Duration(days: 1))))
+                                    ? const Color(0xFF00693F)
+                                    : const Color(0xFF4B5563),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Ngày mai (${DateFormat('dd/MM').format(DateTime.now().add(const Duration(days: 1)))})',
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 12,
+                                    fontWeight: (!_isAllDates && DateUtils.isSameDay(_selectedDate, DateTime.now().add(const Duration(days: 1))))
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: (!_isAllDates && DateUtils.isSameDay(_selectedDate, DateTime.now().add(const Duration(days: 1))))
+                                        ? const Color(0xFF00693F)
+                                        : AppColors.textHeading,
+                                  ),
+                                ),
+                              ),
+                              if (!_isAllDates && DateUtils.isSameDay(_selectedDate, DateTime.now().add(const Duration(days: 1))))
+                                const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'ALL_DATES',
+                          height: 38,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.date_range_rounded,
+                                size: 16,
+                                color: _isAllDates ? const Color(0xFF00693F) : const Color(0xFF4B5563),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Tất cả ngày',
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 12,
+                                    fontWeight: _isAllDates ? FontWeight.w700 : FontWeight.w500,
+                                    color: _isAllDates ? const Color(0xFF00693F) : AppColors.textHeading,
+                                  ),
+                                ),
+                              ),
+                              if (_isAllDates)
+                                const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuDivider(height: 1),
+                        PopupMenuItem<String>(
+                          value: 'PICK_CALENDAR',
+                          height: 38,
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_month_rounded, size: 16, color: Color(0xFF00693F)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Chọn ngày trên lịch...',
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF00693F),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      child: _buildMicroPill(
+                        label: _isAllDates
+                            ? 'Tất cả ngày'
+                            : (DateUtils.isSameDay(_selectedDate, DateTime.now())
+                                ? 'Hôm nay: ${DateFormat('dd/MM').format(_selectedDate)}'
+                                : (DateUtils.isSameDay(_selectedDate, DateTime.now().add(const Duration(days: 1)))
+                                    ? 'Ngày mai: ${DateFormat('dd/MM').format(_selectedDate)}'
+                                    : DateFormat('dd/MM/yyyy').format(_selectedDate))),
+                        icon: Icons.calendar_month_rounded,
+                        isSelected: !_isAllDates,
+                        showDropdownArrow: true,
+                      ),
                     ),
                     const SizedBox(width: 8),
 
-                    // Nút 2: Tất cả (bấm vào HIỆN CÁC NÚT TRẠNG THÁI: chờ duyệt, tiếp đón, hoàn thành...)
-                    _buildMicroPill(
-                      label: _selectedStatus == 'ALL'
-                          ? 'Tất cả'
-                          : (_selectedStatus == 'CHECKED_IN'
-                              ? 'Tiếp đón'
-                              : (_statusFilters.firstWhere((s) => s['key'] == _selectedStatus, orElse: () => {'label': 'Trạng thái'})['label'] ?? 'Trạng thái')),
-                      badgeText: _selectedStatus == 'ALL'
-                          ? '${_bookings.length}'
-                          : '${_bookings.where((b) => b.status == _selectedStatus).length}',
-                      icon: Icons.tune_rounded,
-                      isSelected: _selectedStatus != 'ALL',
-                      activeColor: _selectedStatus == 'PENDING' ? const Color(0xFFD97706) : const Color(0xFF00693F),
-                      onTap: _openStatusPickerSheet,
+                    // NÚT 2: TẤT CẢ TRẠNG THÁI (Xổ menu từ chính nút ra)
+                    PopupMenuButton<String>(
+                      offset: const Offset(0, 32),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                      elevation: 6,
+                      color: Colors.white,
+                      tooltip: 'Lọc trạng thái',
+                      onSelected: (status) {
+                        setState(() => _selectedStatus = status);
+                        _fetchBookings();
+                      },
+                      itemBuilder: (ctx) {
+                        return _statusFilters.map((s) {
+                          final key = s['key']!;
+                          final label = s['label']!;
+                          final isCurrent = _selectedStatus == key;
+                          final count = key == 'ALL'
+                              ? _bookings.length
+                              : _bookings.where((b) => b.status == key).length;
+
+                          Color dotColor = const Color(0xFF6B7280);
+                          if (key == 'PENDING') dotColor = const Color(0xFFD97706);
+                          if (key == 'CONFIRMED') dotColor = const Color(0xFF2563EB);
+                          if (key == 'CHECKED_IN') dotColor = const Color(0xFF00693F);
+                          if (key == 'IN_SERVICE') dotColor = const Color(0xFF7C3AED);
+                          if (key == 'COMPLETED') dotColor = const Color(0xFF059669);
+                          if (key == 'CANCELLED') dotColor = const Color(0xFFDC2626);
+
+                          return PopupMenuItem<String>(
+                            value: key,
+                            height: 38,
+                            child: Row(
+                              children: [
+                                if (key != 'ALL')
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    margin: const EdgeInsets.only(right: 8),
+                                    decoration: BoxDecoration(
+                                      color: dotColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  )
+                                else
+                                  const Padding(
+                                    padding: EdgeInsets.only(right: 8),
+                                    child: Icon(Icons.tune_rounded, size: 14, color: Color(0xFF6B7280)),
+                                  ),
+                                Expanded(
+                                  child: Text(
+                                    key == 'ALL' ? 'Tất cả trạng thái' : label,
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 12,
+                                      fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                                      color: isCurrent ? const Color(0xFF00693F) : AppColors.textHeading,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: isCurrent ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '$count',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: isCurrent ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                ),
+                                if (isCurrent) ...[
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
+                                ],
+                              ],
+                            ),
+                          );
+                        }).toList();
+                      },
+                      child: _buildMicroPill(
+                        label: _selectedStatus == 'ALL'
+                            ? 'Tất cả'
+                            : (_selectedStatus == 'CHECKED_IN'
+                                ? 'Tiếp đón'
+                                : (_statusFilters.firstWhere((s) => s['key'] == _selectedStatus, orElse: () => {'label': 'Trạng thái'})['label'] ?? 'Trạng thái')),
+                        badgeText: _selectedStatus == 'ALL'
+                            ? '${_bookings.length}'
+                            : '${_bookings.where((b) => b.status == _selectedStatus).length}',
+                        icon: Icons.tune_rounded,
+                        isSelected: _selectedStatus != 'ALL',
+                        activeColor: _selectedStatus == 'PENDING' ? const Color(0xFFD97706) : const Color(0xFF00693F),
+                        showDropdownArrow: true,
+                      ),
                     ),
 
                     if (_selectedStatus != 'ALL') ...[
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       // Nút xóa lọc trạng thái về Tất cả
                       GestureDetector(
                         onTap: () {
@@ -965,31 +1094,34 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                           _fetchBookings();
                         },
                         child: Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(5),
                           decoration: const BoxDecoration(
                             color: Color(0xFFF3F4F6),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.close_rounded, size: 14, color: Color(0xFF6B7280)),
+                          child: const Icon(Icons.close_rounded, size: 13, color: Color(0xFF6B7280)),
                         ),
                       ),
                     ],
 
-                    if (!_isAllDates) ...[
-                      const SizedBox(width: 6),
-                      // Nút reset ngày về tất cả
+                    if (_isAllDates || !DateUtils.isSameDay(_selectedDate, DateTime.now())) ...[
+                      const SizedBox(width: 4),
+                      // Nút reset ngày về hôm nay
                       GestureDetector(
                         onTap: () {
-                          setState(() => _isAllDates = true);
+                          setState(() {
+                            _selectedDate = DateTime.now();
+                            _isAllDates = false;
+                          });
                           _fetchBookings();
                         },
                         child: Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(5),
                           decoration: const BoxDecoration(
                             color: Color(0xFFF3F4F6),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.refresh_rounded, size: 14, color: Color(0xFF6B7280)),
+                          child: const Icon(Icons.today_rounded, size: 13, color: Color(0xFF6B7280)),
                         ),
                       ),
                     ],

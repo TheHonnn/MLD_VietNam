@@ -220,75 +220,99 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
     return list;
   }
 
+  String _getBatchCodeFromId(String batchId) {
+    for (final b in _batches) {
+      if (b.id == batchId || b.batchCode == batchId) {
+        return b.batchCode;
+      }
+    }
+    return batchId;
+  }
+
   Widget _buildMicroPill({
     required String label,
     required bool isSelected,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
     Color activeColor = const Color(0xFF00693F),
     Color? activeBgColor,
     Color inactiveBgColor = const Color(0xFFF3F4F6),
     Color inactiveTextColor = const Color(0xFF4B5563),
     IconData? icon,
     String? badgeText,
+    bool showDropdownArrow = false,
   }) {
+    final pillWidget = AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      height: 27,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: isSelected ? (activeBgColor ?? activeColor) : inactiveBgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isSelected ? activeColor : const Color(0xFFE5E7EB),
+          width: isSelected ? 1.2 : 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: 13,
+              color: isSelected ? Colors.white : inactiveTextColor,
+            ),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: AppTypography.zaloFont(
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? Colors.white : inactiveTextColor,
+            ),
+          ),
+          if (badgeText != null && badgeText.isNotEmpty) ...[
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white.withValues(alpha: 0.25) : const Color(0xFFE5E7EB),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                badgeText,
+                style: AppTypography.zaloFont(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? Colors.white : const Color(0xFF374151),
+                ),
+              ),
+            ),
+          ],
+          if (showDropdownArrow) ...[
+            const SizedBox(width: 3),
+            Icon(
+              Icons.arrow_drop_down_rounded,
+              size: 14,
+              color: isSelected ? Colors.white : inactiveTextColor,
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (onTap == null) {
+      return pillWidget;
+    }
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(6),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: 27,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isSelected ? (activeBgColor ?? activeColor) : inactiveBgColor,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: isSelected ? activeColor : const Color(0xFFE5E7EB),
-              width: isSelected ? 1.2 : 0.8,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(
-                  icon,
-                  size: 13,
-                  color: isSelected ? Colors.white : inactiveTextColor,
-                ),
-                const SizedBox(width: 4),
-              ],
-              Text(
-                label,
-                style: AppTypography.zaloFont(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? Colors.white : inactiveTextColor,
-                ),
-              ),
-              if (badgeText != null && badgeText.isNotEmpty) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.white.withValues(alpha: 0.25) : const Color(0xFFE5E7EB),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    badgeText,
-                    style: AppTypography.zaloFont(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected ? Colors.white : const Color(0xFF374151),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+        child: pillWidget,
       ),
     );
   }
@@ -1131,30 +1155,131 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  // Dòng 2: ĐÚNG 2 NÚT LỌC (Chọn ngày & Tất cả)
+                  // Dòng 2: ĐÚNG 2 NÚT LỌC (Chọn ngày & Tất cả). Xổ menu từ chính nút ra (PopupMenuButton)
                   Row(
                     children: [
-                      // Nút 1: Chọn ngày khai giảng
-                      _buildMicroPill(
-                        label: _isAllBatchDates || _selectedBatchDate == null
-                            ? 'Chọn ngày'
-                            : DateFormat('dd/MM').format(_selectedBatchDate!),
-                        icon: Icons.calendar_month_rounded,
-                        isSelected: !_isAllBatchDates && _selectedBatchDate != null,
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _selectedBatchDate ?? DateTime.now(),
-                            firstDate: DateTime(2025),
-                            lastDate: DateTime(2030),
-                          );
-                          if (picked != null) {
+                      // Nút 1: Chọn ngày khai giảng (PopupMenuButton từ nút)
+                      PopupMenuButton<String>(
+                        offset: const Offset(0, 32),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        elevation: 6,
+                        color: Colors.white,
+                        tooltip: 'Lọc ngày khai giảng',
+                        onSelected: (val) async {
+                          if (val == 'ALL_DATES') {
+                            setState(() => _isAllBatchDates = true);
+                          } else if (val == 'TODAY') {
                             setState(() {
-                              _selectedBatchDate = picked;
+                              _selectedBatchDate = DateTime.now();
                               _isAllBatchDates = false;
                             });
+                          } else if (val == 'PICK_CALENDAR') {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: _selectedBatchDate ?? DateTime.now(),
+                              firstDate: DateTime(2025),
+                              lastDate: DateTime(2030),
+                            );
+                            if (picked != null) {
+                              setState(() {
+                                _selectedBatchDate = picked;
+                                _isAllBatchDates = false;
+                              });
+                            }
                           }
                         },
+                        itemBuilder: (ctx) => [
+                          PopupMenuItem<String>(
+                            value: 'ALL_DATES',
+                            height: 38,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.date_range_rounded,
+                                  size: 16,
+                                  color: _isAllBatchDates ? const Color(0xFF00693F) : const Color(0xFF4B5563),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Tất cả các ngày',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 12,
+                                      fontWeight: _isAllBatchDates ? FontWeight.w700 : FontWeight.w500,
+                                      color: _isAllBatchDates ? const Color(0xFF00693F) : AppColors.textHeading,
+                                    ),
+                                  ),
+                                ),
+                                if (_isAllBatchDates)
+                                  const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'TODAY',
+                            height: 38,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.today_rounded,
+                                  size: 16,
+                                  color: (!_isAllBatchDates && _selectedBatchDate != null && DateUtils.isSameDay(_selectedBatchDate!, DateTime.now()))
+                                      ? const Color(0xFF00693F)
+                                      : const Color(0xFF4B5563),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Hôm nay (${DateFormat('dd/MM').format(DateTime.now())})',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 12,
+                                      fontWeight: (!_isAllBatchDates && _selectedBatchDate != null && DateUtils.isSameDay(_selectedBatchDate!, DateTime.now()))
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: (!_isAllBatchDates && _selectedBatchDate != null && DateUtils.isSameDay(_selectedBatchDate!, DateTime.now()))
+                                          ? const Color(0xFF00693F)
+                                          : AppColors.textHeading,
+                                    ),
+                                  ),
+                                ),
+                                if (!_isAllBatchDates && _selectedBatchDate != null && DateUtils.isSameDay(_selectedBatchDate!, DateTime.now()))
+                                  const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuDivider(height: 1),
+                          PopupMenuItem<String>(
+                            value: 'PICK_CALENDAR',
+                            height: 38,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.calendar_month_rounded, size: 16, color: Color(0xFF00693F)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Chọn ngày trên lịch...',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: const Color(0xFF00693F),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        child: _buildMicroPill(
+                          label: _isAllBatchDates || _selectedBatchDate == null
+                              ? 'Chọn ngày'
+                              : DateFormat('dd/MM').format(_selectedBatchDate!),
+                          icon: Icons.calendar_month_rounded,
+                          isSelected: !_isAllBatchDates && _selectedBatchDate != null,
+                          showDropdownArrow: true,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       // Nút 2: Tất cả lớp
@@ -1175,7 +1300,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
           ],
 
           if (_selectedSegment == 2) ...[
-            // TOOLBAR BÀI THI: TÌM KIẾM + LỌC THEO LỚP HỌC & KẾT QUẢ ĐẠT/CHƯA ĐẠT
+            // TOOLBAR BÀI THI: TÌM KIẾM + LỌC THEO LỚP HỌC (POPUP TỪ NÚT) & KẾT QUẢ ĐẠT / CHƯA ĐẠT
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -1222,83 +1347,215 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                   ),
                   const SizedBox(height: 6),
 
-                  // Dòng 2: Dải Micro-pills LỌC THEO LỚP HỌC (BATCH) & KẾT QUẢ
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        // Tất cả lớp
-                        _buildMicroPill(
-                          label: 'Tất cả lớp',
-                          badgeText: '${_submissions.length}',
-                          isSelected: _selectedSubmissionBatchId == 'ALL',
-                          onTap: () => setState(() => _selectedSubmissionBatchId = 'ALL'),
+                  // Dòng 2: LỌC THEO LỚP HỌC (TỪ NÚT XỔ RA) & NÚT ĐẠT CHUẨN / CHƯA ĐẠT NẰM CẠNH NHAU
+                  Row(
+                    children: [
+                      // NÚT LỌC THEO LỚP (Xổ menu từ chính nút ra)
+                      PopupMenuButton<String>(
+                        offset: const Offset(0, 32),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: Color(0xFFE5E7EB)),
                         ),
-                        const SizedBox(width: 6),
+                        elevation: 6,
+                        color: Colors.white,
+                        tooltip: 'Lọc theo lớp học',
+                        onSelected: (batchId) {
+                          setState(() => _selectedSubmissionBatchId = batchId);
+                        },
+                        itemBuilder: (ctx) {
+                          final items = <PopupMenuEntry<String>>[];
 
-                        // Từng lớp học cụ thể từ _batches
-                        ..._batches.map((batch) {
-                          final count = _submissions.where((s) {
-                            final bId = _getSubmissionBatchId(s);
-                            final bCode = _getSubmissionBatchCode(s);
-                            return bId == batch.id || bCode == batch.batchCode;
-                          }).length;
-
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: _buildMicroPill(
-                              label: batch.batchCode,
-                              badgeText: '$count',
-                              isSelected: _selectedSubmissionBatchId == batch.id || _selectedSubmissionBatchId == batch.batchCode,
-                              onTap: () => setState(() => _selectedSubmissionBatchId = batch.id),
+                          // Tất cả các lớp
+                          items.add(
+                            PopupMenuItem<String>(
+                              value: 'ALL',
+                              height: 38,
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.school_rounded, size: 16, color: Color(0xFF00693F)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Tất cả các lớp',
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 12,
+                                        fontWeight: _selectedSubmissionBatchId == 'ALL' ? FontWeight.w700 : FontWeight.w500,
+                                        color: _selectedSubmissionBatchId == 'ALL' ? const Color(0xFF00693F) : AppColors.textHeading,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: _selectedSubmissionBatchId == 'ALL' ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '${_submissions.length}',
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: _selectedSubmissionBatchId == 'ALL' ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                  ),
+                                  if (_selectedSubmissionBatchId == 'ALL') ...[
+                                    const SizedBox(width: 6),
+                                    const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
+                                  ],
+                                ],
+                              ),
                             ),
                           );
-                        }),
 
-                        // Chưa có lớp (nếu có bài nộp của học viên chưa xếp lớp)
-                        if (_submissions.any((s) => _getSubmissionBatchId(s).isEmpty && _getSubmissionBatchCode(s).isEmpty))
-                          Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: _buildMicroPill(
-                              label: 'Chưa có lớp',
-                              isSelected: _selectedSubmissionBatchId == 'NO_BATCH',
-                              onTap: () => setState(() => _selectedSubmissionBatchId = 'NO_BATCH'),
+                          items.add(const PopupMenuDivider(height: 1));
+
+                          // Từng lớp trong _batches
+                          for (final batch in _batches) {
+                            final isSelected = _selectedSubmissionBatchId == batch.id || _selectedSubmissionBatchId == batch.batchCode;
+                            final count = _submissions.where((s) {
+                              final bId = _getSubmissionBatchId(s);
+                              final bCode = _getSubmissionBatchCode(s);
+                              return bId == batch.id || bCode == batch.batchCode;
+                            }).length;
+
+                            items.add(
+                              PopupMenuItem<String>(
+                                value: batch.id,
+                                height: 38,
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 7,
+                                      height: 7,
+                                      margin: const EdgeInsets.only(right: 8),
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF00693F),
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        '${batch.batchCode} · ${batch.courseTitle}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.zaloFont(
+                                          fontSize: 11.5,
+                                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                          color: isSelected ? const Color(0xFF00693F) : AppColors.textHeading,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '$count',
+                                        style: AppTypography.zaloFont(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: isSelected ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                    ),
+                                    if (isSelected) ...[
+                                      const SizedBox(width: 6),
+                                      const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+
+                          if (_submissions.any((s) => _getSubmissionBatchId(s).isEmpty && _getSubmissionBatchCode(s).isEmpty)) {
+                            final isNoBatch = _selectedSubmissionBatchId == 'NO_BATCH';
+                            items.add(
+                              PopupMenuItem<String>(
+                                value: 'NO_BATCH',
+                                height: 38,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Chưa xếp lớp',
+                                        style: AppTypography.zaloFont(
+                                          fontSize: 11.5,
+                                          fontWeight: isNoBatch ? FontWeight.w700 : FontWeight.w500,
+                                          color: isNoBatch ? const Color(0xFF00693F) : AppColors.textHeading,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isNoBatch) const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+
+                          return items;
+                        },
+                        child: _buildMicroPill(
+                          label: _selectedSubmissionBatchId == 'ALL'
+                              ? 'Lớp: Tất cả'
+                              : (_selectedSubmissionBatchId == 'NO_BATCH'
+                                  ? 'Lớp: Chưa xếp'
+                                  : 'Lớp: ${_getBatchCodeFromId(_selectedSubmissionBatchId)}'),
+                          icon: Icons.school_rounded,
+                          isSelected: _selectedSubmissionBatchId != 'ALL',
+                          showDropdownArrow: true,
+                        ),
+                      ),
+
+                      if (_selectedSubmissionBatchId != 'ALL') ...[
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () => setState(() => _selectedSubmissionBatchId = 'ALL'),
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF3F4F6),
+                              shape: BoxShape.circle,
                             ),
+                            child: const Icon(Icons.close_rounded, size: 13, color: Color(0xFF6B7280)),
                           ),
-
-                        Container(
-                          height: 16,
-                          width: 1,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          color: const Color(0xFFE5E7EB),
-                        ),
-
-                        // Lọc theo kết quả Đạt / Chưa đạt
-                        _buildMicroPill(
-                          label: 'Đạt chuẩn',
-                          badgeText: '${_submissions.where((s) => s.passed).length}',
-                          isSelected: _selectedSubmissionResult == 'PASSED',
-                          activeColor: const Color(0xFF00693F),
-                          onTap: () {
-                            setState(() {
-                              _selectedSubmissionResult = _selectedSubmissionResult == 'PASSED' ? 'ALL' : 'PASSED';
-                            });
-                          },
-                        ),
-                        const SizedBox(width: 6),
-                        _buildMicroPill(
-                          label: 'Chưa đạt',
-                          badgeText: '${_submissions.where((s) => !s.passed).length}',
-                          isSelected: _selectedSubmissionResult == 'FAILED',
-                          activeColor: const Color(0xFFD97706),
-                          onTap: () {
-                            setState(() {
-                              _selectedSubmissionResult = _selectedSubmissionResult == 'FAILED' ? 'ALL' : 'FAILED';
-                            });
-                          },
                         ),
                       ],
-                    ),
+
+                      const SizedBox(width: 8),
+
+                      // NÚT ĐẠT CHUẨN (VẪN GIỮ NGUYÊN)
+                      _buildMicroPill(
+                        label: 'Đạt chuẩn',
+                        badgeText: '${_submissions.where((s) => s.passed).length}',
+                        isSelected: _selectedSubmissionResult == 'PASSED',
+                        activeColor: const Color(0xFF00693F),
+                        onTap: () {
+                          setState(() {
+                            _selectedSubmissionResult = _selectedSubmissionResult == 'PASSED' ? 'ALL' : 'PASSED';
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 6),
+
+                      // NÚT CHƯA ĐẠT (VẪN GIỮ NGUYÊN)
+                      _buildMicroPill(
+                        label: 'Chưa đạt',
+                        badgeText: '${_submissions.where((s) => !s.passed).length}',
+                        isSelected: _selectedSubmissionResult == 'FAILED',
+                        activeColor: const Color(0xFFD97706),
+                        onTap: () {
+                          setState(() {
+                            _selectedSubmissionResult = _selectedSubmissionResult == 'FAILED' ? 'ALL' : 'FAILED';
+                          });
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
