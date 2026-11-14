@@ -31,6 +31,16 @@ interface EnrollmentBillModalProps {
 
 export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
   isOpen,
+  candidate,
+  ...actions
+}) => {
+  if (!isOpen || !candidate) return null;
+  return <EnrollmentBillContent key={candidate.id} candidate={candidate} {...actions} />;
+};
+
+const EnrollmentBillContent: React.FC<Omit<EnrollmentBillModalProps, 'isOpen' | 'candidate'> & {
+  candidate: CandidateBillInfo;
+}> = ({
   onClose,
   candidate,
   onCheckPayment,
@@ -41,7 +51,7 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
-  if (!isOpen || !candidate) return null;
+  const [showPaidDemo, setShowPaidDemo] = useState(false);
 
   const rawTuition = Math.max(0, Number(candidate.tuitionTotal) || 0);
   const remaining = Math.max(0, rawTuition - (candidate.amountPaid || 0));
@@ -133,7 +143,7 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownloadPdf}
-              disabled={isExportingPdf}
+              disabled={isExportingPdf || showPaidDemo}
               className="px-3.5 py-2 bg-white border border-[#E8DFD8] hover:bg-[#FAF8F5] text-[#4A3B32] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
@@ -141,6 +151,7 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
             </button>
             <button
               onClick={handlePrint}
+              disabled={showPaidDemo}
               className="px-3.5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -157,6 +168,21 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
 
         {/* Scrollable Printable Bill Content */}
         <div className="overflow-y-auto p-4 sm:p-8 space-y-6 text-[#2C241E]">
+          {showPaidDemo ? (
+            <section role="status" className="no-print rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+              <p className="text-xs font-bold uppercase text-emerald-800">Chế độ demo</p>
+              <h3 className="mt-2 flex items-center gap-2 text-lg font-bold text-emerald-900">
+                <CheckCircle2 className="h-5 w-5" /> Đã thanh toán đủ học phí
+              </h3>
+              <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                <dt>Số tiền minh họa</dt>
+                <dd className="text-right font-semibold">{rawTuition.toLocaleString('vi-VN')} đ</dd>
+                <dt>Còn phải nộp (demo)</dt>
+                <dd className="text-right font-semibold">0 đ</dd>
+              </dl>
+              <p className="mt-4 text-sm text-emerald-900">Đây là bản xem thử. Trạng thái hồ sơ và khoản thu thật vẫn theo dữ liệu trên phiếu.</p>
+            </section>
+          ) : (
           <MLDInvoiceDocument printId="enrollment-bill-print-area" data={{
             id: orderRef,
             title: 'PHIẾU HỌC PHÍ',
@@ -264,6 +290,7 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
 
             )}
           </MLDInvoiceDocument>
+          )}
         </div>
 
         {/* Modal Bottom Actions Bar (Non-print) */}
@@ -274,6 +301,18 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {remaining > 0 && (
+              <button
+                type="button"
+                aria-pressed={showPaidDemo}
+                disabled={isChecking || isApproving || isExportingPdf}
+                onClick={() => setShowPaidDemo(current => !current)}
+                className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold text-blue-900 disabled:opacity-50"
+              >
+                {showPaidDemo ? 'Quay lại phiếu thật' : 'Demo đã thanh toán'}
+              </button>
+            )}
+            {!showPaidDemo && <>
             {/* Nút 1: Kiểm tra tiền về */}
             <button
               type="button"
@@ -307,6 +346,7 @@ export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
               <Printer className="w-3.5 h-3.5" />
               <span>In Phiếu</span>
             </button>
+            </>}
           </div>
         </div>
       </div>
