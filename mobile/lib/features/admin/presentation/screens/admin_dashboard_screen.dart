@@ -6,6 +6,9 @@ import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../widgets/admin_kpi_card.dart';
 import '../widgets/admin_action_card.dart';
+import '../widgets/admin_revenue_grid_modal.dart';
+import '../widgets/assign_batch_bottom_sheet.dart';
+import '../widgets/quiz_submission_detail_sheet.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final Function(int tabIndex, {String? subTab})? onNavigateTab;
@@ -92,11 +95,55 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           }
         }
       } else if (item.type == AdminActionType.waitingBatch) {
-        // Chuyển sang Tab 2 (Tuyển sinh & Học viện) ở phân hệ Chờ xếp lớp
-        widget.onNavigateTab?.call(2, subTab: 'PAID_WAITING_CLASS');
+        if (item.rawData != null) {
+          final candidate = AdminCandidateModel.fromJson(item.rawData!);
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => AssignBatchBottomSheet(
+              candidate: candidate,
+              onBatchAssigned: (batchId, batchCode) async {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Đã xếp học viên ${candidate.candidateName} vào lớp $batchCode'),
+                    backgroundColor: AppColors.success,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                await _fetchData();
+              },
+            ),
+          );
+        } else {
+          // Chuyển sang Tab 2 (Tuyển sinh & Học viện) ở phân hệ Chờ xếp lớp
+          widget.onNavigateTab?.call(2, subTab: 'PAID_WAITING_CLASS');
+        }
       } else if (item.type == AdminActionType.newQuizSubmission) {
-        // Chuyển sang Tab 2 ở phân hệ Bài thi
-        widget.onNavigateTab?.call(2, subTab: 'QUIZZES');
+        if (item.rawData != null) {
+          final sub = AdminQuizSubmissionModel.fromJson(item.rawData!);
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => QuizSubmissionDetailSheet(
+              submission: sub,
+              onSaved: () async {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Đã lưu nhận xét bài thi thành công!'),
+                    backgroundColor: AppColors.success,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                await _fetchData();
+              },
+            ),
+          );
+        } else {
+          // Chuyển sang Tab 2 ở phân hệ Bài thi
+          widget.onNavigateTab?.call(2, subTab: 'QUIZZES');
+        }
       }
     } finally {
       if (mounted) {
@@ -285,17 +332,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 2. Thống kê Doanh thu (Hôm nay & Tháng đặt ngang nhau)
+                  // 2. Thống kê Doanh thu (Hôm nay & Tháng đặt ngang nhau - Bấm vào xem Biểu đồ Lưới)
                   Row(
                     children: [
                       Expanded(
                         child: AdminKpiCard(
                           title: 'Doanh thu hôm nay',
                           value: _formatCurrency(_metrics.todayRevenue),
-                          subtitle: 'Hóa đơn đã thu',
+                          subtitle: 'Hóa đơn đã thu · Chạm xem lưới',
                           icon: Icons.account_balance_wallet_rounded,
                           iconColor: const Color(0xFF00693F),
                           iconBgColor: const Color(0xFFE8F6ED),
+                          onTap: () => AdminRevenueGridModal.show(
+                            context,
+                            initialPeriod: 'TODAY',
+                            branchId: _selectedBranchId == 'ALL' ? null : _selectedBranchId,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -303,10 +355,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         child: AdminKpiCard(
                           title: 'Doanh thu tháng ${now.month}',
                           value: _formatCurrency(_metrics.monthRevenue),
-                          subtitle: 'Tháng ${now.month}/${now.year}',
+                          subtitle: 'Tháng ${now.month}/${now.year} · Chạm xem lưới',
                           icon: Icons.trending_up_rounded,
                           iconColor: const Color(0xFF1E40AF),
                           iconBgColor: const Color(0xFFEFF6FF),
+                          onTap: () => AdminRevenueGridModal.show(
+                            context,
+                            initialPeriod: 'MONTH',
+                            branchId: _selectedBranchId == 'ALL' ? null : _selectedBranchId,
+                          ),
                         ),
                       ),
                     ],
@@ -373,9 +430,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 4. Khung Dashboard Thứ 4: Việc cần duyệt gấp (Bấm vào map đến màn duyệt)
+                  // 4. Khung Dashboard Thứ 4: Việc cần duyệt gấp (Bấm vào điều hướng thông minh)
                   InkWell(
-                    onTap: () => widget.onNavigateTab?.call(1, subTab: 'PENDING'),
+                    onTap: () {
+                      final hasPendingBk = _actionItems.any((it) => it.type == AdminActionType.pendingBooking);
+                      final hasWaitingBatch = _actionItems.any((it) => it.type == AdminActionType.waitingBatch);
+                      final hasQuiz = _actionItems.any((it) => it.type == AdminActionType.newQuizSubmission);
+
+                      if (hasPendingBk) {
+                        widget.onNavigateTab?.call(1, subTab: 'PENDING');
+                      } else if (hasWaitingBatch) {
+                        widget.onNavigateTab?.call(2, subTab: 'PAID_WAITING_CLASS');
+                      } else if (hasQuiz) {
+                        widget.onNavigateTab?.call(2, subTab: 'QUIZZES');
+                      } else {
+                        widget.onNavigateTab?.call(1, subTab: 'PENDING');
+                      }
+                    },
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
