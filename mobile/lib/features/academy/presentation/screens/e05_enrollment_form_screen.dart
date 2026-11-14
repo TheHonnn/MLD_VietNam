@@ -200,7 +200,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Đăng ký thành công!',
+                'Đăng ký thành công',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -230,6 +230,12 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ và liên hệ hướng dẫn bạn.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
               ),
               const SizedBox(height: 18),
               Container(
