@@ -674,6 +674,28 @@ class AdminRepository {
     }
   }
 
+  /// 6.5. Tạo mới hoặc Cập nhật Gói Bổ trợ / Gói Liệu trình (treatment_packages)
+  Future<bool> saveTreatmentPackage({String? id, required Map<String, dynamic> data}) async {
+    try {
+      if (id != null && id.isNotEmpty) {
+        final res = await _apiClient.dio.patch(
+          '/rest/v1/treatment_packages?id=eq.$id',
+          data: data,
+        );
+        return res.statusCode == 200 || res.statusCode == 204;
+      } else {
+        final res = await _apiClient.dio.post(
+          '/rest/v1/treatment_packages',
+          data: data,
+        );
+        return res.statusCode == 200 || res.statusCode == 201;
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] saveTreatmentPackage error: $e');
+      return false;
+    }
+  }
+
   /// 7. Quản lý & Duyệt Khóa học (Courses)
   Future<List<AdminCourseModel>> fetchCourses({String? level}) async {
     try {

@@ -8,6 +8,7 @@ import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../widgets/service_form_sheet.dart';
 import '../widgets/course_form_sheet.dart';
+import '../widgets/package_form_sheet.dart';
 import '../../../../core/services/top_notification_service.dart';
 
 class AdminCatalogScreen extends StatefulWidget {
@@ -221,6 +222,24 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     );
   }
 
+  void _openPackageForm([AdminTreatmentPackageModel? package]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => PackageFormSheet(
+        package: package,
+        onSaved: () {
+          TopNotificationService.showSuccess(
+            title: 'Thành công',
+            message: package != null ? 'Đã lưu thay đổi gói bổ trợ!' : 'Đã tạo mới gói bổ trợ thành công!',
+          );
+          _fetchData();
+        },
+      ),
+    );
+  }
+
   String _formatPrice(double amount) {
     final formatter = NumberFormat('#,###', 'vi_VN');
     return '${formatter.format(amount)} ₫';
@@ -311,7 +330,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
               _selectedSegment == 0
                   ? '${_services.length} dịch vụ đang kinh doanh'
                   : _selectedSegment == 1
-                      ? '${_packages.length} gói liệu trình định kỳ'
+                      ? '${_packages.length} gói bổ trợ & liệu trình'
                       : _selectedSegment == 2
                           ? '${_courses.length} chương trình đào tạo'
                           : '${_products.length} sản phẩm & gói bổ trợ',
@@ -324,20 +343,26 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           ],
         ),
         actions: [
-          if (_selectedSegment == 0 || _selectedSegment == 2)
+          if (_selectedSegment != 3)
             Padding(
               padding: const EdgeInsets.only(right: 14),
               child: ElevatedButton.icon(
                 onPressed: () {
                   if (_selectedSegment == 0) {
                     _openServiceForm();
+                  } else if (_selectedSegment == 1) {
+                    _openPackageForm();
                   } else if (_selectedSegment == 2) {
                     _openCourseForm();
                   }
                 },
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: Text(
-                  _selectedSegment == 0 ? 'Thêm DV' : 'Thêm khóa',
+                  _selectedSegment == 0
+                      ? 'Thêm DV'
+                      : _selectedSegment == 1
+                          ? 'Thêm gói'
+                          : 'Thêm khóa',
                   style: AppTypography.zaloFont(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
@@ -377,7 +402,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                   children: [
                     _buildCatalogTabButton(0, 'Dịch vụ (${_services.length})', const Color(0xFF00693F)),
                     const SizedBox(width: 4),
-                    _buildCatalogTabButton(1, 'Gói liệu trình (${_packages.length})', const Color(0xFF00693F)),
+                    _buildCatalogTabButton(1, 'Gói bổ trợ (${_packages.length})', const Color(0xFF00693F)),
                     const SizedBox(width: 4),
                     _buildCatalogTabButton(2, 'Khóa học (${_courses.length})', const Color(0xFF00693F)),
                     const SizedBox(width: 4),
@@ -398,7 +423,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                 hintText: _selectedSegment == 0
                     ? 'Tìm dịch vụ...'
                     : _selectedSegment == 1
-                        ? 'Tìm gói liệu trình...'
+                        ? 'Tìm gói bổ trợ...'
                         : _selectedSegment == 2
                             ? 'Tìm khóa học...'
                             : 'Tìm sản phẩm & vật tư bổ trợ...',
@@ -744,7 +769,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                 const Icon(Icons.layers_outlined, size: 36, color: Color(0xFF9CA3AF)),
                 const SizedBox(height: 12),
                 Text(
-                  'Không tìm thấy gói liệu trình nào',
+                  'Không tìm thấy gói bổ trợ nào',
                   style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                 ),
                 const SizedBox(height: 4),
@@ -781,122 +806,129 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
               ),
             ],
           ),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: 54,
-                  height: 54,
-                  color: const Color(0xFFE8F6ED),
-                  child: p.imageUrl.isNotEmpty
-                      ? Image.network(
-                          p.imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(
+          child: InkWell(
+            onTap: () => _openPackageForm(p),
+            borderRadius: BorderRadius.circular(14),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 54,
+                    height: 54,
+                    color: const Color(0xFFE8F6ED),
+                    child: p.imageUrl.isNotEmpty
+                        ? Image.network(
+                            p.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.layers_rounded,
+                              color: Color(0xFF00693F),
+                              size: 24,
+                            ),
+                          )
+                        : const Icon(
                             Icons.layers_rounded,
                             color: Color(0xFF00693F),
                             size: 24,
                           ),
-                        )
-                      : const Icon(
-                          Icons.layers_rounded,
-                          color: Color(0xFF00693F),
-                          size: 24,
-                        ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F6ED),
-                            borderRadius: BorderRadius.circular(4),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F6ED),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${p.totalSessions} buổi · Hạn ${p.validityMonths} tháng',
+                              style: AppTypography.zaloFont(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF00693F),
+                              ),
+                            ),
                           ),
-                          child: Text(
-                            '${p.totalSessions} buổi · ${p.validityMonths}T',
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              p.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.zaloFont(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textHeading,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Text(
+                            _formatPrice(p.price),
                             style: AppTypography.zaloFont(
-                              fontSize: 10,
+                              fontSize: 12.5,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF00693F),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            p.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.zaloFont(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textHeading,
+                          if (p.discountPrice != null && p.discountPrice! > 0 && p.discountPrice! < p.price) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              _formatPrice(p.discountPrice!),
+                              style: AppTypography.zaloFont(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                                decoration: TextDecoration.lineThrough,
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Text(
-                          _formatPrice(p.price),
-                          style: AppTypography.zaloFont(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF00693F),
-                          ),
-                        ),
-                        if (p.discountPrice != null && p.discountPrice! > 0 && p.discountPrice! < p.price) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            _formatPrice(p.discountPrice!),
-                            style: AppTypography.zaloFont(
-                              fontSize: 11,
-                              color: AppColors.textSecondary,
-                              decoration: TextDecoration.lineThrough,
-                            ),
-                          ),
+                          ],
                         ],
-                      ],
-                    ),
-                    if (p.description.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        p.description,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.zaloFont(
-                          fontSize: 10.5,
-                          color: AppColors.textSecondary,
-                        ),
                       ),
+                      if (p.description.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          p.description,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.zaloFont(
+                            fontSize: 10.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              if (isToggling)
-                const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00693F)),
-                )
-              else
-                Switch(
-                  value: p.isActive,
-                  activeThumbColor: const Color(0xFF00693F),
-                  onChanged: (_) => _handleTogglePackage(p),
-                ),
-            ],
+                if (isToggling)
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00693F)),
+                  )
+                else
+                  Switch(
+                    value: p.isActive,
+                    activeThumbColor: const Color(0xFF00693F),
+                    onChanged: (_) => _handleTogglePackage(p),
+                  ),
+              ],
+            ),
           ),
         );
+      },
+    );
+  }
       },
     );
   }
