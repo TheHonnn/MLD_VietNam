@@ -260,17 +260,19 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Danh mục Dịch vụ & Khóa học',
+              'Danh mục & Bảng giá',
               style: AppTypography.zaloFont(
-                fontSize: 16,
+                fontSize: 15.5,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textHeading,
               ),
             ),
             Text(
               _selectedSegment == 0
-                  ? '${_services.length} dịch vụ trong bảng giá'
-                  : '${_courses.length} chương trình đào tạo',
+                  ? '${_services.length} dịch vụ đang kinh doanh'
+                  : _selectedSegment == 1
+                      ? '${_courses.length} chương trình đào tạo'
+                      : '${_products.length} sản phẩm bán lẻ',
               style: AppTypography.zaloFont(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -279,15 +281,47 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
             ),
           ],
         ),
+        actions: [
+          if (_selectedSegment != 2)
+            Padding(
+              padding: const EdgeInsets.only(right: 14),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  if (_selectedSegment == 0) {
+                    _openServiceForm();
+                  } else {
+                    _openCourseForm();
+                  }
+                },
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: Text(
+                  _selectedSegment == 0 ? 'Thêm DV' : 'Thêm khóa',
+                  style: AppTypography.zaloFont(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00693F),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: const Size(0, 34),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+        ],
       ),
       body: Column(
         children: [
           // 1. Segmented Control 3 Tab
           Container(
             color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
             child: Container(
-              height: 42,
+              height: 38,
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 color: const Color(0xFFF3F4F6),
@@ -295,9 +329,9 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
               ),
               child: Row(
                 children: [
-                  _buildCatalogTabButton(0, 'Dịch vụ', const Color(0xFFE11D48)),
-                  _buildCatalogTabButton(1, 'Khóa học', const Color(0xFF00693F)),
-                  _buildCatalogTabButton(2, 'Sản phẩm', AppColors.primary),
+                  _buildCatalogTabButton(0, 'Dịch vụ (${_services.length})', const Color(0xFF00693F)),
+                  _buildCatalogTabButton(1, 'Khóa học (${_courses.length})', const Color(0xFF00693F)),
+                  _buildCatalogTabButton(2, 'Sản phẩm (${_products.length})', const Color(0xFF00693F)),
                 ],
               ),
             ),
@@ -411,23 +445,23 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
         final isToggling = _togglingId == s.id;
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFFE5E7EB)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 6,
+                blurRadius: 5,
                 offset: const Offset(0, 2),
               ),
             ],
           ),
           child: InkWell(
             onTap: () => _openServiceForm(s),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             child: Row(
               children: [
                 // Thumbnail Ảnh thật dịch vụ (Fallback Icon nếu không có ảnh)
@@ -531,23 +565,23 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
         final isToggling = _togglingId == c.id;
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFFE5E7EB)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 6,
+                blurRadius: 5,
                 offset: const Offset(0, 2),
               ),
             ],
           ),
           child: InkWell(
             onTap: () => _openCourseForm(c),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             child: Row(
               children: [
                 // Thumbnail Ảnh thật khóa học (Fallback Icon nếu không có ảnh)
@@ -707,16 +741,16 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
       itemBuilder: (ctx, index) {
         final p = _filteredProducts[index];
         return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFFE5E7EB)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 6,
+                blurRadius: 5,
                 offset: const Offset(0, 2),
               ),
             ],

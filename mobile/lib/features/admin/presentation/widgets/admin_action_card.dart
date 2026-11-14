@@ -52,27 +52,27 @@ class AdminActionCard extends StatelessWidget {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 6,
+            blurRadius: 5,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: isProcessing ? null : onAction,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -80,20 +80,20 @@ class AdminActionCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: badgeBg,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(badgeIcon, size: 12, color: badgeText),
+                          Icon(badgeIcon, size: 11, color: badgeText),
                           const SizedBox(width: 4),
                           Text(
                             badgeLabel,
                             style: AppTypography.zaloFont(
-                              fontSize: 10.5,
+                              fontSize: 10,
                               fontWeight: FontWeight.w700,
                               color: badgeText,
                             ),
@@ -104,46 +104,46 @@ class AdminActionCard extends StatelessWidget {
                     Text(
                       item.timeAgo,
                       style: AppTypography.zaloFont(
-                        fontSize: 11,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF9CA3AF),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 7),
                 Text(
                   item.title,
                   style: AppTypography.zaloFont(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textHeading,
-                    height: 1.3,
+                    height: 1.25,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
                   item.subtitle,
                   style: AppTypography.zaloFont(
-                    fontSize: 12,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w400,
                     color: AppColors.textSecondary,
-                    height: 1.3,
+                    height: 1.25,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     if (item.secondaryInfo != null && item.secondaryInfo!.isNotEmpty)
                       Row(
                         children: [
-                          const Icon(Icons.phone_rounded, size: 13, color: Color(0xFF9CA3AF)),
+                          const Icon(Icons.phone_rounded, size: 12, color: Color(0xFF9CA3AF)),
                           const SizedBox(width: 4),
                           Text(
                             item.secondaryInfo!,
                             style: AppTypography.zaloFont(
-                              fontSize: 11.5,
+                              fontSize: 11,
                               fontWeight: FontWeight.w500,
                               color: AppColors.textSecondary,
                             ),
@@ -158,10 +158,10 @@ class AdminActionCard extends StatelessWidget {
                         backgroundColor: actionBtnColor,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        minimumSize: const Size(0, 34),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        minimumSize: const Size(0, 32),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                       child: isProcessing
@@ -176,8 +176,9 @@ class AdminActionCard extends StatelessWidget {
                           : Text(
                               actionBtnText,
                               style: AppTypography.zaloFont(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
                               ),
                             ),
                     ),

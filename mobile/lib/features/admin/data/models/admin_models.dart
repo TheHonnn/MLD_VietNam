@@ -9,6 +9,8 @@ class AdminKpiMetrics {
   final int checkedInBookingsCount;
   final int waitingBatchStudentsCount;
   final int pendingActionsCount;
+  final int pendingBookingsCount;
+  final int pendingQuizzesCount;
 
   const AdminKpiMetrics({
     this.todayRevenue = 0.0,
@@ -19,6 +21,8 @@ class AdminKpiMetrics {
     this.checkedInBookingsCount = 0,
     this.waitingBatchStudentsCount = 0,
     this.pendingActionsCount = 0,
+    this.pendingBookingsCount = 0,
+    this.pendingQuizzesCount = 0,
   });
 
   factory AdminKpiMetrics.empty() => const AdminKpiMetrics();

@@ -9,6 +9,7 @@ import '../widgets/admin_action_card.dart';
 import '../widgets/admin_revenue_grid_modal.dart';
 import '../widgets/assign_batch_bottom_sheet.dart';
 import '../widgets/quiz_submission_detail_sheet.dart';
+import '../../../../core/services/top_notification_service.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final Function(int tabIndex, {String? subTab})? onNavigateTab;
@@ -35,6 +36,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   AdminKpiMetrics _metrics = AdminKpiMetrics.empty();
   List<AdminActionItem> _actionItems = [];
   String? _processingItemId;
+  int _selectedApprovalBox = 0; // 0: Lịch hẹn, 1: Chờ xếp lớp, 2: Bài thi nộp
 
   @override
   void initState() {
@@ -76,21 +78,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         final success = await _repository.approveBooking(item.rawId);
         if (mounted) {
           if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Đã duyệt xác nhận lịch hẹn thành công!'),
-                backgroundColor: AppColors.success,
-                behavior: SnackBarBehavior.floating,
-              ),
+            TopNotificationService.showSuccess(
+              title: 'Duyệt lịch hẹn',
+              message: 'Đã duyệt xác nhận lịch hẹn thành công!',
             );
             await _fetchData();
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Không thể duyệt lịch hẹn. Vui lòng thử lại.'),
-                backgroundColor: AppColors.error,
-                behavior: SnackBarBehavior.floating,
-              ),
+            TopNotificationService.showError(
+              title: 'Lỗi duyệt lịch',
+              message: 'Không thể duyệt lịch hẹn. Vui lòng thử lại.',
             );
           }
         }
@@ -104,12 +100,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             builder: (_) => AssignBatchBottomSheet(
               candidate: candidate,
               onBatchAssigned: (batchId, batchCode) async {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Đã xếp học viên ${candidate.candidateName} vào lớp $batchCode'),
-                    backgroundColor: AppColors.success,
-                    behavior: SnackBarBehavior.floating,
-                  ),
+                TopNotificationService.showSuccess(
+                  title: 'Xếp lớp học viên',
+                  message: 'Đã xếp học viên ${candidate.candidateName} vào lớp $batchCode',
                 );
                 await _fetchData();
               },
@@ -129,12 +122,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             builder: (_) => QuizSubmissionDetailSheet(
               submission: sub,
               onSaved: () async {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Đã lưu nhận xét bài thi thành công!'),
-                    backgroundColor: AppColors.success,
-                    behavior: SnackBarBehavior.floating,
-                  ),
+                TopNotificationService.showSuccess(
+                  title: 'Nhận xét bài thi',
+                  message: 'Đã lưu nhận xét bài thi thành công!',
                 );
                 await _fetchData();
               },
@@ -430,127 +420,270 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 4. Khung Dashboard Thứ 4: Việc cần duyệt gấp (Bấm vào điều hướng thông minh)
-                  InkWell(
-                    onTap: () {
-                      final hasPendingBk = _actionItems.any((it) => it.type == AdminActionType.pendingBooking);
-                      final hasWaitingBatch = _actionItems.any((it) => it.type == AdminActionType.waitingBatch);
-                      final hasQuiz = _actionItems.any((it) => it.type == AdminActionType.newQuizSubmission);
+                  // 4. KHUNG CẦN DUYỆT GẤP: PHÂN RA 3 Ô ĐỘC LẬP THEO YÊU CẦU
+                  Builder(
+                    builder: (context) {
+                      final bookingItems = _actionItems.where((it) => it.type == AdminActionType.pendingBooking).toList();
+                      final batchItems = _actionItems.where((it) => it.type == AdminActionType.waitingBatch).toList();
+                      final quizItems = _actionItems.where((it) => it.type == AdminActionType.newQuizSubmission).toList();
 
-                      if (hasPendingBk) {
-                        widget.onNavigateTab?.call(1, subTab: 'PENDING');
-                      } else if (hasWaitingBatch) {
-                        widget.onNavigateTab?.call(2, subTab: 'PAID_WAITING_CLASS');
-                      } else if (hasQuiz) {
-                        widget.onNavigateTab?.call(2, subTab: 'QUIZZES');
-                      } else {
-                        widget.onNavigateTab?.call(1, subTab: 'PENDING');
+                      final bookingCount = _metrics.pendingBookingsCount > bookingItems.length ? _metrics.pendingBookingsCount : bookingItems.length;
+                      final batchCount = _metrics.waitingBatchStudentsCount > batchItems.length ? _metrics.waitingBatchStudentsCount : batchItems.length;
+                      final quizCount = _metrics.pendingQuizzesCount > quizItems.length ? _metrics.pendingQuizzesCount : quizItems.length;
+
+                      List<AdminActionItem> activeItems;
+                      String activeCategoryTitle;
+                      IconData activeCategoryIcon;
+                      Color activeCategoryColor;
+                      VoidCallback onOpenTab;
+                      String tabLabel;
+
+                      switch (_selectedApprovalBox) {
+                        case 0:
+                          activeItems = bookingItems;
+                          activeCategoryTitle = 'Lịch hẹn tiếp đón';
+                          activeCategoryIcon = Icons.calendar_month_rounded;
+                          activeCategoryColor = const Color(0xFF0284C7);
+                          onOpenTab = () => widget.onNavigateTab?.call(1, subTab: 'PENDING');
+                          tabLabel = 'Mở tab Tiếp đón →';
+                          break;
+                        case 1:
+                          activeItems = batchItems;
+                          activeCategoryTitle = 'Học viên chờ xếp lớp';
+                          activeCategoryIcon = Icons.school_rounded;
+                          activeCategoryColor = const Color(0xFF7C3AED);
+                          onOpenTab = () => widget.onNavigateTab?.call(2, subTab: 'PAID_WAITING_CLASS');
+                          tabLabel = 'Mở tab Tuyển sinh →';
+                          break;
+                        case 2:
+                        default:
+                          activeItems = quizItems;
+                          activeCategoryTitle = 'Bài thi học viên';
+                          activeCategoryIcon = Icons.assignment_turned_in_rounded;
+                          activeCategoryColor = const Color(0xFF00693F);
+                          onOpenTab = () => widget.onNavigateTab?.call(2, subTab: 'QUIZZES');
+                          tabLabel = 'Mở tab Bài thi →';
+                          break;
                       }
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: _metrics.pendingActionsCount > 0 ? const Color(0xFFFFF1F2) : const Color(0xFFE8F6ED),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: _metrics.pendingActionsCount > 0 ? const Color(0xFFFECDD3) : const Color(0xFFC6F6D5),
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: _metrics.pendingActionsCount > 0 ? const Color(0xFFFFE4E6) : Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              _metrics.pendingActionsCount > 0
-                                  ? Icons.warning_amber_rounded
-                                  : Icons.check_circle_outline_rounded,
-                              color: _metrics.pendingActionsCount > 0
-                                  ? const Color(0xFFE11D48)
-                                  : const Color(0xFF0D6832),
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      'VIỆC CẦN DUYỆT GẤP',
+                          // Header Việc cần duyệt gấp
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'VIỆC CẦN DUYỆT GẤP',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF6B7280),
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _metrics.pendingActionsCount > 0
+                                          ? const Color(0xFFE11D48)
+                                          : const Color(0xFF00693F),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${_metrics.pendingActionsCount} việc',
                                       style: AppTypography.zaloFont(
-                                        fontSize: 11,
+                                        fontSize: 10.5,
                                         fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.5,
-                                        color: _metrics.pendingActionsCount > 0
-                                            ? const Color(0xFFBE123C)
-                                            : const Color(0xFF0D6832),
+                                        color: Colors.white,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: _metrics.pendingActionsCount > 0
-                                            ? const Color(0xFFE11D48)
-                                            : const Color(0xFF0D6832),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Text(
-                                        '${_metrics.pendingActionsCount} mục',
-                                        style: AppTypography.zaloFont(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                'Chạm ô để lọc danh sách',
+                                style: AppTypography.zaloFont(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF9CA3AF),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // 3 Ô PHÂN LOẠI CẦN DUYỆT GẤP
+                          Row(
+                            children: [
+                              _buildApprovalBox(
+                                index: 0,
+                                title: 'Lịch hẹn',
+                                subtitle: 'Khách đặt lịch',
+                                count: bookingCount,
+                                icon: Icons.calendar_month_rounded,
+                                color: const Color(0xFF0284C7),
+                                bgColor: const Color(0xFFE0F2FE),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildApprovalBox(
+                                index: 1,
+                                title: 'Chờ xếp lớp',
+                                subtitle: 'Đã đóng phí',
+                                count: batchCount,
+                                icon: Icons.school_rounded,
+                                color: const Color(0xFF7C3AED),
+                                bgColor: const Color(0xFFEDE9FE),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildApprovalBox(
+                                index: 2,
+                                title: 'Chấm bài thi',
+                                subtitle: 'Học viên nộp',
+                                count: quizCount,
+                                icon: Icons.assignment_turned_in_rounded,
+                                color: const Color(0xFF00693F),
+                                bgColor: const Color(0xFFE8F6ED),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Header Danh sách theo Ô đang chọn
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(activeCategoryIcon, size: 14, color: activeCategoryColor),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'DANH SÁCH ${activeCategoryTitle.toUpperCase()} (${activeItems.length})',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: activeCategoryColor,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  if (activeItems.isNotEmpty)
+                                    InkWell(
+                                      onTap: () => _showCategoryApprovalSheet(context, _selectedApprovalBox),
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: activeCategoryColor.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.fullscreen_rounded, size: 13, color: activeCategoryColor),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              'Bảng trượt',
+                                              style: AppTypography.zaloFont(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                                color: activeCategoryColor,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  _metrics.pendingActionsCount > 0
-                                      ? 'Có lịch hẹn/hồ sơ đang chờ bạn duyệt. Bấm để vào duyệt ngay →'
-                                      : 'Đã hoàn tất tất cả việc duyệt. Hệ thống đang thông suốt.',
-                                  style: AppTypography.zaloFont(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: _metrics.pendingActionsCount > 0
-                                        ? const Color(0xFF9F1239)
-                                        : const Color(0xFF166534),
+                                  const SizedBox(width: 8),
+                                  InkWell(
+                                    onTap: onOpenTab,
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      child: Text(
+                                        tabLabel,
+                                        style: AppTypography.zaloFont(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF4B5563),
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ),
-                          if (_metrics.pendingActionsCount > 0)
-                            const Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              size: 14,
-                              color: Color(0xFFE11D48),
+                          const SizedBox(height: 8),
+
+                          // Danh sách các mục thuộc ô đang chọn
+                          if (activeItems.isEmpty)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFFE5E7EB)),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: activeCategoryColor.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.check_circle_outline_rounded,
+                                      color: activeCategoryColor,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Không có $activeCategoryTitle nào đang chờ duyệt',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textHeading,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Tất cả đã được xử lý xong.',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w400,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            ...activeItems.map(
+                              (item) => AdminActionCard(
+                                item: item,
+                                isProcessing: _processingItemId == item.id,
+                                onAction: () => _handleAction(item),
+                              ),
                             ),
                         ],
-                      ),
-                    ),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
 
-                  // 3. Phím tắt Thao tác nhanh (Quick Action Shortcuts)
+                  // 5. Phím tắt Thao tác nhanh (Quick Action Shortcuts)
                   Text(
                     'THAO TÁC NHANH',
                     style: AppTypography.zaloFont(
@@ -560,7 +693,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       letterSpacing: 0.8,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
@@ -591,88 +724,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-
-                  // 4. Hàng việc cần xử lý khẩn cấp (Urgent Action Required Feed)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'CẦN DUYỆT KHẨN CẤP (${_actionItems.length})',
-                        style: AppTypography.zaloFont(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF6B7280),
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      if (_actionItems.isNotEmpty)
-                        Text(
-                          'Vuốt xuống để làm mới',
-                          style: AppTypography.zaloFont(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF9CA3AF),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-
-                  if (_actionItems.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 52,
-                            height: 52,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFE8F6ED),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.check_circle_outline_rounded,
-                              color: Color(0xFF0D6832),
-                              size: 30,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Tuyệt vời! Không có mục nào tồn đọng',
-                            style: AppTypography.zaloFont(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textHeading,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Mọi lịch hẹn và hồ sơ học viên đã được phê duyệt đầy đủ.',
-                            textAlign: TextAlign.center,
-                            style: AppTypography.zaloFont(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w400,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    ..._actionItems.map(
-                      (item) => AdminActionCard(
-                        item: item,
-                        isProcessing: _processingItemId == item.id,
-                        onAction: () => _handleAction(item),
-                      ),
-                    ),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -726,6 +777,272 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildApprovalBox({
+    required int index,
+    required String title,
+    required String subtitle,
+    required int count,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+  }) {
+    final isSelected = _selectedApprovalBox == index;
+    final hasItems = count > 0;
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            if (_selectedApprovalBox == index && hasItems) {
+              _showCategoryApprovalSheet(context, index);
+            } else {
+              setState(() => _selectedApprovalBox = index);
+            }
+          },
+          borderRadius: BorderRadius.circular(14),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? (hasItems ? bgColor.withValues(alpha: 0.3) : Colors.white)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isSelected ? color : const Color(0xFFE5E7EB),
+                width: isSelected ? 2 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isSelected
+                      ? color.withValues(alpha: 0.12)
+                      : Colors.black.withValues(alpha: 0.02),
+                  blurRadius: isSelected ? 8 : 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(icon, color: color, size: 17),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: hasItems ? color : const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$count',
+                        style: AppTypography.zaloFont(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: hasItems ? Colors.white : const Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.zaloFont(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected ? color : AppColors.textHeading,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$count cần duyệt',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.zaloFont(
+                    fontSize: 10,
+                    fontWeight: hasItems ? FontWeight.w600 : FontWeight.w400,
+                    color: hasItems
+                        ? (isSelected ? color : const Color(0xFFE11D48))
+                        : const Color(0xFF9CA3AF),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCategoryApprovalSheet(BuildContext context, int categoryIndex) {
+    final categoryType = categoryIndex == 0
+        ? AdminActionType.pendingBooking
+        : categoryIndex == 1
+            ? AdminActionType.waitingBatch
+            : AdminActionType.newQuizSubmission;
+
+    final categoryTitle = categoryIndex == 0
+        ? 'Lịch hẹn tiếp đón'
+        : categoryIndex == 1
+            ? 'Học viên chờ xếp lớp'
+            : 'Bài thi học viên';
+
+    final categoryColor = categoryIndex == 0
+        ? const Color(0xFF0284C7)
+        : categoryIndex == 1
+            ? const Color(0xFF7C3AED)
+            : const Color(0xFF00693F);
+
+    final items = _actionItems.where((it) => it.type == categoryType).toList();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.82,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1D5DB),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: categoryColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        categoryIndex == 0
+                            ? Icons.calendar_month_rounded
+                            : categoryIndex == 1
+                                ? Icons.school_rounded
+                                : Icons.assignment_turned_in_rounded,
+                        color: categoryColor,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Danh sách $categoryTitle',
+                            style: AppTypography.zaloFont(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textHeading,
+                            ),
+                          ),
+                          Text(
+                            '${items.length} lượt cần duyệt',
+                            style: AppTypography.zaloFont(
+                              fontSize: 11.5,
+                              color: categoryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF9CA3AF)),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFE5E7EB)),
+              // Content
+              Expanded(
+                child: items.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.check_circle_outline_rounded, size: 48, color: categoryColor),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Không có $categoryTitle nào đang chờ duyệt',
+                                style: AppTypography.zaloFont(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textHeading,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Tất cả đã được xử lý xong.',
+                                style: AppTypography.zaloFont(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        itemCount: items.length,
+                        itemBuilder: (_, idx) {
+                          final item = items[idx];
+                          return AdminActionCard(
+                            item: item,
+                            isProcessing: _processingItemId == item.id,
+                            onAction: () async {
+                              Navigator.pop(ctx);
+                              await _handleAction(item);
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

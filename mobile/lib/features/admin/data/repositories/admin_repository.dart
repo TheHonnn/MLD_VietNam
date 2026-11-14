@@ -172,6 +172,8 @@ class AdminRepository {
         checkedInBookingsCount: checkedInBk,
         waitingBatchStudentsCount: waitingBatchCount,
         pendingActionsCount: totalActions,
+        pendingBookingsCount: pendingBk,
+        pendingQuizzesCount: pendingQuizCount,
       );
     } catch (e) {
       debugPrint('[AdminRepository] fetchDashboardMetrics error: $e');
@@ -186,7 +188,7 @@ class AdminRepository {
     // A. Lịch hẹn PENDING (Tất cả ngày)
     try {
       String query =
-          '/rest/v1/bookings?select=id,booking_code,booking_date,start_time,booked_for_name,booked_for_phone,final_price,branch_id,created_at,branches(name)&status=eq.PENDING&order=created_at.desc&limit=10';
+          '/rest/v1/bookings?select=id,booking_code,booking_date,start_time,booked_for_name,booked_for_phone,final_price,branch_id,created_at,branches(name)&status=eq.PENDING&order=created_at.desc&limit=25';
       if (branchId != null && branchId.isNotEmpty && branchId != 'ALL') {
         query += '&branch_id=eq.$branchId';
       }
@@ -219,7 +221,7 @@ class AdminRepository {
     // B. Học viên đã nộp tiền chờ xếp lớp
     try {
       final res = await _apiClient.dio.get(
-        '/rest/v1/course_enrollments?select=id,order_code,student_name,student_phone,amount_paid,tuition_total,enrolled_at,courses(title)&batch_id=is.null&amount_paid=gt.0&order=enrolled_at.desc&limit=10',
+        '/rest/v1/course_enrollments?select=id,order_code,student_name,student_phone,amount_paid,tuition_total,enrolled_at,courses(title)&batch_id=is.null&amount_paid=gt.0&order=enrolled_at.desc&limit=25',
       );
       if (res.data is List) {
         for (final e in res.data) {
@@ -248,7 +250,7 @@ class AdminRepository {
     // C. Bài thi học viên nộp gần đây chưa duyệt feedback
     try {
       final res = await _apiClient.dio.get(
-        '/rest/v1/quiz_submissions?select=id,score,passed,submitted_at,instructor_feedback,course_enrollments(student_name,courses(title))&order=submitted_at.desc&limit=10',
+        '/rest/v1/quiz_submissions?select=id,score,passed,submitted_at,instructor_feedback,course_enrollments(student_name,courses(title))&order=submitted_at.desc&limit=25',
       );
       if (res.data is List) {
         for (final q in res.data) {

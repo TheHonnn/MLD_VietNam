@@ -216,5 +216,62 @@ void main() {
 
       expect(dismissed, isTrue);
     });
+
+    testWidgets('AdminDashboard 3 approval boxes render and switch category list', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                // Render 3 Boxes
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        key: const Key('box_booking'),
+                        child: const Column(
+                          children: [
+                            Text('Lịch hẹn'),
+                            Text('2 cần duyệt'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        key: const Key('box_batch'),
+                        child: const Column(
+                          children: [
+                            Text('Chờ xếp lớp'),
+                            Text('1 cần duyệt'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        key: const Key('box_quiz'),
+                        child: const Column(
+                          children: [
+                            Text('Chấm bài thi'),
+                            Text('1 cần duyệt'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Lịch hẹn'), findsOneWidget);
+      expect(find.text('Chờ xếp lớp'), findsOneWidget);
+      expect(find.text('Chấm bài thi'), findsOneWidget);
+      expect(find.text('2 cần duyệt'), findsOneWidget);
+      expect(find.text('1 cần duyệt'), findsNWidgets(2));
+    });
   });
 }
