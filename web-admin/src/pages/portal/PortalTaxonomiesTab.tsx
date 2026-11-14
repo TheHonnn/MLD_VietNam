@@ -41,6 +41,7 @@ export const PortalTaxonomiesTab: React.FC = () => {
   const [activeType, setActiveType] = useState<TaxonomyType>('TARGET_AUDIENCE');
   const [items, setItems] = useState<PortalTaxonomyItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<PortalTaxonomyItem> | null>(null);
@@ -53,13 +54,16 @@ export const PortalTaxonomiesTab: React.FC = () => {
   }, [activeType]);
 
   const loadTaxonomies = async () => {
+    setLoadError('');
     setIsLoading(true);
     try {
       const res = await portalService.getTaxonomies(activeType);
+      if (!res.success) throw new Error(res.message || 'Không tải được dữ liệu.');
       if (res.data) {
         setItems(res.data);
       }
     } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Không tải được dữ liệu.');
       console.error('Error loading taxonomies:', err);
     } finally {
       setIsLoading(false);
@@ -164,6 +168,8 @@ export const PortalTaxonomiesTab: React.FC = () => {
     const match = AVAILABLE_ICONS.find((x) => x.id === iconId);
     return match ? match.icon : Tag;
   };
+
+  if (loadError) return <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800"><p>{loadError}</p><button className="mt-2 underline" type="button" onClick={loadTaxonomies}>Thử tải lại</button></div>;
 
   return (
     <div className="space-y-6">

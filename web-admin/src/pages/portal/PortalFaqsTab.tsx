@@ -31,6 +31,7 @@ const FAQ_CATEGORIES: { id: string; label: string; icon: any; colorClass: string
 export const PortalFaqsTab: React.FC = () => {
   const [faqs, setFaqs] = useState<SupportFaqItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [expandedFaqId, setExpandedFaqId] = useState<string | null>(null);
@@ -47,13 +48,16 @@ export const PortalFaqsTab: React.FC = () => {
   }, []);
 
   const loadFaqs = async () => {
+    setLoadError('');
     setIsLoading(true);
     try {
       const res = await portalService.getFaqs();
+      if (!res.success) throw new Error(res.message || 'Không tải được dữ liệu.');
       if (res.data) {
         setFaqs(res.data);
       }
     } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Không tải được dữ liệu.');
       console.error('Error loading FAQs:', err);
     } finally {
       setIsLoading(false);
@@ -148,6 +152,8 @@ export const PortalFaqsTab: React.FC = () => {
     const match = FAQ_CATEGORIES.find((x) => x.id === cat);
     return match || { id: cat, label: cat, colorClass: 'bg-slate-100 text-slate-700' };
   };
+
+  if (loadError) return <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800"><p>{loadError}</p><button className="mt-2 underline" type="button" onClick={loadFaqs}>Thử tải lại</button></div>;
 
   return (
     <div className="space-y-6">

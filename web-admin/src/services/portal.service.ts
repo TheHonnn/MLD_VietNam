@@ -10,7 +10,8 @@ import {
   SupportFaqItem,
   LegalPolicyItem,
 } from '../types/shared_types';
-import { supabaseService } from './supabaseService';
+import { portalQuery } from './portalQuery';
+import { validatePortalPublication } from './portalValidation';
 import { getAdminAuthToken, supabase } from './supabaseClient';
 import { compressImageFile } from '../utils/imageCompressor';
 
@@ -49,20 +50,9 @@ function mapDbToPortalContent(item: any): PortalContentItem {
 }
 
 const DEFAULT_PORTAL_CONTACTS: PortalContacts = {
-  id: 'primary_mld_contacts',
-  hotlineSupport: '096.7786.399',
-  hotlineTraining: '096.7786.399',
-  zaloOaUrl: 'https://zalo.me/1424469774232439257?src=qr',
-  messengerUrl: 'https://m.me/hebachhuyet.mldvietnam',
-  fanpageUrl: 'https://facebook.com/hebachhuyet.mldvietnam',
-  tiktokUrl: 'https://tiktok.com/@mldvietnam',
-  youtubeUrl: '',
-  workingHours: '09:00 – 20:00 hàng ngày',
-  headquartersAddress: 'Chi nhánh Quận 3, 123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
-  consultationBadgeText: 'TƯ VẤN Y KHOA MLD',
-  updatedAt: new Date().toISOString(),
+  id: 'primary_mld_contacts', hotlineSupport: '', hotlineTraining: '', zaloOaUrl: '', messengerUrl: '',
+  fanpageUrl: '', tiktokUrl: '', youtubeUrl: '', workingHours: '', headquartersAddress: '', consultationBadgeText: '', updatedAt: '',
 };
-
 function mapDbToContacts(row: any): PortalContacts {
   if (!row) return DEFAULT_PORTAL_CONTACTS;
   return {
@@ -152,7 +142,7 @@ export const portalService = {
         queryPath += `&title=ilike.*${params.search}*`;
       }
 
-      const raw = await supabaseService.query<any[]>(queryPath);
+      const raw = await portalQuery<any[]>(queryPath);
       if (!raw) {
         return { success: true, statusCode: 200, message: 'Danh sách nội dung portal', data: [] };
       }
@@ -171,7 +161,7 @@ export const portalService = {
    */
   async getContentById(id: string): Promise<ApiResponse<PortalContentItem | null>> {
     try {
-      const raw = await supabaseService.query<any[]>(`miniapp_shared_content?id=eq.${id}&select=*`);
+      const raw = await portalQuery<any[]>(`miniapp_shared_content?id=eq.${id}&select=*`);
       if (!raw || raw.length === 0) {
         return { success: false, statusCode: 404, message: 'Không tìm thấy nội dung', data: null };
       }
@@ -187,6 +177,7 @@ export const portalService = {
    */
   async createContent(data: Partial<PortalContentItem>): Promise<ApiResponse<PortalContentItem | null>> {
     try {
+      validatePortalPublication(data);
       const payload: Record<string, any> = {
         kind: (data.kind || 'BANNER').toUpperCase(),
         title: data.title || '',
@@ -203,7 +194,7 @@ export const portalService = {
         file_size_bytes: Number(data.fileSizeBytes) || 0,
         likes_count: Number(data.likesCount) || 0,
         comments_count: Number(data.commentsCount) || 0,
-        status: (data.status || 'PUBLISHED').toUpperCase(),
+        status: (data.status || 'DRAFT').toUpperCase(),
         author_name: data.authorName || 'Hệ thống MLD',
         author_avatar: data.authorAvatar || null,
         // Phân quyền chuyên sâu cho Giáo trình & Tài liệu đào tạo MLD
@@ -213,11 +204,12 @@ export const portalService = {
         allowed_roles: data.allowedRoles || ['STUDENT', 'INSTRUCTOR', 'ADMIN'],
         watermark_text: data.watermarkText || 'MLD ACADEMY - BẢN QUYỀN ĐÀO TẠO',
         attachments: (data as any).attachments || [],
-        payload_hash: ' ',
+
         published_at: data.status === 'PUBLISHED' || data.status === 'APPROVED' ? new Date().toISOString() : null,
       };
 
-      const res = await supabaseService.query<any[]>('miniapp_shared_content', {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload)));
+      payload.payload_hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');      const res = await portalQuery<any[]>('miniapp_shared_content', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
@@ -243,6 +235,11 @@ export const portalService = {
    */
   async updateContent(id: string, updates: Partial<PortalContentItem>): Promise<ApiResponse<boolean>> {
     try {
+      {
+        const current = await this.getContentById(id);
+        if (!current.success || !current.data) throw new Error('Không tải được bản hiện tại để kiểm tra xuất bản.');
+        validatePortalPublication({ ...current.data, ...updates });
+      }
       const payload: Record<string, any> = {};
       if (updates.kind !== undefined) payload.kind = updates.kind.toUpperCase();
       if (updates.title !== undefined) payload.title = updates.title;
@@ -275,7 +272,7 @@ export const portalService = {
       }
       payload.updated_at = new Date().toISOString();
 
-      const res = await supabaseService.query<any>(`miniapp_shared_content?id=eq.${id}`, {
+      const res = await portalQuery<any>(`miniapp_shared_content?id=eq.${id}`, {
         method: 'PATCH',
         body: JSON.stringify(payload),
       });
@@ -324,7 +321,7 @@ export const portalService = {
    */
   async deleteContent(id: string): Promise<ApiResponse<boolean>> {
     try {
-      const res = await supabaseService.query<any>(`miniapp_shared_content?id=eq.${id}`, {
+      const res = await portalQuery<any>(`miniapp_shared_content?id=eq.${id}`, {
         method: 'DELETE',
       });
       return { success: res !== null, statusCode: 200, message: 'Đã xóa nội dung thành công', data: true };
@@ -371,19 +368,20 @@ export const portalService = {
    * Upload file ảnh hoặc tài liệu PDF với chiến lược 3 lớp:
    * 1. Supabase Storage trực tiếp (nếu bucket khả dụng và quyền hợp lệ)
    * 2. Backend Media API (nếu có cấu hình VITE_API_BASE_URL an toàn, tránh mixed-content trên HTTPS)
-   * 3. Fallback FileReader Base64 Data URL (bảo đảm 100% không bao giờ gặp lỗi "Failed to fetch" trên Vercel)
+   * 3. Báo lỗi rõ ràng nếu chưa lưu được tệp lên máy chủ
    */
   async uploadFileToStorage(file: File | Blob, nameHint = 'portal_file.pdf'): Promise<string> {
     if (!file) throw new Error('Không có tệp tin nào được chọn.');
+    if (file.size > 20 * 1024 * 1024) throw new Error('Tệp vượt quá 20 MB. Vui lòng giảm dung lượng trước khi tải lên.');
 
     // Tự động nén ảnh trước khi tải lên (giảm 95% dung lượng, tránh HTTP 413)
     let uploadPayload = file;
-    let fallbackDataUrl: string | null = null;
+
     if (file.type?.startsWith('image/')) {
       try {
         const compressed = await compressImageFile(file, 1200, 0.82);
         uploadPayload = compressed.file;
-        fallbackDataUrl = compressed.dataUrl;
+
       } catch (_) {}
     }
 
@@ -452,26 +450,10 @@ export const portalService = {
         }
       }
     } catch (apiErr) {
-      console.warn('[portalService] Backend upload API failed, falling back to Base64:', apiErr);
+      console.warn('[portalService] Backend upload API failed:', apiErr);
     }
 
-    // Bước 3: Fallback an toàn tuyệt đối qua Base64 Data URL đã nén
-    if (fallbackDataUrl) {
-      return fallbackDataUrl;
-    }
-
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          resolve(reader.result);
-        } else {
-          reject(new Error('Không thể đọc dữ liệu tệp tin.'));
-        }
-      };
-      reader.onerror = () => reject(new Error('Lỗi khi đọc tệp từ thiết bị của bạn.'));
-      reader.readAsDataURL(file);
-    });
+    throw new Error('Không tải được tệp lên kho lưu trữ. Vui lòng kiểm tra quyền tải tệp và thử lại; tệp chưa được lưu.');
   },
 
   // ==========================================
@@ -479,14 +461,14 @@ export const portalService = {
   // ==========================================
   async getContacts(): Promise<ApiResponse<PortalContacts>> {
     try {
-      const raw = await supabaseService.query<any[]>('portal_contacts?id=eq.primary_mld_contacts&select=*');
+      const raw = await portalQuery<any[]>('portal_contacts?id=eq.primary_mld_contacts&select=*');
       if (!raw || raw.length === 0) {
         return { success: true, statusCode: 200, message: 'Dữ liệu liên hệ mặc định', data: DEFAULT_PORTAL_CONTACTS };
       }
       return { success: true, statusCode: 200, message: 'Tải thông tin liên hệ thành công', data: mapDbToContacts(raw[0]) };
     } catch (err: any) {
       console.warn('[portalService] getContacts fallback to defaults:', err);
-      return { success: true, statusCode: 200, message: 'Dữ liệu liên hệ dự phòng', data: DEFAULT_PORTAL_CONTACTS };
+      return { success: false, statusCode: 500, message: err.message || 'Không tải được thông tin liên hệ.', data: DEFAULT_PORTAL_CONTACTS };
     }
   },
 
@@ -507,20 +489,10 @@ export const portalService = {
       if (data.headquartersAddress !== undefined) payload.headquarters_address = data.headquartersAddress;
       if (data.consultationBadgeText !== undefined) payload.consultation_badge_text = data.consultationBadgeText;
 
-      const res = await supabaseService.query<any[]>('portal_contacts?id=eq.primary_mld_contacts', {
-        method: 'PATCH',
-        body: JSON.stringify(payload),
+      const existing = await portalQuery<any[]>('portal_contacts?id=eq.primary_mld_contacts&select=id');
+      const res = await portalQuery<any[]>(existing.length ? 'portal_contacts?id=eq.primary_mld_contacts' : 'portal_contacts', {
+        method: existing.length ? 'PATCH' : 'POST', body: JSON.stringify(payload),
       });
-
-      if (!res || res.length === 0) {
-        const inserted = await supabaseService.query<any[]>('portal_contacts', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-        const saved = inserted && inserted.length > 0 ? mapDbToContacts(inserted[0]) : { ...DEFAULT_PORTAL_CONTACTS, ...data };
-        return { success: true, statusCode: 200, message: 'Cập nhật thông tin liên hệ thành công', data: saved };
-      }
-
       return { success: true, statusCode: 200, message: 'Cập nhật thông tin liên hệ thành công', data: mapDbToContacts(res[0]) };
     } catch (err: any) {
       console.error('[portalService] updateContacts error:', err);
@@ -537,7 +509,7 @@ export const portalService = {
       if (type) {
         path += `&type=eq.${type}`;
       }
-      const raw = await supabaseService.query<any[]>(path);
+      const raw = await portalQuery<any[]>(path);
       if (!raw) {
         return { success: true, statusCode: 200, message: 'Danh sách phân loại', data: [] };
       }
@@ -562,13 +534,13 @@ export const portalService = {
       if (item.isActive !== undefined) payload.is_active = Boolean(item.isActive);
 
       if (item.id) {
-        const res = await supabaseService.query<any[]>(`portal_taxonomies?id=eq.${item.id}`, {
+        const res = await portalQuery<any[]>(`portal_taxonomies?id=eq.${item.id}`, {
           method: 'PATCH',
           body: JSON.stringify(payload),
         });
         return { success: true, statusCode: 200, message: 'Cập nhật danh mục thành công', data: res && res[0] ? mapDbToTaxonomy(res[0]) : null };
       } else {
-        const res = await supabaseService.query<any[]>('portal_taxonomies', {
+        const res = await portalQuery<any[]>('portal_taxonomies', {
           method: 'POST',
           body: JSON.stringify(payload),
         });
@@ -582,7 +554,7 @@ export const portalService = {
 
   async deleteTaxonomy(id: string): Promise<ApiResponse<boolean>> {
     try {
-      await supabaseService.query<any[]>(`portal_taxonomies?id=eq.${id}`, { method: 'DELETE' });
+      await portalQuery<any[]>(`portal_taxonomies?id=eq.${id}`, { method: 'DELETE' });
       return { success: true, statusCode: 200, message: 'Xóa mục danh mục thành công', data: true };
     } catch (err: any) {
       console.error('[portalService] deleteTaxonomy error:', err);
@@ -599,7 +571,7 @@ export const portalService = {
       if (category && category !== 'ALL') {
         path += `&category=eq.${category}`;
       }
-      const raw = await supabaseService.query<any[]>(path);
+      const raw = await portalQuery<any[]>(path);
       if (!raw) {
         return { success: true, statusCode: 200, message: 'Danh sách FAQs', data: [] };
       }
@@ -612,6 +584,7 @@ export const portalService = {
 
   async saveFaq(item: Partial<SupportFaqItem>): Promise<ApiResponse<SupportFaqItem | null>> {
     try {
+      if (!item.question?.trim() || !item.answer?.trim()) throw new Error('Nhập đầy đủ câu hỏi và câu trả lời.');
       const payload: Record<string, any> = {};
       if (item.category !== undefined) payload.category = item.category;
       if (item.question !== undefined) payload.question = item.question.trim();
@@ -620,13 +593,13 @@ export const portalService = {
       if (item.isActive !== undefined) payload.is_active = Boolean(item.isActive);
 
       if (item.id) {
-        const res = await supabaseService.query<any[]>(`support_faqs?id=eq.${item.id}`, {
+        const res = await portalQuery<any[]>(`support_faqs?id=eq.${item.id}`, {
           method: 'PATCH',
           body: JSON.stringify(payload),
         });
         return { success: true, statusCode: 200, message: 'Cập nhật câu hỏi thành công', data: res && res[0] ? mapDbToFaq(res[0]) : null };
       } else {
-        const res = await supabaseService.query<any[]>('support_faqs', {
+        const res = await portalQuery<any[]>('support_faqs', {
           method: 'POST',
           body: JSON.stringify(payload),
         });
@@ -640,7 +613,7 @@ export const portalService = {
 
   async deleteFaq(id: string): Promise<ApiResponse<boolean>> {
     try {
-      await supabaseService.query<any[]>(`support_faqs?id=eq.${id}`, { method: 'DELETE' });
+      await portalQuery<any[]>(`support_faqs?id=eq.${id}`, { method: 'DELETE' });
       return { success: true, statusCode: 200, message: 'Xóa câu hỏi thành công', data: true };
     } catch (err: any) {
       console.error('[portalService] deleteFaq error:', err);
@@ -653,7 +626,7 @@ export const portalService = {
   // ==========================================
   async getLegalPolicies(): Promise<ApiResponse<LegalPolicyItem[]>> {
     try {
-      const raw = await supabaseService.query<any[]>('legal_policies?select=*&order=created_at.asc');
+      const raw = await portalQuery<any[]>('legal_policies?select=*&order=created_at.asc');
       if (!raw) {
         return { success: true, statusCode: 200, message: 'Danh sách chính sách pháp lý', data: [] };
       }
@@ -666,6 +639,8 @@ export const portalService = {
 
   async saveLegalPolicy(item: Partial<LegalPolicyItem>): Promise<ApiResponse<LegalPolicyItem | null>> {
     try {
+      if (!item.title?.trim() || !item.slug?.trim() || !item.version?.trim() || !item.contentMarkdown?.trim()) throw new Error('Nhập tiêu đề, mã chính sách, phiên bản và nội dung trước khi lưu.');
+      if (item.effectiveDate && !Number.isFinite(Date.parse(item.effectiveDate))) throw new Error('Ngày hiệu lực không hợp lệ.');
       const payload: Record<string, any> = {
         updated_at: new Date().toISOString(),
       };
@@ -677,13 +652,13 @@ export const portalService = {
       if (item.isPublished !== undefined) payload.is_published = Boolean(item.isPublished);
 
       if (item.id) {
-        const res = await supabaseService.query<any[]>(`legal_policies?id=eq.${item.id}`, {
+        const res = await portalQuery<any[]>(`legal_policies?id=eq.${item.id}`, {
           method: 'PATCH',
           body: JSON.stringify(payload),
         });
         return { success: true, statusCode: 200, message: 'Cập nhật chính sách thành công', data: res && res[0] ? mapDbToPolicy(res[0]) : null };
       } else {
-        const res = await supabaseService.query<any[]>('legal_policies', {
+        const res = await portalQuery<any[]>('legal_policies', {
           method: 'POST',
           body: JSON.stringify(payload),
         });

@@ -67,6 +67,12 @@ import {
 } from '../types/shared_types';
 import { toast, AdminTabs } from '../components/common';
 
+async function confirmed<T extends { success: boolean; message?: string }>(request: Promise<T>): Promise<T> {
+  const result = await request;
+  if (!result.success) throw new Error(result.message || 'Máy chủ chưa xác nhận thao tác.');
+  return result;
+}
+
 const EMAIL_VARIABLE_LABELS: Record<string, string> = {
   student_name: 'Tên học viên',
   course_name: 'Tên khóa học',
@@ -881,6 +887,7 @@ export const W18_PortalContent: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<PortalTab>(initialTab);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadErrors, setLoadErrors] = useState<string[]>([]);
 
   useEffect(() => {
     if (tabParam && validTabs.includes(tabParam) && tabParam !== activeTab) {
@@ -890,6 +897,7 @@ export const W18_PortalContent: React.FC = () => {
 
   const handleTabChange = (newTab: PortalTab) => {
     setActiveTab(newTab);
+    setSearchTerm(''); setStatusFilter('ALL'); setCategoryFilter('ALL');
     setSearchParams({ tab: newTab });
   };
 
@@ -932,8 +940,8 @@ export const W18_PortalContent: React.FC = () => {
     summary: '',
     contentText: '',
     category: 'CHIA_SE_KINH_NGHIEM',
-    authorName: 'BS. Chuyên môn MLD',
-    status: 'PUBLISHED',
+    authorName: '',
+    status: 'DRAFT',
   });
 
   // Email Template Edit Modal
@@ -944,25 +952,9 @@ export const W18_PortalContent: React.FC = () => {
   // Email Test Modal
   const [isTestEmailModalOpen, setIsTestEmailModalOpen] = useState(false);
   const [selectedTemplateForTest, setSelectedTemplateForTest] = useState<EmailTemplate | null>(null);
-  const [testRecipientEmail, setTestRecipientEmail] = useState('hocvien.mld@gmail.com');
-  const [testRecipientName, setTestRecipientName] = useState('Chị Bùi Thảo Linh');
-  const [testVariables, setTestVariables] = useState<Record<string, string>>({
-    student_name: 'Bùi Thảo Linh',
-    course_name: 'Khóa Chuyên gia Dẫn lưu Bạch huyết MLD Vodder Cấp độ 2',
-    student_code: 'MLD-K15-089',
-    start_date: '15/11/2026 lúc 08:30 sáng',
-    branch_address: 'Số 260, Ngõ 271 Bùi Xương Trạch, Khương Đình, Hà Nội, Phường Khương Đình, Thành phố Hà Nội',
-    paid_amount: '15.000.000',
-    class_title: 'Thực hành băng ép đa lớp phù tay tại Phòng Lab VIP',
-    time_slot: '14:00 - 17:00',
-    study_date: 'Mai (27/10/2026)',
-    room_name: 'Phòng Lab Thực hành 01',
-    instructor_name: 'BS. CKI Lê Hoài An',
-    theory_score: '96',
-    practice_score: '92',
-    certificate_code: 'MLD-GCN-2026-0889',
-    verification_url: 'https://mldvietnam.edu.vn/verify/MLD-GCN-2026-0889',
-  });
+  const [testRecipientEmail, setTestRecipientEmail] = useState('');
+  const [testRecipientName, setTestRecipientName] = useState('');
+  const [testVariables, setTestVariables] = useState<Record<string, string>>({});
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   // Email Log Detail Modal
@@ -986,7 +978,9 @@ export const W18_PortalContent: React.FC = () => {
         academyService.getCourses(),
       ]);
 
-      if (bannerRes.success && bannerRes.data) setBanners(bannerRes.data);
+      setLoadErrors([
+        ['Banner', bannerRes], ['Tài liệu', docRes], ['Cộng đồng', commRes], ['Mẫu email', tplRes], ['Nhật ký email', logRes],
+      ].filter(([, result]) => !(result as any)?.success).map(([name, result]) => `${name}: ${(result as any)?.message || 'Không tải được dữ liệu'}`));      if (bannerRes.success && bannerRes.data) setBanners(bannerRes.data);
       if (docRes.success && docRes.data) setDocuments(docRes.data);
       if (commRes.success && commRes.data) setCommunityPosts(commRes.data);
       if (tplRes.success && tplRes.data) setEmailTemplates(tplRes.data);
@@ -1066,7 +1060,7 @@ export const W18_PortalContent: React.FC = () => {
       targetLink: '/academy',
       sortOrder: banners.length + 1,
       category: 'DAO_TAO',
-      status: 'PUBLISHED',
+      status: 'DRAFT',
       isFeatured: true,
       authorName: 'Ban Giám Đốc MLD',
     });
@@ -1111,7 +1105,7 @@ export const W18_PortalContent: React.FC = () => {
     const nextStatus: PortalContentStatus =
       banner.status === 'PUBLISHED' || banner.status === 'APPROVED' ? 'DRAFT' : 'PUBLISHED';
     try {
-      await portalService.setStatus(banner.id, nextStatus);
+      await confirmed(portalService.setStatus(banner.id, nextStatus));
       toast.success(
         'Đã đổi trạng thái',
         `Banner "${banner.title}" đã chuyển sang: ${nextStatus === 'PUBLISHED' ? 'Hiển thị' : 'Tạm ẩn'}.`
@@ -1123,6 +1117,9 @@ export const W18_PortalContent: React.FC = () => {
   };
 
   const handleMoveBannerOrder = async (index: number, direction: 'up' | 'down') => {
+    const selected = filteredBanners[index];
+    index = banners.findIndex(item => item.id === selected?.id);
+    if (index < 0) return;
     if (direction === 'up' && index === 0) return;
     if (direction === 'down' && index === banners.length - 1) return;
 
@@ -1135,8 +1132,8 @@ export const W18_PortalContent: React.FC = () => {
 
     try {
       await Promise.all([
-        portalService.setSortOrder(currentBanner.id, swapOrder),
-        portalService.setSortOrder(swapBanner.id, currentOrder),
+        confirmed(portalService.setSortOrder(currentBanner.id, swapOrder)),
+        confirmed(portalService.setSortOrder(swapBanner.id, currentOrder)),
       ]);
 
       const newBanners = [...banners];
@@ -1145,14 +1142,15 @@ export const W18_PortalContent: React.FC = () => {
       setBanners(newBanners);
       toast.success('Đã cập nhật thứ tự', `Banner "${currentBanner.title}" xếp vị trí #${swapOrder}`);
     } catch {
-      toast.error('Lỗi', 'Không thể hoán đổi thứ tự banner.');
+      await loadData();
+      toast.error('Lỗi', 'Thứ tự chưa được lưu đầy đủ. Đã tải lại dữ liệu để kiểm tra.');
     }
   };
 
   const handleDeleteBanner = async (id: string, title: string) => {
     if (!window.confirm(`Xác nhận xóa Banner "${title}" khỏi hệ thống?`)) return;
     try {
-      await portalService.deleteContent(id);
+      await confirmed(portalService.deleteContent(id));
       toast.success('Đã xóa', `Đã xóa Banner "${title}".`);
       setBanners((prev) => prev.filter((b) => b.id !== id));
     } catch {
@@ -1178,7 +1176,7 @@ export const W18_PortalContent: React.FC = () => {
       allowDownload: false,
       requireFullPayment: true,
       watermarkText: 'MLD ACADEMY - BẢN QUYỀN ĐÀO TẠO',
-      status: 'PUBLISHED',
+      status: 'DRAFT',
       isFeatured: false,
       authorName: 'Hội đồng Chuyên môn MLD',
       sortOrder: documents.length + 1,
@@ -1228,11 +1226,6 @@ export const W18_PortalContent: React.FC = () => {
 
   const handleDownloadDoc = async (doc: PortalContentItem) => {
     try {
-      await portalService.incrementDownloadCount(doc.id, doc.downloadCount);
-      setDocuments((prev) =>
-        prev.map((d) => (d.id === doc.id ? { ...d, downloadCount: (d.downloadCount || 0) + 1 } : d))
-      );
-      toast.success('Bắt đầu tải file', `Tài liệu "${doc.title}" đang được tải xuống.`);
       const url = doc.fileUrl || doc.targetLink;
       if (url) {
         if (url.startsWith('data:')) {
@@ -1255,7 +1248,7 @@ export const W18_PortalContent: React.FC = () => {
   const handleDeleteDoc = async (id: string, title: string) => {
     if (!window.confirm(`Xác nhận xóa tài liệu "${title}"?`)) return;
     try {
-      await portalService.deleteContent(id);
+      await confirmed(portalService.deleteContent(id));
       toast.success('Đã xóa', `Đã xóa tài liệu "${title}".`);
       setDocuments((prev) => prev.filter((d) => d.id !== id));
     } catch {
@@ -1268,7 +1261,7 @@ export const W18_PortalContent: React.FC = () => {
   // ==========================================
   const handleApprovePost = async (post: PortalContentItem) => {
     try {
-      await portalService.setStatus(post.id, 'PUBLISHED');
+      await confirmed(portalService.setStatus(post.id, 'PUBLISHED'));
       toast.success('Đã duyệt bài', `Bài viết "${post.title}" đã được hiển thị công khai trên ứng dụng.`);
       setCommunityPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, status: 'PUBLISHED' } : p)));
       if (viewingPost?.id === post.id) {
@@ -1281,7 +1274,7 @@ export const W18_PortalContent: React.FC = () => {
 
   const handleRejectPost = async (post: PortalContentItem) => {
     try {
-      await portalService.setStatus(post.id, 'REJECTED');
+      await confirmed(portalService.setStatus(post.id, 'REJECTED'));
       toast.warning('Từ chối bài viết', `Đã chuyển bài viết "${post.title}" sang trạng thái từ chối.`);
       setCommunityPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, status: 'REJECTED' } : p)));
       if (viewingPost?.id === post.id) {
@@ -1300,8 +1293,8 @@ export const W18_PortalContent: React.FC = () => {
     }
 
     try {
-      await portalService.createContent(newPostData);
-      toast.success('Đã xuất bản', 'Bài viết chuyên môn mới đã được đăng lên cộng đồng.');
+      await confirmed(portalService.createContent(newPostData));
+      toast.success('Đã lưu nháp', 'Bài viết đã được lưu. Kiểm tra và duyệt trước khi hiển thị.');
       setIsCreatePostModalOpen(false);
       setNewPostData({
         kind: 'COMMUNITY',
@@ -1309,8 +1302,8 @@ export const W18_PortalContent: React.FC = () => {
         summary: '',
         contentText: '',
         category: 'CHIA_SE_KINH_NGHIEM',
-        authorName: 'BS. Chuyên môn MLD',
-        status: 'PUBLISHED',
+        authorName: '',
+        status: 'DRAFT',
       });
       loadData();
     } catch {
@@ -1321,7 +1314,7 @@ export const W18_PortalContent: React.FC = () => {
   const handleDeletePost = async (id: string, title: string) => {
     if (!window.confirm(`Xác nhận xóa bài viết "${title}"?`)) return;
     try {
-      await portalService.deleteContent(id);
+      await confirmed(portalService.deleteContent(id));
       toast.success('Đã xóa', 'Đã xóa bài viết khỏi diễn đàn cộng đồng.');
       setCommunityPosts((prev) => prev.filter((p) => p.id !== id));
       if (viewingPost?.id === id) setViewingPost(null);
@@ -1344,7 +1337,7 @@ export const W18_PortalContent: React.FC = () => {
     if (!editingTemplate) return;
 
     try {
-      await emailService.updateTemplate(editingTemplate.id, editingTemplate);
+      await confirmed(emailService.updateTemplate(editingTemplate.id, editingTemplate));
       toast.success('Đã lưu mẫu Email', `Đã cập nhật nội dung mẫu "${editingTemplate.name}".`);
       setIsEditTemplateModalOpen(false);
       setEmailTemplates((prev) => prev.map((t) => (t.id === editingTemplate.id ? editingTemplate : t)));
@@ -1389,7 +1382,7 @@ export const W18_PortalContent: React.FC = () => {
   const handleDeleteEmailLog = async (logId: string) => {
     if (!window.confirm('Xóa bản ghi nhật ký gửi email này?')) return;
     try {
-      await emailService.deleteLog(logId);
+      await confirmed(emailService.deleteLog(logId));
       setEmailLogs((prev) => prev.filter((l) => l.id !== logId));
       if (selectedLog?.id === logId) setSelectedLog(null);
       toast.success('Đã xóa', 'Đã xóa bản ghi nhật ký.');
@@ -1415,8 +1408,8 @@ export const W18_PortalContent: React.FC = () => {
             <Layers className="w-4 h-4" />
             <span>Hệ Thống & Truyền Thông Học Viện MLD</span>
           </div>
-          <h1 className="text-2xl font-bold font-serif text-[#2C241E]">
-            Quản trị Nội dung Portal & Kênh Thông tin
+          <h1 className="text-2xl font-bold text-[#2C241E]">
+            Nội dung Portal & App
           </h1>
           <p className="text-xs text-[#73675F] mt-1">
             Quản trị Banner trang chủ, Thư viện giáo trình PDF, Bài viết cộng đồng & Kênh Email đào tạo tự động
@@ -1432,30 +1425,6 @@ export const W18_PortalContent: React.FC = () => {
           >
             <RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-
-          {activeTab === 'banners' && (
-            <>
-              <button
-                type="button"
-                onClick={() => setShowMobileMockup(!showMobileMockup)}
-                className={`px-3.5 py-2.5 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${showMobileMockup
-                    ? 'bg-[#FAF0E4] text-[#985018] border-[#BA7E4C]'
-                    : 'bg-white text-[#73675F] border-[#E8DFD8] hover:border-[#BA7E4C]'
-                  }`}
-              >
-                <Smartphone className="w-4 h-4" />
-                <span>{showMobileMockup ? 'Đóng xem trước App' : 'Xem trước App Mobile'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleOpenAddBanner}
-                className="px-4 py-2.5 bg-[#985018] hover:bg-[#804213] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
-              >
-                <Plus className="w-4 h-4 stroke-[2.5]" />
-                <span>Thêm Banner mới</span>
-              </button>
-            </>
-          )}
 
           {activeTab === 'documents' && (
             <button
@@ -1475,102 +1444,21 @@ export const W18_PortalContent: React.FC = () => {
               className="px-4 py-2.5 bg-[#985018] hover:bg-[#804213] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Đăng bài viết mới</span>
+              <span>Soạn bài viết mới</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* 2. Top Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div
-          onClick={() => setActiveTab('banners')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === 'banners'
-              ? 'bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/15 shadow-sm'
-              : 'bg-white border-[#E8DFD8] hover:border-[#BA7E4C]'
-            }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#73675F]">Banner Trang chủ</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-              <ImageIcon className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-serif text-[#2C241E]">{banners.length}</span>
-            <span className="text-xs font-semibold text-[#137333]">({activeBanners.length} đang hiển thị)</span>
-          </div>
-          <p className="text-[11px] text-[#8C7A6B] mt-1">Chuẩn tỉ lệ ngang 16:9 sắc nét</p>
-        </div>
-
-        <div
-          onClick={() => setActiveTab('documents')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === 'documents'
-              ? 'bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/15 shadow-sm'
-              : 'bg-white border-[#E8DFD8] hover:border-[#BA7E4C]'
-            }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#73675F]">Giáo trình & PDF</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
-              <BookOpen className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-serif text-[#2C241E]">{documents.length}</span>
-            <span className="text-xs font-semibold text-[#0284c7]">({totalDownloads} lượt tải)</span>
-          </div>
-          <p className="text-[11px] text-[#8C7A6B] mt-1">Phân quyền học viên & đọc thử</p>
-        </div>
-
-        <div
-          onClick={() => setActiveTab('community')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === 'community'
-              ? 'bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/15 shadow-sm'
-              : 'bg-white border-[#E8DFD8] hover:border-[#BA7E4C]'
-            }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#73675F]">Cộng đồng & Hỏi đáp</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
-              <MessageSquare className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-serif text-[#2C241E]">{communityPosts.length}</span>
-            {pendingPostsCount > 0 ? (
-              <span className="text-xs font-bold text-[#DC2626] bg-rose-50 px-2 py-0.5 rounded-full">
-                {pendingPostsCount} chờ duyệt
-              </span>
-            ) : (
-              <span className="text-xs font-semibold text-[#137333]">Đã duyệt sạch</span>
-            )}
-          </div>
-          <p className="text-[11px] text-[#8C7A6B] mt-1">Kiểm duyệt lâm sàng chuyên môn</p>
-        </div>
-
-        <div
-          onClick={() => setActiveTab('email')}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === 'email'
-              ? 'bg-[#FAF0E4] border-[#985018] ring-2 ring-[#985018]/15 shadow-sm'
-              : 'bg-white border-[#E8DFD8] hover:border-[#BA7E4C]'
-            }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#73675F]">Kênh Email Đào tạo</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-              <Mail className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-serif text-[#2C241E]">{emailTemplates.length}</span>
-            <span className="text-xs font-semibold text-[#059669]">({totalEmailsSent} lượt gửi)</span>
-          </div>
-          <p className="text-[11px] text-[#8C7A6B] mt-1">Khai giảng, lịch học & kết quả thi</p>
-        </div>
+      <div className="rounded-xl border border-[#E8DFD8] bg-white px-5 py-4 text-sm text-[#73675F]">
+        <p className="font-semibold text-[#2C241E]">Cấu hình nền tảng → Soạn & xem trước → Xuất bản → Theo dõi thông báo</p>
+        <p className="mt-1">Thiết lập liên hệ, đối tượng, FAQ và chính sách trước. Nội dung mới được lưu nháp; kiểm tra nội dung và quyền truy cập trước khi hiển thị.</p>
       </div>
-
-      {/* 3. Navigation Tabs */}
+      {loadErrors.length > 0 && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <p className="font-semibold">Một số dữ liệu chưa tải được.</p>
+        {loadErrors.map(message => <p key={message} className="mt-1">{message}</p>)}
+        <button type="button" className="mt-2 underline" onClick={loadData}>Thử tải lại</button>
+      </div>}      {/* 3. Navigation Tabs */}
       <AdminTabs
         ariaLabel="Quản lý nội dung Portal"
         variant="pill"
@@ -1772,7 +1660,7 @@ export const W18_PortalContent: React.FC = () => {
                   }`}
               >
                 <Smartphone className="w-3.5 h-3.5" />
-                <span>{showMobileMockup ? 'Đang mở Mockup' : 'Xem trước Mobile'}</span>
+                <span>{showMobileMockup ? 'Đang mở Mockup' : 'Mô phỏng bố cục'}</span>
               </button>
 
               <button
@@ -1797,7 +1685,7 @@ export const W18_PortalContent: React.FC = () => {
                 >
                   <div>
                     {/* 16:9 Banner Image Preview */}
-                    <div className="relative aspect-[16/9] bg-[#FAF8F5] overflow-hidden border-b border-[#E8DFD8]">
+                    <div className="relative h-44 bg-[#FAF8F5] overflow-hidden border-b border-[#E8DFD8]">
                       {banner.imageUrl ? (
                         <img
                           src={banner.imageUrl}
@@ -2195,7 +2083,7 @@ export const W18_PortalContent: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-[#73675F]">Lọc trạng thái duyệt:</span>
               <div className="flex items-center gap-1.5">
-                {['ALL', 'PENDING', 'PUBLISHED', 'REJECTED'].map((st) => (
+                {['ALL', 'DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED'].map((st) => (
                   <button
                     key={st}
                     type="button"
@@ -2207,7 +2095,7 @@ export const W18_PortalContent: React.FC = () => {
                   >
                     {st === 'ALL'
                       ? 'Tất cả'
-                      : st === 'PENDING'
+                      : st === 'DRAFT' ? 'Bản nháp' : st === 'PENDING'
                         ? 'Chờ duyệt'
                         : st === 'PUBLISHED'
                           ? 'Đã duyệt'
@@ -2227,11 +2115,11 @@ export const W18_PortalContent: React.FC = () => {
           <div className="space-y-3">
             {communityPosts
               .filter((p) => {
-                if (statusFilter !== 'ALL' && p.status !== statusFilter) return false;
+                if (statusFilter !== 'ALL' && p.status !== statusFilter && !(statusFilter === 'PUBLISHED' && p.status === 'APPROVED')) return false;
                 return true;
               })
               .map((post) => {
-                const isPending = post.status === 'PENDING';
+                const isPending = post.status === 'PENDING' || post.status === 'DRAFT';
                 const isApproved = post.status === 'PUBLISHED' || post.status === 'APPROVED';
 
                 return (
@@ -2459,14 +2347,6 @@ export const W18_PortalContent: React.FC = () => {
                             title="Xem chi tiết nội dung email đã gửi"
                           >
                             <Eye size={13} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteEmailLog(log.id)}
-                            className="p-1.5 rounded-lg text-[#8C7A6B] hover:text-[#DC2626] hover:bg-rose-50"
-                            title="Xóa nhật ký này"
-                          >
-                            <Trash2 size={13} />
                           </button>
                         </div>
                       </td>
@@ -2721,7 +2601,7 @@ export const W18_PortalContent: React.FC = () => {
                     <div>
                       <label className="block text-xs font-bold text-[#2C241E] mb-1">Trạng thái hiển thị</label>
                       <select
-                        value={editingBanner.status || 'PUBLISHED'}
+                        value={editingBanner.status || 'DRAFT'}
                         onChange={(e) =>
                           setEditingBanner({ ...editingBanner, status: e.target.value as PortalContentStatus })
                         }
@@ -2997,7 +2877,12 @@ export const W18_PortalContent: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2">
+              <label className="block text-xs font-semibold">Trạng thái tài liệu
+                <select className="mt-1 w-full rounded-xl border p-2" value={editingDoc.status || 'DRAFT'} onChange={event => setEditingDoc({ ...editingDoc, status: event.target.value as PortalContentStatus })}>
+                  <option value="DRAFT">Bản nháp — chưa hiển thị</option>
+                  <option value="PUBLISHED">Xuất bản — áp dụng quyền truy cập đã chọn</option>
+                </select>
+              </label>              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsDocModalOpen(false)}
@@ -3152,7 +3037,7 @@ export const W18_PortalContent: React.FC = () => {
                     <div>
                       <span className="text-xs font-bold text-purple-900 block">Bảo mật Bản quyền Giáo trình (Chỉ xem trực tuyến)</span>
                       <span className="text-[11px] text-purple-700 block mt-0.5">
-                        Tài liệu này được cấu hình bảo vệ nội bộ. Học viên chỉ được đọc và ôn tập trên App MLD / Web Portal, không thể tải tệp gốc về máy.
+                        Tài liệu được cấu hình chỉ xem trong ứng dụng. Quyền truy cập thực tế phụ thuộc tài khoản học viên, khóa học và cấu hình kho tài liệu.
                       </span>
                     </div>
                   </div>
@@ -3286,7 +3171,7 @@ export const W18_PortalContent: React.FC = () => {
                 <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
                   <MessageSquare className="w-4 h-4" />
                 </div>
-                <h3 className="font-serif font-bold text-base text-[#2C241E]">Đăng Bài Viết Chuyên Môn Mới</h3>
+                <h3 className="font-serif font-bold text-base text-[#2C241E]">Soạn bài viết chuyên môn</h3>
               </div>
               <button
                 type="button"
@@ -3354,7 +3239,7 @@ export const W18_PortalContent: React.FC = () => {
                   type="submit"
                   className="px-5 py-2 bg-[#985018] hover:bg-[#804213] text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
                 >
-                  Đăng bài ngay
+                  Lưu bản nháp
                 </button>
               </div>
             </form>
@@ -3456,29 +3341,8 @@ export const W18_PortalContent: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-[#2C241E]">Hiển thị thực tế trong hòm thư học viên</label>
-                  <div
-                    className="p-4 bg-white rounded-2xl border border-[#E8DFD8] shadow-xs max-h-96 overflow-y-auto"
-                    dangerouslySetInnerHTML={{
-                      __html: editingTemplate.bodyHtml
-                        .replace(/{{student_name}}/g, 'Bùi Thảo Linh')
-                        .replace(/{{course_name}}/g, 'Khóa Chuyên gia Dẫn lưu Bạch huyết MLD Vodder Cấp độ 2')
-                        .replace(/{{student_code}}/g, 'MLD-K15-089')
-                        .replace(/{{start_date}}/g, '15/11/2026')
-                        .replace(/{{branch_address}}/g, '186 Nam Kỳ Khởi Nghĩa, Q.3, TP.HCM')
-                        .replace(/{{paid_amount}}/g, '15.000.000')
-                        .replace(/{{class_title}}/g, 'Thực hành Băng ép đa lớp')
-                        .replace(/{{study_date}}/g, '27/10/2026')
-                        .replace(/{{time_slot}}/g, '14:00 - 17:00')
-                        .replace(/{{room_name}}/g, 'Phòng Lab 01')
-                        .replace(/{{instructor_name}}/g, 'BS. CKI Lê Hoài An')
-                        .replace(/{{theory_score}}/g, '96')
-                        .replace(/{{practice_score}}/g, '92')
-                        .replace(/{{certificate_code}}/g, 'MLD-GCN-2026-0889')
-                        .replace(/{{verification_url}}/g, '#'),
-                    }}
-                  />
-                </div>
+                  <label className="block text-xs font-bold text-[#2C241E]">Xem trước mẫu email (biến chưa điền giữ nguyên)</label>
+                  <iframe title="Xem trước mẫu email" sandbox="" className="h-96 w-full rounded-xl border bg-white" srcDoc={editingTemplate.bodyHtml} />                </div>
               )}
 
               <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2 shrink-0">
@@ -3672,21 +3536,11 @@ export const W18_PortalContent: React.FC = () => {
 
               <div>
                 <span className="text-xs font-bold text-[#73675F] block mb-2">Nội dung HTML thực tế:</span>
-                <div
-                  className="p-4 bg-[#FAF8F5] rounded-2xl border border-[#E8DFD8] text-xs max-h-80 overflow-y-auto"
-                  dangerouslySetInnerHTML={{ __html: selectedLog.bodyHtml }}
-                />
+                <iframe title="Nội dung email đã gửi" sandbox="" className="h-80 w-full rounded-xl border bg-white" srcDoc={selectedLog.bodyHtml} />
               </div>
             </div>
 
             <div className="p-4 border-t border-[#E8DFD8] bg-[#FAF8F5] flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => handleDeleteEmailLog(selectedLog.id)}
-                className="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-700 bg-rose-50 text-xs font-bold hover:bg-rose-100"
-              >
-                Xóa bản ghi này
-              </button>
               <button
                 type="button"
                 onClick={() => setSelectedLog(null)}

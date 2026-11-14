@@ -19,6 +19,7 @@ import { portalService } from '../../services';
 export const PortalLegalPoliciesTab: React.FC = () => {
   const [policies, setPolicies] = useState<LegalPolicyItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [selectedPolicy, setSelectedPolicy] = useState<LegalPolicyItem | null>(null);
   const [editorMode, setEditorMode] = useState<'EDIT' | 'PREVIEW'>('EDIT');
   const [isSaving, setIsSaving] = useState(false);
@@ -31,14 +32,17 @@ export const PortalLegalPoliciesTab: React.FC = () => {
   }, []);
 
   const loadPolicies = async () => {
+    setLoadError('');
     setIsLoading(true);
     try {
       const res = await portalService.getLegalPolicies();
+      if (!res.success) throw new Error(res.message || 'Không tải được dữ liệu.');
       if (res.data && res.data.length > 0) {
         setPolicies(res.data);
         setSelectedPolicy(res.data[0]);
       }
     } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Không tải được dữ liệu.');
       console.error('Error loading legal policies:', err);
     } finally {
       setIsLoading(false);
@@ -126,6 +130,8 @@ export const PortalLegalPoliciesTab: React.FC = () => {
       </div>
     );
   }
+
+  if (loadError) return <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800"><p>{loadError}</p><button className="mt-2 underline" type="button" onClick={loadPolicies}>Thử tải lại</button></div>;
 
   return (
     <div className="space-y-6">
