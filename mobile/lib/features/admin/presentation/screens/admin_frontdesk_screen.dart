@@ -747,129 +747,83 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
       body: Column(
         children: [
           // THANH CÔNG CỤ TẬP TRUNG TỐI ƯU (SEARCH + NGÀY + TRẠNG THÁI GỌN GÀNG)
+          // 2. THANH CÔNG CỤ TẬP TRUNG GỌN NHẸ (Toolbar 2 dòng)
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
             child: Column(
               children: [
-                // Dòng 1: Ô tìm kiếm + Nút chọn ngày trên lịch
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 34,
-                        child: TextField(
-                          controller: _searchController,
-                          style: AppTypography.zaloFont(fontSize: 12),
-                          decoration: InputDecoration(
-                            hintText: 'Tìm khách hàng, SĐT, mã BK...',
-                            hintStyle: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
-                            prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF9CA3AF)),
-                            prefixIconConstraints: const BoxConstraints(minWidth: 32),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear_rounded, size: 14),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() => _searchQuery = '');
-                                    },
-                                  )
-                                : null,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                            filled: true,
-                            fillColor: const Color(0xFFF9FAFB),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFF00693F)),
-                            ),
-                          ),
-                          onChanged: (val) => setState(() => _searchQuery = val.trim()),
-                        ),
+                // Dòng 1: Ô tìm kiếm toàn chiều rộng
+                SizedBox(
+                  height: 34,
+                  child: TextField(
+                    controller: _searchController,
+                    style: AppTypography.zaloFont(fontSize: 12),
+                    decoration: InputDecoration(
+                      hintText: 'Tìm khách hàng, SĐT, mã BK...',
+                      hintStyle: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF9CA3AF)),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 32),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 14),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                      filled: true,
+                      fillColor: const Color(0xFFF9FAFB),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF00693F)),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    // Nút chọn ngày trên lịch
-                    InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedDate,
-                          firstDate: DateTime(2025),
-                          lastDate: DateTime(2030),
-                        );
-                        if (picked != null) {
-                          setState(() {
-                            _selectedDate = picked;
-                            _isAllDates = false;
-                          });
-                          _fetchBookings();
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        height: 34,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_month_rounded, size: 15, color: Color(0xFF00693F)),
-                            const SizedBox(width: 4),
-                            Text(
-                              _isAllDates ? 'Tất cả' : DateFormat('dd/MM').format(_selectedDate),
-                              style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF00693F)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                    onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                  ),
                 ),
                 const SizedBox(height: 6),
 
-                // Dòng 2: Thanh Micro-pills cuộn ngang (Ngày + Trạng thái)
+                // Dòng 2: Thanh Micro-pills cuộn ngang: ĐÚNG 2 NÚT LỌC NGÀY (Chọn ngày & Tất cả) + Phân loại Trạng thái
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      // Nút ngày nhanh: Hôm nay, Ngày mai, Tất cả
+                      // Nút 1: Chọn ngày (bấm mở DatePicker, hiện ngày đã chọn)
                       _buildMicroPill(
-                        label: 'Hôm nay',
-                        isSelected: !_isAllDates && DateUtils.isSameDay(now, _selectedDate),
-                        onTap: () {
-                          setState(() {
-                            _selectedDate = now;
-                            _isAllDates = false;
-                          });
-                          _fetchBookings();
+                        label: _isAllDates ? 'Chọn ngày' : DateFormat('dd/MM').format(_selectedDate),
+                        icon: Icons.calendar_month_rounded,
+                        isSelected: !_isAllDates,
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedDate,
+                            firstDate: DateTime(2025),
+                            lastDate: DateTime(2030),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _selectedDate = picked;
+                              _isAllDates = false;
+                            });
+                            _fetchBookings();
+                          }
                         },
                       ),
                       const SizedBox(width: 6),
+                      // Nút 2: Tất cả (tất cả các ngày)
                       _buildMicroPill(
-                        label: 'Ngày mai',
-                        isSelected: !_isAllDates && DateUtils.isSameDay(now.add(const Duration(days: 1)), _selectedDate),
-                        onTap: () {
-                          setState(() {
-                            _selectedDate = now.add(const Duration(days: 1));
-                            _isAllDates = false;
-                          });
-                          _fetchBookings();
-                        },
-                      ),
-                      const SizedBox(width: 6),
-                      _buildMicroPill(
-                        label: 'Tất cả ngày',
+                        label: 'Tất cả',
                         isSelected: _isAllDates,
                         onTap: () {
                           setState(() => _isAllDates = true);
@@ -883,18 +837,19 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                         color: const Color(0xFFE5E7EB),
                       ),
 
-                      // Bộ lọc trạng thái: Tất cả, Chờ duyệt, Đã tiếp đón...
+                      // Bộ lọc trạng thái: Tất cả ca, Chờ duyệt, Đã tiếp đón...
                       ..._statusFilters.map((sf) {
                         final key = sf['key']!;
                         final isSel = _selectedStatus == key;
                         final count = key == 'ALL'
                             ? _bookings.length
                             : _bookings.where((b) => b.status == key).length;
+                        final displayLabel = key == 'ALL' ? 'Tất cả ca' : sf['label']!;
 
                         return Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: _buildMicroPill(
-                            label: sf['label']!,
+                            label: displayLabel,
                             badgeText: count > 0 ? '$count' : null,
                             isSelected: isSel,
                             activeColor: key == 'PENDING' ? const Color(0xFFD97706) : const Color(0xFF00693F),

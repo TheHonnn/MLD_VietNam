@@ -44,6 +44,10 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
   String _selectedSubmissionBatchId = 'ALL';
   String _selectedSubmissionResult = 'ALL'; // ALL, PASSED, FAILED
 
+  // Bộ lọc cho Tab Lớp học (Đúng 2 nút: Chọn ngày & Tất cả theo yêu cầu)
+  DateTime? _selectedBatchDate;
+  bool _isAllBatchDates = true;
+
   // Các cột trạng thái Kanban chuẩn quy trình Tuyển sinh & Đào tạo kiểu Trello
   final List<Map<String, dynamic>> _kanbanColumns = [
     {
@@ -980,24 +984,22 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       ),
       body: Column(
         children: [
-          // 1. Segmented Controller 3 Tab (Thu gọn 36px tinh tế)
+          // 1. Thanh Tab Bar Tuyển sinh chuẩn MLD (Indicator gạch chân, không dùng nút trắng bo viền trên nền xám)
           Container(
             color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
-            child: Container(
-              height: 36,
-              padding: const EdgeInsets.all(2.5),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(10),
+            height: 42,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
               ),
-              child: Row(
-                children: [
-                  _buildSegmentButton(0, 'Trello (${_candidates.length})', Icons.view_kanban_rounded),
-                  _buildSegmentButton(1, 'Lớp học (${_batches.length})', Icons.meeting_room_rounded),
-                  _buildSegmentButton(2, 'Bài thi (${_submissions.length})', Icons.assignment_rounded),
-                ],
-              ),
+            ),
+            child: Row(
+              children: [
+                _buildSegmentButton(0, 'Trello (${_candidates.length})', Icons.view_kanban_rounded),
+                _buildSegmentButton(1, 'Lớp học (${_batches.length})', Icons.meeting_room_rounded),
+                _buildSegmentButton(2, 'Bài thi (${_submissions.length})', Icons.assignment_rounded),
+              ],
             ),
           ),
 
@@ -1084,47 +1086,90 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
           ],
 
           if (_selectedSegment == 1) ...[
-            // Ô tìm kiếm lớp học
+            // Ô tìm kiếm lớp học + ĐÚNG 2 NÚT LỌC: CHỌN NGÀY VÀ TẤT CẢ
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: SizedBox(
-                height: 34,
-                child: TextField(
-                  controller: _searchController,
-                  style: AppTypography.zaloFont(fontSize: 12),
-                  decoration: InputDecoration(
-                    hintText: 'Tìm theo mã lớp, khóa học, giảng viên...',
-                    hintStyle: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
-                    prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF9CA3AF)),
-                    prefixIconConstraints: const BoxConstraints(minWidth: 32),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear_rounded, size: 14),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                          )
-                        : null,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                    filled: true,
-                    fillColor: const Color(0xFFF9FAFB),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFF00693F)),
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 34,
+                    child: TextField(
+                      controller: _searchController,
+                      style: AppTypography.zaloFont(fontSize: 12),
+                      decoration: InputDecoration(
+                        hintText: 'Tìm theo mã lớp, khóa học, giảng viên...',
+                        hintStyle: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
+                        prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF9CA3AF)),
+                        prefixIconConstraints: const BoxConstraints(minWidth: 32),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear_rounded, size: 14),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                              )
+                            : null,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                        filled: true,
+                        fillColor: const Color(0xFFF9FAFB),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF00693F)),
+                        ),
+                      ),
+                      onChanged: (val) => setState(() => _searchQuery = val.trim()),
                     ),
                   ),
-                  onChanged: (val) => setState(() => _searchQuery = val.trim()),
-                ),
+                  const SizedBox(height: 6),
+                  // Dòng 2: ĐÚNG 2 NÚT LỌC (Chọn ngày & Tất cả)
+                  Row(
+                    children: [
+                      // Nút 1: Chọn ngày khai giảng
+                      _buildMicroPill(
+                        label: _isAllBatchDates || _selectedBatchDate == null
+                            ? 'Chọn ngày'
+                            : DateFormat('dd/MM').format(_selectedBatchDate!),
+                        icon: Icons.calendar_month_rounded,
+                        isSelected: !_isAllBatchDates && _selectedBatchDate != null,
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedBatchDate ?? DateTime.now(),
+                            firstDate: DateTime(2025),
+                            lastDate: DateTime(2030),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _selectedBatchDate = picked;
+                              _isAllBatchDates = false;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      // Nút 2: Tất cả lớp
+                      _buildMicroPill(
+                        label: 'Tất cả (${_batches.length})',
+                        isSelected: _isAllBatchDates,
+                        onTap: () {
+                          setState(() {
+                            _isAllBatchDates = true;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -1284,43 +1329,44 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
   Widget _buildSegmentButton(int index, String label, IconData icon) {
     final isSelected = _selectedSegment == index;
     return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() => _selectedSegment = index);
-          _fetchData();
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 15,
-                color: isSelected ? const Color(0xFF00693F) : const Color(0xFF6B7280),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: AppTypography.zaloFont(
-                  fontSize: 11.5,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            setState(() => _selectedSegment = index);
+            _fetchData();
+          },
+          child: Container(
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              border: Border(
+                bottom: BorderSide(
+                  color: isSelected ? const Color(0xFF00693F) : Colors.transparent,
+                  width: 2.5,
                 ),
               ),
-            ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: isSelected ? const Color(0xFF00693F) : const Color(0xFF9CA3AF),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: AppTypography.zaloFont(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1785,10 +1831,22 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
   Widget _buildClassBasedView() {
     final query = _searchQuery.toLowerCase();
     final filteredBatches = _batches.where((b) {
-      if (query.isEmpty) return true;
-      return b.batchCode.toLowerCase().contains(query) ||
-          (b.courseTitle ?? '').toLowerCase().contains(query) ||
-          (b.instructorName ?? '').toLowerCase().contains(query);
+      if (query.isNotEmpty) {
+        final matches = b.batchCode.toLowerCase().contains(query) ||
+            (b.courseTitle ?? '').toLowerCase().contains(query) ||
+            (b.instructorName ?? '').toLowerCase().contains(query);
+        if (!matches) return false;
+      }
+      if (!_isAllBatchDates && _selectedBatchDate != null) {
+        if (b.startDate == null || b.startDate!.isEmpty) return false;
+        try {
+          final parsed = DateTime.parse(b.startDate!);
+          if (!DateUtils.isSameDay(parsed, _selectedBatchDate!)) return false;
+        } catch (_) {
+          return false;
+        }
+      }
+      return true;
     }).toList();
 
     if (filteredBatches.isEmpty) {
