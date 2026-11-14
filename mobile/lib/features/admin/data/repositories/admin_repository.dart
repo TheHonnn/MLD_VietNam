@@ -1,6 +1,9 @@
+import 'dart:io' show Platform;
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_endpoints.dart';
 import '../models/admin_models.dart';
 
 /// Central Admin & Manager Repository kết nối trực tiếp Supabase Cloud REST
@@ -196,7 +199,7 @@ class AdminRepository {
       if (res.data is List) {
         for (final b in res.data) {
           final custName = b['booked_for_name']?.toString() ?? 'Khách hàng';
-          final sName = 'Trị liệu MLD';
+          const sName = 'Trị liệu MLD';
           final sTime = b['start_time']?.toString() ?? '';
           final bDate = b['booking_date']?.toString() ?? '';
           final branchObj = b['branches'];
@@ -380,10 +383,118 @@ class AdminRepository {
           'checked_out_at': DateTime.now().toIso8601String(),
         },
       );
-      return res.statusCode == 200 || res.statusCode == 204;
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        // Tự động tặng voucher tri ân cho khách hàng sau khi hoàn tất dịch vụ
+        _autoGrantBookingCompletionVoucher(bookingId);
+        return true;
+      }
+      return false;
     } catch (e) {
       debugPrint('[AdminRepository] checkOutBooking error: $e');
       return false;
+    }
+  }
+
+  /// Cấp voucher ưu đãi / tri ân cho khách hàng hoặc học viên
+  Future<bool> grantRewardVoucher({
+    required String userId,
+    String couponCode = 'SPADAY20',
+    String? note,
+  }) async {
+    try {
+      // 1. Tìm coupon theo mã
+      final cRes = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/coupons?code=eq.$couponCode&select=*',
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseServiceRoleKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+        }),
+      );
+      if (cRes.statusCode != 200 || cRes.data is! List || (cRes.data as List).isEmpty) {
+        return false;
+      }
+      final coupon = (cRes.data as List).first as Map<String, dynamic>;
+      final couponId = coupon['id']?.toString() ?? '';
+
+      // 2. Kiểm tra xem đã có voucher này chưa
+      final existRes = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?user_id=eq.$userId&coupon_id=eq.$couponId&status=eq.AVAILABLE&select=id',
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseServiceRoleKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+        }),
+      );
+      if (existRes.statusCode == 200 && existRes.data is List && (existRes.data as List).isNotEmpty) {
+        return true;
+      }
+
+      // 3. Thêm voucher vào ví user_vouchers
+      final expiresAt = coupon['valid_to']?.toString() ??
+          DateTime.now().add(const Duration(days: 60)).toIso8601String();
+
+      final res = await _apiClient.dio.post(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers',
+        data: {
+          'user_id': userId,
+          'coupon_id': couponId,
+          'status': 'AVAILABLE',
+          'source_trigger': 'MANUAL_BY_ADMIN',
+          'expires_at': expiresAt,
+        },
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseServiceRoleKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'Prefer': 'return=representation',
+        }),
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (e) {
+      debugPrint('[AdminRepository] grantRewardVoucher error: $e');
+      return false;
+    }
+  }
+
+  /// Tự động gửi voucher tri ân khi hoàn tất dịch vụ
+  Future<void> _autoGrantBookingCompletionVoucher(String bookingId) async {
+    try {
+      final res = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/bookings?id=eq.$bookingId&select=user_id,customer_id',
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseServiceRoleKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+        }),
+      );
+      if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
+        final b = (res.data as List).first as Map<String, dynamic>;
+        final userId = b['user_id']?.toString() ?? b['customer_id']?.toString();
+        if (userId != null && userId.isNotEmpty && !userId.startsWith('usr-temp')) {
+          await grantRewardVoucher(userId: userId, couponCode: 'SPADAY20');
+        }
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] _autoGrantBookingCompletionVoucher error: $e');
+    }
+  }
+
+  /// Tự động gửi voucher tri ân khi duyệt học viên nhập học
+  Future<void> _autoGrantCourseCompletionVoucher(String candidateId) async {
+    try {
+      final res = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/course_enrollments?id=eq.$candidateId&select=user_id',
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseServiceRoleKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+        }),
+      );
+      if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
+        final enr = (res.data as List).first as Map<String, dynamic>;
+        final userId = enr['user_id']?.toString();
+        if (userId != null && userId.isNotEmpty && !userId.startsWith('usr-temp')) {
+          await grantRewardVoucher(userId: userId, couponCode: 'MLDCHAOXIN');
+        }
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] _autoGrantCourseCompletionVoucher error: $e');
     }
   }
 
@@ -498,6 +609,149 @@ class AdminRepository {
     }
   }
 
+  /// 5.3.1. Lấy danh sách Lịch học chi tiết theo Buổi (Batch Schedules)
+  Future<List<AdminBatchScheduleModel>> fetchBatchSchedules(String batchId) async {
+    try {
+      final res = await _apiClient.dio.get(
+        '/rest/v1/batch_schedules?select=*,branch_rooms(name)&batch_id=eq.$batchId&order=session_date.asc,start_time.asc',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      if (res.data is List && (res.data as List).isNotEmpty) {
+        return (res.data as List)
+            .map((item) => AdminBatchScheduleModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchBatchSchedules error: $e');
+    }
+    return [];
+  }
+
+  /// 5.3.1.1. Lấy lịch học theo Course ID (dành cho Màn Chi tiết Khóa học phía Học viên)
+  Future<List<AdminBatchScheduleModel>> fetchBatchSchedulesForCourse(String courseId) async {
+    try {
+      final batchRes = await _apiClient.dio.get(
+        '/rest/v1/course_batches?select=id&course_id=eq.$courseId&order=start_date.desc&limit=1',
+      );
+      String? batchId;
+      if (batchRes.data is List && (batchRes.data as List).isNotEmpty) {
+        batchId = (batchRes.data as List).first['id']?.toString();
+      }
+      if (batchId == null || batchId.isEmpty) {
+        final anyBatch = await _apiClient.dio.get('/rest/v1/course_batches?select=id&limit=1');
+        if (anyBatch.data is List && (anyBatch.data as List).isNotEmpty) {
+          batchId = (anyBatch.data as List).first['id']?.toString();
+        }
+      }
+      if (batchId != null && batchId.isNotEmpty) {
+        return fetchBatchSchedules(batchId);
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchBatchSchedulesForCourse error: $e');
+    }
+    return [];
+  }
+
+  /// 5.3.2. Thêm buổi học mới cho Lớp (Create Batch Schedule)
+  Future<bool> createBatchSchedule({
+    required String batchId,
+    required String topic,
+    required String sessionDate,
+    required String startTime,
+    required String endTime,
+    required bool isPracticeLab,
+    String? assignedRoomId,
+  }) async {
+    try {
+      final res = await _apiClient.dio.post(
+        '/rest/v1/batch_schedules',
+        data: {
+          'batch_id': batchId,
+          'topic': topic,
+          'session_date': sessionDate,
+          'start_time': startTime,
+          'end_time': endTime,
+          'is_practice_lab': isPracticeLab,
+          if (assignedRoomId != null && assignedRoomId.isNotEmpty) 'assigned_room_id': assignedRoomId,
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (e) {
+      debugPrint('[AdminRepository] createBatchSchedule error: $e');
+      return false;
+    }
+  }
+
+  /// 5.3.3. Lấy dữ liệu điểm danh theo Buổi học (Session Attendance)
+  Future<Map<String, String>> fetchSessionAttendance(String scheduleId) async {
+    try {
+      final res = await _apiClient.dio.get(
+        '/rest/v1/student_attendance?schedule_id=eq.$scheduleId&select=enrollment_id,status',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      if (res.data is List) {
+        final Map<String, String> map = {};
+        for (final item in res.data as List) {
+          final enrId = item['enrollment_id']?.toString();
+          final status = item['status']?.toString();
+          if (enrId != null && status != null) {
+            map[enrId] = status;
+          }
+        }
+        return map;
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchSessionAttendance error: $e');
+    }
+    return {};
+  }
+
+  /// 5.3.4. Lưu điểm danh buổi học cho học viên
+  Future<bool> markSessionAttendance({
+    required String scheduleId,
+    required String enrollmentId,
+    required String status,
+  }) async {
+    try {
+      final res = await _apiClient.dio.post(
+        '/rest/v1/student_attendance',
+        data: {
+          'schedule_id': scheduleId,
+          'enrollment_id': enrollmentId,
+          'status': status,
+          'check_in_time': DateTime.now().toIso8601String(),
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Prefer': 'resolution=merge-duplicates',
+          },
+        ),
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (e) {
+      debugPrint('[AdminRepository] markSessionAttendance error: $e');
+      return false;
+    }
+  }
+
   /// 5.4. Thêm mới học viên tuyển sinh (CRUD kiểu Trello - Create)
   Future<bool> createCandidate({
     required String candidateName,
@@ -509,6 +763,7 @@ class AdminRepository {
     String? notes,
   }) async {
     try {
+      final isConfirmed = status == 'CONFIRMED' || status == 'CONFIRMED_PENDING_PAY';
       final res = await _apiClient.dio.post(
         '/rest/v1/course_enrollments',
         data: {
@@ -516,7 +771,8 @@ class AdminRepository {
           'student_phone': candidatePhone,
           if (candidateEmail != null && candidateEmail.isNotEmpty) 'student_email': candidateEmail,
           'course_id': courseId,
-          'status': status,
+          'status': isConfirmed ? 'DEPOSITED' : 'CONSULTING',
+          'consultation_status': isConfirmed ? 'CONFIRMED' : 'PENDING_CONSULTATION',
           'amount_paid': amountPaid,
           'enrolled_at': DateTime.now().toIso8601String(),
           if (notes != null && notes.isNotEmpty) 'approval_notes': notes,
@@ -529,14 +785,26 @@ class AdminRepository {
     }
   }
 
-  /// 5.5. Cập nhật trạng thái cột Kanban (CRUD kiểu Trello - Update Column)
+  /// 5.5. Cập nhật trạng thái cột Kanban (CRUD kiểu Trello - Update Column, đồng bộ 100% Web Admin)
   Future<bool> updateCandidateStatus(String candidateId, String newStatus) async {
     try {
+      final patchData = <String, dynamic>{'status': newStatus};
+      if (newStatus == 'PENDING' || newStatus == 'PENDING_CONSULTATION' || newStatus == 'CONSULTING') {
+        patchData['status'] = 'CONSULTING';
+        patchData['consultation_status'] = 'PENDING_CONSULTATION';
+      } else if (newStatus == 'CONFIRMED' || newStatus == 'CONFIRMED_PENDING_PAY' || newStatus == 'DEPOSITED') {
+        patchData['status'] = 'DEPOSITED';
+        patchData['consultation_status'] = 'CONFIRMED';
+      } else if (newStatus == 'PAID' || newStatus == 'PAID_WAITING_CLASS' || newStatus == 'ENROLLED') {
+        patchData['status'] = 'ENROLLED';
+        _autoGrantCourseCompletionVoucher(candidateId);
+      } else if (newStatus == 'STUDYING' || newStatus == 'ENROLLED_STUDYING') {
+        patchData['status'] = 'STUDYING';
+      }
+
       final res = await _apiClient.dio.patch(
         '/rest/v1/course_enrollments?id=eq.$candidateId',
-        data: {
-          'status': newStatus,
-        },
+        data: patchData,
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -625,6 +893,60 @@ class AdminRepository {
       }
     } catch (e) {
       debugPrint('[AdminRepository] saveService error: $e');
+      return false;
+    }
+  }
+
+  /// 6.3. Lấy Danh mục Gói Liệu trình / Gói Trị liệu Bổ trợ (treatment_packages)
+  Future<List<AdminTreatmentPackageModel>> fetchTreatmentPackages() async {
+    try {
+      final res = await _apiClient.dio.get(
+        '/rest/v1/treatment_packages?select=*&order=price.asc,created_at.asc',
+      );
+      if (res.statusCode == 200 && res.data is List) {
+        return (res.data as List)
+            .map((item) => AdminTreatmentPackageModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchTreatmentPackages error: $e');
+      return [];
+    }
+  }
+
+  /// 6.4. Bật/Tắt Duyệt kinh doanh Gói liệu trình 1 chạm (is_active toggle)
+  Future<bool> toggleTreatmentPackageActive(String packageId, bool nextStatus) async {
+    try {
+      final res = await _apiClient.dio.patch(
+        '/rest/v1/treatment_packages?id=eq.$packageId',
+        data: {'is_active': nextStatus},
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      debugPrint('[AdminRepository] toggleTreatmentPackageActive error: $e');
+      return false;
+    }
+  }
+
+  /// 6.5. Tạo mới hoặc Cập nhật Gói Bổ trợ / Gói Liệu trình (treatment_packages)
+  Future<bool> saveTreatmentPackage({String? id, required Map<String, dynamic> data}) async {
+    try {
+      if (id != null && id.isNotEmpty) {
+        final res = await _apiClient.dio.patch(
+          '/rest/v1/treatment_packages?id=eq.$id',
+          data: data,
+        );
+        return res.statusCode == 200 || res.statusCode == 204;
+      } else {
+        final res = await _apiClient.dio.post(
+          '/rest/v1/treatment_packages',
+          data: data,
+        );
+        return res.statusCode == 200 || res.statusCode == 201;
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] saveTreatmentPackage error: $e');
       return false;
     }
   }
@@ -960,6 +1282,120 @@ class AdminRepository {
     } catch (e) {
       debugPrint('[AdminRepository] fetchRevenueReport error: $e');
       return AdminRevenueReport.empty(period);
+    }
+  }
+
+  // =========================================================================
+  // 15. QUẢN LÝ BANNERS TRANG CHỦ & TRUYỀN THÔNG (miniapp_shared_content)
+  // =========================================================================
+
+  /// 15.1. Lấy danh sách banner (Tất cả hoặc chỉ PUBLISHED)
+  Future<List<AdminBannerModel>> fetchBanners({bool onlyActive = false}) async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return [
+          const AdminBannerModel(
+            id: 'test-banner-1',
+            title: 'Khóa Đào tạo Chuyên sâu',
+            summary: 'Lộ trình dẫn lưu bạch huyết chuẩn Y khoa Vodder',
+            imageUrl: 'assets/images/therapy_hero_banner.jpg',
+            category: 'DAO_TAO',
+            targetLink: '/academy',
+            status: 'PUBLISHED',
+            sortOrder: 1,
+            isFeatured: true,
+          ),
+        ];
+      }
+    } catch (_) {}
+
+    try {
+      String query =
+          '/rest/v1/miniapp_shared_content?kind=eq.BANNER&order=sort_order.asc,created_at.desc&select=*';
+      if (onlyActive) {
+        query += '&status=in.(PUBLISHED,APPROVED)';
+      }
+      final res = await _apiClient.dio.get(query);
+      if (res.data is List) {
+        return (res.data as List)
+            .map((item) => AdminBannerModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchBanners error: $e');
+      return [];
+    }
+  }
+
+  /// 15.2. Bật/Tắt hiển thị Banner 1 chạm (PUBLISHED <-> DRAFT)
+  Future<bool> toggleBannerStatus(String bannerId, bool isPublished) async {
+    try {
+      final nextStatus = isPublished ? 'PUBLISHED' : 'DRAFT';
+      final res = await _apiClient.dio.patch(
+        '/rest/v1/miniapp_shared_content?id=eq.$bannerId',
+        data: {'status': nextStatus},
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      debugPrint('[AdminRepository] toggleBannerStatus error: $e');
+      return false;
+    }
+  }
+
+  /// 15.3. Tạo mới hoặc Cập nhật Banner Trang chủ
+  Future<bool> saveBanner({String? id, required Map<String, dynamic> data}) async {
+    try {
+      if (id != null && id.isNotEmpty) {
+        final res = await _apiClient.dio.patch(
+          '/rest/v1/miniapp_shared_content?id=eq.$id',
+          data: data,
+        );
+        return res.statusCode == 200 || res.statusCode == 204;
+      } else {
+        final payload = {
+          'kind': 'BANNER',
+          'title': data['title'] ?? '',
+          'summary': data['summary'] ?? '',
+          'content_text': data['content_text'] ?? '',
+          'image_url': data['image_url'] ?? '',
+          'target_link': data['target_link'] ?? '/academy',
+          'sort_order': data['sort_order'] ?? 1,
+          'is_featured': data['is_featured'] ?? true,
+          'category': data['category'] ?? 'DAO_TAO',
+          'access_level': 'PUBLIC',
+          'status': data['status'] ?? 'PUBLISHED',
+          'author_name': data['author_name'] ?? 'Ban Quản Trị MLD',
+          'payload_hash': ' ',
+          'file_url': '',
+          'author_avatar': '',
+          'allow_download': false,
+          'require_full_payment': true,
+          'allowed_roles': ['STUDENT', 'INSTRUCTOR', 'ADMIN'],
+          'watermark_text': 'MLD ACADEMY - BẢN QUYỀN ĐÀO TẠO',
+        };
+        final res = await _apiClient.dio.post(
+          '/rest/v1/miniapp_shared_content',
+          data: payload,
+        );
+        return res.statusCode == 200 || res.statusCode == 201;
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] saveBanner error: $e');
+      return false;
+    }
+  }
+
+  /// 15.4. Xóa Banner Trang chủ
+  Future<bool> deleteBanner(String bannerId) async {
+    try {
+      final res = await _apiClient.dio.delete(
+        '/rest/v1/miniapp_shared_content?id=eq.$bannerId',
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      debugPrint('[AdminRepository] deleteBanner error: $e');
+      return false;
     }
   }
 }

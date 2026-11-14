@@ -89,7 +89,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   // Dịch vụ & Gói liệu trình
   bool _isLoadingTherapy = false;
   List<SpaServiceModel> _services = [];
+  List<SpaServiceModel> get services => _services;
   List<TreatmentPackageModel> _packages = [];
+  List<TreatmentPackageModel> get packages => _packages;
   List<TherapyDisplayItem> _allTherapyItems = [];
 
   // Phân trang: 6 thẻ / trang
@@ -296,12 +298,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     }).toList();
   }
 
-  /// Điều hướng đặt lịch với đồng bộ 100% hình ảnh dịch vụ
-  void _handleBooking(SpaServiceModel service) async {
+  /// Đặt lịch trực tiếp cho dịch vụ hoặc gói bổ trợ
+  void _handleBookingItem(TherapyDisplayItem item) async {
     final ok = await GuestAuthPrompt.ensureLoggedIn(
       context,
       title: 'Đăng nhập để đặt lịch',
-      message: 'Quý khách vui lòng đăng nhập để đặt lịch dịch vụ trị liệu.',
+      message: 'Quý khách vui lòng đăng nhập để đặt lịch dịch vụ hoặc gói bổ trợ.',
     );
     if (!ok || !mounted) return;
 
@@ -312,6 +314,20 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       } catch (_) {}
     }
 
+    final service = item.singleService ??
+        SpaServiceModel(
+          id: item.package?.id ?? item.id,
+          name: item.title,
+          categoryName: item.category.isNotEmpty ? item.category : 'Gói liệu trình bổ trợ',
+          shortDescription: item.description,
+          fullDescription: item.package?.description ?? item.description,
+          durationMinutes: (item.package?.sessionsCount ?? 1) * 60,
+          price: item.price,
+          imageUrl: item.imageUrl,
+          steps: const ['Khám & tư vấn phác đồ', 'Tiến hành liệu trình chuyên sâu', 'Theo dõi phục hồi & dặn dò'],
+          benefits: const ['Liệu trình chuẩn Y khoa MLD', 'Tiết kiệm chi phí', 'Cam kết hiệu quả tối ưu'],
+        );
+
     Navigator.push(
       context,
       AppPageTransitions.modalSlideUp(
@@ -320,6 +336,8 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
           initialService: service,
           initialBranch: chosenBranch,
           initialSpecialty: service.categoryName.isNotEmpty ? service.categoryName : null,
+          userPackageId: item.isPackage ? (item.package?.id ?? item.id) : null,
+          userPackageName: item.isPackage ? item.title : null,
         ),
       ),
     );
@@ -1176,19 +1194,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          if (item.isPackage) {
-            _showContactSheet(
-              title: item.title,
-              imageUrl: item.imageUrl,
-              category: item.category,
-              priceText: '${formatter.format(item.price)} ₫',
-              subtitle: item.durationOrSessions,
-            );
-          } else if (item.singleService != null) {
-            _handleBooking(item.singleService!);
-          }
-        },
+        onTap: () => _handleBookingItem(item),
         borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
@@ -1323,26 +1329,10 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         width: double.infinity,
                         height: 32,
                         child: ElevatedButton(
-                          onPressed: () {
-                            if (item.isPackage) {
-                              _showContactSheet(
-                                title: item.title,
-                                imageUrl: item.imageUrl,
-                                category: item.category,
-                                priceText: '${formatter.format(item.price)} ₫',
-                                subtitle: item.durationOrSessions,
-                              );
-                            } else if (item.singleService != null) {
-                              _handleBooking(item.singleService!);
-                            }
-                          },
+                          onPressed: () => _handleBookingItem(item),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: item.isPackage
-                                ? const Color(0xFFEFF6EE)
-                                : AppColors.accent,
-                            foregroundColor: item.isPackage
-                                ? AppColors.accent
-                                : Colors.white,
+                            backgroundColor: AppColors.accent,
+                            foregroundColor: Colors.white,
                             elevation: 0,
                             padding: EdgeInsets.zero,
                             shape: RoundedRectangleBorder(
@@ -1352,24 +1342,18 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                item.isPackage
-                                    ? Icons.support_agent_rounded
-                                    : Icons.calendar_month_outlined,
+                              const Icon(
+                                Icons.calendar_month_outlined,
                                 size: 14,
-                                color: item.isPackage
-                                    ? AppColors.accent
-                                    : Colors.white,
+                                color: Colors.white,
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                item.isPackage ? 'Liên hệ' : 'Đặt lịch',
+                                'Đặt lịch',
                                 style: AppTypography.zaloFont(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
-                                  color: item.isPackage
-                                      ? AppColors.accent
-                                      : Colors.white,
+                                  color: Colors.white,
                                 ),
                               ),
                             ],

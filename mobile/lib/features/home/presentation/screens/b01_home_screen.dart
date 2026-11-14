@@ -202,28 +202,27 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     try {
       final data = await SupabaseDataService().fetchBanners();
       if (!mounted) return;
-      // Chỉ nhận các banner thực tế do Admin tải lên và có ảnh hợp lệ
+      // Nhận tất cả các banner có tiêu đề hoặc ảnh hợp lệ từ Supabase
       final adminBanners = data.where((b) {
+        final title = (b['title'] as String?)?.trim() ?? '';
         final img = (b['image_url'] as String?)?.trim() ?? '';
-        return img.isNotEmpty;
+        return title.isNotEmpty || img.isNotEmpty;
       }).toList();
 
-      if (adminBanners.isNotEmpty) {
-        _cachedAdminBanners = List.from(adminBanners);
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('cached_admin_banners', jsonEncode(adminBanners));
-        } catch (_) {}
+      _cachedAdminBanners = List.from(adminBanners);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('cached_admin_banners', jsonEncode(adminBanners));
+      } catch (_) {}
 
-        if (mounted) {
-          setState(() {
-            _banners = List.from(adminBanners);
-            if (_currentBannerIndex >= _banners.length) {
-              _currentBannerIndex = 0;
-            }
-          });
-          _startBannerAutoScroll();
-        }
+      if (mounted) {
+        setState(() {
+          _banners = List.from(adminBanners);
+          if (_currentBannerIndex >= _banners.length) {
+            _currentBannerIndex = 0;
+          }
+        });
+        _startBannerAutoScroll();
       }
     } catch (_) {}
   }
@@ -1150,21 +1149,11 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                   stops: const [0.0, 0.35],
                 ).createShader(rect),
                 blendMode: BlendMode.dstIn,
-                child: imageUrl.startsWith('http')
-                    ? Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.centerLeft,
-                        errorBuilder: (_, __, ___) => _buildFallbackHeroImage(),
-                      )
-                    : (imageUrl.startsWith('assets/')
-                        ? Image.asset(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            alignment: Alignment.centerLeft,
-                            errorBuilder: (_, __, ___) => _buildFallbackHeroImage(),
-                          )
-                        : _buildFallbackHeroImage()),
+                child: SmartImage(
+                  imageUrl: imageUrl.isNotEmpty ? imageUrl : 'assets/images/therapy_hero_banner.jpg',
+                  fit: BoxFit.cover,
+                  placeholder: _buildFallbackHeroImage(),
+                ),
               ),
             ),
 
@@ -1190,6 +1179,55 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            // Huy hiệu danh mục Banner từ Database
+                            Builder(
+                              builder: (context) {
+                                final rawCat = (currentBanner?['category'] as String?)?.trim() ?? '';
+                                String catLabel = '';
+                                switch (rawCat.toUpperCase()) {
+                                  case 'DAO_TAO':
+                                    catLabel = 'ĐÀO TẠO Y KHOA';
+                                    break;
+                                  case 'DICH_VU':
+                                    catLabel = 'DỊCH VỤ TRỊ LIỆU';
+                                    break;
+                                  case 'KHUYEN_MAI':
+                                    catLabel = 'ƯU ĐÃI ĐẶC QUYỀN';
+                                    break;
+                                  case 'SU_KIEN':
+                                    catLabel = 'SỰ KIỆN CHUYÊN NGÀNH';
+                                    break;
+                                  default:
+                                    catLabel = rawCat.isNotEmpty ? rawCat.toUpperCase() : '';
+                                }
+                                if (catLabel.isEmpty) return const SizedBox.shrink();
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.stars_rounded, size: 12, color: AppColors.primary),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        catLabel,
+                                        style: const TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.primary,
+                                          letterSpacing: 0.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+
                             // Tiêu đề chính
                             Text(
                               displayTitle,
@@ -1218,116 +1256,137 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             const SizedBox(height: 14),
 
                             // 2 Nút thao tác nổi bật khối, không viền, làm điểm nhấn lớn
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                // Nút 1: Đặt lịch trị liệu -> (Khối xanh lá nổi bật, đổ bóng 3D nhẹ, không viền)
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(26),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.accent.withValues(alpha: 0.32),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => const B02ServiceListingScreen(),
-                                        ),
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.accent,
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      shadowColor: Colors.transparent,
-                                      side: BorderSide.none,
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10.5),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          'Đặt lịch trị liệu',
-                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: -0.2),
-                                        ),
-                                        SizedBox(width: 5),
-                                        Icon(Icons.arrow_forward_rounded, size: 15),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                            Builder(
+                              builder: (context) {
+                                final targetLink = (currentBanner?['target_link'] as String?)?.trim() ?? '';
+                                String primaryBtnText = 'Đặt lịch trị liệu';
+                                if (targetLink.contains('academy') || targetLink.contains('khoa-hoc')) {
+                                  primaryBtnText = 'Khám phá ngay';
+                                } else if (targetLink.contains('package')) {
+                                  primaryBtnText = 'Xem gói bổ trợ';
+                                } else if (targetLink.contains('document')) {
+                                  primaryBtnText = 'Xem tài liệu';
+                                } else if (targetLink.contains('community')) {
+                                  primaryBtnText = 'Xem cộng đồng';
+                                }
 
-                                // Nút 2: Gọi tư vấn (Khối trắng nổi bật, đổ bóng khối, không viền)
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(26),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.08),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
+                                return Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    // Nút 1: Hành động chính của Banner -> (Khối xanh lá nổi bật, đổ bóng 3D nhẹ, không viền)
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(26),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppColors.accent.withValues(alpha: 0.32),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                  child: ElevatedButton(
-                                    onPressed: () => _launchExternal('tel:${PortalSettingsService.instance.hotlineSupport.replaceAll(RegExp(r'\D'), '')}'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: AppColors.primary,
-                                      elevation: 0,
-                                      shadowColor: Colors.transparent,
-                                      side: BorderSide.none,
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10.5),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.phone_in_talk_rounded, size: 14, color: AppColors.primary),
-                                        SizedBox(width: 5),
-                                        Text(
-                                          'Gọi tư vấn',
-                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary, letterSpacing: -0.2),
+                                      child: ElevatedButton(
+                                        onPressed: () {
+                                          if (currentBanner != null && targetLink.isNotEmpty) {
+                                            _handleBannerTap(currentBanner);
+                                          } else {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => const B02ServiceListingScreen(),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.accent,
+                                          foregroundColor: Colors.white,
+                                          elevation: 0,
+                                          shadowColor: Colors.transparent,
+                                          side: BorderSide.none,
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10.5),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
                                         ),
-                                      ],
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              primaryBtnText,
+                                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+                                            ),
+                                            const SizedBox(width: 5),
+                                            const Icon(Icons.arrow_forward_rounded, size: 15),
+                                          ],
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              ],
+
+                                    // Nút 2: Gọi tư vấn (Khối trắng nổi bật, đổ bóng khối, không viền)
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(26),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.08),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: ElevatedButton(
+                                        onPressed: () => _launchExternal('tel:${PortalSettingsService.instance.hotlineSupport.replaceAll(RegExp(r'\D'), '')}'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.white,
+                                          foregroundColor: AppColors.primary,
+                                          elevation: 0,
+                                          shadowColor: Colors.transparent,
+                                          side: BorderSide.none,
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10.5),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.phone_in_talk_rounded, size: 14, color: AppColors.primary),
+                                            SizedBox(width: 5),
+                                            Text(
+                                              'Gọi tư vấn',
+                                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary, letterSpacing: -0.2),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
 
-                            const SizedBox(height: 14),
-
-                            // 3 Chấm chỉ số carousel ở giữa đáy banner (đồng bộ số lượng banner)
-                            Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: List.generate(
-                                  bannerCount > 1 ? bannerCount : 3,
-                                  (index) => Container(
-                                    margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                                    width: index == _currentBannerIndex ? 18 : 5,
-                                    height: 5,
-                                    decoration: BoxDecoration(
-                                      color: index == _currentBannerIndex
-                                          ? AppColors.primary
-                                          : const Color(0xFF93C5FD),
-                                      borderRadius: BorderRadius.circular(index == _currentBannerIndex ? 3 : 2.5),
+                            // Chấm chỉ số carousel ở giữa đáy banner (chỉ hiển thị khi có từ 2 banner trở lên)
+                            if (bannerCount > 1) ...[
+                              const SizedBox(height: 14),
+                              Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: List.generate(
+                                    bannerCount,
+                                    (index) => Container(
+                                      margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                                      width: index == _currentBannerIndex ? 18 : 5,
+                                      height: 5,
+                                      decoration: BoxDecoration(
+                                        color: index == _currentBannerIndex
+                                            ? AppColors.primary
+                                            : const Color(0xFF93C5FD),
+                                        borderRadius: BorderRadius.circular(index == _currentBannerIndex ? 3 : 2.5),
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),

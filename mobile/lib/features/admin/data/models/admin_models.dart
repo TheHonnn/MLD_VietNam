@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:intl/intl.dart';
 
 class AdminKpiMetrics {
   final double todayRevenue;
@@ -248,27 +249,27 @@ class AdminCandidateModel {
       title = courseObj['title']?.toString() ?? '';
     }
 
-    // Determine workflow state:
-    // 1. PENDING_CONSULTATION (CONSULTING)
-    // 2. CONFIRMED_PENDING_PAY
-    // 3. PAID_WAITING_CLASS (amountPaid >= deposit/total but no batchId)
-    // 4. ENROLLED_STUDYING (has batchId & enrolled)
-    String rawStatus = json['status']?.toString() ?? 'CONSULTING';
+    // Determine workflow state (Đồng bộ 100% với Web Admin logic):
+    // 1. ENROLLED_STUDYING: Đã được xếp vào lớp học (batchId != null)
+    // 2. PAID_WAITING_CLASS: Đã thanh toán hoặc duyệt nhập học nhưng chưa vào lớp (amountPaid > 0 hoặc approvalStatus == 'APPROVED')
+    // 3. CONFIRMED_PENDING_PAY: Đã chốt tư vấn nhưng chưa nộp đủ học phí/cọc (consultation_status == 'CONFIRMED')
+    // 4. PENDING_CONSULTATION: Chưa chốt tư vấn (consultation_status == 'PENDING_CONSULTATION' / 'CONSULTING' hoặc mới đăng ký)
     final bId = json['batch_id']?.toString();
     final paid = double.tryParse(json['amount_paid']?.toString() ?? '0') ?? 0.0;
     final total = double.tryParse(json['tuition_total']?.toString() ?? '0') ?? 0.0;
+    final rawStatus = json['status']?.toString() ?? 'CONSULTING';
+    final consultationStatus = json['consultation_status']?.toString() ?? '';
+    final approvalStatus = json['approval_status']?.toString() ?? '';
 
-    String workflowStatus = rawStatus;
-    if (bId == null || bId.isEmpty) {
-      if (paid > 0) {
-        workflowStatus = 'PAID_WAITING_CLASS';
-      } else if (rawStatus == 'CONSULTING') {
-        workflowStatus = 'PENDING_CONSULTATION';
-      } else {
-        workflowStatus = 'CONFIRMED_PENDING_PAY';
-      }
-    } else {
+    String workflowStatus;
+    if (bId != null && bId.isNotEmpty) {
       workflowStatus = 'ENROLLED_STUDYING';
+    } else if (paid > 0 || approvalStatus == 'APPROVED') {
+      workflowStatus = 'PAID_WAITING_CLASS';
+    } else if (consultationStatus == 'CONFIRMED' || rawStatus == 'CONFIRMED') {
+      workflowStatus = 'CONFIRMED_PENDING_PAY';
+    } else {
+      workflowStatus = 'PENDING_CONSULTATION';
     }
 
     final cName = json['student_name']?.toString() ?? json['candidate_name']?.toString() ?? '';
@@ -376,6 +377,124 @@ class AdminCourseBatchModel {
       instructorName: instObj is Map ? instObj['full_name']?.toString() : null,
       roomName: roomOrBranch,
       courseTitle: courseObj is Map ? courseObj['title']?.toString() : null,
+    );
+  }
+}
+
+/// 6.1. Chi tiết Lịch học theo buổi (Batch Schedule Session)
+class AdminBatchScheduleModel {
+  final String id;
+  final String batchId;
+  final String sessionDate; // YYYY-MM-DD
+  final String startTime;   // HH:mm:ss
+  final String endTime;     // HH:mm:ss
+  final String topic;
+  final bool isPracticeLab;
+  final String? assignedRoomId;
+  final String? roomName;
+  final String? instructorName;
+
+  const AdminBatchScheduleModel({
+    required this.id,
+    required this.batchId,
+    required this.sessionDate,
+    required this.startTime,
+    required this.endTime,
+    required this.topic,
+    required this.isPracticeLab,
+    this.assignedRoomId,
+    this.roomName,
+    this.instructorName,
+  });
+
+  factory AdminBatchScheduleModel.fromJson(Map<String, dynamic> json) {
+    final roomObj = json['branch_rooms'];
+    final instObj = json['instructors'];
+    String? rName;
+    if (roomObj is Map) {
+      rName = roomObj['name']?.toString();
+    }
+    String? iName;
+    if (instObj is Map) {
+      iName = instObj['full_name']?.toString();
+    }
+
+    return AdminBatchScheduleModel(
+      id: json['id']?.toString() ?? '',
+      batchId: json['batch_id']?.toString() ?? '',
+      sessionDate: json['session_date']?.toString() ?? '',
+      startTime: json['start_time']?.toString() ?? '13:00:00',
+      endTime: json['end_time']?.toString() ?? '17:00:00',
+      topic: json['topic']?.toString() ?? 'Buổi học thực hành',
+      isPracticeLab: json['is_practice_lab'] == true,
+      assignedRoomId: json['assigned_room_id']?.toString(),
+      roomName: rName,
+      instructorName: iName,
+    );
+  }
+
+  int get sessionIndex {
+    final match = RegExp(r'Buổi\s*(\d+)', caseSensitive: false).firstMatch(topic);
+    if (match != null) {
+      return int.tryParse(match.group(1) ?? '1') ?? 1;
+    }
+    return 1;
+  }
+
+  String get timeSlotDisplay {
+    final s = startTime.length >= 5 ? startTime.substring(0, 5) : startTime;
+    final e = endTime.length >= 5 ? endTime.substring(0, 5) : endTime;
+    return '$s – $e';
+  }
+
+  String get formattedDate {
+    try {
+      final dt = DateTime.parse(sessionDate);
+      final days = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+      final weekday = days[dt.weekday - 1];
+      final formatter = DateFormat('dd/MM/yyyy');
+      return '$weekday, ${formatter.format(dt)}';
+    } catch (_) {
+      return sessionDate;
+    }
+  }
+
+  /// Trạng thái buổi học: COMPLETED, TODAY, UPCOMING
+  String get status {
+    try {
+      final now = DateTime.now();
+      final todayStr = DateFormat('yyyy-MM-dd').format(now);
+      if (sessionDate == todayStr) return 'TODAY';
+      final dt = DateTime.parse(sessionDate);
+      final todayDate = DateTime(now.year, now.month, now.day);
+      if (dt.isBefore(todayDate)) return 'COMPLETED';
+      return 'UPCOMING';
+    } catch (_) {
+      return 'UPCOMING';
+    }
+  }
+
+  AdminBatchScheduleModel copyWith({
+    String? topic,
+    String? sessionDate,
+    String? startTime,
+    String? endTime,
+    bool? isPracticeLab,
+    String? assignedRoomId,
+    String? roomName,
+    String? instructorName,
+  }) {
+    return AdminBatchScheduleModel(
+      id: id,
+      batchId: batchId,
+      sessionDate: sessionDate ?? this.sessionDate,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      topic: topic ?? this.topic,
+      isPracticeLab: isPracticeLab ?? this.isPracticeLab,
+      assignedRoomId: assignedRoomId ?? this.assignedRoomId,
+      roomName: roomName ?? this.roomName,
+      instructorName: instructorName ?? this.instructorName,
     );
   }
 }
@@ -819,4 +938,155 @@ class AdminRevenueReport {
     );
   }
 }
+
+/// Model Gói Liệu trình / Gói Trị liệu Bổ trợ dành cho Admin Catalog (treatment_packages)
+class AdminTreatmentPackageModel {
+  final String id;
+  final String name;
+  final String? serviceId;
+  final int totalSessions;
+  final double price;
+  final double? discountPrice;
+  final int validityMonths;
+  final String description;
+  final String imageUrl;
+  final bool isActive;
+  final DateTime? createdAt;
+
+  const AdminTreatmentPackageModel({
+    required this.id,
+    required this.name,
+    this.serviceId,
+    required this.totalSessions,
+    required this.price,
+    this.discountPrice,
+    this.validityMonths = 6,
+    this.description = '',
+    this.imageUrl = '',
+    required this.isActive,
+    this.createdAt,
+  });
+
+  factory AdminTreatmentPackageModel.fromJson(Map<String, dynamic> json) {
+    return AdminTreatmentPackageModel(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? json['title']?.toString() ?? 'Gói liệu trình MLD',
+      serviceId: json['service_id']?.toString(),
+      totalSessions: int.tryParse(json['total_sessions']?.toString() ?? json['sessionsCount']?.toString() ?? '10') ?? 10,
+      price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
+      discountPrice: json['discount_price'] != null ? double.tryParse(json['discount_price'].toString()) : null,
+      validityMonths: int.tryParse(json['validity_months']?.toString() ?? '6') ?? 6,
+      description: json['description']?.toString() ?? '',
+      imageUrl: json['image_url']?.toString() ?? '',
+      isActive: json['is_active'] == true,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+    );
+  }
+
+  AdminTreatmentPackageModel copyWith({
+    bool? isActive,
+    String? name,
+    double? price,
+    int? totalSessions,
+  }) {
+    return AdminTreatmentPackageModel(
+      id: id,
+      name: name ?? this.name,
+      serviceId: serviceId,
+      totalSessions: totalSessions ?? this.totalSessions,
+      price: price ?? this.price,
+      discountPrice: discountPrice,
+      validityMonths: validityMonths,
+      description: description,
+      imageUrl: imageUrl,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt,
+    );
+  }
+}
+
+/// 14. Banner Quảng cáo & Truyền thông Trang chủ (miniapp_shared_content kind=BANNER)
+class AdminBannerModel {
+  final String id;
+  final String title;
+  final String summary;
+  final String imageUrl;
+  final String category;
+  final String targetLink;
+  final String status;
+  final int sortOrder;
+  final bool isFeatured;
+  final DateTime? createdAt;
+
+  const AdminBannerModel({
+    required this.id,
+    required this.title,
+    required this.summary,
+    required this.imageUrl,
+    required this.category,
+    required this.targetLink,
+    required this.status,
+    required this.sortOrder,
+    required this.isFeatured,
+    this.createdAt,
+  });
+
+  bool get isPublished => status.toUpperCase() == 'PUBLISHED' || status.toUpperCase() == 'APPROVED';
+
+  String get categoryDisplay {
+    switch (category.toUpperCase()) {
+      case 'DAO_TAO':
+        return 'Đào tạo Y khoa';
+      case 'DICH_VU':
+        return 'Dịch vụ Trị liệu';
+      case 'KHUYEN_MAI':
+        return 'Ưu đãi Đặc quyền';
+      case 'SU_KIEN':
+        return 'Sự kiện Chuyên ngành';
+      default:
+        return category.isNotEmpty ? category : 'Chung';
+    }
+  }
+
+  factory AdminBannerModel.fromJson(Map<String, dynamic> json) {
+    return AdminBannerModel(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      summary: json['summary']?.toString() ?? '',
+      imageUrl: json['image_url']?.toString() ?? '',
+      category: json['category']?.toString() ?? 'DAO_TAO',
+      targetLink: json['target_link']?.toString() ?? '/academy',
+      status: json['status']?.toString() ?? 'PUBLISHED',
+      sortOrder: int.tryParse(json['sort_order']?.toString() ?? '0') ?? 0,
+      isFeatured: json['is_featured'] == true,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+    );
+  }
+
+  AdminBannerModel copyWith({
+    String? title,
+    String? summary,
+    String? imageUrl,
+    String? category,
+    String? targetLink,
+    String? status,
+    int? sortOrder,
+    bool? isFeatured,
+  }) {
+    return AdminBannerModel(
+      id: id,
+      title: title ?? this.title,
+      summary: summary ?? this.summary,
+      imageUrl: imageUrl ?? this.imageUrl,
+      category: category ?? this.category,
+      targetLink: targetLink ?? this.targetLink,
+      status: status ?? this.status,
+      sortOrder: sortOrder ?? this.sortOrder,
+      isFeatured: isFeatured ?? this.isFeatured,
+      createdAt: createdAt,
+    );
+  }
+}
+
+
 

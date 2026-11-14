@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -8,10 +9,14 @@ import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../widgets/service_form_sheet.dart';
 import '../widgets/course_form_sheet.dart';
+import '../widgets/package_form_sheet.dart';
+import '../widgets/product_form_sheet.dart';
+import '../widgets/banner_form_sheet.dart';
+import '../../../../core/widgets/smart_image.dart';
 import '../../../../core/services/top_notification_service.dart';
 
 class AdminCatalogScreen extends StatefulWidget {
-  final String? initialTab; // 'SERVICES' or 'COURSES'
+  final String? initialTab; // 'SERVICES', 'PACKAGES', 'COURSES', 'PRODUCTS', 'BANNERS'
 
   const AdminCatalogScreen({
     super.key,
@@ -25,23 +30,29 @@ class AdminCatalogScreen extends StatefulWidget {
 class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   final AdminRepository _repository = AdminRepository.instance;
 
-  int _selectedSegment = 0; // 0: Dịch vụ, 1: Khóa học, 2: Sản phẩm
+  int _selectedSegment = 0; // 0: Dịch vụ, 1: Gói liệu trình, 2: Khóa học, 3: Sản phẩm, 4: Banners
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
   List<AdminServiceModel> _services = [];
+  List<AdminTreatmentPackageModel> _packages = [];
   List<AdminCourseModel> _courses = [];
   List<HomeProductModel> _products = [];
+  List<AdminBannerModel> _banners = [];
   String? _togglingId;
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialTab == 'COURSES') {
+    if (widget.initialTab == 'PACKAGES') {
       _selectedSegment = 1;
-    } else if (widget.initialTab == 'PRODUCTS') {
+    } else if (widget.initialTab == 'COURSES') {
       _selectedSegment = 2;
+    } else if (widget.initialTab == 'PRODUCTS') {
+      _selectedSegment = 3;
+    } else if (widget.initialTab == 'BANNERS') {
+      _selectedSegment = 4;
     }
     _fetchData();
   }
@@ -63,6 +74,14 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
         });
       }
     } else if (_selectedSegment == 1) {
+      final list = await _repository.fetchTreatmentPackages();
+      if (mounted) {
+        setState(() {
+          _packages = list;
+          _isLoading = false;
+        });
+      }
+    } else if (_selectedSegment == 2) {
       final list = await _repository.fetchCourses();
       if (mounted) {
         setState(() {
@@ -70,11 +89,19 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           _isLoading = false;
         });
       }
-    } else {
+    } else if (_selectedSegment == 3) {
       final list = await ProductRepository.instance.getProducts(forceRefresh: true);
       if (mounted) {
         setState(() {
           _products = list;
+          _isLoading = false;
+        });
+      }
+    } else {
+      final list = await _repository.fetchBanners();
+      if (mounted) {
+        setState(() {
+          _banners = list;
           _isLoading = false;
         });
       }
@@ -87,10 +114,27 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     return _products.where((p) => p.name.toLowerCase().contains(q) || p.category.toLowerCase().contains(q)).toList();
   }
 
+  List<AdminBannerModel> get _filteredBanners {
+    if (_searchQuery.isEmpty) return _banners;
+    final q = _searchQuery.toLowerCase();
+    return _banners.where((b) =>
+      b.title.toLowerCase().contains(q) ||
+      b.summary.toLowerCase().contains(q) ||
+      b.categoryDisplay.toLowerCase().contains(q) ||
+      b.targetLink.toLowerCase().contains(q)
+    ).toList();
+  }
+
   List<AdminServiceModel> get _filteredServices {
     if (_searchQuery.isEmpty) return _services;
     final q = _searchQuery.toLowerCase();
     return _services.where((s) => s.name.toLowerCase().contains(q) || s.categoryName.toLowerCase().contains(q)).toList();
+  }
+
+  List<AdminTreatmentPackageModel> get _filteredPackages {
+    if (_searchQuery.isEmpty) return _packages;
+    final q = _searchQuery.toLowerCase();
+    return _packages.where((p) => p.name.toLowerCase().contains(q) || p.description.toLowerCase().contains(q)).toList();
   }
 
   List<AdminCourseModel> get _filteredCourses {
@@ -117,6 +161,29 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
       } else {
         TopNotificationService.showError(
           message: 'Lỗi cập nhật trạng thái. Vui lòng thử lại.',
+        );
+      }
+    }
+  }
+
+  Future<void> _handleTogglePackage(AdminTreatmentPackageModel p) async {
+    final nextStatus = !p.isActive;
+    setState(() => _togglingId = p.id);
+
+    final success = await _repository.toggleTreatmentPackageActive(p.id, nextStatus);
+    if (mounted) {
+      setState(() => _togglingId = null);
+      if (success) {
+        TopNotificationService.showSuccess(
+          title: 'Cập nhật gói liệu trình',
+          message: nextStatus
+              ? 'Đã mở bán gói "${p.name}"'
+              : 'Đã tạm dừng mở bán gói "${p.name}"',
+        );
+        _fetchData();
+      } else {
+        TopNotificationService.showError(
+          message: 'Lỗi cập nhật trạng thái gói liệu trình. Vui lòng thử lại.',
         );
       }
     }
@@ -179,6 +246,120 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
         },
       ),
     );
+  }
+
+  void _openPackageForm([AdminTreatmentPackageModel? package]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => PackageFormSheet(
+        package: package,
+        onSaved: () {
+          TopNotificationService.showSuccess(
+            title: 'Thành công',
+            message: package != null ? 'Đã lưu thay đổi gói bổ trợ!' : 'Đã tạo mới gói bổ trợ thành công!',
+          );
+          _fetchData();
+        },
+      ),
+    );
+  }
+
+  void _openProductForm([HomeProductModel? product]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ProductFormSheet(
+        product: product,
+        onSaved: () {
+          TopNotificationService.showSuccess(
+            title: 'Thành công',
+            message: product != null ? 'Đã lưu thay đổi sản phẩm!' : 'Đã tạo mới sản phẩm thành công!',
+          );
+          _fetchData();
+        },
+      ),
+    );
+  }
+
+  void _openBannerForm([AdminBannerModel? banner]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BannerFormSheet(
+        banner: banner,
+        onSaved: () {
+          TopNotificationService.showSuccess(
+            title: 'Thành công',
+            message: banner != null ? 'Đã lưu thay đổi Banner!' : 'Đã tạo mới Banner thành công!',
+          );
+          _fetchData();
+        },
+      ),
+    );
+  }
+
+  Future<void> _handleToggleBanner(AdminBannerModel b) async {
+    final nextStatus = !b.isPublished;
+    setState(() => _togglingId = b.id);
+
+    final success = await _repository.toggleBannerStatus(b.id, nextStatus);
+    if (mounted) {
+      setState(() => _togglingId = null);
+      if (success) {
+        TopNotificationService.showSuccess(
+          title: 'Cập nhật Banner',
+          message: nextStatus
+              ? 'Đã bật hiển thị banner "${b.title}"'
+              : 'Đã tạm ẩn banner "${b.title}"',
+        );
+        _fetchData();
+      } else {
+        TopNotificationService.showError(
+          message: 'Lỗi cập nhật trạng thái banner. Vui lòng thử lại.',
+        );
+      }
+    }
+  }
+
+  Future<void> _handleDeleteBanner(AdminBannerModel b) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận xóa Banner'),
+        content: Text('Bạn có chắc chắn muốn xóa banner "${b.title}" khỏi hệ thống?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            child: const Text('Xóa ngay', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    setState(() => _isLoading = true);
+    final success = await _repository.deleteBanner(b.id);
+    if (mounted) {
+      if (success) {
+        TopNotificationService.showSuccess(
+          title: 'Đã xóa banner',
+          message: 'Đã xóa banner "${b.title}" thành công!',
+        );
+        _fetchData();
+      } else {
+        setState(() => _isLoading = false);
+        TopNotificationService.showError(message: 'Lỗi xóa banner. Vui lòng thử lại.');
+      }
+    }
   }
 
   String _formatPrice(double amount) {
@@ -247,6 +428,48 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     }
   }
 
+  Widget _buildPackageThumbnail(AdminTreatmentPackageModel p) {
+    String url = p.imageUrl.trim();
+    if (url.isEmpty && p.serviceId != null) {
+      final match = _services.where((s) => s.id == p.serviceId).toList();
+      if (match.isNotEmpty && match.first.imageUrl.isNotEmpty) {
+        url = match.first.imageUrl.trim();
+      }
+    }
+    if (url.isEmpty) {
+      final n = p.name.toLowerCase();
+      if (n.contains('khu trú')) {
+        url = 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&q=80';
+      } else if (n.contains('toàn diện')) {
+        url = 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1200&q=80';
+      } else {
+        url = 'https://images.unsplash.com/photo-1519823551278-64ac92734fb1?auto=format&fit=crop&w=1200&q=80';
+      }
+    }
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.layers_rounded,
+          color: Color(0xFF00693F),
+          size: 24,
+        ),
+      );
+    } else {
+      return Image.asset(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.layers_rounded,
+          color: Color(0xFF00693F),
+          size: 24,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -271,8 +494,12 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
               _selectedSegment == 0
                   ? '${_services.length} dịch vụ đang kinh doanh'
                   : _selectedSegment == 1
-                      ? '${_courses.length} chương trình đào tạo'
-                      : '${_products.length} sản phẩm bán lẻ',
+                      ? '${_packages.length} gói bổ trợ & liệu trình'
+                      : _selectedSegment == 2
+                          ? '${_courses.length} chương trình đào tạo'
+                          : _selectedSegment == 3
+                              ? '${_products.length} sản phẩm & gói bổ trợ'
+                              : '${_banners.length} banner truyền thông trang chủ',
               style: AppTypography.zaloFont(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -282,27 +509,40 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           ],
         ),
         actions: [
-          if (_selectedSegment != 2)
-            Padding(
-              padding: const EdgeInsets.only(right: 14),
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  if (_selectedSegment == 0) {
-                    _openServiceForm();
-                  } else {
-                    _openCourseForm();
-                  }
-                },
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: Text(
-                  _selectedSegment == 0 ? 'Thêm DV' : 'Thêm khóa',
-                  style: AppTypography.zaloFont(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                if (_selectedSegment == 0) {
+                  _openServiceForm();
+                } else if (_selectedSegment == 1) {
+                  _openPackageForm();
+                } else if (_selectedSegment == 2) {
+                  _openCourseForm();
+                } else if (_selectedSegment == 3) {
+                  _openProductForm();
+                } else {
+                  _openBannerForm();
+                }
+              },
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: Text(
+                _selectedSegment == 0
+                    ? 'Thêm DV'
+                    : _selectedSegment == 1
+                        ? 'Thêm gói'
+                        : _selectedSegment == 2
+                            ? 'Thêm khóa'
+                            : _selectedSegment == 3
+                                ? 'Thêm SP'
+                                : 'Thêm Banner',
+                style: AppTypography.zaloFont(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
-                style: ElevatedButton.styleFrom(
+              ),
+              style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00693F),
                   foregroundColor: Colors.white,
                   elevation: 0,
@@ -316,23 +556,34 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
       ),
       body: Column(
         children: [
-          // 1. Segmented Control 3 Tab
+          // 1. Segmented Control 5 Tab
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
-            child: Container(
-              height: 38,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  _buildCatalogTabButton(0, 'Dịch vụ (${_services.length})', const Color(0xFF00693F)),
-                  _buildCatalogTabButton(1, 'Khóa học (${_courses.length})', const Color(0xFF00693F)),
-                  _buildCatalogTabButton(2, 'Sản phẩm (${_products.length})', const Color(0xFF00693F)),
-                ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Container(
+                height: 38,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildCatalogTabButton(0, 'Dịch vụ (${_services.length})', const Color(0xFF00693F)),
+                    const SizedBox(width: 4),
+                    _buildCatalogTabButton(1, 'Gói bổ trợ (${_packages.length})', const Color(0xFF00693F)),
+                    const SizedBox(width: 4),
+                    _buildCatalogTabButton(2, 'Khóa học (${_courses.length})', const Color(0xFF00693F)),
+                    const SizedBox(width: 4),
+                    _buildCatalogTabButton(3, 'Sản phẩm (${_products.length})', const Color(0xFF00693F)),
+                    const SizedBox(width: 4),
+                    _buildCatalogTabButton(4, 'Banner Trang chủ (${_banners.length})', const Color(0xFF00693F)),
+                  ],
+                ),
               ),
             ),
           ),
@@ -347,8 +598,12 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                 hintText: _selectedSegment == 0
                     ? 'Tìm dịch vụ...'
                     : _selectedSegment == 1
-                        ? 'Tìm khóa học...'
-                        : 'Tìm sản phẩm mang về...',
+                        ? 'Tìm gói bổ trợ...'
+                        : _selectedSegment == 2
+                            ? 'Tìm khóa học...'
+                            : _selectedSegment == 3
+                                ? 'Tìm sản phẩm & vật tư bổ trợ...'
+                                : 'Tìm banner trang chủ...',
                 hintStyle: AppTypography.zaloFont(fontSize: 12, color: const Color(0xFF9CA3AF)),
                 prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF9CA3AF)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -372,26 +627,22 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: _fetchData,
-              color: _selectedSegment == 0
-                  ? const Color(0xFFE11D48)
-                  : _selectedSegment == 1
-                      ? const Color(0xFF00693F)
-                      : AppColors.primary,
+              color: const Color(0xFF00693F),
               child: _isLoading
-                  ? Center(
+                  ? const Center(
                       child: CircularProgressIndicator(
-                        color: _selectedSegment == 0
-                            ? const Color(0xFFE11D48)
-                            : _selectedSegment == 1
-                                ? const Color(0xFF00693F)
-                                : AppColors.primary,
+                        color: Color(0xFF00693F),
                       ),
                     )
                   : _selectedSegment == 0
                       ? _buildServicesList()
                       : _selectedSegment == 1
-                          ? _buildCoursesList()
-                          : _buildProductsList(),
+                          ? _buildPackagesList()
+                          : _selectedSegment == 2
+                              ? _buildCoursesList()
+                              : _selectedSegment == 3
+                                  ? _buildProductsList()
+                                  : _buildBannersList(),
             ),
           ),
         ],
@@ -652,38 +903,228 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
 
   Widget _buildCatalogTabButton(int index, String label, Color activeColor) {
     final isSelected = _selectedSegment == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() => _selectedSegment = index);
-          _fetchData();
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: AppTypography.zaloFont(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? activeColor : AppColors.textSecondary,
-              ),
+    return GestureDetector(
+      onTap: () {
+        setState(() => _selectedSegment = index);
+        _fetchData();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: AppTypography.zaloFont(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? activeColor : AppColors.textSecondary,
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPackagesList() {
+    if (_filteredPackages.isEmpty) {
+      return ListView(
+        children: [
+          const SizedBox(height: 60),
+          Center(
+            child: Column(
+              children: [
+                const Icon(Icons.layers_outlined, size: 36, color: Color(0xFF9CA3AF)),
+                const SizedBox(height: 12),
+                Text(
+                  'Không tìm thấy gói bổ trợ nào',
+                  style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Dữ liệu đồng bộ trực tiếp từ CSDL treatment_packages.',
+                  style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 20),
+      itemCount: _filteredPackages.length,
+      itemBuilder: (ctx, index) {
+        final p = _filteredPackages[index];
+        final isToggling = _togglingId == p.id;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: InkWell(
+            onTap: () => _openPackageForm(p),
+            borderRadius: BorderRadius.circular(14),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 54,
+                    height: 54,
+                    color: const Color(0xFFE8F6ED),
+                    child: _buildPackageThumbnail(p),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F6ED),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${p.totalSessions} buổi · Hạn ${p.validityMonths} tháng',
+                              style: AppTypography.zaloFont(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF00693F),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              p.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.zaloFont(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textHeading,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Text(
+                            _formatPrice(p.price),
+                            style: AppTypography.zaloFont(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF00693F),
+                            ),
+                          ),
+                          if (p.discountPrice != null && p.discountPrice! > 0 && p.discountPrice! < p.price) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              _formatPrice(p.discountPrice!),
+                              style: AppTypography.zaloFont(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (p.description.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          p.description,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.zaloFont(
+                            fontSize: 10.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (isToggling)
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00693F)),
+                  )
+                else
+                  Switch(
+                    value: p.isActive,
+                    activeThumbColor: const Color(0xFF00693F),
+                    onChanged: (_) => _handleTogglePackage(p),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProductThumbnail(HomeProductModel p) {
+    final raw = p.imageUrl?.trim() ?? '';
+    if (raw.isEmpty) {
+      return const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28);
+    }
+    if (raw.startsWith('data:image')) {
+      try {
+        final commaIdx = raw.indexOf(',');
+        final base64Str = commaIdx != -1 ? raw.substring(commaIdx + 1) : raw;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28),
+        );
+      } catch (_) {
+        return const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28);
+      }
+    }
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      return Image.network(
+        raw,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28),
+      );
+    }
+    return Image.asset(
+      raw,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28),
     );
   }
 
@@ -725,7 +1166,6 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
         final p = _filteredProducts[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
@@ -738,47 +1178,315 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
               ),
             ],
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: p.imageUrl != null && p.imageUrl!.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(p.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag_rounded, color: AppColors.primary)),
-                      )
-                    : const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28),
+          child: InkWell(
+            onTap: () => _openProductForm(p),
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: _buildProductThumbnail(p),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            p.category,
+                            style: AppTypography.zaloFont(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          p.name,
+                          style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${p.formattedPrice} · Đơn vị: ${p.unit}',
+                          style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFF00693F)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBannersList() {
+    if (_filteredBanners.isEmpty) {
+      return ListView(
+        children: [
+          const SizedBox(height: 60),
+          Center(
+            child: Column(
+              children: [
+                const Icon(Icons.view_carousel_rounded, size: 36, color: Color(0xFF9CA3AF)),
+                const SizedBox(height: 12),
+                Text(
+                  'Không tìm thấy Banner nào',
+                  style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Bấm "+ Thêm Banner" để tạo chiến dịch truyền thông mới',
+                  style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 20),
+      itemCount: _filteredBanners.length,
+      itemBuilder: (ctx, index) {
+        final b = _filteredBanners[index];
+        final isToggling = _togglingId == b.id;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: b.isPublished ? const Color(0xFFE5E7EB) : const Color(0xFFF3F4F6),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Banner Image Thumbnail Header
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: SizedBox(
+                  height: 120,
+                  width: double.infinity,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      SmartImage(
+                        imageUrl: b.imageUrl.isNotEmpty ? b.imageUrl : 'assets/images/therapy_hero_banner.jpg',
+                        fit: BoxFit.cover,
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.2),
+                              Colors.black.withValues(alpha: 0.65),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Top Badges
+                      Positioned(
+                        top: 10,
+                        left: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00693F).withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.stars_rounded, size: 12, color: Colors.white),
+                              const SizedBox(width: 4),
+                              Text(
+                                b.categoryDisplay.toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 10,
+                        right: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: b.isPublished
+                                ? const Color(0xFF10B981).withValues(alpha: 0.9)
+                                : const Color(0xFF6B7280).withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            b.isPublished ? '● Đang hiển thị' : '○ Tạm ẩn',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Bottom Title over image
+                      Positioned(
+                        bottom: 10,
+                        left: 12,
+                        right: 12,
+                        child: Text(
+                          b.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            shadows: [
+                              Shadow(color: Colors.black54, blurRadius: 4),
+                            ],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Banner Content Details
+              Padding(
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(6),
+                    if (b.summary.isNotEmpty) ...[
+                      Text(
+                        b.summary,
+                        style: AppTypography.zaloFont(
+                          fontSize: 12,
+                          color: const Color(0xFF4B5563),
+                          height: 1.35,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      child: Text(
-                        p.category,
-                        style: AppTypography.zaloFont(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary),
-                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // Route & Sort order info
+                    Row(
+                      children: [
+                        const Icon(Icons.link_rounded, size: 14, color: Color(0xFF00693F)),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Điều hướng: ${b.targetLink}',
+                            style: AppTypography.zaloFont(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF00693F),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Vị trí #${b.sortOrder}',
+                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      p.name,
-                      style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textHeading),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${p.formattedPrice} · Đơn vị: ${p.unit}',
-                      style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFF00693F)),
+                    const SizedBox(height: 10),
+                    const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                    const SizedBox(height: 10),
+
+                    // Actions Bar: Switch & Edit & Delete
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Transform.scale(
+                              scale: 0.78,
+                              child: Switch(
+                                value: b.isPublished,
+                                activeColor: const Color(0xFF00693F),
+                                onChanged: isToggling ? null : (_) => _handleToggleBanner(b),
+                              ),
+                            ),
+                            Text(
+                              b.isPublished ? 'Bật trên App' : 'Tạm ẩn',
+                              style: AppTypography.zaloFont(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: b.isPublished ? const Color(0xFF00693F) : const Color(0xFF9CA3AF),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: () => _openBannerForm(b),
+                              icon: const Icon(Icons.edit_rounded, size: 14, color: Color(0xFF00693F)),
+                              label: const Text('Sửa', style: TextStyle(fontSize: 12, color: Color(0xFF00693F), fontWeight: FontWeight.w700)),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                minimumSize: const Size(0, 30),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            TextButton.icon(
+                              onPressed: () => _handleDeleteBanner(b),
+                              icon: const Icon(Icons.delete_outline_rounded, size: 14, color: Color(0xFFEF4444)),
+                              label: const Text('Xóa', style: TextStyle(fontSize: 12, color: Color(0xFFEF4444), fontWeight: FontWeight.w700)),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                minimumSize: const Size(0, 30),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),

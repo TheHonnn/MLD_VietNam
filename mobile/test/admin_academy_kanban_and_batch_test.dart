@@ -57,6 +57,46 @@ void main() {
       courseTitle: 'MLD Chuyên Sâu K26',
     );
 
+    test('AdminCandidateModel maps status identically with Web Admin for PENDING_CONSULTATION', () {
+      final json = {
+        'id': '77189c3d-acf3-4d32-82ad-7de146bb5fa2',
+        'student_name': 'Bùi Thế Hoàng',
+        'student_phone': '0394316963',
+        'status': 'DEPOSITED',
+        'consultation_status': 'PENDING_CONSULTATION',
+        'approval_status': 'PENDING_APPROVAL',
+        'amount_paid': 0,
+        'tuition_total': 10000000,
+        'batch_id': null,
+      };
+
+      final candidate = AdminCandidateModel.fromJson(json);
+      expect(candidate.status, 'PENDING_CONSULTATION');
+      expect(candidate.candidateName, 'Bùi Thế Hoàng');
+    });
+
+    test('AdminTreatmentPackageModel parses treatment_packages correctly', () {
+      final json = {
+        'id': '22222222-0002-0001-0001-000000000001',
+        'name': 'Gói Chăm sóc mở rộng (10 buổi)',
+        'service_id': '235166f2-66c9-4231-bbe1-af91b48fc67c',
+        'total_sessions': 10,
+        'price': 8600000,
+        'discount_price': 8600000,
+        'validity_months': 3,
+        'description': 'Liệu trình 10 buổi Chăm sóc mở rộng',
+        'image_url': 'https://example.com/img.jpg',
+        'is_active': true,
+      };
+
+      final pkg = AdminTreatmentPackageModel.fromJson(json);
+      expect(pkg.name, 'Gói Chăm sóc mở rộng (10 buổi)');
+      expect(pkg.totalSessions, 10);
+      expect(pkg.price, 8600000);
+      expect(pkg.validityMonths, 3);
+      expect(pkg.isActive, isTrue);
+    });
+
     testWidgets('AdminCandidateCard compact mode renders all dense info', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -89,16 +129,24 @@ void main() {
       // Verify Header & Batch Info
       expect(find.text('K26-GV-Q3'), findsWidgets);
       expect(find.text('MLD Chuyên Sâu K26'), findsWidgets);
-      expect(find.textContaining('TS. Bác sĩ Trịnh Văn Hùng'), findsOneWidget);
-      expect(find.textContaining('Phòng Đào Tạo A1'), findsOneWidget);
+      expect(find.textContaining('TS. Bác sĩ Trịnh Văn Hùng'), findsWidgets);
+      expect(find.textContaining('Phòng Đào Tạo A1'), findsWidgets);
       expect(find.textContaining('T2-T4-T6 (08:30 - 11:30)'), findsOneWidget);
 
-      // Verify KPIs
+      // Verify Tab 0: Lịch học & Giáo trình
+      expect(find.textContaining('Lịch học & Giáo trình'), findsOneWidget);
+      expect(find.textContaining('Lộ trình đào tạo chuẩn Y khoa MLD'), findsWidgets);
+
+      // Tap Tab 1: Danh sách Học viên
+      await tester.tap(find.textContaining('Học viên'));
+      await tester.pumpAndSettle();
+
+      // Verify KPIs in Tab 1
       expect(find.text('1 hv'), findsOneWidget); // Sĩ số hiện tại
       expect(find.text('1/1'), findsOneWidget); // Đã nộp đủ
       expect(find.text('15.000.000 ₫'), findsWidgets); // Tổng thu
 
-      // Verify Student Roster
+      // Verify Student Roster in Tab 1
       expect(find.text('Nguyễn Thu Trang'), findsOneWidget);
       expect(find.text('Đã thu đủ'), findsOneWidget);
       expect(find.textContaining('ENR-K26-001'), findsOneWidget);
