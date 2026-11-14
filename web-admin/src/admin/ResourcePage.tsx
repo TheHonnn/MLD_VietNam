@@ -5722,6 +5722,14 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       courses: coursesForFilter.length,
     }
     : null;
+  const courseSummary = table === "courses" && listing
+    ? {
+      total: listing.total,
+      shown: listing.rows.length,
+      active: listing.rows.filter(row => row.is_active !== false).length,
+      categorized: listing.rows.filter(row => row.category_id).length,
+    }
+    : null;
   const done = () => {
     setEdit(null);
     if (params.has("create")) {
@@ -5884,6 +5892,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
  <p className="mt-1 text-xs text-[#73675F]">Tra cứu hồ sơ và lớp học. Duyệt hồ sơ, xác nhận học phí và xếp lớp tại trang tuyển sinh.</p>
           ) : table === "course_categories" ? (
             <p className="mt-1 text-xs text-[#73675F]">Sắp xếp các khóa đào tạo theo nhóm. Mỗi danh mục có thể mở nhanh danh sách khóa học liên quan để kiểm tra và cập nhật.</p>
+          ) : table === "courses" ? (
+            <p className="mt-1 text-xs text-[#73675F]">Quản lý nội dung, học phí và trạng thái kinh doanh của từng khóa. Mở một khóa để chỉnh sửa chi tiết hoặc xem các lớp đang tổ chức.</p>
  ) : table === "invoice_items" ? (
             <p className="mt-1 text-xs text-[#73675F]">Đối chiếu nội dung thu, số lượng, đơn giá và thành tiền của từng hóa đơn.</p>
           ) : table === "users" ? (
@@ -6035,7 +6045,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </div>
         </div>
       )}
-      <PageToolbar className={staffPages[table] || loyaltyPages[table] ? "!justify-start rounded-xl border border-[#EFE4D9] bg-white !px-3 py-3" : ""}>
+      <PageToolbar className={staffPages[table] || loyaltyPages[table] || table === "courses" ? "!justify-start rounded-xl border border-[#EFE4D9] bg-white !px-3 py-3" : ""}>
         {staffDateField && (
           <div className="flex flex-wrap items-end gap-2">
             <label className="grid gap-1 text-xs font-semibold">
@@ -6065,6 +6075,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                 ? "Tìm mã lịch, tên dịch vụ hoặc chuyên viên..."
                 : table === "invoice_items"
                   ? "Tìm mã hóa đơn, nội dung thu hoặc loại khoản thu..."
+                : table === "courses"
+                  ? "Tìm tên hoặc mã khóa học..."
                 : "Tìm kiếm…"}
             aria-label="Tìm kiếm bản ghi"
             value={search}
@@ -6342,6 +6354,34 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   </div>
                   <strong className="mt-1 block text-2xl font-black text-[#2D1B08]">{courseCategorySummary.courses.toLocaleString("vi-VN")}</strong>
                   <span className="text-[11px] text-[#8C7A6B]">có thể phân loại bên dưới</span>
+                </div>
+              </section>
+            )}
+            {courseSummary && (
+              <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Tổng quan khóa đào tạo">
+                <div className="rounded-2xl border border-[#EAD8C7] bg-gradient-to-br from-[#FFFDF9] to-[#FAF3EA] px-4 py-3 shadow-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold text-[#7D6E63]">Tổng khóa học</span>
+                    <GraduationCap size={17} className="text-[#985018]" />
+                  </div>
+                  <strong className="mt-1 block text-2xl font-black text-[#2D1B08]">{courseSummary.total.toLocaleString("vi-VN")}</strong>
+                  <span className="text-[11px] text-[#8C7A6B]">{courseSummary.shown} khóa đang hiển thị</span>
+                </div>
+                <div className="rounded-2xl border border-[#D7E8DC] bg-[#F5FBF6] px-4 py-3 shadow-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold text-[#477056]">Đang kinh doanh</span>
+                    <CheckCheck size={17} className="text-[#2F855A]" />
+                  </div>
+                  <strong className="mt-1 block text-2xl font-black text-[#245C3A]">{courseSummary.active.toLocaleString("vi-VN")}</strong>
+                  <span className="text-[11px] text-[#63806D]">trên trang hiện tại</span>
+                </div>
+                <div className="rounded-2xl border border-[#EAD8C7] bg-white px-4 py-3 shadow-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold text-[#7D6E63]">Đã phân loại</span>
+                    <Layers size={17} className="text-[#985018]" />
+                  </div>
+                  <strong className="mt-1 block text-2xl font-black text-[#2D1B08]">{courseSummary.categorized.toLocaleString("vi-VN")}</strong>
+                  <span className="text-[11px] text-[#8C7A6B]">khóa có danh mục</span>
                 </div>
               </section>
             )}
@@ -7363,6 +7403,26 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           ))}
                           <td>
                             <div className="admin-row-actions">
+                              {table === "courses" && resources.some(item => item.name === "course_batches") && (
+                                <Link
+                                  className="admin-secondary whitespace-nowrap inline-flex items-center gap-1.5"
+                                  to={`/manage/course_batches?filter=${encodeURIComponent(JSON.stringify({ course_id: String(row.id) }))}`}
+                                >
+                                  <Calendar size={14} />
+                                  Xem lớp học
+                                </Link>
+                              )}
+                              {table === "courses" && resource?.actions?.includes("update") && (
+                                <button
+                                  type="button"
+                                  className="admin-icon"
+                                  title="Chỉnh sửa khóa học"
+                                  aria-label="Chỉnh sửa khóa học"
+                                  onClick={() => setEdit({ row, mode: "update" })}
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                              )}
                               {table === "course_categories" && resources.some(item => item.name === "courses") && (
                                 <Link
                                   className="admin-secondary whitespace-nowrap inline-flex items-center gap-1.5"
