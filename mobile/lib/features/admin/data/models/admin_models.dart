@@ -1005,4 +1005,88 @@ class AdminTreatmentPackageModel {
   }
 }
 
+/// 14. Banner Quảng cáo & Truyền thông Trang chủ (miniapp_shared_content kind=BANNER)
+class AdminBannerModel {
+  final String id;
+  final String title;
+  final String summary;
+  final String imageUrl;
+  final String category;
+  final String targetLink;
+  final String status;
+  final int sortOrder;
+  final bool isFeatured;
+  final DateTime? createdAt;
+
+  const AdminBannerModel({
+    required this.id,
+    required this.title,
+    required this.summary,
+    required this.imageUrl,
+    required this.category,
+    required this.targetLink,
+    required this.status,
+    required this.sortOrder,
+    required this.isFeatured,
+    this.createdAt,
+  });
+
+  bool get isPublished => status.toUpperCase() == 'PUBLISHED' || status.toUpperCase() == 'APPROVED';
+
+  String get categoryDisplay {
+    switch (category.toUpperCase()) {
+      case 'DAO_TAO':
+        return 'Đào tạo Y khoa';
+      case 'DICH_VU':
+        return 'Dịch vụ Trị liệu';
+      case 'KHUYEN_MAI':
+        return 'Ưu đãi Đặc quyền';
+      case 'SU_KIEN':
+        return 'Sự kiện Chuyên ngành';
+      default:
+        return category.isNotEmpty ? category : 'Chung';
+    }
+  }
+
+  factory AdminBannerModel.fromJson(Map<String, dynamic> json) {
+    return AdminBannerModel(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      summary: json['summary']?.toString() ?? '',
+      imageUrl: json['image_url']?.toString() ?? '',
+      category: json['category']?.toString() ?? 'DAO_TAO',
+      targetLink: json['target_link']?.toString() ?? '/academy',
+      status: json['status']?.toString() ?? 'PUBLISHED',
+      sortOrder: int.tryParse(json['sort_order']?.toString() ?? '0') ?? 0,
+      isFeatured: json['is_featured'] == true,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+    );
+  }
+
+  AdminBannerModel copyWith({
+    String? title,
+    String? summary,
+    String? imageUrl,
+    String? category,
+    String? targetLink,
+    String? status,
+    int? sortOrder,
+    bool? isFeatured,
+  }) {
+    return AdminBannerModel(
+      id: id,
+      title: title ?? this.title,
+      summary: summary ?? this.summary,
+      imageUrl: imageUrl ?? this.imageUrl,
+      category: category ?? this.category,
+      targetLink: targetLink ?? this.targetLink,
+      status: status ?? this.status,
+      sortOrder: sortOrder ?? this.sortOrder,
+      isFeatured: isFeatured ?? this.isFeatured,
+      createdAt: createdAt,
+    );
+  }
+}
+
+
 

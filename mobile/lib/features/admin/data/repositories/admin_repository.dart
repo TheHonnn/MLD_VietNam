@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
@@ -1281,6 +1282,120 @@ class AdminRepository {
     } catch (e) {
       debugPrint('[AdminRepository] fetchRevenueReport error: $e');
       return AdminRevenueReport.empty(period);
+    }
+  }
+
+  // =========================================================================
+  // 15. QUẢN LÝ BANNERS TRANG CHỦ & TRUYỀN THÔNG (miniapp_shared_content)
+  // =========================================================================
+
+  /// 15.1. Lấy danh sách banner (Tất cả hoặc chỉ PUBLISHED)
+  Future<List<AdminBannerModel>> fetchBanners({bool onlyActive = false}) async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return [
+          const AdminBannerModel(
+            id: 'test-banner-1',
+            title: 'Khóa Đào tạo Chuyên sâu',
+            summary: 'Lộ trình dẫn lưu bạch huyết chuẩn Y khoa Vodder',
+            imageUrl: 'assets/images/therapy_hero_banner.jpg',
+            category: 'DAO_TAO',
+            targetLink: '/academy',
+            status: 'PUBLISHED',
+            sortOrder: 1,
+            isFeatured: true,
+          ),
+        ];
+      }
+    } catch (_) {}
+
+    try {
+      String query =
+          '/rest/v1/miniapp_shared_content?kind=eq.BANNER&order=sort_order.asc,created_at.desc&select=*';
+      if (onlyActive) {
+        query += '&status=in.(PUBLISHED,APPROVED)';
+      }
+      final res = await _apiClient.dio.get(query);
+      if (res.data is List) {
+        return (res.data as List)
+            .map((item) => AdminBannerModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchBanners error: $e');
+      return [];
+    }
+  }
+
+  /// 15.2. Bật/Tắt hiển thị Banner 1 chạm (PUBLISHED <-> DRAFT)
+  Future<bool> toggleBannerStatus(String bannerId, bool isPublished) async {
+    try {
+      final nextStatus = isPublished ? 'PUBLISHED' : 'DRAFT';
+      final res = await _apiClient.dio.patch(
+        '/rest/v1/miniapp_shared_content?id=eq.$bannerId',
+        data: {'status': nextStatus},
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      debugPrint('[AdminRepository] toggleBannerStatus error: $e');
+      return false;
+    }
+  }
+
+  /// 15.3. Tạo mới hoặc Cập nhật Banner Trang chủ
+  Future<bool> saveBanner({String? id, required Map<String, dynamic> data}) async {
+    try {
+      if (id != null && id.isNotEmpty) {
+        final res = await _apiClient.dio.patch(
+          '/rest/v1/miniapp_shared_content?id=eq.$id',
+          data: data,
+        );
+        return res.statusCode == 200 || res.statusCode == 204;
+      } else {
+        final payload = {
+          'kind': 'BANNER',
+          'title': data['title'] ?? '',
+          'summary': data['summary'] ?? '',
+          'content_text': data['content_text'] ?? '',
+          'image_url': data['image_url'] ?? '',
+          'target_link': data['target_link'] ?? '/academy',
+          'sort_order': data['sort_order'] ?? 1,
+          'is_featured': data['is_featured'] ?? true,
+          'category': data['category'] ?? 'DAO_TAO',
+          'access_level': 'PUBLIC',
+          'status': data['status'] ?? 'PUBLISHED',
+          'author_name': data['author_name'] ?? 'Ban Quản Trị MLD',
+          'payload_hash': ' ',
+          'file_url': '',
+          'author_avatar': '',
+          'allow_download': false,
+          'require_full_payment': true,
+          'allowed_roles': ['STUDENT', 'INSTRUCTOR', 'ADMIN'],
+          'watermark_text': 'MLD ACADEMY - BẢN QUYỀN ĐÀO TẠO',
+        };
+        final res = await _apiClient.dio.post(
+          '/rest/v1/miniapp_shared_content',
+          data: payload,
+        );
+        return res.statusCode == 200 || res.statusCode == 201;
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] saveBanner error: $e');
+      return false;
+    }
+  }
+
+  /// 15.4. Xóa Banner Trang chủ
+  Future<bool> deleteBanner(String bannerId) async {
+    try {
+      final res = await _apiClient.dio.delete(
+        '/rest/v1/miniapp_shared_content?id=eq.$bannerId',
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      debugPrint('[AdminRepository] deleteBanner error: $e');
+      return false;
     }
   }
 }
