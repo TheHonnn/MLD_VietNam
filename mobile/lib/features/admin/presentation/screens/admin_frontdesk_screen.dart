@@ -38,6 +38,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
 
   // Trạng thái mở rộng các Ca tiếp đón (Mặc định mở ca hiện tại hoặc toàn bộ)
   final Set<String> _expandedShifts = {'morning', 'afternoon', 'evening'};
+  bool _isCompactView = true;
 
   int _parseHour(String timeStr) {
     try {
@@ -900,20 +901,54 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                                       ),
                                     ],
                                   ),
-                                  InkWell(
-                                    onTap: _toggleAllShifts,
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      child: Text(
-                                        _expandedShifts.isEmpty ? 'Mở tất cả' : 'Thu gọn tất cả',
-                                        style: AppTypography.zaloFont(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.primary,
+                                  Row(
+                                    children: [
+                                      InkWell(
+                                        onTap: () => setState(() => _isCompactView = !_isCompactView),
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: _isCompactView ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                _isCompactView ? Icons.view_compact_rounded : Icons.view_agenda_rounded,
+                                                size: 13,
+                                                color: _isCompactView ? const Color(0xFF00693F) : const Color(0xFF4B5563),
+                                              ),
+                                              const SizedBox(width: 3),
+                                              Text(
+                                                _isCompactView ? 'Xem gọn' : 'Xem chi tiết',
+                                                style: AppTypography.zaloFont(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: _isCompactView ? const Color(0xFF00693F) : const Color(0xFF4B5563),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
-                                    ),
+                                      const SizedBox(width: 8),
+                                      InkWell(
+                                        onTap: _toggleAllShifts,
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          child: Text(
+                                            _expandedShifts.isEmpty ? 'Mở tất cả' : 'Thu gọn tất cả',
+                                            style: AppTypography.zaloFont(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -932,10 +967,10 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                               final bool isExpanded = _expandedShifts.contains(key);
 
                               return Container(
-                                margin: const EdgeInsets.only(bottom: 14),
+                                margin: const EdgeInsets.only(bottom: 8),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: isExpanded ? color.withValues(alpha: 0.35) : const Color(0xFFE5E7EB),
                                     width: isExpanded ? 1.5 : 1,
@@ -943,8 +978,8 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withValues(alpha: 0.02),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
                                     ),
                                   ],
                                 ),
@@ -956,21 +991,21 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                                       color: Colors.transparent,
                                       child: InkWell(
                                         onTap: () => _toggleShift(key),
-                                        borderRadius: BorderRadius.circular(15),
+                                        borderRadius: BorderRadius.circular(13),
                                         child: Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                           child: Row(
                                             children: [
                                               Container(
-                                                width: 38,
-                                                height: 38,
+                                                width: 32,
+                                                height: 32,
                                                 decoration: BoxDecoration(
                                                   color: bgColor,
-                                                  borderRadius: BorderRadius.circular(10),
+                                                  borderRadius: BorderRadius.circular(8),
                                                 ),
-                                                child: Icon(icon, color: color, size: 20),
+                                                child: Icon(icon, color: color, size: 17),
                                               ),
-                                              const SizedBox(width: 12),
+                                              const SizedBox(width: 10),
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -980,25 +1015,25 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                                                         Text(
                                                           title,
                                                           style: AppTypography.zaloFont(
-                                                            fontSize: 14.5,
+                                                            fontSize: 13.5,
                                                             fontWeight: FontWeight.w700,
                                                             color: AppColors.textHeading,
                                                           ),
                                                         ),
-                                                        const SizedBox(width: 8),
+                                                        const SizedBox(width: 6),
                                                         Container(
                                                           padding: const EdgeInsets.symmetric(
-                                                              horizontal: 7, vertical: 2),
+                                                              horizontal: 6, vertical: 1.5),
                                                           decoration: BoxDecoration(
                                                             color: shiftBookings.isNotEmpty
                                                                 ? color.withValues(alpha: 0.12)
                                                                 : const Color(0xFFF3F4F6),
-                                                            borderRadius: BorderRadius.circular(8),
+                                                            borderRadius: BorderRadius.circular(6),
                                                           ),
                                                           child: Text(
                                                             '${shiftBookings.length} khách',
                                                             style: AppTypography.zaloFont(
-                                                              fontSize: 11,
+                                                              fontSize: 10.5,
                                                               fontWeight: FontWeight.w700,
                                                               color: shiftBookings.isNotEmpty
                                                                   ? color
@@ -1008,11 +1043,11 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                                                         ),
                                                       ],
                                                     ),
-                                                    const SizedBox(height: 2),
+                                                    const SizedBox(height: 1),
                                                     Text(
                                                       'Khung giờ: $timeRange',
                                                       style: AppTypography.zaloFont(
-                                                        fontSize: 11.5,
+                                                        fontSize: 10.5,
                                                         color: AppColors.textSecondary,
                                                       ),
                                                     ),
@@ -1066,6 +1101,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                                               return AdminAppointmentCard(
                                                 booking: b,
                                                 isProcessing: _processingBookingId == b.id,
+                                                isCompact: _isCompactView,
                                                 onApprove: () => _handleApprove(b),
                                                 onCancel: () => _handleCancel(b),
                                                 onCheckIn: () => _handleCheckIn(b),

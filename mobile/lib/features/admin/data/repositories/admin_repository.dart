@@ -433,7 +433,7 @@ class AdminRepository {
         '/rest/v1/course_enrollments?id=eq.$enrollmentId',
         data: {
           'batch_id': batchId,
-          'status': 'ENROLLED',
+          'status': 'STUDYING',
         },
       );
       return res.statusCode == 200 || res.statusCode == 204;
@@ -450,7 +450,7 @@ class AdminRepository {
         '/rest/v1/course_enrollments?id=eq.$enrollmentId',
         data: {
           'batch_id': null,
-          'status': 'PAID',
+          'status': 'ENROLLED',
         },
       );
       return res.statusCode == 200 || res.statusCode == 204;
@@ -502,11 +502,24 @@ class AdminRepository {
     required String candidatePhone,
     String? candidateEmail,
     required String courseId,
-    String status = 'PENDING',
+    String status = 'CONSULTING',
     double amountPaid = 0.0,
     String? notes,
   }) async {
     try {
+      String dbStatus = status.toUpperCase();
+      if (dbStatus == 'PENDING' || dbStatus == 'PENDING_CONSULTATION' || dbStatus == 'PENDING_APPROVAL') {
+        dbStatus = 'CONSULTING';
+      } else if (dbStatus == 'CONFIRMED' || dbStatus == 'CONFIRMED_PENDING_PAY') {
+        dbStatus = 'DEPOSITED';
+      } else if (dbStatus == 'PAID' || dbStatus == 'PAID_WAITING_CLASS') {
+        dbStatus = 'ENROLLED';
+      } else if (dbStatus == 'ENROLLED_STUDYING') {
+        dbStatus = 'STUDYING';
+      } else if (dbStatus == 'COMPLETED') {
+        dbStatus = 'GRADUATED';
+      }
+
       final res = await _apiClient.dio.post(
         '/rest/v1/course_enrollments',
         data: {
@@ -514,7 +527,7 @@ class AdminRepository {
           'student_phone': candidatePhone,
           if (candidateEmail != null && candidateEmail.isNotEmpty) 'student_email': candidateEmail,
           'course_id': courseId,
-          'status': status,
+          'status': dbStatus,
           'amount_paid': amountPaid,
           'enrolled_at': DateTime.now().toIso8601String(),
           if (notes != null && notes.isNotEmpty) 'approval_notes': notes,
@@ -530,10 +543,23 @@ class AdminRepository {
   /// 5.5. Cập nhật trạng thái cột Kanban (CRUD kiểu Trello - Update Column)
   Future<bool> updateCandidateStatus(String candidateId, String newStatus) async {
     try {
+      String dbStatus = newStatus.toUpperCase();
+      if (dbStatus == 'PENDING' || dbStatus == 'PENDING_CONSULTATION' || dbStatus == 'PENDING_APPROVAL') {
+        dbStatus = 'CONSULTING';
+      } else if (dbStatus == 'CONFIRMED' || dbStatus == 'CONFIRMED_PENDING_PAY') {
+        dbStatus = 'DEPOSITED';
+      } else if (dbStatus == 'PAID' || dbStatus == 'PAID_WAITING_CLASS') {
+        dbStatus = 'ENROLLED';
+      } else if (dbStatus == 'ENROLLED_STUDYING') {
+        dbStatus = 'STUDYING';
+      } else if (dbStatus == 'COMPLETED') {
+        dbStatus = 'GRADUATED';
+      }
+
       final res = await _apiClient.dio.patch(
         '/rest/v1/course_enrollments?id=eq.$candidateId',
         data: {
-          'status': newStatus,
+          'status': dbStatus,
         },
       );
       return res.statusCode == 200 || res.statusCode == 204;

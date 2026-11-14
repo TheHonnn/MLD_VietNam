@@ -48,7 +48,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       'icon': Icons.contact_phone_rounded,
       'color': const Color(0xFFD97706),
       'bgColor': const Color(0xFFFEF3C7),
-      'statuses': ['PENDING', 'PENDING_CONSULTATION'],
+      'statuses': ['PENDING', 'PENDING_CONSULTATION', 'CONSULTING', 'PENDING_APPROVAL'],
     },
     {
       'key': 'CONFIRMED_PENDING_PAY',
@@ -56,7 +56,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       'icon': Icons.pending_actions_rounded,
       'color': const Color(0xFF0284C7),
       'bgColor': const Color(0xFFE0F2FE),
-      'statuses': ['CONFIRMED', 'CONFIRMED_PENDING_PAY'],
+      'statuses': ['CONFIRMED', 'CONFIRMED_PENDING_PAY', 'DEPOSITED'],
     },
     {
       'key': 'PAID_WAITING_CLASS',
@@ -64,7 +64,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       'icon': Icons.how_to_reg_rounded,
       'color': const Color(0xFF7C3AED),
       'bgColor': const Color(0xFFEDE9FE),
-      'statuses': ['PAID', 'PAID_WAITING_CLASS'],
+      'statuses': ['PAID', 'PAID_WAITING_CLASS', 'ENROLLED'],
     },
     {
       'key': 'ENROLLED_STUDYING',
@@ -72,7 +72,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       'icon': Icons.school_rounded,
       'color': const Color(0xFF00693F),
       'bgColor': const Color(0xFFE8F6ED),
-      'statuses': ['ENROLLED', 'ENROLLED_STUDYING'],
+      'statuses': ['ENROLLED_STUDYING', 'STUDYING'],
     },
     {
       'key': 'COMPLETED',
@@ -646,23 +646,28 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
   }
 
   Widget _buildMoveChip(BuildContext ctx, AdminCandidateModel c, String targetStatus, String label, Color color) {
-    final isCurrent = c.status.toUpperCase() == targetStatus;
+    final isCurrent = c.status.toUpperCase() == targetStatus.toUpperCase();
+    final isInitial = targetStatus == 'PENDING' || targetStatus == 'CONFIRMED' || targetStatus == 'CONSULTING' || targetStatus == 'DEPOSITED';
+    final isLocked = c.amountPaid > 0 && isInitial;
+
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: ActionChip(
-        avatar: isCurrent ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+        avatar: isCurrent
+            ? const Icon(Icons.check, size: 14, color: Colors.white)
+            : (isLocked ? const Icon(Icons.lock_rounded, size: 12, color: Color(0xFFDC2626)) : null),
         label: Text(label),
         labelStyle: AppTypography.zaloFont(
           fontSize: 11,
           fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-          color: isCurrent ? Colors.white : color,
+          color: isLocked ? const Color(0xFF9CA3AF) : (isCurrent ? Colors.white : color),
         ),
-        backgroundColor: isCurrent ? color : color.withValues(alpha: 0.1),
+        backgroundColor: isCurrent ? color : (isLocked ? const Color(0xFFF3F4F6) : color.withValues(alpha: 0.1)),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: isCurrent ? color : color.withValues(alpha: 0.3)),
+          side: BorderSide(color: isCurrent ? color : (isLocked ? const Color(0xFFE5E7EB) : color.withValues(alpha: 0.3))),
         ),
-        onPressed: isCurrent
+        onPressed: (isCurrent || isLocked)
             ? null
             : () async {
                 Navigator.pop(ctx);
