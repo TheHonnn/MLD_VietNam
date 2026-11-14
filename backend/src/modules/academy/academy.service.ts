@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../../database/supabase.service';
 import { EnrollCourseDto } from './dto/enroll-course.dto';
 import { decideEnrollmentAction, paymentState } from './enrollment-workflow';
@@ -585,7 +585,7 @@ export class AcademyService {
       p_approve: approve,
       p_review_note: reviewNote || null,
     });
-    if (error) return { success: false, message: error.message };
+    if (error) throw new BadRequestException(error.message || 'Không thể xử lý yêu cầu thay đổi học tập.');
     return { success: true, message: approve ? 'Đã phê duyệt yêu cầu.' : 'Đã từ chối yêu cầu.', data };
   }
 

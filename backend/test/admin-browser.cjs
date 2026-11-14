@@ -11,6 +11,7 @@ const { RedisService } = require('../dist/database/redis.service');
 const { EmailService } = require('../dist/modules/auth/services/email.service');
 const { SmsService } = require('../dist/modules/auth/services/sms.service');
 const { AdminModule } = require('../dist/modules/admin/admin.module');
+const { AcademyModule } = require('../dist/modules/academy/academy.module');
 const { AdminDatabase } = require('../dist/modules/admin/admin.database');
 const { ADMIN_RESOURCES } = require('../dist/modules/admin/admin.resources');
 const {
@@ -89,12 +90,26 @@ async function main() {
         }),
         DatabaseModule,
         AdminModule,
+        AcademyModule,
       ],
     })
       .overrideProvider(AdminDatabase)
       .useValue({ connection: { ...client, connect } })
       .overrideProvider(SupabaseService)
-      .useValue({ adminClient: { auth: { getUser: async () => ({ data: { user: null }, error: null }) } } })
+      .useValue({ adminClient: {
+        auth: { getUser: async () => ({ data: { user: null }, error: null }) },
+        from: (table) => {
+          if(table!=='users') throw Error('Unsupported isolated service read: '+table);
+          let id;
+          const query={select:()=>query,eq:(key,value)=>{if(key!=='id')throw Error('Unsupported user filter');id=value;return query;},single:async()=>({data:(await pg.query('SELECT * FROM users WHERE id=$1',[id])).rows[0]||null,error:null})};
+          return query;
+        },
+        rpc: async (name,args) => {
+          if(name!=='fn_resolve_enrollment_change_request')throw Error('Unsupported isolated RPC '+name);
+          try { const result=await pg.query('SELECT fn_resolve_enrollment_change_request($1,$2,$3,$4) AS data',[args.p_request_id,args.p_actor_id,args.p_approve,args.p_review_note]);return {data:result.rows[0].data,error:null}; }
+          catch(error){return {data:null,error:{message:error.message}};}
+        }
+      } })
       .overrideProvider(RedisService)
       .useValue({})
       .overrideProvider(EmailService)
@@ -186,6 +201,7 @@ async function main() {
       try {
         const response = await route.fetch({
           url: target + new URL(route.request().url()).pathname + new URL(route.request().url()).search,
+          ...(new URL(route.request().url()).pathname.startsWith('/api/v1/academy/') ? {headers:{...route.request().headers(),Authorization:'Bearer '+new (require('@nestjs/jwt').JwtService)().sign({sub:browserAdmin.id},{secret:module.get(ConfigService).get('JWT_SECRET'),expiresIn:'5m'})}} : {}),
         });
         requests.push({ path: new URL(route.request().url()).pathname, status: response.status(), body: (await response.text()).slice(0, 300) });
         await route.fulfill({ response });
@@ -205,7 +221,7 @@ async function main() {
       .waitFor();
     await page.screenshot({ path: path.join(output, 'dashboard-desktop.png') });
     if (process.env.ADMIN_ACADEMY_ACCEPTANCE === '1') {
-      const result = await require('./support/academy-workspaces-browser.cjs').verifyAcademyWorkspaces({ pg, page, frontendUrl, output, browserAdmin, branch, course });
+      const result = await require('./support/academy-workspaces-browser.cjs').verifyAcademyWorkspaces({ pg, page, frontendUrl, output, browserAdmin, branch, course, target, jwtSecret: module.get(ConfigService).get('JWT_SECRET') });
       fs.writeFileSync(path.join(output, 'academy-result.json'), JSON.stringify({ ...result, httpPermissions, pageErrors: errors }, null, 2));
       assert.deepEqual(errors, []);
       console.log(JSON.stringify(result));

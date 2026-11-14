@@ -1,7 +1,9 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
-async function verifyAcademyWorkspaces({ pg, page, frontendUrl, output, browserAdmin, branch, course }) {
+async function verifyAcademyWorkspaces({ pg, page, frontendUrl, output, browserAdmin, branch, course, target, jwtSecret }) {
   const batch = (await pg.query('SELECT id FROM course_batches WHERE course_id=$1 LIMIT 1',[course.id])).rows[0];
+  await pg.query("UPDATE course_batches SET start_date=CURRENT_DATE,end_date=CURRENT_DATE+30 WHERE id=$1",[batch.id]);
+  await pg.query("INSERT INTO batch_schedules(batch_id,session_date,start_time,end_time,topic) VALUES($1,CURRENT_DATE+1,'09:00','10:00','Isolated acceptance session')",[batch.id]);
   const enrollment = (await pg.query("INSERT INTO course_enrollments(student_id,course_id,batch_id,tuition_total,amount_paid,consultation_status,student_status,approval_status) VALUES($1,$2,$3,1000000,200000,'CONFIRMED','APPROVED','APPROVED') RETURNING id",[browserAdmin.id,course.id,batch.id])).rows[0];
   await pg.query("INSERT INTO tuition_transactions(transaction_code,enrollment_id,student_id,course_id,branch_id,amount,transaction_type,payment_status) VALUES('BROWSER-TUITION',$1,$2,$3,$4,200000,'DEPOSIT','PAID')",[enrollment.id,browserAdmin.id,course.id,branch.id]);
   await pg.query("INSERT INTO enrollment_change_requests(enrollment_id,request_type,reason,requested_by) VALUES($1,'HOLD','Browser acceptance hold request',$2)",[enrollment.id,browserAdmin.id]);
@@ -33,6 +35,40 @@ async function verifyAcademyWorkspaces({ pg, page, frontendUrl, output, browserA
   await dialog.waitFor();
   await page.screenshot({path:path.join(output,'academy-request-tablet.png'),fullPage:true});
   await dialog.getByRole('button',{name:'Đóng',exact:true}).click();
-  return { rosterAndClassFilter:'passed', enrollmentDeepLink:'passed', reload:'passed', tuitionLedger:'passed', dialogKeyboard:'passed', viewportScreenshots:'1440x1000 and 1024x768', decisionsSubmitted:false };
+  const browserRow = page.getByRole('row').filter({hasText:'Browser acceptance hold request'});
+  await browserRow.getByRole('button',{name:'Xem & duyệt',exact:true}).click();
+  await dialog.getByLabel('Ghi chú xử lý (ít nhất 5 ký tự)').fill('Approve isolated hold');
+  let writes=0;
+  page.on('request',request=>{if(request.method()==='POST' && request.url().includes('/enrollment-change-requests/'))writes++;});
+  await dialog.getByRole('button',{name:'Xác nhận quyết định',exact:true}).evaluate(button=>{button.click();button.click();});
+  await browserRow.getByText('Đã duyệt',{exact:true}).waitFor();
+  assert.equal(writes,1);
+  assert.equal((await pg.query('SELECT access_status FROM course_enrollments WHERE id=$1',[enrollment.id])).rows[0].access_status,'SUSPENDED');
+  const networkRequest=(await pg.query("INSERT INTO enrollment_change_requests(enrollment_id,request_type,reason) VALUES($1,'RETEST','Network acceptance request') RETURNING id",[enrollment.id])).rows[0];
+  await page.reload();
+  await page.getByRole('row').filter({hasText:'Network acceptance request'}).getByRole('button',{name:'Xem & duyệt',exact:true}).click();
+  await dialog.getByLabel('Ghi chú xử lý (ít nhất 5 ký tự)').fill('Network failure test');
+  const failedUrl='**/academy/enrollment-change-requests/'+networkRequest.id+'/resolve';
+  await page.route(failedUrl,route=>route.abort('failed'));
+  await dialog.getByRole('button',{name:'Xác nhận quyết định',exact:true}).click();
+  await dialog.getByRole('alert').waitFor();
+  assert.equal((await pg.query('SELECT status FROM enrollment_change_requests WHERE id=$1',[networkRequest.id])).rows[0].status,'PENDING');
+  assert.equal(await dialog.getByRole('button',{name:'Xác nhận quyết định',exact:true}).isDisabled(),true);
+  await dialog.getByRole('button',{name:'Đóng',exact:true}).click();
+  await page.unroute(failedUrl);
+  const jwt = new (require('@nestjs/jwt').JwtService)();
+  const auth = actor => ({'Content-Type':'application/json',Authorization:'Bearer '+jwt.sign({sub:actor},{secret:jwtSecret,expiresIn:'5m'})});
+  const resolve = async (id,actor) => fetch(target+'/api/v1/academy/enrollment-change-requests/'+id+'/resolve',{method:'POST',headers:auth(actor),body:JSON.stringify({approve:true,reviewNote:'Isolated acceptance decision'})});
+  const resume=(await pg.query("INSERT INTO enrollment_change_requests(enrollment_id,request_type,reason) VALUES($1,'RESUME','Acceptance resume') RETURNING id",[enrollment.id])).rows[0];
+  const resumeResult=await resolve(resume.id,browserAdmin.id);
+  assert.equal(resumeResult.status,201,await resumeResult.text());
+  assert.equal((await pg.query('SELECT access_status FROM course_enrollments WHERE id=$1',[enrollment.id])).rows[0].access_status,'ACTIVE');
+  const refund=(await pg.query("INSERT INTO enrollment_change_requests(enrollment_id,request_type,reason) VALUES($1,'REFUND','Acceptance refund authorization') RETURNING id",[enrollment.id])).rows[0];
+  const second=(await pg.query("INSERT INTO users(phone,full_name,role,referral_code) VALUES('HTTP-ADMIN-SECOND','Second administrator','ADMIN','HTTPADMINSECOND') RETURNING id")).rows[0];
+  const simultaneous=await Promise.all([resolve(refund.id,browserAdmin.id),resolve(refund.id,second.id)]);
+  assert.deepEqual(simultaneous.map(response=>response.status).sort(),[201,400]);
+  assert.equal(Number((await pg.query('SELECT amount_paid FROM course_enrollments WHERE id=$1',[enrollment.id])).rows[0].amount_paid),200000);
+  assert.equal(Number((await pg.query("SELECT count(*) n FROM tuition_transactions WHERE enrollment_id=$1 AND transaction_type='REFUND'",[enrollment.id])).rows[0].n),0);
+  return { rosterAndClassFilter:'passed', enrollmentDeepLink:'passed', reload:'passed', tuitionLedger:'passed', dialogKeyboard:'passed', viewportScreenshots:'1440x1000 and 1024x768', decisionsSubmitted:'isolated JWT API only', duplicateClick:'one POST', networkFailure:'error shown, no state change or automatic replay', holdResume:'passed', twoAdminRace:'one success and one HTTP 400', refundAuthorizationDoesNotPay:'passed' };
 }
 module.exports={verifyAcademyWorkspaces};
