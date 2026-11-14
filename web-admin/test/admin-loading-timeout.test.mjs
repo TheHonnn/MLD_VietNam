@@ -59,3 +59,35 @@ test('a stalled production coupon read times out instead of leaving the screen l
     Object.assign(globalThis, original);
   }
 });
+
+test('instructor reads allow the deployed backend to finish a cold start', async () => {
+  const bundle = await build({
+    entryPoints: [fileURLToPath(new URL('../src/admin/api.ts', import.meta.url))],
+    define: { 'import.meta.env': JSON.stringify({ VITE_API_BASE_URL: 'https://api.invalid/api/v1', VITE_ADMIN_DATA_SOURCE: 'backend' }) },
+    bundle: true, write: false, format: 'esm', platform: 'browser', logLevel: 'silent',
+    plugins: [{ name: 'isolated-supabase', setup(builder) {
+      builder.onResolve({ filter: /supabaseClient$/ }, () => ({ path: 'client', namespace: 'fixture' }));
+      builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({
+        contents: "export const SUPABASE_URL='https://fixture.invalid'; export const getSupabaseHeaders=()=>({});", loader: 'js',
+      }));
+    } }],
+  });
+  const original = { fetch: globalThis.fetch, window: globalThis.window, sessionStorage: globalThis.sessionStorage };
+  let readTimeout;
+  globalThis.window = {
+    location: { protocol: 'https:', hostname: 'admin.invalid' },
+    setTimeout: (_callback, ms) => { readTimeout = ms; return 1; },
+    clearTimeout: () => {},
+  };
+  globalThis.sessionStorage = { getItem: () => null };
+  globalThis.fetch = async () => new Response(JSON.stringify({ success: true, data: { rows: [], total: 0 } }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  try {
+    const { adminCommand } = await import('data:text/javascript;base64,' + Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+    await adminCommand('instructors?page=1');
+    assert.ok(readTimeout >= 60_000, `cold-start read timed out after ${readTimeout}ms`);
+  } finally {
+    Object.assign(globalThis, original);
+  }
+});

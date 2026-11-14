@@ -242,7 +242,7 @@ export const W09_Instructors: React.FC = () => {
         {!weekly.length && <p className="p-6 text-sm">Chưa có buổi học trong tuần này. Tạo ngày và giờ cho từng buổi ở Thời khóa biểu.</p>}</>}
       </section>}
     </>}
-    {(editor || target) && <dialog ref={dialog} aria-labelledby="instructor-dialog-title" onCancel={event => { event.preventDefault(); closeDialog(); }} className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-xl overflow-auto rounded-xl bg-white p-5 shadow-xl backdrop:bg-black/40">
+    {(editor || target) && <dialog ref={dialog} aria-labelledby="instructor-dialog-title" onCancel={event => { event.preventDefault(); closeDialog(); }} className={`m-auto max-h-[90vh] w-[calc(100%-2rem)] overflow-y-auto overflow-x-hidden rounded-xl bg-white p-5 shadow-xl backdrop:bg-black/40 ${editor ? 'max-w-4xl' : 'max-w-xl'}`}>
       <form onSubmit={save} className="space-y-4">
         <h2 id="instructor-dialog-title" className="text-lg font-bold">{editor ? editor.id ? 'Sửa hồ sơ giảng viên' : 'Thêm giảng viên' : 'Phân công lớp ' + target?.batch_code}</h2>
         <fieldset disabled={saving}>
