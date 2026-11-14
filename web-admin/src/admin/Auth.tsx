@@ -12,6 +12,7 @@ export interface AdminUser {
 }
 
 interface AuthContextType {
+  authRevision: number;
   user: AdminUser | null;
   loading: boolean;
   login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -19,6 +20,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType>({
+  authRevision: 0,
   user: null,
   loading: true,
   login: async () => ({ success: false, error: "AuthContext chưa sẵn sàng" }),
@@ -28,6 +30,7 @@ const AuthContext = createContext<AuthContextType>({
 export const useAdmin = () => useContext(AuthContext);
 
 export function AdminAuth({ children }: { children: React.ReactNode }) {
+  const [authRevision, setAuthRevision] = useState(0);
   const [user, setUser] = useState<AdminUser | null>(() => {
     try {
       const cached = sessionStorage.getItem("mld_admin_profile") || localStorage.getItem("mld_admin_profile");
@@ -110,6 +113,7 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
 
         sessionStorage.setItem("mld_admin_token", session.access_token);
         localStorage.setItem("mld_admin_token", session.access_token);
+        if (isMounted) setAuthRevision(value => value + 1);
         const profile = await fetchAdminProfile(session.user.email, session.user.id);
         if (profile) {
           sessionStorage.setItem("mld_admin_profile", JSON.stringify(profile));
@@ -153,6 +157,7 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
         supabaseService.invalidateCache();
         sessionStorage.setItem("mld_admin_token", session.access_token);
         localStorage.setItem("mld_admin_token", session.access_token);
+        if (isMounted) setAuthRevision(value => value + 1);
       }
     });
 
@@ -248,6 +253,7 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
       sessionStorage.setItem("mld_admin_token", data.session.access_token);
       sessionStorage.setItem("mld_admin_profile", JSON.stringify(profile));
       localStorage.setItem("mld_admin_token", data.session.access_token);
+      setAuthRevision(value => value + 1);
       localStorage.setItem("mld_admin_profile", JSON.stringify(profile));
       setUser(profile);
       return { success: true };
@@ -276,7 +282,7 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, authRevision }}>
       {children}
     </AuthContext.Provider>
   );

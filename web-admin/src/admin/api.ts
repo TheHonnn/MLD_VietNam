@@ -1662,7 +1662,8 @@ async function requestBackend<T>(path: string, body?: unknown, signal?: AbortSig
   signal?.addEventListener("abort", abort, { once: true });
   const timeout = window.setTimeout(abort, body === undefined ? 75000 : 30000);
   try {
-    const token = sessionStorage.getItem("mld_admin_token");
+    const token = sessionStorage.getItem("mld_admin_token") ||
+      (typeof localStorage !== "undefined" ? localStorage.getItem("mld_admin_token") : null);
     let response: Response;
     try {
       response = await fetch(base + '/admin/' + path.replace(/^\/+/, ""), {
