@@ -5714,6 +5714,14 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         visible.push(c);
       if (visible.length >= 5) break;
     }
+  const courseCategorySummary = table === "course_categories" && listing
+    ? {
+      total: listing.total,
+      shown: listing.rows.length,
+      withCourses: new Set(coursesForFilter.filter(course => course.category_id).map(course => course.category_id)).size,
+      courses: coursesForFilter.length,
+    }
+    : null;
   const done = () => {
     setEdit(null);
     if (params.has("create")) {
@@ -5874,6 +5882,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             <p className="mt-1 text-xs text-[#73675F]">Kiểm tra dịch vụ, chuyên viên, thời lượng và giá cấu thành của từng lịch hẹn.</p>
           ) : table === "course_enrollments" ? (
  <p className="mt-1 text-xs text-[#73675F]">Tra cứu hồ sơ và lớp học. Duyệt hồ sơ, xác nhận học phí và xếp lớp tại trang tuyển sinh.</p>
+          ) : table === "course_categories" ? (
+            <p className="mt-1 text-xs text-[#73675F]">Sắp xếp các khóa đào tạo theo nhóm. Mỗi danh mục có thể mở nhanh danh sách khóa học liên quan để kiểm tra và cập nhật.</p>
  ) : table === "invoice_items" ? (
             <p className="mt-1 text-xs text-[#73675F]">Đối chiếu nội dung thu, số lượng, đơn giá và thành tiền của từng hóa đơn.</p>
           ) : table === "users" ? (
@@ -6306,6 +6316,34 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
               <p className="admin-notice" role="status">
                 {notice}
               </p>
+            )}
+            {courseCategorySummary && (
+              <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Tổng quan danh mục khóa học">
+                <div className="rounded-2xl border border-[#EAD8C7] bg-gradient-to-br from-[#FFFDF9] to-[#FAF3EA] px-4 py-3 shadow-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold text-[#7D6E63]">Tổng danh mục</span>
+                    <Layers size={17} className="text-[#985018]" />
+                  </div>
+                  <strong className="mt-1 block text-2xl font-black text-[#2D1B08]">{courseCategorySummary.total.toLocaleString("vi-VN")}</strong>
+                  <span className="text-[11px] text-[#8C7A6B]">{courseCategorySummary.shown} danh mục đang hiển thị</span>
+                </div>
+                <div className="rounded-2xl border border-[#EAD8C7] bg-white px-4 py-3 shadow-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold text-[#7D6E63]">Đã có khóa học</span>
+                    <BookOpen size={17} className="text-[#985018]" />
+                  </div>
+                  <strong className="mt-1 block text-2xl font-black text-[#2D1B08]">{courseCategorySummary.withCourses.toLocaleString("vi-VN")}</strong>
+                  <span className="text-[11px] text-[#8C7A6B]">danh mục có ít nhất một khóa</span>
+                </div>
+                <div className="rounded-2xl border border-[#EAD8C7] bg-white px-4 py-3 shadow-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold text-[#7D6E63]">Tổng khóa học</span>
+                    <GraduationCap size={17} className="text-[#985018]" />
+                  </div>
+                  <strong className="mt-1 block text-2xl font-black text-[#2D1B08]">{courseCategorySummary.courses.toLocaleString("vi-VN")}</strong>
+                  <span className="text-[11px] text-[#8C7A6B]">có thể phân loại bên dưới</span>
+                </div>
+              </section>
             )}
             {scheduleCalendar ? (
               <ClassScheduleCalendar week={calendarWeek} today={todayAtBranch()} rows={listing.rows}
@@ -7308,13 +7346,15 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                                       );
                                     }
                                     return (
-                                      <span
-                                        className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#8A4F23] bg-[#FAF3EA] border border-[#EAD8C7] px-2 py-0.5 rounded-md max-w-[210px]"
-                                        title={matched.map((m) => m.title).join(", ")}
+                                      <Link
+                                        to={`/manage/courses?filter=${encodeURIComponent(JSON.stringify({ category_id: String(row.id) }))}`}
+                                        className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#8A4F23] bg-[#FAF3EA] border border-[#EAD8C7] px-2 py-0.5 rounded-md max-w-[240px] hover:bg-[#F5E5D3] hover:border-[#C89C76] transition-colors"
+                                        title={`Mở ${matched.length} khóa học thuộc danh mục này`}
                                       >
-                                        <span className="shrink-0">📚 {matched.length} khóa:</span>
-                                        <span className="truncate">{matched.map((m) => m.title).join(", ")}</span>
-                                      </span>
+                                        <BookOpen size={12} className="shrink-0" />
+                                        <span className="shrink-0">{matched.length} khóa học</span>
+                                        <ArrowUpRight size={11} className="shrink-0" />
+                                      </Link>
                                     );
                                   })()}
                                 </div>
@@ -7323,6 +7363,15 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           ))}
                           <td>
                             <div className="admin-row-actions">
+                              {table === "course_categories" && resources.some(item => item.name === "courses") && (
+                                <Link
+                                  className="admin-secondary whitespace-nowrap inline-flex items-center gap-1.5"
+                                  to={`/manage/courses?filter=${encodeURIComponent(JSON.stringify({ category_id: String(row.id) }))}`}
+                                >
+                                  <BookOpen size={14} />
+                                  Xem khóa học
+                                </Link>
+                              )}
                               {table === "coupons" && row.is_active && Date.parse(row.valid_to) > Date.now() && Number(row.used_count) < Number(row.usage_limit) && resources.some(item => item.name === "user_vouchers" && item.actions?.includes("create")) && (
                                 <Link className="admin-secondary whitespace-nowrap" to={"/manage/user_vouchers?" + new URLSearchParams({ create: "1", coupon: row.id })}>Cấp cho khách</Link>
                               )}
@@ -7508,11 +7557,18 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           </button>
                         </div>
                       ) : (
-                        <p>
-                          {params.get("search") || params.get("filter")
-                            ? "Không có kết quả phù hợp."
-                            : staffDateField ? "Không có bản ghi trong ngày và chi nhánh đang xem." : "Chưa có dữ liệu."}
-                        </p>
+                        <div className="mx-auto max-w-md space-y-2">
+                          <p>
+                            {params.get("search") || params.get("filter")
+                              ? "Không có kết quả phù hợp."
+                              : staffDateField ? "Không có bản ghi trong ngày và chi nhánh đang xem." : table === "course_categories" ? "Chưa có danh mục khóa học nào." : "Chưa có dữ liệu."}
+                          </p>
+                          {table === "course_categories" && !params.get("search") && !params.get("filter") && resource?.actions?.includes("create") && (
+                            <button type="button" className="admin-primary mx-auto" onClick={() => setEdit({ row: {}, mode: "create" })}>
+                              <Plus size={15} /> Tạo danh mục đầu tiên
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
