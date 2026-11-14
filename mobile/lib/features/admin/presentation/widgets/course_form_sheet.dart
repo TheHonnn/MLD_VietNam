@@ -3,6 +3,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
+import '../../../../core/services/catalog_image_picker_service.dart';
 
 class CourseFormSheet extends StatefulWidget {
   final AdminCourseModel? course;
@@ -104,6 +105,18 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
     _needController.dispose();
     _groupController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickFromDevice() async {
+    final uploadedUrl = await CatalogImagePickerService.pickAndUploadImage(
+      context: context,
+      folderPrefix: 'course',
+    );
+    if (uploadedUrl != null && mounted) {
+      setState(() {
+        _imageUrlController.text = uploadedUrl;
+      });
+    }
   }
 
   String _generateCode(String title) {
@@ -285,10 +298,32 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
               ),
               const SizedBox(height: 14),
 
-              // Ảnh đại diện khóa học (URL + Live Preview)
-              Text(
-                'Ảnh bìa khóa học (URL hoặc Assets)',
-                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+              // Ảnh đại diện khóa học (Link hoặc từ máy)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Ảnh bìa khóa học (Link hoặc từ máy)',
+                    style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                  ),
+                  InkWell(
+                    onTap: _pickFromDevice,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.upload_file_rounded, size: 15, color: Color(0xFF00693F)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Tải từ thiết bị',
+                          style: AppTypography.zaloFont(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF00693F),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 6),
               Row(
@@ -314,12 +349,25 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                       children: [
                         TextFormField(
                           controller: _imageUrlController,
-                          decoration: _inputDecoration('https://images.unsplash.com/...'),
+                          decoration: _inputDecoration('Nhập link ảnh hoặc bấm "Tải từ thiết bị"...'),
                           onChanged: (_) => setState(() {}),
                         ),
                         const SizedBox(height: 4),
-                        Row(
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 4,
                           children: [
+                            InkWell(
+                              onTap: _pickFromDevice,
+                              child: Text(
+                                '📷 Chọn từ máy',
+                                style: AppTypography.zaloFont(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF00693F),
+                                ),
+                              ),
+                            ),
                             InkWell(
                               onTap: () {
                                 setState(() {
@@ -336,8 +384,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                                 ),
                               ),
                             ),
-                            if (_imageUrlController.text.isNotEmpty) ...[
-                              const SizedBox(width: 12),
+                            if (_imageUrlController.text.isNotEmpty)
                               InkWell(
                                 onTap: () {
                                   setState(() {
@@ -353,7 +400,6 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                                   ),
                                 ),
                               ),
-                            ],
                           ],
                         ),
                       ],

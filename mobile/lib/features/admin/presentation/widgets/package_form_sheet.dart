@@ -3,6 +3,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
+import '../../../../core/services/catalog_image_picker_service.dart';
 
 class PackageFormSheet extends StatefulWidget {
   final AdminTreatmentPackageModel? package;
@@ -79,6 +80,18 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
     _descController.dispose();
     _imageUrlController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickFromDevice() async {
+    final uploadedUrl = await CatalogImagePickerService.pickAndUploadImage(
+      context: context,
+      folderPrefix: 'package',
+    );
+    if (uploadedUrl != null && mounted) {
+      setState(() {
+        _imageUrlController.text = uploadedUrl;
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -239,10 +252,32 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                 ),
                 const SizedBox(height: 14),
 
-                // Ảnh đại diện gói bổ trợ (URL + Live Preview)
-                Text(
-                  'Ảnh đại diện gói bổ trợ (URL)',
-                  style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                // Ảnh đại diện gói bổ trợ (Link hoặc từ máy)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Ảnh đại diện gói bổ trợ (Link hoặc từ máy)',
+                      style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                    ),
+                    InkWell(
+                      onTap: _pickFromDevice,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.upload_file_rounded, size: 15, color: Color(0xFF00693F)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Tải từ thiết bị',
+                            style: AppTypography.zaloFont(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF00693F),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 Row(
@@ -269,7 +304,7 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                           TextFormField(
                             controller: _imageUrlController,
                             decoration: InputDecoration(
-                              hintText: 'https://images.unsplash.com/...',
+                              hintText: 'Nhập link ảnh hoặc bấm "Tải từ thiết bị"...',
                               hintStyle: AppTypography.zaloFont(fontSize: 12, color: const Color(0xFF9CA3AF)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
@@ -282,6 +317,17 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                             spacing: 10,
                             runSpacing: 4,
                             children: [
+                              InkWell(
+                                onTap: _pickFromDevice,
+                                child: Text(
+                                  '📷 Chọn từ máy',
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF00693F),
+                                  ),
+                                ),
+                              ),
                               InkWell(
                                 onTap: () {
                                   setState(() {

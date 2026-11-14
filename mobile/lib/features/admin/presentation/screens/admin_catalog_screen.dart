@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -9,6 +10,7 @@ import '../../data/repositories/admin_repository.dart';
 import '../widgets/service_form_sheet.dart';
 import '../widgets/course_form_sheet.dart';
 import '../widgets/package_form_sheet.dart';
+import '../widgets/product_form_sheet.dart';
 import '../../../../core/services/top_notification_service.dart';
 
 class AdminCatalogScreen extends StatefulWidget {
@@ -240,6 +242,24 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     );
   }
 
+  void _openProductForm([HomeProductModel? product]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ProductFormSheet(
+        product: product,
+        onSaved: () {
+          TopNotificationService.showSuccess(
+            title: 'Thành công',
+            message: product != null ? 'Đã lưu thay đổi sản phẩm!' : 'Đã tạo mới sản phẩm thành công!',
+          );
+          _fetchData();
+        },
+      ),
+    );
+  }
+
   String _formatPrice(double amount) {
     final formatter = NumberFormat('#,###', 'vi_VN');
     return '${formatter.format(amount)} ₫';
@@ -385,33 +405,36 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           ],
         ),
         actions: [
-          if (_selectedSegment != 3)
-            Padding(
-              padding: const EdgeInsets.only(right: 14),
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  if (_selectedSegment == 0) {
-                    _openServiceForm();
-                  } else if (_selectedSegment == 1) {
-                    _openPackageForm();
-                  } else if (_selectedSegment == 2) {
-                    _openCourseForm();
-                  }
-                },
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: Text(
-                  _selectedSegment == 0
-                      ? 'Thêm DV'
-                      : _selectedSegment == 1
-                          ? 'Thêm gói'
-                          : 'Thêm khóa',
-                  style: AppTypography.zaloFont(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                if (_selectedSegment == 0) {
+                  _openServiceForm();
+                } else if (_selectedSegment == 1) {
+                  _openPackageForm();
+                } else if (_selectedSegment == 2) {
+                  _openCourseForm();
+                } else {
+                  _openProductForm();
+                }
+              },
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: Text(
+                _selectedSegment == 0
+                    ? 'Thêm DV'
+                    : _selectedSegment == 1
+                        ? 'Thêm gói'
+                        : _selectedSegment == 2
+                            ? 'Thêm khóa'
+                            : 'Thêm SP',
+                style: AppTypography.zaloFont(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
-                style: ElevatedButton.styleFrom(
+              ),
+              style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00693F),
                   foregroundColor: Colors.white,
                   elevation: 0,
@@ -958,6 +981,39 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     );
   }
 
+  Widget _buildProductThumbnail(HomeProductModel p) {
+    final raw = p.imageUrl?.trim() ?? '';
+    if (raw.isEmpty) {
+      return const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28);
+    }
+    if (raw.startsWith('data:image')) {
+      try {
+        final commaIdx = raw.indexOf(',');
+        final base64Str = commaIdx != -1 ? raw.substring(commaIdx + 1) : raw;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28),
+        );
+      } catch (_) {
+        return const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28);
+      }
+    }
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      return Image.network(
+        raw,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28),
+      );
+    }
+    return Image.asset(
+      raw,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28),
+    );
+  }
+
   Widget _buildProductsList() {
     if (_filteredProducts.isEmpty) {
       return ListView(
@@ -996,7 +1052,6 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
         final p = _filteredProducts[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
@@ -1009,52 +1064,57 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
               ),
             ],
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: p.imageUrl != null && p.imageUrl!.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(p.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag_rounded, color: AppColors.primary)),
-                      )
-                    : const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 28),
+          child: InkWell(
+            onTap: () => _openProductForm(p),
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: _buildProductThumbnail(p),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            p.category,
+                            style: AppTypography.zaloFont(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          p.name,
+                          style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${p.formattedPrice} · Đơn vị: ${p.unit}',
+                          style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFF00693F)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        p.category,
-                        style: AppTypography.zaloFont(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      p.name,
-                      style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textHeading),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${p.formattedPrice} · Đơn vị: ${p.unit}',
-                      style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFF00693F)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
