@@ -11,6 +11,8 @@ import { SupabaseService } from '../../database/supabase.service';
 import { RedisService } from '../../database/redis.service';
 import { CreatePaymentLinkDto } from './dto/create-payment-link.dto';
 import { EmailService } from '../auth/services/email.service';
+import { AdminDatabase } from '../admin/admin.database';
+import { createHash } from 'node:crypto';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { PayOS } = require('@payos/node');
@@ -43,6 +45,7 @@ export class PaymentsService {
     private supabaseService: SupabaseService,
     private redisService: RedisService,
     @Optional() private emailService?: EmailService,
+    @Optional() private readonly adminDatabase?: AdminDatabase,
   ) {
     const clientId = this.configService.get<string>('PAYOS_CLIENT_ID');
     const apiKey = this.configService.get<string>('PAYOS_API_KEY');
@@ -568,6 +571,60 @@ export class PaymentsService {
     }
   }
 
+  private async recordTuitionTransfer(orderCode: string, amount: number, reference: string, gateway: string) {
+    if (!this.adminDatabase || !reference.trim()) {
+      throw new BadRequestException('Giao dịch học phí cần mã giao dịch ngân hàng.');
+    }
+    const client = await this.adminDatabase.connection.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `SELECT e.*, coalesce(cb.branch_id, b.id) AS receipt_branch_id
+         FROM course_enrollments e
+         LEFT JOIN course_batches cb ON cb.id=e.batch_id
+         LEFT JOIN LATERAL (SELECT id FROM branches WHERE name=e.selected_branch LIMIT 1) b ON true
+         WHERE e.order_code=$1 FOR UPDATE OF e`,
+        [orderCode],
+      );
+      if (rows.length !== 1) throw new BadRequestException('Không xác định duy nhất hồ sơ học phí.');
+      const enrollment = rows[0];
+      const code = 'BANK-EDU-' + createHash('sha256').update(JSON.stringify([gateway, reference.trim()])).digest('hex').slice(0, 36);
+      const prior = (await client.query(
+        'SELECT enrollment_id,amount FROM tuition_transactions WHERE transaction_code=$1', [code],
+      )).rows[0];
+      if (prior) {
+        if (prior.enrollment_id !== enrollment.id || Number(prior.amount) !== amount)
+          throw new BadRequestException('Mã giao dịch đã được ghi nhận với thông tin khác.');
+      } else {
+        const paid = Number(enrollment.amount_paid);
+        const tuition = Number(enrollment.tuition_total);
+        const nextPaid = paid + amount;
+        if (!Number.isSafeInteger(amount) || amount <= 0 || nextPaid > tuition ||
+            enrollment.consultation_status !== 'CONFIRMED' || !enrollment.receipt_branch_id) {
+          throw new BadRequestException('Giao dịch học phí cần đối chiếu thủ công.');
+        }
+        const type = nextPaid === tuition ? (paid ? 'REMAINING_BALANCE' : 'FULL_PAYMENT') : (paid ? 'INSTALLMENT_1' : 'DEPOSIT');
+        await client.query(
+          `INSERT INTO tuition_transactions(transaction_code,enrollment_id,student_id,course_id,branch_id,transaction_type,amount,payment_method,payment_status,receipt_number,notes)
+           VALUES($1,$2,$3,$4,$5,$6,$7,'BANK_TRANSFER','PAID',$1,$8)`,
+          [code,enrollment.id,enrollment.student_id,enrollment.course_id,enrollment.receipt_branch_id,type,amount,`Webhook ngân hàng: ${reference.trim()}`],
+        );
+        await client.query(
+          `UPDATE course_enrollments SET amount_paid=$2,
+           payment_status=CASE WHEN $2>=tuition_total THEN 'PAID' ELSE 'PARTIALLY_PAID' END WHERE id=$1`,
+          [enrollment.id,nextPaid],
+        );
+      }
+      await client.query('COMMIT');
+      return enrollment.id;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   private bankTransactionCode(referenceCode: string, fallbackCode: string) {
     const suffix = String(referenceCode || fallbackCode || Date.now())
       .replace(/[^A-Za-z0-9_-]/g, '')
@@ -619,6 +676,9 @@ export class PaymentsService {
 
     let transactions: any[] = [];
     if (body && (body.transferAmount !== undefined || body.content !== undefined)) {
+      if (body.transferType && String(body.transferType).toLowerCase() !== 'in') {
+        return { success: true, message: 'Bỏ qua giao dịch tiền đi.', data: [] };
+      }
       // Dạng SePay đơn lẻ
       transactions.push({
         amount: Number(body.transferAmount || body.amount || 0),
@@ -666,6 +726,14 @@ export class PaymentsService {
       let matchedType: 'INVOICE' | 'ENROLLMENT' | 'BOOKING' | 'UNKNOWN' = 'UNKNOWN';
       let matchedId: string | null = null;
       let matchedCode: string | null = null;
+
+      const tuitionCode = upperContent.match(/(?:^|[^A-Z0-9_-])(?:MLD\s+)?(KH-\d{8}-\d{3,})(?![A-Z0-9_-])/);
+      if (tuitionCode) {
+        matchedCode = tuitionCode[1];
+        matchedId = await this.recordTuitionTransfer(matchedCode, amount, referenceCode, tx.gateway);
+        results.push({ amount, referenceCode, matchedType: 'ENROLLMENT', matchedCode, matchedId, success: true });
+        continue;
+      }
 
       // 1. Kiểm tra đối soát với Hóa đơn (invoices): HD-SPA-..., HD-HP-..., INV-...
       const invMatch = upperContent.match(/(HD-SPA-[A-Z0-9_-]+|HD-HP-[A-Z0-9_-]+|INV-[A-Z0-9_-]+)/i);
