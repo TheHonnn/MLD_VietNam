@@ -807,6 +807,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
                           style: AppTypography.zaloFont(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
                       ],
