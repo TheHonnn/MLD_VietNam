@@ -94,10 +94,6 @@ export class ApiClient {
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
 
-      if (response.status === 401 && typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('admin-signout'));
-      }
-
       const json = await response.json();
 
       if (!response.ok || !json.success) {

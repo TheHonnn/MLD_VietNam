@@ -5,6 +5,7 @@ import {
   Param,
   Query,
   Body,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -15,6 +16,7 @@ import { EnrollCourseDto } from './dto/enroll-course.dto';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AdminGuard } from '../admin/admin.guard';
 
 @ApiTags('Học Viện Đào Tạo Nghề (Group E — Academy)')
 @Controller('academy')
@@ -123,16 +125,16 @@ export class AcademyController {
   }
 
   @Post('enrollments/:id/finalize-consultation')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AdminGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Chốt tư vấn, học phí và tạo bước chờ cọc' })
   async finalizeEnrollmentConsultation(
-    @CurrentUser('id') adminId: string,
+    @Req() req: { admin: { id: string } },
     @Param('id') id: string,
     @Body() body: { finalTuition: number; branchName?: string; note?: string },
   ) {
     return this.academyService.finalizeEnrollmentConsultation(
-      id, adminId, Number(body.finalTuition), body.branchName, body.note,
+      id, req.admin.id, Number(body.finalTuition), body.branchName, body.note,
     );
   }
 

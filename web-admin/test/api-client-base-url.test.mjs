@@ -27,6 +27,7 @@ test('service API client strips a health-check suffix before academy writes', as
     'data:text/javascript;base64,' + Buffer.from(bundle.outputFiles[0].text).toString('base64')
   );
   const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
   let requestedUrl = '';
   globalThis.fetch = async (url) => {
     requestedUrl = String(url);
@@ -40,7 +41,16 @@ test('service API client strips a health-check suffix before academy writes', as
       requestedUrl,
       'https://backend.example/api/v1/academy/enrollments/enrollment-1/assign-batch',
     );
+    let signedOut = false;
+    globalThis.window = { dispatchEvent: () => { signedOut = true; } };
+    globalThis.fetch = async () => Response.json({ success: false, message: 'Vui lòng xác thực lại.' }, { status: 401 });
+    await assert.rejects(
+      client.post('/academy/enrollments/enrollment-1/finalize-consultation', { finalTuition: 10000000 }),
+      { statusCode: 401, message: 'Vui lòng xác thực lại.' },
+    );
+    assert.equal(signedOut, false);
   } finally {
     globalThis.fetch = originalFetch;
+    globalThis.window = originalWindow;
   }
 });

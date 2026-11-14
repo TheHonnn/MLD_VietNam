@@ -13,6 +13,6 @@ import { SettingsService } from './settings/settings.service';
   imports: [JwtModule.register({}), AuthModule],
   controllers: [AdminController, SettingsController],
   providers: [AdminDatabase, AdminGuard, AdminService, TreatmentInventoryWorker, SettingsService],
-  exports: [SettingsService],
+  exports: [SettingsService, AdminGuard, AdminDatabase, JwtModule],
 })
 export class AdminModule {}
