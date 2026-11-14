@@ -306,6 +306,48 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     }
   }
 
+  Widget _buildPackageThumbnail(AdminTreatmentPackageModel p) {
+    String url = p.imageUrl.trim();
+    if (url.isEmpty && p.serviceId != null) {
+      final match = _services.where((s) => s.id == p.serviceId).toList();
+      if (match.isNotEmpty && match.first.imageUrl.isNotEmpty) {
+        url = match.first.imageUrl.trim();
+      }
+    }
+    if (url.isEmpty) {
+      final n = p.name.toLowerCase();
+      if (n.contains('khu trú')) {
+        url = 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&q=80';
+      } else if (n.contains('toàn diện')) {
+        url = 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1200&q=80';
+      } else {
+        url = 'https://images.unsplash.com/photo-1519823551278-64ac92734fb1?auto=format&fit=crop&w=1200&q=80';
+      }
+    }
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.layers_rounded,
+          color: Color(0xFF00693F),
+          size: 24,
+        ),
+      );
+    } else {
+      return Image.asset(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.layers_rounded,
+          color: Color(0xFF00693F),
+          size: 24,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -817,21 +859,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                     width: 54,
                     height: 54,
                     color: const Color(0xFFE8F6ED),
-                    child: p.imageUrl.isNotEmpty
-                        ? Image.network(
-                            p.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.layers_rounded,
-                              color: Color(0xFF00693F),
-                              size: 24,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.layers_rounded,
-                            color: Color(0xFF00693F),
-                            size: 24,
-                          ),
+                    child: _buildPackageThumbnail(p),
                   ),
                 ),
                 const SizedBox(width: 12),

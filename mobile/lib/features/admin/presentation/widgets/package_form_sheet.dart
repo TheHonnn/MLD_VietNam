@@ -129,6 +129,42 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
     }
   }
 
+  Widget _buildPreviewWidget(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) {
+      return const Icon(
+        Icons.add_photo_alternate_outlined,
+        size: 26,
+        color: Color(0xFF9CA3AF),
+      );
+    }
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return Image.network(
+        trimmed,
+        width: 64,
+        height: 64,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.broken_image_outlined,
+          size: 26,
+          color: Color(0xFF9CA3AF),
+        ),
+      );
+    } else {
+      return Image.asset(
+        trimmed,
+        width: 64,
+        height: 64,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.broken_image_outlined,
+          size: 26,
+          color: Color(0xFF9CA3AF),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -200,6 +236,111 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
                     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
                   ),
+                ),
+                const SizedBox(height: 14),
+
+                // Ảnh đại diện gói bổ trợ (URL + Live Preview)
+                Text(
+                  'Ảnh đại diện gói bổ trợ (URL)',
+                  style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: _buildPreviewWidget(_imageUrlController.text),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _imageUrlController,
+                            decoration: InputDecoration(
+                              hintText: 'https://images.unsplash.com/...',
+                              hintStyle: AppTypography.zaloFont(fontSize: 12, color: const Color(0xFF9CA3AF)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 4,
+                            children: [
+                              InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _imageUrlController.text =
+                                        'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&q=80';
+                                  });
+                                },
+                                child: Text(
+                                  'Dùng ảnh mẫu',
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF00693F),
+                                  ),
+                                ),
+                              ),
+                              if (_selectedServiceId != null && _services.any((s) => s.id == _selectedServiceId)) ...[
+                                InkWell(
+                                  onTap: () {
+                                    final s = _services.firstWhere((s) => s.id == _selectedServiceId);
+                                    if (s.imageUrl.isNotEmpty) {
+                                      setState(() {
+                                        _imageUrlController.text = s.imageUrl;
+                                      });
+                                    }
+                                  },
+                                  child: Text(
+                                    'Lấy ảnh từ DV',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              if (_imageUrlController.text.isNotEmpty) ...[
+                                InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _imageUrlController.clear();
+                                    });
+                                  },
+                                  child: Text(
+                                    'Xóa link',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: const Color(0xFFDC2626),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 14),
 
@@ -398,7 +539,17 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                         ),
                       ),
                     ],
-                    onChanged: (val) => setState(() => _selectedServiceId = val),
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedServiceId = val;
+                        if (val != null && _imageUrlController.text.trim().isEmpty) {
+                          final match = _services.where((s) => s.id == val).toList();
+                          if (match.isNotEmpty && match.first.imageUrl.isNotEmpty) {
+                            _imageUrlController.text = match.first.imageUrl;
+                          }
+                        }
+                      });
+                    },
                     decoration: InputDecoration(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
