@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/l10n/app_localizations.dart';
+import 'package:medical_healthcare_app/core/services/auth_service.dart';
 import 'package:medical_healthcare_app/features/academy/data/models/academy_models.dart';
 import 'package:medical_healthcare_app/features/academy/data/repositories/academy_repository.dart';
 import 'package:medical_healthcare_app/features/academy/presentation/screens/e05_enrollment_form_screen.dart';
@@ -98,6 +99,39 @@ void main() {
       expect(candidate.candidatePhone, equals('0912345678'));
       expect(candidate.candidateEmail, equals('hocvien@mld.vn'));
       expect(candidate.status, equals('PENDING_CONSULTATION'));
+    });
+
+    testWidgets('5. Submitting E05 displays clean success dialog with zero notes and proper action buttons', (tester) async {
+      AuthService.instance.isLoggedInNotifier.value = true;
+      tester.view.physicalSize = const Size(420, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        AuthService.instance.isLoggedInNotifier.value = false;
+      });
+
+      final unEnrolledCourse = MockAcademyData.courses[1];
+      await tester.pumpWidget(_buildTestApp(home: E05EnrollmentFormScreen(course: unEnrolledCourse)));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'Nguyễn Văn Test');
+      await tester.enterText(find.byType(TextFormField).at(1), '0988777666');
+      await tester.enterText(find.byType(TextFormField).at(2), 'test@mld.vn');
+      await tester.pumpAndSettle();
+
+      final submitBtn = find.byKey(const Key('submit_enrollment_button'));
+      await tester.ensureVisible(submitBtn);
+      await tester.tap(submitBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Đăng ký thành công!'), findsOneWidget);
+      expect(find.text('Chờ nhân viên duyệt'), findsOneWidget);
+      expect(find.text('Xem khóa học của tôi'), findsOneWidget);
+      expect(find.text('Về trang đào tạo'), findsOneWidget);
+      expect(find.descendant(of: find.byType(Dialog), matching: find.text('Nguyễn Văn Test')), findsOneWidget);
+
+      expect(find.textContaining('Bước 1:'), findsNothing);
+      expect(find.textContaining('Hồ sơ của học viên'), findsNothing);
     });
   });
 }

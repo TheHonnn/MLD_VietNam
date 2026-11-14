@@ -33,7 +33,7 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
   activeTab,
   onChange,
   variant = 'line',
-  ariaLabel = 'Äiá»u hÆ°á»›ng phĂ¢n há»‡',
+  ariaLabel = 'Điều hướng phân hệ',
   className = '',
   autoScrollIntoView = true,
 }) => {
@@ -82,8 +82,11 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
       targetTab = enabledTabs[enabledTabs.length - 1];
     }
 
-    if (targetTab && onChange) {
-      onChange(targetTab.id);
+    if (targetTab) {
+      onChange?.(targetTab.id);
+      const element = Array.from(scrollContainerRef.current?.querySelectorAll<HTMLElement>('[data-admin-tab-id]') || [])
+        .find(element => element.dataset.adminTabId === targetTab.id);
+      element?.focus();
     }
   };
 
@@ -138,6 +141,7 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
   return (
     <NavWrapper
       className={`${containerClasses} ${className}`}
+      data-variant={variant}
       aria-label={ariaLabel}
       style={{ paddingLeft: 0, paddingRight: 0, marginLeft: 0, marginRight: 0 }}
       {...(!isNavigation ? { role: 'tablist' } : {})}
@@ -156,13 +160,13 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
 
           // Line tab item: height 48px (full height of container), zero horizontal padding,
           // so the active underline is exactly beneath the tab label and active indicator is bottom-0
-          const lineClasses = `group relative inline-flex items-center gap-2 h-12 min-h-[44px] px-0 text-xs font-semibold tracking-wide transition-colors duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#985018]/50 focus-visible:ring-offset-2 ${
+          const lineClasses = `group relative inline-flex shrink-0 items-center gap-2 h-12 min-h-[44px] px-0 text-xs font-semibold tracking-wide transition-colors duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#985018]/50 focus-visible:ring-offset-2 ${
             isActive
               ? 'text-[#985018] font-bold'
               : 'text-[#73675F] hover:text-[#2C241E]'
           } ${tab.disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`;
 
-          const pillClasses = `group inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer select-none border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#985018]/50 focus-visible:ring-offset-2 ${
+          const pillClasses = `group inline-flex shrink-0 items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer select-none border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#985018]/50 focus-visible:ring-offset-2 ${
             isActive
               ? 'bg-[#985018] text-white border-[#985018] shadow-xs'
               : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border-slate-200'
@@ -174,11 +178,15 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
             return (
               <Link
                 key={tab.id}
+                data-admin-tab-id={tab.id}
                 ref={tabRef}
                 to={tab.href}
                 className={itemClass}
                 title={tab.title || tab.label}
                 aria-current={isActive ? 'page' : undefined}
+                aria-disabled={tab.disabled || undefined}
+                tabIndex={tab.disabled ? -1 : undefined}
+                onClick={tab.disabled ? event => event.preventDefault() : undefined}
                 onKeyDown={(e) => handleKeyDown(e, idx)}
               >
                 {renderTabContent(tab, isActive)}
@@ -195,6 +203,7 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
           return (
             <button
               key={tab.id}
+              data-admin-tab-id={tab.id}
               ref={tabRef}
               type="button"
               role="tab"

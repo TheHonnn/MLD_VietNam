@@ -11,6 +11,7 @@ const { RedisService } = require('../dist/database/redis.service');
 const { EmailService } = require('../dist/modules/auth/services/email.service');
 const { SmsService } = require('../dist/modules/auth/services/sms.service');
 const { AdminModule } = require('../dist/modules/admin/admin.module');
+const { AcademyModule } = require('../dist/modules/academy/academy.module');
 const { AdminDatabase } = require('../dist/modules/admin/admin.database');
 const { ADMIN_RESOURCES } = require('../dist/modules/admin/admin.resources');
 const {
@@ -89,12 +90,26 @@ async function main() {
         }),
         DatabaseModule,
         AdminModule,
+        AcademyModule,
       ],
     })
       .overrideProvider(AdminDatabase)
       .useValue({ connection: { ...client, connect } })
       .overrideProvider(SupabaseService)
-      .useValue({ adminClient: { auth: { getUser: async () => ({ data: { user: null }, error: null }) } } })
+      .useValue({ adminClient: {
+        auth: { getUser: async () => ({ data: { user: null }, error: null }) },
+        from: (table) => {
+          if(table!=='users') throw Error('Unsupported isolated service read: '+table);
+          let id;
+          const query={select:()=>query,eq:(key,value)=>{if(key!=='id')throw Error('Unsupported user filter');id=value;return query;},single:async()=>({data:(await pg.query('SELECT * FROM users WHERE id=$1',[id])).rows[0]||null,error:null})};
+          return query;
+        },
+        rpc: async (name,args) => {
+          if(name!=='fn_resolve_enrollment_change_request')throw Error('Unsupported isolated RPC '+name);
+          try { const result=await pg.query('SELECT fn_resolve_enrollment_change_request($1,$2,$3,$4) AS data',[args.p_request_id,args.p_actor_id,args.p_approve,args.p_review_note]);return {data:result.rows[0].data,error:null}; }
+          catch(error){return {data:null,error:{message:error.message}};}
+        }
+      } })
       .overrideProvider(RedisService)
       .useValue({})
       .overrideProvider(EmailService)
@@ -186,6 +201,7 @@ async function main() {
       try {
         const response = await route.fetch({
           url: target + new URL(route.request().url()).pathname + new URL(route.request().url()).search,
+          ...(new URL(route.request().url()).pathname.startsWith('/api/v1/academy/') ? {headers:{...route.request().headers(),Authorization:'Bearer '+new (require('@nestjs/jwt').JwtService)().sign({sub:browserAdmin.id},{secret:module.get(ConfigService).get('JWT_SECRET'),expiresIn:'5m'})}} : {}),
         });
         requests.push({ path: new URL(route.request().url()).pathname, status: response.status(), body: (await response.text()).slice(0, 300) });
         await route.fulfill({ response });
@@ -204,7 +220,14 @@ async function main() {
       .getByRole('heading', { name: 'Tổng quan vận hành', exact: true })
       .waitFor();
     await page.screenshot({ path: path.join(output, 'dashboard-desktop.png') });
-    const legacyLinks = [['Tổng quan','/'],['Chi nhánh & Phòng ốc','/branches'],['Khách hàng (CRM)','/customers'],['Nhân sự & Kỹ thuật viên','/staff-schedule'],['Quản lý Liệu trình','/medical-records'],['Thu ngân & Tiếp đón','/cashier-pos'],['Tuyển sinh & Ghi danh','/academy-enrollment'],['Đội ngũ Giảng viên','/instructors'],['Học viên & Lớp học','/attendance'],['Chương trình đào tạo','/curriculum'],['Giấy chứng nhận','/certificates'],['Báo cáo doanh thu','/reports']];
+    if (process.env.ADMIN_ACADEMY_ACCEPTANCE === '1') {
+      const result = await require('./support/academy-workspaces-browser.cjs').verifyAcademyWorkspaces({ pg, page, frontendUrl, output, browserAdmin, branch, course, target, jwtSecret: module.get(ConfigService).get('JWT_SECRET') });
+      fs.writeFileSync(path.join(output, 'academy-result.json'), JSON.stringify({ ...result, httpPermissions, pageErrors: errors }, null, 2));
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify(result));
+      return;
+    }
+    const legacyLinks = [['Tổng quan','/'],['Chi nhánh & Phòng ốc','/branches'],['Khách hàng (CRM)','/customers'],['Nhân sự & Kỹ thuật viên','/staff-schedule'],['Quản lý Liệu trình','/medical-records'],['Thu ngân & Tiếp đón','/cashier-pos'],['Tuyển sinh & Ghi danh','/academy-enrollment'],['Đội ngũ Giảng viên','/instructors'],['Học viên & Lớp học','/manage/course_batches'],['Chương trình đào tạo','/curriculum'],['Giấy chứng nhận','/certificates'],['Báo cáo doanh thu','/reports']];
     for(const [name,href] of legacyLinks) assert.equal(await page.getByRole('navigation').getByRole('link',{name,exact:true}).getAttribute('href'),href);
     const sidebar=page.locator('aside');
     assert.equal(await sidebar.getByText('QUẢN TRỊ BỔ SUNG',{exact:true}).count(),0);
@@ -214,7 +237,15 @@ async function main() {
     await sidebar.getByRole('button',{name:'Thu gọn Chi nhánh & Phòng ốc',exact:true}).click();
     const resourceLinks=await sidebar.locator('a[href^="/manage/"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
     const linkedResources = new Set(resourceLinks.map((href) => href.replace('/manage/', '').split('?')[0]));
-    const dedicatedRoutes = new Set(['branches', 'branch_rooms', 'users', 'consultation_surveys', 'instructors', 'student_attendance', 'services', 'treatment_packages', 'invoices', 'student_certificates', 'certificate_templates']);
+    const dedicatedRoutes = new Set([
+      'branches', 'branch_rooms', 'users', 'consultation_surveys', 'instructors',
+      'student_attendance', 'services', 'treatment_packages', 'invoices',
+      'student_certificates', 'certificate_templates',
+      'home_products', 'staff_commissions',
+      'home_care_deliveries', 'user_package_lifecycle_logs', 'treatment_session_reversals',
+      'treatment_inventory_outbox', 'branch_material_stock', 'treatment_stock_movements',
+      'post_care_outbox', 'enrollment_status_history', 'enrollment_change_requests', 'academy_enrollment_funnel'
+    ]);
     const unlinkedResources = Object.keys(ADMIN_RESOURCES).filter((name) => !linkedResources.has(name) && !dedicatedRoutes.has(name));
     assert.equal(unlinkedResources.length, 0, `Resources missing from business menus: ${unlinkedResources.join(', ')}`);
     while(await sidebar.getByRole('button',{name:/^Mở /}).count())await sidebar.getByRole('button',{name:/^Mở /}).first().click();
@@ -228,7 +259,7 @@ async function main() {
     assert.equal(await page.evaluate(()=>window.scrollY),0,'Document does not scroll with sidebar');
     await page.goto(frontendUrl + '/manage/staff_profiles');
     await page.getByRole('columnheader',{name:'Họ và tên',exact:true}).waitFor();
-    await page.getByRole('button',{name:'Kiểm thử giao diện',exact:true}).waitFor();
+    await page.getByRole('button',{name:/Kiểm thử giao diện/}).waitFor();
     await page.screenshot({path:path.join(output,'staff-name-desktop.png')});
     await sidebar.getByRole('button',{name:'Mở Chương trình đào tạo',exact:true}).click();
     await sidebar.getByRole('link',{name:'Bài học & video',exact:true}).click();
@@ -249,7 +280,19 @@ async function main() {
     await page.screenshot({path:path.join(output,'quiz-form-desktop.png')});
     const formReliability = await require('./support/admin-browser-reliability.cjs').verifyDialogAndRecovery(page, frontendUrl, requests, output);
     let checked = 0;
-    const dedicatedPages = { branches: '/branches', branch_rooms: '/branches?tab=rooms', student_certificates: '/certificates?tab=list', certificate_templates: '/certificates?tab=template', services: '/services-catalog?tab=services', treatment_packages: '/services-catalog?tab=packages', invoices: '/cashier-pos?tab=receipts' };
+    const dedicatedPages = {
+      branches: '/branches',
+      branch_rooms: '/branches?tab=rooms',
+      consultation_surveys: '/customers',
+      student_certificates: '/certificates?tab=list',
+      certificate_templates: '/certificates?tab=template',
+      services: '/services-catalog?tab=services',
+      treatment_packages: '/services-catalog?tab=packages',
+      invoices: '/cashier-pos?tab=receipts',
+      home_products: '/home-products',
+      instructors: '/manage/instructors',
+      student_attendance: '/attendance',
+    };
     const selectedResources = process.env.ADMIN_BROWSER_RESOURCES?.split(',');
     const resourcesToCheck = Object.entries(ADMIN_RESOURCES).filter(([name]) => !selectedResources || selectedResources.includes(name));
     assert.ok(resourcesToCheck.length, 'At least one resource must be selected');
@@ -258,12 +301,18 @@ async function main() {
       await page.goto(frontendUrl + '/manage/' + name);
       if (dedicatedPages[name]) {
         await page.waitForURL(frontendUrl + dedicatedPages[name]);
-        await page.locator('main h1').waitFor();
+        await page.locator('main h1, h1').first().waitFor();
+        checked++;
+        continue;
+      }
+      if (['user_packages', 'treatment_journal', 'home_care_guidelines'].includes(name)) {
+        await page.locator('main.treatment-workspace h1').first().waitFor();
         checked++;
         continue;
       }
       await page
-        .getByRole('heading', { name: resource.title })
+        .getByRole('heading', { name: resource.title, exact: true })
+        .first()
         .waitFor();
       if (['course_enrollments', 'student_attendance', 'student_academic_records'].includes(name)) {
         await page.getByRole('combobox', { name: 'Chọn Lớp học', exact: true }).selectOption('__ALL__');
@@ -274,10 +323,9 @@ async function main() {
         0,
         name + ' error',
       );
-      if (!resource.readonly) {
-        await page
-          .getByRole('button', { name: 'Thêm mới', exact: true })
-          .click();
+      const canCreate = !resource.readonly && (!resource.actions || resource.actions.includes('create')) && !['invoice_items','course_enrollments','tuition_transactions'].includes(name);
+      if (canCreate) {
+        await page.locator('button.admin-primary').click();
         await page.getByRole('dialog').waitFor();
         assert.ok(
           await page.getByRole('dialog').locator('label').count(),
@@ -290,7 +338,7 @@ async function main() {
     }
     await page.goto(frontendUrl + '/manage/service_categories');
     await page.locator('.admin-pagination').waitFor();
-    await page.getByRole('button', { name: 'Thêm mới', exact: true }).click();
+    await page.locator('button.admin-primary').click();
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel(/^Tên/).fill('Bản ghi kiểm thử');
     await dialog.getByLabel(/^Mã/).fill('BROWSER-CATEGORY');

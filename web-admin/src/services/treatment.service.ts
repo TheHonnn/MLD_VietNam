@@ -199,7 +199,9 @@ export const treatmentService = {
     afterPhotos?: string[];
   }): Promise<ApiResponse<any>> {
     try {
-      const res = await legacyWrite<TreatmentJournal>('treatment_journal', journal);
+      const values = Object.fromEntries(Object.entries(journal).map(([key, value]) => [key.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase()), value]));
+      const saved = await adminCommand<any>('treatment_journal/create', { values: { ...values, confirmation_status: 'DRAFT' } });
+      const res = { success: true, statusCode: 200, message: 'Đã lưu bản nháp. Chưa trừ buổi.', data: saved };
       if (!res.success || !res.data?.id) {
         return {
           success: false,
@@ -220,84 +222,31 @@ export const treatmentService = {
     }
   },
 
-  // Tiến trình FSM: Thực hiện 1 buổi và tự động hoàn thành gói khi đủ số buổi
-  async completePackageSession(
+  async bookPackageSession(userPackageId: string, input: { branchId: string; technicianId?: string | null; bookingDate: string; startTime: string; notes?: string; requestId: string }): Promise<ApiResponse<any>> {
+    try {
+      const row = await adminCommand<any>(`treatment/packages/${encodeURIComponent(userPackageId)}/book-session`, input);
+      return { success: true,statusCode:201,message:'Đã lưu lịch và dịch vụ.',data:{ ...row,bookingCode:row.booking_code } };
+    } catch (error: any) {
+      return { success:false,statusCode:error?.statusCode || 400,message:error?.message || 'Chưa xác minh được kết quả đặt lịch.',data:null };
+    }
+  },
+
+  async saveSessionDraftFromBooking(
     userPackageId: string,
-    currentCompleted: number,
-    totalSessions: number,
     journalData?: any
   ): Promise<ApiResponse<boolean>> {
-    if (!journalData) {
-      return {
-        success: false,
-        statusCode: 400,
-        message: 'Thiếu thông tin buổi điều trị.',
-        data: false,
-      };
+    if (!journalData?.bookingId) return { success: false, statusCode: 400, message: 'Cần chọn ca đang phục vụ để ghi nhận.', data: false };
+    try {
+      const draft = await adminCommand<any>(`treatment/packages/${encodeURIComponent(userPackageId)}/start-draft`, { bookingId: journalData.bookingId });
+      if (draft.is_reversed || !['DRAFT', 'PENDING'].includes(draft.confirmation_status)) {
+        return { success: false, statusCode: 409, message: 'Ca đã có hồ sơ được gửi hoặc xác nhận. Mở Nhật ký điều trị để xem.', data: false };
+      }
+      const values = Object.fromEntries(Object.entries(journalData).map(([key, value]) => [key.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase()), value]));
+      const result = await this.saveTreatmentDraft(draft.id, values);
+      return { success: result.success, statusCode: result.statusCode, message: result.message, data: result.success };
+    } catch (error: any) {
+      return { success: false, statusCode: error?.statusCode || 400, message: error?.message || 'Không thể lưu hồ sơ. Hãy kiểm tra nhật ký trước khi thử lại.', data: false };
     }
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidPattern.test(userPackageId) || !uuidPattern.test(journalData.customerId)) {
-      return {
-        success: false,
-        statusCode: 400,
-        message: 'Mã gói hoặc khách hàng không hợp lệ.',
-        data: false,
-      };
-    }
-
-    const existingJournals = await this.getTreatmentJournalsByCustomer(journalData.customerId);
-    if (!existingJournals.success) {
-      return {
-        success: false,
-        statusCode: 503,
-        message: 'Không thể kiểm tra nhật ký hiện có. Buổi điều trị chưa được lưu.',
-        data: false,
-      };
-    }
-    const nextCompleted = currentCompleted + 1;
-    const existingJournal = existingJournals.data.find((journal) =>
-      journal.userPackageId === userPackageId && (
-        journalData.bookingId
-          ? journal.bookingId === journalData.bookingId
-          : journal.sessionNumber === Number(journalData.sessionNumber || nextCompleted)
-      )
-    );
-    if (currentCompleted >= totalSessions && !existingJournal) {
-      return {
-        success: false,
-        statusCode: 400,
-        message: 'Gói liệu trình này đã hoàn tất đầy đủ các buổi theo phác đồ.',
-        data: false,
-      };
-    }
-    const requestedSession = Number(journalData.sessionNumber || existingJournal?.sessionNumber || nextCompleted);
-    if (!existingJournal && requestedSession !== nextCompleted) {
-      return {
-        success: false,
-        statusCode: 409,
-        message: `Buổi tiếp theo cần cập nhật là buổi ${nextCompleted}.`,
-        data: false,
-      };
-    }
-    const journalRes = existingJournal
-      ? { success: true, statusCode: 200, message: 'Buổi điều trị đã được ghi nhận.', data: existingJournal }
-      : await this.createTreatmentJournal({
-          ...journalData,
-          userPackageId,
-          sessionNumber: requestedSession,
-          sessionDate: journalData.sessionDate || new Date().toISOString().slice(0, 10),
-        });
-
-    if (!journalRes.success) return journalRes;
-
-    return {
-      success: true,
-      statusCode: journalRes.statusCode,
-      message: requestedSession >= totalSessions
-        ? 'Đã lưu buổi cuối và hoàn tất gói liệu trình.'
-        : 'Đã lưu buổi điều trị và cập nhật tiến trình gói.',
-      data: true,
-    };
   },
 
   // --- VẬN HÀNH VÒNG ĐỜI GÓI LIỆU TRÌNH (ADMIN FSM) ---
@@ -622,7 +571,7 @@ export const treatmentService = {
     data: Record<string, any>
   ): Promise<ApiResponse<any>> {
     try {
-      const res = await adminApi('treatment_journal/action', {
+      const res = await adminCommand('treatment_journal/action', {
         key: { id: journalId },
         action: 'save-draft',
         values: data,
@@ -649,7 +598,7 @@ export const treatmentService = {
     data?: Record<string, any>
   ): Promise<ApiResponse<any>> {
     try {
-      const res = await adminApi('treatment_journal/action', {
+      const res = await adminCommand('treatment_journal/action', {
         key: { id: journalId },
         action: 'submit-session',
         values: data,
@@ -676,7 +625,7 @@ export const treatmentService = {
     idempotencyKey?: string
   ): Promise<ApiResponse<any>> {
     try {
-      const res = await adminApi('treatment_journal/action', {
+      const res = await adminCommand('treatment_journal/action', {
         key: { id: journalId },
         action: 'confirm-session',
         idempotencyKey,

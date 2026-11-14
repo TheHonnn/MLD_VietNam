@@ -5,6 +5,8 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AdminService } from './admin.service';
 import { ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { recordMaterialCount, syncInventoryItem } from './treatment-inventory';
 
 describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
   let pg: PGlite;
@@ -113,11 +115,247 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
     );
   }, 60000);
 
+  it('books a rostered slot with a real bed and rejects overlapping reservations', async () => {
+    const date = '2099-04-15';
+    const room = (await pg.query<{ id: string }>(
+      "INSERT INTO branch_rooms(branch_id,name,bed_capacity) VALUES($1,'Phòng lịch trực',1) RETURNING id", [branchId],
+    )).rows[0];
+    await pg.query("INSERT INTO technician_shifts(branch_id,technician_id,assigned_room_id,shift_date,start_time,end_time) VALUES($1,$2,$3,$4,'09:00','12:00')",
+      [branchId, technicianId, room.id, date]);
+    const lookup = { branchId, date, serviceId };
+    const availability = await service.staffScheduleSlots(superAdminActor, lookup);
+    expect(availability.slots[0]).toMatchObject({ start: '09:00', end: '10:00', roomId: room.id, bed: 'B-1' });
+    expect(availability.slots.some(slot => slot.start === '11:00')).toBe(false);
+    await expect(service.staffScheduleSlots(staffActor, lookup)).rejects.toThrow(ForbiddenException);
+    const request = { branchId, bookingDate: date, serviceId, customerId: customerOneId, technicianId, startTime: '09:00', requestId: randomUUID() };
+    const booking = await service.createScheduleBooking(superAdminActor, request);
+    expect(await service.createScheduleBooking(superAdminActor, request)).toEqual(booking);
+    await expect(service.createScheduleBooking(superAdminActor, { ...request, startTime: '10:00', requestId: randomUUID() })).rejects.toThrow(ConflictException);
+    const updated = await service.staffScheduleSlots(superAdminActor, lookup);
+    expect(updated.slots[0]?.start).toBe('10:15');
+    const unassigned = (await pg.query<{ id: string }>(
+      "INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,base_total,final_price,qr_code_hash) VALUES('SCHED-UNASSIGNED',$1,$2,$3,'10:15','11:15',500000,500000,'schedule-unassigned') RETURNING id",
+      [customerOneId, branchId, date],
+    )).rows[0];
+    await pg.query('INSERT INTO booking_items(booking_id,service_id,duration_minutes,price) VALUES($1,$2,60,500000)', [unassigned.id, serviceId]);
+    await service.assignScheduleBooking(superAdminActor, { bookingId: unassigned.id, technicianId });
+    expect((await pg.query('SELECT technician_id,assigned_room_id FROM bookings WHERE id=$1', [unassigned.id])).rows[0])
+      .toEqual({ technician_id: technicianId, assigned_room_id: room.id });
+    await pg.query("UPDATE bookings SET status='IN_SERVICE', session_status='COMPLETED', payment_status='PAID' WHERE id=$1", [booking.id]);
+    await expect(service.action('bookings', superAdminActor, {
+      key: { id: booking.id }, action: 'checkout', requireEnded: true,
+    })).rejects.toThrow('Ca chưa hết giờ');
+    await pg.query("UPDATE bookings SET status='COMPLETED' WHERE id=$1", [booking.id]);
+
+  });
+
+  it('derives technician identity and records the actual department creator', async () => {
+    const department = await service.mutate('departments', superAdminActor, 'create', {
+      values: { name: 'Điều phối thử nghiệm', code: 'dieu_phoi_test', created_by_id: staffActor.id },
+    });
+    expect(department).toMatchObject({ code: 'DIEU_PHOI_TEST', created_by_id: superAdminActor.id });
+    const account = (await pg.query<{ id: string }>(
+      "INSERT INTO users(phone,full_name,role,referral_code) VALUES('0912345432','Điều phối thử','TECHNICIAN','STAFF-FORM-TEST') RETURNING id",
+    )).rows[0];
+    const profile = await service.mutate('staff_profiles', superAdminActor, 'create', {
+      values: { user_id: account.id, branch_id: branchId, department_id: department.id, position: 'Kỹ thuật viên', employee_code: 'STAFF-FORM-TEST' },
+    });
+    const technician = await service.mutate('technicians', superAdminActor, 'create', {
+      values: { staff_profile_id: profile.id, full_name: 'Tên tự nhập' },
+    });
+    expect(technician).toMatchObject({ user_id: account.id, branch_id: branchId, full_name: 'Điều phối thử' });
+    await expect(service.mutate('technicians', superAdminActor, 'create', {
+      values: { staff_profile_id: profile.id },
+    })).rejects.toThrow('đã có hồ sơ kỹ thuật viên');
+  });
+
+  it('keeps staff scheduling changes consistent with existing appointments', async () => {
+    const date = '2099-04-16';
+    const shift = { technician_id: technicianId, branch_id: branchId, shift_date: date, start_time: '09:00', end_time: '12:00' };
+    const makeShift = (values: object) => service.mutate('technician_shifts', superAdminActor, 'create', { values });
+    await expect(makeShift({ ...shift, end_time: '08:00' })).rejects.toThrow('Giờ kết thúc');
+    const created = await makeShift(shift);
+    await expect(makeShift({ ...shift, start_time: '11:00' })).rejects.toThrow('bị trùng');
+    const block = { technician_id: technicianId, branch_id: branchId, slot_date: date, start_time: '10:00', end_time: '11:00' };
+    await expect(service.mutate('technician_slots', superAdminActor, 'create', { values: { ...block, status: 'BOOKED' } })).rejects.toThrow('giờ khóa');
+    const locked = await service.mutate('technician_slots', superAdminActor, 'create', { values: { ...block, status: 'BLOCKED' } });
+    const available = await service.staffScheduleSlots(superAdminActor, { branchId, date, serviceId });
+    expect(available.slots.some(slot => slot.start === '10:00')).toBe(false);
+    await service.mutate('technician_slots', superAdminActor, 'delete', { key: { id: locked.id } });
+    await pg.query("INSERT INTO bookings(booking_code,customer_id,branch_id,technician_id,booking_date,start_time,end_time,status,base_total,final_price,qr_code_hash) VALUES('STAFF-ROSTER-TEST',$1,$2,$3,$4,'10:00','11:00','CONFIRMED',500000,500000,'staff-roster-test')",
+      [customerOneId, branchId, technicianId, date]);
+    await expect(service.mutate('technician_shifts', superAdminActor, 'update', { key: { id: created.id }, values: { is_cancelled: true } })).rejects.toThrow('đã có lịch hẹn');
+    await expect(service.mutate('technician_slots', superAdminActor, 'create', { values: { ...block, status: 'BLOCKED' } })).rejects.toThrow('đã có lịch hẹn');
+    await pg.query("DELETE FROM bookings WHERE booking_code='STAFF-ROSTER-TEST'");
+  });
+
+  it('approves commissions atomically and prevents repeated payout', async () => {
+    const create = async (amount: number, status = 'PENDING') => (await pg.query<{ id: string }>(
+      "INSERT INTO staff_commissions(staff_id,branch_id,commission_type,base_amount,percentage,commission_amount,status,cycle_month) VALUES($1,$2,'SERVICE_DIRECT',100000,10,$3,$4,'2099-05') RETURNING id",
+      [staffActor.id, branchId, amount, status],
+    )).rows[0];
+    const first = await create(10000);
+    const second = await create(20000);
+    await expect(service.transitionCommissions(superAdminActor, { action: 'approve', entries: [{id:first.id,amount:10000},{id:second.id,amount:1}] })).rejects.toThrow(ConflictException);
+    expect((await pg.query<{status:string}>('SELECT status FROM staff_commissions WHERE id=$1',[first.id])).rows[0].status).toBe('PENDING');
+    await service.transitionCommissions(superAdminActor, { action: 'approve', entries: [{id:first.id,amount:10000}] });
+    await service.transitionCommissions(superAdminActor, { action: 'record-payment', entries: [{id:first.id,amount:10000}] });
+    await expect(service.transitionCommissions(superAdminActor, { action: 'record-payment', entries: [{id:first.id,amount:10000}] })).rejects.toThrow(ConflictException);
+    const reversal = await create(-10000);
+    await expect(service.transitionCommissions(superAdminActor, { action: 'approve', entries: [{id:reversal.id,amount:-10000}] })).rejects.toThrow(ConflictException);
+    await expect(service.commissionsWorkspace(staffActor,'2099-05')).rejects.toThrow(ForbiddenException);
+    const workspace = await service.commissionsWorkspace(superAdminActor,'2099-05');
+    expect(workspace.rows.some(row => row.id === first.id && row.status === 'PAID')).toBe(true);
+    await pg.query('DELETE FROM staff_commissions WHERE id=ANY($1::uuid[])',[[first.id,second.id,reversal.id]]);
+  });
+
+  it('validates voucher issuance and protects issued coupon terms', async () => {
+    const couponData = { code: 'LOYALTY-TEST', title: 'Ưu đãi kiểm thử', discount_amount: 100000, min_order_amount: 0, valid_from: '2020-01-01T00:00:00Z', valid_to: '2099-12-01T00:00:00Z', usage_limit: 10 };
+    await expect(service.mutate('coupons', superAdminActor, 'create', { values: { ...couponData, discount_percent: 10 } })).rejects.toThrow('Chọn một mức');
+    const coupon = await service.mutate('coupons', superAdminActor, 'create', { values: couponData });
+    const voucher = await service.mutate('user_vouchers', superAdminActor, 'create', { values: {
+      user_id: customerOneId, coupon_id: coupon.id, expires_at: '2099-11-01T00:00:00Z',
+    } });
+    expect(voucher).toMatchObject({ status: 'AVAILABLE', source_trigger: 'MANUAL_BY_ADMIN' });
+    await expect(service.mutate('user_vouchers', superAdminActor, 'create', { values: {
+      user_id: customerOneId, coupon_id: coupon.id, expires_at: '2099-11-01T00:00:00Z',
+    } })).rejects.toThrow('đã có voucher');
+    await expect(service.mutate('coupons', superAdminActor, 'update', { key: {id:coupon.id}, values: { discount_amount: 200000 } })).rejects.toThrow('đã phát hành');
+    await expect(service.mutate('user_vouchers', superAdminActor, 'update', { key: {id:voucher.id}, values: {status:'USED'} })).rejects.toThrow();
+    await pg.query('DELETE FROM user_vouchers WHERE id=$1',[voucher.id]);
+    await pg.query('DELETE FROM coupons WHERE id=$1',[coupon.id]);
+  });
+
   afterAll(async () => {
     await pg?.close();
   });
 
   describe('1. Package State Machine Transitions & Validation', () => {
+    it('books a package atomically, safely retries and rejects a conflicting technician slot', async () => {
+      await pg.query("INSERT INTO branch_rooms(branch_id,name,bed_capacity) VALUES($1,'Phòng kiểm thử',1)",[branchId]);
+      const pkg=(await pg.query<any>("INSERT INTO user_packages(customer_id,package_id,total_sessions,status,expires_at) VALUES($1,$2,3,'ACTIVE',now()+interval '3 months') RETURNING id",[customerOneId,packageDefId])).rows[0];
+      const day=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+      const input={branchId,technicianId,requestId:randomUUID(),bookingDate:day,startTime:'09:00',notes:'Đặt theo gói'};
+      const first=await service.bookTreatmentSession(superAdminActor,pkg.id,input);
+      expect((await service.bookTreatmentSession(superAdminActor,pkg.id,input)).id).toBe(first.id);
+      expect((await pg.query<any>('SELECT count(*)::int n FROM booking_items WHERE booking_id=$1',[first.id])).rows[0].n).toBe(1);
+      expect((await pg.query<any>('SELECT completed_sessions FROM user_packages WHERE id=$1',[pkg.id])).rows[0].completed_sessions).toBe(0);
+      await expect(service.bookTreatmentSession(superAdminActor,pkg.id,{...input,notes:'Thông tin khác'})).rejects.toThrow(ConflictException);
+      await expect(service.bookTreatmentSession(superAdminActor,pkg.id,{...input,requestId:randomUUID()})).rejects.toThrow(ConflictException);
+      await pg.query("UPDATE user_packages SET expires_at=now()+interval '1 day' WHERE id=$1",[pkg.id]);
+      await expect(service.bookTreatmentSession(superAdminActor,pkg.id,{...input,startTime:'12:00',requestId:randomUUID()})).rejects.toThrow(/hết hạn/);
+      await pg.query("UPDATE user_packages SET expires_at=now()+interval '3 months',total_sessions=1 WHERE id=$1",[pkg.id]);
+      await expect(service.bookTreatmentSession(superAdminActor,pkg.id,{...input,startTime:'12:00',requestId:randomUUID()})).rejects.toThrow(/đã được đặt lịch/);
+      await pg.query('UPDATE user_packages SET total_sessions=3 WHERE id=$1',[pkg.id]);
+      await pg.query("UPDATE user_packages SET status='PAUSED' WHERE id=$1",[pkg.id]);
+      await expect(service.bookTreatmentSession(superAdminActor,pkg.id,{...input,startTime:'12:00',requestId:randomUUID()})).rejects.toThrow(ConflictException);
+      await pg.query("UPDATE user_packages SET status='ACTIVE' WHERE id=$1",[pkg.id]);
+      await pg.exec(`CREATE FUNCTION reject_acceptance_booking_item() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced item failure'; END $$;
+        CREATE TRIGGER reject_acceptance_booking_item BEFORE INSERT ON booking_items FOR EACH ROW EXECUTE FUNCTION reject_acceptance_booking_item();`);
+      const failedRequest=randomUUID();
+      try { await expect(service.bookTreatmentSession(superAdminActor,pkg.id,{...input,startTime:'13:00',requestId:failedRequest})).rejects.toThrow(); }
+      finally { await pg.exec('DROP TRIGGER reject_acceptance_booking_item ON booking_items; DROP FUNCTION reject_acceptance_booking_item();'); }
+      expect((await pg.query<any>('SELECT count(*)::int n FROM bookings WHERE qr_code_hash=$1',[`treatment:${superAdminActor.id}:${failedRequest}`])).rows[0].n).toBe(0);
+    });
+    it('rejects generic confirmation and approval forgery without consuming a session', async () => {
+      const pkg=(await pg.query<any>("INSERT INTO user_packages(customer_id,package_id,total_sessions,status,expires_at) VALUES($1,$2,2,'ACTIVE',now()+interval '3 months') RETURNING id",[customerOneId,packageDefId])).rows[0];
+      const journal=(await pg.query<any>("INSERT INTO treatment_journal(user_package_id,customer_id,session_number,session_date,confirmation_status) VALUES($1,$2,1,CURRENT_DATE,'DRAFT') RETURNING id",[pkg.id,customerOneId])).rows[0];
+      for (const values of [{confirmation_status:'CONFIRMED'},{clinical_approved_at:new Date().toISOString()},{customer_id:customerTwoId}]) {
+        await expect(service.mutate('treatment_journal',superAdminActor,'update',{key:{id:journal.id},values})).rejects.toThrow();
+      }
+      expect((await pg.query<any>('SELECT completed_sessions FROM user_packages WHERE id=$1',[pkg.id])).rows[0].completed_sessions).toBe(0);
+    });
+    it('keeps the receiving package visible only to the source branch after transfer', async () => {
+      const pkg=(await pg.query<any>("INSERT INTO user_packages(customer_id,package_id,total_sessions,status,expires_at) VALUES($1,$2,3,'ACTIVE',now()+interval '3 months') RETURNING id",[customerOneId,packageDefId])).rows[0];
+      const booking=(await pg.query<any>("INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,base_total,final_price,qr_code_hash) VALUES('TRANSFER-SCOPE',$1,$2,CURRENT_DATE,'10:00','11:00',0,0,'transfer-scope-qr') RETURNING id",[customerOneId,branchId])).rows[0];
+      await pg.query("INSERT INTO treatment_journal(user_package_id,customer_id,booking_id,session_number,session_date,confirmation_status) VALUES($1,$2,$3,1,CURRENT_DATE,'DRAFT')",[pkg.id,customerOneId,booking.id]);
+      await service.action('user_packages',superAdminActor,{key:{id:pkg.id},action:'transfer',newCustomerId:customerTwoId,reason:'Chuyển nhượng theo yêu cầu khách hàng'} as any);
+      const transferred=(await pg.query<any>('SELECT id FROM user_packages WHERE transferred_from_package_id=$1',[pkg.id])).rows[0];
+      const actor={id:staffActor.id,role:'RECEPTIONIST',scopes:[{permission:'user_packages.read',branchId}]};
+      const listing=await service.list('user_packages',actor,{filter:JSON.stringify({id:transferred.id})});
+      expect(listing.rows.map(row=>row.id)).toEqual([transferred.id]);
+      expect((await service.list('user_packages',{...actor,scopes:[{permission:'user_packages.read',branchId:'00000000-0000-4000-8000-999999999999'}]},{filter:JSON.stringify({id:transferred.id})})).total).toBe(0);
+    });
+    it('returns package context and denies unresolved packages to branch operators', async () => {
+      const pkg = (await pg.query<any>(
+        "INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,expires_at) VALUES($1,$2,5,0,'ACTIVE',now()+interval '3 months') RETURNING id",
+        [customerOneId, packageDefId],
+      )).rows[0];
+      const detail = await service.treatmentPackageDetail(superAdminActor, pkg.id);
+      expect(detail).toEqual({ journals: [], logs: [], invoices: [], bookings: [], deliveries: [] });
+      const listing = await service.list('user_packages', superAdminActor, { filter: JSON.stringify({ id: pkg.id }) });
+      expect(listing.rows[0].service_name).toBe('Chăm Sóc Da Chuyên Sâu MLD');
+      expect(listing.rows[0].package_branches).toEqual([]);
+      await expect(service.treatmentPackageDetail({ id: staffActor.id, role: 'RECEPTIONIST', scopes: [{ permission: 'user_packages.read', branchId }] }, pkg.id)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('does not allow submitted journals to be rewritten as drafts', async () => {
+      const journal = (await pg.query<any>(
+        "INSERT INTO treatment_journal(customer_id,session_number,session_date,confirmation_status,condition_before,condition_after,treatment_notes) VALUES($1,1,CURRENT_DATE,'SUBMITTED','Before','After','Notes') RETURNING id",
+        [customerOneId],
+      )).rows[0];
+      await expect(service.action('treatment_journal', superAdminActor, {
+        key: { id: journal.id }, action: 'save-draft', values: { treatment_notes: 'Changed' },
+      })).rejects.toThrow(ConflictException);
+      const saved = (await pg.query<any>('SELECT confirmation_status,treatment_notes FROM treatment_journal WHERE id=$1', [journal.id])).rows[0];
+      expect(saved).toEqual({ confirmation_status: 'SUBMITTED', treatment_notes: 'Notes' });
+    });
+
+    it('delivers an immutable guideline snapshot once per confirmed session and version', async () => {
+      const guide = await service.mutate('home_care_guidelines', superAdminActor, 'create', {
+        values: { title: 'Chăm sóc sau buổi', category: 'Chăm sóc', summary: 'Tóm tắt', content: 'Nội dung phiên bản đầu', image_url: 'https://example.com/care.png', is_published: true },
+      });
+      expect(guide.version).toBe(1);
+      const journal = (await pg.query<any>(
+        "INSERT INTO treatment_journal(customer_id,session_number,session_date,confirmation_status) VALUES($1,1,CURRENT_DATE,'DRAFT') RETURNING id", [customerOneId],
+      )).rows[0];
+      await expect(service.assignHomeCare(superAdminActor,journal.id,guide.id)).rejects.toThrow(ConflictException);
+      await pg.query("UPDATE treatment_journal SET confirmation_status='CONFIRMED' WHERE id=$1", [journal.id]);
+      expect((await service.homeCareTemplatesForSession(superAdminActor,journal.id)).some(row => row.id === guide.id)).toBe(true);
+      const first = await service.assignHomeCare(superAdminActor,journal.id,guide.id);
+      const retry = await service.assignHomeCare(superAdminActor,journal.id,guide.id);
+      expect(retry.id).toBe(first.id);
+      expect((await pg.query<any>("SELECT count(*)::int n FROM notifications WHERE user_id=$1 AND data->>'delivery_id'=$2",[customerOneId,first.id])).rows[0].n).toBe(1);
+      const updated = await service.mutate('home_care_guidelines',superAdminActor,'update', {
+        key: { id: guide.id }, expectedUpdatedAt: guide.updated_at,
+        values: { content: 'Nội dung đã sửa' },
+      });
+      expect(updated.version).toBe(2);
+      expect(updated.is_published).toBe(false);
+      const delivery = (await pg.query<any>('SELECT content_snapshot,guideline_version FROM home_care_deliveries WHERE id=$1',[first.id])).rows[0];
+      expect(delivery.content_snapshot.content).toBe('Nội dung phiên bản đầu');
+      expect(delivery.guideline_version).toBe(1);
+      await expect(service.assignHomeCare(superAdminActor,journal.id,guide.id)).rejects.toThrow(ConflictException);
+      await pg.query('UPDATE home_care_guidelines SET is_published=true,service_id=$2 WHERE id=$1',[guide.id,serviceId]);
+      expect((await service.homeCareTemplatesForSession(superAdminActor,journal.id)).some(row => row.id === guide.id)).toBe(false);
+      await expect(service.assignHomeCare(superAdminActor,journal.id,guide.id)).rejects.toThrow(ConflictException);
+      await expect(service.mutate('home_care_guidelines',superAdminActor,'delete',{ key: { id: guide.id },expectedUpdatedAt: updated.updated_at })).rejects.toThrow();
+    });
+
+    it('reuses the reversed paid session without erasing history and closes a covered booking on confirmation', async () => {
+      const pkg = (await pg.query<any>("INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,expires_at) VALUES($1,$2,2,2,'COMPLETED',now()+interval '3 months') RETURNING id",[customerOneId,packageDefId])).rows[0];
+      const reversed = (await pg.query<any>("INSERT INTO treatment_journal(user_package_id,customer_id,session_number,session_date,confirmation_status) VALUES($1,$2,1,CURRENT_DATE,'CONFIRMED') RETURNING id",[pkg.id,customerOneId])).rows[0];
+      await pg.query("INSERT INTO treatment_journal(user_package_id,customer_id,session_number,session_date,confirmation_status) VALUES($1,$2,2,CURRENT_DATE,'CONFIRMED')",[pkg.id,customerOneId]);
+      await service.action('treatment_journal',superAdminActor,{key:{id:reversed.id},action:'reverse',reason:'Ghi nhận nhầm buổi cần hoàn tác'});
+      const booking = (await pg.query<any>(`INSERT INTO bookings(booking_code,customer_id,branch_id,technician_id,booking_date,start_time,end_time,status,payment_status,payment_method,base_total,final_price,qr_code_hash)
+        VALUES('REPLACEMENT-SESSION',$1,$2,$3,CURRENT_DATE,'09:00','10:00','CONFIRMED','UNPAID','MEMBERSHIP_WALLET',0,0,'replacement-qr') RETURNING id`,[customerOneId,branchId,technicianId])).rows[0];
+      await pg.query('INSERT INTO booking_items(booking_id,service_id,price) VALUES($1,$2,0)',[booking.id,serviceId]);
+      await service.action('bookings',superAdminActor,{key:{id:booking.id},action:'checkin',userPackageId:pkg.id});
+      await service.action('bookings',superAdminActor,{key:{id:booking.id},action:'start'});
+      const draft = await service.startTreatmentDraft(superAdminActor,pkg.id,booking.id);
+      expect(draft.session_number).toBe(1);
+      expect(draft.customer_id).toBe(customerOneId);
+      expect((await service.startTreatmentDraft(superAdminActor,pkg.id,booking.id)).id).toBe(draft.id);
+      await expect(service.action('bookings',superAdminActor,{key:{id:booking.id},action:'finish-service'})).rejects.toThrow();
+      await service.action('treatment_journal',superAdminActor,{key:{id:draft.id},action:'save-draft',values:{condition_before:'Trước buổi',condition_after:'Sau buổi',treatment_notes:'Đã thực hiện chăm sóc',after_photos:['https://example.com/after.png']}});
+      await service.action('treatment_journal',superAdminActor,{key:{id:draft.id},action:'submit-session'});
+      await service.action('treatment_journal',superAdminActor,{key:{id:draft.id},action:'confirm-session'});
+      expect((await pg.query<any>('SELECT status,completed_sessions FROM user_packages WHERE id=$1',[pkg.id])).rows[0]).toEqual({status:'COMPLETED',completed_sessions:2});
+      expect((await pg.query<any>('SELECT status,payment_status,session_status FROM bookings WHERE id=$1',[booking.id])).rows[0]).toEqual({status:'COMPLETED',payment_status:'PAID',session_status:'COMPLETED'});
+      expect((await pg.query<any>('SELECT count(*)::int n FROM treatment_journal WHERE user_package_id=$1',[pkg.id])).rows[0].n).toBe(3);
+      expect((await pg.query<any>('SELECT after_photos FROM treatment_journal WHERE id=$1',[draft.id])).rows[0].after_photos).toEqual(['https://example.com/after.png']);
+    });
+
     it('blocks arbitrary direct mutations to package status', async () => {
       const upkg = (await pg.query<any>(
         "INSERT INTO user_packages(customer_id, package_id, total_sessions, completed_sessions, status, expires_at) VALUES($1, $2, 5, 0, 'ACTIVE', NOW() + INTERVAL '6 months') RETURNING id",
@@ -472,6 +710,7 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       expect(journal.id).toBeDefined();
 
       // Confirm session to trigger inventory deduction and post-care outbox
+      await service.action('treatment_journal', superAdminActor, { key: { id: journal.id }, action: 'submit-session' });
       await service.action('treatment_journal', superAdminActor, {
         key: { id: journal.id },
         action: 'confirm-session',
@@ -507,6 +746,7 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
         [upkg.id, customerOneId],
       )).rows[0];
 
+      await pg.query("UPDATE treatment_journal SET confirmation_status='REVIEW_REQUIRED',has_abnormal_reaction=true WHERE id=$1", [journal.id]);
       const approved = await service.action('treatment_journal', superAdminActor, {
         key: { id: journal.id },
         action: 'approve-clinical',
@@ -518,6 +758,39 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
   });
 
   describe('4. Operational Dashboard Stats Integration', () => {
+    it('deducts only configured stock, retries once, and restores the original ledger exactly', async () => {
+      const pool = { ...client, connect: async () => client } as any;
+      const journal = (await pg.query<any>("INSERT INTO treatment_journal(customer_id,session_date,confirmation_status) VALUES($1,CURRENT_DATE,'CONFIRMED') RETURNING id",[customerOneId])).rows[0];
+      const items = [{name:'Test gauze',unit:'piece',quantity:2},{name:'Test gel',unit:'ml',quantity:3}];
+      const outbox = (await pg.query<any>("INSERT INTO treatment_inventory_outbox(branch_id,treatment_journal_id,items) VALUES($1,$2,$3::jsonb) RETURNING id",[branchId,journal.id,JSON.stringify(items)])).rows[0];
+      expect((await syncInventoryItem(pool,outbox.id)).synced).toBe(false);
+      expect((await pg.query<any>('SELECT * FROM branch_material_stock')).rows).toHaveLength(0);
+      const stock = await recordMaterialCount(pool,superAdminActor,{branchId,materialName:'Test gauze',unit:'piece',quantity:10,expectedQuantity:null,reason:'Actual test fixture count'});
+      // Missing second material must roll back the first deduction too.
+      expect((await syncInventoryItem(pool,outbox.id)).synced).toBe(false);
+      expect(Number((await pg.query<any>('SELECT quantity FROM branch_material_stock WHERE id=$1',[stock.id])).rows[0].quantity)).toBe(10);
+      expect((await pg.query<any>('SELECT * FROM treatment_stock_movements WHERE outbox_id=$1',[outbox.id])).rows).toHaveLength(0);
+      const gel = await recordMaterialCount(pool,superAdminActor,{branchId,materialName:'Test gel',unit:'ml',quantity:1,expectedQuantity:null,reason:'Actual test fixture count'});
+      expect((await syncInventoryItem(pool,outbox.id)).synced).toBe(false);
+      expect(Number((await pg.query<any>('SELECT quantity FROM branch_material_stock WHERE id=$1',[stock.id])).rows[0].quantity)).toBe(10);
+      await recordMaterialCount(pool,superAdminActor,{branchId,materialName:'Test gel',unit:'ml',quantity:9,expectedQuantity:1,reason:'Actual test fixture count'});
+      const restore = (await pg.query<any>("INSERT INTO treatment_inventory_outbox(branch_id,treatment_journal_id,operation_type) VALUES($1,$2,'REVERSE_RESTORE') RETURNING id",[branchId,journal.id])).rows[0];
+      expect((await syncInventoryItem(pool,restore.id)).synced).toBe(false);
+      expect((await syncInventoryItem(pool,outbox.id)).synced).toBe(true);
+      expect((await syncInventoryItem(pool,outbox.id)).synced).toBe(true);
+      expect(Number((await pg.query<any>('SELECT quantity FROM branch_material_stock WHERE id=$1',[stock.id])).rows[0].quantity)).toBe(8);
+      expect(Number((await pg.query<any>('SELECT quantity FROM branch_material_stock WHERE id=$1',[gel.id])).rows[0].quantity)).toBe(6);
+      const duplicate = (await pg.query<any>("INSERT INTO treatment_inventory_outbox(branch_id,treatment_journal_id,items) VALUES($1,$2,$3::jsonb) RETURNING id",[branchId,journal.id,JSON.stringify(items)])).rows[0];
+      expect((await syncInventoryItem(pool,duplicate.id)).synced).toBe(false);
+      expect(Number((await pg.query<any>('SELECT quantity FROM branch_material_stock WHERE id=$1',[stock.id])).rows[0].quantity)).toBe(8);
+      expect((await syncInventoryItem(pool,restore.id)).synced).toBe(true);
+      await syncInventoryItem(pool,restore.id);
+      expect(Number((await pg.query<any>('SELECT quantity FROM branch_material_stock WHERE id=$1',[stock.id])).rows[0].quantity)).toBe(10);
+      expect(Number((await pg.query<any>('SELECT quantity FROM branch_material_stock WHERE id=$1',[gel.id])).rows[0].quantity)).toBe(9);
+      expect((await pg.query<any>('SELECT * FROM treatment_stock_movements WHERE outbox_id=$1',[restore.id])).rows).toHaveLength(2);
+      await expect(recordMaterialCount(pool,superAdminActor,{branchId,materialName:'Test gel',unit:'ml',quantity:12,expectedQuantity:6,reason:'Stale test fixture count'})).rejects.toThrow(/đã thay đổi/);
+      await expect(recordMaterialCount(pool,{...superAdminActor,role:'BRANCH_MANAGER',scopes:[{permission:'branch_material_stock.action',branchId:randomUUID()}]}, {branchId,materialName:'Test gel',unit:'ml',quantity:12,expectedQuantity:9,reason:'Foreign test fixture count'})).rejects.toThrow(/chi nhánh/);
+    });
     it('aggregates operational metrics with accurate counts from database', async () => {
       const stats = await service.treatmentDashboardStats(superAdminActor);
 
@@ -651,6 +924,18 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       )).rows[0];
 
       // First confirm succeeds
+      await pg.query("UPDATE bookings SET status='CANCELLED' WHERE id=$1",[bk.id]);
+      expect((await service.treatmentConfirmationPreview(superAdminActor,jnl.id)).warnings.join(' ')).toMatch(/đang phục vụ/);
+      await expect(service.action('treatment_journal',superAdminActor,{key:{id:jnl.id},action:'confirm-session'})).rejects.toThrow(/đang phục vụ/);
+      await pg.query("UPDATE bookings SET status='IN_SERVICE' WHERE id=$1",[bk.id]);
+      const preview = await service.treatmentConfirmationPreview(superAdminActor, jnl.id);
+      expect(preview.remainingBefore).toBe(3);
+      expect(preview.remainingAfter).toBe(2);
+      expect(preview.commission.baseAmount).toBe(500000);
+      expect(preview.commission.amount).toBe(50000);
+      expect(preview.warnings).toEqual([]);
+      expect((await pg.query<any>('SELECT completed_sessions FROM user_packages WHERE id=$1', [upkg.id])).rows[0].completed_sessions).toBe(0);
+      await expect(service.treatmentConfirmationPreview({ id: staffActor.id, role: 'TECHNICIAN', scopes: [{ permission: 'treatment_journal.read', branchId }] }, jnl.id)).rejects.toThrow(ForbiddenException);
       const confirmed = await service.action('treatment_journal', superAdminActor, {
         key: { id: jnl.id },
         action: 'confirm-session',
@@ -777,7 +1062,17 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
         }),
       ).rejects.toThrow(/phản ứng bất thường/i);
 
-      // Super admin (authorized) confirms directly -> auto-approves and completes
+      await expect(service.action('treatment_journal',superAdminActor,{
+        key:{id:jnl.id},action:'submit-session',values:{has_abnormal_reaction:false},
+      })).rejects.toThrow(/bản nháp/);
+
+      // Even a manager must explicitly approve the submitted clinical review.
+      await expect(service.action('treatment_journal', superAdminActor, {
+        key: { id: jnl.id }, action: 'confirm-session',
+      })).rejects.toThrow(/phản ứng bất thường/i);
+      await service.action('treatment_journal', superAdminActor, {
+        key: { id: jnl.id }, action: 'approve-clinical',
+      });
       const confirmed = await service.action('treatment_journal', superAdminActor, {
         key: { id: jnl.id },
         action: 'confirm-session',
@@ -830,16 +1125,18 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       await pg.query('UPDATE invoices SET user_package_id=$1 WHERE id=$2', [pkgQ3.id, inv.id]);
 
       // 1. Super admin can access package
-      const resSuper = await service.list('user_packages', superAdminActor, { search: '' });
+      const filter = JSON.stringify({id:pkgQ3.id});
+      const resSuper = await service.list('user_packages', superAdminActor, { filter });
       expect(resSuper.rows.some((r: any) => r.id === pkgQ3.id)).toBe(true);
 
       // 2. Staff of branch Q3 can access package
-      const resStaffQ3 = await service.list('user_packages', branchOneStaff, { search: '' });
+      const resStaffQ3 = await service.list('user_packages', branchOneStaff, { filter });
       expect(resStaffQ3.rows.some((r: any) => r.id === pkgQ3.id)).toBe(true);
 
       // 3. Staff of branch Q1 cannot access package from Q3
-      const resStaffQ1 = await service.list('user_packages', branchTwoStaff, { search: '' });
+      const resStaffQ1 = await service.list('user_packages', branchTwoStaff, { filter });
       expect(resStaffQ1.rows.some((r: any) => r.id === pkgQ3.id)).toBe(false);
+      expect(resStaffQ1.total).toBe(0);
     });
 
     it('blocks direct CRUD creation and completed_sessions mutation on user_packages', async () => {

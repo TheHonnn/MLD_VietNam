@@ -35,7 +35,7 @@ interface AssignBatchModalProps {
   batches: CourseBatch[];
   courses: Course[];
   instructors: StaffWithProfile[];
-  onAssignBatch: (enrollmentId: string, batchId: string) => Promise<boolean>;
+  onAssignBatch: (enrollmentId: string, batchId: string, reason?: string) => Promise<boolean>;
 }
 
 export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
@@ -50,16 +50,19 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
   const navigate = useNavigate();
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [transferReason, setTransferReason] = useState('');
+  const isTransfer = Boolean(candidate?.currentBatchId && candidate.currentBatchId !== selectedBatchId);
 
   const relevantBatches = candidate?.courseId
     ? batches.filter((batch) => batch.courseId === candidate.courseId)
     : batches;
   const selectableBatches = relevantBatches.filter(
-    (batch) => !batch.maxStudents || (batch.enrolledCount || 0) < batch.maxStudents,
+    (batch) => ['UPCOMING','OPEN_FOR_ENROLLMENT','IN_PROGRESS'].includes(batch.status) && (batch.id === candidate?.currentBatchId || !batch.maxStudents || (batch.enrolledCount || 0) < batch.maxStudents),
   );
 
   // Sync initial batch selection when modal opens
   React.useEffect(() => {
+    setTransferReason('');
     if (candidate) {
       const currentBatch = selectableBatches.find((batch) => batch.id === candidate.currentBatchId);
       if (currentBatch) {
@@ -76,9 +79,10 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
 
   const handleSubmit = async () => {
     if (!selectableBatches.some((batch) => batch.id === selectedBatchId)) return;
+    if (isTransfer && transferReason.trim().length < 5) return;
     setIsSubmitting(true);
     try {
-      const ok = await onAssignBatch(candidate.id, selectedBatchId);
+      const ok = await onAssignBatch(candidate.id, selectedBatchId, isTransfer ? transferReason.trim() : undefined);
       if (ok) {
         onClose();
       }
@@ -249,6 +253,10 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
             </div>
           </div>
 
+          {isTransfer && <label className="block text-xs font-semibold text-[#2C241E]">Lý do chuyển lớp (bắt buộc)
+            <textarea value={transferReason} onChange={(e) => setTransferReason(e.target.value)} minLength={5} maxLength={2000} className="mt-2 w-full p-3 rounded-xl border border-[#D7BBA6]" placeholder="Nhập ít nhất 5 ký tự; lịch sử học tập sẽ được giữ lại." />
+          </label>}
+          <p className="text-xs text-[#73675F]">Hệ thống kiểm tra trùng giờ theo thời khóa biểu từng buổi. Lớp cần có ngày và giờ học cụ thể trước khi xác nhận. Chuyển khác chi nhánh cần quản trị toàn hệ thống.</p>
           {/* Quick link to other management screens */}
           <div className="p-3.5 rounded-xl bg-[#FAF0E4] border border-[#E9D7C3] flex items-center justify-between text-xs text-[#8A4F23]">
             <div className="flex items-center gap-2">
@@ -280,12 +288,12 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
           </button>
           <button
             type="button"
-            disabled={!selectableBatches.some((batch) => batch.id === selectedBatchId) || isSubmitting}
+            disabled={!selectableBatches.some((batch) => batch.id === selectedBatchId) || (isTransfer && transferReason.trim().length < 5) || isSubmitting}
             onClick={handleSubmit}
             className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#1B4F72] hover:bg-[#153e5b] text-white transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
             <CheckCircle2 className="w-4 h-4" />
-            <span>{isSubmitting ? 'Đang xếp lớp...' : 'Xác nhận xếp lớp & Bắt đầu học'}</span>
+            <span>{isSubmitting ? 'Đang xếp lớp...' : (isTransfer ? 'Xác nhận chuyển lớp' : 'Xác nhận xếp lớp')}</span>
           </button>
         </div>
       </div>

@@ -14,6 +14,7 @@ class AdminAppointmentCard extends StatelessWidget {
   final VoidCallback? onCheckOut;
   final VoidCallback? onViewDetail;
   final bool isProcessing;
+  final bool isCompact;
 
   const AdminAppointmentCard({
     super.key,
@@ -25,6 +26,7 @@ class AdminAppointmentCard extends StatelessWidget {
     this.onCheckOut,
     this.onViewDetail,
     this.isProcessing = false,
+    this.isCompact = false,
   });
 
   String _formatPrice(double amount) {
@@ -99,6 +101,228 @@ class AdminAppointmentCard extends StatelessWidget {
         statusText = AppColors.textSecondary;
         statusLabel = booking.status;
         statusIcon = Icons.info_outline_rounded;
+    }
+
+    if (isCompact) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: booking.status == 'PENDING'
+                ? const Color(0xFFFCD34D)
+                : const Color(0xFFE5E7EB),
+            width: booking.status == 'PENDING' ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: onViewDetail,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              child: Row(
+                children: [
+                  // Giờ hẹn
+                  Container(
+                    width: 48,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: statusBg.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      booking.startTime.isNotEmpty ? booking.startTime : '09:00',
+                      style: AppTypography.zaloFont(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: statusText,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Thông tin khách & Dịch vụ
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                booking.customerName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.zaloFont(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textHeading,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: statusBg,
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Text(
+                                statusLabel,
+                                style: AppTypography.zaloFont(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: statusText,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${booking.serviceName}${booking.technicianName != null ? " · ${booking.technicianName}" : ""}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.zaloFont(
+                                  fontSize: 10.5,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              _formatPrice(booking.finalPrice),
+                              style: AppTypography.zaloFont(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF00693F),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Nút thao tác nhanh 1 chạm
+                  if (isProcessing)
+                    const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                    )
+                  else if (booking.status == 'PENDING' && onApprove != null)
+                    InkWell(
+                      onTap: onApprove,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD97706),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Duyệt',
+                          style: AppTypography.zaloFont(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (booking.status == 'CONFIRMED' && onCheckIn != null)
+                    InkWell(
+                      onTap: onCheckIn,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Tiếp đón',
+                          style: AppTypography.zaloFont(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (booking.status == 'CHECKED_IN' && onStartService != null)
+                    InkWell(
+                      onTap: onStartService,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7E22CE),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Bắt đầu',
+                          style: AppTypography.zaloFont(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (booking.status == 'IN_SERVICE' && onCheckOut != null)
+                    InkWell(
+                      onTap: onCheckOut,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00693F),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Xong',
+                          style: AppTypography.zaloFont(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (booking.customerPhone.isNotEmpty)
+                    InkWell(
+                      onTap: () => _callCustomer(booking.customerPhone),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F6ED),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(Icons.phone_rounded, color: Color(0xFF0D6832), size: 14),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
     }
 
     return Container(

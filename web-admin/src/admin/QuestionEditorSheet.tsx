@@ -17,8 +17,8 @@ import {
   Trash2,
   FileSpreadsheet,
 } from "lucide-react";
-import { adminApi, Row } from "./api";
-import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
+import { adminCommand, Row } from "./api";
+import { loadQuestionRows } from "./quizData";
 import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
 
 export interface QuestionEditorSheetProps {
@@ -86,6 +86,9 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
   // Existing questions of the active quiz (for order calculation and roadmap context)
   const [existingQuestions, setExistingQuestions] = useState<any[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [questionsReady, setQuestionsReady] = useState(false);
+  const savedInSession = useRef(false);
+  const closeEditor = () => { if (savedInSession.current) onSaved(); onClose(); };
 
   // 2. Form state (Clean inputs, NO dummy pre-filled templates!)
   const [questionNumber, setQuestionNumber] = useState<number>(
@@ -102,7 +105,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
   const [optD, setOptD] = useState<string>(initialOpts.D);
 
   const [numOptions, setNumOptions] = useState<number>(
-    initialOpts.D ? 4 : initialOpts.C ? 3 : 4
+    initialOpts.D ? 4 : initialOpts.C ? 3 : isCreate ? 4 : 2
   );
 
   const [correctOption, setCorrectOption] = useState<string>(
@@ -122,17 +125,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
     let mounted = true;
     const fetchLookups = async () => {
       try {
-        const [cRes, qRes] = await Promise.all([
-          fetch(`${SUPABASE_URL}/rest/v1/courses?select=id,title,code&order=title.asc`, {
-            headers: getSupabaseHeaders(),
-          }),
-          fetch(
-            `${SUPABASE_URL}/rest/v1/course_quizzes?select=id,course_id,title,total_questions,time_limit_minutes&order=created_at.desc`,
-            { headers: getSupabaseHeaders() }
-          ),
-        ]);
-
-        const [cData, qData] = await Promise.all([cRes.json(), qRes.json()]);
+        const [cData, qData] = await Promise.all([loadQuestionRows("courses"), loadQuestionRows("course_quizzes")]);
 
         if (mounted) {
           if (Array.isArray(cData)) setCourses(cData);
@@ -147,7 +140,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
                 setSelectedCourseId(matched.course_id || "");
                 setQuizId(matched.id);
               }
-            } else if (qData.length > 0) {
+            } else if (qData.length === 1) {
               // Default to first quiz
               setSelectedCourseId(qData[0].course_id || "");
               setQuizId(qData[0].id);
@@ -155,7 +148,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
           }
         }
       } catch (err) {
-        console.warn("Lỗi tải danh mục khóa học & đề thi:", err);
+        if (mounted) setError(err instanceof Error ? err.message : "Không tải được danh sách đề thi.");
       } finally {
         if (mounted) setLoadingLookups(false);
       }
@@ -187,7 +180,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
   const handleCourseChange = (newCourseId: string) => {
     setSelectedCourseId(newCourseId);
     const related = quizzes.filter((q) => q.course_id === newCourseId);
-    if (related.length > 0) {
+    if (related.length === 1) {
       setQuizId(related[0].id);
     } else {
       setQuizId("");
@@ -196,6 +189,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
 
   // B. Fetch existing questions when quizId changes
   useEffect(() => {
+    setQuestionsReady(false);
     if (!quizId) {
       setExistingQuestions([]);
       return;
@@ -205,15 +199,10 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
     const fetchQuestions = async () => {
       setLoadingQuestions(true);
       try {
-        const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/quiz_questions?quiz_id=eq.${encodeURIComponent(
-            quizId
-          )}&select=id,question_number,question_text,correct_option&order=question_number.asc`,
-          { headers: getSupabaseHeaders() }
-        );
-        const data = await res.json();
+        const data = await loadQuestionRows("quiz_questions", { quiz_id: quizId });
         if (mounted && Array.isArray(data)) {
           setExistingQuestions(data);
+          setQuestionsReady(true);
 
           // If creating new question, auto-calculate next logical order
           if (isCreate && (!row.question_number || row.question_number === 1)) {
@@ -225,7 +214,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
           }
         }
       } catch (err) {
-        console.warn("Lỗi tải danh sách câu hỏi của đề thi:", err);
+        if (mounted) setError(err instanceof Error ? err.message : "Không tải được câu hỏi.");
       } finally {
         if (mounted) setLoadingQuestions(false);
       }
@@ -242,6 +231,8 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
     e.preventDefault();
     setError("");
     setSuccessBanner(null);
+    if (busy || loadingLookups || loadingQuestions) return;
+    if (!questionsReady && quizId) { setError("Chưa tải được câu hỏi của đề. Đóng và mở lại để kiểm tra trước khi lưu."); return; }
 
     if (!quizId) {
       setError("Vui lòng chọn bài kiểm tra trắc nghiệm.");
@@ -264,14 +255,15 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
       return;
     }
 
-    // Ensure correctOption is valid
-    if (numOptions === 2 && !["A", "B"].includes(correctOption)) {
-      setCorrectOption("A");
+    if (!Number.isInteger(questionNumber) || questionNumber < 1) {
+      setError("Số thứ tự câu phải là số nguyên lớn hơn 0."); return;
     }
-    if (numOptions === 3 && !["A", "B", "C"].includes(correctOption)) {
-      setCorrectOption("A");
+    if (!["A", "B", "C", "D"].slice(0, numOptions).includes(correctOption)) {
+      setError("Hãy chọn đáp án đúng trong các lựa chọn đang hiển thị."); return;
     }
-
+    if (existingQuestions.some(question => question.id !== row.id && Number(question.question_number) === questionNumber)) {
+      setError("Số thứ tự này đã có trong đề. Hãy chọn số khác."); return;
+    }
     setBusy(true);
     setSaveAndAddMore(andAddMore);
 
@@ -296,21 +288,21 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
         explanation: explanation.trim() || null,
       };
 
+      let saved: Row;
       if (isCreate) {
-        await adminApi("quiz_questions/create", { values: payload });
+        saved = await adminCommand<Row>("quiz_questions/create", { values: payload });
       } else {
         const key = { id: row.id };
-        await adminApi("quiz_questions/update", { key, values: payload });
+        saved = await adminCommand<Row>("quiz_questions/update", { key, values: payload });
       }
 
-      onSaved();
-
+      savedInSession.current = true;
       if (isCreate && andAddMore) {
         // Add to existing questions locally
         setExistingQuestions((prev) => [
           ...prev,
           {
-            id: `temp-${Date.now()}`,
+            id: saved.id,
             question_number: questionNumber,
             question_text: questionText.trim(),
             correct_option: correctOption,
@@ -337,6 +329,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
           questionInputRef.current?.focus();
         }, 100);
       } else {
+        onSaved();
         onClose();
       }
     } catch (err: any) {
@@ -415,8 +408,8 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
           {/* Close button */}
           <button
             type="button"
-            onClick={onClose}
-            disabled={busy}
+            onClick={closeEditor}
+            disabled={busy || loadingLookups || loadingQuestions}
             className="w-8 h-8 rounded-lg flex items-center justify-center text-[#7F6E60] hover:text-[#2C241E] hover:bg-[#FAF0E4] transition-colors cursor-pointer"
             title="Đóng cửa sổ"
           >
@@ -531,7 +524,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
                   </option>
                   {filteredQuizzes.map((q) => (
                     <option key={q.id} value={q.id}>
-                      {q.title} ({q.total_questions || 20} câu / {q.time_limit_minutes || 30}p)
+                      {q.title} ({q.total_questions ?? 0} câu / {q.time_limit_minutes || 30}p)
                     </option>
                   ))}
                 </select>
@@ -548,7 +541,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
               </div>
               <div className="flex items-center gap-2 text-[11px] font-semibold text-[#7F6E60]">
                 <span className="px-2 py-0.5 rounded bg-white border border-[#E8DFD8]">
-                  Chỉ tiêu: {selectedQuiz.total_questions || 20} câu
+                  Đang có: {selectedQuiz.total_questions ?? 0} câu
                 </span>
                 <span className="px-2 py-0.5 rounded bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8]">
                   Đã soạn: {existingQuestions.length} câu
@@ -954,8 +947,8 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
       <footer className="px-6 py-3.5 bg-white border-t border-[#E8DFD8] flex items-center justify-between shrink-0">
         <button
           type="button"
-          onClick={onClose}
-          disabled={busy}
+          onClick={closeEditor}
+          disabled={busy || loadingLookups || loadingQuestions}
           className="px-4 py-2 rounded-lg border border-[#E8DFD8] text-xs font-semibold text-[#7F6E60] hover:bg-[#FAF0E4] hover:text-[#2C241E] cursor-pointer transition-colors"
         >
           Đóng
@@ -977,7 +970,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
             <button
               type="button"
               onClick={(e) => handleSave(e, true)}
-              disabled={busy}
+              disabled={busy || loadingLookups || loadingQuestions}
               className="px-4 py-2 rounded-lg border border-[#985018] bg-[#FAF0E4] text-xs font-bold text-[#985018] hover:bg-[#F3E2CE] cursor-pointer transition-colors flex items-center gap-1.5"
             >
               {busy && saveAndAddMore ? (
@@ -993,7 +986,7 @@ export const QuestionEditorSheet: React.FC<QuestionEditorSheetProps> = ({
             <button
               type="submit"
               form="question-form"
-              disabled={busy}
+              disabled={busy || loadingLookups || loadingQuestions}
               className="px-5 py-2 rounded-lg bg-[#985018] hover:bg-[#7D3E10] text-white text-xs font-bold cursor-pointer transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50"
             >
               {busy && !saveAndAddMore ? (

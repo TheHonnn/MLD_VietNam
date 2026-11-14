@@ -6,11 +6,14 @@ const routeResources: Record<string, string[]> = {
   '/services-catalog': ['services', 'treatment_packages', 'service_categories'],
   '/cashier-pos': ['cashier', 'invoices', 'tuition_transactions'], '/home-products': ['home_products'],
   '/academy-enrollment': ['course_enrollments', 'tuition_transactions'], '/instructors': ['instructors'],
-  '/attendance': ['student_attendance', 'student_academic_records', 'course_batches'],
+  '/attendance': ['student_attendance'],
   '/curriculum': ['courses', 'course_batches', 'batch_schedules', 'course_lessons', 'course_quizzes', 'quiz_questions'],
   '/certificates': ['student_certificates', 'certificate_templates'],
   '/reports': ['invoices', 'tuition_transactions'], '/commissions': ['staff_commissions'],
-  '/portal-content': ['portal_banners', 'documents', 'email_templates'], '/zalo-zns': ['zalo_zns_logs'],
+  // Portal CMS stores banners, documents and community content in the shared
+  // content table; using the physical table name keeps menu visibility aligned
+  // with the backend resource catalog and assigned CRUD scopes.
+  '/portal-content': ['miniapp_shared_content', 'documents', 'email_templates'], '/zalo-zns': ['zalo_zns_logs'],
 };
 export function canAccessAdminPath(path: string, role: string, resources: Resource[]) {
   const route = path.split('?')[0];

@@ -20,6 +20,7 @@ import '../../../academy/presentation/screens/e11_attendance_schedule_screen.dar
 import '../../../academy/presentation/screens/e12_learning_results_screen.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import 'f02_edit_profile_screen.dart';
 import 'f08_settings_screen.dart';
 
@@ -576,7 +577,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               // ==========================================
               // 6. THÔNG TIN PHIÊN BẢN & HOTLINE
               // ==========================================
-              const Center(
+              Center(
                 child: Column(
                   children: [
                     Text(
@@ -589,7 +590,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Phiên bản 1.0.0 · Hotline: 096.7786.399',
+                      'Phiên bản 1.0.0 · Hotline: ${PortalSettingsService.instance.hotlineSupport}',
                       style: TextStyle(
                         fontSize: 11.5,
                         color: AppColors.textPlaceholder,

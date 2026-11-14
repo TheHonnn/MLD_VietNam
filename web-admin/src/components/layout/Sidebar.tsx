@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { SidebarItem, type SubMenuItem } from '../../admin/SidebarItem';
-import { adminApi, Resource } from '../../admin/api';
+import { Resource } from '../../admin/api';
+import { loadResources } from '../../admin/loadResources';
+import { supabase } from '../../services/supabaseClient';
 import { useAdmin } from '../../admin/Auth';
 import { canAccessAdminPath } from '../../admin/access';
 import { ADMIN_NAVIGATION_GROUPS } from '../../admin/navigation';
@@ -49,20 +51,49 @@ interface SidebarSection {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }) => {
-  const { user } = useAdmin();
+  const { user, authRevision } = useAdmin();
   const [resources, setResources] = useState<Resource[]>([]);
   const [resourceError, setResourceError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const [resourceStatus, setResourceStatus] = useState('');
+  const [resourceCode, setResourceCode] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    adminApi<Resource[]>('resources', undefined, controller.signal)
+    setResources([]);
+    setResourceError('');
+    if (!user?.id) return () => controller.abort();
+    setResourceStatus('Đang xác nhận quyền truy cập…');
+    loadResources(controller.signal, () => {
+      if (!controller.signal.aborted) setResourceStatus('Máy chủ đang khởi động. Đang kết nối lại…');
+    })
       .then((res) => {
-        if (Array.isArray(res)) { setResources(res); setResourceError(''); }
+        if (!controller.signal.aborted) { setResources(res); setResourceError(''); setResourceStatus(''); }
       })
-      .catch(error => { if (!controller.signal.aborted) { setResources([]); setResourceError(error.message); } });
+      .catch(error => { if (!controller.signal.aborted) { setResources([]); setResourceError(error.message); setResourceCode(error.statusCode || 0); setResourceStatus(''); } });
     return () => controller.abort();
-  }, [user?.id, attempt]);
+  }, [user?.id, user?.role, authRevision, attempt]);
+
+  useEffect(() => {
+    if (!resourceError || resourceCode === 401 || resourceCode === 403) return;
+    const retry = () => setAttempt(value => value + 1);
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, [resourceError, resourceCode]);
+
+  const retryResources = async () => {
+    try {
+      if (resourceCode === 401) {
+        setResourceStatus('Đang làm mới phiên đăng nhập…');
+        const { error } = await supabase.auth.refreshSession();
+        if (error) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      }
+      setAttempt(value => value + 1);
+    } catch (error) {
+      setResourceStatus('');
+      setResourceError(error instanceof Error ? error.message : 'Không làm mới được phiên đăng nhập.');
+    }
+  };
 
   const sections: SidebarSection[] = [
     {
@@ -307,7 +338,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           </span>
         </div>
 
-        {resourceError && <div className="px-4 py-2 text-xs text-red-700" role="alert"><p>Không tải được quyền truy cập.</p><button type="button" onClick={() => setAttempt(value => value + 1)}>Thử lại</button></div>}
+        {resourceStatus && <p className="px-4 py-2 text-xs text-[#73675F]" role="status">{resourceStatus}</p>}
+        {resourceError && !resourceStatus && <div className="px-4 py-2 text-xs text-red-700" role="alert">
+          <p>{resourceCode === 401 ? 'Phiên đăng nhập cần được xác thực lại.' : resourceCode === 403 ? 'Máy chủ từ chối quyền truy cập của tài khoản.' : 'Chưa xác nhận được quyền truy cập.'}</p>
+          <p className="mt-1 break-words">{resourceError}</p>
+          <button type="button" className="mt-2 underline" onClick={retryResources}>{resourceCode === 401 ? 'Làm mới phiên' : 'Kết nối lại'}</button>
+        </div>}
         {/* Navigation Sections */}
         <nav className="px-3 py-1 space-y-3.5 flex-1 pb-6">
           {sections

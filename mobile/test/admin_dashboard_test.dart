@@ -107,6 +107,100 @@ void main() {
       await tester.pump();
       expect(actionFired, isTrue);
     });
+
+    test('AdminCandidateModel reads enrolled_at and approval_notes cleanly', () {
+      final candidate = AdminCandidateModel.fromJson({
+        'id': 'enr_01',
+        'student_name': 'Bùi Thế Hoàng',
+        'student_phone': '0394316963',
+        'course_id': 'c_01',
+        'course_title': 'Khóa Master Signature',
+        'batch_id': null,
+        'amount_paid': 350000000,
+        'tuition_total': 350000000,
+        'status': 'ENROLLED',
+        'enrolled_at': '2026-11-08T14:30:15.192Z',
+        'approval_notes': 'Đã thu đủ 350 triệu chuyển khoản',
+      });
+
+      expect(candidate.candidateName, 'Bùi Thế Hoàng');
+      expect(candidate.status, 'PAID_WAITING_CLASS');
+      expect(candidate.amountPaid, 350000000);
+      expect(candidate.createdAt, '2026-11-08T14:30:15.192Z');
+      expect(candidate.notes, 'Đã thu đủ 350 triệu chuyển khoản');
+    });
+
+    test('AdminCourseBatchModel handles branches fallback for roomName', () {
+      final batch = AdminCourseBatchModel.fromJson({
+        'id': 'batch_01',
+        'course_id': 'c_01',
+        'batch_code': 'K26-GV-Q3',
+        'start_date': '2026-11-05',
+        'end_date': '2027-01-05',
+        'branches': {'name': 'Chi nhánh Quận 3 - TP.HCM'},
+        'instructors': {'full_name': 'Lâm Xuân Trường'},
+        'max_students': 15,
+        'enrolled_count': 3,
+      });
+
+      expect(batch.batchCode, 'K26-GV-Q3');
+      expect(batch.instructorName, 'Lâm Xuân Trường');
+      expect(batch.roomName, 'Chi nhánh Quận 3 - TP.HCM');
+      expect(batch.availableSlots, 12);
+      expect(batch.isFull, isFalse);
+    });
+
+    test('AdminRevenueReport and AdminRevenuePoint calculate summaries', () {
+      const p1 = AdminRevenuePoint(
+        label: 'T2 (10/11)',
+        dateIso: '2026-11-10',
+        totalAmount: 50000000,
+        academyAmount: 35000000,
+        serviceAmount: 15000000,
+        transactionCount: 3,
+      );
+
+      final report = AdminRevenueReport(
+        period: 'WEEK',
+        totalRevenue: 50000000,
+        serviceRevenue: 15000000,
+        academyRevenue: 35000000,
+        totalTransactions: 3,
+        averageTicket: 16666666.67,
+        chartPoints: const [p1],
+        items: const [],
+      );
+
+      expect(report.totalRevenue, 50000000);
+      expect(report.serviceRevenue, 15000000);
+      expect(report.academyRevenue, 35000000);
+      expect(report.chartPoints.length, 1);
+      expect(report.chartPoints.first.totalAmount, 50000000);
+    });
+
+    testWidgets('AdminKpiCard fires onTap when clicked', (tester) async {
+      bool tapped = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AdminKpiCard(
+              title: 'Doanh thu tháng',
+              value: '370.350.000 ₫',
+              subtitle: 'Chạm xem lưới',
+              icon: Icons.trending_up_rounded,
+              iconColor: const Color(0xFF1E40AF),
+              iconBgColor: const Color(0xFFEFF6FF),
+              onTap: () => tapped = true,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Doanh thu tháng'), findsOneWidget);
+      await tester.tap(find.text('Doanh thu tháng'));
+      await tester.pump();
+      expect(tapped, isTrue);
+    });
   });
 }
 

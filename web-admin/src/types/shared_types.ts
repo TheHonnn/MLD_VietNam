@@ -458,7 +458,7 @@ export interface Booking {
   bookedForPhone?: string | null;
   specialNotes?: string | null;
   qrCodeHash: string;
-  
+
   // Quản lý Check-in / Check-out
   checkedInAt?: string | null;
   checkedInById?: string | null;
@@ -468,7 +468,7 @@ export interface Booking {
   actualDurationMinutes?: number | null;
   checkinNotes?: string | null;
   hasMedicalAlert: boolean;
-  
+
   cancellationReason?: string | null;
   customer?: User;
   branch?: Branch;
@@ -1093,3 +1093,59 @@ export interface EmailLog {
   sentAt: string;
   createdAt: string;
 }
+
+// ==========================================
+// PORTAL CONTACTS, TAXONOMIES, FAQS & LEGAL POLICIES
+// ==========================================
+export interface PortalContacts {
+  id: string;
+  hotlineSupport: string;
+  hotlineTraining: string;
+  zaloOaUrl: string;
+  messengerUrl: string;
+  fanpageUrl: string;
+  tiktokUrl: string;
+  youtubeUrl?: string;
+  workingHours: string;
+  headquartersAddress: string;
+  consultationBadgeText: string;
+  updatedAt: string;
+}
+
+export type TaxonomyType = 'TARGET_AUDIENCE' | 'TARGET_NEED';
+
+export interface PortalTaxonomyItem {
+  id: string;
+  type: TaxonomyType;
+  code: string;
+  name: string;
+  description?: string;
+  iconName?: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SupportFaqItem {
+  id: string;
+  category: string;
+  question: string;
+  answer: string;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+}
+
+export interface LegalPolicyItem {
+  id: string;
+  slug: string;
+  title: string;
+  version: string;
+  contentMarkdown: string;
+  effectiveDate: string;
+  isPublished: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

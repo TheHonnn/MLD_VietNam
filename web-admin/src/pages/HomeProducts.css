@@ -1,0 +1,127 @@
+.home-products .hp-toolbar {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px;
+  background: white;
+  border: 1px solid #eaded1;
+  border-radius: 12px;
+}
+.hp-search {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #ddccbc;
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #8b7562;
+}
+.hp-search input {
+  width: 100%;
+  min-height: 40px;
+  outline: none;
+  font-size: 13px;
+  color: #35291f;
+  background: transparent;
+}
+.hp-search:focus-within {
+  outline: 2px solid #985018;
+  outline-offset: 2px;
+}
+.hp-category {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  color: #786b60;
+}
+.hp-category select {
+  min-width: 170px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid #ddccbc;
+  border-radius: 8px;
+  font-size: 13px;
+  background: white;
+  color: #35291f;
+}
+.hp-views {
+  display: flex;
+  border: 1px solid #eaded1;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+.hp-views button {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  font-size: 12px;
+  border-radius: 5px;
+  color: #786b60;
+  cursor: pointer;
+}
+.hp-views [aria-pressed='true'] {
+  color: #854412;
+  background: #f6eadc;
+  font-weight: 600;
+}
+.hp-refresh,
+.hp-message button {
+  border: 1px solid #ddccbc;
+  background: white;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #854412;
+  cursor: pointer;
+}
+.hp-result {
+  font-size: 12px;
+  color: #786b60;
+}
+.hp-message {
+  background: white;
+  border: 1px solid #eaded1;
+  border-radius: 12px;
+  padding: 28px;
+  font-size: 13px;
+}
+.hp-message h2 {
+  font-weight: 700;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+.hp-message p {
+  margin-bottom: 14px;
+}
+.hp-error {
+  color: #9b3524;
+  background: #fff6f2;
+}
+.home-products button:focus-visible,
+.home-products select:focus-visible {
+  outline: 2px solid #985018;
+  outline-offset: 3px;
+}
+.home-products button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+@media (max-width: 700px) {
+  .hp-search {
+    flex-basis: 100%;
+  }
+  .hp-category {
+    flex: 1;
+  }
+  .hp-views {
+    flex-wrap: wrap;
+  }
+}

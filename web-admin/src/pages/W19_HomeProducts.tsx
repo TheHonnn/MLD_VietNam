@@ -27,11 +27,13 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { adminApi } from '../admin/api';
+import './HomeProducts.css';
 import { toast } from '../components/common';
 import { portalService } from '../services/portal.service';
 import { compressImageFile } from '../utils/imageCompressor';
 
-type ProductGroup = 'Dụng cụ tập luyện' | 'Băng ép' | 'Chăm sóc da' | 'Tài liệu';
+type ProductGroup =
+  'Dụng cụ tập luyện' | 'Băng ép' | 'Chăm sóc da' | 'Tài liệu';
 
 interface HomeProduct {
   id: string;
@@ -46,7 +48,13 @@ interface HomeProduct {
   image_urls?: string[];
 }
 
-const groups = ['Tất cả', 'Dụng cụ tập luyện', 'Băng ép', 'Chăm sóc da', 'Tài liệu'] as const;
+const groups = [
+  'Tất cả',
+  'Dụng cụ tập luyện',
+  'Băng ép',
+  'Chăm sóc da',
+  'Tài liệu',
+] as const;
 const money = new Intl.NumberFormat('vi-VN');
 
 const emptyForm = {
@@ -76,14 +84,25 @@ const parseBrandDetail = (detail: string) => {
 
   let flag = '🏷️';
   if (lower.includes('đức') || lower.includes('germany')) flag = '🇩🇪';
-  else if (lower.includes('thụy sĩ') || lower.includes('switzerland')) flag = '🇨🇭';
-  else if (lower.includes('mỹ') || lower.includes('usa') || lower.includes('hoa kỳ')) flag = '🇺🇸';
+  else if (lower.includes('thụy sĩ') || lower.includes('switzerland'))
+    flag = '🇨🇭';
+  else if (
+    lower.includes('mỹ') ||
+    lower.includes('usa') ||
+    lower.includes('hoa kỳ')
+  )
+    flag = '🇺🇸';
   else if (lower.includes('nhật') || lower.includes('japan')) flag = '🇯🇵';
   else if (lower.includes('hàn') || lower.includes('korea')) flag = '🇰🇷';
   else if (lower.includes('việt nam') || lower.includes('vietnam')) flag = '🇻🇳';
   else if (lower.includes('pháp') || lower.includes('france')) flag = '🇫🇷';
   else if (lower.includes('ý') || lower.includes('italy')) flag = '🇮🇹';
-  else if (lower.includes('combo') || lower.includes('cuốn') || lower.includes('cẩm nang')) flag = '📚';
+  else if (
+    lower.includes('combo') ||
+    lower.includes('cuốn') ||
+    lower.includes('cẩm nang')
+  )
+    flag = '📚';
 
   return { text: trimmed, flag };
 };
@@ -133,7 +152,7 @@ export const W19_HomeProducts: React.FC = () => {
   const [products, setProducts] = useState<HomeProduct[]>([]);
   const [group, setGroup] = useState<(typeof groups)[number]>('Tất cả');
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [editing, setEditing] = useState<HomeProduct | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -141,13 +160,35 @@ export const W19_HomeProducts: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [lightbox, setLightbox] = useState<{ url: string; title: string; allUrls: string[] } | null>(null);
+  const [lightbox, setLightbox] = useState<{
+    url: string;
+    title: string;
+    allUrls: string[];
+  } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const load = async () => {
+    setLoading(true);
+    setLoadError('');
     try {
-      const data = await adminApi<any>('home_products?limit=200&page=1&sort=sort_order&direction=asc');
+      const rows: any[] = [];
+      for (let page = 1; ; page++) {
+        const data = await adminApi<any>(
+          'home_products?limit=100&page=' +
+            page +
+            '&sort=sort_order&direction=asc',
+        );
+        if (!Array.isArray(data?.rows))
+          throw new Error('Phản hồi danh mục không hợp lệ.');
+        rows.push(...data.rows);
+        if (rows.length >= Number(data.total ?? rows.length)) break;
+        if (!data.rows.length)
+          throw new Error('Danh mục thay đổi khi tải. Hãy tải lại.');
+      }
+      const data = { rows };
       setProducts(
         (data?.rows || []).map((row: any) => ({
           ...row,
@@ -155,11 +196,17 @@ export const W19_HomeProducts: React.FC = () => {
           price_max: Number(row.price_max),
           details: Array.isArray(row.details) ? row.details : [],
           image_url: row.image_url || null,
-          image_urls: Array.isArray(row.image_urls) ? row.image_urls : (row.image_url ? [row.image_url] : []),
-        }))
+          image_urls: Array.isArray(row.image_urls)
+            ? row.image_urls
+            : row.image_url
+              ? [row.image_url]
+              : [],
+        })),
       );
     } catch (error: any) {
-      toast.error('Không tải được danh mục sản phẩm', error?.message || 'Hãy kiểm tra kết nối CSDL.');
+      setLoadError(error?.message || 'Không thể tải danh mục. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -174,36 +221,17 @@ export const W19_HomeProducts: React.FC = () => {
       const matchesGroup = group === 'Tất cả' || product.category === group;
       if (!matchesGroup) return false;
       if (!query) return true;
-      const haystack = [product.name, product.category, product.unit, ...product.details].join(' ').toLocaleLowerCase('vi');
+      const haystack = [
+        product.name,
+        product.category,
+        product.unit,
+        ...product.details,
+      ]
+        .join(' ')
+        .toLocaleLowerCase('vi');
       return haystack.includes(query);
     });
   }, [products, group, search]);
-
-  // Quick stats metrics
-  const stats = useMemo(() => {
-    const total = products.length;
-    const withImages = products.filter((p) => p.image_url || (p.image_urls && p.image_urls.length > 0)).length;
-    const minPrice = products.length ? Math.min(...products.map((p) => p.price_min)) : 0;
-    const maxPrice = products.length ? Math.max(...products.map((p) => p.price_max)) : 0;
-    return {
-      total,
-      withImages,
-      categoriesCount: 4,
-      minPrice,
-      maxPrice,
-    };
-  }, [products]);
-
-  // Counts per category for pills
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { 'Tất cả': products.length };
-    for (const g of groups) {
-      if (g !== 'Tất cả') {
-        counts[g] = products.filter((p) => p.category === g).length;
-      }
-    }
-    return counts;
-  }, [products]);
 
   const openCreate = () => {
     setEditing(null);
@@ -224,7 +252,13 @@ export const W19_HomeProducts: React.FC = () => {
       sort_order: String(product.sort_order),
       image_url: product.image_url || '',
     });
-    setGallery(product.image_urls?.length ? product.image_urls : (product.image_url ? [product.image_url] : []));
+    setGallery(
+      product.image_urls?.length
+        ? product.image_urls
+        : product.image_url
+          ? [product.image_url]
+          : [],
+    );
     setShowForm(true);
   };
 
@@ -241,15 +275,24 @@ export const W19_HomeProducts: React.FC = () => {
    * Xử lý tệp hình ảnh: Tự động nén và tối ưu hóa kích thước trước khi tải lên
    * Tránh lỗi HTTP 413 "Request entity too large" khi người dùng tải ảnh dung lượng lớn
    */
-  const handleProcessImageFile = async (file: File | Blob, nameHint?: string) => {
+  const handleProcessImageFile = async (
+    file: File | Blob,
+    nameHint?: string,
+  ) => {
     if (!file.type.startsWith('image/')) {
-      toast.error('Định dạng không hợp lệ', 'Vui lòng chọn tệp hình ảnh (JPG, PNG, WEBP, GIF).');
+      toast.error(
+        'Định dạng không hợp lệ',
+        'Vui lòng chọn tệp hình ảnh (JPG, PNG, WEBP, GIF).',
+      );
       return;
     }
 
     const localPreviewUrl = URL.createObjectURL(file);
     setGallery((current) => [...current, localPreviewUrl]);
-    setForm((current) => ({ ...current, image_url: current.image_url || localPreviewUrl }));
+    setForm((current) => ({
+      ...current,
+      image_url: current.image_url || localPreviewUrl,
+    }));
     setUploadingImage(true);
 
     try {
@@ -258,23 +301,45 @@ export const W19_HomeProducts: React.FC = () => {
       const processedFile = compressed.file;
       const optimizedDataUrl = compressed.dataUrl;
 
-      const fileName = nameHint || (file as File).name || `homeproduct_${Date.now()}.jpg`;
+      const fileName =
+        nameHint || (file as File).name || `homeproduct_${Date.now()}.jpg`;
 
       try {
-        const publicUrl = await portalService.uploadFileToStorage(processedFile, fileName);
-        setGallery((current) => current.map((url) => (url === localPreviewUrl ? publicUrl : url)));
+        const publicUrl = await portalService.uploadFileToStorage(
+          processedFile,
+          fileName,
+        );
+        setGallery((current) =>
+          current.map((url) => (url === localPreviewUrl ? publicUrl : url)),
+        );
         setForm((current) => ({
           ...current,
-          image_url: current.image_url === localPreviewUrl ? publicUrl : current.image_url,
+          image_url:
+            current.image_url === localPreviewUrl
+              ? publicUrl
+              : current.image_url,
         }));
-        toast.success('Tải ảnh thành công', 'Ảnh sản phẩm đã được đồng bộ vào kho lưu trữ.');
+        toast.success(
+          'Tải ảnh thành công',
+          'Ảnh sản phẩm đã được đồng bộ vào kho lưu trữ.',
+        );
       } catch (uploadErr) {
-        console.warn('Lỗi tải ảnh lên Storage, chuyển sang lưu ảnh đã nén tối ưu:', uploadErr);
+        console.warn(
+          'Lỗi tải ảnh lên Storage, chuyển sang lưu ảnh đã nén tối ưu:',
+          uploadErr,
+        );
         // Lưu dataUrl đã nén (chỉ ~80KB, tuyệt đối an toàn và không gây lỗi 413)
-        setGallery((current) => current.map((url) => (url === localPreviewUrl ? optimizedDataUrl : url)));
+        setGallery((current) =>
+          current.map((url) =>
+            url === localPreviewUrl ? optimizedDataUrl : url,
+          ),
+        );
         setForm((current) => ({
           ...current,
-          image_url: current.image_url === localPreviewUrl ? optimizedDataUrl : current.image_url,
+          image_url:
+            current.image_url === localPreviewUrl
+              ? optimizedDataUrl
+              : current.image_url,
         }));
         toast.success('Đã nạp ảnh', 'Ảnh đã được nén tối ưu cho sản phẩm.');
       }
@@ -287,7 +352,9 @@ export const W19_HomeProducts: React.FC = () => {
     }
   };
 
-  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     for (const file of Array.from(event.target.files || [])) {
       void handleProcessImageFile(file);
     }
@@ -313,7 +380,10 @@ export const W19_HomeProducts: React.FC = () => {
 
   const handleClipboardButtonClick = async () => {
     if (!navigator.clipboard) {
-      toast.warning('Bộ nhớ tạm', 'Nhấn phím Ctrl + V để dán ảnh trực tiếp vào form!');
+      toast.warning(
+        'Bộ nhớ tạm',
+        'Nhấn phím Ctrl + V để dán ảnh trực tiếp vào form!',
+      );
       return;
     }
 
@@ -338,7 +408,10 @@ export const W19_HomeProducts: React.FC = () => {
       const trimmed = text ? text.trim() : '';
       if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
         setGallery((current) => [...current, trimmed]);
-        setForm((current) => ({ ...current, image_url: current.image_url || trimmed }));
+        setForm((current) => ({
+          ...current,
+          image_url: current.image_url || trimmed,
+        }));
         toast.success('Dán link ảnh thành công');
         return;
       }
@@ -349,9 +422,15 @@ export const W19_HomeProducts: React.FC = () => {
         return;
       }
 
-      toast.warning('Bộ nhớ tạm', 'Hãy chụp màn hình (PrintScreen / Snipping Tool) hoặc sao chép ảnh rồi dán (Ctrl+V)!');
+      toast.warning(
+        'Bộ nhớ tạm',
+        'Hãy chụp màn hình (PrintScreen / Snipping Tool) hoặc sao chép ảnh rồi dán (Ctrl+V)!',
+      );
     } catch {
-      toast.warning('Bộ nhớ tạm', 'Hãy dùng tổ hợp phím Ctrl + V trên bàn phím để dán ảnh!');
+      toast.warning(
+        'Bộ nhớ tạm',
+        'Hãy dùng tổ hợp phím Ctrl + V trên bàn phím để dán ảnh!',
+      );
     } finally {
       setUploadingImage(false);
     }
@@ -362,7 +441,8 @@ export const W19_HomeProducts: React.FC = () => {
     setGallery(remaining);
     setForm((current) => ({
       ...current,
-      image_url: current.image_url === url ? remaining[0] || '' : current.image_url,
+      image_url:
+        current.image_url === url ? remaining[0] || '' : current.image_url,
     }));
     if (fileInputRef.current) fileInputRef.current.value = '';
     toast.info('Đã xóa ảnh khỏi danh sách xem trước');
@@ -373,8 +453,18 @@ export const W19_HomeProducts: React.FC = () => {
     const min = Number(form.price_min);
     const max = Number(form.price_max || form.price_min);
 
-    if (!form.name.trim() || !form.unit.trim() || !Number.isFinite(min) || min < 0 || !Number.isFinite(max) || max < min) {
-      toast.error('Thông tin sản phẩm chưa hợp lệ', 'Vui lòng kiểm tra tên, đơn vị và khoảng giá hợp lệ.');
+    if (
+      !form.name.trim() ||
+      !form.unit.trim() ||
+      !Number.isFinite(min) ||
+      min < 0 ||
+      !Number.isFinite(max) ||
+      max < min
+    ) {
+      toast.error(
+        'Thông tin sản phẩm chưa hợp lệ',
+        'Vui lòng kiểm tra tên, đơn vị và khoảng giá hợp lệ.',
+      );
       return;
     }
 
@@ -398,7 +488,11 @@ export const W19_HomeProducts: React.FC = () => {
       }
 
       let finalImageUrl = form.image_url ? form.image_url.trim() : null;
-      if (finalImageUrl && finalImageUrl.startsWith('data:image/') && finalImageUrl.length > 250 * 1024) {
+      if (
+        finalImageUrl &&
+        finalImageUrl.startsWith('data:image/') &&
+        finalImageUrl.length > 250 * 1024
+      ) {
         finalImageUrl = finalGallery[0] || finalImageUrl;
       }
 
@@ -408,23 +502,34 @@ export const W19_HomeProducts: React.FC = () => {
         price_min: min,
         price_max: max,
         unit: form.unit.trim(),
-        details: form.details.split('\n').map((item) => item.trim()).filter(Boolean),
+        details: form.details
+          .split('\n')
+          .map((item) => item.trim())
+          .filter(Boolean),
         sort_order: Number(form.sort_order) || 100,
         image_url: finalImageUrl,
         image_urls: finalGallery,
       };
 
       if (editing) {
-        await adminApi('home_products/update', { key: { id: editing.id }, values });
+        await adminApi('home_products/update', {
+          key: { id: editing.id },
+          values,
+        });
       } else {
         await adminApi('home_products/create', { values });
       }
 
-      toast.success(editing ? 'Đã cập nhật sản phẩm' : 'Đã thêm sản phẩm thành công');
+      toast.success(
+        editing ? 'Đã cập nhật sản phẩm' : 'Đã thêm sản phẩm thành công',
+      );
       setShowForm(false);
       await load();
     } catch (error: any) {
-      toast.error('Không thể lưu sản phẩm', error?.message || 'Lỗi lưu trữ dữ liệu.');
+      toast.error(
+        'Không thể lưu sản phẩm',
+        error?.message || 'Lỗi lưu trữ dữ liệu.',
+      );
     } finally {
       setBusy(false);
     }
@@ -446,28 +551,22 @@ export const W19_HomeProducts: React.FC = () => {
   };
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-5 sm:px-6 lg:px-8 print:max-w-none print:px-0 print:py-0">
+    <main className="mx-auto w-full home-products max-w-7xl space-y-4 px-4 py-5 sm:px-6 lg:px-8 print:max-w-none print:px-0 print:py-0">
       {/* 1. BREADCRUMB & HEADER */}
       <header className="flex flex-col gap-4 border-b border-[#EFE4D9] pb-5 sm:flex-row sm:items-center sm:justify-between print:hidden">
         <div>
-          <nav className="flex items-center gap-1.5 text-[11px] font-semibold text-[#8C7E72] uppercase tracking-wider">
-            <span>Quản trị</span>
-            <ChevronRight className="h-3 w-3" />
-            <span>Vận hành Dịch vụ Spa</span>
-            <ChevronRight className="h-3 w-3" />
-            <span className="text-[#985018]">Sản phẩm mang về</span>
-          </nav>
           <div className="mt-1 flex items-center gap-2.5">
             <h1 className="text-xl sm:text-2xl font-black text-[#3E200C] tracking-tight">
-              Sản phẩm bổ trợ & Băng ép tại nhà
+              Sản phẩm mang về
             </h1>
             <span className="inline-flex items-center gap-1 rounded-full bg-[#FAF0E4] border border-[#E8DFD8] px-2.5 py-0.5 text-[11px] font-bold text-[#8A4F23]">
               <Sparkles className="h-3 w-3 text-[#985018]" />
-              {products.length} mặt hàng
+              {loading ? 'Đang tải…' : loadError ? 'Chưa tải được dữ liệu' : `${products.length} mặt hàng`}
             </span>
           </div>
           <p className="mt-1 text-xs text-[#73675F] max-w-2xl leading-relaxed">
-            Quản lý bảng giá niêm yết, đơn vị quy cách, hình ảnh thực tế và thương hiệu sản phẩm bổ trợ hỗ trợ chăm sóc & phục hồi mô tế bào tại nhà
+            Quản lý sản phẩm, giá bán và hình ảnh. Chọn sản phẩm để chuyển sang
+            thu ngân.
           </p>
         </div>
 
@@ -476,7 +575,7 @@ export const W19_HomeProducts: React.FC = () => {
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex h-9.5 items-center gap-1.5 rounded-xl bg-[#985018] px-3.5 text-xs font-bold text-white shadow-xs transition hover:bg-[#854412] active:scale-[0.98] cursor-pointer"
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#985018] px-3.5 text-xs font-bold text-white shadow-xs transition hover:bg-[#854412] active:scale-[0.98] cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>Thêm sản phẩm</span>
@@ -484,7 +583,7 @@ export const W19_HomeProducts: React.FC = () => {
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex h-9.5 items-center gap-1.5 rounded-xl border border-[#D7BBA6] bg-white px-3 text-xs font-bold text-[#73675F] shadow-2xs transition hover:bg-[#FAF8F5] hover:text-[#3E200C] cursor-pointer"
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[#D7BBA6] bg-white px-3 text-xs font-bold text-[#73675F] shadow-2xs transition hover:bg-[#FAF8F5] hover:text-[#3E200C] cursor-pointer"
             title="In bảng giá tiêu chuẩn A4"
           >
             <Printer className="h-4 w-4 text-[#985018]" />
@@ -493,7 +592,7 @@ export const W19_HomeProducts: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('/cashier-pos?tab=pos')}
-            className="inline-flex h-9.5 items-center gap-1.5 rounded-xl border border-[#D7BBA6] bg-[#FAF8F5] px-3 text-xs font-bold text-[#8A4F23] shadow-2xs transition hover:bg-[#FAF0E4] cursor-pointer"
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[#D7BBA6] bg-[#FAF8F5] px-3 text-xs font-bold text-[#8A4F23] shadow-2xs transition hover:bg-[#FAF0E4] cursor-pointer"
             title="Mở giao diện Thu ngân POS để lập hóa đơn bán hàng"
           >
             <ShoppingBag className="h-4 w-4 text-[#985018]" />
@@ -502,448 +601,410 @@ export const W19_HomeProducts: React.FC = () => {
         </div>
       </header>
 
-      {/* 2. STATS / KPI ROW */}
-      <section aria-label="Thống kê sản phẩm" className="grid grid-cols-2 gap-3 sm:grid-cols-4 print:hidden">
-        {/* KPI 1 */}
-        <div className="flex items-center gap-3 rounded-2xl border border-[#EFE4D9] bg-white p-3.5 shadow-xs transition hover:border-[#D7BBA6]">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FAF0E4] text-[#985018] border border-[#E8DFD8]">
-            <Package className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold text-[#8C7E72] uppercase tracking-wider">Tổng mặt hàng</p>
-            <p className="text-base sm:text-lg font-black text-[#2C241E] leading-tight">
-              {stats.total} <span className="text-xs font-semibold text-[#8C7E72]">sản phẩm</span>
-            </p>
-          </div>
+      <section
+        className="hp-toolbar print:hidden"
+        aria-label="Bộ lọc và tìm kiếm"
+      >
+        <label className="hp-search">
+          <Search aria-hidden="true" size={16} />
+          <input
+            type="search"
+            aria-label="Tìm sản phẩm"
+            placeholder="Tìm tên, thương hiệu hoặc quy cách…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
+        <label className="hp-category">
+          Nhóm sản phẩm
+          <select
+            aria-label="Nhóm sản phẩm"
+            value={group}
+            onChange={(e) => setGroup(e.target.value as typeof group)}
+          >
+            {groups.map((item) => (
+              <option key={item}>{item}</option>
+            ))}
+          </select>
+        </label>
+        <div className="hp-views" role="group" aria-label="Cách hiển thị">
+          <button
+            aria-pressed={viewMode === 'table'}
+            onClick={() => setViewMode('table')}
+          >
+            <List size={15} />
+            Danh sách
+          </button>
+          <button
+            aria-pressed={viewMode === 'grid'}
+            onClick={() => setViewMode('grid')}
+          >
+            <LayoutGrid size={15} />
+            Ảnh sản phẩm
+          </button>
         </div>
-
-        {/* KPI 2 */}
-        <div className="flex items-center gap-3 rounded-2xl border border-[#EFE4D9] bg-white p-3.5 shadow-xs transition hover:border-[#D7BBA6]">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#1D4ED8] border border-[#DBEAFE]">
-            <Layers className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold text-[#8C7E72] uppercase tracking-wider">Phân nhóm</p>
-            <p className="text-base sm:text-lg font-black text-[#2C241E] leading-tight">
-              {stats.categoriesCount} <span className="text-xs font-semibold text-[#8C7E72]">danh mục</span>
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 3 */}
-        <div className="flex items-center gap-3 rounded-2xl border border-[#EFE4D9] bg-white p-3.5 shadow-xs transition hover:border-[#D7BBA6]">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
-            <Tag className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold text-[#8C7E72] uppercase tracking-wider">Khoảng giá</p>
-            <p className="text-xs sm:text-sm font-black text-[#985018] truncate leading-tight">
-              {money.format(stats.minPrice)}đ - {money.format(stats.maxPrice)}đ
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 4 */}
-        <div className="flex items-center gap-3 rounded-2xl border border-[#EFE4D9] bg-white p-3.5 shadow-xs transition hover:border-[#D7BBA6]">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#F0FDF4] text-[#15803D] border border-[#BBF7D0]">
-            <ImageIcon className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold text-[#8C7E72] uppercase tracking-wider">Hình ảnh minh họa</p>
-            <p className="text-base sm:text-lg font-black text-[#15803D] leading-tight">
-              {stats.withImages}/{stats.total} <span className="text-xs font-semibold text-[#8C7E72]">mẫu</span>
-            </p>
-          </div>
-        </div>
+        <button
+          className="hp-refresh"
+          disabled={loading}
+          onClick={() => void load()}
+        >
+          Tải lại
+        </button>
       </section>
-
-      {/* 3. FILTER, SEARCH & VIEW TOGGLE BAR */}
-      <section aria-label="Bộ lọc và tìm kiếm" className="space-y-3 print:hidden">
-        {/* CATEGORY PILL TABS */}
-        <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1 border-b border-[#EFE4D9]">
-          <div className="flex items-center gap-1.5 shrink-0">
-            {groups.map((item) => {
-              const active = group === item;
-              const count = categoryCounts[item] || 0;
-              return (
-                <button
-                  key={item}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setGroup(item)}
-                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer ${
-                    active
-                      ? 'bg-[#985018] text-white shadow-xs'
-                      : 'bg-white text-[#73675F] border border-[#EFE4D9] hover:bg-[#FAF8F5] hover:text-[#3E200C]'
-                  }`}
-                >
-                  <span>{item}</span>
-                  <span
-                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-extrabold ${
-                      active ? 'bg-white/20 text-white' : 'bg-[#FAF0E4] text-[#8A4F23]'
-                    }`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* VIEW SWITCHER */}
-          <div className="flex items-center gap-1 rounded-xl border border-[#EFE4D9] bg-white p-1 shadow-2xs shrink-0">
-            <button
-              type="button"
-              onClick={() => setViewMode('grid')}
-              className={`flex h-7.5 items-center gap-1.5 rounded-lg px-2 text-xs font-bold transition cursor-pointer ${
-                viewMode === 'grid'
-                  ? 'bg-[#FAF0E4] text-[#8A4F23] shadow-2xs'
-                  : 'text-[#8C7E72] hover:text-[#3E200C]'
-              }`}
-              title="Xem dạng lưới thẻ"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Lưới thẻ</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              className={`flex h-7.5 items-center gap-1.5 rounded-lg px-2 text-xs font-bold transition cursor-pointer ${
-                viewMode === 'table'
-                  ? 'bg-[#FAF0E4] text-[#8A4F23] shadow-2xs'
-                  : 'text-[#8C7E72] hover:text-[#3E200C]'
-              }`}
-              title="Xem dạng danh sách bảng"
-            >
-              <List className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Danh sách</span>
-            </button>
-          </div>
-        </div>
-
-        {/* SEARCH AND VAT NOTICE ROW */}
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8C7E72]" />
-            <input
-              type="search"
-              aria-label="Tìm sản phẩm"
-              placeholder="Tìm theo tên sản phẩm, thương hiệu (Medi, Anita...), quy cách..."
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="h-10 w-full rounded-xl border border-[#D7BBA6] bg-white pl-9 pr-8 text-xs font-medium text-[#2C241E] placeholder:text-[#A69588] outline-none transition focus:border-[#985018] focus:ring-2 focus:ring-[#985018]/15 shadow-2xs"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#A69588] hover:text-[#3E200C] cursor-pointer"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* VAT GUARANTEE BADGE */}
-          <div className="inline-flex items-center gap-1.5 rounded-xl border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-2 text-xs font-bold text-[#15803D] shadow-2xs self-start sm:self-auto">
-            <ShieldCheck className="h-4 w-4 text-[#16A34A] shrink-0" />
-            <span>Giá niêm yết đã bao gồm 10% VAT theo tiêu chuẩn MLD</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. MAIN CONTENT AREA: GRID VIEW OR TABLE VIEW */}
-      {viewMode === 'grid' ? (
-        /* GRID VIEW (Thẻ sản phẩm) */
-        <section aria-label="Danh sách sản phẩm dạng lưới" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {visibleProducts.map((product) => {
-            const catStyle = getCategoryStyle(product.category);
-            const mainImg = product.image_url || product.image_urls?.[0];
-            const extraCount = (product.image_urls?.length || (product.image_url ? 1 : 0)) - 1;
-
-            return (
-              <article
-                key={product.id}
-                className="group flex flex-col justify-between rounded-2xl border border-[#EFE4D9] bg-white p-4 shadow-xs transition hover:-translate-y-0.5 hover:border-[#D7BBA6] hover:shadow-md"
-              >
-                <div>
-                  {/* PRODUCT IMAGE & BADGES */}
-                  <div className="relative aspect-4/3 w-full overflow-hidden rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-center">
-                    {mainImg ? (
-                      <>
-                        <img
-                          src={mainImg}
-                          alt={product.name}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setLightbox({
-                              url: mainImg,
-                              title: product.name,
-                              allUrls: product.image_urls?.length ? product.image_urls : [mainImg],
-                            })
-                          }
-                          className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100 text-white cursor-pointer"
-                          title="Bấm để xem ảnh to sắc nét"
-                        >
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs font-bold backdrop-blur-xs">
-                            <Eye className="h-3.5 w-3.5" /> Xem ảnh to
-                          </span>
-                        </button>
-                      </>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-[#B49C89] gap-1.5 p-4 text-center">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#FAF0E4] text-[#985018]">
-                          <Package className="h-6 w-6" />
-                        </div>
-                        <span className="text-[11px] font-semibold text-[#8C7E72]">Chưa có ảnh</span>
-                      </div>
-                    )}
-
-                    {/* TOP BADGE: CATEGORY */}
-                    <div className="absolute top-2 left-2 flex items-center gap-1">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10.5px] font-bold border shadow-2xs backdrop-blur-xs ${catStyle.bg} ${catStyle.text} ${catStyle.border}`}
-                      >
-                        <span className={`h-1.5 w-1.5 rounded-full ${catStyle.dot}`} />
-                        {product.category}
-                      </span>
-                    </div>
-
-                    {/* MULTI IMAGES BADGE */}
-                    {extraCount > 0 && (
-                      <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-xs backdrop-blur-xs">
-                        +{extraCount} ảnh
-                      </span>
-                    )}
-                  </div>
-
-                  {/* PRODUCT NAME & DETAILS */}
-                  <div className="mt-3.5 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <h2 className="text-sm font-extrabold text-[#2C241E] leading-snug line-clamp-2 group-hover:text-[#985018] transition-colors">
-                        {product.name}
-                      </h2>
-                    </div>
-
-                    {/* BRAND & METADATA CHIPS */}
-                    {product.details.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-0.5">
-                        {product.details.map((detail, idx) => {
-                          const parsed = parseBrandDetail(detail);
-                          return (
-                            <span
-                              key={idx}
-                              className="inline-flex items-center gap-1 rounded-md border border-[#E8DFD8] bg-[#FAF8F5] px-2 py-0.5 text-[10.5px] font-semibold text-[#5C4A3E]"
-                            >
-                              <span>{parsed.flag}</span>
-                              <span className="truncate max-w-[190px]">{parsed.text}</span>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* FOOTER: PRICE, UNIT & ACTIONS */}
-                <div className="mt-4 border-t border-[#EFE4D9] pt-3 space-y-2.5">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <div>
-                      <span className="text-[10px] font-bold text-[#8C7E72] uppercase block">Giá niêm yết</span>
-                      <span className="text-base font-black text-[#985018] tabular-nums">
-                        {formatPrice(product)}
-                      </span>
-                    </div>
-                    <span className="rounded-lg bg-[#FAF0E4] border border-[#E8DFD8] px-2 py-0.5 text-[10.5px] font-bold text-[#8A4F23]">
-                      {product.unit}
-                    </span>
-                  </div>
-
-                  {/* ACTION BUTTONS */}
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => openPOSWithProduct(product)}
-                      className="flex-1 inline-flex h-8 items-center justify-center gap-1.5 rounded-xl bg-[#FAF0E4] border border-[#E8DFD8] text-[11px] font-bold text-[#8A4F23] hover:bg-[#985018] hover:text-white hover:border-[#985018] transition shadow-2xs cursor-pointer"
-                      title="Lập đơn bán sản phẩm này tại POS"
-                    >
-                      <ShoppingBag className="h-3.5 w-3.5" />
-                      <span>Bán tại POS</span>
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Sửa ${product.name}`}
-                      title="Sửa thông tin sản phẩm"
-                      onClick={() => openEdit(product)}
-                      className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#EFE4D9] bg-white text-[#73675F] hover:bg-[#FAF8F5] hover:text-[#985018] hover:border-[#D7BBA6] transition cursor-pointer"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Xóa ${product.name}`}
-                      title="Xóa sản phẩm"
-                      onClick={() => void remove(product)}
-                      className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#FEE2E2] bg-white text-[#DC2626] hover:bg-[#FEF2F2] hover:border-[#FCA5A5] transition cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
+      {loadError ? (
+        <section role="alert" className="hp-message hp-error">
+          <h2>Không tải được sản phẩm</h2>
+          <p>{loadError}</p>
+          <button onClick={() => void load()}>Thử lại</button>
         </section>
+      ) : loading ? (
+        <p role="status" className="hp-message">
+          Đang tải danh mục sản phẩm…
+        </p>
       ) : (
-        /* TABLE VIEW (Danh sách bảng chuẩn chỉnh) */
-        <section aria-label="Bảng giá sản phẩm" className="overflow-hidden rounded-2xl border border-[#EFE4D9] bg-white shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-[#FAF0E4] text-[#8A4F23] border-b border-[#E8DFD8] text-[11px] font-black uppercase tracking-wider">
-                  <th className="py-3.5 px-4 w-[42%]">Sản phẩm & Thông số</th>
-                  <th className="py-3.5 px-4 text-center w-[16%]">Phân loại</th>
-                  <th className="py-3.5 px-4 text-center w-[12%]">Đơn vị</th>
-                  <th className="py-3.5 px-4 text-right w-[18%]">Giá bán niêm yết</th>
-                  <th className="py-3.5 px-4 text-center w-[12%] print:hidden">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EFE4D9]">
-                {visibleProducts.map((product) => {
-                  const catStyle = getCategoryStyle(product.category);
-                  const mainImg = product.image_url || product.image_urls?.[0];
+        <p className="hp-result print:hidden">
+          {visibleProducts.length} / {products.length} sản phẩm
+          {group !== 'Tất cả' ? ' · ' + group : ''}
+        </p>
+      )}
+      {/* 4. MAIN CONTENT AREA: GRID VIEW OR TABLE VIEW */}
+      {!loading &&
+        !loadError &&
+        visibleProducts.length > 0 &&
+        (viewMode === 'grid' ? (
+          /* GRID VIEW (Thẻ sản phẩm) */
+          <section
+            aria-label="Danh sách sản phẩm dạng lưới"
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          >
+            {visibleProducts.map((product) => {
+              const catStyle = getCategoryStyle(product.category);
+              const mainImg = product.image_url || product.image_urls?.[0];
+              const extraCount =
+                (product.image_urls?.length || (product.image_url ? 1 : 0)) - 1;
 
-                  return (
-                    <tr key={product.id} className="transition hover:bg-[#FAF8F5]/80">
-                      {/* Cột 1: Hình ảnh & Tên */}
-                      <td className="py-3.5 px-4 align-top">
-                        <div className="flex items-start gap-3">
-                          {mainImg ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setLightbox({
-                                  url: mainImg,
-                                  title: product.name,
-                                  allUrls: product.image_urls?.length ? product.image_urls : [mainImg],
-                                })
-                              }
-                              className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] cursor-pointer group shadow-2xs"
-                              title="Bấm để xem ảnh to"
-                            >
-                              <img src={mainImg} alt={product.name} className="h-full w-full object-cover group-hover:scale-105 transition" />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 text-white transition">
-                                <Eye className="h-4 w-4" />
-                              </div>
-                            </button>
-                          ) : (
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-dashed border-[#D7BBA6] bg-[#FAF8F5] text-[#985018]">
-                              <Package className="h-5 w-5" />
-                            </div>
-                          )}
-                          <div className="min-w-0 space-y-1">
-                            <h2 className="text-sm font-bold text-[#2C241E] leading-snug">
-                              {product.name}
-                            </h2>
-                            {product.details.length > 0 && (
-                              <div className="flex flex-wrap gap-1 pt-0.5">
-                                {product.details.map((detail, idx) => {
-                                  const parsed = parseBrandDetail(detail);
-                                  return (
-                                    <span
-                                      key={idx}
-                                      className="inline-flex items-center gap-1 rounded-md border border-[#E8DFD8] bg-[#FAF8F5] px-1.5 py-0.5 text-[10px] font-semibold text-[#5C4A3E]"
-                                    >
-                                      <span>{parsed.flag}</span>
-                                      <span>{parsed.text}</span>
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
+              return (
+                <article
+                  key={product.id}
+                  className="group flex flex-col justify-between rounded-2xl border border-[#EFE4D9] bg-white p-4 shadow-xs transition hover:-translate-y-0.5 hover:border-[#D7BBA6] hover:shadow-md"
+                >
+                  <div>
+                    {/* PRODUCT IMAGE & BADGES */}
+                    <div className="relative aspect-4/3 w-full overflow-hidden rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-center">
+                      {mainImg ? (
+                        <>
+                          <img
+                            src={mainImg}
+                            alt={product.name}
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setLightbox({
+                                url: mainImg,
+                                title: product.name,
+                                allUrls: product.image_urls?.length
+                                  ? product.image_urls
+                                  : [mainImg],
+                              })
+                            }
+                            className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100 text-white cursor-pointer"
+                            title="Bấm để xem ảnh to sắc nét"
+                          >
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs font-bold backdrop-blur-xs">
+                              <Eye className="h-3.5 w-3.5" /> Xem ảnh to
+                            </span>
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-[#B49C89] gap-1.5 p-4 text-center">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#FAF0E4] text-[#985018]">
+                            <Package className="h-6 w-6" />
                           </div>
+                          <span className="text-[11px] font-semibold text-[#8C7E72]">
+                            Chưa có ảnh
+                          </span>
                         </div>
-                      </td>
+                      )}
 
-                      {/* Cột 2: Phân loại */}
-                      <td className="py-3.5 px-4 text-center align-middle">
+                      {/* TOP BADGE: CATEGORY */}
+                      <div className="absolute top-2 left-2 flex items-center gap-1">
                         <span
-                          className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold border ${catStyle.bg} ${catStyle.text} ${catStyle.border}`}
+                          className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10.5px] font-bold border shadow-2xs backdrop-blur-xs ${catStyle.bg} ${catStyle.text} ${catStyle.border}`}
                         >
-                          <span className={`h-1.5 w-1.5 rounded-full ${catStyle.dot}`} />
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${catStyle.dot}`}
+                          />
                           {product.category}
                         </span>
-                      </td>
+                      </div>
 
-                      {/* Cột 3: Đơn vị */}
-                      <td className="py-3.5 px-4 text-center align-middle">
-                        <span className="font-bold text-[#2C241E] bg-[#FAF8F5] border border-[#EFE4D9] rounded-lg px-2.5 py-1 text-xs">
-                          {product.unit}
+                      {/* MULTI IMAGES BADGE */}
+                      {extraCount > 0 && (
+                        <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-xs backdrop-blur-xs">
+                          +{extraCount} ảnh
                         </span>
-                      </td>
+                      )}
+                    </div>
 
-                      {/* Cột 4: Giá niêm yết */}
-                      <td className="py-3.5 px-4 text-right align-middle">
-                        <span className="text-sm font-black text-[#985018] tabular-nums block">
+                    {/* PRODUCT NAME & DETAILS */}
+                    <div className="mt-3.5 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <h2 className="text-sm font-extrabold text-[#2C241E] leading-snug line-clamp-2 group-hover:text-[#985018] transition-colors">
+                          {product.name}
+                        </h2>
+                      </div>
+
+                      {/* BRAND & METADATA CHIPS */}
+                      {product.details.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                          {product.details.map((detail, idx) => {
+                            const parsed = parseBrandDetail(detail);
+                            return (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center gap-1 rounded-md border border-[#E8DFD8] bg-[#FAF8F5] px-2 py-0.5 text-[10.5px] font-semibold text-[#5C4A3E]"
+                              >
+                                <span>{parsed.flag}</span>
+                                <span className="truncate max-w-[190px]">
+                                  {parsed.text}
+                                </span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* FOOTER: PRICE, UNIT & ACTIONS */}
+                  <div className="mt-4 border-t border-[#EFE4D9] pt-3 space-y-2.5">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] font-bold text-[#8C7E72] uppercase block">
+                          Giá niêm yết
+                        </span>
+                        <span className="text-base font-black text-[#985018] tabular-nums">
                           {formatPrice(product)}
                         </span>
-                        <span className="text-[10px] text-[#8C7E72] font-semibold">Đã gồm 10% VAT</span>
-                      </td>
+                      </div>
+                      <span className="rounded-lg bg-[#FAF0E4] border border-[#E8DFD8] px-2 py-0.5 text-[10.5px] font-bold text-[#8A4F23]">
+                        {product.unit}
+                      </span>
+                    </div>
 
-                      {/* Cột 5: Thao tác */}
-                      <td className="py-3.5 px-4 text-center align-middle print:hidden">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openPOSWithProduct(product)}
-                            className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#FAF0E4] border border-[#E8DFD8] px-2 text-[11px] font-bold text-[#8A4F23] hover:bg-[#985018] hover:text-white hover:border-[#985018] transition cursor-pointer"
-                            title="Bán tại POS"
+                    {/* ACTION BUTTONS */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => openPOSWithProduct(product)}
+                        className="flex-1 inline-flex h-8 items-center justify-center gap-1.5 rounded-xl bg-[#FAF0E4] border border-[#E8DFD8] text-[11px] font-bold text-[#8A4F23] hover:bg-[#985018] hover:text-white hover:border-[#985018] transition shadow-2xs cursor-pointer"
+                        title="Lập đơn bán sản phẩm này tại POS"
+                      >
+                        <ShoppingBag className="h-3.5 w-3.5" />
+                        <span>Bán tại POS</span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Sửa ${product.name}`}
+                        title="Sửa thông tin sản phẩm"
+                        onClick={() => openEdit(product)}
+                        className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#EFE4D9] bg-white text-[#73675F] hover:bg-[#FAF8F5] hover:text-[#985018] hover:border-[#D7BBA6] transition cursor-pointer"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Xóa ${product.name}`}
+                        title="Xóa sản phẩm"
+                        onClick={() => void remove(product)}
+                        className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#FEE2E2] bg-white text-[#DC2626] hover:bg-[#FEF2F2] hover:border-[#FCA5A5] transition cursor-pointer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        ) : (
+          /* TABLE VIEW (Danh sách bảng chuẩn chỉnh) */
+          <section
+            aria-label="Bảng giá sản phẩm"
+            className="overflow-hidden rounded-2xl border border-[#EFE4D9] bg-white shadow-xs"
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-[#FAF0E4] text-[#8A4F23] border-b border-[#E8DFD8] text-[11px] font-black uppercase tracking-wider">
+                    <th className="py-3.5 px-4 w-[42%]">Sản phẩm & Thông số</th>
+                    <th className="py-3.5 px-4 text-center w-[16%]">
+                      Phân loại
+                    </th>
+                    <th className="py-3.5 px-4 text-center w-[12%]">Đơn vị</th>
+                    <th className="py-3.5 px-4 text-right w-[18%]">
+                      Giá bán niêm yết
+                    </th>
+                    <th className="py-3.5 px-4 text-center w-[12%] print:hidden">
+                      Thao tác
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#EFE4D9]">
+                  {visibleProducts.map((product) => {
+                    const catStyle = getCategoryStyle(product.category);
+                    const mainImg =
+                      product.image_url || product.image_urls?.[0];
+
+                    return (
+                      <tr
+                        key={product.id}
+                        className="transition hover:bg-[#FAF8F5]/80"
+                      >
+                        {/* Cột 1: Hình ảnh & Tên */}
+                        <td className="py-3.5 px-4 align-top">
+                          <div className="flex items-start gap-3">
+                            {mainImg ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setLightbox({
+                                    url: mainImg,
+                                    title: product.name,
+                                    allUrls: product.image_urls?.length
+                                      ? product.image_urls
+                                      : [mainImg],
+                                  })
+                                }
+                                className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] cursor-pointer group shadow-2xs"
+                                title="Bấm để xem ảnh to"
+                              >
+                                <img
+                                  src={mainImg}
+                                  alt={product.name}
+                                  className="h-full w-full object-cover group-hover:scale-105 transition"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 text-white transition">
+                                  <Eye className="h-4 w-4" />
+                                </div>
+                              </button>
+                            ) : (
+                              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-dashed border-[#D7BBA6] bg-[#FAF8F5] text-[#985018]">
+                                <Package className="h-5 w-5" />
+                              </div>
+                            )}
+                            <div className="min-w-0 space-y-1">
+                              <h2 className="text-sm font-bold text-[#2C241E] leading-snug">
+                                {product.name}
+                              </h2>
+                              {product.details.length > 0 && (
+                                <div className="flex flex-wrap gap-1 pt-0.5">
+                                  {product.details.map((detail, idx) => {
+                                    const parsed = parseBrandDetail(detail);
+                                    return (
+                                      <span
+                                        key={idx}
+                                        className="inline-flex items-center gap-1 rounded-md border border-[#E8DFD8] bg-[#FAF8F5] px-1.5 py-0.5 text-[10px] font-semibold text-[#5C4A3E]"
+                                      >
+                                        <span>{parsed.flag}</span>
+                                        <span>{parsed.text}</span>
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Cột 2: Phân loại */}
+                        <td className="py-3.5 px-4 text-center align-middle">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold border ${catStyle.bg} ${catStyle.text} ${catStyle.border}`}
                           >
-                            <ShoppingBag className="h-3.5 w-3.5" />
-                            <span className="hidden xl:inline">Bán</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openEdit(product)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#EFE4D9] bg-white text-[#73675F] hover:bg-[#FAF8F5] hover:text-[#985018] hover:border-[#D7BBA6] transition cursor-pointer"
-                            title="Sửa sản phẩm"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void remove(product)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#FEE2E2] bg-white text-[#DC2626] hover:bg-[#FEF2F2] hover:border-[#FCA5A5] transition cursor-pointer"
-                            title="Xóa sản phẩm"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${catStyle.dot}`}
+                            />
+                            {product.category}
+                          </span>
+                        </td>
+
+                        {/* Cột 3: Đơn vị */}
+                        <td className="py-3.5 px-4 text-center align-middle">
+                          <span className="font-bold text-[#2C241E] bg-[#FAF8F5] border border-[#EFE4D9] rounded-lg px-2.5 py-1 text-xs">
+                            {product.unit}
+                          </span>
+                        </td>
+
+                        {/* Cột 4: Giá niêm yết */}
+                        <td className="py-3.5 px-4 text-right align-middle">
+                          <span className="text-sm font-black text-[#985018] tabular-nums block">
+                            {formatPrice(product)}
+                          </span>
+                          <span className="text-[10px] text-[#8C7E72] font-semibold">
+                            Đã gồm 10% VAT
+                          </span>
+                        </td>
+
+                        {/* Cột 5: Thao tác */}
+                        <td className="py-3.5 px-4 text-center align-middle print:hidden">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openPOSWithProduct(product)}
+                              className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#FAF0E4] border border-[#E8DFD8] px-2 text-[11px] font-bold text-[#8A4F23] hover:bg-[#985018] hover:text-white hover:border-[#985018] transition cursor-pointer"
+                              title="Bán tại POS"
+                            >
+                              <ShoppingBag className="h-3.5 w-3.5" />
+                              <span className="hidden xl:inline">Bán</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openEdit(product)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#EFE4D9] bg-white text-[#73675F] hover:bg-[#FAF8F5] hover:text-[#985018] hover:border-[#D7BBA6] transition cursor-pointer"
+                              title="Sửa sản phẩm"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void remove(product)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#FEE2E2] bg-white text-[#DC2626] hover:bg-[#FEF2F2] hover:border-[#FCA5A5] transition cursor-pointer"
+                              title="Xóa sản phẩm"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ))}
 
       {/* EMPTY STATE */}
-      {visibleProducts.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-[#D7BBA6] bg-white p-12 text-center shadow-2xs">
+      {!loading && !loadError && visibleProducts.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-[#D7BBA6] bg-white p-8 text-center shadow-2xs">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#FAF0E4] text-[#985018] mb-3">
             <Package className="h-7 w-7" />
           </div>
-          <h3 className="text-base font-bold text-[#3E200C]">Không tìm thấy sản phẩm phù hợp</h3>
+          <h3 className="text-base font-bold text-[#3E200C]">
+            {products.length
+              ? 'Không có sản phẩm khớp bộ lọc'
+              : 'Chưa có sản phẩm trong danh mục'}
+          </h3>
           <p className="mt-1 text-xs text-[#73675F] max-w-sm mx-auto">
-            Không có kết quả nào cho tiêu chí tìm kiếm hoặc phân nhóm hiện tại. Hãy thử chọn nhóm khác hoặc xóa bộ lọc.
+            {products.length
+              ? 'Thử từ khóa khác hoặc xóa bộ lọc để xem lại danh sách.'
+              : 'Thêm sản phẩm đầu tiên với tên, nhóm, đơn vị và giá bán thực tế.'}
           </p>
           <div className="mt-4 flex items-center justify-center gap-2">
             <button
@@ -967,15 +1028,6 @@ export const W19_HomeProducts: React.FC = () => {
         </div>
       )}
 
-      {/* FOOTER NOTICE */}
-      <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#8C7E72] border-t border-[#EFE4D9] pt-4 print:hidden">
-        <span className="flex items-center gap-1.5">
-          <ShieldCheck className="h-3.5 w-3.5 text-[#15803D]" />
-          Đơn vị tiền tệ niêm yết: Đồng Việt Nam (VND) · Áp dụng thống nhất trên toàn hệ thống MLD
-        </span>
-        <span>* Găng nén y khoa có nhiều thương hiệu (Medi, Anita, Venosan) tương ứng với từng kích cỡ và xuất xứ.</span>
-      </footer>
-
       {/* 5. MODAL FORM: THÊM / SỬA SẢN PHẨM */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in">
@@ -992,7 +1044,9 @@ export const W19_HomeProducts: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-base sm:text-lg font-black text-[#3E200C]">
-                    {editing ? 'Chỉnh sửa sản phẩm bổ trợ' : 'Thêm sản phẩm bổ trợ mới'}
+                    {editing
+                      ? 'Chỉnh sửa sản phẩm bổ trợ'
+                      : 'Thêm sản phẩm bổ trợ mới'}
                   </h2>
                   <p className="text-xs text-[#73675F]">
                     Cập nhật thông số giá, đơn vị tính, hình ảnh và thương hiệu
@@ -1027,10 +1081,14 @@ export const W19_HomeProducts: React.FC = () => {
 
               {/* Nhóm sản phẩm */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-[#3E200C]">Nhóm sản phẩm</label>
+                <label className="text-xs font-bold text-[#3E200C]">
+                  Nhóm sản phẩm
+                </label>
                 <select
                   value={form.category}
-                  onChange={(event) => update('category', event.target.value as ProductGroup)}
+                  onChange={(event) =>
+                    update('category', event.target.value as ProductGroup)
+                  }
                   className="h-10 w-full rounded-xl border border-[#D7BBA6] bg-white px-3 text-xs font-medium text-[#2C241E] outline-none focus:border-[#985018] focus:ring-2 focus:ring-[#985018]/15"
                 >
                   {groups.slice(1).map((item) => (
@@ -1149,10 +1207,16 @@ export const W19_HomeProducts: React.FC = () => {
                   }`}
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FAF0E4] text-[#985018] group-hover:scale-110 transition-transform mb-1.5 border border-[#E8DFD8]">
-                    {uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+                    {uploadingImage ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Upload className="h-5 w-5" />
+                    )}
                   </div>
                   <p className="text-xs font-bold text-[#2C241E]">
-                    {uploadingImage ? 'Đang nạp ảnh vào hệ thống...' : 'Bấm để tải ảnh từ thiết bị hoặc kéo thả ảnh vào đây'}
+                    {uploadingImage
+                      ? 'Đang nạp ảnh vào hệ thống...'
+                      : 'Bấm để tải ảnh từ thiết bị hoặc kéo thả ảnh vào đây'}
                   </p>
                   <p className="mt-0.5 text-[11px] text-[#8C7E72]">
                     Hoặc chụp màn hình / copy ảnh rồi nhấn{' '}
@@ -1161,7 +1225,10 @@ export const W19_HomeProducts: React.FC = () => {
                     </kbd>{' '}
                     để dán ngay
                   </p>
-                  <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="mt-2.5 flex flex-wrap items-center justify-center gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       type="button"
                       disabled={uploadingImage}
@@ -1187,25 +1254,38 @@ export const W19_HomeProducts: React.FC = () => {
                 {gallery.length > 0 && (
                   <div className="space-y-1.5 pt-2">
                     <p className="text-[11px] font-bold text-[#8C7E72] uppercase tracking-wider">
-                      Ảnh đã nạp ({gallery.length}): Click ảnh để chọn làm ảnh đại diện
+                      Ảnh đã nạp ({gallery.length}): Click ảnh để chọn làm ảnh
+                      đại diện
                     </p>
                     <div className="flex flex-wrap gap-2.5">
                       {gallery.map((url, index) => {
-                        const isPrimary = form.image_url === url || (!form.image_url && index === 0);
+                        const isPrimary =
+                          form.image_url === url ||
+                          (!form.image_url && index === 0);
                         return (
                           <div
                             key={`${url}-${index}`}
                             className={`relative rounded-xl border p-1 bg-white shadow-2xs transition ${
-                              isPrimary ? 'border-[#985018] ring-2 ring-[#985018]/20 bg-[#FAF0E4]/30' : 'border-[#EFE4D9]'
+                              isPrimary
+                                ? 'border-[#985018] ring-2 ring-[#985018]/20 bg-[#FAF0E4]/30'
+                                : 'border-[#EFE4D9]'
                             }`}
                           >
                             <button
                               type="button"
                               onClick={() => update('image_url', url)}
                               className="block cursor-pointer overflow-hidden rounded-lg"
-                              title={isPrimary ? 'Đang là ảnh đại diện' : 'Bấm để đặt làm ảnh đại diện'}
+                              title={
+                                isPrimary
+                                  ? 'Đang là ảnh đại diện'
+                                  : 'Bấm để đặt làm ảnh đại diện'
+                              }
                             >
-                              <img src={url} alt={`Ảnh ${index + 1}`} className="h-16 w-16 object-cover" />
+                              <img
+                                src={url}
+                                alt={`Ảnh ${index + 1}`}
+                                className="h-16 w-16 object-cover"
+                              />
                             </button>
                             {isPrimary && (
                               <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-[#985018] px-1.5 py-0.2 text-[9px] font-black text-white shadow-xs">
@@ -1235,7 +1315,9 @@ export const W19_HomeProducts: React.FC = () => {
                   <label className="text-xs font-bold text-[#3E200C]">
                     Thương hiệu & Quy cách chi tiết (Mỗi dòng một mục)
                   </label>
-                  <span className="text-[11px] text-[#8C7E72]">Tự động tạo nhãn xuất xứ</span>
+                  <span className="text-[11px] text-[#8C7E72]">
+                    Tự động tạo nhãn xuất xứ
+                  </span>
                 </div>
                 <textarea
                   rows={3}
@@ -1248,7 +1330,9 @@ export const W19_HomeProducts: React.FC = () => {
 
               {/* Thứ tự hiển thị */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-[#3E200C]">Thứ tự ưu tiên</label>
+                <label className="text-xs font-bold text-[#3E200C]">
+                  Thứ tự ưu tiên
+                </label>
                 <input
                   type="number"
                   min="0"
@@ -1279,7 +1363,9 @@ export const W19_HomeProducts: React.FC = () => {
                     <span>Đang lưu...</span>
                   </>
                 ) : (
-                  <span>{editing ? 'Cập nhật sản phẩm' : 'Lưu sản phẩm mới'}</span>
+                  <span>
+                    {editing ? 'Cập nhật sản phẩm' : 'Lưu sản phẩm mới'}
+                  </span>
                 )}
               </button>
             </div>
@@ -1298,7 +1384,9 @@ export const W19_HomeProducts: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-[#EFE4D9] px-4 py-2.5">
-              <span className="text-xs font-bold text-[#3E200C] truncate max-w-md">{lightbox.title}</span>
+              <span className="text-xs font-bold text-[#3E200C] truncate max-w-md">
+                {lightbox.title}
+              </span>
               <button
                 type="button"
                 onClick={() => setLightbox(null)}
@@ -1308,7 +1396,11 @@ export const W19_HomeProducts: React.FC = () => {
               </button>
             </div>
             <div className="p-2 flex items-center justify-center bg-[#FAF8F5] rounded-xl mt-2 max-h-[72vh]">
-              <img src={lightbox.url} alt={lightbox.title} className="max-h-[70vh] max-w-full rounded-lg object-contain shadow-md" />
+              <img
+                src={lightbox.url}
+                alt={lightbox.title}
+                className="max-h-[70vh] max-w-full rounded-lg object-contain shadow-md"
+              />
             </div>
             {lightbox.allUrls && lightbox.allUrls.length > 1 && (
               <div className="flex items-center justify-center gap-2 p-2 overflow-x-auto">
@@ -1318,10 +1410,16 @@ export const W19_HomeProducts: React.FC = () => {
                     type="button"
                     onClick={() => setLightbox({ ...lightbox, url: img })}
                     className={`h-12 w-12 rounded-lg overflow-hidden border-2 cursor-pointer transition ${
-                      lightbox.url === img ? 'border-[#985018] scale-105' : 'border-[#EFE4D9] opacity-70 hover:opacity-100'
+                      lightbox.url === img
+                        ? 'border-[#985018] scale-105'
+                        : 'border-[#EFE4D9] opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <img src={img} alt="" className="h-full w-full object-cover" />
+                    <img
+                      src={img}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
                   </button>
                 ))}
               </div>
@@ -1334,7 +1432,11 @@ export const W19_HomeProducts: React.FC = () => {
       <div className="hidden print:block font-sans text-black">
         <div className="flex items-center justify-between border-b-2 border-[#985018] pb-4 mb-4">
           <div className="flex items-center gap-3">
-            <img src="/logo_mld.png" alt="MLD Vietnam" className="h-16 w-16 object-contain" />
+            <img
+              src="/logo_mld.png"
+              alt="MLD Vietnam"
+              className="h-16 w-16 object-contain"
+            />
             <div>
               <h1 className="text-lg font-black uppercase text-[#3E200C] tracking-wide">
                 MLD VIETNAM MEDICAL HEALTHCARE & SPA
@@ -1342,14 +1444,18 @@ export const W19_HomeProducts: React.FC = () => {
               <p className="text-xs font-semibold text-[#8A4F23]">
                 Hệ thống Phục hồi & Dẫn lưu bạch huyết chuẩn Y khoa Quốc tế
               </p>
-              <p className="text-[10px] text-gray-500 mt-0.5">Hotline: 0394 316 963 · Website: mld-vietnam.vercel.app</p>
+              <p className="text-[10px] text-gray-500 mt-0.5">
+                Hotline: 0394 316 963 · Website: mld-vietnam.vercel.app
+              </p>
             </div>
           </div>
           <div className="text-right">
             <span className="inline-block border border-gray-300 rounded px-2 py-1 text-[10px] font-bold text-gray-700">
               BẢNG GIÁ NIÊM YẾT NỘI BỘ & KHÁCH HÀNG
             </span>
-            <p className="text-[10px] text-gray-500 mt-1">Ngày in: {new Date().toLocaleDateString('vi-VN')}</p>
+            <p className="text-[10px] text-gray-500 mt-1">
+              Ngày in: {new Date().toLocaleDateString('vi-VN')}
+            </p>
           </div>
         </div>
 
@@ -1365,17 +1471,29 @@ export const W19_HomeProducts: React.FC = () => {
         <table className="w-full border-collapse border border-gray-300 text-xs mt-3">
           <thead>
             <tr className="bg-gray-100 text-gray-800 font-bold">
-              <th className="border border-gray-300 py-2 px-2 text-center w-10">STT</th>
-              <th className="border border-gray-300 py-2 px-3 text-left">Tên sản phẩm & Thương hiệu</th>
-              <th className="border border-gray-300 py-2 px-3 text-center w-28">Phân nhóm</th>
-              <th className="border border-gray-300 py-2 px-3 text-center w-20">Đơn vị</th>
-              <th className="border border-gray-300 py-2 px-3 text-right w-36">Giá niêm yết (VND)</th>
+              <th className="border border-gray-300 py-2 px-2 text-center w-10">
+                STT
+              </th>
+              <th className="border border-gray-300 py-2 px-3 text-left">
+                Tên sản phẩm & Thương hiệu
+              </th>
+              <th className="border border-gray-300 py-2 px-3 text-center w-28">
+                Phân nhóm
+              </th>
+              <th className="border border-gray-300 py-2 px-3 text-center w-20">
+                Đơn vị
+              </th>
+              <th className="border border-gray-300 py-2 px-3 text-right w-36">
+                Giá niêm yết (VND)
+              </th>
             </tr>
           </thead>
           <tbody>
             {visibleProducts.map((p, idx) => (
               <tr key={p.id} className="border-b border-gray-300">
-                <td className="border border-gray-300 py-2 px-2 text-center font-medium">{idx + 1}</td>
+                <td className="border border-gray-300 py-2 px-2 text-center font-medium">
+                  {idx + 1}
+                </td>
                 <td className="border border-gray-300 py-2 px-3">
                   <div className="font-bold text-gray-900">{p.name}</div>
                   {p.details.length > 0 && (
@@ -1384,8 +1502,12 @@ export const W19_HomeProducts: React.FC = () => {
                     </div>
                   )}
                 </td>
-                <td className="border border-gray-300 py-2 px-3 text-center font-medium">{p.category}</td>
-                <td className="border border-gray-300 py-2 px-3 text-center font-medium">{p.unit}</td>
+                <td className="border border-gray-300 py-2 px-3 text-center font-medium">
+                  {p.category}
+                </td>
+                <td className="border border-gray-300 py-2 px-3 text-center font-medium">
+                  {p.unit}
+                </td>
                 <td className="border border-gray-300 py-2 px-3 text-right font-black text-gray-900">
                   {formatPrice(p)}
                 </td>
@@ -1397,11 +1519,15 @@ export const W19_HomeProducts: React.FC = () => {
         <div className="mt-8 flex justify-between text-xs px-6">
           <div className="text-center">
             <p className="font-bold">ĐẠI DIỆN KINH DOANH / THU NGÂN</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">(Ký và ghi rõ họ tên)</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">
+              (Ký và ghi rõ họ tên)
+            </p>
           </div>
           <div className="text-center">
             <p className="font-bold">BAN QUẢN LÝ CƠ SỞ MLD VIỆT NAM</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">(Ký duyệt và đóng dấu)</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">
+              (Ký duyệt và đóng dấu)
+            </p>
           </div>
         </div>
       </div>

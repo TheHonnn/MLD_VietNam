@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { consumedSessions, belongsToPackage } from '../services/treatment-display.mjs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Leaf,
@@ -170,6 +171,8 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   // Form States
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
+  const [bookingRequestId, setBookingRequestId] = useState(() => crypto.randomUUID());
+  useEffect(() => { if (isBookNextModalOpen) setBookingRequestId(crypto.randomUUID()); }, [isBookNextModalOpen]);
   const [isSubmittingSession, setIsSubmittingSession] = useState(false);
 
   // Booking Form
@@ -298,9 +301,8 @@ export const W06_TreatmentManagement: React.FC = () => {
         .filter((j) => j.userPackageId === up.id)
         .sort((a, b) => a.sessionNumber - b.sessionNumber);
 
-      // Nhật ký là sổ cái nghiệp vụ; chỉ tính các buổi chưa bị hoàn tác
-      const activeJournals = journals.filter((j) => !j.isReversed);
-      const used = Math.max(Number(up.completedSessions || 0), activeJournals.length);
+      // Only the backend confirmed ledger determines consumed entitlements.
+      const used = consumedSessions(up.completedSessions);
       const total = up.totalSessions || pkgDef?.totalSessions || 0;
       const remaining = Math.max(0, total - used);
       const progressPercent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
@@ -349,10 +351,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       const relatedBookings = liveBookings
         .filter((booking) => {
           if (booking.customerId !== up.customerId || completedBookingIds.has(booking.id)) return false;
-          if (pkgDef?.serviceId) {
-            return (booking.items || []).some((item) => item.serviceId === pkgDef.serviceId);
-          }
-          return String(booking.specialNotes || '').includes(`user_package_id=${up.id}`);
+          return belongsToPackage(booking,up.customerId,up.id);
         })
         .sort((a, b) => {
           const aTime = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
@@ -383,7 +382,7 @@ export const W06_TreatmentManagement: React.FC = () => {
           time: timeFromBooking,
           staff: booking?.technician?.fullName,
           room: booking?.room?.name,
-          statusBadge: j.isReversed ? 'Đã hoàn tác' : 'Đã hoàn thành',
+          statusBadge: j.isReversed ? 'Đã hoàn tác' : j.confirmationStatus === 'CONFIRMED' ? 'Đã xác nhận' : j.confirmationStatus === 'DRAFT' ? 'Bản nháp' : 'Chờ xác nhận',
           isReversed: Boolean(j.isReversed),
           reversedAt: j.reversedAt,
           reversalReason: j.reversalReason,
@@ -654,28 +653,13 @@ export const W06_TreatmentManagement: React.FC = () => {
       const selectedBranch = branchMap.get(bookingBranchId) || branches[0];
       const selectedTech = technicians.find((t) => t.id === bookingTechnicianId) || availableBranchTechnicians[0];
       const selectedSlotObj = STANDARD_SPA_SLOTS.find((s) => s.startHour === bookingTime) || STANDARD_SPA_SLOTS[0];
-      const res = await bookingService.createBooking({
-        customerId: selectedCustomer.id,
-        customerName: selectedCustomer.fullName,
-        customerPhone: selectedCustomer.phone,
-        branchId: selectedBranch?.id,
+      const res = await treatmentService.bookPackageSession(selectedPkg.id, {
+        branchId: selectedBranch?.id || '',
         technicianId: selectedTech?.id || null,
-        technicianName: selectedTech?.fullName || 'KTV MLD',
-        roomName: selectedTech?.title || 'Phòng Trị Liệu',
         bookingDate,
         startTime: selectedSlotObj.startTime,
-        endTime: selectedSlotObj.endTime,
-        status: BookingStatus.CONFIRMED,
-        paymentStatus: PaymentStatus.UNPAID,
-        paymentMethod: PaymentMethod.MEMBERSHIP_WALLET,
-        baseTotal: 0,
-        finalPrice: 0,
-        notes: `[Gói liệu trình: ${selectedPkg.name} | user_package_id=${selectedPkg.id}] ${bookingNotes}`,
-        serviceId: selectedPkg.serviceId || undefined,
-        serviceName: selectedPkg.name,
-        durationMinutes: selectedPkg.serviceId
-          ? serviceMap.get(selectedPkg.serviceId)?.durationMinutes || 60
-          : 60,
+        notes: bookingNotes,
+        requestId: bookingRequestId,
       });
 
       if (res.success) {
@@ -775,10 +759,8 @@ export const W06_TreatmentManagement: React.FC = () => {
       const uploadedEvidence = await Promise.all(
         evidenceFiles.map((file) => portalService.uploadFileToStorage(file, file.name))
       );
-      const res = await treatmentService.completePackageSession(
+      const res = await treatmentService.saveSessionDraftFromBooking(
         selectedPkg.id,
-        selectedPkg.usedSessions,
-        selectedPkg.sessionsTotal,
         {
           customerId: selectedPkg.customerId,
           bookingId: selectedSessionBooking.id,
@@ -811,27 +793,10 @@ export const W06_TreatmentManagement: React.FC = () => {
       );
 
       if (res.success) {
-        const nextUsed = selectedPkg.usedSessions + 1;
-        const finishResult = await bookingService.runWorkflowAction(
-          selectedSessionBooking.id,
-          'finish-service'
-        );
-        if (!finishResult.success) {
-          toast.warning(
-            'Đã lưu hồ sơ nhưng chưa đóng ca',
-            finishResult.message || 'Mở lịch hẹn để hoàn tất chuyên môn và check-out.'
-          );
-          setIsLogSessionModalOpen(false);
-          await fetchTreatmentData();
-          navigate(`/staff-schedule?booking=${encodeURIComponent(selectedSessionBooking.bookingCode || selectedSessionBooking.id)}`);
-          return;
-        }
-        toast.success(
-          nextUsed >= selectedPkg.sessionsTotal ? 'Đã hoàn tất liệu trình' : 'Đã hoàn tất buổi chăm sóc',
-          `Buổi ${nextUsed}/${selectedPkg.sessionsTotal} đã được ghi nhận và ca phục vụ đã đóng đúng quy trình.`
-        );
+        toast.success('Đã lưu hồ sơ nháp', 'Số buổi chưa thay đổi. Gửi hồ sơ và xác nhận buổi tại Nhật ký điều trị.');
         setIsLogSessionModalOpen(false);
         await fetchTreatmentData();
+        navigate('/manage/treatment_journal');
       } else {
         toast.error('Không thể ghi nhận', res.message || 'Lỗi khi cập nhật buổi.');
       }

@@ -42,7 +42,7 @@ void main() {
       expect(find.text('Gói liệu trình của tôi'), findsOneWidget);
       // Kiểm tra Empty State xuất hiện
       expect(find.text('Bạn chưa có gói liệu trình nào đang hoạt động'), findsOneWidget);
-      expect(find.text('Khám phá dịch vụ'), findsOneWidget);
+      expect(find.text('Đăng ký tư vấn liệu trình'), findsOneWidget);
     });
 
     testWidgets('D02PackageDetailsScreen hiển thị đầy đủ thông tin gói & chia buổi', (tester) async {

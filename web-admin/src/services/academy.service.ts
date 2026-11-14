@@ -565,7 +565,8 @@ export const academyService = {
   async assignBatchToStudent(
     enrollmentId: string,
     batchId: string,
-    authorName?: string
+    authorName?: string,
+    reason?: string
   ): Promise<ApiResponse<{ success: boolean; message: string }>> {
     try {
       const [enrollments, batches] = await Promise.all([
@@ -580,7 +581,7 @@ export const academyService = {
         return { success: false, statusCode: 404, message: 'Không tìm thấy hồ sơ hoặc lớp học', data: { success: false, message: 'Dữ liệu không hợp lệ' } };
       }
 
-      if (enr.approvalStatus !== 'APPROVED' || enr.studentAdmissionStatus !== StudentAdmissionStatus.APPROVED) {
+      if (enr.approvalStatus !== 'APPROVED' || ![StudentAdmissionStatus.APPROVED, StudentAdmissionStatus.ENROLLED].includes(enr.studentAdmissionStatus as StudentAdmissionStatus)) {
         return {
           success: false,
           statusCode: 409,
@@ -600,7 +601,7 @@ export const academyService = {
       }
 
       // 2. Kiểm tra sức chứa lớp
-      if (batch.maxStudents && batch.enrolledCount >= batch.maxStudents) {
+      if (enr.batchId !== batchId && batch.maxStudents && batch.enrolledCount >= batch.maxStudents) {
         return {
           success: false,
           statusCode: 400,
@@ -609,7 +610,7 @@ export const academyService = {
         };
       }
 
-      const result = await apiClient.post<any>(`/academy/enrollments/${enrollmentId}/assign-batch`, { batchId });
+      const result = await apiClient.post<any>(`/academy/enrollments/${enrollmentId}/assign-batch`, { batchId, reason });
 
       return {
         success: result.success,
@@ -963,6 +964,32 @@ export const academyService = {
         message: 'Lỗi khi xếp lịch thực hành',
         data: null,
       };
+    }
+  },
+
+  async updateBatchSchedule(
+    scheduleId: string,
+    data: Partial<{
+      batchId: string;
+      assignedRoomId: string | null;
+      sessionDate: string;
+      startTime: string;
+      endTime: string;
+      topic: string;
+      isPracticeLab: boolean;
+    }>
+  ): Promise<ApiResponse<BatchSchedule | null>> {
+    try {
+      const updated = await supabaseService.updateBatchSchedule(scheduleId, data);
+      return {
+        success: Boolean(updated),
+        statusCode: updated ? 200 : 400,
+        message: updated ? 'Đã cập nhật lịch thực hành thành công' : 'Không thể cập nhật lịch thực hành',
+        data: updated,
+      };
+    } catch (err) {
+      console.error('[academyService] updateBatchSchedule error:', err);
+      return { success: false, statusCode: 500, message: 'Lỗi khi cập nhật lịch thực hành', data: null };
     }
   },
 

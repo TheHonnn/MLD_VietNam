@@ -12,7 +12,7 @@ import {
   Plus,
   Minus,
 } from "lucide-react";
-import { adminApi, Listing, Row } from "./api";
+import { adminCommand, Listing, Row } from "./api";
 
 export interface AcademicRecordFormValues {
   enrollment_id: string;
@@ -33,6 +33,7 @@ interface StudentAcademicRecordFormEditorProps {
   values: AcademicRecordFormValues;
   onChange: (field: keyof AcademicRecordFormValues, val: any) => void;
   isCreate?: boolean;
+  initialBatchId?: string;
 }
 
 // Tính điểm trung bình GPA (Lý thuyết 40%, Thực hành 60%)
@@ -63,6 +64,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
   values,
   onChange,
   isCreate = true,
+  initialBatchId = "",
 }) => {
   const [enrollments, setEnrollments] = useState<Row[]>([]);
   const [users, setUsers] = useState<Row[]>([]);
@@ -70,7 +72,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
   const [batches, setBatches] = useState<Row[]>([]);
   const [loadingLookups, setLoadingLookups] = useState(false);
   const [enrollmentSearch, setEnrollmentSearch] = useState("");
-  const [batchFilter, setBatchFilter] = useState("");
+  const [batchFilter, setBatchFilter] = useState(initialBatchId);
 
   // Tải danh sách hồ sơ ghi danh, học viên, khóa học và lớp học
   useEffect(() => {
@@ -78,10 +80,10 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
     setLoadingLookups(true);
 
     Promise.all([
-      adminApi<Listing>("course_enrollments?limit=150&page=1").catch(() => null),
-      adminApi<Listing>("users?limit=150&page=1").catch(() => null),
-      adminApi<Listing>("courses?limit=100&page=1").catch(() => null),
-      adminApi<Listing>("course_batches?limit=100&page=1").catch(() => null),
+      adminCommand<Listing>("course_enrollments?" + new URLSearchParams({ limit: "100", ...(batchFilter ? { filter: JSON.stringify({ batch_id: batchFilter }) } : {}) })).catch(() => null),
+      adminCommand<Listing>("users?limit=100&page=1").catch(() => null),
+      adminCommand<Listing>("courses?limit=100&page=1").catch(() => null),
+      adminCommand<Listing>("course_batches?limit=100&page=1").catch(() => null),
     ])
       .then(([enrollRes, usersRes, coursesRes, batchesRes]) => {
         if (!active) return;
@@ -97,7 +99,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
     return () => {
       active = false;
     };
-  }, []);
+  }, [batchFilter]);
 
   // Tìm hồ sơ ghi danh hiện tại
   const selectedEnrollment = enrollments.find((e) => String(e.id) === String(values.enrollment_id));
@@ -113,14 +115,14 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
 
   // Lọc danh sách hồ sơ ghi danh phục vụ tìm kiếm
   const filteredEnrollments = enrollments.filter((e) => {
-    if (batchFilter && String(e.batch_id || '') !== batchFilter) return false;
+    if (!e.batch_id || (batchFilter && e.batch_id !== batchFilter)) return false;
     if (!enrollmentSearch.trim()) return true;
     const term = enrollmentSearch.toLowerCase().trim();
     const u = users.find((x) => String(x.id) === String(e.student_id));
     const c = courses.find((x) => String(x.id) === String(e.course_id));
     const b = batches.find((x) => String(x.id) === String(e.batch_id));
 
-    const nameMatch = u?.full_name?.toLowerCase().includes(term);
+    const nameMatch = (u?.full_name || e.student_name)?.toLowerCase().includes(term);
     const phoneMatch = u?.phone?.includes(term);
     const courseMatch = c?.title?.toLowerCase().includes(term) || c?.code?.toLowerCase().includes(term);
     const batchMatch = b?.batch_code?.toLowerCase().includes(term);
@@ -129,41 +131,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
     return nameMatch || phoneMatch || courseMatch || batchMatch || idMatch;
   });
 
-  // Khi chọn hồ sơ ghi danh mới
-  const handleEnrollmentSelect = (enrollId: string) => {
-    onChange("enrollment_id", enrollId);
-    const e = enrollments.find((x) => String(x.id) === String(enrollId));
-    if (e) {
-      const c = courses.find((x) => String(x.id) === String(e.course_id));
-      const totalLessons = Number(c?.total_lessons) || 10;
-      if (!values.total_batch_sessions || Number(values.total_batch_sessions) === 0) {
-        onChange("total_batch_sessions", totalLessons);
-        onChange("attended_sessions", totalLessons);
-        onChange("attendance_rate", 100);
-      }
-    }
-  };
-
-  // Tự động tính tỷ lệ chuyên cần khi thay đổi số buổi
-  const handleAttendedChange = (attended: number | string) => {
-    onChange("attended_sessions", attended);
-    const att = Number(attended) || 0;
-    const tot = Number(values.total_batch_sessions) || 10;
-    if (tot > 0) {
-      const rate = Math.min(100, Math.round((att / tot) * 100));
-      onChange("attendance_rate", rate);
-    }
-  };
-
-  const handleTotalSessionsChange = (total: number | string) => {
-    onChange("total_batch_sessions", total);
-    const att = Number(values.attended_sessions) || 0;
-    const tot = Number(total) || 1;
-    if (tot > 0) {
-      const rate = Math.min(100, Math.round((att / tot) * 100));
-      onChange("attendance_rate", rate);
-    }
-  };
+  const handleEnrollmentSelect = (id: string) => onChange("enrollment_id", id);
   // Tính GPA và xếp hạng
   const currentGPA = calculateGPA(values.theory_score, values.practical_score);
   const currentRank = getGradeRank(currentGPA);
@@ -212,6 +180,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
         {/* Enrollment Dropdown */}
         <select
           value={values.enrollment_id || ""}
+          disabled={!isCreate || loadingLookups}
           onChange={(e) => handleEnrollmentSelect(e.target.value)}
           required
           className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58] focus:ring-1 focus:ring-[#B38A58] transition-all font-medium"
@@ -221,9 +190,9 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
             const u = users.find((x) => String(x.id) === String(en.student_id));
             const c = courses.find((x) => String(x.id) === String(en.course_id));
             const b = batches.find((x) => String(x.id) === String(en.batch_id));
-            const uName = u ? u.full_name : "Học viên";
+            const uName = u?.full_name || en.student_name || "Học viên";
             const uPhone = u?.phone ? `(${u.phone})` : "";
-            const cTitle = c ? c.title : "Khóa học MLD";
+            const cTitle = c?.title || en.course_title || "Khóa học";
             const bCode = b?.batch_code ? `[Lớp ${b.batch_code}]` : "";
             return (
               <option key={en.id} value={en.id}>
@@ -416,7 +385,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
               min="0"
               placeholder="0"
               value={values.attended_sessions}
-              onChange={(e) => handleAttendedChange(e.target.value === "" ? "" : Number(e.target.value))}
+              readOnly
               className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58] font-bold"
             />
           </div>
@@ -430,7 +399,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
               min="1"
               placeholder="10"
               value={values.total_batch_sessions}
-              onChange={(e) => handleTotalSessionsChange(e.target.value === "" ? "" : Number(e.target.value))}
+              readOnly
               className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58] font-bold"
             />
           </div>
@@ -445,7 +414,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
               max="100"
               placeholder="100"
               value={values.attendance_rate}
-              onChange={(e) => onChange("attendance_rate", e.target.value === "" ? "" : Number(e.target.value))}
+              readOnly
               className="w-full text-xs px-3 py-2 bg-[#FAF6F2] border border-[#E8DFD8] rounded-xl text-[#985018] font-bold focus:outline-none"
             />
           </div>
@@ -533,63 +502,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
         </div>
       </div>
 
-      {/* 5. XÁC NHẬN TỐT NGHIỆP & NGÀY CẤP */}
-      <div className="p-4 bg-white rounded-2xl border border-[#E8DFD8] space-y-3 shadow-xs">
-        <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1.5">
-          <GraduationCap size={14} className="text-[#985018]" />
-          Kết luận Tốt nghiệp & Cấp Giấy chứng nhận
-        </label>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-          <button
-            type="button"
-            onClick={() => {
-              const nextGrad = !values.is_graduated;
-              onChange("is_graduated", nextGrad);
-              if (nextGrad && !values.graduation_date) {
-                onChange("graduation_date", new Date().toISOString().split("T")[0]);
-              }
-            }}
-            className={`p-3 rounded-xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
-              values.is_graduated
-                ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20"
-                : "bg-white border-[#E8DFD8]"
-            }`}
-          >
-            <span
-              className={`p-2 rounded-lg text-lg ${
-                values.is_graduated ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-500"
-              }`}
-            >
-              🎓
-            </span>
-            <div>
-              <span className="text-xs font-bold text-[#2C241E] block">
-                {values.is_graduated ? "Đủ điều kiện tốt nghiệp & Cấp chứng nhận" : "Chưa đủ điều kiện tốt nghiệp"}
-              </span>
-              <span className="text-[10px] text-[#766554]">
-                {values.is_graduated
-                  ? "Học viên đạt chuẩn kiến thức và thực hành lâm sàng"
-                  : "Cần bổ sung chuyên cần hoặc thi lại thực hành"}
-              </span>
-            </div>
-          </button>
-
-          {/* Ngày tốt nghiệp */}
-          <div>
-            <label className="text-[11px] text-[#766554] font-medium block mb-1">
-              Ngày công nhận tốt nghiệp:
-            </label>
-            <input
-              type="date"
-              value={values.graduation_date || ""}
-              onChange={(e) => onChange("graduation_date", e.target.value)}
-              className="w-full text-xs px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58] font-medium"
-            />
-          </div>
-        </div>
-      </div>
-
+      <p className="text-xs text-[#73675F]">Chuyên cần được tính từ sổ điểm danh khi lưu. Công nhận tốt nghiệp thực hiện tại hồ sơ tuyển sinh.</p>
       {/* 6. XEM TRƯỚC BẢNG ĐIỂM THỜI GIAN THỰC (LIVE PREVIEW CARD) */}
       <div className="pt-2 border-t border-[#E8DFD8]">
         <div className="flex items-center gap-1.5 mb-2.5">
@@ -649,7 +562,7 @@ export const StudentAcademicRecordFormEditor: React.FC<StudentAcademicRecordForm
             <div className="p-2 bg-white rounded-xl border border-[#E8DFD8]">
               <span className="text-[10px] text-[#766554] block">Buổi học</span>
               <span className="text-sm font-black text-[#554536]">
-                {values.attended_sessions || 0}/{values.total_batch_sessions || 10}
+                {values.attended_sessions || 0}/{values.total_batch_sessions || 0}
               </span>
             </div>
           </div>

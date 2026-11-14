@@ -8,6 +8,7 @@ import {
   Get,
   Ip,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -293,6 +294,18 @@ export class AdminController {
       key: { id },
     });
   }
+  @Get('academy/attendance/:scheduleId')
+  @UseGuards(AdminGuard)
+  attendanceRoster(@Param('scheduleId', ParseUUIDPipe) scheduleId: string, @Req() req) {
+    return this.service.attendanceRoster(req.admin, scheduleId);
+  }
+
+  @Post('academy/attendance/:scheduleId')
+  @UseGuards(AdminGuard)
+  saveAttendance(@Param('scheduleId', ParseUUIDPipe) scheduleId: string, @Body() body: { changes?: unknown }, @Req() req) {
+    return this.service.saveAttendance(req.admin, scheduleId, body?.changes);
+  }
+
   @Get(':table')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()
@@ -303,6 +316,78 @@ export class AdminController {
   ) {
     return this.service.list(table, req.admin, query);
   }
+  @Get('treatment/packages/:id/detail')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  treatmentPackageDetail(@Param('id') id: string, @Req() req) {
+    return this.service.treatmentPackageDetail(req.admin, id);
+  }
+  @Get('treatment/journals/:id/confirmation-preview')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  treatmentConfirmationPreview(@Param('id') id: string, @Req() req) {
+    return this.service.treatmentConfirmationPreview(req.admin, id);
+  }
+  @Post('treatment/journals/:id/home-care')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  assignHomeCare(@Param('id') id: string, @Body() body: { guidelineId: string }, @Req() req) {
+    return this.service.assignHomeCare(req.admin, id, body.guidelineId);
+  }
+  @Get('treatment/journals/:id/home-care-templates')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  homeCareTemplatesForSession(@Param('id') id: string, @Req() req) {
+    return this.service.homeCareTemplatesForSession(req.admin, id);
+  }
+  @Post('treatment/packages/:id/start-draft')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  startTreatmentDraft(@Param('id') id: string, @Body() body: { bookingId: string }, @Req() req) {
+    return this.service.startTreatmentDraft(req.admin,id,body.bookingId);
+  }
+  @Post('treatment/packages/:id/book-session')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  bookTreatmentSession(@Param('id') id: string, @Body() body: Record<string, unknown>, @Req() req) {
+    return this.service.bookTreatmentSession(req.admin,id,body);
+  }
+  @Get('commissions/workspace')
+  @UseGuards(AdminGuard)
+  commissionsWorkspace(@Query('month') month: string, @Req() req) {
+    return this.service.commissionsWorkspace(req.admin, month);
+  }
+
+  @Post('commissions/transition')
+  @UseGuards(AdminGuard)
+  transitionCommissions(@Body() body: { action?: string; entries?: unknown }, @Req() req) {
+    return this.service.transitionCommissions(req.admin, body);
+  }
+
+  @Get('staff-schedule/slots')
+  @UseGuards(AdminGuard)
+  staffScheduleSlots(@Query() query: Record<string,string>, @Req() req) {
+    return this.service.staffScheduleSlots(req.admin, query);
+  }
+  @Post('staff-schedule/book')
+  @UseGuards(AdminGuard)
+  createScheduleBooking(@Body() body: Record<string,unknown>, @Req() req) {
+    return this.service.createScheduleBooking(req.admin, body);
+  }
+  @Post('staff-schedule/assign')
+  @UseGuards(AdminGuard)
+  assignScheduleBooking(@Body() body: Record<string, unknown>, @Req() req) {
+    return this.service.assignScheduleBooking(req.admin, body);
+  }
+
+  @Post('treatment/inventory/count')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  recordMaterialCount(@Body() body:Record<string,unknown>,@Req() req){return this.service.recordMaterialCount(req.admin,body);}
+  @Post('treatment/inventory/:id/sync')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  syncTreatmentInventory(@Param('id') id:string,@Req() req){return this.service.syncInventory(req.admin,id);}
   @Post(':table/create')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()
@@ -319,7 +404,7 @@ export class AdminController {
   update(
     @Param('table') table: string,
     @Body()
-    body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string },
+    body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string; expectedInstructorId?: string | null },
     @Req() req,
   ) {
     return this.service.mutate(table, req.admin, 'update', body);

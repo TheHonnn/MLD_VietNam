@@ -15,7 +15,7 @@ describe('Treatment Lifecycle & Reversal State Machine Tests (Web-Admin)', () =>
     );
     assert.equal(
       backendPackage.scripts['prestart:prod'],
-      'node ../scripts/apply_migration.js 031_treatment_lifecycle_management.sql'
+      'node ../scripts/apply_migration.js 031_treatment_lifecycle_management.sql && node ../scripts/apply_migration.js 032_home_care_delivery_snapshots.sql && node ../scripts/apply_migration.js 033_treatment_replacement_sessions.sql && node ../scripts/apply_migration.js 034_treatment_inventory_stock.sql'
     );
   });
   // 1. Package Status Finite State Machine

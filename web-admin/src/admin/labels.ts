@@ -114,8 +114,10 @@ export const labels: Record<string, string> = {
   booking_date: "Ngày hẹn",
   start_time: "Giờ bắt đầu",
   end_time: "Giờ kết thúc",
-  shift_date: "Ngày làm",
-  slot_date: "Ngày nhận khách",
+  sort_order: "Thứ tự hiển thị",
+  created_by_id: "Người tạo",
+  shift_date: "Ngày trực",
+  slot_date: "Ngày áp dụng",
   assigned_room_id: "Phòng",
   assigned_bed_number: "Số giường",
   room_type: "Loại phòng",
@@ -457,6 +459,9 @@ export const enums: Record<string, string> = {
   INTERN: "Thực tập sinh",
 };
 export const label = (name: string, table?: string) => {
+  if (table === "membership_tier_rules" && name === "point_earning_rate") return "Tỷ lệ hoàn giá trị thành điểm (%)";
+  if (table === "loyalty_point_settings" && name === "earn_amount_per_point") return "Chi tiêu cho 1 điểm (đ)";
+  if (table === "loyalty_point_settings" && name === "redeem_value_per_point") return "Giá trị 1 điểm (đ)";
   if (table === "treatment_packages") {
     if (name === "name") return "Gói liệu trình & Dịch vụ";
     if (name === "total_sessions") return "Số buổi";

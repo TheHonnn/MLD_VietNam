@@ -6,6 +6,7 @@ import 'core/services/auth_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/screens/a01_splash_screen.dart';
 import 'features/home/data/repositories/branch_repository.dart';
+import 'core/services/portal_settings_service.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -16,6 +17,9 @@ void main() async {
 
   // Initialize Global Branch Repository
   await BranchRepository.instance.init();
+  
+  // Initialize Portal Settings & Dynamic Taxonomies
+  await PortalSettingsService.instance.init();
   
   // Guard against Android/Samsung Accessibility semantics desynchronization
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -53,6 +57,20 @@ class MedicalHealthcareApp extends StatelessWidget {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: const A01SplashScreen(),
+            builder: (context, child) {
+              final mediaQuery = MediaQuery.of(context);
+              // Tối ưu tỷ lệ hiển thị toàn bộ app gọn gàng, tinh tế:
+              // Giảm nhẹ ~10% font scaling trên các màn hình Android/Samsung DPI cao
+              // để vừa vặn, hiển thị nhiều thông tin hơn mà không bị phóng to.
+              return MediaQuery(
+                data: mediaQuery.copyWith(
+                  textScaler: TextScaler.linear(
+                    (mediaQuery.textScaler.scale(1.0) * 0.90).clamp(0.82, 0.92),
+                  ),
+                ),
+                child: child!,
+              );
+            },
           );
         },
       ),

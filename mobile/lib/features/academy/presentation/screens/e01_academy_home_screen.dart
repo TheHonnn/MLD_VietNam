@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../data/models/academy_models.dart';
@@ -53,36 +54,33 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
   AcademyFilterExpanded? _expandedFilter;
 
   List<String> get _audienceCategories {
-    final list = <String>['Tất cả đối tượng', 'Khóa học đã đăng ký'];
-    final seen = <String>{};
+    final list = <String>[];
+    for (final aud in PortalSettingsService.instance.audienceFilterList) {
+      if (!list.contains(aud)) list.add(aud);
+    }
     for (final c in _allCourses) {
       final aud = c.targetAudience.trim();
-      if (aud.isNotEmpty && aud != 'Tất cả đối tượng' && !seen.contains(aud)) {
-        seen.add(aud);
+      if (aud.isNotEmpty && aud != 'Tất cả đối tượng' && !list.contains(aud)) {
         list.add(aud);
       }
+    }
+    if (!list.contains('Khóa học đã đăng ký')) {
+      list.add('Khóa học đã đăng ký');
     }
     return list;
   }
   String _selectedAudience = 'Tất cả đối tượng';
 
   List<String> get _needCategories {
-    final list = <String>['Tất cả nhu cầu'];
-    final seen = <String>{};
+    final list = <String>[];
+    for (final need in PortalSettingsService.instance.needFilterList) {
+      if (!list.contains(need)) list.add(need);
+    }
     for (final c in _allCourses) {
       final need = c.targetNeed.trim();
-      if (need.isNotEmpty && need != 'Tất cả nhu cầu' && !seen.contains(need)) {
-        seen.add(need);
+      if (need.isNotEmpty && need != 'Tất cả nhu cầu' && !list.contains(need)) {
         list.add(need);
       }
-    }
-    if (list.length == 1) {
-      return const [
-        'Tất cả nhu cầu',
-        'Kiến thức nền tảng & Tự chăm sóc',
-        'Tích hợp dịch vụ mới',
-        'Mở cơ sở chăm sóc',
-      ];
     }
     return list;
   }

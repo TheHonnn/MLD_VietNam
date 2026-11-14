@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../../database/supabase.service';
 import { EnrollCourseDto } from './dto/enroll-course.dto';
 import { decideEnrollmentAction, paymentState } from './enrollment-workflow';
@@ -483,7 +483,7 @@ export class AcademyService {
       if (!adminUser || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(adminUser)) {
         return { success: false, message: 'Không xác định được admin thực hiện thao tác' };
       }
-      const verifiedPaid = Number(amountPaid ?? enr.amount_paid ?? 0);
+      const verifiedPaid = Number(enr.amount_paid ?? 0);
       const requiredDeposit = Number(enr.required_deposit || (enr.courses as any)?.deposit_amount || 2000000);
       const tuitionTotal = Number(enr.tuition_total || 0);
       const decision = decideEnrollmentAction('APPROVE_ADMISSION', {
@@ -527,12 +527,13 @@ export class AcademyService {
     return { success: true, message: 'Học viên đã đủ điều kiện tốt nghiệp và được cấp chứng nhận.', data };
   }
 
-  async assignEnrollmentBatch(enrollmentId: string, batchId: string, adminUser: string) {
+  async assignEnrollmentBatch(enrollmentId: string, batchId: string, adminUser: string, reason?: string) {
     if (!adminUser) return { success: false, message: 'Không xác định được admin thực hiện thao tác' };
     const { data, error } = await this.supabaseService.adminClient.rpc('fn_assign_enrollment_batch', {
       p_enrollment_id: enrollmentId,
       p_batch_id: batchId,
       p_actor_id: adminUser,
+      p_transfer_reason: reason?.trim() || null,
     });
     if (error) return { success: false, message: error.message };
     return { success: true, message: 'Đã xếp lớp và gửi thông báo cho học viên.', data };
@@ -584,7 +585,7 @@ export class AcademyService {
       p_approve: approve,
       p_review_note: reviewNote || null,
     });
-    if (error) return { success: false, message: error.message };
+    if (error) throw new BadRequestException(error.message || 'Không thể xử lý yêu cầu thay đổi học tập.');
     return { success: true, message: approve ? 'Đã phê duyệt yêu cầu.' : 'Đã từ chối yêu cầu.', data };
   }
 

@@ -225,7 +225,7 @@ test('Key admin workstations and management pages adopt unified AdminTabs', () =
   const attendance = readFileSync(new URL('../src/pages/W10_Attendance.tsx', import.meta.url), 'utf8');
   assert.match(attendance, /<AdminTabs/);
   assert.match(attendance, /variant="line"/);
-  assert.match(attendance, /ariaLabel="Chế độ xem chuyên cần"/);
+  assert.match(attendance, /ariaLabel="Học viên & Lớp học"/);
 
   // W14_ZaloZNS
   const zns = readFileSync(new URL('../src/pages/W14_ZaloZNS.tsx', import.meta.url), 'utf8');

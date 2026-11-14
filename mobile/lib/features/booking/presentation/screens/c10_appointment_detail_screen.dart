@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/utils/launcher_helper.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/repositories/booking_repository.dart';
 import '../widgets/booking_status_badge.dart';
@@ -315,10 +316,10 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
               SizedBox(
                 height: 48,
                 child: OutlinedButton.icon(
-                  onPressed: () => AppLauncherHelper.makePhoneCall(context, '0967786399'),
+                  onPressed: () => AppLauncherHelper.makePhoneCall(context, PortalSettingsService.instance.hotlineSupport),
                   icon: const Icon(Icons.phone_in_talk_rounded, size: 18, color: AppColors.primary),
                   label: Text(
-                    context.tr('Hotline hỗ trợ: 096.7786.399', 'Support Hotline: 096.7786.399'),
+                    context.tr('Hotline hỗ trợ: ${PortalSettingsService.instance.hotlineSupport}', 'Support Hotline: ${PortalSettingsService.instance.hotlineSupport}'),
                     style: const TextStyle( fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
                   ),
                   style: OutlinedButton.styleFrom(

@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AcademyService } from './academy.service';
 
+describe('Academy change request acknowledgment', () => {
+  it('throws an HTTP error when the database refuses a decision instead of returning false success through the global interceptor', async () => {
+    const service = new AcademyService({ adminClient: { rpc: vi.fn().mockResolvedValue({data:null,error:{message:'Yêu cầu đã được xử lý'}}) } } as any);
+    await expect(service.resolveEnrollmentChangeRequest('request','admin',true,'Review reason')).rejects.toMatchObject({status:400});
+  });
+});
+
 describe('AcademyService.getMyResults', () => {
   it('filters academic records by the authenticated student and returns no demo record', async () => {
     const query: any = {

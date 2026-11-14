@@ -16,8 +16,13 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes, randomUUID } from 'crypto';
 import { AdminDatabase } from './admin.database';
 import { inspectAdminSchema } from './admin.schema';
+import { createTreatmentBooking } from './treatment-booking';
+import { validateLoyaltyWrite } from './loyalty-workflow';
+import { validateStaffWorkflow } from './staff-workflow';
+import { assignStaffBooking, createStaffBooking, scheduleAvailability } from './staff-booking';
+import { recordMaterialCount, syncInventoryItem } from './treatment-inventory';
 import { enrichReferenceLabels } from './admin.labels';
-import { allowedBranches, branchPredicate, assertRowScope, assertCashierBranch } from './admin.scope';
+import { allowedBranches, branchPredicate, assertRowScope, assertCashierBranch, packageBranchIdsSql } from './admin.scope';
 import {
   ADMIN_RESOURCES,
   COMPUTED_COLUMNS,
@@ -333,6 +338,17 @@ export class AdminService {
       values.push(scopedBranches);
       where.push(branchPredicate(table, quote(table), `$${values.length}`, columns.map(column => column.name)));
     }
+    if (table === 'batch_schedules' && query.weekStart) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(query.weekStart) ||
+          !Number.isFinite(Date.parse(query.weekStart)) ||
+          new Date(query.weekStart).toISOString().slice(0, 10) !== query.weekStart)
+        throw new BadRequestException('Ngày bắt đầu tuần không hợp lệ.');
+      values.push(query.weekStart);
+      where.push(`session_date >= $${values.length}::date AND session_date < $${values.length}::date + 7`);
+    }
+    if (table === 'users' && query.staffCandidates === '1') {
+      where.push("is_active AND role::text NOT IN ('CUSTOMER','STUDENT','GUEST') AND NOT EXISTS (SELECT 1 FROM staff_profiles p WHERE p.user_id=users.id)");
+    }
     if (query.search?.trim()) {
       const text = columns.filter((c) =>
         ['varchar', 'text', 'uuid'].includes(c.type),
@@ -367,20 +383,33 @@ export class AdminService {
         // The class selector uses this sentinel for an unfiltered listing,
         // including attendance/grades whose batch relation is indirect.
         if (name === 'batch_id' && value === '__ALL__' &&
-          ['course_enrollments', 'student_attendance', 'student_academic_records'].includes(table)) continue;
+          ['course_enrollments', 'student_attendance', 'student_academic_records', 'course_batch_assistants', 'batch_schedules'].includes(table)) continue;
+        if (table === 'student_academic_records' && name === 'batch_id' && !columns.some(column => column.name === name)) {
+          values.push(value);
+          where.push(`EXISTS (SELECT 1 FROM course_enrollments e WHERE e.id=student_academic_records.enrollment_id AND e.batch_id=$${values.length})`);
+          continue;
+        }
         if (!columns.some((c) => c.name === name) || typeof value === 'object')
           throw new BadRequestException('Trường lọc không hợp lệ.');
         values.push(value);
         where.push(`${expression(name)}=$${values.length}`);
       }
     }
-    if (actor.role === 'INSTRUCTOR' && ['course_batches', 'course_batch_assistants', 'student_academic_records', 'student_attendance'].includes(table)) {
+    if (actor.role === 'INSTRUCTOR' && ['course_batches', 'course_batch_assistants', 'batch_schedules', 'course_enrollments', 'student_academic_records', 'student_attendance'].includes(table)) {
       values.push(actor.id);
       const actorParam = `$${values.length}`;
       if (table === 'course_batches') {
         where.push(`(EXISTS (SELECT 1 FROM public.instructors i WHERE i.id=course_batches.instructor_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=course_batches.id AND i.user_id=${actorParam}))`);
+      } else if (table === 'batch_schedules') {
+        where.push(`EXISTS (SELECT 1 FROM course_batches b WHERE b.id=batch_schedules.batch_id AND (
+          EXISTS (SELECT 1 FROM instructors i WHERE i.id=b.instructor_id AND i.user_id=${actorParam}) OR
+          EXISTS (SELECT 1 FROM course_batch_assistants a JOIN instructors i ON i.id=a.instructor_id WHERE a.batch_id=b.id AND i.user_id=${actorParam})))`);
       } else if (table === 'course_batch_assistants') {
         where.push(`(EXISTS (SELECT 1 FROM public.instructors i WHERE i.id=course_batch_assistants.instructor_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=course_batch_assistants.batch_id AND i.user_id=${actorParam}))`);
+      } else if (table === 'course_enrollments') {
+        where.push(`EXISTS (SELECT 1 FROM course_batches b WHERE b.id=course_enrollments.batch_id AND (
+          EXISTS (SELECT 1 FROM instructors i WHERE i.id=b.instructor_id AND i.user_id=${actorParam}) OR
+          EXISTS (SELECT 1 FROM course_batch_assistants a JOIN instructors i ON i.id=a.instructor_id WHERE a.batch_id=b.id AND a.can_enter_grades AND i.user_id=${actorParam})))`);
       } else if (table === 'student_academic_records') {
         where.push(`EXISTS (SELECT 1 FROM public.course_enrollments e WHERE e.id=student_academic_records.enrollment_id AND (EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=e.batch_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=e.batch_id AND a.can_enter_grades AND i.user_id=${actorParam})))`);
       } else if (table === 'student_attendance') {
@@ -416,6 +445,23 @@ export class AdminService {
         [...values, limit, (page - 1) * limit],
       );
       await enrichReferenceLabels(client, columns, data.rows);
+      if (table === 'user_packages' && data.rows.length) {
+        const context = await client.query(
+          `SELECT up.id, tp.service_id, s.name AS service_name,
+             (SELECT jsonb_build_object('id',bk.id,'code',bk.booking_code,'date',bk.booking_date,'time',bk.start_time,'branch',br.name)
+              FROM bookings bk JOIN branches br ON br.id=bk.branch_id
+              WHERE bk.customer_id=up.customer_id AND bk.special_notes LIKE ('%user_package_id=' || up.id::text || ']%')
+                AND bk.booking_date>=CURRENT_DATE AND bk.status::text IN ('PENDING','CONFIRMED','CHECKED_IN','IN_SERVICE','IN_PROGRESS')
+              ORDER BY bk.booking_date,bk.start_time LIMIT 1) AS next_booking,
+             COALESCE((SELECT jsonb_agg(jsonb_build_object('id',b.id,'name',b.name))
+               FROM branches b WHERE b.id IN (${packageBranchIdsSql('up')})), '[]'::jsonb) AS package_branches
+           FROM user_packages up JOIN treatment_packages tp ON tp.id=up.package_id
+           LEFT JOIN services s ON s.id=tp.service_id WHERE up.id=ANY($1::uuid[])`,
+          [data.rows.map(row => row.id)],
+        );
+        const contexts = new Map(context.rows.map(row => [row.id, row]));
+        for (const row of data.rows) Object.assign(row, contexts.get(row.id) || {});
+      }
       await client.query('COMMIT');
       return {
         rows: data.rows,
@@ -520,7 +566,8 @@ export class AdminService {
     table: string,
     actor: AdminActor,
     operation: 'create' | 'update' | 'delete',
-    body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string; reason?: string },
+    body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string; expectedInstructorId?: string | null; reason?: string },
+    allocateTreatmentSession = false,
   ) {
     const resource = this.resource(table, actor, true);
     if (resource.actions && !resource.actions.includes(operation)) {
@@ -545,6 +592,7 @@ export class AdminService {
     if (table === 'user_packages' && operation === 'create') {
       throw new BadRequestException('Chỉ luồng POS mới được kích hoạt gói cho khách hàng.');
     }
+    if (table === 'staff_commissions') throw new ForbiddenException('Dùng quy trình duyệt và ghi nhận chi trả hoa hồng.');
     const columns = await this.columns(table, actor);
     let input = body?.values;
     let password: string | undefined;
@@ -562,10 +610,15 @@ export class AdminService {
         password = raw;
       }
     }
+    const derivedTechnicianFields = ['full_name', 'user_id', 'branch_id', 'avatar_url'];
+    const derivesTechnician = table === 'technicians' && Boolean((input as Record<string, unknown>)?.staff_profile_id);
+    const validationColumns = derivesTechnician
+      ? columns.map(column => derivedTechnicianFields.includes(column.name) ? { ...column, required: false } : column)
+      : columns;
     const data =
       operation === 'delete'
         ? {}
-        : this.validate(columns, input, operation === 'create');
+        : this.validate(validationColumns, input, operation === 'create');
     if (operation === 'create' && table === 'users')
       data.referral_code = 'MLD' + randomBytes(6).toString('hex').toUpperCase();
     if (password) data.password_hash = await bcrypt.hash(password, 12);
@@ -588,6 +641,35 @@ export class AdminService {
       if (key && !previous)
         throw new NotFoundException('Bản ghi không còn tồn tại.');
       if (previous) await assertRowScope(client, table, previous, columns.map(column => column.name), actor, operation);
+      if (table === 'technicians' && operation !== 'delete') {
+        const profileId = data.staff_profile_id ?? previous?.staff_profile_id;
+        if (operation === 'create' && !profileId) throw new BadRequestException('Chọn hồ sơ nhân viên trước khi tạo kỹ thuật viên.');
+        if (previous?.staff_profile_id && data.staff_profile_id !== undefined && data.staff_profile_id !== previous.staff_profile_id)
+          throw new ConflictException('Hồ sơ kỹ thuật viên đã liên kết với nhân viên.');
+        if (profileId && (derivesTechnician || derivedTechnicianFields.some(field => field !== 'avatar_url' && field in data))) {
+          const staff = (await client.query(
+            'SELECT p.branch_id,p.user_id,u.full_name,u.avatar_url FROM staff_profiles p JOIN users u ON u.id=p.user_id WHERE p.id=$1 AND p.is_active AND u.is_active',
+            [profileId],
+          )).rows[0];
+          if (!staff) throw new ConflictException('Chọn hồ sơ nhân viên có tài khoản đang hoạt động.');
+          Object.assign(data, {
+            branch_id: staff.branch_id, user_id: staff.user_id, full_name: staff.full_name,
+            ...(operation === 'create' && !data.avatar_url ? { avatar_url: staff.avatar_url || '' } : {}),
+          });
+        }
+      }
+      if (table === 'departments' && operation !== 'delete') {
+        delete data.created_by_id;
+        if (operation === 'create') data.created_by_id = actor.id;
+        if (typeof data.name === 'string') data.name = data.name.trim();
+        if (typeof data.code === 'string') {
+          const code = data.code.trim().toUpperCase();
+          if (!/^[A-Z0-9_-]+$/.test(code)) throw new BadRequestException('Mã bộ phận chỉ gồm chữ, số, dấu gạch ngang hoặc gạch dưới.');
+          data.code = code;
+        }
+        if (data.sort_order !== undefined && Number(data.sort_order) < 0)
+          throw new BadRequestException('Thứ tự hiển thị phải từ 0 trở lên.');
+      }
       if (operation !== 'delete') await assertRowScope(client, table, { ...previous, ...data }, columns.map(column => column.name), actor, operation);
       if (
         previous?.updated_at &&
@@ -598,6 +680,11 @@ export class AdminService {
         throw new ConflictException(
           'Bản ghi đã thay đổi. Tải lại trước khi lưu.',
         );
+      if (table === 'course_batches' && operation === 'update' &&
+          body.expectedInstructorId !== undefined &&
+          body.expectedInstructorId !== (previous?.instructor_id ?? null)) {
+        throw new ConflictException('Phân công lớp đã thay đổi. Tải lại trước khi lưu.');
+      }
       if (table === 'users') {
         if (
           previous?.id === actor.id &&
@@ -631,7 +718,7 @@ export class AdminService {
       }
       if (table === 'roles' && previous?.is_system)
         throw new ConflictException('Không được sửa/xóa vai trò hệ thống.');
-      await this.businessRules(client, table, data, previous, operation, actor);
+      await this.businessRules(client, table, data, previous, operation, actor, allocateTreatmentSession);
       await this.authorizeAcademyWrite(client, table, data, previous, operation, actor);
       let result: Record<string, unknown>;
       const names = Object.keys(data);
@@ -742,8 +829,74 @@ export class AdminService {
     previous: Record<string, any> | null,
     operation: string,
     actor: AdminActor,
+    allocateTreatmentSession = false,
   ) {
     const next = { ...previous, ...data };
+    if (table === 'student_academic_records' && operation !== 'delete') {
+      if (previous && next.enrollment_id !== previous.enrollment_id)
+        throw new ConflictException('Không thể chuyển bảng điểm sang hồ sơ ghi danh khác.');
+      for (const field of ['attended_sessions', 'total_batch_sessions', 'attendance_rate', 'certificate_id'])
+        delete data[field];
+      if (operation === 'create' || actor.role === 'INSTRUCTOR') {
+        delete data['is_graduated'];
+        delete data['graduation_date'];
+      }
+      Object.assign(data, await this.academicAttendance(client, next.enrollment_id));
+    }
+    if (table === 'course_batch_assistants' && operation !== 'delete' &&
+        (next.batch_id !== previous?.batch_id || next.instructor_id !== previous?.instructor_id)) {
+      const { rows: [assignment] } = await client.query(
+        `SELECT b.instructor_id AS lead,b.status,i.is_active
+         FROM course_batches b CROSS JOIN instructors i WHERE b.id=$1 AND i.id=$2`,
+        [next.batch_id, next.instructor_id],
+      );
+      if (!assignment?.is_active) throw new ConflictException('Chọn lớp và trợ giảng đang hoạt động.');
+      if (assignment.lead === next.instructor_id)
+        throw new ConflictException('Giảng viên phụ trách đã có quyền xử lý lớp.');
+      if (['COMPLETED','CANCELLED'].includes(assignment.status))
+        throw new ConflictException('Lớp đã đóng, không thể phân công trợ giảng.');
+    }
+    if (table === 'course_batches' && operation !== 'delete' && next.instructor_id &&
+        (next.instructor_id !== previous?.instructor_id || next.status !== previous?.status) &&
+        ['UPCOMING', 'OPEN_FOR_ENROLLMENT', 'IN_PROGRESS'].includes(next.status ?? 'OPEN_FOR_ENROLLMENT')) {
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mld-academy-schedules'))");
+      const instructor = await client.query(
+        'SELECT 1 FROM instructors WHERE id=$1 AND is_active FOR SHARE',
+        [next.instructor_id],
+      );
+      if (!instructor.rowCount) throw new ConflictException('Chọn giảng viên đang hoạt động.');
+      if (previous?.id) {
+        const assistant = await client.query(
+          'SELECT 1 FROM course_batch_assistants WHERE batch_id=$1 AND instructor_id=$2',
+          [previous.id, next.instructor_id],
+        );
+        if (assistant.rowCount) throw new ConflictException('Gỡ phân công trợ giảng của người này trước khi đổi thành giảng viên phụ trách.');
+        const conflict = await client.query(
+          `SELECT 1 FROM batch_schedules target
+           JOIN batch_schedules other ON other.session_date=target.session_date
+             AND target.start_time<other.end_time AND other.start_time<target.end_time
+           JOIN course_batches b ON b.id=other.batch_id
+           WHERE target.batch_id=$1 AND other.batch_id<>$1 AND b.instructor_id=$2
+             AND target.session_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+             AND b.status::text IN ('UPCOMING','OPEN_FOR_ENROLLMENT','IN_PROGRESS')
+           LIMIT 1`,
+          [previous.id, next.instructor_id],
+        );
+        if (conflict.rowCount) throw new ConflictException('Giảng viên trùng giờ với một lớp khác. Chọn giảng viên khác hoặc điều chỉnh thời khóa biểu.');
+      }
+    }
+    await validateStaffWorkflow(client, table, next, previous, operation);
+    await validateLoyaltyWrite(client, table, data, previous, operation, actor);
+    if (table === 'home_care_guidelines') {
+      if (operation === 'delete') throw new ConflictException('Hãy gỡ xuất bản mẫu hướng dẫn để giữ lịch sử đã giao cho khách.');
+      delete data.version;
+      if (operation === 'create') {
+        data.version = 1;
+        if (data.is_published === undefined) data.is_published = false;
+      } else data.version = Number(previous?.version || 1) + 1;
+      if (!next.slug) data.slug = String(next.title || 'huong-dan').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + randomUUID().slice(0, 8);
+      if (data.is_published === undefined && previous?.is_published) data.is_published = false;
+    }
     if (table === 'home_care_guidelines' && operation !== 'delete' && data.is_published === true) {
       if (!['ADMIN', 'SUPER_ADMIN'].includes(actor.role))
         throw new ForbiddenException('Chỉ quản trị viên được duyệt và xuất bản hướng dẫn chăm sóc.');
@@ -955,7 +1108,7 @@ export class AdminService {
         'customer_id', 'package_id', 'total_sessions', 'completed_sessions',
         'purchased_at', 'expires_at', 'paused_at', 'resumed_at', 'cancelled_at',
         'cancelled_reason', 'transferred_at', 'transferred_to_user_id',
-        'refunded_at', 'refund_amount', 'refund_reason',
+        'refunded_at', 'refund_amount', 'refund_reason', 'transferred_from_package_id',
       ];
       if (immutableFields.some((field) => Object.prototype.hasOwnProperty.call(data, field)))
         throw new BadRequestException('Thông tin mua, số buổi và trạng thái vòng đời chỉ được cập nhật bởi hệ thống qua nhật ký điều trị hoặc lệnh vòng đời.');
@@ -1009,6 +1162,14 @@ export class AdminService {
         throw new ConflictException('Không thể chỉnh sửa buổi điều trị đã được xác nhận hoàn thành.');
       if (previous?.is_reversed)
         throw new ConflictException('Không thể chỉnh sửa buổi điều trị đã được hoàn tác.');
+      if (operation === 'update' && !['DRAFT', 'PENDING'].includes(previous?.confirmation_status))
+        throw new ConflictException('Hồ sơ đã gửi chỉ được xử lý qua lệnh nghiệp vụ.');
+      const protectedJournalFields = ['clinical_approved_at','clinical_approved_by','reversed_at','reversed_by','is_reversed','reversal_id','reversal_reason','post_care_status'];
+      if (protectedJournalFields.some(field => Object.prototype.hasOwnProperty.call(data,field)) ||
+        (operation === 'update' && ['confirmation_status','customer_id','booking_id','user_package_id','session_number','session_date','technician_id','assigned_room_id'].some(field => Object.prototype.hasOwnProperty.call(data,field))))
+        throw new BadRequestException('Không sửa trực tiếp trạng thái, phê duyệt hoặc liên kết nhật ký. Dùng lệnh nghiệp vụ.');
+      if (operation === 'create' && data.confirmation_status && !['DRAFT','PENDING'].includes(data.confirmation_status))
+        throw new BadRequestException('Nhật ký mới phải là bản nháp.');
       if (data.is_reversed !== undefined || data.reversal_id !== undefined || data.reversal_reason !== undefined)
         throw new BadRequestException('Không sửa trực tiếp trạng thái hoàn tác.');
       if (operation === 'create' && !next.booking_id)
@@ -1038,14 +1199,17 @@ export class AdminService {
           );
         if (operation === 'create') {
           const expected = (await client.query(
-            'SELECT coalesce(max(session_number),0)::int + 1 AS next_session FROM treatment_journal WHERE user_package_id=$1',
-            [next.user_package_id],
+            `SELECT min(n)::int AS next_session FROM generate_series(1,$2::int) n
+             WHERE NOT EXISTS(SELECT 1 FROM treatment_journal j WHERE j.user_package_id=$1 AND j.session_number=n AND j.is_reversed IS NOT TRUE)`,
+            [next.user_package_id,pkg.total_sessions],
           )).rows[0].next_session;
+          if (!expected) throw new ConflictException('Không còn buổi trống để ghi nhận.');
+          if (allocateTreatmentSession) data.session_number = next.session_number = expected;
           if (Number(next.session_number) !== Number(expected))
             throw new ConflictException(`Buổi tiếp theo của gói là buổi ${expected}.`);
         }
         const exists = await client.query(
-          'SELECT 1 FROM treatment_journal WHERE user_package_id=$1 AND session_number=$2 AND id<>$3',
+          'SELECT 1 FROM treatment_journal WHERE user_package_id=$1 AND session_number=$2 AND id<>$3 AND is_reversed IS NOT TRUE',
           [
             next.user_package_id,
             next.session_number,
@@ -1097,26 +1261,6 @@ export class AdminService {
           }
         }
       }
-    }
-    if (
-      ['technician_shifts', 'technician_slots'].includes(table) &&
-      operation !== 'delete'
-    ) {
-      const day = table === 'technician_shifts' ? 'shift_date' : 'slot_date';
-      const overlaps = await client.query(
-        `SELECT 1 FROM ${quote(table)} WHERE technician_id=$1 AND ${quote(day)}=$2 AND start_time<$4::time AND end_time>$3::time AND id<>$5 ${table === 'technician_shifts' ? 'AND is_cancelled=false' : ''} LIMIT 1`,
-        [
-          next.technician_id,
-          next[day],
-          next.start_time,
-          next.end_time,
-          previous?.id || '00000000-0000-4000-8000-000000000000',
-        ],
-      );
-      if (overlaps.rowCount && !next.is_cancelled)
-        throw new ConflictException(
-          'Ca làm / khung giờ bị trùng với lịch đã có.',
-        );
     }
     if (
       [
@@ -1198,6 +1342,110 @@ export class AdminService {
     }
   }
 
+  private async attendanceContext(client: PoolClient, actor: AdminActor, scheduleId: string, operation: string) {
+    const branches = allowedBranches(actor, 'student_attendance.' + operation);
+    const { rows: [schedule] } = await client.query(
+      `SELECT s.batch_id,s.session_date::text,b.branch_id,b.status,
+              s.session_date > (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS future
+       FROM batch_schedules s JOIN course_batches b ON b.id=s.batch_id WHERE s.id=$1 FOR SHARE OF s,b`,
+      [scheduleId],
+    );
+    if (!schedule || (branches && !branches.includes(schedule.branch_id)))
+      throw new NotFoundException('Không tìm thấy buổi học trong phạm vi được cấp quyền.');
+    await this.authorizeAcademyWrite(client, 'student_attendance', { schedule_id: scheduleId }, null, operation, actor);
+    return schedule;
+  }
+
+  async attendanceRoster(actor: AdminActor, scheduleId: string) {
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      const schedule = await this.attendanceContext(client, actor, scheduleId, 'read');
+      const { rows } = await client.query(
+        `SELECT e.id,u.full_name,a.status,
+                COALESCE(history.present,0) AS present,COALESCE(history.late,0) AS late,
+                COALESCE(history.absent,0) AS absent,COALESCE(history.excused,0) AS excused,
+                (e.batch_id=$2 AND e.student_status IN ('ENROLLED','AWAITING_RETEST')
+                   AND e.status::text NOT IN ('DROPPED','GRADUATED') AND e.access_status NOT IN ('SUSPENDED','EXPIRED')) AS eligible
+         FROM course_enrollments e JOIN users u ON u.id=e.student_id
+         LEFT JOIN student_attendance a ON a.enrollment_id=e.id AND a.schedule_id=$1
+         LEFT JOIN (
+           SELECT h.enrollment_id,count(*) FILTER (WHERE h.status='PRESENT')::int AS present,
+                  count(*) FILTER (WHERE h.status='LATE')::int AS late,
+                  count(*) FILTER (WHERE h.status='ABSENT')::int AS absent,
+                  count(*) FILTER (WHERE h.status='EXCUSED')::int AS excused
+           FROM student_attendance h JOIN batch_schedules s ON s.id=h.schedule_id
+           WHERE s.batch_id=$2 GROUP BY h.enrollment_id
+         ) history ON history.enrollment_id=e.id
+         WHERE e.batch_id=$2 OR history.enrollment_id IS NOT NULL
+         ORDER BY u.full_name,e.id`,
+        [scheduleId, schedule.batch_id],
+      );
+      await client.query('COMMIT');
+      return {
+        rows: rows.filter(row => row.eligible || row.status),
+        history: rows.filter(row => row.eligible || row.present + row.late + row.absent + row.excused > 0),
+        writable: !schedule.future && !['CANCELLED','COMPLETED'].includes(schedule.status),
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.fail(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async saveAttendance(actor: AdminActor, scheduleId: string, input: unknown) {
+    const statuses = ['PRESENT','ABSENT','LATE','EXCUSED'];
+    if (!Array.isArray(input) || !input.length || input.length > 250 ||
+        input.some(row => !row || typeof row.enrollmentId !== 'string' ||
+          !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(row.enrollmentId) ||
+          !statuses.includes(row.status) || (row.previous !== null && !statuses.includes(row.previous))) ||
+        new Set(input.map(row => row.enrollmentId.toLowerCase())).size !== input.length)
+      throw new BadRequestException('Danh sách điểm danh không hợp lệ.');
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mld-admin-mutation'))");
+      const hasCreate = input.some(row => row.previous === null);
+      const hasUpdate = input.some(row => row.previous !== null);
+      const schedule = await this.attendanceContext(client, actor, scheduleId, hasUpdate ? 'update' : 'create');
+      if (hasCreate && hasUpdate) await this.attendanceContext(client, actor, scheduleId, 'create');
+      if (schedule.future || ['CANCELLED','COMPLETED'].includes(schedule.status))
+        throw new ConflictException('Buổi học chưa đến ngày hoặc lớp đã đóng.');
+      for (const change of input) {
+        const { rows: [enrollment] } = await client.query(
+          `SELECT id FROM course_enrollments WHERE id=$1 AND batch_id=$2
+             AND student_status IN ('ENROLLED','AWAITING_RETEST') AND status::text NOT IN ('DROPPED','GRADUATED')
+             AND access_status NOT IN ('SUSPENDED','EXPIRED') FOR SHARE`,
+          [change.enrollmentId, schedule.batch_id],
+        );
+        if (!enrollment) throw new ConflictException('Học viên không còn đủ điều kiện điểm danh trong lớp.');
+        const { rows: [existing] } = await client.query(
+          'SELECT id,status FROM student_attendance WHERE schedule_id=$1 AND enrollment_id=$2 FOR UPDATE',
+          [scheduleId, change.enrollmentId],
+        );
+        if ((existing?.status ?? null) !== change.previous)
+          throw new ConflictException('Điểm danh đã thay đổi. Tải lại buổi học trước khi lưu.');
+        const { rows: [saved] } = await client.query(
+          `INSERT INTO student_attendance(schedule_id,enrollment_id,status,marked_by_id)
+           VALUES($1,$2,$3,$4) ON CONFLICT(schedule_id,enrollment_id)
+           DO UPDATE SET status=EXCLUDED.status,marked_by_id=EXCLUDED.marked_by_id RETURNING id,enrollment_id`,
+          [scheduleId, change.enrollmentId, change.status, actor.id],
+        );
+        await this.syncRelated(client, 'student_attendance', saved, null);
+        await this.audit(client, actor, 'student_attendance', existing ? 'update' : 'create', saved.id);
+      }
+      await client.query('COMMIT');
+      return { saved: input.length };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.fail(error);
+    } finally {
+      client.release();
+    }
+  }
+
   private async authorizeAcademyWrite(
     client: PoolClient,
     table: string,
@@ -1245,6 +1493,20 @@ export class AdminService {
       )).rows[0]?.allowed === true;
     }
     if (!allowed) throw new ForbiddenException('Chỉ giảng viên/trợ giảng được phân công cho lớp mới được thao tác điểm danh hoặc điểm số.');
+  }
+
+  private async academicAttendance(client: PoolClient, enrollmentId: string) {
+    const { rows: [stats] } = await client.query(
+      `SELECT count(s.id) FILTER (WHERE a.status IN ('PRESENT','LATE'))::int AS attended_sessions,
+              count(s.id)::int AS total_batch_sessions,
+              COALESCE(round(100.0 * count(s.id) FILTER (WHERE a.status IN ('PRESENT','LATE')) / NULLIF(count(s.id),0),2),0) AS attendance_rate
+       FROM course_enrollments e LEFT JOIN batch_schedules s ON s.batch_id=e.batch_id
+       LEFT JOIN student_attendance a ON a.schedule_id=s.id AND a.enrollment_id=e.id
+       WHERE e.id=$1 GROUP BY e.id`,
+      [enrollmentId],
+    );
+    if (!stats) throw new BadRequestException('Hồ sơ ghi danh không tồn tại.');
+    return stats;
   }
 
   private async syncRelated(
@@ -1327,12 +1589,20 @@ export class AdminService {
           [id, totals.total, totals.duration],
         );
       }
-    if (table === 'student_attendance')
-      for (const id of ids('enrollment_id'))
+    if (table === 'student_attendance' || table === 'batch_schedules') {
+      const enrollmentIds = table === 'student_attendance' ? ids('enrollment_id') :
+        (await client.query(
+          'SELECT e.id FROM course_enrollments e JOIN student_academic_records r ON r.enrollment_id=e.id WHERE e.batch_id=ANY($1::uuid[])',
+          [ids('batch_id')],
+        )).rows.map(row => row.id);
+      for (const id of enrollmentIds) {
+        const stats = await this.academicAttendance(client, id);
         await client.query(
-          "UPDATE student_academic_records SET attended_sessions=(SELECT count(*) FROM student_attendance WHERE enrollment_id=$1 AND status IN ('PRESENT','LATE')),total_batch_sessions=(SELECT count(*) FROM batch_schedules s JOIN course_enrollments e ON e.batch_id=s.batch_id WHERE e.id=$1),attendance_rate=COALESCE((SELECT round(100.0*(SELECT count(*) FROM student_attendance WHERE enrollment_id=$1 AND status IN ('PRESENT','LATE'))/NULLIF(count(*),0),2) FROM batch_schedules s JOIN course_enrollments e ON e.batch_id=s.batch_id WHERE e.id=$1),0) WHERE enrollment_id=$1",
-          [id],
+          'UPDATE student_academic_records SET attended_sessions=$2,total_batch_sessions=$3,attendance_rate=$4 WHERE enrollment_id=$1',
+          [id, stats.attended_sessions, stats.total_batch_sessions, stats.attendance_rate],
         );
+      }
+    }
   }
 
   private async preventCascade(
@@ -1366,7 +1636,7 @@ export class AdminService {
   async action(
     table: string,
     actor: AdminActor,
-    body: { key?: unknown; action?: string; reason?: string; userPackageId?: string },
+    body: { key?: unknown; action?: string; reason?: string; userPackageId?: string; requireEnded?: boolean },
   ) {
     this.resource(table, actor, true);
     const columns = await this.columns(table, actor);
@@ -1433,9 +1703,14 @@ export class AdminService {
             )).rowCount;
             if (!serviceMatches)
               throw new ConflictException('Dịch vụ đặt lịch không khớp gói liệu trình.');
+            const linkedPackage = String(row.special_notes || '').match(/user_package_id=([0-9a-f-]{36})/i)?.[1];
+            if (linkedPackage && linkedPackage !== userPackageId)
+              throw new ConflictException('Gói check-in không khớp gói đã liên kết trong lịch hẹn.');
+            if (Number(row.final_price) !== 0 || (await client.query('SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id<>$2 LIMIT 1',[row.id,entitlement.service_id])).rowCount)
+              throw new ConflictException('Lịch dùng gói phải có giá phải thu bằng 0 và chỉ chứa dịch vụ được gói chi trả.');
             await client.query(
-              "UPDATE bookings SET payment_status='PAID',status='CHECKED_IN',checked_in_at=now(),checked_in_by_id=$2 WHERE id=$1",
-              [row.id, actor.id],
+              "UPDATE bookings SET payment_status='PAID',status='CHECKED_IN',checked_in_at=now(),checked_in_by_id=$2,special_notes=CASE WHEN special_notes LIKE ('%user_package_id=' || $3::text || ']%') THEN special_notes ELSE COALESCE(special_notes,'') || ' [user_package_id=' || $3::text || ']' END WHERE id=$1",
+              [row.id, actor.id, userPackageId],
             );
           } else {
             await client.query(
@@ -1454,7 +1729,7 @@ export class AdminService {
           if (row.status !== 'IN_SERVICE' || row.session_status === 'COMPLETED')
             throw new ConflictException('Ca dịch vụ không ở trạng thái có thể hoàn tất.');
           const journal = await client.query(
-            'SELECT 1 FROM treatment_journal WHERE booking_id=$1 LIMIT 1',
+            "SELECT 1 FROM treatment_journal WHERE booking_id=$1 AND is_reversed IS NOT TRUE AND (user_package_id IS NULL OR confirmation_status='CONFIRMED') LIMIT 1",
             [row.id],
           );
           if (!journal.rowCount)
@@ -1469,6 +1744,9 @@ export class AdminService {
             [row.id, actor.id],
           );
         } else if (action === 'checkout') {
+          if (body.requireEnded === true && !(await client.query(
+            "SELECT booking_date + end_time <= now() AT TIME ZONE 'Asia/Ho_Chi_Minh' AS ended FROM bookings WHERE id=$1", [row.id],
+          )).rows[0]?.ended) throw new ConflictException('Ca chưa hết giờ theo lịch.');
           if (row.status !== 'IN_SERVICE' || row.session_status !== 'COMPLETED')
             throw new ConflictException('Cần hoàn tất hồ sơ chuyên môn trước khi check-out.');
           if (row.payment_status !== 'PAID')
@@ -1888,6 +2166,8 @@ export class AdminService {
         const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
 
         if (['save-draft', 'save-treatment-draft'].includes(action)) {
+          if (!['DRAFT', 'PENDING'].includes(row.confirmation_status))
+            throw new ConflictException('Chỉ chỉnh sửa hồ sơ còn ở trạng thái bản nháp.');
           if (row.is_reversed)
             throw new ConflictException('Buổi điều trị đã được hoàn tác, không thể chỉnh sửa.');
           if (row.confirmation_status === 'CONFIRMED')
@@ -1899,13 +2179,15 @@ export class AdminService {
             'treatment_areas', 'treatment_protocol', 'technical_parameters',
             'has_abnormal_reaction', 'adverse_reactions', 'consumables_used',
             'photos_metadata', 'home_care_instructions', 'next_session_recommended_at', 'next_session_notes',
+            'treatment_start_time', 'treatment_end_time',
+            'before_photos', 'after_photos',
           ];
-          const updates: string[] = ["confirmation_status = 'DRAFT'"];
+          const updates: string[] = ["confirmation_status = 'DRAFT'", 'clinical_approved_at = NULL', 'clinical_approved_by = NULL'];
           const updateVals: any[] = [row.id];
 
           for (const f of allowedFields) {
             if (vals[f] !== undefined) {
-              updateVals.push(['technical_parameters', 'consumables_used', 'photos_metadata'].includes(f) ? JSON.stringify(vals[f]) : vals[f]);
+              updateVals.push(['technical_parameters', 'consumables_used', 'photos_metadata', 'before_photos', 'after_photos'].includes(f) ? JSON.stringify(vals[f]) : vals[f]);
               updates.push(`${quote(f)} = $${updateVals.length}`);
             }
           }
@@ -1915,6 +2197,8 @@ export class AdminService {
             updateVals,
           );
         } else if (['submit-session', 'submit-treatment-session', 'submit'].includes(action)) {
+          if (!['DRAFT','PENDING'].includes(row.confirmation_status))
+            throw new ConflictException('Chỉ gửi hồ sơ còn ở trạng thái bản nháp; không được gửi lại để thay đổi yêu cầu duyệt.');
           if (row.is_reversed)
             throw new ConflictException('Buổi điều trị đã được hoàn tác.');
           if (row.confirmation_status === 'CONFIRMED')
@@ -1928,7 +2212,8 @@ export class AdminService {
           if (!before || !after || !notes)
             throw new BadRequestException('Vui lòng điền đầy đủ tình trạng trước, sau điều trị và ghi chú chuyên môn trước khi gửi.');
 
-          const hasAbnormal = vals.has_abnormal_reaction !== undefined ? Boolean(vals.has_abnormal_reaction) : Boolean(row.has_abnormal_reaction);
+          const hasAbnormal = (vals.has_abnormal_reaction !== undefined ? Boolean(vals.has_abnormal_reaction) : Boolean(row.has_abnormal_reaction))
+            || Boolean(String(vals.adverse_reactions ?? row.adverse_reactions ?? '').trim());
           const nextStatus = hasAbnormal ? 'REVIEW_REQUIRED' : 'SUBMITTED';
 
           await client.query(
@@ -1950,6 +2235,8 @@ export class AdminService {
             ],
           );
         } else if (['confirm-session', 'confirm-treatment-session', 'confirm'].includes(action)) {
+          if (!['SUBMITTED', 'REVIEW_REQUIRED', 'CONFIRMED'].includes(row.confirmation_status))
+            throw new ConflictException('Cần gửi hồ sơ chuyên môn trước khi xác nhận buổi.');
           if (row.is_reversed)
             throw new ConflictException('Buổi điều trị đã được hoàn tác, không thể xác nhận.');
           if (row.confirmation_status === 'CONFIRMED')
@@ -1987,6 +2274,8 @@ export class AdminService {
 
             if (!booking || booking.customer_id !== row.customer_id)
               throw new BadRequestException('Lịch hẹn không thuộc khách hàng của buổi điều trị.');
+            if (booking.status !== 'IN_SERVICE' || booking.session_status === 'COMPLETED')
+              throw new ConflictException('Chỉ xác nhận lịch đang phục vụ và chưa hoàn tất chuyên môn.');
 
             const packageService = (await client.query(
               'SELECT tp.service_id FROM user_packages up JOIN treatment_packages tp ON tp.id=up.package_id WHERE up.id=$1',
@@ -2004,13 +2293,13 @@ export class AdminService {
           }
 
           if (row.has_abnormal_reaction || row.confirmation_status === 'REVIEW_REQUIRED') {
-            if (!row.clinical_approved_at && !['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(actor.role)) {
+            if (!row.clinical_approved_at) {
               throw new ForbiddenException('Hồ sơ có phản ứng bất thường cần Quản lý chi nhánh hoặc Bác sĩ duyệt chuyên môn trước khi xác nhận.');
             }
           }
 
-          const clinicalApprover = row.clinical_approved_by || (['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(actor.role) ? actor.id : null);
-          const clinicalApprovedAt = row.clinical_approved_at || (clinicalApprover ? new Date().toISOString() : null);
+          const clinicalApprover = row.clinical_approved_by || null;
+          const clinicalApprovedAt = row.clinical_approved_at || null;
 
           await client.query(
             `UPDATE treatment_journal
@@ -2081,7 +2370,7 @@ export class AdminService {
             if (staffUserId && effectiveBranchId) {
               const existingComm = (await client.query('SELECT 1 FROM staff_commissions WHERE treatment_journal_id=$1 LIMIT 1', [row.id])).rowCount;
               if (!existingComm) {
-                const baseAmt = Number(bookingRow?.base_total || 200000);
+                const baseAmt = Number(bookingRow?.base_total ?? 0);
                 await client.query(
                   `INSERT INTO staff_commissions(staff_id, branch_id, booking_id, treatment_journal_id, commission_type, base_amount, percentage, commission_amount, status, cycle_month, notes, source_session_status)
                    VALUES($1, $2, $3, $4, 'TREATMENT_SESSION', $5, 10, round($5 * 0.1), 'PENDING', to_char(now(), 'YYYY-MM'), $6, 'CONFIRMED')
@@ -2094,8 +2383,15 @@ export class AdminService {
 
           if (row.booking_id) {
             await client.query(
-              "UPDATE bookings SET session_status='COMPLETED' WHERE id=$1",
-              [row.booking_id],
+              `UPDATE bookings SET session_status='COMPLETED',
+               payment_status=CASE WHEN final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
+                 AND special_notes LIKE ('%user_package_id=' || $2::text || ']%') THEN 'PAID'::payment_status ELSE payment_status END,
+               status=CASE WHEN final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
+                 AND special_notes LIKE ('%user_package_id=' || $2::text || ']%') THEN 'COMPLETED'::booking_status ELSE status END,
+               checked_out_at=CASE WHEN final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
+                 AND special_notes LIKE ('%user_package_id=' || $2::text || ']%') THEN now() ELSE checked_out_at END
+               WHERE id=$1`,
+              [row.booking_id, targetPackage.id],
             );
           }
 
@@ -2215,6 +2511,8 @@ export class AdminService {
         } else if (action === 'approve-clinical') {
           if (!['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(actor.role))
             throw new ForbiddenException('Chỉ bác sĩ / chuyên gia được duyệt hồ sơ chuyên môn.');
+          if (row.is_reversed || row.confirmation_status !== 'REVIEW_REQUIRED')
+            throw new ConflictException('Chỉ duyệt chuyên môn hồ sơ đã gửi và đang chờ duyệt.');
           await client.query(
             `UPDATE treatment_journal
              SET clinical_approved_by=$2,
@@ -2252,6 +2550,264 @@ export class AdminService {
     } finally {
       client.release();
     }
+  }
+
+  async recordMaterialCount(actor: AdminActor, body: Record<string,unknown>) {
+    return recordMaterialCount(this.db.connection,actor,body);
+  }
+
+  async syncInventory(actor:AdminActor,id:string) {
+    if(!this.isUuid(id))throw new BadRequestException('Mã yêu cầu kho không hợp lệ.');
+    const row=(await this.db.connection.query('SELECT * FROM treatment_inventory_outbox WHERE id=$1',[id])).rows[0];
+    if(!row)throw new NotFoundException('Không tìm thấy yêu cầu kho.');
+    await assertRowScope(this.db.connection,'treatment_inventory_outbox',row,['branch_id'],actor,'action');
+    return syncInventoryItem(this.db.connection,id);
+  }
+
+  async bookTreatmentSession(actor: AdminActor, packageId: string, body: Record<string, unknown>) {
+    return createTreatmentBooking(this.db.connection,actor,packageId,body);
+  }
+
+  async commissionsWorkspace(actor: AdminActor, month: string) {
+    const branches = allowedBranches(actor, 'staff_commissions.read');
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month || ''))
+      throw new BadRequestException('Chọn kỳ hoa hồng hợp lệ.');
+    const rows = (await this.db.connection.query(
+      `SELECT c.id,c.staff_id,c.branch_id,c.cycle_month,c.status,c.notes,c.commission_type,
+        c.base_amount,c.percentage,c.commission_amount,c.reversed_at,c.reversal_of_id,
+        u.full_name AS staff_name,b.name AS branch_name,i.invoice_code,bk.booking_code
+       FROM staff_commissions c JOIN users u ON u.id=c.staff_id JOIN branches b ON b.id=c.branch_id
+       LEFT JOIN invoices i ON i.id=c.invoice_id LEFT JOIN bookings bk ON bk.id=c.booking_id
+       WHERE c.cycle_month=$1 AND ($2::uuid[] IS NULL OR c.branch_id=ANY($2))
+       ORDER BY c.created_at DESC,c.id DESC`, [month, branches],
+    )).rows;
+    let actionBranches: string[] | null = [];
+    try { actionBranches = allowedBranches(actor, 'staff_commissions.action'); }
+    catch (error) { if (!(error instanceof ForbiddenException)) throw error; }
+    return { rows, actionBranches };
+  }
+
+  async transitionCommissions(actor: AdminActor, body: { action?: string; entries?: unknown }) {
+    const branches = allowedBranches(actor, 'staff_commissions.action');
+    const { action, entries } = body;
+    if (!['approve', 'record-payment'].includes(action || '') || !Array.isArray(entries) ||
+      !entries.length || entries.length > 100 || (action === 'record-payment' && entries.length !== 1) ||
+      entries.some(item => !item || typeof item.id !== 'string' || !this.isUuid(item.id) || !Number.isFinite(item.amount)))
+      throw new BadRequestException('Danh sách khoản hoa hồng cần xử lý không hợp lệ.');
+    const expected = new Map<string, number>(entries.map(item => [item.id, item.amount]));
+    if (expected.size !== entries.length) throw new BadRequestException('Khoản hoa hồng bị chọn trùng.');
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mld-admin-mutation'))");
+      const { rows } = await client.query(
+        'SELECT id,branch_id,status,commission_amount,reversed_at,reversal_of_id FROM staff_commissions WHERE id=ANY($1::uuid[]) AND ($2::uuid[] IS NULL OR branch_id=ANY($2)) ORDER BY id FOR UPDATE',
+        [[...expected.keys()], branches],
+      );
+      const validStatus = action === 'approve' ? ['PENDING', 'PENDING_APPROVAL'] : ['APPROVED'];
+      if (rows.length !== expected.size || rows.some(row => !validStatus.includes(row.status) || row.reversed_at ||
+        row.reversal_of_id || Number(row.commission_amount) <= 0 || Number(row.commission_amount) !== expected.get(row.id)))
+        throw new ConflictException('Danh sách đã thay đổi hoặc có khoản không đủ điều kiện. Tải lại và đối soát trước khi xác nhận.');
+      await client.query('UPDATE staff_commissions SET status=$2 WHERE id=ANY($1::uuid[])',
+        [[...expected.keys()], action === 'approve' ? 'APPROVED' : 'PAID']);
+      for (const row of rows)
+        await this.audit(client, actor, 'staff_commissions', action === 'approve' ? 'APPROVE_COMMISSION' : 'RECORD_COMMISSION_PAYMENT', row.id);
+      await client.query('COMMIT');
+      return { count: rows.length };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      return this.fail(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async staffScheduleSlots(actor: AdminActor, query: Record<string,string>) {
+    const client = await this.db.connection.connect();
+    try {
+      const {slots, shifts} = await scheduleAvailability(client, actor, query.branchId || '', query.date || '', query.serviceId || '');
+      return {slots, shifts: shifts.map(shift => ({
+        technicianId: shift.technician_id,
+        start: String(shift.start_time).slice(0, 5),
+        end: String(shift.end_time).slice(0, 5),
+      }))};
+    } finally { client.release(); }
+  }
+
+  async createScheduleBooking(actor: AdminActor, body: Record<string, unknown>) {
+    try { return await createStaffBooking(this.db.connection, actor, body); }
+    catch (error) { return this.fail(error); }
+  }
+
+  async assignScheduleBooking(actor: AdminActor, body: Record<string, unknown>) {
+    try {
+      return await assignStaffBooking(this.db.connection, actor, String(body.bookingId || ''), String(body.technicianId || ''));
+    } catch (error) { return this.fail(error); }
+  }
+
+  async startTreatmentDraft(actor: AdminActor, packageId: string, bookingId: string) {
+    if (!this.isUuid(packageId) || !this.isUuid(bookingId)) throw new BadRequestException('Mã gói hoặc lịch hẹn không hợp lệ.');
+    const packageColumns = await this.columns('user_packages',actor);
+    const journalColumns = await this.columns('treatment_journal',actor);
+    const bookingColumns = await this.columns('bookings',actor);
+    const pkg = (await this.db.connection.query('SELECT * FROM user_packages WHERE id=$1',[packageId])).rows[0];
+    const booking = (await this.db.connection.query('SELECT * FROM bookings WHERE id=$1',[bookingId])).rows[0];
+    if (!pkg || !booking) throw new NotFoundException('Không tìm thấy gói hoặc lịch hẹn.');
+    await assertRowScope(this.db.connection,'user_packages',pkg,packageColumns.map(c=>c.name),actor,'read');
+    await assertRowScope(this.db.connection,'bookings',booking,bookingColumns.map(c=>c.name),actor,'read');
+    if (pkg.customer_id !== booking.customer_id) throw new ConflictException('Lịch hẹn không thuộc khách hàng của gói.');
+    const linked = String(booking.special_notes || '').match(/user_package_id=([0-9a-f-]{36})/i)?.[1];
+    if (linked && linked !== packageId) throw new ConflictException('Lịch hẹn đã liên kết với gói liệu trình khác.');
+    const existing = (await this.db.connection.query('SELECT * FROM treatment_journal WHERE booking_id=$1',[bookingId])).rows[0];
+    if (existing) {
+      await assertRowScope(this.db.connection,'treatment_journal',existing,journalColumns.map(c=>c.name),actor,'create');
+      if (existing.user_package_id !== packageId) throw new ConflictException('Lịch hẹn đã được ghi nhận bằng gói khác.');
+      return existing;
+    }
+    try { return await this.mutate('treatment_journal',actor,'create',{ values: {
+      user_package_id:packageId,booking_id:bookingId,customer_id:booking.customer_id,
+      technician_id:booking.technician_id,assigned_room_id:booking.assigned_room_id,
+      session_date: booking.booking_date instanceof Date ? booking.booking_date.toISOString().slice(0,10) : String(booking.booking_date).slice(0,10),session_number:1,confirmation_status:'DRAFT',
+    } }, true); } catch (error) {
+      const saved = (await this.db.connection.query('SELECT * FROM treatment_journal WHERE booking_id=$1 AND user_package_id=$2',[bookingId,packageId])).rows[0];
+      if (!saved) throw error;
+      await assertRowScope(this.db.connection,'treatment_journal',saved,journalColumns.map(c=>c.name),actor,'create');
+      return saved;
+    }
+  }
+
+  async homeCareTemplatesForSession(actor: AdminActor, journalId: string) {
+    if (!this.isUuid(journalId)) throw new BadRequestException('Mã buổi không hợp lệ.');
+    const columns = await this.columns('treatment_journal', actor);
+    const row = (await this.db.connection.query('SELECT * FROM treatment_journal WHERE id=$1',[journalId])).rows[0];
+    if (!row) throw new NotFoundException('Không tìm thấy buổi điều trị.');
+    await assertRowScope(this.db.connection,'treatment_journal',row,columns.map(c => c.name),actor,'action');
+    return (await this.db.connection.query(
+      `SELECT g.id,g.title,g.summary,g.content,g.steps,g.version FROM home_care_guidelines g
+       WHERE g.is_published AND (g.service_id IS NULL OR EXISTS(SELECT 1 FROM user_packages up
+       JOIN treatment_packages tp ON tp.id=up.package_id WHERE up.id=$1 AND tp.service_id=g.service_id)) ORDER BY g.title,g.id`,[row.user_package_id])).rows;
+  }
+
+  async assignHomeCare(actor: AdminActor, journalId: string, guidelineId: string) {
+    if (!this.isUuid(journalId) || !this.isUuid(guidelineId)) throw new BadRequestException('Mã hồ sơ hoặc hướng dẫn không hợp lệ.');
+    const columns = await this.columns('treatment_journal', actor);
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      const journal = (await client.query('SELECT * FROM treatment_journal WHERE id=$1 FOR UPDATE', [journalId])).rows[0];
+      if (!journal) throw new NotFoundException('Không tìm thấy buổi điều trị.');
+      await assertRowScope(client, 'treatment_journal', journal, columns.map(c => c.name), actor, 'action');
+      if (journal.confirmation_status !== 'CONFIRMED' || journal.is_reversed) throw new ConflictException('Chỉ giao hướng dẫn cho buổi đã xác nhận và chưa hoàn tác.');
+      const guideline = (await client.query('SELECT * FROM home_care_guidelines WHERE id=$1 FOR SHARE', [guidelineId])).rows[0];
+      if (!guideline?.is_published) throw new ConflictException('Chỉ giao mẫu hướng dẫn đã xuất bản.');
+      if (guideline.service_id) {
+        const match = await client.query('SELECT 1 FROM user_packages up JOIN treatment_packages tp ON tp.id=up.package_id WHERE up.id=$1 AND tp.service_id=$2', [journal.user_package_id, guideline.service_id]);
+        if (!match.rowCount) throw new ConflictException('Hướng dẫn không phù hợp dịch vụ của liệu trình.');
+      }
+      const result = await client.query(
+        `INSERT INTO home_care_deliveries(treatment_journal_id,customer_id,booking_id,channel,status,guideline_id,guideline_version,content_snapshot,sent_by_id)
+         VALUES($1,$2,$3,'IN_APP','SENT',$4,$5,$6::jsonb,$7)
+         ON CONFLICT (treatment_journal_id,guideline_id,guideline_version) WHERE guideline_version IS NOT NULL
+         DO NOTHING RETURNING id,status`,
+        [journalId,journal.customer_id,journal.booking_id,guideline.id,guideline.version,JSON.stringify(guideline),actor.id]);
+      if (result.rowCount) {
+        await client.query(`INSERT INTO notifications(user_id,title,message,type,data)
+          VALUES($1,'Hướng dẫn chăm sóc sau trị liệu',$2,'HOME_CARE_GUIDE',$3::jsonb)`,
+          [journal.customer_id,guideline.title,JSON.stringify({ guideline_id: guideline.id, delivery_id: result.rows[0].id, route: '/home-care-guidelines', target: { screen: 'treatment', tab: 'care_guide', entityId: guideline.id } })]);
+      } else result.rows = (await client.query('SELECT id,status FROM home_care_deliveries WHERE treatment_journal_id=$1 AND guideline_id=$2 AND guideline_version=$3', [journalId,guideline.id,guideline.version])).rows;
+      await this.audit(client, actor, 'treatment_journal', 'ASSIGN_HOME_CARE', journalId);
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (error) { await client.query('ROLLBACK'); this.fail(error); }
+    finally { client.release(); }
+  }
+
+  async treatmentConfirmationPreview(actor: AdminActor, id: string) {
+    if (!this.isUuid(id)) throw new BadRequestException('Mã nhật ký không hợp lệ.');
+    const columns = await this.columns('treatment_journal', actor);
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      const journal = (await client.query('SELECT * FROM treatment_journal WHERE id=$1', [id])).rows[0];
+      if (!journal) throw new NotFoundException('Không tìm thấy nhật ký.');
+      await assertRowScope(client, 'treatment_journal', journal, columns.map(c => c.name), actor, 'action');
+      const pkg = journal.user_package_id ? (await client.query(
+        'SELECT up.*,tp.name AS package_name FROM user_packages up JOIN treatment_packages tp ON tp.id=up.package_id WHERE up.id=$1', [journal.user_package_id])).rows[0] : null;
+      const booking = journal.booking_id ? (await client.query('SELECT * FROM bookings WHERE id=$1', [journal.booking_id])).rows[0] : null;
+      const technicianId = journal.technician_id || booking?.technician_id;
+      const tech = technicianId ? (await client.query('SELECT user_id,branch_id,full_name FROM technicians WHERE id=$1', [technicianId])).rows[0] : null;
+      const userId = technicianId ? (await client.query('SELECT id,full_name FROM users WHERE id=$1', [tech?.user_id || technicianId])).rows[0] : null;
+      const warnings: string[] = [];
+      if (!pkg) warnings.push('Nhật ký chưa gắn với liệu trình hợp lệ.');
+      else {
+        if (pkg.status !== 'ACTIVE') warnings.push('Gói không ở trạng thái đang sử dụng.');
+        if (pkg.expires_at && new Date(pkg.expires_at).getTime() <= Date.now()) warnings.push('Gói đã hết hạn.');
+        if (Number(pkg.completed_sessions) >= Number(pkg.total_sessions)) warnings.push('Gói không còn lượt.');
+        if (pkg.customer_id !== journal.customer_id) warnings.push('Khách hàng không khớp với gói.');
+      }
+      if (journal.is_reversed || !['SUBMITTED', 'REVIEW_REQUIRED'].includes(journal.confirmation_status)) warnings.push('Hồ sơ chưa ở trạng thái có thể xác nhận.');
+      if ((journal.has_abnormal_reaction || journal.confirmation_status === 'REVIEW_REQUIRED') && !journal.clinical_approved_at) warnings.push('Có phản ứng bất thường chưa được duyệt chuyên môn.');
+      if (journal.booking_id) {
+        if (!booking || booking.customer_id !== journal.customer_id) warnings.push('Lịch hẹn không thuộc khách hàng của buổi điều trị.');
+        if (booking && (booking.status !== 'IN_SERVICE' || booking.session_status === 'COMPLETED')) warnings.push('Chỉ xác nhận lịch đang phục vụ và chưa hoàn tất chuyên môn.');
+        if (pkg && booking) {
+          const matchingService = await client.query(`SELECT 1 FROM booking_items bi
+            JOIN treatment_packages tp ON tp.service_id=bi.service_id WHERE tp.id=$1 AND bi.booking_id=$2 LIMIT 1`,[pkg.package_id,booking.id]);
+          if (!matchingService.rowCount) warnings.push('Dịch vụ đặt lịch không khớp gói liệu trình.');
+        }
+      }
+      const baseAmount = Number(booking?.base_total ?? 0);
+      const hasCommission = Boolean(userId && (booking?.branch_id || tech?.branch_id));
+      const existing = (await client.query('SELECT 1 FROM staff_commissions WHERE treatment_journal_id=$1 LIMIT 1', [id])).rowCount;
+      const before = pkg ? Math.max(0, Number(pkg.total_sessions) - Number(pkg.completed_sessions)) : 0;
+      await client.query('COMMIT');
+      return {
+        journalId: id, packageName: pkg?.package_name || null, sessionNumber: journal.session_number,
+        totalSessions: Number(pkg?.total_sessions || 0), completedBefore: Number(pkg?.completed_sessions || 0),
+        remainingBefore: before, remainingAfter: Math.max(0, before - 1),
+        consumables: Array.isArray(journal.consumables_used) ? journal.consumables_used : [],
+        commission: { recipient: userId?.full_name || null, baseAmount, percentage: hasCommission ? 10 : 0, amount: hasCommission && !existing ? Math.round(baseAmount * 0.1) : 0, alreadyRecorded: Boolean(existing) },
+        warnings, hasAbnormalReaction: Boolean(journal.has_abnormal_reaction), clinicalApproved: Boolean(journal.clinical_approved_at),
+      };
+    } catch (error) { await client.query('ROLLBACK'); this.fail(error); }
+    finally { client.release(); }
+  }
+
+  async treatmentPackageDetail(actor: AdminActor, id: string) {
+    if (!this.isUuid(id)) throw new BadRequestException('Mã liệu trình không hợp lệ.');
+    const columns = await this.columns('user_packages', actor);
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      const row = (await client.query('SELECT * FROM user_packages WHERE id=$1', [id])).rows[0];
+      if (!row) throw new NotFoundException('Không tìm thấy liệu trình.');
+      await assertRowScope(client, 'user_packages', row, columns.map(c => c.name), actor, 'read');
+      const bookings = await client.query(
+        `SELECT b.id,b.booking_code,b.booking_date,b.start_time,b.status,br.name AS branch_name
+         FROM bookings b JOIN branches br ON br.id=b.branch_id
+         WHERE b.customer_id=$2 AND b.special_notes LIKE ('%user_package_id=' || $1::text || ']%')
+           AND b.booking_date>=CURRENT_DATE AND b.status::text IN ('PENDING','CONFIRMED','CHECKED_IN','IN_SERVICE','IN_PROGRESS')
+         ORDER BY b.booking_date,b.start_time`, [id, row.customer_id]);
+      const journals = await client.query(
+        `SELECT j.id,j.session_date,j.session_number,j.confirmation_status,j.is_reversed,j.home_care_instructions,
+          b.booking_code,b.branch_id,br.name AS branch_name
+         FROM treatment_journal j LEFT JOIN bookings b ON b.id=j.booking_id LEFT JOIN branches br ON br.id=b.branch_id
+         WHERE j.user_package_id=$1 ORDER BY j.session_date DESC,j.id`, [id]);
+      const logs = await client.query(
+        `SELECT l.action,l.from_status,l.to_status,l.reason,l.performed_at,u.full_name AS actor_name
+         FROM user_package_lifecycle_logs l LEFT JOIN users u ON u.id=l.performed_by
+         WHERE l.user_package_id=$1 ORDER BY l.performed_at DESC,l.id`, [id]);
+      const invoices = await client.query(
+        `SELECT i.invoice_code,i.payment_status,i.total_amount,br.name AS branch_name
+         FROM invoices i LEFT JOIN branches br ON br.id=i.branch_id WHERE i.user_package_id=$1 ORDER BY i.id`, [id]);
+      const deliveries = await client.query(
+        `SELECT d.id,d.content_snapshot,d.guideline_version,d.status,d.sent_at,u.full_name AS sender_name,j.session_number
+         FROM home_care_deliveries d JOIN treatment_journal j ON j.id=d.treatment_journal_id
+         LEFT JOIN users u ON u.id=d.sent_by_id WHERE j.user_package_id=$1 ORDER BY d.sent_at DESC,d.id`,[id]);
+      await client.query('COMMIT');
+      return { journals: journals.rows, logs: logs.rows, invoices: invoices.rows, bookings: bookings.rows, deliveries: deliveries.rows };
+    } catch (error) { await client.query('ROLLBACK'); this.fail(error); }
+    finally { client.release(); }
   }
 
   async cashierWorkspace(actor: AdminActor, branchId?: string) {
@@ -2485,12 +3041,9 @@ export class AdminService {
         }
         await client.query(
           `UPDATE course_enrollments SET amount_paid=$2,
-           approval_status=CASE WHEN $2>=tuition_total THEN 'APPROVED' ELSE approval_status END,
-           status=CASE WHEN $2>=tuition_total THEN 'ENROLLED'::enrollment_status ELSE status END,
-           approved_by=CASE WHEN $2>=tuition_total THEN $3 ELSE approved_by END,
-           approved_at=CASE WHEN $2>=tuition_total THEN now() ELSE approved_at END
+           payment_status=CASE WHEN $2>=tuition_total THEN 'PAID' ELSE 'PARTIALLY_PAID' END
            WHERE id=$1`,
-          [enrollment.id,nextPaid,actor.id],
+          [enrollment.id,nextPaid],
         );
         await this.updateCashierShiftTotals(client, shiftId, paymentMethod, amount);
         await this.audit(client, actor, 'tuition_transactions', 'COLLECT', transaction.id);

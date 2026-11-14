@@ -11,6 +11,7 @@ import '../../../home/data/repositories/branch_repository.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import 'f02_edit_profile_screen.dart';
 import '../widgets/change_password_modal.dart';
 
@@ -689,19 +690,32 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                 _buildMenuItem(
                   icon: Icons.headset_mic_outlined,
                   title: isEn ? 'Customer Service Hotline' : 'Hotline CSKH',
-                  subtitle: '1900 6868',
-                  onTap: () => AppLauncherHelper.makePhoneCall(context, '096.7786.399'),
+                  subtitle: PortalSettingsService.instance.hotlineSupport,
+                  onTap: () => AppLauncherHelper.makePhoneCall(context, PortalSettingsService.instance.hotlineSupport),
                 ),
                 _buildMenuItem(
                   icon: Icons.help_outline_rounded,
                   title: isEn ? 'FAQs' : 'Câu hỏi thường gặp',
-                  onTap: () => _showInfoModal(
-                    context,
-                    isEn ? 'Frequently Asked Questions' : 'Câu hỏi thường gặp',
-                    isEn
-                        ? '1. How do I book an appointment? Choose service -> Select branch & specialist -> Select time -> Confirm.\n2. Can I cancel a booking? Yes, at least 2 hours before the scheduled time.'
-                        : '1. Cách đặt lịch? Chọn dịch vụ -> Chọn chi nhánh & kỹ thuật viên -> Chọn giờ -> Xác nhận.\n2. Có thể đổi lịch không? Quý khách có thể đổi trước giờ hẹn tối thiểu 2 tiếng qua app.',
-                  ),
+                  onTap: () {
+                    final faqs = PortalSettingsService.instance.faqs;
+                    String faqContent = '';
+                    if (faqs.isNotEmpty) {
+                      faqContent = faqs.asMap().entries.map((e) {
+                        final q = e.value['question'] ?? '';
+                        final a = e.value['answer'] ?? '';
+                        return '${e.key + 1}. $q\n$a';
+                      }).join('\n\n');
+                    } else {
+                      faqContent = isEn
+                          ? '1. How do I book an appointment? Choose service -> Select branch & specialist -> Select time -> Confirm.\n2. Can I cancel a booking? Yes, at least 2 hours before the scheduled time.'
+                          : '1. Cách đặt lịch? Chọn dịch vụ -> Chọn chi nhánh & kỹ thuật viên -> Chọn giờ -> Xác nhận.\n2. Có thể đổi lịch không? Quý khách có thể đổi trước giờ hẹn tối thiểu 2 tiếng qua app.';
+                    }
+                    _showInfoModal(
+                      context,
+                      isEn ? 'Frequently Asked Questions' : 'Câu hỏi thường gặp',
+                      faqContent,
+                    );
+                  },
                 ),
                 _buildMenuItem(
                   icon: Icons.chat_bubble_outline_rounded,

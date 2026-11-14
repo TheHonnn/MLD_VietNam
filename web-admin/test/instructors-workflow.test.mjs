@@ -13,9 +13,10 @@ test('legacy instructor resource URL uses the operational instructor workspace',
 test('instructor workspace supports profile lifecycle and class assignment', () => {
   const page = readFileSync(new URL('../src/pages/W09_Instructors.tsx', import.meta.url), 'utf8');
   assert.match(page, /Thêm giảng viên/);
-  assert.match(page, /Chỉnh sửa hồ sơ chuyên môn/);
+  assert.match(page, /Sửa hồ sơ giảng viên/);
   assert.match(page, /Phân công lớp/);
-  assert.match(page, /adminApi\('instructors\/create'/);
-  assert.match(page, /adminApi\('instructors\/update'/);
-  assert.doesNotMatch(page, /12\/10\/2026 – 18\/10\/2026/);
+  assert.match(page, /'instructors\/update' : 'instructors\/create'/);
+  assert.match(page, /expectedInstructorId: target.instructor_id/);
+  assert.match(page, /loadRows\('batch_schedules', controller.signal, week\)/);
+  assert.doesNotMatch(page, /Hủy lịch dạy/);
 });
