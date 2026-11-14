@@ -25,7 +25,12 @@ const W16_Certificates = lazy(() => import('./pages/W16_Certificates').then((m) 
 const W18_PortalContent = lazy(() => import('./pages/W18_PortalContent').then((m) => ({ default: m.W18_PortalContent })));
 const W19_HomeProducts = lazy(() => import('./pages/W19_HomeProducts').then((m) => ({ default: m.W19_HomeProducts })));
 const ResourcePage = lazy(() => import('./admin/ResourcePage').then((m) => ({ default: m.ResourcePage })));
+const TreatmentPackagesWorkspace = lazy(() => import('./pages/TreatmentPackagesWorkspace').then(m => ({ default: m.TreatmentPackagesWorkspace })));
+const TreatmentJournalWorkspace = lazy(() => import('./pages/TreatmentJournalWorkspace').then(m => ({ default: m.TreatmentJournalWorkspace })));
+const TreatmentInventoryWorkspace = lazy(() => import('./pages/TreatmentInventoryWorkspace').then(m => ({ default: m.TreatmentInventoryWorkspace })));
+const HomeCareWorkspace = lazy(() => import('./pages/HomeCareWorkspace').then(m => ({ default: m.HomeCareWorkspace })));
 const PublicTreatmentJournal = lazy(() => import('./pages/PublicTreatmentJournal').then((m) => ({ default: m.PublicTreatmentJournal })));
+const W20_Settings = lazy(() => import('./pages/W20_Settings').then((m) => ({ default: m.W20_Settings })));
 
 // Tự động dọn sạch các khóa dữ liệu thử nghiệm/cục bộ cũ khỏi localStorage để luôn đồng bộ 100% với Supabase Cloud
 (function purgeLegacyMockStorage() {
@@ -75,6 +80,11 @@ const InvoicesRedirect: React.FC = () => {
     : '?tab=receipts';
   return <Navigate to={`/cashier-pos${search}`} replace />;
 };
+
+function AttendanceRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={'/attendance' + search} replace />;
+}
 
 const RoleRoute: React.FC<{ allowedRoles: string[]; children: React.ReactNode }> = ({
   allowedRoles,
@@ -337,6 +347,7 @@ const AppContent: React.FC = () => {
             <Route path="manage/certificate_templates" element={<Navigate to="/certificates?tab=template" replace />} />
             <Route path="manage/services" element={<Navigate to="/services-catalog?tab=services" replace />} />
             <Route path="manage/treatment_packages" element={<Navigate to="/services-catalog?tab=packages" replace />} />
+            <Route path="manage/home_products" element={<Navigate to="/home-products" replace />} />
             <Route path="manage/staff_leaves" element={<Navigate to="/staff-schedule" replace />} />
             <Route
               path="manage/instructors"
@@ -346,6 +357,14 @@ const AppContent: React.FC = () => {
                 </RoleRoute>
               }
             />
+            <Route path="manage/user_packages" element={<TreatmentPackagesWorkspace />} />
+            <Route path="manage/treatment_journal" element={<TreatmentJournalWorkspace />} />
+            <Route path="treatment-inventory" element={<TreatmentInventoryWorkspace />} />
+            <Route path="manage/home_care_guidelines" element={<HomeCareWorkspace />} />
+            <Route path="manage/student_attendance" element={<AttendanceRedirect />} />
+            <Route path="settings" element={<W20_Settings />} />
+            <Route path="cai-dat" element={<Navigate to="/settings" replace />} />
+            <Route path="manage/system_settings" element={<Navigate to="/settings" replace />} />
             <Route path="manage/:table" element={<div className="admin-module"><ResourcePage /></div>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

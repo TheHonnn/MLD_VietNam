@@ -4,6 +4,7 @@ import { SidebarItem, type SubMenuItem } from '../../admin/SidebarItem';
 import { adminApi, Resource } from '../../admin/api';
 import { useAdmin } from '../../admin/Auth';
 import { canAccessAdminPath } from '../../admin/access';
+import { ADMIN_NAVIGATION_GROUPS } from '../../admin/navigation';
 import { toast } from '../common';
 import {
   LayoutGrid,
@@ -128,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           subItems: [
             { name: 'Bảng giá & Gói liệu trình', path: '/services-catalog' },
             { name: 'Sản phẩm mang về', path: '/home-products' },
-            { name: 'Danh mục nhóm dịch vụ', path: '/manage/service_categories' },
+            { name: 'Nhóm dịch vụ', path: '/manage/service_categories' },
             { name: 'Định mức tiêu hao vật tư (BOM)', path: '/manage/service_materials' },
             { name: 'Xuất kho vật tư tiêu hao (BOM)', path: '/manage/inventory_consumption_logs' },
           ],
@@ -143,7 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             { name: 'Bộ phận', path: '/manage/departments' },
             { name: 'Đội ngũ Chuyên viên KTV', path: '/manage/technicians' },
             { name: 'Ca làm việc', path: '/manage/technician_shifts' },
-            { name: 'Khung giờ chuyên viên', path: '/manage/technician_slots' },
+            { name: 'Giờ nghỉ & khóa lịch', path: '/manage/technician_slots' },
             { name: 'Hoa hồng KTV & Thưởng', path: '/commissions' },
           ],
         },
@@ -182,13 +183,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
         },
         {
           name: 'Học viên & Lớp học',
-          path: '/attendance',
+          path: '/manage/course_batches',
           icon: GraduationCap,
           subItems: [
-            { name: 'Điểm danh & Sổ theo dõi', path: '/attendance' },
-            { name: 'Lớp học đang mở', path: '/manage/course_batches' },
+            { name: 'Lớp học', path: '/manage/course_batches' },
             { name: 'Trợ giảng theo lớp', path: '/manage/course_batch_assistants' },
             { name: 'Thời khóa biểu', path: '/manage/batch_schedules' },
+            { name: 'Điểm danh & Sổ theo dõi', path: '/attendance' },
             { name: 'Bảng điểm học viên', path: '/manage/student_academic_records' },
           ],
         },
@@ -224,7 +225,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
     {
       title: 'HỆ THỐNG',
       items: [
-        { name: 'Nội dung Portal', path: '/portal-content', icon: Layers },
+        {
+          name: 'Nội dung Portal & App',
+          path: '/portal-content',
+          icon: Layers,
+          subItems: [
+            { name: '1. Banner Trang chủ', path: '/portal-content?tab=banners' },
+            { name: '2. Kênh Liên hệ & MXH', path: '/portal-content?tab=contacts' },
+            { name: '3. Đối tượng & Nhu cầu', path: '/portal-content?tab=taxonomies' },
+            { name: '4. Hỏi đáp thường gặp FAQs', path: '/portal-content?tab=faqs' },
+            { name: '5. Chính sách & Pháp lý', path: '/portal-content?tab=legal' },
+            { name: '6. Thư viện Giáo trình PDF', path: '/portal-content?tab=documents' },
+            { name: '7. Bài viết Cộng đồng', path: '/portal-content?tab=community' },
+            { name: '8. Kênh Email Thông báo', path: '/portal-content?tab=email' },
+          ],
+        },
         { name: 'CSKH Zalo ZNS', path: '/zalo-zns', icon: Smartphone },
         {
           name: 'Phân quyền & Bảo mật',
@@ -296,6 +311,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
         {/* Navigation Sections */}
         <nav className="px-3 py-1 space-y-3.5 flex-1 pb-6">
           {sections
+            .map(section => ({ ...section, items: section.items.map(item => {
+              const group = ADMIN_NAVIGATION_GROUPS.find(group => group.label === item.name);
+              return group ? { ...item, subItems: group.items.map(entry => ({name: entry.label, path: entry.href})) } : item;
+            }) }))
             .filter((section) => section.items.some((item) => isItemAllowed(item)))
             .map((section, idx) => (
               <div key={idx}>
@@ -333,19 +352,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             <HelpCircle className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
             <span>Cần hỗ trợ?</span>
           </button>
-          <button
-            type="button"
-            onClick={() =>
-              toast.info(
-                'Cấu hình quản trị',
-                'Hệ thống đang hoạt động theo chính sách phân quyền bảo mật MLD Spa & Clinic.'
-              )
+          <NavLink
+            to="/settings"
+            onClick={onCloseMobile}
+            className={({ isActive }) =>
+              `w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                isActive
+                  ? 'bg-[#FAF0E4] text-[#985018] font-bold shadow-2xs'
+                  : 'text-[#7A6D61] hover:bg-[#FAF7F2]'
+              }`
             }
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+            title="Cài đặt hệ thống quản trị"
           >
             <Settings className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
             <span>Cài đặt</span>
-          </button>
+          </NavLink>
           <div className="pt-2 px-3">
             <p className="text-[10px] text-[#A69788]">Hệ thống Quản trị MLD v1.0</p>
           </div>

@@ -1257,3 +1257,19 @@ ON CONFLICT (tier) DO NOTHING;
 INSERT INTO loyalty_point_settings (id, earn_amount_per_point, redeem_value_per_point, max_redeem_percent_per_order, point_expiry_months)
 VALUES (1, 10000.00, 100.00, 30.00, 12)
 ON CONFLICT (id) DO NOTHING;
+
+-- ==============================================================================
+-- 16. SYSTEM SETTINGS (CẤU HÌNH HỆ THỐNG TẬP TRUNG)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.system_settings (
+    category VARCHAR(50) PRIMARY KEY, -- 'general', 'booking', 'pos', 'academy', 'integrations', 'security'
+    data JSONB NOT NULL DEFAULT '{}'::jsonb,
+    description TEXT,
+    updated_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_system_settings_updated_at ON public.system_settings(updated_at DESC);
+
+ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+

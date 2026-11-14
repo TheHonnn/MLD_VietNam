@@ -21,10 +21,10 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'treatment_packages', title: 'Gói liệu trình Spa', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'user_packages', title: 'Liệu trình khách hàng', group: 'Quản lý Liệu trình', actions: ['update', 'action'] },
   { name: 'treatment_journal', title: 'Nhật ký điều trị', group: 'Quản lý Liệu trình', actions: ['create', 'update', 'action'] },
-  { name: 'home_care_guidelines', title: 'Hướng dẫn chăm sóc tại nhà', group: 'Quản lý Liệu trình', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'home_care_guidelines', title: 'Hướng dẫn chăm sóc tại nhà', group: 'Quản lý Liệu trình', actions: ['create', 'update'] },
 
   // 5. Dịch vụ & Định mức
-  { name: 'service_categories', title: 'Danh mục dịch vụ', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'service_categories', title: 'Nhóm dịch vụ', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'services', title: 'Bảng giá dịch vụ', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'service_materials', title: 'Định mức tiêu hao vật tư (BOM)', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'inventory_consumption_logs', title: 'Xuất kho vật tư tiêu hao (BOM)', group: 'Dịch vụ & Định mức', readonly: true, actions: [] },
@@ -34,7 +34,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'departments', title: 'Bộ phận', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete'] },
   { name: 'technicians', title: 'Đội ngũ Chuyên viên KTV', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'technician_shifts', title: 'Ca làm việc', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'technician_slots', title: 'Khung giờ chuyên viên', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'technician_slots', title: 'Giờ nghỉ & khóa lịch', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'staff_commissions', title: 'Hoa hồng KTV & Thưởng', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
 
   // 7. Voucher & Hội viên
@@ -56,7 +56,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'instructors', title: 'Đội ngũ Giảng viên', group: 'Đội ngũ Giảng viên', actions: ['create', 'update', 'delete', 'action'] },
 
   // 10. Học viên & Lớp học
-  { name: 'course_batches', title: 'Lớp học đang mở', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'course_batches', title: 'Lớp học', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'course_batch_assistants', title: 'Trợ giảng theo lớp', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete'] },
   { name: 'student_attendance', title: 'Điểm danh', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'student_academic_records', title: 'Bảng điểm học viên', group: 'Học viên & Lớp học', actions: ['create', 'update', 'delete', 'action'] },
@@ -82,4 +82,10 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'role_permissions', title: 'Quyền của vai trò', group: 'Phân quyền & Bảo mật', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'user_roles', title: 'Phân quyền tài khoản', group: 'Phân quyền & Bảo mật', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'audit_logs', title: 'Nhật ký bảo mật Audit Trail', group: 'Phân quyền & Bảo mật', readonly: true, actions: [] },
+
+  // 14. Nội dung Portal & App (banner, giáo trình, email)
+  { name: 'miniapp_shared_content', title: 'Nội dung Portal & App', group: 'Nội dung Portal', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'documents', title: 'Tài liệu Portal', group: 'Nội dung Portal', actions: ['create', 'update', 'delete'] },
+  { name: 'email_templates', title: 'Mẫu email thông báo', group: 'Nội dung Portal', actions: ['create', 'update', 'delete'] },
+  { name: 'email_logs', title: 'Nhật ký email', group: 'Nội dung Portal', readonly: true, actions: [] },
 ];
