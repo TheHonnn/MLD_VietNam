@@ -26,6 +26,7 @@ import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
 import { ShareJournalModal, ShareJournalItem } from "../components/treatment/ShareJournalModal";
 import CertificateTemplateEditor from "../components/certificates/CertificateTemplateEditor";
 import { AdminPageShell, PageHeader, PageTabs, AdminTabs, PageToolbar, PageContent } from "../components/common";
+import { ClassScheduleCalendar, calendarDate, calendarMonday } from "./ClassScheduleCalendar";
 import { portalService } from "../services/portal.service";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
@@ -4848,6 +4849,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const { table: routeTable } = useParams(),
     table = fixedTable || routeTable || "";
   const [params, setParams] = useSearchParams();
+  const scheduleCalendar = table === "batch_schedules" && params.get("view") !== "list";
+  const calendarWeek = calendarMonday(params.get("week") || todayAtBranch());
   const [resources, setResources] = useState<Resource[]>(DEFAULT_RESOURCES.map(resource => ({ ...resource, actions: [] }))),
     [listing, setListing] = useState<Listing | null>(null),
     [loading, setLoading] = useState(true),
@@ -5103,6 +5106,13 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     setConfirmation(null);
     setNotice("");
     const listParams = new URLSearchParams(params);
+    if (scheduleCalendar) {
+      listParams.set("weekStart", calendarWeek);
+      listParams.set("limit", "100");
+      listParams.set("page", "1");
+      listParams.set("sort", "session_date");
+      listParams.set("direction", "asc");
+    }
     const batchId = params.get("batch_id");
     if (batchId && batchId !== "__ALL__" && ["course_batches", "batch_schedules", "course_batch_assistants", "student_academic_records"].includes(table)) {
       try {
@@ -5127,7 +5137,20 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       undefined,
       controller.signal,
     )
-      .then(setListing)
+      .then(async (result) => {
+        if (!scheduleCalendar) {
+          if (!controller.signal.aborted) setListing(result);
+          return;
+        }
+        const rows = [...result.rows];
+        for (let page = 2; rows.length < result.total && !controller.signal.aborted; page++) {
+          listParams.set("page", String(page));
+          const next = await request<Listing>(table + "?" + listParams, undefined, controller.signal);
+          if (!next.rows.length || next.page !== page) break;
+          rows.push(...next.rows);
+        }
+        if (!controller.signal.aborted) setListing({ ...result, rows });
+      })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
       })
@@ -5135,7 +5158,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [table, params.toString(), version, staffDateField]);
+  }, [table, params.toString(), version, staffDateField, scheduleCalendar, calendarWeek]);
   useEffect(() => {
     if (confirmation) confirmDialog.current?.showModal();
   }, [confirmation]);
@@ -6229,6 +6252,18 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </button>
         )}
       </PageToolbar>
+      {table === "batch_schedules" && <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-2" aria-label="Chế độ xem thời khóa biểu" role="group">
+          <button className={scheduleCalendar ? "admin-primary" : "admin-secondary"} aria-pressed={scheduleCalendar} onClick={() => updateParam("view", "")}>Lịch tuần</button>
+          <button className={scheduleCalendar ? "admin-secondary" : "admin-primary"} aria-pressed={!scheduleCalendar} onClick={() => updateParam("view", "list")}>Danh sách</button>
+        </div>
+        {scheduleCalendar && <div className="flex flex-wrap items-center gap-2">
+          <button className="admin-secondary" onClick={() => updateParam("week", calendarDate(calendarWeek, -7))} aria-label="Tuần trước"><ChevronLeft size={16} /></button>
+          <button className="admin-secondary" onClick={() => updateParam("week", "")}>Tuần này</button>
+          <button className="admin-secondary" onClick={() => updateParam("week", calendarDate(calendarWeek, 7))} aria-label="Tuần sau"><ChevronRight size={16} /></button>
+          <input className="admin-secondary" type="date" aria-label="Chọn ngày trong tuần" value={calendarWeek} onChange={event => updateParam("week", event.target.value)} />
+        </div>}
+      </div>}
       <PageContent>
       {error ? (
         <div className="admin-error" role="alert">
@@ -6272,7 +6307,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                 {notice}
               </p>
             )}
-            {table === "student_attendance" && !selectedBatchId && !params.get("search") ? (
+            {scheduleCalendar ? (
+              <ClassScheduleCalendar week={calendarWeek} today={todayAtBranch()} rows={listing.rows}
+                onOpen={openRecordPreview}
+                onEdit={resource?.actions?.includes("update") ? row => setEdit({ row, mode: "update" }) : undefined}
+                canAttend={getResourceNavigation(table, resources, user?.role || "").some(tab => tab.id === "student_attendance")} />
+            ) : table === "student_attendance" && !selectedBatchId && !params.get("search") ? (
               <div className="space-y-6 my-2 font-['Plus_Jakarta_Sans',sans-serif]">
                 <div className="p-6 md:p-8 bg-gradient-to-br from-[#FFFDF9] via-[#FAF4EE] to-[#F5E9DC] rounded-3xl border-2 border-[#EAD8C7] shadow-sm">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
