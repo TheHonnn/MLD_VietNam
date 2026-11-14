@@ -522,18 +522,20 @@ export const academyService = {
     }
   ): Promise<ApiResponse<boolean>> {
     try {
-      const result = await apiClient.post<any>(`/academy/enrollments/${enrollmentId}/finalize-consultation`, {
-        finalTuition: data.finalTuition,
-        branchName: data.branchName,
-        note: data.note,
-      });
-
-      return {
-        success: result.success,
-        statusCode: result.statusCode || 200,
-        message: result.message,
-        data: result.success,
-      };
+      const result = await apiClient.post<{ success?: boolean; consultationStatus?: string; message?: string }>(
+        `/academy/enrollments/${enrollmentId}/finalize-consultation`,
+        { finalTuition: data.finalTuition, branchName: data.branchName, note: data.note },
+      );
+      if (!result.success || result.data?.success !== true || result.data.consultationStatus !== 'CONFIRMED') {
+        return {
+          success: false,
+          statusCode: result.statusCode,
+          message: result.data?.message || 'Máy chủ chưa xác nhận học phí. Hãy tải lại hồ sơ để kiểm tra.',
+          data: false,
+        };
+      }
+      supabaseService.invalidateCache('course_enrollments');
+      return { success: true, statusCode: result.statusCode, message: result.message, data: true };
     } catch (err: any) {
       return { success: false, statusCode: 500, message: err?.message || 'Lỗi chốt tư vấn', data: false };
     }

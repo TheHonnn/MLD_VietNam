@@ -732,8 +732,16 @@ export const W08_Enrollment: React.FC = () => {
         authorName: 'Admin Tuyển Sinh',
       });
       if (res.success) {
-        const refreshed = await supabaseService.getEnrollments();
+        const refreshed = await supabaseService.getEnrollments(undefined, { fresh: true }).catch(() => null);
+        const saved = refreshed?.find(enrollment => enrollment.id === selectedCandidate.id);
         if (refreshed) setLiveEnrollments(refreshed);
+        if (saved?.consultationStatus !== ConsultationStatus.CONFIRMED ||
+            Number(saved.finalTuition ?? saved.tuitionTotal) !== finalTuitionInput ||
+            saved.selectedBranch !== finalBranchInput) {
+          toast.info('Chưa đồng bộ được hồ sơ', 'Hãy tải lại trang để kiểm tra kết quả trước khi xác nhận lại.');
+          return;
+        }
+        setActiveWorkflowTab(current => current === 'PENDING_CONSULTATION' ? 'ALL' : current);
         toast.success('Đã xác nhận học phí', 'Chọn Thanh toán / Xem QR để tiếp tục. Chưa ghi nhận khoản thu.');
       } else {
         toast.error('Không thể xác nhận học phí', res.message);
