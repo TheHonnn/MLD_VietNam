@@ -40,26 +40,45 @@ class AdminCandidateCard extends StatelessWidget {
     Color badgeText;
     String badgeLabel;
 
-    switch (candidate.status) {
+    switch (candidate.status.toUpperCase()) {
+      case 'CONSULTING':
+      case 'PENDING':
       case 'PENDING_CONSULTATION':
+      case 'PENDING_APPROVAL':
         badgeBg = const Color(0xFFFEF3C7);
         badgeText = const Color(0xFFD97706);
         badgeLabel = 'Chờ tư vấn';
         break;
+      case 'DEPOSITED':
+      case 'CONFIRMED':
       case 'CONFIRMED_PENDING_PAY':
         badgeBg = const Color(0xFFEFF4FE);
         badgeText = AppColors.primary;
         badgeLabel = 'Chờ nộp phí';
         break;
+      case 'ENROLLED':
+      case 'PAID':
       case 'PAID_WAITING_CLASS':
         badgeBg = const Color(0xFFFFE4E6);
         badgeText = const Color(0xFFE11D48);
         badgeLabel = 'CHỜ XẾP LỚP';
         break;
+      case 'STUDYING':
       case 'ENROLLED_STUDYING':
         badgeBg = const Color(0xFFE8F6ED);
         badgeText = const Color(0xFF0D6832);
         badgeLabel = 'Đang theo học';
+        break;
+      case 'GRADUATED':
+      case 'COMPLETED':
+        badgeBg = const Color(0xFFF3F4F6);
+        badgeText = const Color(0xFF4B5563);
+        badgeLabel = 'Tốt nghiệp';
+        break;
+      case 'DROPPED':
+        badgeBg = const Color(0xFFFEE2E2);
+        badgeText = const Color(0xFFDC2626);
+        badgeLabel = 'Bảo lưu';
         break;
       default:
         badgeBg = const Color(0xFFF3F4F6);

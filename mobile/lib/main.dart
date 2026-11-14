@@ -57,6 +57,20 @@ class MedicalHealthcareApp extends StatelessWidget {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: const A01SplashScreen(),
+            builder: (context, child) {
+              final mediaQuery = MediaQuery.of(context);
+              // Tối ưu tỷ lệ hiển thị toàn bộ app gọn gàng, tinh tế:
+              // Giảm nhẹ ~10% font scaling trên các màn hình Android/Samsung DPI cao
+              // để vừa vặn, hiển thị nhiều thông tin hơn mà không bị phóng to.
+              return MediaQuery(
+                data: mediaQuery.copyWith(
+                  textScaler: TextScaler.linear(
+                    (mediaQuery.textScaler.scale(1.0) * 0.90).clamp(0.82, 0.92),
+                  ),
+                ),
+                child: child!,
+              );
+            },
           );
         },
       ),
