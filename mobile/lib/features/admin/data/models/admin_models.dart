@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:intl/intl.dart';
 
 class AdminKpiMetrics {
   final double todayRevenue;
@@ -376,6 +377,124 @@ class AdminCourseBatchModel {
       instructorName: instObj is Map ? instObj['full_name']?.toString() : null,
       roomName: roomOrBranch,
       courseTitle: courseObj is Map ? courseObj['title']?.toString() : null,
+    );
+  }
+}
+
+/// 6.1. Chi tiết Lịch học theo buổi (Batch Schedule Session)
+class AdminBatchScheduleModel {
+  final String id;
+  final String batchId;
+  final String sessionDate; // YYYY-MM-DD
+  final String startTime;   // HH:mm:ss
+  final String endTime;     // HH:mm:ss
+  final String topic;
+  final bool isPracticeLab;
+  final String? assignedRoomId;
+  final String? roomName;
+  final String? instructorName;
+
+  const AdminBatchScheduleModel({
+    required this.id,
+    required this.batchId,
+    required this.sessionDate,
+    required this.startTime,
+    required this.endTime,
+    required this.topic,
+    required this.isPracticeLab,
+    this.assignedRoomId,
+    this.roomName,
+    this.instructorName,
+  });
+
+  factory AdminBatchScheduleModel.fromJson(Map<String, dynamic> json) {
+    final roomObj = json['branch_rooms'];
+    final instObj = json['instructors'];
+    String? rName;
+    if (roomObj is Map) {
+      rName = roomObj['name']?.toString();
+    }
+    String? iName;
+    if (instObj is Map) {
+      iName = instObj['full_name']?.toString();
+    }
+
+    return AdminBatchScheduleModel(
+      id: json['id']?.toString() ?? '',
+      batchId: json['batch_id']?.toString() ?? '',
+      sessionDate: json['session_date']?.toString() ?? '',
+      startTime: json['start_time']?.toString() ?? '13:00:00',
+      endTime: json['end_time']?.toString() ?? '17:00:00',
+      topic: json['topic']?.toString() ?? 'Buổi học thực hành',
+      isPracticeLab: json['is_practice_lab'] == true,
+      assignedRoomId: json['assigned_room_id']?.toString(),
+      roomName: rName,
+      instructorName: iName,
+    );
+  }
+
+  int get sessionIndex {
+    final match = RegExp(r'Buổi\s*(\d+)', caseSensitive: false).firstMatch(topic);
+    if (match != null) {
+      return int.tryParse(match.group(1) ?? '1') ?? 1;
+    }
+    return 1;
+  }
+
+  String get timeSlotDisplay {
+    final s = startTime.length >= 5 ? startTime.substring(0, 5) : startTime;
+    final e = endTime.length >= 5 ? endTime.substring(0, 5) : endTime;
+    return '$s – $e';
+  }
+
+  String get formattedDate {
+    try {
+      final dt = DateTime.parse(sessionDate);
+      final days = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+      final weekday = days[dt.weekday - 1];
+      final formatter = DateFormat('dd/MM/yyyy');
+      return '$weekday, ${formatter.format(dt)}';
+    } catch (_) {
+      return sessionDate;
+    }
+  }
+
+  /// Trạng thái buổi học: COMPLETED, TODAY, UPCOMING
+  String get status {
+    try {
+      final now = DateTime.now();
+      final todayStr = DateFormat('yyyy-MM-dd').format(now);
+      if (sessionDate == todayStr) return 'TODAY';
+      final dt = DateTime.parse(sessionDate);
+      final todayDate = DateTime(now.year, now.month, now.day);
+      if (dt.isBefore(todayDate)) return 'COMPLETED';
+      return 'UPCOMING';
+    } catch (_) {
+      return 'UPCOMING';
+    }
+  }
+
+  AdminBatchScheduleModel copyWith({
+    String? topic,
+    String? sessionDate,
+    String? startTime,
+    String? endTime,
+    bool? isPracticeLab,
+    String? assignedRoomId,
+    String? roomName,
+    String? instructorName,
+  }) {
+    return AdminBatchScheduleModel(
+      id: id,
+      batchId: batchId,
+      sessionDate: sessionDate ?? this.sessionDate,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      topic: topic ?? this.topic,
+      isPracticeLab: isPracticeLab ?? this.isPracticeLab,
+      assignedRoomId: assignedRoomId ?? this.assignedRoomId,
+      roomName: roomName ?? this.roomName,
+      instructorName: instructorName ?? this.instructorName,
     );
   }
 }

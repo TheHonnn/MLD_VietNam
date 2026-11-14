@@ -129,16 +129,24 @@ void main() {
       // Verify Header & Batch Info
       expect(find.text('K26-GV-Q3'), findsWidgets);
       expect(find.text('MLD Chuyên Sâu K26'), findsWidgets);
-      expect(find.textContaining('TS. Bác sĩ Trịnh Văn Hùng'), findsOneWidget);
-      expect(find.textContaining('Phòng Đào Tạo A1'), findsOneWidget);
+      expect(find.textContaining('TS. Bác sĩ Trịnh Văn Hùng'), findsWidgets);
+      expect(find.textContaining('Phòng Đào Tạo A1'), findsWidgets);
       expect(find.textContaining('T2-T4-T6 (08:30 - 11:30)'), findsOneWidget);
 
-      // Verify KPIs
+      // Verify Tab 0: Lịch học & Giáo trình
+      expect(find.textContaining('Lịch học & Giáo trình'), findsOneWidget);
+      expect(find.textContaining('Lộ trình đào tạo chuẩn Y khoa MLD'), findsWidgets);
+
+      // Tap Tab 1: Danh sách Học viên
+      await tester.tap(find.textContaining('Học viên'));
+      await tester.pumpAndSettle();
+
+      // Verify KPIs in Tab 1
       expect(find.text('1 hv'), findsOneWidget); // Sĩ số hiện tại
       expect(find.text('1/1'), findsOneWidget); // Đã nộp đủ
       expect(find.text('15.000.000 ₫'), findsWidgets); // Tổng thu
 
-      // Verify Student Roster
+      // Verify Student Roster in Tab 1
       expect(find.text('Nguyễn Thu Trang'), findsOneWidget);
       expect(find.text('Đã thu đủ'), findsOneWidget);
       expect(find.textContaining('ENR-K26-001'), findsOneWidget);

@@ -198,7 +198,7 @@ class AdminRepository {
       if (res.data is List) {
         for (final b in res.data) {
           final custName = b['booked_for_name']?.toString() ?? 'Khách hàng';
-          final sName = 'Trị liệu MLD';
+          const sName = 'Trị liệu MLD';
           final sTime = b['start_time']?.toString() ?? '';
           final bDate = b['booking_date']?.toString() ?? '';
           final branchObj = b['branches'];
@@ -605,6 +605,149 @@ class AdminRepository {
     } catch (e) {
       debugPrint('[AdminRepository] fetchAllCourseBatches error: $e');
       return [];
+    }
+  }
+
+  /// 5.3.1. Lấy danh sách Lịch học chi tiết theo Buổi (Batch Schedules)
+  Future<List<AdminBatchScheduleModel>> fetchBatchSchedules(String batchId) async {
+    try {
+      final res = await _apiClient.dio.get(
+        '/rest/v1/batch_schedules?select=*,branch_rooms(name)&batch_id=eq.$batchId&order=session_date.asc,start_time.asc',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      if (res.data is List && (res.data as List).isNotEmpty) {
+        return (res.data as List)
+            .map((item) => AdminBatchScheduleModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchBatchSchedules error: $e');
+    }
+    return [];
+  }
+
+  /// 5.3.1.1. Lấy lịch học theo Course ID (dành cho Màn Chi tiết Khóa học phía Học viên)
+  Future<List<AdminBatchScheduleModel>> fetchBatchSchedulesForCourse(String courseId) async {
+    try {
+      final batchRes = await _apiClient.dio.get(
+        '/rest/v1/course_batches?select=id&course_id=eq.$courseId&order=start_date.desc&limit=1',
+      );
+      String? batchId;
+      if (batchRes.data is List && (batchRes.data as List).isNotEmpty) {
+        batchId = (batchRes.data as List).first['id']?.toString();
+      }
+      if (batchId == null || batchId.isEmpty) {
+        final anyBatch = await _apiClient.dio.get('/rest/v1/course_batches?select=id&limit=1');
+        if (anyBatch.data is List && (anyBatch.data as List).isNotEmpty) {
+          batchId = (anyBatch.data as List).first['id']?.toString();
+        }
+      }
+      if (batchId != null && batchId.isNotEmpty) {
+        return fetchBatchSchedules(batchId);
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchBatchSchedulesForCourse error: $e');
+    }
+    return [];
+  }
+
+  /// 5.3.2. Thêm buổi học mới cho Lớp (Create Batch Schedule)
+  Future<bool> createBatchSchedule({
+    required String batchId,
+    required String topic,
+    required String sessionDate,
+    required String startTime,
+    required String endTime,
+    required bool isPracticeLab,
+    String? assignedRoomId,
+  }) async {
+    try {
+      final res = await _apiClient.dio.post(
+        '/rest/v1/batch_schedules',
+        data: {
+          'batch_id': batchId,
+          'topic': topic,
+          'session_date': sessionDate,
+          'start_time': startTime,
+          'end_time': endTime,
+          'is_practice_lab': isPracticeLab,
+          if (assignedRoomId != null && assignedRoomId.isNotEmpty) 'assigned_room_id': assignedRoomId,
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (e) {
+      debugPrint('[AdminRepository] createBatchSchedule error: $e');
+      return false;
+    }
+  }
+
+  /// 5.3.3. Lấy dữ liệu điểm danh theo Buổi học (Session Attendance)
+  Future<Map<String, String>> fetchSessionAttendance(String scheduleId) async {
+    try {
+      final res = await _apiClient.dio.get(
+        '/rest/v1/student_attendance?schedule_id=eq.$scheduleId&select=enrollment_id,status',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      if (res.data is List) {
+        final Map<String, String> map = {};
+        for (final item in res.data as List) {
+          final enrId = item['enrollment_id']?.toString();
+          final status = item['status']?.toString();
+          if (enrId != null && status != null) {
+            map[enrId] = status;
+          }
+        }
+        return map;
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchSessionAttendance error: $e');
+    }
+    return {};
+  }
+
+  /// 5.3.4. Lưu điểm danh buổi học cho học viên
+  Future<bool> markSessionAttendance({
+    required String scheduleId,
+    required String enrollmentId,
+    required String status,
+  }) async {
+    try {
+      final res = await _apiClient.dio.post(
+        '/rest/v1/student_attendance',
+        data: {
+          'schedule_id': scheduleId,
+          'enrollment_id': enrollmentId,
+          'status': status,
+          'check_in_time': DateTime.now().toIso8601String(),
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Prefer': 'resolution=merge-duplicates',
+          },
+        ),
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (e) {
+      debugPrint('[AdminRepository] markSessionAttendance error: $e');
+      return false;
     }
   }
 

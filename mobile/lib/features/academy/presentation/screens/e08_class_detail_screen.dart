@@ -5,6 +5,8 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
+import '../../../admin/data/models/admin_models.dart';
+import '../../../admin/data/repositories/admin_repository.dart';
 import '../widgets/academy_widgets.dart';
 import 'e09_lesson_screen.dart';
 import 'e11_attendance_schedule_screen.dart';
@@ -26,6 +28,8 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
   int _selectedTab = 0; // 0: Nội dung học, 1: Lịch học, 2: Tài liệu
   List<ChapterModel> _chapters = [];
   bool _isLoading = false;
+  List<AdminBatchScheduleModel> _batchSchedules = [];
+  bool _isLoadingSchedules = false;
 
   final Set<int> _expandedChapterIndices = {0}; // Mở chương đầu tiên theo mặc định
 
@@ -86,7 +90,10 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
   }
 
   Future<void> _loadCurriculum() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _isLoadingSchedules = true;
+    });
     try {
       final data = await AcademyRepository.instance.getCourseCurriculum(_courseId);
       if (mounted && data.isNotEmpty) {
@@ -94,6 +101,18 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
       }
     } catch (_) {} finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+
+    try {
+      final list = await AdminRepository.instance.fetchBatchSchedulesForCourse(_courseId);
+      if (mounted) {
+        setState(() {
+          _batchSchedules = list;
+          _isLoadingSchedules = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingSchedules = false);
     }
   }
 
@@ -425,30 +444,8 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
               // 5. Thẻ bài học tiếp theo (hoặc thông báo hoàn thành)
               _buildNextLessonCard(),
             ] else if (_selectedTab == 1) ...[
-              // Tab Lịch học
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const E11AttendanceScheduleScreen()),
-                    );
-                  },
-                  icon: const Icon(Icons.calendar_month, color: Colors.white),
-                  label: Text(
-                    context.tr('Xem lịch học đầy đủ & điểm danh', 'View full schedule & attendance'),
-                    style: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
+              // Tab Lịch học Khoa học
+              _buildStudentScientificScheduleView(),
             ] else ...[
               // Tab Tài liệu
               Container(
@@ -626,6 +623,419 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildStudentScientificScheduleView() {
+    if (_isLoadingSchedules) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 40),
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
+    final schedules = _batchSchedules;
+    final completedCount = schedules.where((s) => s.status == 'COMPLETED').length;
+    final upcomingCount = schedules.where((s) => s.status != 'COMPLETED').length;
+    final progressRatio = schedules.isNotEmpty ? (completedCount / schedules.length).clamp(0.0, 1.0) : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+
+        // 1. Thẻ Lộ trình Tiến độ Học tập Khoa học (Roadmap Progress Card)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border, width: 1.0),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.school_rounded, size: 18, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        context.tr('Lộ trình đào tạo Y khoa MLD', 'MLD Medical Training Roadmap'),
+                        style: GoogleFonts.beVietnamPro(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.mintBackground,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '${schedules.length} ${context.tr("buổi học", "sessions")}',
+                      style: GoogleFonts.beVietnamPro(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.accent),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // 3 Thẻ chỉ số tiến độ
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.mintBackground,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(context.tr('Đã hoàn thành', 'Completed'), style: GoogleFonts.beVietnamPro(fontSize: 10, color: AppColors.textSecondary)),
+                          const SizedBox(height: 2),
+                          Text('$completedCount buổi', style: GoogleFonts.beVietnamPro(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(context.tr('Sắp diễn ra', 'Upcoming'), style: GoogleFonts.beVietnamPro(fontSize: 10, color: AppColors.textSecondary)),
+                          const SizedBox(height: 2),
+                          Text('$upcomingCount buổi', style: GoogleFonts.beVietnamPro(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0284C7))),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(context.tr('Tiến độ', 'Progress'), style: GoogleFonts.beVietnamPro(fontSize: 10, color: AppColors.textSecondary)),
+                          const SizedBox(height: 2),
+                          Text('${(progressRatio * 100).toInt()}%', style: GoogleFonts.beVietnamPro(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFFD97706))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progressRatio,
+                  minHeight: 5,
+                  backgroundColor: const Color(0xFFE5E7EB),
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // 2. Danh sách từng Buổi học (Dạng Timeline)
+        if (schedules.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.event_note_outlined, size: 40, color: AppColors.textPlaceholder),
+                const SizedBox(height: 10),
+                Text(
+                  context.tr('Chưa có thời khóa biểu trực tiếp', 'No live schedule yet'),
+                  style: GoogleFonts.beVietnamPro(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.tr('Lịch học thực hành và lý thuyết sẽ được cập nhật khi khóa học khai giảng.', 'Practice and theory schedule will be updated when the course starts.'),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.beVietnamPro(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: schedules.length,
+            itemBuilder: (ctx, idx) {
+              final s = schedules[idx];
+              final isCompleted = s.status == 'COMPLETED';
+              final isToday = s.status == 'TODAY';
+              final nodeColor = isCompleted
+                  ? AppColors.primary
+                  : (isToday ? const Color(0xFFD97706) : const Color(0xFF9CA3AF));
+
+              final typeColor = s.isPracticeLab ? const Color(0xFF059669) : const Color(0xFF0284C7);
+              final typeBg = s.isPracticeLab ? const Color(0xFFE8F6ED) : const Color(0xFFE0F2FE);
+              final typeLabel = s.isPracticeLab ? '🔬 Thực hành Lab' : '📖 Lý thuyết';
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Cột Timeline Node
+                  Column(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: isToday ? const Color(0xFFFEF3C7) : (isCompleted ? AppColors.mintBackground : const Color(0xFFF3F4F6)),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: nodeColor, width: isToday ? 2.5 : 1.5),
+                        ),
+                        alignment: Alignment.center,
+                        child: isCompleted
+                            ? const Icon(Icons.check_rounded, size: 16, color: AppColors.primary)
+                            : (isToday
+                                ? const Icon(Icons.play_arrow_rounded, size: 16, color: Color(0xFFD97706))
+                                : Text(
+                                    '${s.sessionIndex}',
+                                    style: GoogleFonts.beVietnamPro(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF6B7280)),
+                                  )),
+                      ),
+                      if (idx < schedules.length - 1)
+                        Container(
+                          width: 2,
+                          height: 95,
+                          color: isCompleted ? AppColors.primary.withValues(alpha: 0.3) : const Color(0xFFE5E7EB),
+                        ),
+                    ],
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  // Thẻ Card Buổi học
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isToday ? const Color(0xFFD97706) : AppColors.border,
+                          width: isToday ? 1.5 : 1.0,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isToday
+                                ? const Color(0xFFD97706).withValues(alpha: 0.08)
+                                : Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header buổi học
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isToday ? const Color(0xFFFFFBEB) : const Color(0xFFF9FAFB),
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                              border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 0.5)),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'BUỔI ${s.sessionIndex}',
+                                    style: GoogleFonts.beVietnamPro(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: typeBg,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    typeLabel,
+                                    style: GoogleFonts.beVietnamPro(fontSize: 10, fontWeight: FontWeight.w700, color: typeColor),
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (isToday)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFDC2626),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'HÔM NAY',
+                                      style: GoogleFonts.beVietnamPro(fontSize: 9.5, fontWeight: FontWeight.w800, color: Colors.white),
+                                    ),
+                                  )
+                                else if (isCompleted)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE8F6ED),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'Đã hoàn thành',
+                                      style: GoogleFonts.beVietnamPro(fontSize: 9.5, fontWeight: FontWeight.w600, color: AppColors.accent),
+                                    ),
+                                  )
+                                else
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE0F2FE),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'Sắp diễn ra',
+                                      style: GoogleFonts.beVietnamPro(fontSize: 9.5, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7)),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+
+                          // Nội dung
+                          Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  s.topic,
+                                  style: GoogleFonts.beVietnamPro(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textHeading,
+                                    height: 1.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.calendar_month_outlined, size: 13, color: Color(0xFFD97706)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      s.formattedDate,
+                                      style: GoogleFonts.beVietnamPro(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF374151)),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const Icon(Icons.access_time_rounded, size: 13, color: Color(0xFF0284C7)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      s.timeSlotDisplay,
+                                      style: GoogleFonts.beVietnamPro(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.location_on_outlined, size: 13, color: Color(0xFFDC2626)),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        s.roomName ?? 'Phòng Lab Thực hành MLD',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.beVietnamPro(fontSize: 10.5, color: AppColors.textSecondary),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.badge_outlined, size: 13, color: AppColors.primary),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      s.instructorName ?? 'ThS.BS Lâm Xuân Trường',
+                                      style: GoogleFonts.beVietnamPro(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+
+        const SizedBox(height: 8),
+
+        // 3. Nút Điều hướng sang Màn hình Điểm danh tổng thể E11
+        SizedBox(
+          width: double.infinity,
+          height: 46,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const E11AttendanceScheduleScreen()),
+              );
+            },
+            icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+            label: Text(
+              context.tr('Mở cổng điểm danh QR & toàn bộ lớp học', 'Open QR Attendance & All Classes'),
+              style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary, width: 1.2),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
