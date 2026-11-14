@@ -61,7 +61,7 @@ export const W20_Settings: React.FC = () => {
     reload,
     testZns,
     changePassword,
-  } = useAdminSettings();
+  } = useAdminSettings(user?.role);
 
   // State cho đổi mật khẩu ở Tab Profile
   const [oldPassword, setOldPassword] = useState('');

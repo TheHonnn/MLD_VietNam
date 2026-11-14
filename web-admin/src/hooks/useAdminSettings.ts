@@ -6,7 +6,7 @@ import {
 } from '../services/settings.service';
 import { toast } from '../components/common';
 
-export function useAdminSettings() {
+export function useAdminSettings(role?: string) {
   const [settings, setSettings] = useState<SystemSettingsState>(DEFAULT_SETTINGS_STATE);
   const [originalSettings, setOriginalSettings] = useState<SystemSettingsState>(DEFAULT_SETTINGS_STATE);
   const [loading, setLoading] = useState<boolean>(true);
@@ -25,7 +25,7 @@ export function useAdminSettings() {
     setLoading(true);
     setError(null);
     try {
-      const resp = await settingsService.getAllSettings(signal);
+      const resp = await settingsService.getAllSettings(signal, role);
       if (signal.aborted) return;
       const merged: SystemSettingsState = {
         general: { ...DEFAULT_SETTINGS_STATE.general, ...(resp.general?.data || {}) },
@@ -47,7 +47,7 @@ export function useAdminSettings() {
         setLoading(false);
       }
     }
-  }, []);
+  }, [role]);
 
   useEffect(() => {
     loadSettings();

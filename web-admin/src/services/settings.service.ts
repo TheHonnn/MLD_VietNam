@@ -1,4 +1,5 @@
 import { adminApi, adminCommand } from '../admin/api';
+import { getAdminAuthToken, getSupabaseHeaders, SUPABASE_URL } from './supabaseClient';
 
 export interface CompanySettings {
   company_name: string;
@@ -140,10 +141,23 @@ export const settingsService = {
   /**
    * Tải toàn bộ cấu hình hệ thống từ backend / Supabase
    */
-  async getAllSettings(signal?: AbortSignal): Promise<AllSettingsResponse> {
+  async getAllSettings(signal?: AbortSignal, role?: string): Promise<AllSettingsResponse> {
     const deadline = AbortSignal.timeout(15000);
     const requestSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
     try {
+      const hostname = typeof window === 'undefined' ? '' : window.location.hostname;
+      if ((role === 'ADMIN' || role === 'SUPER_ADMIN') && hostname !== 'localhost' && hostname !== '127.0.0.1' && getAdminAuthToken()) {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_read_system_settings`, {
+          headers: getSupabaseHeaders(),
+          signal: requestSignal,
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          const error = await response.json().catch(() => null);
+          throw new Error(error?.message || 'Không thể tải cài đặt hệ thống.');
+        }
+        return await response.json();
+      }
       return await adminCommand<AllSettingsResponse>('settings', undefined, requestSignal);
     } catch (error) {
       if (deadline.aborted && !signal?.aborted) {
