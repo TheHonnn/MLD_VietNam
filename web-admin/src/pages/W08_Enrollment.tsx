@@ -153,14 +153,14 @@ export const W08_Enrollment: React.FC = () => {
   const [formPhone, setFormPhone] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formCourseId, setFormCourseId] = useState('');
-  const [formBranchId, setFormBranchId] = useState('Chi nhánh Quận 3 - TP.HCM');
-  const [formTuition, setFormTuition] = useState('35.000.000đ');
+  const [formBranchId, setFormBranchId] = useState('');
+  const [formTuition, setFormTuition] = useState('');
   const [isCreatingCandidate, setIsCreatingCandidate] = useState(false);
 
   // Detail Panel Interactive State
   const [consultationNoteInput, setConsultationNoteInput] = useState('');
-  const [consultationStatusInput, setConsultationStatusInput] = useState<ConsultationStatus>(ConsultationStatus.CONSULTING);
   const [finalTuitionInput, setFinalTuitionInput] = useState<number>(0);
+  const [tuitionChangeReason, setTuitionChangeReason] = useState('');
   const [finalBranchInput, setFinalBranchInput] = useState<string>('Chi nhánh Quận 3 - TP.HCM');
   const [isUpdatingConsultation, setIsUpdatingConsultation] = useState(false);
   const [isFinalizingConsultation, setIsFinalizingConsultation] = useState(false);
@@ -175,6 +175,7 @@ export const W08_Enrollment: React.FC = () => {
     }, 3500);
   };
 
+  const [liveBranches, setLiveBranches] = useState<Array<{ id: string; name: string }>>([]);
   const [liveEnrollments, setLiveEnrollments] = useState<CourseEnrollment[]>([]);
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
@@ -193,6 +194,7 @@ export const W08_Enrollment: React.FC = () => {
           staffService.getInstructors(),
           staffService.getStaffList(),
         ]);
+        void supabaseService.getBranches().then(branches => setLiveBranches(branches ?? [])).catch(() => setLiveBranches([]));
         if (enrRes.success) setLiveEnrollments(enrRes.data);
         if (crsRes.success) setLiveCourses(crsRes.data);
         if (batRes.success) setLiveBatches(batRes.data);
@@ -227,7 +229,7 @@ export const W08_Enrollment: React.FC = () => {
       const programTitle = crs?.title || 'Khóa học MLD';
       const batchCode = bat?.batchCode || (enr.batchId ? `K26-${crs?.code || 'MLD'}` : 'Chưa xếp lớp');
 
-      const total = Number(enr.finalTuition || enr.tuitionTotal || crs?.tuitionFee || 35000000);
+      const total = Number(enr.finalTuition || enr.tuitionTotal || crs?.tuitionFee || 0);
       let paid = Number(enr.amountPaid || 0);
 
       const isStudying = enr.status === EnrollmentStatus.STUDYING;
@@ -301,10 +303,10 @@ export const W08_Enrollment: React.FC = () => {
           : paymentVerificationStatus === PaymentVerificationStatus.PARTIALLY_PAID
           ? '💳 Đã đóng một phần'
           : consultationStatus === ConsultationStatus.CONFIRMED
-          ? '📋 Đã chốt tư vấn (Chờ thanh toán)'
+          ? 'Chờ thanh toán'
           : consultationStatus === ConsultationStatus.CONSULTING
-          ? '📞 Đang tư vấn'
-          : '⏳ Chờ liên hệ tư vấn';
+          ? 'Chờ xác nhận học phí'
+          : 'Chờ xác nhận học phí';
 
       // 365-day Validity & Expiry Calculation (Phase 2)
       const validUntilStr =
@@ -366,7 +368,7 @@ export const W08_Enrollment: React.FC = () => {
         qrCreatedAt: enr.qrCreatedAt,
 
         experience: experienceLabel,
-        branch: enr.selectedBranch || 'Chi nhánh Quận 3 - TP.HCM',
+        branch: enr.selectedBranch || '',
         expectedClass: batchCode,
         startDate: startDateFormatted,
         schedule: scheduleDisplay,
@@ -500,13 +502,9 @@ export const W08_Enrollment: React.FC = () => {
   // Synchronize form inputs when selectedCandidate changes
   useEffect(() => {
     if (selectedCandidate) {
-      const initialStatus =
-        isWaitingForClass || isEnrolledOrStudying || selectedCandidate.paymentVerificationStatus === PaymentVerificationStatus.PAID
-          ? ConsultationStatus.CONFIRMED
-          : selectedCandidate.consultationStatus;
-      setConsultationStatusInput(initialStatus);
-      setFinalTuitionInput(selectedCandidate.finalTuition || selectedCandidate.rawTuitionTotal || 35000000);
-      setFinalBranchInput(selectedCandidate.branch || 'Chi nhánh Quận 3 - TP.HCM');
+      setTuitionChangeReason('');
+      setFinalTuitionInput(selectedCandidate.finalTuition || selectedCandidate.rawTuitionTotal || 0);
+      setFinalBranchInput(selectedCandidate.branch);
     }
   }, [selectedCandidate?.id, isWaitingForClass, isEnrolledOrStudying]);
 
@@ -519,7 +517,7 @@ export const W08_Enrollment: React.FC = () => {
       .slice(0, 2)
       .forEach((c) => {
         tasks.push({
-          title: 'Liên hệ tư vấn khách hàng mới',
+          title: 'Xác nhận học phí hồ sơ mới',
           desc: `Đơn ${c.orderCode} (${c.name} - SĐT: ${c.phone}): Khách vừa đăng ký quan tâm khóa ${c.program}.`,
           type: 'consultation',
         });
@@ -559,6 +557,12 @@ export const W08_Enrollment: React.FC = () => {
       toast.error('Thiếu thông tin', 'Vui lòng nhập họ tên và số điện thoại khách hàng.');
       return;
     }
+    const course = liveCourses.find(item => item.id === formCourseId);
+    const cleanTuition = Number(formTuition.trim());
+    if (!course || !Number.isSafeInteger(cleanTuition) || cleanTuition <= 0 || !liveBranches.some(branch => branch.name === formBranchId)) {
+      toast.error('Thông tin chưa hợp lệ', 'Chọn khóa học, cơ sở và nhập học phí hợp lệ.');
+      return;
+    }
     setIsCreatingCandidate(true);
     try {
       const cleanDigits = cleanPhone.replace(/\D/g, '');
@@ -577,14 +581,13 @@ export const W08_Enrollment: React.FC = () => {
         }
       }
 
-      const targetCourseId = formCourseId || liveCourses[0]?.id || 'cccccccc-0001-0001-0001-000000000001';
-      const cleanTuition = Number(formTuition.replace(/\D/g, '')) || 35000000;
+      if (!student?.id) throw new Error('Không xác định được học viên.');
       const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const newOrderCode = `KH-${todayStr}-${String(liveEnrollments.length + 1).padStart(3, '0')}`;
 
       const enrRes = await academyService.createEnrollment({
-        studentId: student?.id || '26e0bc2d-ce98-4ce4-ae18-3b581b1c916e',
-        courseId: targetCourseId,
+        studentId: student.id,
+        courseId: course.id,
         status: EnrollmentStatus.CONSULTING,
         tuitionTotal: cleanTuition,
         amountPaid: 0,
@@ -593,9 +596,10 @@ export const W08_Enrollment: React.FC = () => {
         studentEmail: formEmail.trim() || undefined,
       });
 
+      if (!enrRes.success || !enrRes.data?.id) throw new Error(enrRes.message || 'Chưa lưu được hồ sơ.');
       if (enrRes.success && enrRes.data) {
         // Update the new workflow fields on Supabase Cloud
-        await supabaseService.updateEnrollment(enrRes.data.id, {
+        const updated = await supabaseService.updateEnrollment(enrRes.data.id, {
           orderCode: newOrderCode,
           studentName: cleanName,
           studentPhone: cleanPhone,
@@ -614,6 +618,7 @@ export const W08_Enrollment: React.FC = () => {
           ],
         });
 
+        if (!updated) throw new Error('Hồ sơ đã tạo nhưng chưa lưu đủ thông tin. Hãy tải lại trước khi thử lại.');
         const refreshed = await supabaseService.getEnrollments();
         if (refreshed) {
           setLiveEnrollments(refreshed);
@@ -674,7 +679,7 @@ export const W08_Enrollment: React.FC = () => {
       const authorName = 'Admin Tuyển Sinh';
       const res = await academyService.updateConsultationStatus(
         selectedCandidate.id,
-        consultationStatusInput,
+        selectedCandidate.consultationStatus,
         consultationNoteInput,
         authorName
       );
@@ -682,7 +687,7 @@ export const W08_Enrollment: React.FC = () => {
         const refreshed = await supabaseService.getEnrollments();
         if (refreshed) setLiveEnrollments(refreshed);
         setConsultationNoteInput('');
-        toast.success('Đã lưu tư vấn', `Cập nhật trạng thái tư vấn: ${consultationStatusInput}`);
+        toast.success('Đã lưu ghi chú tư vấn');
         showToast('Đã lưu lịch sử tư vấn thành công!');
       } else {
         toast.error('Lỗi', res.message);
@@ -696,9 +701,17 @@ export const W08_Enrollment: React.FC = () => {
 
   // Finalize consultation & lock tuition/branch (Section 4.2 & 4.3)
   const handleFinalizeConsultation = async () => {
-    if (!selectedCandidate) return;
-    if (!finalTuitionInput || finalTuitionInput <= 0) {
+    if (!selectedCandidate || isFinalizingConsultation) return;
+    if (!Number.isFinite(finalTuitionInput) || finalTuitionInput <= 0) {
       toast.error('Học phí không hợp lệ', 'Vui lòng nhập mức học phí đã chốt với khách hàng.');
+      return;
+    }
+    if (!liveBranches.some(branch => branch.name === finalBranchInput)) {
+      toast.error('Thiếu cơ sở', 'Vui lòng chọn cơ sở đào tạo.');
+      return;
+    }
+    if (finalTuitionInput !== selectedCandidate.rawTuitionTotal && !tuitionChangeReason.trim()) {
+      toast.error('Thiếu lý do', 'Vui lòng ghi lý do điều chỉnh học phí.');
       return;
     }
     setIsFinalizingConsultation(true);
@@ -706,27 +719,18 @@ export const W08_Enrollment: React.FC = () => {
       const res = await academyService.finalizeConsultation(selectedCandidate.id, {
         finalTuition: finalTuitionInput,
         branchName: finalBranchInput,
-        note: `Đã chốt học phí: ${finalTuitionInput.toLocaleString('vi-VN')}đ tại ${finalBranchInput}`,
+        note: `Đã xác nhận học phí: ${finalTuitionInput.toLocaleString('vi-VN')}đ tại ${finalBranchInput}${tuitionChangeReason.trim() ? ` · Lý do: ${tuitionChangeReason.trim()}` : ''}`,
         authorName: 'Admin Tuyển Sinh',
       });
       if (res.success) {
         const refreshed = await supabaseService.getEnrollments();
         if (refreshed) setLiveEnrollments(refreshed);
-        toast.success(
-          'Đã chốt tư vấn thành công!',
-          `Học phí chốt ${finalTuitionInput.toLocaleString('vi-VN')}đ. Đang mở mã QR thanh toán...`
-        );
-        // Automatically open the VietQR bill modal
-        handleOpenBillModal({
-          ...selectedCandidate,
-          rawTuitionTotal: finalTuitionInput,
-          branch: finalBranchInput,
-        });
+        toast.success('Đã xác nhận học phí', 'Chọn Thanh toán / Xem QR để tiếp tục. Chưa ghi nhận khoản thu.');
       } else {
-        toast.error('Lỗi chốt tư vấn', res.message);
+        toast.error('Không thể xác nhận học phí', res.message);
       }
     } catch (err: any) {
-      toast.error('Lỗi', err?.message || 'Không thể chốt tư vấn');
+      toast.error('Lỗi', err?.message || 'Không thể xác nhận học phí');
     } finally {
       setIsFinalizingConsultation(false);
     }
@@ -734,6 +738,12 @@ export const W08_Enrollment: React.FC = () => {
 
   // Open Bill & QR modal
   const handleOpenBillModal = (candidate: CandidateRecord) => {
+    if (candidate.consultationStatus !== ConsultationStatus.CONFIRMED && candidate.rawAmountPaid <= 0) {
+      setSelectedCandidateId(candidate.id);
+      toast.info('Xác nhận học phí trước', 'Kiểm tra học phí và cơ sở trước khi mở thanh toán.');
+      document.getElementById('enrollment-consultation-step')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setBillModalCandidate({
       id: candidate.id,
       name: candidate.name,
@@ -960,7 +970,7 @@ export const W08_Enrollment: React.FC = () => {
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
             <Clock className="w-3 h-3" />
-            <span>Chờ liên hệ</span>
+            <span>Chờ xác nhận học phí</span>
           </span>
         );
       case ConsultationStatus.CONSULTING:
@@ -974,7 +984,7 @@ export const W08_Enrollment: React.FC = () => {
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
             <CheckCircle2 className="w-3 h-3" />
-            <span>Đã chốt tư vấn</span>
+            <span>Đã xác nhận học phí</span>
           </span>
         );
       case ConsultationStatus.CANCELLED:
@@ -1124,15 +1134,15 @@ export const W08_Enrollment: React.FC = () => {
     : selectedCandidate.consultationStatus === ConsultationStatus.CONFIRMED
     ? {
         step: 'Bước 3/5',
-        title: 'Chờ xác nhận học phí',
+        title: 'Thu học phí',
         description: 'Gửi phiếu thanh toán hoặc xác nhận tiền đã thu. Sau đó mới xếp lớp.',
         action: 'Mở phiếu học phí',
       }
     : {
         step: 'Bước 2/5',
-        title: 'Liên hệ và chốt tư vấn',
-        description: 'Ghi nhận trao đổi, chốt học phí và tạo phiếu thanh toán.',
-        action: 'Mở bước tư vấn',
+        title: 'Xác nhận học phí',
+        description: 'Kiểm tra khóa học, cơ sở và học phí. Không cần liên hệ hoặc phân công trước.',
+        action: 'Kiểm tra học phí',
       };
 
   return (
@@ -1142,7 +1152,7 @@ export const W08_Enrollment: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#2C241E]">Quản lý Tuyển sinh & Nhập học</h1>
           <p className="text-xs text-[#73675F] mt-1">
-            Tiếp nhận → tư vấn → thu học phí → duyệt nhập học → xếp lớp.
+            Tiếp nhận → xác nhận học phí → thu tiền → duyệt nhập học → xếp lớp.
           </p>
         </div>
 
@@ -1175,7 +1185,7 @@ export const W08_Enrollment: React.FC = () => {
         onChange={(tabId) => setActiveWorkflowTab(tabId as any)}
         tabs={[
           { id: 'ALL', label: 'Tất cả hồ sơ', count: countAll },
-          { id: 'PENDING_CONSULTATION', label: '1. Cần tư vấn', count: countPendingConsultation },
+          { id: 'PENDING_CONSULTATION', label: '1. Chờ xác nhận học phí', count: countPendingConsultation },
           { id: 'CONFIRMED_PENDING_PAY', label: '2. Chờ học phí', count: countConfirmedPendingPay },
           { id: 'AWAITING_APPROVAL', label: '3. Chờ duyệt', count: countAwaitingApproval },
           { id: 'PAID_WAITING_CLASS', label: '4. Chờ xếp lớp', count: countPaidWaitingClass },
@@ -1369,16 +1379,16 @@ export const W08_Enrollment: React.FC = () => {
                                 title="Xem chứng từ và thông tin thanh toán học phí"
                               >
                                 <Printer className="w-3 h-3" />
-                                <span>{candidate.paymentVerificationStatus === PaymentVerificationStatus.PAID ? 'Xem phiếu thu' : 'Học phí / QR'}</span>
+                                <span>{candidate.paymentVerificationStatus === PaymentVerificationStatus.PAID ? 'Xem phiếu thu' : candidate.consultationStatus === ConsultationStatus.CONFIRMED ? 'Thanh toán / QR' : 'Xác nhận học phí'}</span>
                               </button>
 
                               {candidate.paymentVerificationStatus !== PaymentVerificationStatus.PAID && (
                                 <button
                                   type="button"
-                                  disabled={checkingCandidateId === candidate.id}
+                                  disabled={checkingCandidateId === candidate.id || candidate.consultationStatus !== ConsultationStatus.CONFIRMED}
                                   onClick={() => handleCheckPayment(candidate.id)}
                                   className="p-1 bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-                                  title="Kiểm tra tiền về tài khoản MB Bank"
+                                  title="Kiểm tra giao dịch đã ghi nhận"
                                 >
                                   <RefreshCw className={`w-3.5 h-3.5 ${checkingCandidateId === candidate.id ? 'animate-spin' : ''}`} />
                                 </button>
@@ -1519,7 +1529,7 @@ export const W08_Enrollment: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 gap-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-[#73675F]">Tư vấn:</span>
+                    <span className="text-[11px] text-[#73675F]">Xác nhận học phí:</span>
                     {renderConsultationBadge(selectedCandidate.consultationStatus)}
                   </div>
                   <div className="flex items-center justify-between">
@@ -1533,12 +1543,14 @@ export const W08_Enrollment: React.FC = () => {
                 </div>
               </div>
 
-              {/* STEP 1: Phân công nhân viên phụ trách tư vấn (Spec 4.1) */}
-              <div id="enrollment-consultation-step" className="p-3.5 rounded-xl bg-white border border-[#EFE4D9] space-y-2.5">
+              <details className="rounded-xl border border-[#EFE4D9] bg-white p-3.5 space-y-3">
+                <summary className="cursor-pointer text-xs font-semibold text-[#73675F]">Thông tin bổ sung · Phân công & tư vấn (tùy chọn)</summary>
+              {/* Phân công không chặn xác nhận học phí */}
+              <div className="p-3.5 rounded-xl bg-white border border-[#EFE4D9] space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="font-bold text-[#2C241E] text-xs flex items-center gap-1.5">
                     <UserCheck className="w-3.5 h-3.5 text-[#8D4B1A]" />
-                    <span>Phân công nhân viên phụ trách</span>
+                    <span>Nhân viên phụ trách (tùy chọn)</span>
                   </label>
                   {isAssigningStaff && <span className="text-[10px] text-amber-700 font-semibold animate-pulse">Đang lưu...</span>}
                 </div>
@@ -1555,7 +1567,7 @@ export const W08_Enrollment: React.FC = () => {
                   ))}
                 </select>
                 <div className="text-[10px] text-[#73675F]">
-                  Nhân viên được phân công chịu trách nhiệm liên hệ và chốt học phí với khách hàng.
+                  Không bắt buộc phân công. Người thao tác vẫn được ghi nhận trong lịch sử xử lý.
                 </div>
               </div>
 
@@ -1593,16 +1605,7 @@ export const W08_Enrollment: React.FC = () => {
                 {/* Add note & status update form */}
                 <div className="space-y-2 pt-1 border-t border-[#EFE4D9]">
                   <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={consultationStatusInput}
-                      onChange={(e) => setConsultationStatusInput(e.target.value as ConsultationStatus)}
-                      className="px-2.5 py-1.5 bg-white border border-[#EFE4D9] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                    >
-                      <option value={ConsultationStatus.PENDING_CONSULTATION}>Chờ liên hệ</option>
-                      <option value={ConsultationStatus.CONSULTING}>Đang tư vấn</option>
-                      <option value={ConsultationStatus.CONFIRMED}>Đã chốt tư vấn</option>
-                      <option value={ConsultationStatus.CANCELLED}>Hủy đăng ký</option>
-                    </select>
+
                     <button
                       type="button"
                       disabled={isUpdatingConsultation || !consultationNoteInput.trim()}
@@ -1629,8 +1632,11 @@ export const W08_Enrollment: React.FC = () => {
                 </div>
               </div>
 
+              </details>
+
+              <div id="enrollment-consultation-step" className="scroll-mt-24" />
               {/* STEP 3: Chốt tư vấn & Tạo yêu cầu thanh toán VietQR (Spec 4.2 & 4.3) */}
-              {isWaitingForClass || isEnrolledOrStudying || selectedCandidate.paymentVerificationStatus === PaymentVerificationStatus.PAID ? (
+              {selectedCandidate.consultationStatus === ConsultationStatus.CONFIRMED || isWaitingForClass || isEnrolledOrStudying || selectedCandidate.paymentVerificationStatus === PaymentVerificationStatus.PAID ? (
                 <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <div className="font-bold text-emerald-800 text-xs flex items-center gap-1.5">
@@ -1650,7 +1656,7 @@ export const W08_Enrollment: React.FC = () => {
                 <div className="p-3.5 rounded-xl bg-[#FAF5EF] border border-[#EFE4D9] space-y-2.5">
                   <div className="font-bold text-[#8D4B1A] text-xs flex items-center gap-1.5">
                     <DollarSign className="w-3.5 h-3.5" />
-                    <span>Chốt học phí & Cơ sở đào tạo (Bước quan trọng)</span>
+                    <span>1. Xác nhận học phí & Cơ sở đào tạo</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-xs">
@@ -1672,20 +1678,26 @@ export const W08_Enrollment: React.FC = () => {
                         onChange={(e) => setFinalBranchInput(e.target.value)}
                         className="w-full px-2.5 py-1.5 bg-white border border-[#EFE4D9] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                       >
-                        <option value="Chi nhánh Quận 3 - TP.HCM">Chi nhánh Quận 3</option>
-                        <option value="Chi nhánh Quận 1 - TP.HCM">Chi nhánh Quận 1</option>
+                        <option value="">Chọn cơ sở đào tạo</option>
+                        {liveBranches.map(branch => <option key={branch.id} value={branch.name}>{branch.name}</option>)}
                       </select>
                     </div>
                   </div>
 
+                  {finalTuitionInput !== selectedCandidate.rawTuitionTotal && (
+                    <label className="block text-xs text-[#73675F]">Lý do điều chỉnh học phí *
+                      <textarea value={tuitionChangeReason} onChange={e => setTuitionChangeReason(e.target.value)} className="mt-1 w-full rounded-lg border border-[#EFE4D9] p-2" rows={2} />
+                    </label>
+                  )}
+                  <p className="text-[11px] text-[#73675F]">Xác nhận mức phí; chưa tạo phiếu thu và chưa duyệt nhập học.</p>
                   <button
                     type="button"
-                    disabled={isFinalizingConsultation}
+                    disabled={isFinalizingConsultation || selectedCandidate.consultationStatus === ConsultationStatus.CANCELLED}
                     onClick={handleFinalizeConsultation}
                     className="w-full py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>{isFinalizingConsultation ? 'Đang lưu vào Supabase...' : 'Chốt tư vấn & Tạo mã VietQR'}</span>
+                    <span>{isFinalizingConsultation ? 'Đang xác nhận...' : 'Xác nhận học phí'}</span>
                   </button>
                 </div>
               )}
@@ -1721,10 +1733,10 @@ export const W08_Enrollment: React.FC = () => {
                   className="w-full py-2 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF5EF] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>In Bill / Tải ảnh QR gửi cho khách (Zalo)</span>
+                  <span>{selectedCandidate.rawAmountPaid > 0 ? 'Xem phiếu thu / Thanh toán phần còn lại' : 'Thanh toán / Xem QR'}</span>
                 </button>
 
-                {selectedCandidate.rawAmountPaid <= 0 && !isWaitingForClass && !isEnrolledOrStudying ? (
+                {selectedCandidate.consultationStatus === ConsultationStatus.CONFIRMED && selectedCandidate.rawAmountPaid <= 0 && !isWaitingForClass && !isEnrolledOrStudying ? (
                   <div className="space-y-1.5 pt-1">
                     <button
                       type="button"
@@ -1746,6 +1758,8 @@ export const W08_Enrollment: React.FC = () => {
                       <span>{isManualConfirmingPay ? 'Đang xác nhận...' : 'Xác nhận đối soát thủ công (Admin/Kế toán)'}</span>
                     </button>
                   </div>
+                ) : selectedCandidate.consultationStatus !== ConsultationStatus.CONFIRMED && selectedCandidate.rawAmountPaid <= 0 ? (
+                  <p className="text-xs text-[#73675F]">Xác nhận học phí ở bước trên để tiếp tục thanh toán.</p>
                 ) : (
                   <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold flex items-center justify-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -1925,7 +1939,7 @@ export const W08_Enrollment: React.FC = () => {
             <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF5EF]">
               <div>
                 <h3 className="text-base font-bold text-[#2C241E]">Tạo hồ sơ tuyển sinh tại quầy</h3>
-                <p className="text-xs text-[#73675F] mt-0.5">Dành cho khách đến trực tiếp; hồ sơ bắt đầu ở trạng thái Cần tư vấn và Chưa thanh toán.</p>
+                <p className="text-xs text-[#73675F] mt-0.5">Dành cho khách đến trực tiếp; hồ sơ bắt đầu ở trạng thái Chờ xác nhận học phí và Chưa thanh toán.</p>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -1984,8 +1998,8 @@ export const W08_Enrollment: React.FC = () => {
                     onChange={(e) => setFormBranchId(e.target.value)}
                     className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   >
-                    <option value="Chi nhánh Quận 3 - TP.HCM">Quận 3 - TP.HCM</option>
-                    <option value="Chi nhánh Quận 1 - TP.HCM">Quận 1 - TP.HCM</option>
+                    <option value="">Chọn cơ sở đào tạo</option>
+                        {liveBranches.map(branch => <option key={branch.id} value={branch.name}>{branch.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -2003,9 +2017,14 @@ export const W08_Enrollment: React.FC = () => {
                 <label className="block font-semibold text-[#2C241E] mb-1.5">Khóa đào tạo quan tâm</label>
                 <select
                   value={formCourseId}
-                  onChange={(e) => setFormCourseId(e.target.value)}
+                  onChange={(e) => {
+                    const course = liveCourses.find(item => item.id === e.target.value);
+                    setFormCourseId(e.target.value);
+                    setFormTuition(course?.tuitionFee ? String(course.tuitionFee) : '');
+                  }}
                   className="w-full px-3.5 py-2.5 border border-[#EFE4D9] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                 >
+                  <option value="">Chọn khóa học</option>
                   {liveCourses.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.title} ({c.code}) - {c.tuitionFee?.toLocaleString('vi-VN')}đ
