@@ -396,23 +396,6 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          if (_selectedSegment == 0) {
-            _openServiceForm();
-          } else {
-            _openCourseForm();
-          }
-        },
-        backgroundColor: _selectedSegment == 0 ? const Color(0xFFE11D48) : const Color(0xFF00693F),
-        foregroundColor: Colors.white,
-        elevation: 3,
-        icon: const Icon(Icons.add_rounded, size: 20),
-        label: Text(
-          _selectedSegment == 0 ? 'Thêm dịch vụ' : 'Thêm khóa học',
-          style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w700),
-        ),
-      ),
     );
   }
 
@@ -438,7 +421,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 80),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 20),
       itemCount: _filteredServices.length,
       itemBuilder: (ctx, index) {
         final s = _filteredServices[index];
@@ -558,7 +541,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 80),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 20),
       itemCount: _filteredCourses.length,
       itemBuilder: (ctx, index) {
         final c = _filteredCourses[index];
