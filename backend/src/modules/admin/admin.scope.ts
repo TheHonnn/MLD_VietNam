@@ -21,7 +21,8 @@ export function branchPredicate(table: string, row: string, parameter: string, c
     student_attendance: `EXISTS(SELECT 1 FROM batch_schedules s JOIN course_batches b ON b.id=s.batch_id WHERE s.id=${row}.schedule_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
     student_academic_records: `EXISTS(SELECT 1 FROM course_enrollments e JOIN course_batches b ON b.id=e.batch_id WHERE e.id=${row}.enrollment_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
     staff_leaves: `EXISTS(SELECT 1 FROM staff_profiles s WHERE s.id=${row}.staff_id AND s.branch_id=ANY(${parameter}::uuid[]))`,
-    treatment_journal: `EXISTS(SELECT 1 FROM bookings b WHERE b.id=${row}.booking_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
+    treatment_journal: `(EXISTS(SELECT 1 FROM bookings b WHERE b.id=${row}.booking_id AND b.branch_id=ANY(${parameter}::uuid[])) OR (${row}.booking_id IS NULL AND EXISTS(SELECT 1 FROM invoices i WHERE i.user_package_id=${row}.user_package_id AND i.branch_id=ANY(${parameter}::uuid[]))))`,
+    user_packages: `(EXISTS(SELECT 1 FROM invoices i WHERE i.user_package_id=${row}.id AND i.branch_id=ANY(${parameter}::uuid[])) OR (NOT EXISTS(SELECT 1 FROM invoices i WHERE i.user_package_id=${row}.id) AND EXISTS(SELECT 1 FROM treatment_journal tj JOIN bookings b ON b.id=tj.booking_id WHERE tj.user_package_id=${row}.id AND b.branch_id=ANY(${parameter}::uuid[]))))`,
     student_certificates: `EXISTS(SELECT 1 FROM course_enrollments e JOIN course_batches b ON b.id=e.batch_id WHERE e.id=${row}.enrollment_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
     users: `(EXISTS(SELECT 1 FROM bookings b WHERE b.customer_id=${row}.id AND b.branch_id=ANY(${parameter}::uuid[])) OR EXISTS(SELECT 1 FROM course_enrollments e JOIN course_batches b ON b.id=e.batch_id WHERE e.student_id=${row}.id AND b.branch_id=ANY(${parameter}::uuid[])))`,
   };

@@ -19,8 +19,8 @@ export const DEFAULT_RESOURCES: Resource[] = [
 
   // 4. Quản lý Liệu trình
   { name: 'treatment_packages', title: 'Gói liệu trình Spa', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'user_packages', title: 'Liệu trình khách hàng', group: 'Quản lý Liệu trình', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'treatment_journal', title: 'Nhật ký điều trị', group: 'Quản lý Liệu trình', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'user_packages', title: 'Liệu trình khách hàng', group: 'Quản lý Liệu trình', actions: ['update', 'action'] },
+  { name: 'treatment_journal', title: 'Nhật ký điều trị', group: 'Quản lý Liệu trình', actions: ['create', 'update', 'action'] },
   { name: 'home_care_guidelines', title: 'Hướng dẫn chăm sóc tại nhà', group: 'Quản lý Liệu trình', actions: ['create', 'update', 'delete', 'action'] },
 
   // 5. Dịch vụ & Định mức

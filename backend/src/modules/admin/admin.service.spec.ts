@@ -285,11 +285,15 @@ describe('Admin shared-schema integration', () => {
          VALUES($1,$2,60,0)`,
         [booking.id, treatment.id],
       );
-      return service.mutate('treatment_journal', actor, 'create', {
+      const journal = await service.mutate('treatment_journal', actor, 'create', {
         values: {
           user_package_id: owner.id, booking_id: booking.id, customer_id: customer.id,
           session_number: sessionNumber, session_date: new Date().toISOString().slice(0, 10),
         },
+      });
+      return service.action('treatment_journal', actor, {
+        key: { id: journal.id },
+        action: 'confirm-session',
       });
     };
     await expect(session(2)).rejects.toThrow(/buổi 1/);

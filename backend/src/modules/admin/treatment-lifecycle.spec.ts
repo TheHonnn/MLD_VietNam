@@ -18,6 +18,10 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
   const staffActor = {
     id: '00000000-0000-4000-8000-000000000002',
     role: 'TECHNICIAN',
+    scopes: [
+      { permission: 'treatment_journal.read', branchId: null },
+      { permission: 'treatment_journal.action', branchId: null },
+    ],
   };
 
   let branchId: string;
@@ -68,8 +72,8 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
 
     // Seed technician
     const tech = (await pg.query<any>(
-      "INSERT INTO technicians(full_name, title, branch_id, avatar_url) VALUES('KTV Le Thi C', 'Chuyen vien Tri lieu', $1, 'https://example.com/technician.png') RETURNING id",
-      [branchId],
+      "INSERT INTO technicians(user_id, full_name, title, branch_id, avatar_url) VALUES($1, 'KTV Le Thi C', 'Chuyen vien Tri lieu', $2, 'https://example.com/technician.png') RETURNING id",
+      [staffActor.id, branchId],
     )).rows[0];
     technicianId = tech.id;
 
@@ -286,13 +290,13 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
 
       // Session 1
       await pg.query(
-        "INSERT INTO treatment_journal(user_package_id, customer_id, session_number, session_date, condition_before, condition_after, treatment_notes, specialist_advice, is_reversed) VALUES($1, $2, 1, '2026-03-01', 'Bình thường', 'Ổn định', 'Thực hiện buổi 1', 'Uống đủ nước', false)",
+        "INSERT INTO treatment_journal(user_package_id, customer_id, session_number, session_date, condition_before, condition_after, treatment_notes, specialist_advice, confirmation_status, is_reversed) VALUES($1, $2, 1, '2026-03-01', 'Bình thường', 'Ổn định', 'Thực hiện buổi 1', 'Uống đủ nước', 'CONFIRMED', false)",
         [upkg.id, customerOneId],
       );
 
       // Session 2
       const journal2 = (await pg.query<any>(
-        "INSERT INTO treatment_journal(user_package_id, customer_id, session_number, session_date, condition_before, condition_after, treatment_notes, specialist_advice, is_reversed) VALUES($1, $2, 2, '2026-03-05', 'Bình thường', 'Đỏ nhẹ', 'Thực hiện buổi 2', 'Bôi kem làm dịu', false) RETURNING id",
+        "INSERT INTO treatment_journal(user_package_id, customer_id, session_number, session_date, condition_before, condition_after, treatment_notes, specialist_advice, confirmation_status, is_reversed) VALUES($1, $2, 2, '2026-03-05', 'Bình thường', 'Đỏ nhẹ', 'Thực hiện buổi 2', 'Bôi kem làm dịu', 'CONFIRMED', false) RETURNING id",
         [upkg.id, customerOneId],
       )).rows[0];
 
@@ -331,12 +335,12 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       )).rows[0];
 
       await pg.query(
-        "INSERT INTO treatment_journal(user_package_id, customer_id, session_number, session_date, condition_before, condition_after, treatment_notes, specialist_advice, is_reversed) VALUES($1, $2, 1, '2026-03-01', 'Khởi đầu', 'Tốt', 'Buổi 1', 'Nghỉ ngơi', false)",
+        "INSERT INTO treatment_journal(user_package_id, customer_id, session_number, session_date, condition_before, condition_after, treatment_notes, specialist_advice, confirmation_status, is_reversed) VALUES($1, $2, 1, '2026-03-01', 'Khởi đầu', 'Tốt', 'Buổi 1', 'Nghỉ ngơi', 'CONFIRMED', false)",
         [upkg.id, customerOneId],
       );
 
       const journalFinal = (await pg.query<any>(
-        "INSERT INTO treatment_journal(user_package_id, customer_id, session_number, session_date, condition_before, condition_after, treatment_notes, specialist_advice, is_reversed) VALUES($1, $2, 2, '2026-03-08', 'Tốt', 'Hoàn tất', 'Buổi cuối hoàn thành', 'Dưỡng da định kỳ', false) RETURNING id",
+        "INSERT INTO treatment_journal(user_package_id, customer_id, session_number, session_date, condition_before, condition_after, treatment_notes, specialist_advice, confirmation_status, is_reversed) VALUES($1, $2, 2, '2026-03-08', 'Tốt', 'Hoàn tất', 'Buổi cuối hoàn thành', 'Dưỡng da định kỳ', 'CONFIRMED', false) RETURNING id",
         [upkg.id, customerOneId],
       )).rows[0];
 
@@ -360,7 +364,7 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       )).rows[0];
 
       const journal = (await pg.query<any>(
-        "INSERT INTO treatment_journal(user_package_id, customer_id, session_number, session_date, condition_before, condition_after, treatment_notes, specialist_advice, is_reversed) VALUES($1, $2, 1, '2026-03-10', 'Ổn', 'Ổn', 'Buổi 1', 'N/A', false) RETURNING id",
+        "INSERT INTO treatment_journal(user_package_id, customer_id, session_number, session_date, condition_before, condition_after, treatment_notes, specialist_advice, confirmation_status, is_reversed) VALUES($1, $2, 1, '2026-03-10', 'Ổn', 'Ổn', 'Buổi 1', 'N/A', 'CONFIRMED', false) RETURNING id",
         [upkg.id, customerOneId],
       )).rows[0];
 
@@ -388,7 +392,7 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       )).rows[0];
 
       const journal = (await pg.query<any>(
-        "INSERT INTO treatment_journal(user_package_id, customer_id, session_number, session_date, condition_before, condition_after, treatment_notes, specialist_advice, is_reversed) VALUES($1, $2, 1, '2026-03-11', 'Ổn', 'Ổn', 'Buổi 1', 'N/A', false) RETURNING id",
+        "INSERT INTO treatment_journal(user_package_id, customer_id, session_number, session_date, condition_before, condition_after, treatment_notes, specialist_advice, confirmation_status, is_reversed) VALUES($1, $2, 1, '2026-03-11', 'Ổn', 'Ổn', 'Buổi 1', 'N/A', 'CONFIRMED', false) RETURNING id",
         [upkg.id, customerOneId],
       )).rows[0];
 
@@ -467,6 +471,12 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
 
       expect(journal.id).toBeDefined();
 
+      // Confirm session to trigger inventory deduction and post-care outbox
+      await service.action('treatment_journal', superAdminActor, {
+        key: { id: journal.id },
+        action: 'confirm-session',
+      });
+
       // Verify inventory outbox
       const outbox = (await pg.query<any>(
         'SELECT * FROM treatment_inventory_outbox WHERE treatment_journal_id=$1',
@@ -502,7 +512,6 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
         action: 'approve-clinical',
       });
 
-      expect(approved.confirmation_status).toBe('CONFIRMED');
       expect(approved.clinical_approved_by).toBe(superAdminActor.id);
       expect(approved.clinical_approved_at).not.toBeNull();
     });
@@ -515,7 +524,6 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       expect(stats).toBeDefined();
       expect(typeof stats.activePackages).toBe('number');
       expect(typeof stats.pausedPackages).toBe('number');
-      expect(typeof stats.expiredPackages).toBe('number');
       expect(typeof stats.completedPackages).toBe('number');
       expect(typeof stats.usedSessions).toBe('number');
       expect(typeof stats.remainingSessions).toBe('number');
@@ -524,6 +532,341 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       expect(typeof stats.pendingInventorySync).toBe('number');
       expect(typeof stats.pendingCommissionsCount).toBe('number');
       expect(stats.reversalsCount).toBeGreaterThan(0);
+    });
+  });
+
+  describe('5. Phase 1 Strict Session Confirmation & Branch Scope Boundaries', () => {
+    let secondBranchId: string;
+    let branchOneStaff: any;
+    let branchTwoStaff: any;
+
+    beforeAll(async () => {
+      const b2 = (await pg.query<any>(
+        "INSERT INTO branches(name, code, phone, address, district, latitude, longitude, image_url) VALUES('Chi nhanh Quan 1', 'CNQ1', '0944444444', '456 Le Loi', 'Quan 1', 10.77, 106.70, 'https://example.com/b2.png') RETURNING id",
+      )).rows[0];
+      secondBranchId = b2.id;
+
+      branchOneStaff = {
+        id: '00000000-0000-4000-8000-000000000011',
+        role: 'RECEPTIONIST',
+        scopes: [
+          { permission: 'user_packages.read', branchId: branchId },
+          { permission: 'treatment_journal.read', branchId: branchId },
+          { permission: 'treatment_journal.action', branchId: branchId },
+        ],
+      };
+
+      branchTwoStaff = {
+        id: '00000000-0000-4000-8000-000000000012',
+        role: 'RECEPTIONIST',
+        scopes: [
+          { permission: 'user_packages.read', branchId: secondBranchId },
+          { permission: 'treatment_journal.read', branchId: secondBranchId },
+          { permission: 'treatment_journal.action', branchId: secondBranchId },
+        ],
+      };
+
+      await pg.query(
+        "INSERT INTO users(id, phone, full_name, role, referral_code) VALUES($1, '0955555551', 'Staff Q3', 'RECEPTIONIST', 'STAFFQ3')",
+        [branchOneStaff.id],
+      );
+      await pg.query(
+        "INSERT INTO users(id, phone, full_name, role, referral_code) VALUES($1, '0955555552', 'Staff Q1', 'RECEPTIONIST', 'STAFFQ1')",
+        [branchTwoStaff.id],
+      );
+    });
+
+    it('draft and submitted states do NOT increment completed_sessions', async () => {
+      const upkg = (await pg.query<any>(
+        "INSERT INTO user_packages(customer_id, package_id, total_sessions, completed_sessions, status, expires_at) VALUES($1, $2, 5, 0, 'ACTIVE', NOW() + INTERVAL '3 months') RETURNING id",
+        [customerOneId, packageDefId],
+      )).rows[0];
+
+      const bk = (await pg.query<any>(
+        `INSERT INTO bookings(booking_code, customer_id, branch_id, technician_id, booking_date, start_time, end_time, status, session_status, base_total, final_price, qr_code_hash)
+         VALUES('BK-DRAFT-TEST', $1, $2, $3, '2026-03-20', '09:00', '10:00', 'IN_SERVICE', 'IN_SERVICE', 500000, 500000, 'qr-draft-test') RETURNING id`,
+        [customerOneId, branchId, technicianId],
+      )).rows[0];
+      await pg.query(
+        'INSERT INTO booking_items(booking_id, service_id, technician_id, duration_minutes, price) VALUES($1, $2, $3, 60, 500000)',
+        [bk.id, serviceId, technicianId],
+      );
+
+      // 1. Create Draft Journal
+      const journal = await service.mutate('treatment_journal', superAdminActor, 'create', {
+        values: {
+          user_package_id: upkg.id,
+          booking_id: bk.id,
+          technician_id: technicianId,
+          customer_id: customerOneId,
+          session_number: 1,
+          session_date: '2026-03-20',
+          condition_before: 'Khởi đầu liệu trình',
+          condition_after: 'Bình thường',
+          treatment_notes: 'Thực hiện bài kỹ thuật số 1',
+        },
+      });
+
+      expect(journal.confirmation_status).toBe('DRAFT');
+
+      // Package completed_sessions MUST remain 0
+      let pkgCheck = (await pg.query<any>('SELECT completed_sessions, status FROM user_packages WHERE id=$1', [upkg.id])).rows[0];
+      expect(pkgCheck.completed_sessions).toBe(0);
+      expect(pkgCheck.status).toBe('ACTIVE');
+
+      // 2. Submit session
+      await service.action('treatment_journal', staffActor, {
+        key: { id: journal.id },
+        action: 'submit-session',
+      });
+
+      const journalSubmitted = (await pg.query<any>('SELECT confirmation_status FROM treatment_journal WHERE id=$1', [journal.id])).rows[0];
+      expect(journalSubmitted.confirmation_status).toBe('SUBMITTED');
+
+      // Package completed_sessions STILL MUST remain 0
+      pkgCheck = (await pg.query<any>('SELECT completed_sessions, status FROM user_packages WHERE id=$1', [upkg.id])).rows[0];
+      expect(pkgCheck.completed_sessions).toBe(0);
+    });
+
+    it('confirm-session increments completed_sessions by exactly 1 and is idempotent against double submit', async () => {
+      const upkg = (await pg.query<any>(
+        "INSERT INTO user_packages(customer_id, package_id, total_sessions, completed_sessions, status, expires_at) VALUES($1, $2, 3, 0, 'ACTIVE', NOW() + INTERVAL '3 months') RETURNING id",
+        [customerOneId, packageDefId],
+      )).rows[0];
+
+      const bk = (await pg.query<any>(
+        `INSERT INTO bookings(booking_code, customer_id, branch_id, technician_id, booking_date, start_time, end_time, status, session_status, base_total, final_price, qr_code_hash)
+         VALUES('BK-CONFIRM-TEST', $1, $2, $3, '2026-03-21', '10:00', '11:00', 'IN_SERVICE', 'IN_SERVICE', 500000, 500000, 'qr-confirm-test') RETURNING id`,
+        [customerOneId, branchId, technicianId],
+      )).rows[0];
+      await pg.query(
+        'INSERT INTO booking_items(booking_id, service_id, technician_id, duration_minutes, price) VALUES($1, $2, $3, 60, 500000)',
+        [bk.id, serviceId, technicianId],
+      );
+
+      const jnl = (await pg.query<any>(
+        `INSERT INTO treatment_journal(user_package_id, booking_id, customer_id, technician_id, session_number, session_date, condition_before, condition_after, treatment_notes, confirmation_status, is_reversed)
+         VALUES($1, $2, $3, $4, 1, '2026-03-21', 'Ổn', 'Tốt', 'Hoàn tất quy trình', 'SUBMITTED', false) RETURNING id`,
+        [upkg.id, bk.id, customerOneId, technicianId],
+      )).rows[0];
+
+      // First confirm succeeds
+      const confirmed = await service.action('treatment_journal', superAdminActor, {
+        key: { id: jnl.id },
+        action: 'confirm-session',
+      });
+      expect(confirmed.confirmation_status).toBe('CONFIRMED');
+
+      let pkgCheck = (await pg.query<any>('SELECT completed_sessions, status FROM user_packages WHERE id=$1', [upkg.id])).rows[0];
+      expect(pkgCheck.completed_sessions).toBe(1);
+      expect(pkgCheck.status).toBe('ACTIVE');
+
+      // Second confirm must be rejected with ConflictException
+      await expect(
+        service.action('treatment_journal', superAdminActor, {
+          key: { id: jnl.id },
+          action: 'confirm-session',
+        }),
+      ).rejects.toThrow(/đã được xác nhận trước đó/i);
+
+      // Count still exactly 1
+      pkgCheck = (await pg.query<any>('SELECT completed_sessions FROM user_packages WHERE id=$1', [upkg.id])).rows[0];
+      expect(pkgCheck.completed_sessions).toBe(1);
+    });
+
+    it('rejects confirmation when total_sessions is already reached and transitions to COMPLETED on final session', async () => {
+      // 1-session package
+      const upkg = (await pg.query<any>(
+        "INSERT INTO user_packages(customer_id, package_id, total_sessions, completed_sessions, status, expires_at) VALUES($1, $2, 1, 0, 'ACTIVE', NOW() + INTERVAL '3 months') RETURNING id",
+        [customerOneId, packageDefId],
+      )).rows[0];
+
+      const bk = (await pg.query<any>(
+        `INSERT INTO bookings(booking_code, customer_id, branch_id, technician_id, booking_date, start_time, end_time, status, session_status, base_total, final_price, qr_code_hash)
+         VALUES('BK-FINAL-TEST', $1, $2, $3, '2026-03-22', '14:00', '15:00', 'IN_SERVICE', 'IN_SERVICE', 500000, 500000, 'qr-final-test') RETURNING id`,
+        [customerOneId, branchId, technicianId],
+      )).rows[0];
+      await pg.query(
+        'INSERT INTO booking_items(booking_id, service_id, technician_id, duration_minutes, price) VALUES($1, $2, $3, 60, 500000)',
+        [bk.id, serviceId, technicianId],
+      );
+
+      const jnl = (await pg.query<any>(
+        `INSERT INTO treatment_journal(user_package_id, booking_id, customer_id, technician_id, session_number, session_date, condition_before, condition_after, treatment_notes, confirmation_status, is_reversed)
+         VALUES($1, $2, $3, $4, 1, '2026-03-22', 'Trước', 'Sau', 'Ghi chú', 'SUBMITTED', false) RETURNING id`,
+        [upkg.id, bk.id, customerOneId, technicianId],
+      )).rows[0];
+
+      // Confirm final session 1/1
+      await service.action('treatment_journal', superAdminActor, {
+        key: { id: jnl.id },
+        action: 'confirm-session',
+      });
+
+      const pkgCheck = (await pg.query<any>('SELECT completed_sessions, status FROM user_packages WHERE id=$1', [upkg.id])).rows[0];
+      expect(pkgCheck.completed_sessions).toBe(1);
+      expect(pkgCheck.status).toBe('COMPLETED');
+
+      // Attempt to confirm an extra session on completed package
+      const jnlExtra = (await pg.query<any>(
+        `INSERT INTO treatment_journal(user_package_id, customer_id, technician_id, session_number, session_date, condition_before, condition_after, treatment_notes, confirmation_status, is_reversed)
+         VALUES($1, $2, $3, 2, '2026-03-23', 'Trước', 'Sau', 'Ghi chú thêm', 'SUBMITTED', false) RETURNING id`,
+        [upkg.id, customerOneId, technicianId],
+      )).rows[0];
+
+      await expect(
+        service.action('treatment_journal', superAdminActor, {
+          key: { id: jnlExtra.id },
+          action: 'confirm-session',
+        }),
+      ).rejects.toThrow(/COMPLETED|đã hoàn thành đủ/i);
+    });
+
+    it('rejects confirmation for inactive package statuses (PAUSED, EXPIRED, CANCELLED, REFUNDED, TRANSFERRED)', async () => {
+      const statuses = ['PAUSED', 'EXPIRED', 'CANCELLED', 'REFUNDED', 'TRANSFERRED'];
+
+      for (const st of statuses) {
+        const upkg = (await pg.query<any>(
+          `INSERT INTO user_packages(customer_id, package_id, total_sessions, completed_sessions, status, expires_at)
+           VALUES($1, $2, 5, 1, $3, NOW() + INTERVAL '3 months') RETURNING id`,
+          [customerOneId, packageDefId, st],
+        )).rows[0];
+
+        const jnl = (await pg.query<any>(
+          `INSERT INTO treatment_journal(user_package_id, customer_id, technician_id, session_number, session_date, condition_before, condition_after, treatment_notes, confirmation_status, is_reversed)
+           VALUES($1, $2, $3, 2, '2026-03-24', 'A', 'B', 'C', 'SUBMITTED', false) RETURNING id`,
+          [upkg.id, customerOneId, technicianId],
+        )).rows[0];
+
+        await expect(
+          service.action('treatment_journal', superAdminActor, {
+            key: { id: jnl.id },
+            action: 'confirm-session',
+          }),
+        ).rejects.toThrow(new RegExp(`trạng thái ${st}`, 'i'));
+      }
+    });
+
+    it('requires clinical approval before confirming a session with abnormal reactions', async () => {
+      const upkg = (await pg.query<any>(
+        "INSERT INTO user_packages(customer_id, package_id, total_sessions, completed_sessions, status, expires_at) VALUES($1, $2, 5, 0, 'ACTIVE', NOW() + INTERVAL '3 months') RETURNING id",
+        [customerOneId, packageDefId],
+      )).rows[0];
+
+      const bk = (await pg.query<any>(
+        `INSERT INTO bookings(booking_code, customer_id, branch_id, technician_id, booking_date, start_time, end_time, status, session_status, base_total, final_price, qr_code_hash)
+         VALUES('BK-ABNORMAL-TEST', $1, $2, $3, '2026-03-25', '15:00', '16:00', 'IN_SERVICE', 'IN_SERVICE', 500000, 500000, 'qr-abnormal-test') RETURNING id`,
+        [customerOneId, branchId, technicianId],
+      )).rows[0];
+      await pg.query(
+        'INSERT INTO booking_items(booking_id, service_id, technician_id, duration_minutes, price) VALUES($1, $2, $3, 60, 500000)',
+        [bk.id, serviceId, technicianId],
+      );
+
+      const jnl = (await pg.query<any>(
+        `INSERT INTO treatment_journal(user_package_id, booking_id, customer_id, technician_id, session_number, session_date, condition_before, condition_after, treatment_notes, has_abnormal_reaction, adverse_reactions, confirmation_status, is_reversed)
+         VALUES($1, $2, $3, $4, 1, '2026-03-25', 'Trước', 'Nổi mẩn đỏ ngứa vùng trán', 'Dừng kích ứng', true, 'Kích ứng dị ứng nhẹ', 'REVIEW_REQUIRED', false) RETURNING id`,
+        [upkg.id, bk.id, customerOneId, technicianId],
+      )).rows[0];
+
+      // Staff (technician) attempts to confirm without supervisor approval -> ForbiddenException
+      await expect(
+        service.action('treatment_journal', staffActor, {
+          key: { id: jnl.id },
+          action: 'confirm-session',
+        }),
+      ).rejects.toThrow(/phản ứng bất thường/i);
+
+      // Super admin (authorized) confirms directly -> auto-approves and completes
+      const confirmed = await service.action('treatment_journal', superAdminActor, {
+        key: { id: jnl.id },
+        action: 'confirm-session',
+      });
+      expect(confirmed.confirmation_status).toBe('CONFIRMED');
+      expect(confirmed.clinical_approved_by).toBe(superAdminActor.id);
+    });
+
+    it('rejects confirmation when booking customer or service does not match the package', async () => {
+      const upkg = (await pg.query<any>(
+        "INSERT INTO user_packages(customer_id, package_id, total_sessions, completed_sessions, status, expires_at) VALUES($1, $2, 5, 0, 'ACTIVE', NOW() + INTERVAL '3 months') RETURNING id",
+        [customerOneId, packageDefId],
+      )).rows[0];
+
+      // Booking belongs to customerTwo, but journal attached to package of customerOne
+      const bkWrongCustomer = (await pg.query<any>(
+        `INSERT INTO bookings(booking_code, customer_id, branch_id, technician_id, booking_date, start_time, end_time, status, session_status, base_total, final_price, qr_code_hash)
+         VALUES('BK-WRONG-CUST', $1, $2, $3, '2026-03-26', '11:00', '12:00', 'IN_SERVICE', 'IN_SERVICE', 500000, 500000, 'qr-wrong-cust') RETURNING id`,
+        [customerTwoId, branchId, technicianId],
+      )).rows[0];
+
+      const jnl = (await pg.query<any>(
+        `INSERT INTO treatment_journal(user_package_id, booking_id, customer_id, technician_id, session_number, session_date, condition_before, condition_after, treatment_notes, confirmation_status, is_reversed)
+         VALUES($1, $2, $3, $4, 1, '2026-03-26', 'A', 'B', 'C', 'SUBMITTED', false) RETURNING id`,
+        [upkg.id, bkWrongCustomer.id, customerOneId, technicianId],
+      )).rows[0];
+
+      await expect(
+        service.action('treatment_journal', superAdminActor, {
+          key: { id: jnl.id },
+          action: 'confirm-session',
+        }),
+      ).rejects.toThrow(/không thuộc khách hàng/i);
+    });
+
+    it('enforces branch scoping on user_packages and treatment journals', async () => {
+      // Create invoice for package under branchId (Q3)
+      const inv = (await pg.query<any>(
+        `INSERT INTO invoices(invoice_code, branch_id, customer_id, subtotal, total_amount, payment_status, payment_method)
+         VALUES('INV-SCOPE-Q3', $1, $2, 2000000, 2000000, 'PAID', 'CASH_AT_SPA') RETURNING id`,
+        [branchId, customerOneId],
+      )).rows[0];
+
+      const pkgQ3 = (await pg.query<any>(
+        `INSERT INTO user_packages(customer_id, package_id, total_sessions, completed_sessions, status, expires_at)
+         VALUES($1, $2, 5, 0, 'ACTIVE', NOW() + INTERVAL '3 months') RETURNING id`,
+        [customerOneId, packageDefId],
+      )).rows[0];
+
+      await pg.query('UPDATE invoices SET user_package_id=$1 WHERE id=$2', [pkgQ3.id, inv.id]);
+
+      // 1. Super admin can access package
+      const resSuper = await service.list('user_packages', superAdminActor, { search: '' });
+      expect(resSuper.rows.some((r: any) => r.id === pkgQ3.id)).toBe(true);
+
+      // 2. Staff of branch Q3 can access package
+      const resStaffQ3 = await service.list('user_packages', branchOneStaff, { search: '' });
+      expect(resStaffQ3.rows.some((r: any) => r.id === pkgQ3.id)).toBe(true);
+
+      // 3. Staff of branch Q1 cannot access package from Q3
+      const resStaffQ1 = await service.list('user_packages', branchTwoStaff, { search: '' });
+      expect(resStaffQ1.rows.some((r: any) => r.id === pkgQ3.id)).toBe(false);
+    });
+
+    it('blocks direct CRUD creation and completed_sessions mutation on user_packages', async () => {
+      // Block create
+      await expect(
+        service.mutate('user_packages', superAdminActor, 'create', {
+          values: {
+            customer_id: customerOneId,
+            package_id: packageDefId,
+            total_sessions: 10,
+            completed_sessions: 0,
+          },
+        }),
+      ).rejects.toThrow(/Chỉ luồng POS mới được kích hoạt gói/i);
+
+      // Block completed_sessions update
+      const upkg = (await pg.query<any>(
+        "INSERT INTO user_packages(customer_id, package_id, total_sessions, completed_sessions, status, expires_at) VALUES($1, $2, 5, 0, 'ACTIVE', NOW() + INTERVAL '3 months') RETURNING id",
+        [customerOneId, packageDefId],
+      )).rows[0];
+
+      await expect(
+        service.mutate('user_packages', superAdminActor, 'update', {
+          key: { id: upkg.id },
+          values: { completed_sessions: 3 },
+        }),
+      ).rejects.toThrow(/chỉ được cập nhật bởi hệ thống/i);
     });
   });
 });
