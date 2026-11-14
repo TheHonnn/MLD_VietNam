@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../../database/supabase.service';
+import { AdminDatabase } from '../admin/admin.database';
 import { EnrollCourseDto } from './dto/enroll-course.dto';
 import { decideEnrollmentAction, paymentState } from './enrollment-workflow';
 
@@ -7,7 +8,7 @@ import { decideEnrollmentAction, paymentState } from './enrollment-workflow';
 export class AcademyService {
   private readonly logger = new Logger(AcademyService.name);
 
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(private readonly supabaseService: SupabaseService, private readonly adminDatabase: AdminDatabase) {}
 
   /**
    * E01: Lấy danh sách khóa học của Học viện (kèm thông tin chuyên mục & giảng viên chính)
@@ -356,29 +357,20 @@ export class AcademyService {
   /** Đối soát chỉ cập nhật tài chính; duyệt nhập học là cổng độc lập. */
   async checkEnrollmentPayment(enrollmentId: string, adminUser: string) {
     try {
-      const { data: enr, error: enrollmentError } = await this.supabaseService.adminClient
-        .from('course_enrollments')
-        .select(`
-          id,
-          student_id,
-          course_id,
-          batch_id,
-          status,
-          approval_status,
-          tuition_total,
-          amount_paid,
-          consultation_status,
-          required_deposit,
-          student_name,
-          student_phone,
-          approval_notes,
-          users:student_id (id, full_name, phone, referral_code),
-          courses:course_id (id, title, tuition_fee, deposit_amount)
-        `)
-        .eq('id', enrollmentId)
-        .maybeSingle();
-
-      if (enrollmentError) throw enrollmentError;
+      const connection = this.adminDatabase.connection;
+      const { rows: [enr] } = await connection.query(
+        `SELECT e.id, e.approval_status, e.approval_notes, u.referral_code,
+                COALESCE(e.tuition_total, c.tuition_fee, 0) AS tuition_total,
+                COALESCE(e.required_deposit, c.deposit_amount, 0) AS required_deposit,
+                (SELECT SUM(i.total_amount) FROM invoices i
+                 WHERE i.enrollment_id=e.id AND i.payment_status='PAID') AS invoice_amount,
+                (SELECT SUM(CASE WHEN t.transaction_type='REFUND' THEN -ABS(t.amount) ELSE t.amount END)
+                 FROM tuition_transactions t WHERE t.enrollment_id=e.id AND t.payment_status='PAID') AS transaction_amount
+         FROM course_enrollments e
+         LEFT JOIN users u ON u.id=e.student_id
+         LEFT JOIN courses c ON c.id=e.course_id WHERE e.id=$1`,
+        [enrollmentId],
+      );
       if (!enr) {
         return {
           success: false,
@@ -388,46 +380,18 @@ export class AcademyService {
         };
       }
 
-      // Mã khách hàng chỉ dùng để hiển thị, không dùng để ghép giao dịch mơ hồ.
-      const userRefCode = (enr.users as any)?.referral_code || '';
-      const notesCode = enr.approval_notes?.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1] || '';
-      const customerCode = (userRefCode || notesCode || `HV-${enr.id.slice(-4)}`).toUpperCase();
-      // Chỉ nhận hóa đơn được gắn trực tiếp với hồ sơ.
-      const { data: invList, error: invoiceError } = await this.supabaseService.adminClient
-        .from('invoices')
-        .select('id, total_amount')
-        .eq('enrollment_id', enrollmentId)
-        .eq('payment_status', 'PAID')
-        .order('paid_at', { ascending: false });
-      if (invoiceError) throw invoiceError;
-      const invoiceAmount = (invList || []).reduce((sum, invoice) => sum + Number(invoice.total_amount || 0), 0);
-
-      const { data: txList, error: transactionError } = await this.supabaseService.adminClient
-        .from('tuition_transactions')
-        .select('id, amount, transaction_type')
-        .eq('enrollment_id', enrollmentId)
-        .eq('payment_status', 'PAID');
-      if (transactionError) throw transactionError;
-      const transactionAmount = (txList || []).reduce(
-        (sum, transaction) => sum + (transaction.transaction_type === 'REFUND'
-          ? -Math.abs(Number(transaction.amount || 0))
-          : Number(transaction.amount || 0)),
-        0,
-      );
-      // Một khoản POS có thể được đồng bộ sang cả invoice và tuition transaction.
-      const matchedAmount = Math.max(0, invoiceAmount, transactionAmount);
-
-      const tuitionFee = Number(enr.tuition_total || (enr.courses as any)?.tuition_fee || 9000000);
-      const requiredDeposit = Number(enr.required_deposit || (enr.courses as any)?.deposit_amount || 2000000);
+      const notesCode = enr.approval_notes?.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1];
+      const customerCode = (enr.referral_code || notesCode || `HV-${enr.id.slice(-4)}`).toUpperCase();
+      // Một khoản POS có thể xuất hiện ở cả hóa đơn và giao dịch học phí.
+      const matchedAmount = Math.max(0, Number(enr.invoice_amount), Number(enr.transaction_amount));
+      const tuitionFee = Number(enr.tuition_total);
+      const requiredDeposit = Number(enr.required_deposit);
       const paymentStatus = paymentState(matchedAmount, tuitionFee);
 
       if (matchedAmount > 0) {
-        const { error: reconcileError } = await this.supabaseService.adminClient.rpc('fn_reconcile_enrollment_payment', {
-          p_enrollment_id: enrollmentId,
-          p_actor_id: adminUser,
-          p_amount_paid: matchedAmount,
-        });
-        if (reconcileError) throw reconcileError;
+        await connection.query('SELECT public.fn_reconcile_enrollment_payment($1,$2,$3)', [
+          enrollmentId, adminUser, matchedAmount,
+        ]);
 
         return {
           success: true,
@@ -465,7 +429,7 @@ export class AcademyService {
       return {
         success: false,
         statusCode: 500,
-        message: err.message,
+        message: 'Không thể đối soát học phí. Vui lòng thử lại.',
         data: { isPaid: false, approved: false },
       };
     }
