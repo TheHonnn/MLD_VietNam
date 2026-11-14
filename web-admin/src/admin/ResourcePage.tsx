@@ -4945,6 +4945,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     }>
   >([]);
   const [coursesForBatchFilter, setCoursesForBatchFilter] = useState<Array<{ id: string; title: string; code?: string }>>([]);
+  const [chaptersForLessonFilter, setChaptersForLessonFilter] = useState<Array<{ id: string; title: string; chapter_order?: number; course_id?: string; course_title?: string }>>([]);
 
   // Dữ liệu thời khóa biểu / buổi học phục vụ bộ lọc và timeline lớp học
   const [schedulesForFilter, setSchedulesForFilter] = useState<
@@ -5080,6 +5081,21 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         .then((r) => r.json())
         .then((data) => { if (active && Array.isArray(data)) setCoursesForBatchFilter(data); })
         .catch(() => { });
+    }
+    if (table === "course_lessons") {
+      fetch(`${SUPABASE_URL}/rest/v1/course_chapters?select=id,title,chapter_order,course_id,courses(title,code)&order=chapter_order.asc,title.asc`, { headers: getSupabaseHeaders() })
+        .then((r) => r.json())
+        .then((data) => {
+          if (!active || !Array.isArray(data)) return;
+          setChaptersForLessonFilter(data.map((chapter: any) => ({
+            id: String(chapter.id),
+            title: String(chapter.title || "Chương chưa đặt tên"),
+            chapter_order: chapter.chapter_order,
+            course_id: chapter.course_id,
+            course_title: chapter.courses?.title,
+          })));
+        })
+        .catch(() => { if (active) setChaptersForLessonFilter([]); });
     }
     return () => { active = false; c.abort(); };
   }, [table]);
@@ -5429,7 +5445,9 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           : table === "users"
           ? { role: "CUSTOMER", is_active: true }
           : table === "course_lessons" && params.get("lesson_type") === "VIDEO"
-            ? { lesson_type: "VIDEO" }
+            ? { lesson_type: "VIDEO", ...(filter.chapter_id ? { chapter_id: filter.chapter_id } : {}) }
+            : table === "course_lessons" && filter.chapter_id
+              ? { chapter_id: filter.chapter_id }
             : table === "course_chapters" && filter.course_id
               ? { course_id: filter.course_id }
             : table === "course_enrollments" && selectedBatch
@@ -5605,6 +5623,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     ],
     course_lessons: [
       "title",
+      "chapter_id",
       "lesson_type",
       "lesson_order",
       "duration_minutes",
@@ -5738,6 +5757,14 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       shown: listing.rows.length,
       courses: new Set(listing.rows.map(row => row.course_id).filter(Boolean)).size,
       selectedCourse: coursesForBatchFilter.find(course => course.id === filter.course_id)?.title,
+    }
+    : null;
+  const lessonSummary = table === "course_lessons" && listing
+    ? {
+      total: listing.total,
+      shown: listing.rows.length,
+      videos: listing.rows.filter(row => String(row.lesson_type || "").toUpperCase() === "VIDEO").length,
+      chapter: chaptersForLessonFilter.find(chapter => chapter.id === filter.chapter_id),
     }
     : null;
   const done = () => {
@@ -5906,6 +5933,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             <p className="mt-1 text-xs text-[#73675F]">Quản lý nội dung, học phí và trạng thái kinh doanh của từng khóa. Mở một khóa để chỉnh sửa chi tiết hoặc xem các lớp đang tổ chức.</p>
           ) : table === "course_chapters" ? (
             <p className="mt-1 text-xs text-[#73675F]">Mỗi chương thuộc một khóa học và là nơi tập hợp các bài học. Lọc theo khóa trước khi thêm hoặc sắp xếp chương để tránh nhầm nội dung.</p>
+          ) : table === "course_lessons" ? (
+            <p className="mt-1 text-xs text-[#73675F]">Quản lý video, tài liệu và nội dung thực hành trong từng chương. Chọn chương trước khi thêm bài để nội dung luôn nằm đúng vị trí.</p>
  ) : table === "invoice_items" ? (
             <p className="mt-1 text-xs text-[#73675F]">Đối chiếu nội dung thu, số lượng, đơn giá và thành tiền của từng hóa đơn.</p>
           ) : table === "users" ? (
@@ -6059,7 +6088,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </div>
         </div>
       )}
-      <PageToolbar className={staffPages[table] || loyaltyPages[table] || table === "courses" ? "!justify-start rounded-xl border border-[#EFE4D9] bg-white !px-3 py-3" : ""}>
+      <PageToolbar className={staffPages[table] || loyaltyPages[table] || ["courses", "course_lessons"].includes(table) ? "!justify-start rounded-xl border border-[#EFE4D9] bg-white !px-3 py-3" : ""}>
         {staffDateField && (
           <div className="flex flex-wrap items-end gap-2">
             <label className="grid gap-1 text-xs font-semibold">
@@ -6091,6 +6120,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   ? "Tìm mã hóa đơn, nội dung thu hoặc loại khoản thu..."
                 : table === "courses"
                   ? "Tìm tên hoặc mã khóa học..."
+                : table === "course_lessons"
+                  ? "Tìm tiêu đề bài học hoặc video..."
                 : "Tìm kiếm…"}
             aria-label="Tìm kiếm bản ghi"
             value={search}
@@ -6247,6 +6278,26 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             {coursesForBatchFilter.map((course) => (
               <option key={course.id} value={course.id}>
                 {course.title}{course.code ? ` (${course.code})` : ""}
+              </option>
+            ))}
+          </select>
+        )}
+        {table === "course_lessons" && (
+          <select
+            aria-label="Lọc theo chương học"
+            className="font-bold text-[#8A4F23] bg-[#FFFDF9] border-[#EAD8C7] min-w-[280px]"
+            value={String(filter.chapter_id || "")}
+            onChange={(e) => {
+              const next = { ...filter };
+              if (e.target.value) next.chapter_id = e.target.value;
+              else delete next.chapter_id;
+              updateParam("filter", Object.keys(next).length ? JSON.stringify(next) : "");
+            }}
+          >
+            <option value="">Chương học · Tất cả ({chaptersForLessonFilter.length})</option>
+            {chaptersForLessonFilter.map((chapter) => (
+              <option key={chapter.id} value={chapter.id}>
+                {chapter.course_title ? `${chapter.course_title} · ` : ""}Chương {chapter.chapter_order || "-"}: {chapter.title}
               </option>
             ))}
           </select>
@@ -6444,6 +6495,34 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   </div>
                   <strong className="mt-1 block truncate text-base font-black text-[#245C3A]">{chapterSummary.selectedCourse || "Tất cả khóa học"}</strong>
                   <span className="text-[11px] text-[#63806D]">Chọn khóa để thao tác tập trung</span>
+                </div>
+              </section>
+            )}
+            {lessonSummary && (
+              <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Tổng quan bài học">
+                <div className="rounded-2xl border border-[#EAD8C7] bg-gradient-to-br from-[#FFFDF9] to-[#FAF3EA] px-4 py-3 shadow-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold text-[#7D6E63]">Tổng bài học</span>
+                    <FileText size={17} className="text-[#985018]" />
+                  </div>
+                  <strong className="mt-1 block text-2xl font-black text-[#2D1B08]">{lessonSummary.total.toLocaleString("vi-VN")}</strong>
+                  <span className="text-[11px] text-[#8C7A6B]">{lessonSummary.shown} bài đang hiển thị</span>
+                </div>
+                <div className="rounded-2xl border border-[#EAD8C7] bg-white px-4 py-3 shadow-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold text-[#7D6E63]">Video trên trang</span>
+                    <Play size={17} className="text-[#985018]" />
+                  </div>
+                  <strong className="mt-1 block text-2xl font-black text-[#2D1B08]">{lessonSummary.videos.toLocaleString("vi-VN")}</strong>
+                  <span className="text-[11px] text-[#8C7A6B]">nội dung dạng video</span>
+                </div>
+                <div className="rounded-2xl border border-[#D7E8E0] bg-[#F4FBF7] px-4 py-3 shadow-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold text-[#477056]">Đang lọc</span>
+                    <BookOpen size={17} className="text-[#2F855A]" />
+                  </div>
+                  <strong className="mt-1 block truncate text-base font-black text-[#245C3A]">{lessonSummary.chapter?.title || "Tất cả chương"}</strong>
+                  <span className="text-[11px] text-[#63806D]">Chọn chương để thao tác tập trung</span>
                 </div>
               </section>
             )}
@@ -7465,6 +7544,38 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           ))}
                           <td>
                             <div className="admin-row-actions">
+                              {table === "course_lessons" && row.video_url && (
+                                <a
+                                  className="admin-icon"
+                                  href={String(row.video_url)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title="Mở video hướng dẫn"
+                                  aria-label="Mở video hướng dẫn"
+                                >
+                                  <ArrowUpRight size={16} />
+                                </a>
+                              )}
+                              {table === "course_lessons" && row.chapter_id && resources.some(item => item.name === "course_chapters") && (
+                                <Link
+                                  className="admin-secondary whitespace-nowrap inline-flex items-center gap-1.5"
+                                  to={`/manage/course_chapters?filter=${encodeURIComponent(JSON.stringify({ id: String(row.chapter_id) }))}`}
+                                >
+                                  <BookOpen size={14} />
+                                  Mở chương
+                                </Link>
+                              )}
+                              {table === "course_lessons" && resource?.actions?.includes("update") && (
+                                <button
+                                  type="button"
+                                  className="admin-icon"
+                                  title="Chỉnh sửa bài học"
+                                  aria-label="Chỉnh sửa bài học"
+                                  onClick={() => setEdit({ row, mode: "update" })}
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                              )}
                               {table === "course_chapters" && resources.some(item => item.name === "course_lessons") && (
                                 <Link
                                   className="admin-secondary whitespace-nowrap inline-flex items-center gap-1.5"
@@ -7703,11 +7814,16 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           <p>
                             {params.get("search") || params.get("filter")
                               ? "Không có kết quả phù hợp."
-                              : staffDateField ? "Không có bản ghi trong ngày và chi nhánh đang xem." : table === "course_categories" ? "Chưa có danh mục khóa học nào." : "Chưa có dữ liệu."}
+                              : staffDateField ? "Không có bản ghi trong ngày và chi nhánh đang xem." : table === "course_categories" ? "Chưa có danh mục khóa học nào." : table === "course_lessons" ? "Chưa có bài học nào trong bộ lọc hiện tại." : "Chưa có dữ liệu."}
                           </p>
                           {table === "course_categories" && !params.get("search") && !params.get("filter") && resource?.actions?.includes("create") && (
                             <button type="button" className="admin-primary mx-auto" onClick={() => setEdit({ row: {}, mode: "create" })}>
                               <Plus size={15} /> Tạo danh mục đầu tiên
+                            </button>
+                          )}
+                          {table === "course_lessons" && resource?.actions?.includes("create") && filter.chapter_id && (
+                            <button type="button" className="admin-primary mx-auto" onClick={() => setEdit({ row: { chapter_id: filter.chapter_id }, mode: "create" })}>
+                              <Plus size={15} /> Thêm bài học vào chương này
                             </button>
                           )}
                         </div>
