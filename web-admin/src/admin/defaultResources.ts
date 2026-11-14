@@ -85,7 +85,6 @@ export const DEFAULT_RESOURCES: Resource[] = [
 
   // 14. Nội dung Portal & App (banner, giáo trình, email)
   { name: 'miniapp_shared_content', title: 'Nội dung Portal & App', group: 'Nội dung Portal', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'documents', title: 'Tài liệu Portal', group: 'Nội dung Portal', actions: ['create', 'update', 'delete'] },
   { name: 'email_templates', title: 'Mẫu email thông báo', group: 'Nội dung Portal', actions: ['create', 'update', 'delete'] },
   { name: 'email_logs', title: 'Nhật ký email', group: 'Nội dung Portal', readonly: true, actions: [] },
 ];
