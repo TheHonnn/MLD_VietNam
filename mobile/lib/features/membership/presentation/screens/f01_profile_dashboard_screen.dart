@@ -193,6 +193,14 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             : (AuthService.instance.lastLoginPhone ?? 'Chưa cập nhật số điện thoại'))
         : 'Chưa đăng nhập';
 
+    final String myReferralCode = isUserLoggedIn
+        ? (_profile.memberCode.isNotEmpty
+            ? _profile.memberCode
+            : (AuthService.instance.currentUserId != null
+                ? 'MLD-${AuthService.instance.currentUserId!.substring(0, 6).toUpperCase()}'
+                : 'MLD-000001'))
+        : 'MLD-KHACH';
+
     // Dữ liệu thực từ database / repository (không fallback mock)
     // Khi chưa đăng nhập / khách thì số liệu tài khoản về 0 triệt để!
     final upcomingAppointmentsCount = isUserLoggedIn
@@ -443,23 +451,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ],
               ),
 
-              const SizedBox(height: 14),
-
-              // ==========================================
-              // 2.2. VÍ VOUCHER & ƯU ĐÃI (THẺ NỔI BẬT)
-              // ==========================================
-              _buildVoucherBanner(vouchersCount),
-
-              const SizedBox(height: 16),
-
-              // ==========================================
-              // 2.5. THÔNG TIN NGƯỜI GIỚI THIỆU (ATTRIBUTION & REFERRAL)
-              // Chỉ hiển thị khi đã đăng nhập tài khoản thực
-              // ==========================================
-              if (isUserLoggedIn) ...[
-                _buildReferralCard(),
-                const SizedBox(height: 24),
-              ],
+              const SizedBox(height: 20),
 
               // ==========================================
               // 3. NHÓM 1: DỊCH VỤ TRỊ LIỆU (ĐƯA LÊN TRÊN)
@@ -499,25 +491,38 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     );
                   }, title: 'Nhật ký trị liệu', message: 'Vui lòng đăng nhập để xem hồ sơ và nhật ký trị liệu của bạn.'),
                 ),
-                const Divider(height: 1, indent: 56, color: AppColors.border),
+              ]),
+
+              const SizedBox(height: 20),
+
+              // ==========================================
+              // 4. NHÓM 2: ƯU ĐÃI (VOUCHER & GIỚI THIỆU)
+              // ==========================================
+              _buildSectionHeader(context.tr('ƯU ĐÃI', 'OFFERS & PROMOTIONS')),
+              const SizedBox(height: 8),
+              _buildCardContainer([
+                // 1. Ví Voucher & Ưu đãi (Màu xanh lá MLD đặc trưng #007A48)
                 _buildMenuItem(
-                  icon: Icons.confirmation_number_outlined,
-                  iconColor: const Color(0xFFD97706),
+                  icon: Icons.confirmation_number_rounded,
+                  iconColor: const Color(0xFF007A48),
                   title: context.tr('Ví Voucher & Ưu đãi', 'My Vouchers & Offers'),
+                  subtitle: vouchersCount > 0
+                      ? context.tr('$vouchersCount mã ưu đãi khả dụng', '$vouchersCount active vouchers')
+                      : context.tr('Mã giảm giá & quà tặng tri ân', 'Discount codes and reward gifts'),
                   trailing: vouchersCount > 0
                       ? Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFF59E0B)),
+                            color: const Color(0xFFE8F5E9),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF007A48)),
                           ),
                           child: Text(
                             '$vouchersCount voucher',
                             style: const TextStyle(
-                              fontSize: 10.5,
+                              fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFFB45309),
+                              color: Color(0xFF007A48),
                             ),
                           ),
                         )
@@ -528,6 +533,135 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       MaterialPageRoute(builder: (_) => const F05MyVouchersScreen()),
                     );
                   }, title: 'Ví Voucher của tôi', message: 'Vui lòng đăng nhập để xem danh sách voucher và mã ưu đãi.'),
+                ),
+                const Divider(height: 1, indent: 56, color: AppColors.border),
+
+                // 2. Mã giới thiệu của tôi (Hiện đầy đủ mã GT, có nút Copy)
+                _buildMenuItem(
+                  icon: Icons.qr_code_2_rounded,
+                  iconColor: AppColors.secondary,
+                  title: context.tr('Mã giới thiệu của tôi', 'My Referral Code'),
+                  subtitleWidget: Text(
+                    myReferralCode,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHeading,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  showChevron: false,
+                  trailing: InkWell(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: myReferralCode));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Đã sao chép mã giới thiệu: $myReferralCode'),
+                          duration: const Duration(seconds: 2),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.copy_rounded, size: 14, color: AppColors.secondary),
+                          SizedBox(width: 4),
+                          Text(
+                            'Sao chép',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: myReferralCode));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Đã sao chép mã giới thiệu: $myReferralCode'),
+                        duration: const Duration(seconds: 2),
+                        backgroundColor: AppColors.primary,
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 56, color: AppColors.border),
+
+                // 3. Người giới thiệu (Đồng bộ, hiện tên người GT, có nút Nhập mã / Đổi mã)
+                _buildMenuItem(
+                  icon: Icons.handshake_outlined,
+                  iconColor: AppColors.primary,
+                  title: context.tr('Người giới thiệu', 'Referred By'),
+                  subtitle: (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
+                      ? _profile.referrerName!
+                      : context.tr('Chưa có (Chạm để nhập mã)', 'None (Tap to enter code)'),
+                  showChevron: false,
+                  trailing: InkWell(
+                    onTap: () => _requireLoginAndRun(
+                      _showEnterReferralCodeDialog,
+                      title: 'Người giới thiệu',
+                      message: 'Vui lòng đăng nhập để nhập mã người giới thiệu.',
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
+                            ? AppColors.iceBlue
+                            : const Color(0xFFE8F5E9),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
+                              ? AppColors.border
+                              : const Color(0xFF208C58).withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
+                                ? Icons.swap_horiz_rounded
+                                : Icons.edit_note_rounded,
+                            size: 14,
+                            color: (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
+                                ? AppColors.primary
+                                : const Color(0xFF007A48),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
+                                ? 'Đổi mã'
+                                : 'Nhập mã',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
+                                  ? AppColors.primary
+                                  : const Color(0xFF007A48),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  onTap: () => _requireLoginAndRun(
+                    _showEnterReferralCodeDialog,
+                    title: 'Người giới thiệu',
+                    message: 'Vui lòng đăng nhập để nhập mã người giới thiệu.',
+                  ),
                 ),
               ]),
 
@@ -745,124 +879,19 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     );
   }
 
-  Widget _buildVoucherBanner(int availableCount) {
-    return InkWell(
-      onTap: () => _requireLoginAndRun(() {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const F05MyVouchersScreen()),
-        );
-      }, title: 'Ví Voucher của tôi', message: 'Vui lòng đăng nhập để xem danh sách voucher và mã ưu đãi.'),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF005834), Color(0xFF007A48)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF005834).withValues(alpha: 0.18),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        context.tr('Ví Voucher & Ưu đãi', 'My Vouchers & Offers'),
-                        style: const TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFD700),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '$availableCount',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF005834),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    availableCount > 0
-                        ? context.tr('Bạn có $availableCount mã giảm giá khả dụng', 'You have $availableCount active vouchers')
-                        : context.tr('Mã giảm giá & quà tặng tri ân khách hàng', 'Discount codes and reward gifts'),
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: Colors.white.withValues(alpha: 0.85),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    context.tr('Xem ví', 'View'),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
-                  ),
-                  const SizedBox(width: 2),
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Colors.white),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildMenuItem({
     required IconData icon,
     Color? iconColor,
     required String title,
+    String? subtitle,
+    Widget? subtitleWidget,
     Color? titleColor,
     required VoidCallback onTap,
     bool showChevron = true,
     Widget? trailing,
   }) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       leading: Container(
         width: 38,
         height: 38,
@@ -884,6 +913,15 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
           color: titleColor ?? AppColors.textPrimary,
         ),
       ),
+      subtitle: subtitleWidget ?? (subtitle != null && subtitle.isNotEmpty
+          ? Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppColors.textSecondary,
+              ),
+            )
+          : null),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -899,129 +937,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
         ],
       ),
       onTap: onTap,
-    );
-  }
-
-  Widget _buildReferralCard() {
-    final String myReferralCode = _profile.memberCode.isNotEmpty
-        ? _profile.memberCode
-        : (AuthService.instance.currentUserId != null
-            ? 'MLD-${AuthService.instance.currentUserId!.substring(0, 6).toUpperCase()}'
-            : 'MLD-KHACH');
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.iceBlue,
-        borderRadius: BorderRadius.circular(16),
-        // BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.iceBlue,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.handshake_outlined, color: AppColors.primary, size: 20),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Người giới thiệu của bạn',
-                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textHeading),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
-                          ? _profile.referrerName!
-                          : 'Chưa có (0)',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
-                            ? AppColors.accent
-                            : AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: _showEnterReferralCodeDialog,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  (_profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty)
-                      ? 'Đổi mã'
-                      : 'Nhập mã',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.secondary),
-                ),
-              ),
-            ],
-          ),
-          const Divider(height: 20, color: AppColors.border),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Mã giới thiệu của tôi', style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
-                    const SizedBox(height: 2),
-                    Text(
-                      myReferralCode,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textHeading, letterSpacing: 0.5),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.copy_rounded, size: 14, color: AppColors.primary),
-                label: const Text('Sao chép', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
-                style: ElevatedButton.styleFrom(
-                  elevation: 0,
-                  backgroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: myReferralCode));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đã sao chép mã giới thiệu vào bộ nhớ tạm!'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
