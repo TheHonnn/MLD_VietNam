@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   settingsService,
   SystemSettingsState,
@@ -14,12 +14,19 @@ export function useAdminSettings() {
   const [testingZns, setTestingZns] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  const requestRef = useRef<AbortController | null>(null);
+
   // Tải cài đặt từ backend
-  const loadSettings = useCallback(async (signal?: AbortSignal) => {
+  const loadSettings = useCallback(async () => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    const { signal } = controller;
     setLoading(true);
     setError(null);
     try {
       const resp = await settingsService.getAllSettings(signal);
+      if (signal.aborted) return;
       const merged: SystemSettingsState = {
         general: { ...DEFAULT_SETTINGS_STATE.general, ...(resp.general?.data || {}) },
         booking: { ...DEFAULT_SETTINGS_STATE.booking, ...(resp.booking?.data || {}) },
@@ -43,9 +50,8 @@ export function useAdminSettings() {
   }, []);
 
   useEffect(() => {
-    const controller = new AbortController();
-    loadSettings(controller.signal);
-    return () => controller.abort();
+    loadSettings();
+    return () => requestRef.current?.abort();
   }, [loadSettings]);
 
   // Cập nhật giá trị trường trong 1 danh mục
@@ -99,7 +105,6 @@ export function useAdminSettings() {
   const saveCategory = useCallback(
     async (category: keyof SystemSettingsState) => {
       setSaving(true);
-      setError(null);
       try {
         const payload = settings[category];
         const res = await settingsService.updateSettings<any>(category, payload);
@@ -118,7 +123,6 @@ export function useAdminSettings() {
         }
       } catch (err: any) {
         const msg = err?.message || 'Không thể lưu cấu hình hệ thống';
-        setError(msg);
         toast.error('Lỗi lưu cài đặt', msg);
         return false;
       } finally {

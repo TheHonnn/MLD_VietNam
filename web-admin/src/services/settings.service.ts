@@ -141,19 +141,15 @@ export const settingsService = {
    * Tải toàn bộ cấu hình hệ thống từ backend / Supabase
    */
   async getAllSettings(signal?: AbortSignal): Promise<AllSettingsResponse> {
+    const deadline = AbortSignal.timeout(15000);
+    const requestSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
     try {
-      const res = await adminApi<AllSettingsResponse>('settings', undefined, signal);
-      return res || {};
-    } catch (err) {
-      console.warn('Lỗi khi tải toàn bộ cài đặt qua backend, dùng dữ liệu khởi tạo mặc định:', err);
-      return {
-        general: { data: DEFAULT_SETTINGS_STATE.general },
-        booking: { data: DEFAULT_SETTINGS_STATE.booking },
-        pos: { data: DEFAULT_SETTINGS_STATE.pos },
-        academy: { data: DEFAULT_SETTINGS_STATE.academy },
-        integrations: { data: DEFAULT_SETTINGS_STATE.integrations },
-        security: { data: DEFAULT_SETTINGS_STATE.security },
-      };
+      return await adminCommand<AllSettingsResponse>('settings', undefined, requestSignal);
+    } catch (error) {
+      if (deadline.aborted && !signal?.aborted) {
+        throw new Error('Máy chủ phản hồi chậm. Vui lòng tải lại cài đặt.');
+      }
+      throw error;
     }
   },
 

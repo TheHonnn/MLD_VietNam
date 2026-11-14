@@ -25,7 +25,7 @@ test('settings.service.ts exists and declares all system configuration interface
 
   // Verify API methods and matching endpoints
   assert.match(content, /getAllSettings/);
-  assert.match(content, /adminApi<AllSettingsResponse>\('settings'/);
+  assert.match(content, /adminCommand<AllSettingsResponse>\('settings'/);
 
   assert.match(content, /getSettingsByCategory/);
   assert.match(content, /adminApi<\{ data: T \}>\(`settings\/\$\{category\}`/);

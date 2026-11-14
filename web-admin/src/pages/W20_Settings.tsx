@@ -51,6 +51,7 @@ export const W20_Settings: React.FC = () => {
   const {
     settings,
     loading,
+    error,
     saving,
     testingZns,
     isCategoryDirty,
@@ -75,14 +76,14 @@ export const W20_Settings: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        if (isCategoryDirty(currentTab) && !saving) {
+        if (isCategoryDirty(currentTab) && !saving && !loading && !error) {
           saveCategory(currentTab);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentTab, isCategoryDirty, saving, saveCategory]);
+  }, [currentTab, isCategoryDirty, saving, loading, error, saveCategory]);
 
   const handleTabChange = (tabId: string) => {
     setSearchParams({ tab: tabId });
@@ -114,16 +115,8 @@ export const W20_Settings: React.FC = () => {
 
   const isCurrentDirty = isCategoryDirty(currentTab);
 
-  if (loading) {
-    return (
-      <AdminPageShell>
-        <div className="min-h-[400px] flex flex-col items-center justify-center p-8 font-['Plus_Jakarta_Sans',sans-serif]">
-          <div className="w-9 h-9 border-3 border-[#E8DFD8] border-t-[#8A4F23] rounded-full animate-spin mb-3" />
-          <p className="text-xs font-semibold text-[#8A4F23]">Đang tải cấu hình hệ thống MLD...</p>
-        </div>
-      </AdminPageShell>
-    );
-  }
+  const needsSettings = currentTab !== 'profile' && currentTab !== 'loyalty';
+  const blocked = needsSettings && (loading || Boolean(error));
 
   return (
     <AdminPageShell className="pb-24">
@@ -137,13 +130,14 @@ export const W20_Settings: React.FC = () => {
             <button
               type="button"
               onClick={() => reload()}
+              disabled={loading || saving}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#7D431C] bg-white border border-[#D9C3AD] rounded-xl hover:bg-[#FAF3EA] transition-colors shadow-2xs cursor-pointer"
               title="Tải lại cài đặt"
             >
               <RefreshCw size={14} />
               <span>Làm mới</span>
             </button>
-            {isCurrentDirty && (
+            {isCurrentDirty && !blocked && (
               <button
                 type="button"
                 onClick={() => saveCategory(currentTab)}
@@ -169,6 +163,12 @@ export const W20_Settings: React.FC = () => {
 
       {/* 3. Nội dung chuyên biệt của từng Tab */}
       <PageContent>
+        {blocked ? (
+          <div className="rounded-2xl border border-[#E8DFD8] bg-white p-6" role={error ? "alert" : "status"}>
+            <p>{error || "Đang tải cấu hình hệ thống…"}</p>
+            {error && <button type="button" className="mt-3 underline" onClick={() => reload()}>Thử tải lại</button>}
+          </div>
+        ) : <>
         {/* ========================================================================= */}
         {/* TAB 1: DOANH NGHIỆP & THƯƠNG HIỆU */}
         {/* ========================================================================= */}
@@ -1079,6 +1079,7 @@ export const W20_Settings: React.FC = () => {
             </form>
           </div>
         )}
+        </>}
       </PageContent>
 
       {/* 4. Thanh nổi cố định khi có thay đổi chưa lưu (Sticky Action Bar) */}
