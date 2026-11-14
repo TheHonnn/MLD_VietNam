@@ -929,9 +929,6 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
       },
     );
   }
-      },
-    );
-  }
 
   Widget _buildProductsList() {
     if (_filteredProducts.isEmpty) {
