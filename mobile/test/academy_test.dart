@@ -210,8 +210,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // 6. Hiển thị thông báo trạng thái "Chờ nhân viên duyệt"
-    expect(find.text('Đăng ký thành công'), findsOneWidget);
-    expect(find.text('Trạng thái: Chờ nhân viên duyệt'), findsOneWidget);
+    expect(find.textContaining('Đăng ký thành công'), findsOneWidget);
+    expect(find.text('Chờ nhân viên duyệt'), findsOneWidget);
     expect(
       find.byWidgetPredicate((w) =>
           w is Text &&

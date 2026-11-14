@@ -443,6 +443,23 @@ class AdminRepository {
     }
   }
 
+  /// 5.1.1. Gỡ học viên khỏi lớp về danh sách chờ xếp lớp (Unassign Batch)
+  Future<bool> unassignBatchFromCandidate(String enrollmentId) async {
+    try {
+      final res = await _apiClient.dio.patch(
+        '/rest/v1/course_enrollments?id=eq.$enrollmentId',
+        data: {
+          'batch_id': null,
+          'status': 'PAID',
+        },
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      debugPrint('[AdminRepository] unassignBatchFromCandidate error: $e');
+      return false;
+    }
+  }
+
   /// 5.2. Danh sách Lớp học để xếp lớp
   Future<List<AdminCourseBatchModel>> fetchCourseBatches(String courseId) async {
     try {

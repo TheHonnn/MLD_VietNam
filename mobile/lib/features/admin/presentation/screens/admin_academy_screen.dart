@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -8,6 +9,7 @@ import '../../data/repositories/admin_repository.dart';
 import '../widgets/admin_candidate_card.dart';
 import '../widgets/assign_batch_bottom_sheet.dart';
 import '../widgets/quiz_submission_detail_sheet.dart';
+import 'admin_batch_detail_screen.dart';
 
 class AdminAcademyScreen extends StatefulWidget {
   final String? initialWorkflowTab;
@@ -993,12 +995,12 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
   }
 
   // ==============================================================
-  // 1. GIAO DIỆN BẢNG TRELLO (KANBAN BOARD CUỘN NGANG)
+  // 1. GIAO DIỆN BẢNG TRELLO (KANBAN BOARD KÉO THẢ & COMPACT TỐI ƯU KHÔNG GIAN)
   // ==============================================================
   Widget _buildKanbanTrelloView() {
     return ListView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       children: _kanbanColumns.map((col) {
         final key = col['key'] as String;
         final title = col['title'] as String;
@@ -1008,181 +1010,278 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
         final statuses = col['statuses'] as List<dynamic>;
         final candidatesInCol = _getCandidatesForColumn(statuses);
 
-        return Container(
-          width: 290,
-          margin: const EdgeInsets.only(right: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header của Cột Trello
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(icon, color: color, size: 16),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: AppTypography.zaloFont(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textHeading,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${candidatesInCol.length}',
-                        style: AppTypography.zaloFont(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: color,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add_rounded, size: 20),
-                      tooltip: 'Thêm vào cột này',
-                      onPressed: () => _showCreateCandidateSheet(context, initialStatus: statuses.first.toString()),
-                    ),
-                  ],
+        // Mỗi cột là một DragTarget tiếp nhận học viên kéo thả
+        return DragTarget<AdminCandidateModel>(
+          onWillAcceptWithDetails: (details) => true,
+          onAcceptWithDetails: (details) {
+            _handleCandidateDrop(details.data, key, title, statuses);
+          },
+          builder: (context, candidateData, rejectedData) {
+            final isHovered = candidateData.isNotEmpty;
+
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 255,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: isHovered ? bgColor.withValues(alpha: 0.35) : const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isHovered ? color : const Color(0xFFE5E7EB),
+                  width: isHovered ? 2 : 1,
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-              // Thân Cột Trello (Danh sách thẻ Card)
-              Expanded(
-                child: candidatesInCol.isEmpty
-                    ? Center(
-                        child: Text(
-                          'Cột trống\nBấm (+) để thêm học viên',
-                          textAlign: TextAlign.center,
-                          style: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Cột Trello (Compact)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: bgColor,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(icon, color: color, size: 15),
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(10),
-                        itemCount: candidatesInCol.length,
-                        itemBuilder: (ctx, idx) {
-                          final c = candidatesInCol[idx];
-                          return _buildTrelloCard(c, color);
-                        },
-                      ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: AppTypography.zaloFont(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textHeading,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${candidatesInCol.length}',
+                            style: AppTypography.zaloFont(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: color,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                          tooltip: 'Thêm vào cột này',
+                          onPressed: () => _showCreateCandidateSheet(context, initialStatus: statuses.first.toString()),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
+
+                  // Thân Cột Trello (Danh sách thẻ Card có thể kéo thả)
+                  Expanded(
+                    child: candidatesInCol.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                isHovered ? 'Thả vào đây' : 'Cột trống\nKéo học viên vào đây',
+                                textAlign: TextAlign.center,
+                                style: AppTypography.zaloFont(
+                                  fontSize: 11,
+                                  color: isHovered ? color : const Color(0xFF9CA3AF),
+                                  fontWeight: isHovered ? FontWeight.w700 : FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(6),
+                            itemCount: candidatesInCol.length,
+                            itemBuilder: (ctx, idx) {
+                              final c = candidatesInCol[idx];
+                              return _buildDraggableTrelloCard(c, color);
+                            },
+                          ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       }).toList(),
     );
   }
 
-  // Thẻ học viên kiểu Card Trello
+  // Thẻ học viên Draggable (Giữ yên để kéo sang cột khác)
+  Widget _buildDraggableTrelloCard(AdminCandidateModel c, Color tagColor) {
+    return LongPressDraggable<AdminCandidateModel>(
+      data: c,
+      delay: const Duration(milliseconds: 180),
+      hapticFeedbackOnStart: true,
+      feedback: Material(
+        color: Colors.transparent,
+        child: Transform.rotate(
+          angle: 0.03,
+          child: Container(
+            width: 245,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF00693F), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      c.candidateName,
+                      style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                    ),
+                    Text(
+                      _formatPrice(c.amountPaid),
+                      style: AppTypography.zaloFont(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: c.amountPaid > 0 ? const Color(0xFF00693F) : const Color(0xFFDC2626),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  c.courseTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.zaloFont(fontSize: 10.5, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.2,
+        child: _buildTrelloCard(c, tagColor),
+      ),
+      child: _buildTrelloCard(c, tagColor),
+    );
+  }
+
+  // Thẻ học viên kiểu Card Trello Compact (Chiều cao ~58px, hiển thị được 8-10 thẻ)
   Widget _buildTrelloCard(AdminCandidateModel c, Color tagColor) {
+    final isPaid = c.amountPaid > 0;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _showCandidateDetailSheet(c),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: c.status == 'PAID_WAITING_CLASS' ? const Color(0xFFFDA4AF) : const Color(0xFFE5E7EB),
+              width: c.status == 'PAID_WAITING_CLASS' ? 1.2 : 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 4,
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 3,
                 offset: const Offset(0, 1),
               ),
             ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
+              // Dòng 1: Mã đơn + Lớp + Tên học viên + Tiền
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
                       color: tagColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       c.orderCode,
-                      style: AppTypography.zaloFont(fontSize: 10, fontWeight: FontWeight.w700, color: tagColor),
+                      style: AppTypography.zaloFont(fontSize: 9, fontWeight: FontWeight.w700, color: tagColor),
                     ),
                   ),
-                  if (c.batchCode != null && c.batchCode!.isNotEmpty)
+                  if (c.batchCode != null && c.batchCode!.isNotEmpty) ...[
+                    const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE8F6ED),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         c.batchCode!,
-                        style: AppTypography.zaloFont(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF00693F)),
+                        style: AppTypography.zaloFont(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFF00693F)),
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                c.candidateName,
-                style: AppTypography.zaloFont(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textHeading,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                c.courseTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.zaloFont(fontSize: 11.5, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.phone_outlined, size: 12, color: Color(0xFF6B7280)),
-                      const SizedBox(width: 4),
-                      Text(c.candidatePhone, style: AppTypography.zaloFont(fontSize: 11, color: const Color(0xFF6B7280))),
-                    ],
+                  ],
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      c.candidateName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.zaloFont(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textHeading,
+                      ),
+                    ),
                   ),
                   Text(
                     _formatPrice(c.amountPaid),
                     style: AppTypography.zaloFont(
-                      fontSize: 11.5,
+                      fontSize: 10.5,
                       fontWeight: FontWeight.w700,
-                      color: c.amountPaid > 0 ? const Color(0xFF00693F) : const Color(0xFFDC2626),
+                      color: isPaid ? const Color(0xFF00693F) : const Color(0xFFDC2626),
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              // Dòng 2: Khóa học + SĐT + Icon kéo thả
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${c.candidatePhone.isNotEmpty ? "${c.candidatePhone} · " : ""}${c.courseTitle}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.zaloFont(fontSize: 10.5, color: AppColors.textSecondary),
+                    ),
+                  ),
+                  const Icon(Icons.drag_indicator_rounded, size: 14, color: Color(0xFF9CA3AF)),
                 ],
               ),
             ],
@@ -1192,8 +1291,163 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
     );
   }
 
+  // Xử lý sự kiện kéo thả học viên giữa các cột Kanban
+  Future<void> _handleCandidateDrop(
+    AdminCandidateModel candidate,
+    String targetColumnKey,
+    String targetColumnTitle,
+    List<dynamic> targetStatuses,
+  ) async {
+    // 1. KIỂM TRA LUẬT THANH TOÁN THEO YÊU CẦU:
+    // "HỌC SINH NÀO THANH TOÁN HỌC PHÍ RỒI THÌ KO THỂ DI CHUYỂN VỀ BAN ĐẦU"
+    final isInitialColumn = targetColumnKey == 'PENDING_CONSULTATION' ||
+        targetColumnKey == 'CONFIRMED_PENDING_PAY';
+
+    if (candidate.amountPaid > 0 && isInitialColumn) {
+      HapticFeedback.heavyImpact();
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Học viên ${candidate.candidateName} đã đóng ${_formatPrice(candidate.amountPaid)} học phí. Không thể chuyển về trạng thái ban đầu!',
+                  style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFFDC2626),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
+    // 2. Nếu chuyển sang Đang học mà chưa có lớp -> Mở sheet xếp lớp
+    if (targetColumnKey == 'ENROLLED_STUDYING' && (candidate.batchId == null || candidate.batchId!.isEmpty)) {
+      _openAssignBatch(candidate);
+      return;
+    }
+
+    final String newDbStatus = targetStatuses.first.toString();
+    final String newWorkflowStatus = targetColumnKey;
+
+    // 3. Optimistic Update (Cập nhật giao diện ngay lập tức)
+    final oldList = List<AdminCandidateModel>.from(_candidates);
+    setState(() {
+      final idx = _candidates.indexWhere((c) => c.id == candidate.id);
+      if (idx != -1) {
+        _candidates[idx] = candidate.copyWith(
+          status: newWorkflowStatus,
+          batchId: targetColumnKey == 'PAID_WAITING_CLASS' ? null : candidate.batchId,
+          batchCode: targetColumnKey == 'PAID_WAITING_CLASS' ? null : candidate.batchCode,
+        );
+      }
+    });
+
+    HapticFeedback.mediumImpact();
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Đã chuyển ${candidate.candidateName} sang "$targetColumnTitle"',
+          style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+        ),
+        backgroundColor: const Color(0xFF00693F),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+
+    // 4. Ghi nhận vào Database ngầm
+    bool success = false;
+    if (targetColumnKey == 'PAID_WAITING_CLASS') {
+      success = await _repository.unassignBatchFromCandidate(candidate.id);
+    } else {
+      success = await _repository.updateCandidateStatus(candidate.id, newDbStatus);
+    }
+
+    if (!success && mounted) {
+      // Rollback nếu có lỗi mạng/máy chủ
+      setState(() {
+        _candidates = oldList;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể cập nhật trạng thái học viên. Đã hoàn tác.'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+    }
+  }
+
+  void _handleBatchTap(AdminCourseBatchModel batch, List<AdminCandidateModel> studentsInBatch) {
+    if (studentsInBatch.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.info_outline_rounded, color: Color(0xFF0284C7), size: 22),
+              const SizedBox(width: 8),
+              Text(
+                'Lớp chưa có học viên',
+                style: AppTypography.zaloFont(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          content: Text(
+            'Lớp "${batch.batchCode}" (${batch.courseTitle ?? ""}) hiện chưa có học sinh nào được xếp vào lớp.\n\nBạn có muốn mở trang chi tiết lớp để xem thông tin và thêm học viên từ danh sách chờ không?',
+            style: AppTypography.zaloFont(fontSize: 13, color: AppColors.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Đóng', style: AppTypography.zaloFont(color: AppColors.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _openBatchDetail(batch);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00693F),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: Text('Mở chi tiết lớp', style: AppTypography.zaloFont(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      );
+    } else {
+      _openBatchDetail(batch);
+    }
+  }
+
+  void _openBatchDetail(AdminCourseBatchModel batch) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdminBatchDetailScreen(
+          batch: batch,
+          allCandidates: _candidates,
+          onDataChanged: _fetchData,
+        ),
+      ),
+    );
+  }
+
   // ==============================================================
-  // 2. GIAO DIỆN HIỂN THỊ THEO LỚP HỌC (CLICK TỪNG HỌC VIÊN)
+  // 2. GIAO DIỆN HIỂN THỊ THEO LỚP HỌC (CLICK MỞ TRANG CHI TIẾT LỚP HỌC)
   // ==============================================================
   Widget _buildClassBasedView() {
     final query = _searchQuery.toLowerCase();
@@ -1212,12 +1466,12 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
             child: Column(
               children: [
                 Container(
-                  width: 60,
-                  height: 60,
+                  width: 50,
+                  height: 50,
                   decoration: const BoxDecoration(color: Color(0xFFF3F4F6), shape: BoxShape.circle),
-                  child: const Icon(Icons.school_outlined, size: 30, color: Color(0xFF9CA3AF)),
+                  child: const Icon(Icons.school_outlined, size: 26, color: Color(0xFF9CA3AF)),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 Text(
                   'Không có lớp học nào phù hợp',
                   style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
@@ -1235,182 +1489,148 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       itemCount: filteredBatches.length,
       itemBuilder: (ctx, idx) {
         final batch = filteredBatches[idx];
         final studentsInBatch = _candidates.where((c) => c.batchId == batch.id).toList();
-        final isExpanded = _expandedBatchIds.contains(batch.id);
+        final hasStudents = studentsInBatch.isNotEmpty;
 
+        // Compact Class Card (Chiều cao ~64px, hiển thị được 8-10 lớp)
         return Container(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(bottom: 6),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isExpanded ? AppColors.primary.withValues(alpha: 0.3) : const Color(0xFFE5E7EB),
-              width: isExpanded ? 1.5 : 1,
+              color: hasStudents ? const Color(0xFFE5E7EB) : const Color(0xFFF3F4F6),
+              width: 1,
             ),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2)),
+              BoxShadow(color: Colors.black.withValues(alpha: 0.015), blurRadius: 3, offset: const Offset(0, 1)),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Lớp học - Bấm để mở danh sách học viên trong lớp
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      if (isExpanded) {
-                        _expandedBatchIds.remove(batch.id);
-                      } else {
-                        _expandedBatchIds.add(batch.id);
-                      }
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(15),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.groups_rounded, color: AppColors.primary, size: 24),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => _handleBatchTap(batch, studentsInBatch),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Row(
+                  children: [
+                    // Icon Lớp học
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: hasStudents ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.groups_rounded,
+                        color: hasStudents ? const Color(0xFF00693F) : const Color(0xFF9CA3AF),
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Thông tin chính: Mã lớp + Sĩ số + Khóa học + Lịch
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
                             children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    batch.batchCode,
-                                    style: AppTypography.zaloFont(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.textHeading,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE8F6ED),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      '${studentsInBatch.length}/${batch.maxStudents} học viên',
-                                      style: AppTypography.zaloFont(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: const Color(0xFF00693F),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
                               Text(
-                                batch.courseTitle ?? 'Khóa học MLD chuyên ngành',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textSecondary),
+                                batch.batchCode,
+                                style: AppTypography.zaloFont(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textHeading,
+                                ),
                               ),
-                              const SizedBox(height: 3),
-                              Text(
-                                'Lịch: ${batch.scheduleDays} (${batch.timeSlot}) · Khai giảng: ${batch.startDate}',
-                                style: AppTypography.zaloFont(fontSize: 11, color: const Color(0xFF6B7280)),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: hasStudents ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                                child: Text(
+                                  hasStudents
+                                      ? '${studentsInBatch.length}/${batch.maxStudents} hv'
+                                      : 'Chưa có hv',
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: hasStudents ? const Color(0xFF00693F) : const Color(0xFF9CA3AF),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        Icon(
-                          isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                          color: const Color(0xFF4B5563),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              // Danh sách học viên trong lớp
-              if (isExpanded) ...[
-                const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                if (studentsInBatch.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                    child: Center(
-                      child: Text(
-                        'Chưa có học viên nào được xếp vào lớp này.',
-                        style: AppTypography.zaloFont(fontSize: 12, color: const Color(0xFF9CA3AF), fontStyle: FontStyle.italic),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${batch.courseTitle ?? "Khóa học MLD"} · ${batch.scheduleDays}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.zaloFont(fontSize: 10.5, color: AppColors.textSecondary),
+                                ),
+                              ),
+                              if (batch.instructorName != null && batch.instructorName!.isNotEmpty)
+                                Text(
+                                  'GV: ${batch.instructorName}',
+                                  style: AppTypography.zaloFont(fontSize: 10.5, color: const Color(0xFF6B7280)),
+                                ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    child: Column(
-                      children: studentsInBatch.map((student) {
-                        return Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => _showCandidateDetailSheet(student),
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 6),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF9FAFB),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFFE5E7EB)),
-                              ),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: const Color(0xFFE8F6ED),
-                                    child: Text(
-                                      student.candidateName.isNotEmpty ? student.candidateName[0].toUpperCase() : 'H',
-                                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF00693F)),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          student.candidateName,
-                                          style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textHeading),
-                                        ),
-                                        Text(
-                                          'SĐT: ${student.candidatePhone} · Đã đóng: ${_formatPrice(student.amountPaid)}',
-                                          style: AppTypography.zaloFont(fontSize: 11, color: AppColors.textSecondary),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF9CA3AF)),
-                                ],
+
+                    const SizedBox(width: 6),
+
+                    // Nút Mở Chi tiết lớp
+                    InkWell(
+                      onTap: () => _openBatchDetail(batch),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: hasStudents ? const Color(0xFFEFF6FF) : const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Chi tiết',
+                              style: AppTypography.zaloFont(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: hasStudents ? AppColors.primary : const Color(0xFF6B7280),
                               ),
                             ),
-                          ),
-                        );
-                      }).toList(),
+                            const SizedBox(width: 2),
+                            Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 10,
+                              color: hasStudents ? AppColors.primary : const Color(0xFF6B7280),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-              ],
-            ],
+                  ],
+                ),
+              ),
+            ),
           ),
         );
       },
@@ -1452,12 +1672,13 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       itemCount: _filteredCandidates.length,
       itemBuilder: (ctx, index) {
         final c = _filteredCandidates[index];
         return AdminCandidateCard(
           candidate: c,
+          isCompact: true,
           onViewDetail: () => _showCandidateDetailSheet(c),
           onAssignBatch: () => _openAssignBatch(c),
           onConfirmConsultation: () {
