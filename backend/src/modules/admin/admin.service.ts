@@ -835,8 +835,12 @@ export class AdminService {
     if (table === 'student_academic_records' && operation !== 'delete') {
       if (previous && next.enrollment_id !== previous.enrollment_id)
         throw new ConflictException('Không thể chuyển bảng điểm sang hồ sơ ghi danh khác.');
-      for (const field of ['attended_sessions','total_batch_sessions','attendance_rate','is_graduated','graduation_date','certificate_id'])
+      for (const field of ['attended_sessions', 'total_batch_sessions', 'attendance_rate', 'certificate_id'])
         delete data[field];
+      if (operation === 'create' || actor.role === 'INSTRUCTOR') {
+        delete data['is_graduated'];
+        delete data['graduation_date'];
+      }
       Object.assign(data, await this.academicAttendance(client, next.enrollment_id));
     }
     if (table === 'course_batch_assistants' && operation !== 'delete' &&
