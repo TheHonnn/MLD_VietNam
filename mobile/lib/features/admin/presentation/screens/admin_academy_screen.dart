@@ -40,6 +40,10 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
   List<AdminQuizSubmissionModel> _submissions = [];
   final Set<String> _expandedBatchIds = {};
 
+  // Bộ lọc cho Tab Bài thi (Lọc theo Lớp & Kết quả)
+  String _selectedSubmissionBatchId = 'ALL';
+  String _selectedSubmissionResult = 'ALL'; // ALL, PASSED, FAILED
+
   // Các cột trạng thái Kanban chuẩn quy trình Tuyển sinh & Đào tạo kiểu Trello
   final List<Map<String, dynamic>> _kanbanColumns = [
     {
@@ -147,6 +151,142 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       }).toList();
     }
     return list;
+  }
+
+  String _getSubmissionBatchCode(AdminQuizSubmissionModel sub) {
+    if (sub.batchCode != null && sub.batchCode!.isNotEmpty) {
+      return sub.batchCode!;
+    }
+    for (final c in _candidates) {
+      if (c.id == sub.enrollmentId && c.batchCode != null && c.batchCode!.isNotEmpty) {
+        return c.batchCode!;
+      }
+    }
+    return '';
+  }
+
+  String _getSubmissionBatchId(AdminQuizSubmissionModel sub) {
+    if (sub.batchId != null && sub.batchId!.isNotEmpty) {
+      return sub.batchId!;
+    }
+    for (final c in _candidates) {
+      if (c.id == sub.enrollmentId && c.batchId != null && c.batchId!.isNotEmpty) {
+        return c.batchId!;
+      }
+    }
+    return '';
+  }
+
+  List<AdminQuizSubmissionModel> get _filteredSubmissions {
+    var list = _submissions;
+
+    // Lọc theo Lớp học (Batch)
+    if (_selectedSubmissionBatchId != 'ALL') {
+      if (_selectedSubmissionBatchId == 'NO_BATCH') {
+        list = list.where((s) => _getSubmissionBatchId(s).isEmpty).toList();
+      } else {
+        list = list.where((s) {
+          final bId = _getSubmissionBatchId(s);
+          final bCode = _getSubmissionBatchCode(s);
+          return bId == _selectedSubmissionBatchId || bCode == _selectedSubmissionBatchId;
+        }).toList();
+      }
+    }
+
+    // Lọc theo kết quả Đạt / Chưa đạt
+    if (_selectedSubmissionResult == 'PASSED') {
+      list = list.where((s) => s.passed).toList();
+    } else if (_selectedSubmissionResult == 'FAILED') {
+      list = list.where((s) => !s.passed).toList();
+    }
+
+    // Tìm kiếm bài thi
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((s) {
+        final bCode = _getSubmissionBatchCode(s).toLowerCase();
+        return s.studentName.toLowerCase().contains(q) ||
+            s.studentPhone.toLowerCase().contains(q) ||
+            s.quizTitle.toLowerCase().contains(q) ||
+            s.courseTitle.toLowerCase().contains(q) ||
+            bCode.contains(q);
+      }).toList();
+    }
+
+    return list;
+  }
+
+  Widget _buildMicroPill({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    Color activeColor = const Color(0xFF00693F),
+    Color? activeBgColor,
+    Color inactiveBgColor = const Color(0xFFF3F4F6),
+    Color inactiveTextColor = const Color(0xFF4B5563),
+    IconData? icon,
+    String? badgeText,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: 27,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? (activeBgColor ?? activeColor) : inactiveBgColor,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isSelected ? activeColor : const Color(0xFFE5E7EB),
+              width: isSelected ? 1.2 : 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 13,
+                  color: isSelected ? Colors.white : inactiveTextColor,
+                ),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: AppTypography.zaloFont(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? Colors.white : inactiveTextColor,
+                ),
+              ),
+              if (badgeText != null && badgeText.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.white.withValues(alpha: 0.25) : const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    badgeText,
+                    style: AppTypography.zaloFont(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? Colors.white : const Color(0xFF374151),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   List<AdminCandidateModel> _getCandidatesForColumn(List<dynamic> columnStatuses) {
@@ -779,26 +919,26 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
         elevation: 0,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        titleSpacing: 16,
+        titleSpacing: 14,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Tuyển sinh & Quản trị Lớp học',
+              'Tuyển sinh & Đào tạo',
               style: AppTypography.zaloFont(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textHeading,
               ),
             ),
             Text(
               _selectedSegment == 0
-                  ? '${_candidates.length} học viên trong phễu Tuyển sinh'
+                  ? '${_filteredCandidates.length} học viên phễu Tuyển sinh'
                   : _selectedSegment == 1
                       ? '${_batches.length} lớp học đang mở'
-                      : '${_submissions.length} bài thi học viên nộp',
+                      : '${_filteredSubmissions.length} bài thi học viên nộp',
               style: AppTypography.zaloFont(
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textSecondary,
               ),
@@ -806,98 +946,137 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
           ],
         ),
         actions: [
-          // Nút + Thêm học viên (CRUD Create)
-          IconButton(
-            tooltip: 'Thêm học viên mới',
-            onPressed: () => _showCreateCandidateSheet(context),
-            icon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          // Nút + Thêm học viên (CRUD Create Compact)
+          InkWell(
+            onTap: () => _showCreateCandidateSheet(context),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              height: 30,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              margin: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
                 color: const Color(0xFFE8F6ED),
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF00693F).withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.add_rounded, color: Color(0xFF0D6832), size: 18),
-                  const SizedBox(width: 4),
+                  const Icon(Icons.add_rounded, color: Color(0xFF00693F), size: 16),
+                  const SizedBox(width: 3),
                   Text(
-                    'Thêm học viên',
+                    'Thêm HV',
                     style: AppTypography.zaloFont(
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF0D6832),
+                      color: const Color(0xFF00693F),
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
         ],
       ),
       body: Column(
         children: [
-          // 1. Segmented Controller 3 Tab
+          // 1. Segmented Controller 3 Tab (Thu gọn 36px tinh tế)
           Container(
             color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
             child: Container(
-              height: 42,
-              padding: const EdgeInsets.all(3),
+              height: 36,
+              padding: const EdgeInsets.all(2.5),
               decoration: BoxDecoration(
                 color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  _buildSegmentButton(0, 'Trello Tuyển sinh', Icons.view_kanban_rounded),
-                  _buildSegmentButton(1, 'Theo Lớp học', Icons.meeting_room_rounded),
-                  _buildSegmentButton(2, 'Bài thi', Icons.assignment_rounded),
+                  _buildSegmentButton(0, 'Trello (${_candidates.length})', Icons.view_kanban_rounded),
+                  _buildSegmentButton(1, 'Lớp học (${_batches.length})', Icons.meeting_room_rounded),
+                  _buildSegmentButton(2, 'Bài thi (${_submissions.length})', Icons.assignment_rounded),
                 ],
               ),
             ),
           ),
 
-          // 2. Nội dung theo Segment
+          // 2. Nội dung Toolbar theo từng Segment
           if (_selectedSegment == 0) ...[
-            // Ô tìm kiếm học viên & Switch kiểu xem
+            // Ô tìm kiếm học viên & Switch kiểu xem (Trello / Danh sách)
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Tìm theo tên, SĐT, mã đơn, khóa...',
-                        hintStyle: AppTypography.zaloFont(fontSize: 12, color: const Color(0xFF9CA3AF)),
-                        prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF9CA3AF)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        filled: true,
-                        fillColor: const Color(0xFFF9FAFB),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                    child: SizedBox(
+                      height: 34,
+                      child: TextField(
+                        controller: _searchController,
+                        style: AppTypography.zaloFont(fontSize: 12),
+                        decoration: InputDecoration(
+                          hintText: 'Tìm học viên, SĐT, mã đơn, khóa...',
+                          hintStyle: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
+                          prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF9CA3AF)),
+                          prefixIconConstraints: const BoxConstraints(minWidth: 32),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded, size: 14),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                )
+                              : null,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                          filled: true,
+                          fillColor: const Color(0xFFF9FAFB),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFF00693F)),
+                          ),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                        ),
+                        onChanged: (val) => setState(() => _searchQuery = val.trim()),
                       ),
-                      onChanged: (val) => setState(() => _searchQuery = val.trim()),
                     ),
                   ),
                   const SizedBox(width: 8),
                   // Nút chuyển giữa dạng Bảng Trello và Danh sách
-                  IconButton(
-                    tooltip: _isKanbanViewMode ? 'Xem dạng Danh sách' : 'Xem dạng Bảng Trello',
-                    icon: Icon(
-                      _isKanbanViewMode ? Icons.view_agenda_rounded : Icons.view_kanban_rounded,
-                      color: AppColors.primary,
-                      size: 22,
+                  InkWell(
+                    onTap: () => setState(() => _isKanbanViewMode = !_isKanbanViewMode),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      height: 34,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _isKanbanViewMode ? Icons.view_agenda_rounded : Icons.view_kanban_rounded,
+                            size: 16,
+                            color: const Color(0xFF00693F),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _isKanbanViewMode ? 'Danh sách' : 'Trello',
+                            style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF00693F)),
+                          ),
+                        ],
+                      ),
                     ),
-                    onPressed: () => setState(() => _isKanbanViewMode = !_isKanbanViewMode),
                   ),
                 ],
               ),
@@ -908,26 +1087,175 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
             // Ô tìm kiếm lớp học
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Tìm lớp theo mã lớp, khóa học, giảng viên...',
-                  hintStyle: AppTypography.zaloFont(fontSize: 12, color: const Color(0xFF9CA3AF)),
-                  prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF9CA3AF)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  filled: true,
-                  fillColor: const Color(0xFFF9FAFB),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: SizedBox(
+                height: 34,
+                child: TextField(
+                  controller: _searchController,
+                  style: AppTypography.zaloFont(fontSize: 12),
+                  decoration: InputDecoration(
+                    hintText: 'Tìm theo mã lớp, khóa học, giảng viên...',
+                    hintStyle: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
+                    prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF9CA3AF)),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 32),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 14),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          )
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                    filled: true,
+                    fillColor: const Color(0xFFF9FAFB),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFF00693F)),
+                    ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
+                  onChanged: (val) => setState(() => _searchQuery = val.trim()),
                 ),
-                onChanged: (val) => setState(() => _searchQuery = val.trim()),
+              ),
+            ),
+          ],
+
+          if (_selectedSegment == 2) ...[
+            // TOOLBAR BÀI THI: TÌM KIẾM + LỌC THEO LỚP HỌC & KẾT QUẢ ĐẠT/CHƯA ĐẠT
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Column(
+                children: [
+                  // Dòng 1: Tìm kiếm bài thi
+                  SizedBox(
+                    height: 34,
+                    child: TextField(
+                      controller: _searchController,
+                      style: AppTypography.zaloFont(fontSize: 12),
+                      decoration: InputDecoration(
+                        hintText: 'Tìm bài thi theo học viên, SĐT, lớp...',
+                        hintStyle: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
+                        prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF9CA3AF)),
+                        prefixIconConstraints: const BoxConstraints(minWidth: 32),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear_rounded, size: 14),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                              )
+                            : null,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                        filled: true,
+                        fillColor: const Color(0xFFF9FAFB),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF00693F)),
+                        ),
+                      ),
+                      onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Dòng 2: Dải Micro-pills LỌC THEO LỚP HỌC (BATCH) & KẾT QUẢ
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        // Tất cả lớp
+                        _buildMicroPill(
+                          label: 'Tất cả lớp',
+                          badgeText: '${_submissions.length}',
+                          isSelected: _selectedSubmissionBatchId == 'ALL',
+                          onTap: () => setState(() => _selectedSubmissionBatchId = 'ALL'),
+                        ),
+                        const SizedBox(width: 6),
+
+                        // Từng lớp học cụ thể từ _batches
+                        ..._batches.map((batch) {
+                          final count = _submissions.where((s) {
+                            final bId = _getSubmissionBatchId(s);
+                            final bCode = _getSubmissionBatchCode(s);
+                            return bId == batch.id || bCode == batch.batchCode;
+                          }).length;
+
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: _buildMicroPill(
+                              label: batch.batchCode,
+                              badgeText: '$count',
+                              isSelected: _selectedSubmissionBatchId == batch.id || _selectedSubmissionBatchId == batch.batchCode,
+                              onTap: () => setState(() => _selectedSubmissionBatchId = batch.id),
+                            ),
+                          );
+                        }),
+
+                        // Chưa có lớp (nếu có bài nộp của học viên chưa xếp lớp)
+                        if (_submissions.any((s) => _getSubmissionBatchId(s).isEmpty && _getSubmissionBatchCode(s).isEmpty))
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: _buildMicroPill(
+                              label: 'Chưa có lớp',
+                              isSelected: _selectedSubmissionBatchId == 'NO_BATCH',
+                              onTap: () => setState(() => _selectedSubmissionBatchId = 'NO_BATCH'),
+                            ),
+                          ),
+
+                        Container(
+                          height: 16,
+                          width: 1,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          color: const Color(0xFFE5E7EB),
+                        ),
+
+                        // Lọc theo kết quả Đạt / Chưa đạt
+                        _buildMicroPill(
+                          label: 'Đạt chuẩn',
+                          badgeText: '${_submissions.where((s) => s.passed).length}',
+                          isSelected: _selectedSubmissionResult == 'PASSED',
+                          activeColor: const Color(0xFF00693F),
+                          onTap: () {
+                            setState(() {
+                              _selectedSubmissionResult = _selectedSubmissionResult == 'PASSED' ? 'ALL' : 'PASSED';
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        _buildMicroPill(
+                          label: 'Chưa đạt',
+                          badgeText: '${_submissions.where((s) => !s.passed).length}',
+                          isSelected: _selectedSubmissionResult == 'FAILED',
+                          activeColor: const Color(0xFFD97706),
+                          onTap: () {
+                            setState(() {
+                              _selectedSubmissionResult = _selectedSubmissionResult == 'FAILED' ? 'ALL' : 'FAILED';
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1700,31 +2028,35 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
   }
 
   // ==============================================================
-  // 4. GIAO DIỆN BÀI THI & TRẮC NGHIỆM
+  // 4. GIAO DIỆN BÀI THI & TRẮC NGHIỆM (HỖ TRỢ LỌC THEO LỚP & GIAO DIỆN COMPACT)
   // ==============================================================
   Widget _buildSubmissionsList() {
-    if (_submissions.isEmpty) {
+    final list = _filteredSubmissions;
+
+    if (list.isEmpty) {
       return ListView(
         children: [
-          const SizedBox(height: 60),
+          const SizedBox(height: 50),
           Center(
             child: Column(
               children: [
                 Container(
-                  width: 60,
-                  height: 60,
+                  width: 52,
+                  height: 52,
                   decoration: const BoxDecoration(color: Color(0xFFF3F4F6), shape: BoxShape.circle),
-                  child: const Icon(Icons.assignment_turned_in_rounded, size: 30, color: Color(0xFF9CA3AF)),
+                  child: const Icon(Icons.assignment_turned_in_rounded, size: 26, color: Color(0xFF9CA3AF)),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 Text(
-                  'Chưa có bài thi nào được nộp',
-                  style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                  _submissions.isEmpty ? 'Chưa có bài thi nào được nộp' : 'Không tìm thấy bài thi phù hợp bộ lọc',
+                  style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Khi học viên hoàn thành bài kiểm tra, kết quả sẽ hiện tại đây.',
-                  style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textSecondary),
+                  _submissions.isEmpty
+                      ? 'Khi học viên hoàn thành bài kiểm tra, kết quả sẽ hiện tại đây.'
+                      : 'Hãy chọn lớp khác hoặc xóa từ khóa tìm kiếm.',
+                  style: AppTypography.zaloFont(fontSize: 11.5, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -1734,29 +2066,67 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      itemCount: _submissions.length,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemCount: list.length,
       itemBuilder: (ctx, index) {
-        final sub = _submissions[index];
+        final sub = list[index];
+        final bCode = _getSubmissionBatchCode(sub);
+
         return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: sub.passed ? const Color(0xFFE5E7EB) : const Color(0xFFFDE68A),
+              width: sub.passed ? 1 : 1.2,
+            ),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2)),
+              BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1)),
             ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Dòng 1: Badge Lớp học + Badge Kết quả + Điểm số
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Badge Lớp học (BÀI THI LỌC THEO LỚP)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: bCode.isNotEmpty ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: bCode.isNotEmpty ? const Color(0xFF00693F).withValues(alpha: 0.3) : const Color(0xFFE5E7EB),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.school_rounded,
+                          size: 12,
+                          color: bCode.isNotEmpty ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          bCode.isNotEmpty ? 'Lớp: $bCode' : 'Chưa có lớp',
+                          style: AppTypography.zaloFont(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: bCode.isNotEmpty ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+
+                  // Badge Đạt / Chưa đạt
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: sub.passed ? const Color(0xFFE8F6ED) : const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(6),
@@ -1764,67 +2134,102 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                     child: Text(
                       sub.passed ? 'ĐẠT CHUẨN MLD' : 'CHƯA ĐẠT',
                       style: AppTypography.zaloFont(
-                        fontSize: 11,
+                        fontSize: 9.5,
                         fontWeight: FontWeight.w700,
                         color: sub.passed ? const Color(0xFF0D6832) : const Color(0xFF92400E),
                       ),
                     ),
                   ),
+                  const Spacer(),
+
+                  // Điểm số nổi bật
                   Text(
-                    'Điểm số: ${sub.score}',
+                    '${sub.score.toStringAsFixed(sub.score.truncateToDouble() == sub.score ? 0 : 1)} đ',
                     style: AppTypography.zaloFont(
-                      fontSize: 14,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w800,
                       color: sub.passed ? const Color(0xFF00693F) : const Color(0xFFD97706),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                sub.studentName,
-                style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+              const SizedBox(height: 6),
+
+              // Dòng 2: Tên học viên + SĐT
+              Row(
+                children: [
+                  Text(
+                    sub.studentName,
+                    style: AppTypography.zaloFont(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHeading,
+                    ),
+                  ),
+                  if (sub.studentPhone.isNotEmpty) ...[
+                    Text(
+                      ' · ${sub.studentPhone}',
+                      style: AppTypography.zaloFont(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 2),
+
+              // Dòng 3: Bài thi & Khóa học
               Text(
-                'Khóa: ${sub.courseTitle} · ${sub.quizTitle}',
-                style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textSecondary),
+                '${sub.quizTitle} · ${sub.courseTitle}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.zaloFont(fontSize: 11, color: AppColors.textSecondary),
               ),
+
               if (sub.instructorFeedback != null && sub.instructorFeedback!.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
                   ),
                   child: Text(
                     'GV nhận xét: "${sub.instructorFeedback}"',
-                    style: AppTypography.zaloFont(fontSize: 11.5, fontStyle: FontStyle.italic, color: const Color(0xFF4B5563)),
+                    style: AppTypography.zaloFont(fontSize: 10.5, fontStyle: FontStyle.italic, color: const Color(0xFF4B5563)),
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+
+              // Dòng 4: Số câu đúng + Nút Xem & Nhận xét
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Số câu đúng: ${sub.correctCount} câu',
-                    style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w500, color: const Color(0xFF6B7280)),
+                    'Đúng: ${sub.correctCount} câu',
+                    style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xFF6B7280)),
                   ),
-                  ElevatedButton(
-                    onPressed: () => _openSubmissionDetail(sub),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00693F),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: Text(
-                      'Xem & Nhận xét',
-                      style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w600),
+                  InkWell(
+                    onTap: () => _openSubmissionDetail(sub),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00693F),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Xem & Nhận xét',
+                        style: AppTypography.zaloFont(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ],

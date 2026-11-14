@@ -621,6 +621,8 @@ class AdminQuizSubmissionModel {
   final String enrollmentId;
   final String studentName;
   final String studentPhone;
+  final String? batchId;
+  final String? batchCode;
   final String quizId;
   final String quizTitle;
   final String courseTitle;
@@ -636,6 +638,8 @@ class AdminQuizSubmissionModel {
     required this.enrollmentId,
     required this.studentName,
     required this.studentPhone,
+    this.batchId,
+    this.batchCode,
     required this.quizId,
     required this.quizTitle,
     required this.courseTitle,
@@ -653,10 +657,17 @@ class AdminQuizSubmissionModel {
 
     String sName = 'Học viên';
     String sPhone = '';
+    String? bId;
+    String? bCode;
     String cTitle = 'Đào tạo MLD';
     if (enrObj is Map) {
       sName = enrObj['student_name']?.toString() ?? enrObj['candidate_name']?.toString() ?? sName;
       sPhone = enrObj['student_phone']?.toString() ?? enrObj['candidate_phone']?.toString() ?? '';
+      bId = enrObj['batch_id']?.toString();
+      final batchObj = enrObj['course_batches'];
+      if (batchObj is Map) {
+        bCode = batchObj['batch_code']?.toString();
+      }
       final cObj = enrObj['courses'];
       if (cObj is Map) {
         cTitle = cObj['title']?.toString() ?? cTitle;
@@ -680,6 +691,8 @@ class AdminQuizSubmissionModel {
       enrollmentId: json['enrollment_id']?.toString() ?? '',
       studentName: sName,
       studentPhone: sPhone,
+      batchId: bId,
+      batchCode: bCode,
       quizId: json['quiz_id']?.toString() ?? '',
       quizTitle: qTitle,
       courseTitle: cTitle,
@@ -693,6 +706,8 @@ class AdminQuizSubmissionModel {
   }
 
   AdminQuizSubmissionModel copyWith({
+    String? batchId,
+    String? batchCode,
     String? instructorFeedback,
     bool? passed,
   }) {
@@ -701,6 +716,8 @@ class AdminQuizSubmissionModel {
       enrollmentId: enrollmentId,
       studentName: studentName,
       studentPhone: studentPhone,
+      batchId: batchId ?? this.batchId,
+      batchCode: batchCode ?? this.batchCode,
       quizId: quizId,
       quizTitle: quizTitle,
       courseTitle: courseTitle,

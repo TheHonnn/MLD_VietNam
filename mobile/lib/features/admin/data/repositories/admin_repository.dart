@@ -714,7 +714,7 @@ class AdminRepository {
   Future<List<AdminQuizSubmissionModel>> fetchQuizSubmissions() async {
     try {
       final res = await _apiClient.dio.get(
-        '/rest/v1/quiz_submissions?select=*,course_quizzes(title),course_enrollments(student_name,student_phone,courses(title))&order=submitted_at.desc',
+        '/rest/v1/quiz_submissions?select=*,course_quizzes(title),course_enrollments(student_name,student_phone,batch_id,courses(title),course_batches(batch_code))&order=submitted_at.desc',
       );
       if (res.data is List) {
         return (res.data as List)

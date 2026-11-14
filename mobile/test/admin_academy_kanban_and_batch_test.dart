@@ -100,5 +100,39 @@ void main() {
       expect(find.text('Đã thu đủ'), findsOneWidget);
       expect(find.textContaining('ENR-K26-001'), findsOneWidget);
     });
+
+    test('AdminQuizSubmissionModel parses batchId and batchCode correctly', () {
+      final json = {
+        'id': 'sub-001',
+        'enrollment_id': 'enr-001',
+        'quiz_id': 'quiz-001',
+        'score': 95.0,
+        'correct_count': 19,
+        'passed': true,
+        'submitted_at': '2026-11-14T10:00:00Z',
+        'course_enrollments': {
+          'student_name': 'Trần Văn An',
+          'student_phone': '0912345678',
+          'batch_id': 'batch-k26',
+          'course_batches': {
+            'batch_code': 'K26-GV-Q3',
+          },
+          'courses': {
+            'title': 'MLD Chuyên Sâu K26',
+          },
+        },
+        'course_quizzes': {
+          'title': 'Kiểm tra Giải phẫu Hệ Bạch huyết',
+        },
+      };
+
+      final model = AdminQuizSubmissionModel.fromJson(json);
+      expect(model.id, 'sub-001');
+      expect(model.studentName, 'Trần Văn An');
+      expect(model.batchId, 'batch-k26');
+      expect(model.batchCode, 'K26-GV-Q3');
+      expect(model.passed, isTrue);
+      expect(model.score, 95.0);
+    });
   });
 }
