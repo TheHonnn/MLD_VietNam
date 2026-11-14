@@ -1,6 +1,28 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AcademyService } from './academy.service';
 
+describe('Academy tuition confirmation', () => {
+  it('confirms through PostgreSQL when the Supabase REST key is invalid', async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: { message: 'Invalid API key' } });
+    const confirmation = { success: true, consultationStatus: 'CONFIRMED', finalTuition: 350000 };
+    const query = vi.fn().mockResolvedValue({ rows: [{ confirmation }] });
+    const service = new AcademyService({ adminClient: { rpc } } as any, { connection: { query } } as any);
+
+    await expect(service.finalizeEnrollmentConsultation('enrollment', 'admin', 350000, 'HQ'))
+      .resolves.toMatchObject({ data: confirmation });
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('fn_finalize_enrollment_consultation'),
+      ['enrollment', 'admin', 350000, 'HQ', null]);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns an HTTP error when the database rejects tuition below the deposit', async () => {
+    const query = vi.fn().mockRejectedValue({ code: 'P0001', message: 'Học phí thấp hơn mức cọc' });
+    const service = new AcademyService({} as any, { connection: { query } } as any);
+    await expect(service.finalizeEnrollmentConsultation('enrollment', 'admin', 350000))
+      .rejects.toMatchObject({ status: 400, message: 'Học phí thấp hơn mức cọc' });
+  });
+});
+
 describe('Academy change request acknowledgment', () => {
   it('throws an HTTP error when the database refuses a decision instead of returning false success through the global interceptor', async () => {
     const service = new AcademyService({ adminClient: { rpc: vi.fn().mockResolvedValue({data:null,error:{message:'Yêu cầu đã được xử lý'}}) } } as any, {} as any);
