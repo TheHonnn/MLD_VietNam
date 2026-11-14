@@ -31,6 +31,29 @@ async function loadAdminSchema(database) {
     .replace(/^CREATE EXTENSION[^\n]*$/gm, '')
     .replace(/^CREATE INDEX[^\n]*gin_trgm_ops[^\n]*$/gm, ''));
   await database.exec(readFileSync(resolve(__dirname, '../enterprise_features.sql'), 'utf8'));
+  // Migration 008 extends a legacy Portal table absent from schema.sql.
+  await database.exec(`
+    CREATE TABLE public.miniapp_shared_content (
+      id UUID PRIMARY KEY,
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT,
+      content_text TEXT,
+      image_url TEXT,
+      status TEXT NOT NULL DEFAULT 'DRAFT',
+      author_id UUID NOT NULL REFERENCES public.users(id),
+      updated_by UUID NOT NULL REFERENCES public.users(id),
+      payload_hash TEXT NOT NULL,
+      published_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  // Run the production DDL and policies, excluding the legacy sample seeds.
+  const portalMigration = readFileSync(resolve(__dirname, '../migrations/008_portal_content_and_email.sql'), 'utf8');
+  const seedStart = portalMigration.indexOf('-- 5.');
+  if (seedStart < 0) throw new Error('Portal migration seed boundary is missing.');
+  await database.exec(portalMigration.slice(0, seedStart));
   for (const migration of ADMIN_MIGRATIONS) {
     await database.exec(readFileSync(resolve(__dirname, '../migrations', migration), 'utf8'));
   }

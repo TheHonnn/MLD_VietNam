@@ -38,6 +38,14 @@ describe('Admin business workflows on the complete migrated schema', () => {
     } finally { await query('ROLLBACK'); }
   });
 
+  it('loads Portal and Email schemas without sample business content', async () => {
+    for (const table of ['miniapp_shared_content', 'email_templates', 'email_logs']) {
+      expect((await query(`SELECT count(*)::int AS count FROM ${table}`)).rows[0].count).toBe(0);
+    }
+    const columns = await query("SELECT column_name FROM information_schema.columns WHERE table_name='miniapp_shared_content'");
+    expect(columns.rows.map(row => row.column_name)).toEqual(expect.arrayContaining(['target_link', 'access_level', 'file_url']));
+  });
+
   it('rejects a schema that is missing treatment lifecycle columns', async()=>{
     await query('BEGIN');
     try {
