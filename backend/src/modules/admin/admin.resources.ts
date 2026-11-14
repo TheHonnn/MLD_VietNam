@@ -94,6 +94,10 @@ export const ADMIN_RESOURCES: Record<
   tuition_transactions: { title: 'Học phí / Đặt cọc', group: 'Đào tạo' },
   invoices: { title: 'Hóa đơn', group: 'Thu ngân' },
   invoice_items: { title: 'Chi tiết hóa đơn', group: 'Thu ngân' },
+  miniapp_shared_content: { title: 'Nội dung Portal & App', group: 'Nội dung Portal' },
+  documents: { title: 'Tài liệu Portal', group: 'Nội dung Portal' },
+  email_templates: { title: 'Mẫu email thông báo', group: 'Nội dung Portal' },
+  email_logs: { title: 'Nhật ký email', group: 'Nội dung Portal', readonly: true },
 };
 
 export const HIDDEN_COLUMNS = new Set([
