@@ -179,7 +179,7 @@ export const settingsService = {
    * Cập nhật cấu hình cho 1 nhóm
    */
   async updateSettings<T>(category: string, data: Partial<T>): Promise<{ success: boolean; message: string; data?: T }> {
-    return adminCommand<{ success: boolean; message: string; data?: T }>(`settings/${category}`, { data });
+    return adminCommand<{ success: boolean; message: string; data?: T }>(`settings/${category}/configuration`, { data });
   },
 
   /**

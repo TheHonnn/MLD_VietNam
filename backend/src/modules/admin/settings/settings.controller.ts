@@ -38,6 +38,11 @@ export class SettingsController {
     return this.service.getSettings(req.admin, category);
   }
 
+  @Post(':category/configuration')
+  async saveSettings(@Param('category') category: string, @Body() body: Record<string, any>, @Req() req: any) {
+    return this.updateSettings(category, body, req);
+  }
+
   @Patch(':category')
   @ApiOperation({ summary: 'Cập nhật cấu hình cho 1 nhóm cài đặt' })
   async updateSettings(

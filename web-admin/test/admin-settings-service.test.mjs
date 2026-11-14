@@ -31,7 +31,7 @@ test('settings.service.ts exists and declares all system configuration interface
   assert.match(content, /adminApi<\{ data: T \}>\(`settings\/\$\{category\}`/);
 
   assert.match(content, /updateSettings/);
-  assert.match(content, /adminCommand<\{ success: boolean; message: string; data\?: T \}>\(`settings\/\$\{category\}`/);
+  assert.match(content, /adminCommand<\{ success: boolean; message: string; data\?: T \}>\(`settings\/\$\{category\}\/configuration`/);
 
   assert.match(content, /testZnsConnection/);
   assert.match(content, /adminCommand<\{ success: boolean; message: string; timestamp: string \}>\('settings\/test-zns'/);

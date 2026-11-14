@@ -15,5 +15,4 @@ import { SettingsService } from './settings/settings.service';
   providers: [AdminDatabase, AdminGuard, AdminService, TreatmentInventoryWorker, SettingsService],
   exports: [SettingsService],
 })
-})
 export class AdminModule {}
