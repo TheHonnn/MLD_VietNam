@@ -227,7 +227,7 @@ async function main() {
       console.log(JSON.stringify(result));
       return;
     }
-    const legacyLinks = [['Tổng quan','/'],['Chi nhánh & Phòng ốc','/branches'],['Khách hàng (CRM)','/customers'],['Nhân sự & Kỹ thuật viên','/staff-schedule'],['Quản lý Liệu trình','/medical-records'],['Thu ngân & Tiếp đón','/cashier-pos'],['Tuyển sinh & Ghi danh','/academy-enrollment'],['Đội ngũ Giảng viên','/instructors'],['Học viên & Lớp học','/attendance'],['Chương trình đào tạo','/curriculum'],['Giấy chứng nhận','/certificates'],['Báo cáo doanh thu','/reports']];
+    const legacyLinks = [['Tổng quan','/'],['Chi nhánh & Phòng ốc','/branches'],['Khách hàng (CRM)','/customers'],['Nhân sự & Kỹ thuật viên','/staff-schedule'],['Quản lý Liệu trình','/medical-records'],['Thu ngân & Tiếp đón','/cashier-pos'],['Tuyển sinh & Ghi danh','/academy-enrollment'],['Đội ngũ Giảng viên','/instructors'],['Học viên & Lớp học','/manage/course_batches'],['Chương trình đào tạo','/curriculum'],['Giấy chứng nhận','/certificates'],['Báo cáo doanh thu','/reports']];
     for(const [name,href] of legacyLinks) assert.equal(await page.getByRole('navigation').getByRole('link',{name,exact:true}).getAttribute('href'),href);
     const sidebar=page.locator('aside');
     assert.equal(await sidebar.getByText('QUẢN TRỊ BỔ SUNG',{exact:true}).count(),0);
@@ -291,6 +291,7 @@ async function main() {
       invoices: '/cashier-pos?tab=receipts',
       home_products: '/home-products',
       instructors: '/manage/instructors',
+      student_attendance: '/attendance',
     };
     const selectedResources = process.env.ADMIN_BROWSER_RESOURCES?.split(',');
     const resourcesToCheck = Object.entries(ADMIN_RESOURCES).filter(([name]) => !selectedResources || selectedResources.includes(name));
