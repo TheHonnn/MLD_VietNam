@@ -39,6 +39,7 @@ class AdminRepository {
     try {
       final now = DateTime.now();
       final todayStr = DateFormat('yyyy-MM-dd').format(now);
+      final monthPrefix = DateFormat('yyyy-MM').format(now);
       final monthStartStr = DateFormat('yyyy-MM-01').format(now);
 
       // A. Doanh thu hôm nay & tháng này (tổng từ hóa đơn Spa + Học phí đã thu)
@@ -48,30 +49,37 @@ class AdminRepository {
         final branchParam = (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
             ? '&branch_id=eq.$branchId'
             : '';
+        // 1. Thu từ hóa đơn POS / Dịch vụ
         final invRes = await _apiClient.dio.get(
-          '/rest/v1/invoices?select=total_amount,payment_status,created_at&payment_status=eq.PAID&created_at=gte.$monthStartStr$branchParam',
+          '/rest/v1/invoices?select=total_amount,payment_status,paid_at,created_at&payment_status=eq.PAID$branchParam',
         );
         if (invRes.data is List) {
           for (final inv in invRes.data) {
             final amt = double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
-            final createdAt = inv['created_at']?.toString() ?? '';
-            monthRev += amt;
-            if (createdAt.startsWith(todayStr)) {
+            final pDate = inv['paid_at']?.toString() ?? inv['created_at']?.toString() ?? '';
+            if (pDate.startsWith(monthPrefix)) {
+              monthRev += amt;
+            }
+            if (pDate.startsWith(todayStr)) {
               todayRev += amt;
             }
           }
         }
+      } catch (_) {}
 
-        // Bổ sung học phí thu được từ học viện (tuition_transactions)
-        final tuitionRes = await _apiClient.dio.get(
-          '/rest/v1/tuition_transactions?select=amount,status,created_at&status=eq.SUCCESS&created_at=gte.$monthStartStr',
+      // 2. Thu từ Học viện (course_enrollments - đồng bộ học phí thực nộp)
+      try {
+        final enrRevRes = await _apiClient.dio.get(
+          '/rest/v1/course_enrollments?select=amount_paid,enrolled_at,payment_status&amount_paid=gt.0',
         );
-        if (tuitionRes.data is List) {
-          for (final t in tuitionRes.data) {
-            final amt = double.tryParse(t['amount']?.toString() ?? '0') ?? 0.0;
-            final createdAt = t['created_at']?.toString() ?? '';
-            monthRev += amt;
-            if (createdAt.startsWith(todayStr)) {
+        if (enrRevRes.data is List) {
+          for (final e in enrRevRes.data) {
+            final amt = double.tryParse(e['amount_paid']?.toString() ?? '0') ?? 0.0;
+            final eDate = e['enrolled_at']?.toString() ?? '';
+            if (eDate.startsWith(monthPrefix)) {
+              monthRev += amt;
+            }
+            if (eDate.startsWith(todayStr)) {
               todayRev += amt;
             }
           }
@@ -83,13 +91,13 @@ class AdminRepository {
       int monthStudents = 0;
       try {
         final studentRes = await _apiClient.dio.get(
-          '/rest/v1/course_enrollments?select=id,created_at&created_at=gte.$monthStartStr',
+          '/rest/v1/course_enrollments?select=id,enrolled_at&enrolled_at=gte.$monthStartStr',
         );
         if (studentRes.data is List) {
           for (final s in studentRes.data) {
             monthStudents++;
-            final createdAt = s['created_at']?.toString() ?? '';
-            if (createdAt.startsWith(todayStr)) {
+            final enrolledAt = s['enrolled_at']?.toString() ?? '';
+            if (enrolledAt.startsWith(todayStr)) {
               todayStudents++;
             }
           }
@@ -105,13 +113,13 @@ class AdminRepository {
             ? '&branch_id=eq.$branchId'
             : '';
         final bkRes = await _apiClient.dio.get(
-          '/rest/v1/bookings?select=id,status,booking_date&booking_date=eq.$todayStr$branchParam',
+          '/rest/v1/bookings?select=id,status,booking_date,final_price&booking_date=eq.$todayStr$branchParam',
         );
         if (bkRes.data is List) {
           todayBk = bkRes.data.length;
           for (final b in bkRes.data) {
             final st = (b['status']?.toString() ?? '').toUpperCase();
-            if (st == 'CHECKED_IN' || st == 'IN_SERVICE') {
+            if (st == 'CHECKED_IN' || st == 'IN_SERVICE' || st == 'COMPLETED') {
               checkedInBk++;
             }
           }
@@ -141,10 +149,15 @@ class AdminRepository {
       int pendingQuizCount = 0;
       try {
         final qRes = await _apiClient.dio.get(
-          '/rest/v1/quiz_submissions?select=id,instructor_feedback&instructor_feedback=is.null&limit=20',
+          '/rest/v1/quiz_submissions?select=id,instructor_feedback&limit=30',
         );
         if (qRes.data is List) {
-          pendingQuizCount = qRes.data.length;
+          for (final q in qRes.data) {
+            final fb = q['instructor_feedback']?.toString() ?? '';
+            if (fb.trim().isEmpty) {
+              pendingQuizCount++;
+            }
+          }
         }
       } catch (_) {}
 
@@ -206,7 +219,7 @@ class AdminRepository {
     // B. Học viên đã nộp tiền chờ xếp lớp
     try {
       final res = await _apiClient.dio.get(
-        '/rest/v1/course_enrollments?select=id,order_code,student_name,student_phone,amount_paid,tuition_total,created_at,courses(title)&batch_id=is.null&amount_paid=gt.0&order=created_at.desc&limit=10',
+        '/rest/v1/course_enrollments?select=id,order_code,student_name,student_phone,amount_paid,tuition_total,enrolled_at,courses(title)&batch_id=is.null&amount_paid=gt.0&order=enrolled_at.desc&limit=10',
       );
       if (res.data is List) {
         for (final e in res.data) {
@@ -232,13 +245,16 @@ class AdminRepository {
       debugPrint('[AdminRepository] fetch waiting batch error: $e');
     }
 
-    // C. Bài thi học viên nộp gần đây
+    // C. Bài thi học viên nộp gần đây chưa duyệt feedback
     try {
       final res = await _apiClient.dio.get(
-        '/rest/v1/quiz_submissions?select=id,score,passed,submitted_at,course_enrollments(student_name,courses(title))&order=submitted_at.desc&limit=5',
+        '/rest/v1/quiz_submissions?select=id,score,passed,submitted_at,instructor_feedback,course_enrollments(student_name,courses(title))&order=submitted_at.desc&limit=10',
       );
       if (res.data is List) {
         for (final q in res.data) {
+          final fb = q['instructor_feedback']?.toString() ?? '';
+          if (fb.trim().isNotEmpty) continue; // Đã nhận xét xong, bỏ qua
+
           final enr = q['course_enrollments'];
           String sName = 'Học viên';
           String cTitle = 'Đào tạo MLD';
@@ -391,7 +407,7 @@ class AdminRepository {
   Future<List<AdminCandidateModel>> fetchCandidates({String? statusFilter}) async {
     try {
       String query =
-          '/rest/v1/course_enrollments?select=*,courses(title),course_batches(batch_code)&order=created_at.desc';
+          '/rest/v1/course_enrollments?select=*,courses(title),course_batches(batch_code)&order=enrolled_at.desc';
       final res = await _apiClient.dio.get(query);
       if (res.data is List) {
         final all = (res.data as List)
@@ -431,7 +447,7 @@ class AdminRepository {
   Future<List<AdminCourseBatchModel>> fetchCourseBatches(String courseId) async {
     try {
       final res = await _apiClient.dio.get(
-        '/rest/v1/course_batches?select=*,instructors(full_name),branch_rooms(name)&course_id=eq.$courseId&order=start_date.asc',
+        '/rest/v1/course_batches?select=*,courses(title),branches(name),instructors!course_batches_instructor_id_fkey(full_name)&course_id=eq.$courseId&order=start_date.asc',
       );
       if (res.data is List) {
         return (res.data as List)
@@ -449,7 +465,7 @@ class AdminRepository {
   Future<List<AdminCourseBatchModel>> fetchAllCourseBatches() async {
     try {
       final res = await _apiClient.dio.get(
-        '/rest/v1/course_batches?select=*,courses(title),instructors(full_name),branch_rooms(name)&order=start_date.desc',
+        '/rest/v1/course_batches?select=*,courses(title),branches(name),instructors!course_batches_instructor_id_fkey(full_name)&order=start_date.desc',
       );
       if (res.data is List) {
         return (res.data as List)
@@ -483,7 +499,8 @@ class AdminRepository {
           'course_id': courseId,
           'status': status,
           'amount_paid': amountPaid,
-          if (notes != null && notes.isNotEmpty) 'notes': notes,
+          'enrolled_at': DateTime.now().toIso8601String(),
+          if (notes != null && notes.isNotEmpty) 'approval_notes': notes,
         },
       );
       return res.statusCode == 201 || res.statusCode == 200;
@@ -500,7 +517,6 @@ class AdminRepository {
         '/rest/v1/course_enrollments?id=eq.$candidateId',
         data: {
           'status': newStatus,
-          'updated_at': DateTime.now().toIso8601String(),
         },
       );
       return res.statusCode == 200 || res.statusCode == 204;
@@ -687,6 +703,244 @@ class AdminRepository {
     } catch (e) {
       debugPrint('[AdminRepository] submitInstructorFeedback error: $e');
       return false;
+    }
+  }
+
+  /// 9. Tải Báo cáo Doanh thu chi tiết phục vụ Biểu đồ Lưới (Revenue Grid Modal)
+  Future<AdminRevenueReport> fetchRevenueReport({
+    String? branchId,
+    String period = 'MONTH', // 'TODAY', 'WEEK', 'MONTH'
+  }) async {
+    try {
+      final now = DateTime.now();
+      final todayStr = DateFormat('yyyy-MM-dd').format(now);
+      DateTime startDt;
+      if (period == 'TODAY') {
+        startDt = DateTime(now.year, now.month, now.day);
+      } else if (period == 'WEEK') {
+        startDt = now.subtract(const Duration(days: 6));
+      } else {
+        startDt = DateTime(now.year, now.month, 1);
+      }
+
+      final List<AdminRevenueItem> items = [];
+      double serviceRev = 0.0;
+      double academyRev = 0.0;
+      double productRev = 0.0;
+
+      // 1. Lấy dữ liệu Học viện (Tuyển sinh & Học phí)
+      try {
+        final enrRes = await _apiClient.dio.get(
+          '/rest/v1/course_enrollments?select=id,order_code,student_name,student_phone,amount_paid,enrolled_at,payment_status,selected_branch,courses(title)&amount_paid=gt.0&order=enrolled_at.desc',
+        );
+        if (enrRes.data is List) {
+          for (final e in enrRes.data) {
+            final eDateStr = e['enrolled_at']?.toString() ?? '';
+            if (eDateStr.isEmpty) continue;
+            final eDate = DateTime.tryParse(eDateStr)?.toLocal() ?? now;
+
+            // Kiểm tra theo khoảng thời gian
+            if (period == 'TODAY') {
+              if (!eDateStr.startsWith(todayStr)) continue;
+            } else {
+              if (eDate.isBefore(startDt)) continue;
+            }
+
+            final amt = double.tryParse(e['amount_paid']?.toString() ?? '0') ?? 0.0;
+            academyRev += amt;
+            final cTitle = (e['courses'] is Map) ? e['courses']['title']?.toString() ?? 'Khóa học' : 'Khóa học';
+            final sName = e['student_name']?.toString() ?? 'Học viên';
+
+            items.add(AdminRevenueItem(
+              id: 'enr_${e['id']}',
+              code: e['order_code']?.toString() ?? 'ENR-${e['id']?.toString().substring(0, 6)}',
+              title: 'Học phí: $cTitle',
+              customerOrStudentName: sName,
+              phone: e['student_phone']?.toString(),
+              category: 'ACADEMY_TUITION',
+              amount: amt,
+              timestamp: eDateStr,
+              status: e['payment_status']?.toString() ?? 'PAID',
+              branchName: e['selected_branch']?.toString(),
+            ));
+          }
+        }
+      } catch (e) {
+        debugPrint('[AdminRepository] fetchRevenueReport enrollments error: $e');
+      }
+
+      // 2. Lấy dữ liệu Hóa đơn POS & Dịch vụ Spa
+      try {
+        final branchParam = (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
+            ? '&branch_id=eq.$branchId'
+            : '';
+        final invRes = await _apiClient.dio.get(
+          '/rest/v1/invoices?select=id,invoice_code,total_amount,payment_status,paid_at,created_at,branch_id,branches(name)&payment_status=eq.PAID$branchParam&order=paid_at.desc',
+        );
+        if (invRes.data is List) {
+          for (final inv in invRes.data) {
+            final pDateStr = inv['paid_at']?.toString() ?? inv['created_at']?.toString() ?? '';
+            if (pDateStr.isEmpty) continue;
+            final pDate = DateTime.tryParse(pDateStr)?.toLocal() ?? now;
+
+            if (period == 'TODAY') {
+              if (!pDateStr.startsWith(todayStr)) continue;
+            } else {
+              if (pDate.isBefore(startDt)) continue;
+            }
+
+            final amt = double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
+            serviceRev += amt;
+            final brObj = inv['branches'];
+            final brName = brObj is Map ? brObj['name']?.toString() : null;
+
+            items.add(AdminRevenueItem(
+              id: 'inv_${inv['id']}',
+              code: inv['invoice_code']?.toString() ?? 'HD-${inv['id']?.toString().substring(0, 6)}',
+              title: 'Hóa đơn dịch vụ trị liệu',
+              customerOrStudentName: 'Khách hàng',
+              category: 'SPA_SERVICE',
+              amount: amt,
+              timestamp: pDateStr,
+              status: 'PAID',
+              branchName: brName,
+            ));
+          }
+        }
+      } catch (_) {}
+
+      // Sắp xếp items theo thời gian giảm dần
+      items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      final totalRev = serviceRev + academyRev + productRev;
+      final totalCount = items.length;
+      final avgTicket = totalCount > 0 ? (totalRev / totalCount) : 0.0;
+
+      // 3. Xây dựng các điểm đồ thị lưới (chartPoints)
+      final List<AdminRevenuePoint> points = [];
+
+      if (period == 'TODAY') {
+        // Chia 3 khung giờ ca làm việc: Sáng (08:00 - 12:00), Chiều (12:00 - 17:30), Tối (17:30 - 21:00)
+        final shifts = [
+          {'label': 'Ca Sáng (8h-12h)', 'key': 'morning'},
+          {'label': 'Ca Chiều (12h-17h30)', 'key': 'afternoon'},
+          {'label': 'Ca Tối (17h30-21h)', 'key': 'evening'},
+        ];
+
+        for (final s in shifts) {
+          double sTotal = 0.0;
+          double sAcad = 0.0;
+          double sServ = 0.0;
+          int sCount = 0;
+
+          for (final it in items) {
+            final dt = DateTime.tryParse(it.timestamp)?.toLocal() ?? now;
+            final h = dt.hour;
+            bool match = false;
+            if (s['key'] == 'morning' && h < 12) match = true;
+            if (s['key'] == 'afternoon' && h >= 12 && h < 18) match = true;
+            if (s['key'] == 'evening' && h >= 18) match = true;
+
+            if (match) {
+              sTotal += it.amount;
+              sCount++;
+              if (it.category == 'ACADEMY_TUITION') sAcad += it.amount;
+              if (it.category == 'SPA_SERVICE') sServ += it.amount;
+            }
+          }
+
+          points.add(AdminRevenuePoint(
+            label: s['label']!,
+            dateIso: todayStr,
+            totalAmount: sTotal,
+            academyAmount: sAcad,
+            serviceAmount: sServ,
+            transactionCount: sCount,
+          ));
+        }
+      } else if (period == 'WEEK') {
+        const weekdays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+        for (int i = 6; i >= 0; i--) {
+          final targetDate = now.subtract(Duration(days: i));
+          final targetStr = DateFormat('yyyy-MM-dd').format(targetDate);
+          final weekdayStr = weekdays[(targetDate.weekday - 1).clamp(0, 6)];
+          final displayLabel = '$weekdayStr (${DateFormat('dd/MM').format(targetDate)})';
+
+          double dTotal = 0.0;
+          double dAcad = 0.0;
+          double dServ = 0.0;
+          int dCount = 0;
+
+          for (final it in items) {
+            if (it.timestamp.startsWith(targetStr)) {
+              dTotal += it.amount;
+              dCount++;
+              if (it.category == 'ACADEMY_TUITION') dAcad += it.amount;
+              if (it.category == 'SPA_SERVICE') dServ += it.amount;
+            }
+          }
+
+          points.add(AdminRevenuePoint(
+            label: displayLabel,
+            dateIso: targetStr,
+            totalAmount: dTotal,
+            academyAmount: dAcad,
+            serviceAmount: dServ,
+            transactionCount: dCount,
+          ));
+        }
+      } else {
+        // THÁNG NÀY: Gom nhóm theo 4 tuần / mốc ngày (Tuần 1: 1-7, Tuần 2: 8-14, Tuần 3: 15-21, Tuần 4: 22-hết)
+        final weeks = [
+          {'label': 'Tuần 1 (1 - 7)', 'start': 1, 'end': 7},
+          {'label': 'Tuần 2 (8 - 14)', 'start': 8, 'end': 14},
+          {'label': 'Tuần 3 (15 - 21)', 'start': 15, 'end': 21},
+          {'label': 'Tuần 4 (22 - ${DateTime(now.year, now.month + 1, 0).day})', 'start': 22, 'end': 31},
+        ];
+
+        for (final w in weeks) {
+          double wTotal = 0.0;
+          double wAcad = 0.0;
+          double wServ = 0.0;
+          int wCount = 0;
+
+          for (final it in items) {
+            final dt = DateTime.tryParse(it.timestamp)?.toLocal();
+            if (dt != null && dt.month == now.month && dt.year == now.year) {
+              if (dt.day >= (w['start'] as int) && dt.day <= (w['end'] as int)) {
+                wTotal += it.amount;
+                wCount++;
+                if (it.category == 'ACADEMY_TUITION') wAcad += it.amount;
+                if (it.category == 'SPA_SERVICE') wServ += it.amount;
+              }
+            }
+          }
+
+          points.add(AdminRevenuePoint(
+            label: w['label'] as String,
+            dateIso: DateFormat('yyyy-MM').format(now),
+            totalAmount: wTotal,
+            academyAmount: wAcad,
+            serviceAmount: wServ,
+            transactionCount: wCount,
+          ));
+        }
+      }
+
+      return AdminRevenueReport(
+        period: period,
+        totalRevenue: totalRev,
+        serviceRevenue: serviceRev,
+        academyRevenue: academyRev,
+        productRevenue: productRev,
+        totalTransactions: totalCount,
+        averageTicket: avgTicket,
+        chartPoints: points,
+        items: items,
+      );
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchRevenueReport error: $e');
+      return AdminRevenueReport.empty(period);
     }
   }
 }

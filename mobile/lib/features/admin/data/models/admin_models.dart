@@ -284,8 +284,8 @@ class AdminCandidateModel {
       tuitionTotal: total,
       amountPaid: paid,
       status: workflowStatus,
-      createdAt: json['created_at']?.toString() ?? '',
-      notes: json['notes']?.toString(),
+      createdAt: json['enrolled_at']?.toString() ?? json['created_at']?.toString() ?? '',
+      notes: json['approval_notes']?.toString() ?? json['notes']?.toString(),
     );
   }
 
@@ -351,7 +351,12 @@ class AdminCourseBatchModel {
   factory AdminCourseBatchModel.fromJson(Map<String, dynamic> json) {
     final instObj = json['instructors'];
     final roomObj = json['branch_rooms'];
+    final branchObj = json['branches'];
     final courseObj = json['courses'];
+
+    final roomOrBranch = roomObj is Map
+        ? roomObj['name']?.toString()
+        : (branchObj is Map ? branchObj['name']?.toString() : null);
 
     return AdminCourseBatchModel(
       id: json['id']?.toString() ?? '',
@@ -365,7 +370,7 @@ class AdminCourseBatchModel {
       maxStudents: int.tryParse(json['max_students']?.toString() ?? '15') ?? 15,
       status: json['status']?.toString() ?? 'OPEN_FOR_ENROLLMENT',
       instructorName: instObj is Map ? instObj['full_name']?.toString() : null,
-      roomName: roomObj is Map ? roomObj['name']?.toString() : null,
+      roomName: roomOrBranch,
       courseTitle: courseObj is Map ? courseObj['title']?.toString() : null,
     );
   }
@@ -708,3 +713,89 @@ class AdminQuizSubmissionModel {
     );
   }
 }
+
+/// 10. Điểm dữ liệu biểu đồ doanh thu (Grid Chart Data Point)
+class AdminRevenuePoint {
+  final String label; // Thứ Hai, 14/11, hoặc tên ngày/phân hệ
+  final String dateIso;
+  final double totalAmount;
+  final double serviceAmount;
+  final double academyAmount;
+  final int transactionCount;
+
+  const AdminRevenuePoint({
+    required this.label,
+    required this.dateIso,
+    required this.totalAmount,
+    this.serviceAmount = 0.0,
+    this.academyAmount = 0.0,
+    this.transactionCount = 0,
+  });
+}
+
+/// 11. Mục chi tiết hóa đơn/giao dịch đối soát trong biểu đồ lưới
+class AdminRevenueItem {
+  final String id;
+  final String code;
+  final String title;
+  final String customerOrStudentName;
+  final String? phone;
+  final String category; // 'SPA_SERVICE', 'ACADEMY_TUITION', 'PRODUCT'
+  final double amount;
+  final String timestamp;
+  final String status;
+  final String? branchName;
+
+  const AdminRevenueItem({
+    required this.id,
+    required this.code,
+    required this.title,
+    required this.customerOrStudentName,
+    this.phone,
+    required this.category,
+    required this.amount,
+    required this.timestamp,
+    required this.status,
+    this.branchName,
+  });
+}
+
+/// 12. Báo cáo doanh thu tổng hợp (Revenue Report)
+class AdminRevenueReport {
+  final String period; // 'TODAY', 'WEEK', 'MONTH'
+  final double totalRevenue;
+  final double serviceRevenue;
+  final double academyRevenue;
+  final double productRevenue;
+  final int totalTransactions;
+  final double averageTicket;
+  final List<AdminRevenuePoint> chartPoints;
+  final List<AdminRevenueItem> items;
+
+  const AdminRevenueReport({
+    required this.period,
+    required this.totalRevenue,
+    required this.serviceRevenue,
+    required this.academyRevenue,
+    this.productRevenue = 0.0,
+    required this.totalTransactions,
+    required this.averageTicket,
+    required this.chartPoints,
+    required this.items,
+  });
+
+  factory AdminRevenueReport.empty(String period) {
+    return AdminRevenueReport(
+      period: period,
+      totalRevenue: 0.0,
+      serviceRevenue: 0.0,
+      academyRevenue: 0.0,
+      productRevenue: 0.0,
+      totalTransactions: 0,
+      averageTicket: 0.0,
+      chartPoints: const [],
+      items: const [],
+    );
+  }
+}
+
