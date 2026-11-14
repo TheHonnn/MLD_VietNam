@@ -31,6 +31,7 @@ const TreatmentInventoryWorkspace = lazy(() => import('./pages/TreatmentInventor
 const HomeCareWorkspace = lazy(() => import('./pages/HomeCareWorkspace').then(m => ({ default: m.HomeCareWorkspace })));
 const PublicTreatmentJournal = lazy(() => import('./pages/PublicTreatmentJournal').then((m) => ({ default: m.PublicTreatmentJournal })));
 const W20_Settings = lazy(() => import('./pages/W20_Settings').then((m) => ({ default: m.W20_Settings })));
+const W21_HelpSupport = lazy(() => import('./pages/W21_HelpSupport').then((m) => ({ default: m.W21_HelpSupport })));
 
 // Tự động dọn sạch các khóa dữ liệu thử nghiệm/cục bộ cũ khỏi localStorage để luôn đồng bộ 100% với Supabase Cloud
 (function purgeLegacyMockStorage() {
@@ -364,6 +365,9 @@ const AppContent: React.FC = () => {
             <Route path="manage/student_attendance" element={<AttendanceRedirect />} />
             <Route path="settings" element={<W20_Settings />} />
             <Route path="cai-dat" element={<Navigate to="/settings" replace />} />
+            <Route path="help" element={<W21_HelpSupport />} />
+            <Route path="support" element={<Navigate to="/help" replace />} />
+            <Route path="tro-giup" element={<Navigate to="/help" replace />} />
             <Route path="manage/system_settings" element={<Navigate to="/settings" replace />} />
             <Route path="manage/support_faqs" element={<Navigate to="/portal-content?tab=faqs" replace />} />
             <Route path="manage/support_tickets" element={<Navigate to="/customers" replace />} />

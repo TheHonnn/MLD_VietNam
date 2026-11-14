@@ -373,19 +373,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
 
         {/* Footer Support & Settings */}
         <div className="p-3 border-t border-[#EFE4D9] space-y-0.5 mt-auto">
-          <button
-            type="button"
-            onClick={() =>
-              toast.info(
-                'Trung tâm hỗ trợ MLD',
-                'Hotline kỹ thuật: 1900 8888 · Email hỗ trợ: support@mldvietnam.vn (08:00–22:00).'
-              )
+          <NavLink
+            to="/help"
+            onClick={onCloseMobile}
+            className={({ isActive }) =>
+              `w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                isActive
+                  ? 'bg-[#FAF0E4] text-[#985018] font-bold shadow-2xs'
+                  : 'text-[#7A6D61] hover:bg-[#FAF7F2]'
+              }`
             }
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+            title="Trung tâm Trợ giúp & Hỗ trợ Kỹ thuật"
           >
             <HelpCircle className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
             <span>Cần hỗ trợ?</span>
-          </button>
+          </NavLink>
           <NavLink
             to="/settings"
             onClick={onCloseMobile}
