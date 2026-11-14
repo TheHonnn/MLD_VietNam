@@ -115,6 +115,7 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
 
   // Load courses and quizzes if standalone
   useEffect(() => {
+    if (onStagedQuestions || !isOpen) return;
     let mounted = true;
     const loadLookups = async () => {
       setLoadingLookups(true);
@@ -155,7 +156,7 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [isOpen]);
 
   // 1. GENERATE & DOWNLOAD SAMPLE EXCEL FILE
   const handleDownloadTemplate = () => {
@@ -413,7 +414,7 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
 
     try {
       // SCENARIO 1: Staging inside an unsaved QuizEditorSheet form
-      if (onStagedQuestions && !initialQuizId && targetMode === "new") {
+      if (onStagedQuestions) {
         onStagedQuestions(
           validQuestions.map((q, idx) => ({
             id: undefined,
@@ -426,7 +427,6 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
         );
         setImportedCount(validQuestions.length);
         setStep("done");
-        if (onImportSuccess) onImportSuccess(validQuestions.length);
         return;
       }
 
@@ -700,7 +700,7 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
                   )}
                 </div>
 
-                {!initialQuizId && (
+                {!initialQuizId && !onStagedQuestions && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-4 text-xs font-bold">
                       <label className="flex items-center gap-2 cursor-pointer">

@@ -5081,6 +5081,17 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         .then((data) => { if (active && Array.isArray(data)) setCoursesForBatchFilter(data); })
         .catch(() => { });
     }
+    if (table === "course_quizzes") {
+      (async () => {
+        const rows: Row[] = [];
+        for (let page = 1; ; page++) {
+          const result = await adminCommand<Listing>(`courses?limit=100&page=${page}&sort=title&direction=asc`, undefined, c.signal);
+          rows.push(...result.rows);
+          if (rows.length >= result.total || !result.rows.length) break;
+        }
+        if (active) setCoursesForBatchFilter(rows.map(row => ({ id: String(row.id), title: String(row.title || "Khóa học"), code: row.code })));
+      })().catch(() => { /* The main resource request displays backend failures. */ });
+    }
     return () => { active = false; c.abort(); };
   }, [table]);
   useEffect(() => {
@@ -5131,7 +5142,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         listParams.set("filter", JSON.stringify({ [staffDateField]: todayAtBranch(), ...selection }));
       } catch { /* The API validates explicit filters. */ }
     }
-    const request = navigationGroupForTable(table)?.label === "Học viên & Lớp học" ? adminCommand : adminApi;
+    const request = navigationGroupForTable(table)?.label === "Học viên & Lớp học" || ["course_quizzes", "quiz_questions", "quiz_submissions"].includes(table) ? adminCommand : adminApi;
     request<Listing>(
       table + "?" + listParams.toString(),
       undefined,
@@ -5610,6 +5621,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     ],
     course_quizzes: [
       "title",
+      "course_id",
       "total_questions",
       "time_limit_minutes",
       "passing_score",
@@ -5866,7 +5878,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     <div className="admin-page-shell">
       <PageHeader
         eyebrow={navigationGroupForTable(table)?.label || resource?.group || "QUẢN TRỊ"}
-        title={loyaltyPages[table]?.title || (table === "service_categories" ? "Nhóm dịch vụ" : resource?.title || "Đang tải phân hệ…")}
+        title={table === "course_quizzes" ? "Đề thi & Trắc nghiệm" : loyaltyPages[table]?.title || (table === "service_categories" ? "Nhóm dịch vụ" : resource?.title || "Đang tải phân hệ…")}
         subtitle={
           table === "bookings" ? (
             <p className="mt-1 text-xs text-[#73675F]">Theo dõi khách từ lúc đặt lịch, đến cơ sở, thực hiện dịch vụ và thanh toán.</p>
@@ -5966,11 +5978,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                       ? "Thêm tài khoản"
                       : table === "service_categories"
                         ? "Thêm nhóm"
-                        : loyaltyPages[table]?.create || staffPages[table]?.create || "Thêm mới"}
+                        : table === "course_quizzes" ? "Tạo đề thi" : loyaltyPages[table]?.create || staffPages[table]?.create || "Thêm mới"}
                 </button>
               )
             )}
-            {["course_quizzes", "quiz_questions"].includes(table) && (
+            {table === "quiz_questions" && resource?.actions?.includes("create") && (
               <button
                 type="button"
                 className="btn btn-outline flex items-center gap-1.5 border-[#22C55E]/40 text-[#15803D] bg-[#F0FDF4] hover:bg-[#DCFCE7] font-bold text-xs px-3 py-2 rounded-xl transition-all shadow-xs cursor-pointer ml-2"
@@ -5994,10 +6006,15 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       {table === "course_batches" && selectedBatchId && <Link className="admin-secondary mb-4" to="/manage/course_batches">Xem tất cả lớp</Link>}
       {[
         "course_lessons",
-        "course_quizzes",
         "quiz_questions",
         "course_chapters",
       ].includes(table) && <TrainingActions />}
+      {table === "course_quizzes" && (
+        <div className="mb-5 rounded-xl border border-[#EAD8C7] bg-white px-5 py-4 text-sm">
+          <p className="font-semibold text-[#2C241E]">Tạo đề → Soạn câu hỏi → Theo dõi bài đã nộp</p>
+          <p className="mt-1 text-[#7F6E60]">Chọn khóa học khi tạo đề. Số câu được cập nhật từ câu hỏi đã lưu; đề chưa có câu hỏi cần được bổ sung trước khi sử dụng.</p>
+        </div>
+      )}
       {table === "users" && (
         <div className="mb-4 flex items-start justify-between gap-4 rounded-xl border border-[#D9E4ED] bg-[#F5F9FC] px-4 py-3 text-sm text-[#36556D]">
           <div className="flex items-start gap-3">
@@ -6061,6 +6078,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {table === "course_quizzes" && <select aria-label="Lọc đề theo khóa học" value={filter.course_id || ""} onChange={event => {
+          const next = { ...filter };
+          if (event.target.value) next.course_id = event.target.value; else delete next.course_id;
+          const query = new URLSearchParams(params);
+          query.set("filter", JSON.stringify(next)); query.delete("page"); setParams(query);
+        }}><option value="">Tất cả khóa học</option>{coursesForBatchFilter.map(course => <option key={course.id} value={course.id}>{course.title}</option>)}</select>}
         {table === "course_enrollments" && <div className="flex flex-wrap items-center gap-2" aria-label="Chế độ xem ghi danh">
  <button className={params.get("view") !== "classes" ? "admin-primary" : "admin-secondary"} onClick={() => { const p = new URLSearchParams(params); p.delete("view"); p.delete("batch_id"); p.delete("filter"); p.delete("page"); setParams(p); }}>Danh sách hồ sơ</button>
  <button className={params.get("view") === "classes" ? "admin-primary" : "admin-secondary"} onClick={() => { const p = new URLSearchParams(params); p.set("view", "classes"); p.delete("batch_id"); p.delete("filter"); p.delete("page"); setParams(p); }}>Xem theo lớp</button>
@@ -7323,6 +7346,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           ))}
                           <td>
                             <div className="admin-row-actions">
+                              {table === "course_quizzes" && (
+                                <>
+                                  <button type="button" className="admin-secondary whitespace-nowrap" onClick={() => setEdit({ row: { ...row, __quizTab: "questions" }, mode: resource?.actions?.includes("update") ? "update" : "view" })}>Câu hỏi ({Number(row.total_questions) || 0})</button>
+                                  {resources.some(item => item.name === "quiz_submissions") && <Link className="admin-secondary whitespace-nowrap" to={"/manage/quiz_submissions?" + new URLSearchParams({ filter: JSON.stringify({ quiz_id: row.id }) })}>Bài đã nộp</Link>}
+                                </>
+                              )}
                               {table === "coupons" && row.is_active && Date.parse(row.valid_to) > Date.now() && Number(row.used_count) < Number(row.usage_limit) && resources.some(item => item.name === "user_vouchers" && item.actions?.includes("create")) && (
                                 <Link className="admin-secondary whitespace-nowrap" to={"/manage/user_vouchers?" + new URLSearchParams({ create: "1", coupon: row.id })}>Cấp cho khách</Link>
                               )}
