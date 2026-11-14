@@ -21,10 +21,20 @@ import {
   BookOpen,
   FileSpreadsheet,
 } from "lucide-react";
-import { adminApi, Row } from "./api";
-import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
+import { adminCommand, Listing, Row } from "./api";
+
 import { ExcelQuizImportModal } from "./ExcelQuizImportModal";
 
+async function loadQuizRows(table: string, filter?: object) {
+  const rows: Row[] = [];
+  for (let page = 1; ; page++) {
+    const params = new URLSearchParams({ limit: "100", page: String(page), sort: table === "quiz_questions" ? "question_number" : "title", direction: "asc" });
+    if (filter) params.set("filter", JSON.stringify(filter));
+    const result = await adminCommand<Listing>(table + "?" + params);
+    rows.push(...result.rows);
+    if (rows.length >= result.total || !result.rows.length) return rows;
+  }
+}
 export interface QuizEditorSheetProps {
   row: Row;
   mode: "create" | "update" | "view";
@@ -44,7 +54,7 @@ interface QuizQuestionItem {
 }
 
 // Quick presets for clean selection (no pre-filled text or dummy titles!)
-const PRESET_QUESTION_COUNTS = [10, 15, 20, 25, 30, 40];
+
 const PRESET_DURATIONS = [15, 20, 30, 45, 60, 90];
 const PRESET_PASSING_SCORES = [
   { score: 7.0, label: "7.0 (Khá)" },
@@ -65,7 +75,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<"settings" | "questions">(
-    isCreate ? "settings" : "settings"
+    row.__quizTab === "questions" ? "questions" : "settings"
   );
 
   // Lookups data (courses)
@@ -79,7 +89,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
   const [totalQuestions, setTotalQuestions] = useState<number>(
     row.total_questions !== undefined && row.total_questions !== null
       ? Number(row.total_questions)
-      : 20
+      : 0
   );
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<number>(
     row.time_limit_minutes !== undefined && row.time_limit_minutes !== null
@@ -116,26 +126,27 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
   const [error, setError] = useState("");
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const [showExcelModal, setShowExcelModal] = useState(false);
+  const closeEditor = () => {
+    if (questions.some(question => !question.id) && !window.confirm("Các câu hỏi vừa nhập chưa được lưu. Đóng và bỏ các câu hỏi này?")) return;
+    if (currentQuizId) onSaved();
+    onClose();
+  };
 
   // 1. Fetch courses lookup
   useEffect(() => {
     let mounted = true;
     const fetchCourses = async () => {
       try {
-        const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/courses?select=id,title,code,level&order=title.asc`,
-          { headers: getSupabaseHeaders() }
-        );
-        const data = await res.json();
+        const data = await loadQuizRows("courses");
         if (mounted && Array.isArray(data)) {
           setCourses(data);
           // Auto select if row has course_id or only 1 course exists
-          if (!courseId && data.length > 0) {
+          if (!courseId && data.length === 1) {
             setCourseId(data[0].id);
           }
         }
       } catch (err) {
-        console.warn("Lỗi tải danh mục khóa học:", err);
+        if (mounted) setError(err instanceof Error ? err.message : "Không tải được khóa học.");
       } finally {
         if (mounted) setLoadingCourses(false);
       }
@@ -152,13 +163,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
     if (!quizIdToFetch) return;
     setLoadingQuestions(true);
     try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/quiz_questions?quiz_id=eq.${encodeURIComponent(
-          quizIdToFetch
-        )}&select=*&order=question_number.asc`,
-        { headers: getSupabaseHeaders() }
-      );
-      const data = await res.json();
+      const data = await loadQuizRows("quiz_questions", { quiz_id: quizIdToFetch });
       if (Array.isArray(data)) {
         const parsedQuestions: QuizQuestionItem[] = data.map((q: any) => {
           let opts: Record<string, string> = { A: "", B: "", C: "", D: "" };
@@ -182,10 +187,10 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
             explanation: q.explanation || "",
           };
         });
-        setQuestions(parsedQuestions);
+        setQuestions(parsedQuestions); setTotalQuestions(parsedQuestions.length);
       }
     } catch (err) {
-      console.warn("Lỗi tải câu hỏi trắc nghiệm:", err);
+      setQuestionError(err instanceof Error ? err.message : "Không tải được câu hỏi.");
     } finally {
       setLoadingQuestions(false);
     }
@@ -271,15 +276,15 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
       setError("Vui lòng nhập tiêu đề bài trắc nghiệm.");
       return;
     }
-    if (totalQuestions < 1) {
-      setError("Số câu hỏi phải lớn hơn hoặc bằng 1.");
-      return;
-    }
-    if (timeLimitMinutes < 1) {
+
+    if (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes < 1) {
       setError("Thời gian làm bài phải lớn hơn hoặc bằng 1 phút.");
       return;
     }
 
+    if (!Number.isFinite(passingScore) || passingScore < 0 || passingScore > 10) {
+      setError("Điểm đạt phải nằm trong khoảng 0 đến 10."); return;
+    }
     setBusy(true);
 
     try {
@@ -287,58 +292,41 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
         course_id: courseId,
         title: title.trim(),
         exam_type: examType,
-        total_questions: Number(totalQuestions),
+
         time_limit_minutes: Number(timeLimitMinutes),
         passing_score: Number(passingScore),
       };
 
       let savedId = currentQuizId;
 
-      if (isCreate) {
-        const created: any = await adminApi("course_quizzes/create", {
-          values: payload,
-        });
-        if (created && created.id) {
-          savedId = created.id;
-          setCurrentQuizId(created.id);
-
-          // If questions were staged from Excel import, batch save them now
-          const stagedQuestions = questions.filter((q) => !q.id);
-          if (stagedQuestions.length > 0) {
-            const batchPayload = stagedQuestions.map((q, idx) => ({
-              quiz_id: created.id,
-              question_number: idx + 1,
-              question_text: q.question_text,
-              options: q.options,
-              correct_option: q.correct_option,
-              explanation: q.explanation || null,
-            }));
-            await fetch(`${SUPABASE_URL}/rest/v1/quiz_questions`, {
-              method: "POST",
-              headers: getSupabaseHeaders({
-                "Content-Type": "application/json",
-                Prefer: "return=representation",
-              }),
-              body: JSON.stringify(batchPayload),
-            });
-          }
-        }
+      if (!currentQuizId) {
+        const created = await adminCommand<Row>("course_quizzes/create", { values: payload });
+        if (!created?.id) throw new Error("Máy chủ chưa trả về mã đề thi.");
+        savedId = created.id;
+        setCurrentQuizId(created.id);
       } else {
-        const key = { id: row.id };
-        await adminApi("course_quizzes/update", { key, values: payload });
+        await adminCommand("course_quizzes/update", { key: { id: currentQuizId }, values: payload });
       }
-
-      onSaved();
-
+      // Retain every persisted ID so a retry cannot duplicate a partially imported question.
+      for (const question of questions.filter(q => !q.id)) {
+        const created = await adminCommand<Row>("quiz_questions/create", { values: {
+          quiz_id: savedId, question_number: question.question_number,
+          question_text: question.question_text, options: question.options,
+          correct_option: question.correct_option, explanation: question.explanation || null,
+        } });
+        if (!created?.id) throw new Error("Chưa xác nhận được câu hỏi đã lưu. Hãy tải lại đề trước khi tiếp tục.");
+        setQuestions(items => items.map(item => item === question ? { ...item, id: created.id, quiz_id: savedId } : item));
+      }
       if (andSwitchToQuestions && savedId) {
         setSuccessBanner("✓ Đã lưu bài trắc nghiệm! Hãy bắt đầu soạn câu hỏi bên dưới.");
         setActiveTab("questions");
         setShowQuestionForm(true);
-        setQNumber(questions.length + 1);
+        setQNumber(Math.max(0, ...questions.map(question => question.question_number)) + 1);
         if (onSwitchMode) {
-          onSwitchMode("update", { ...row, id: savedId, ...payload });
+          onSwitchMode("update", { ...row, id: savedId, ...payload, __quizTab: "questions" });
         }
       } else {
+        onSaved();
         onClose();
       }
     } catch (err: any) {
@@ -354,7 +342,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
   // Open inline Question form
   const handleOpenAddQuestion = () => {
     setEditingQuestionId(null);
-    setQNumber(questions.length + 1);
+    setQNumber(Math.max(0, ...questions.map(question => question.question_number)) + 1);
     setQText("");
     setOptA("");
     setOptB("");
@@ -397,6 +385,10 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
       setQuestionError("Vui lòng lưu thông tin chung bài trắc nghiệm trước khi soạn câu hỏi.");
       return;
     }
+    if (questions.some(question => !question.id)) {
+      setQuestionError("Hãy lưu đề thi để hoàn tất các câu hỏi vừa nhập từ Excel trước khi soạn tiếp.");
+      return;
+    }
 
     setSavingQuestion(true);
 
@@ -405,7 +397,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
         A: optA.trim(),
         B: optB.trim(),
       };
-      if (optC.trim()) optionsObj.A_C = optC.trim(); // keep clean
+
       if (optC.trim()) optionsObj.C = optC.trim();
       if (optD.trim()) optionsObj.D = optD.trim();
 
@@ -418,41 +410,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
         explanation: explanation.trim() || null,
       };
 
-      if (editingQuestionId) {
-        // Update
-        const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/quiz_questions?id=eq.${encodeURIComponent(
-            editingQuestionId
-          )}`,
-          {
-            method: "PATCH",
-            headers: getSupabaseHeaders({
-              "Content-Type": "application/json",
-              Prefer: "return=representation",
-            }),
-            body: JSON.stringify(qPayload),
-          }
-        );
-        if (!res.ok) {
-          const errData = await res.json().catch(() => null);
-          throw new Error(errData?.message || "Không thể cập nhật câu hỏi.");
-        }
-      } else {
-        // Create
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/quiz_questions`, {
-          method: "POST",
-          headers: getSupabaseHeaders({
-            "Content-Type": "application/json",
-            Prefer: "return=representation",
-          }),
-          body: JSON.stringify(qPayload),
-        });
-        if (!res.ok) {
-          const errData = await res.json().catch(() => null);
-          throw new Error(errData?.message || "Không thể thêm câu hỏi.");
-        }
-      }
-
+      await adminCommand(editingQuestionId ? "quiz_questions/update" : "quiz_questions/create", { values: qPayload, ...(editingQuestionId ? { key: { id: editingQuestionId } } : {}) });
       await fetchQuestions(currentQuizId);
 
       if (andAddAnother) {
@@ -482,14 +440,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
       return;
     }
     try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/quiz_questions?id=eq.${encodeURIComponent(qId)}`,
-        {
-          method: "DELETE",
-          headers: getSupabaseHeaders(),
-        }
-      );
-      if (!res.ok) throw new Error("Không thể xóa câu hỏi.");
+      await adminCommand("quiz_questions/delete", { key: { id: qId } });
       if (currentQuizId) {
         await fetchQuestions(currentQuizId);
       }
@@ -563,7 +514,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
           {/* Close button */}
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeEditor}
             disabled={busy}
             className="w-8 h-8 rounded-lg flex items-center justify-center text-[#7F6E60] hover:text-[#2C241E] hover:bg-[#FAF0E4] transition-colors cursor-pointer"
             title="Đóng cửa sổ"
@@ -602,7 +553,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
             Ngân hàng câu hỏi
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                questions.length >= totalQuestions
+                questions.length > 0
                   ? "bg-[#ECFDF5] text-[#047857]"
                   : "bg-[#FAF0E4] text-[#985018]"
               }`}
@@ -842,73 +793,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* 1. Số câu hỏi */}
-                <div className="p-3.5 rounded-xl border border-[#E8DFD8] bg-[#FDFBF7] space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-[#4A3E31]">
-                      Số lượng câu hỏi
-                    </label>
-                    <span className="text-[11px] font-bold text-[#985018] bg-[#FAF0E4] px-2 py-0.5 rounded">
-                      {totalQuestions} câu
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {!isView && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setTotalQuestions((prev) => Math.max(1, prev - 5))
-                        }
-                        className="w-8 h-8 rounded-lg bg-white border border-[#E8DFD8] text-[#985018] font-bold hover:bg-[#FAF0E4] cursor-pointer shrink-0 transition-colors"
-                      >
-                        -5
-                      </button>
-                    )}
-                    <input
-                      type="number"
-                      min="1"
-                      max="200"
-                      required
-                      disabled={isView}
-                      value={totalQuestions}
-                      onChange={(e) =>
-                        setTotalQuestions(
-                          Math.max(1, parseInt(e.target.value, 10) || 1)
-                        )
-                      }
-                      className="w-full text-center font-bold text-sm px-2 py-1.5 rounded-lg border border-[#E8DFD8] bg-white text-[#985018] focus:outline-none focus:border-[#985018] disabled:bg-[#F3EFEA]"
-                    />
-                    {!isView && (
-                      <button
-                        type="button"
-                        onClick={() => setTotalQuestions((prev) => prev + 5)}
-                        className="w-8 h-8 rounded-lg bg-white border border-[#E8DFD8] text-[#985018] font-bold hover:bg-[#FAF0E4] cursor-pointer shrink-0 transition-colors"
-                      >
-                        +5
-                      </button>
-                    )}
-                  </div>
-
-                  {!isView && (
-                    <div className="flex flex-wrap gap-1 pt-1">
-                      {PRESET_QUESTION_COUNTS.map((cnt) => (
-                        <button
-                          key={cnt}
-                          type="button"
-                          onClick={() => setTotalQuestions(cnt)}
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors cursor-pointer ${
-                            totalQuestions === cnt
-                              ? "bg-[#985018] text-white border-[#985018]"
-                              : "bg-white text-[#7F6E60] border-[#E8DFD8] hover:bg-[#FAF0E4]"
-                          }`}
-                        >
-                          {cnt} câu
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
+                <div className="rounded-xl border border-[#E8DFD8] p-4"><p className="text-xs">Số câu hỏi đã lưu</p><p className="mt-2 text-xl font-bold">{questions.length} câu</p><p className="mt-2 text-xs">Lưu thông tin đề trước, sau đó thêm câu hỏi.</p></div>
                 {/* 2. Thời gian làm bài */}
                 <div className="p-3.5 rounded-xl border border-[#E8DFD8] bg-[#FDFBF7] space-y-2.5">
                   <div className="flex items-center justify-between">
@@ -1143,16 +1028,16 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-[#2C241E]">
-                    Danh sách câu hỏi trong đề thi ({questions.length}/{totalQuestions})
+                    Danh sách câu hỏi ({questions.length} câu)
                   </h3>
-                  {questions.length >= totalQuestions ? (
+                  {questions.length > 0 ? (
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#047857] border border-[#A7F3D0] flex items-center gap-1">
                       <CheckCircle2 size={12} />
-                      Đã soạn đủ chỉ tiêu
+                      Đã có câu hỏi
                     </span>
                   ) : (
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]">
-                      Còn thiếu {totalQuestions - questions.length} câu
+                      Chưa có câu hỏi
                     </span>
                   )}
                 </div>
@@ -1570,7 +1455,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
       <footer className="px-6 py-3.5 bg-white border-t border-[#E8DFD8] flex items-center justify-between shrink-0">
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeEditor}
           disabled={busy}
           className="px-4 py-2 rounded-lg border border-[#E8DFD8] text-xs font-semibold text-[#7F6E60] hover:bg-[#FAF0E4] hover:text-[#2C241E] cursor-pointer transition-colors"
         >
@@ -1631,7 +1516,7 @@ export const QuizEditorSheet: React.FC<QuizEditorSheetProps> = ({
         quizId={currentQuizId || undefined}
         quizTitle={title || undefined}
         onStagedQuestions={(staged) => {
-          const startNum = questions.length + 1;
+          const startNum = Math.max(0, ...questions.map(question => question.question_number)) + 1;
           const renumbered = staged.map((sq, i) => ({
             ...sq,
             question_number: startNum + i,

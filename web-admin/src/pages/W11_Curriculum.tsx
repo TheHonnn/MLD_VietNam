@@ -24,7 +24,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { academyService, staffService, supabaseService, StaffWithProfile } from '../services';
-import { Course, CourseBatch, BatchStatus, CourseLesson, BranchRoom, BatchSchedule, RoomType } from '../types/shared_types';
+import { Course, CourseBatch, BatchStatus, CourseLesson, BranchRoom, BatchSchedule, RoomType, Branch } from '../types/shared_types';
 import { matchSearch } from '../utils/searchUtils';
 
 interface PracticalSession {
@@ -101,6 +101,21 @@ const parseTimeRange = (timeRange: string) => {
   return { startHour, endHour, durationHours, startTimeStr, endTimeStr };
 };
 
+const dateOnly = (value: Date) => value.toISOString().slice(0, 10);
+const getWeekStart = (dateValue: string) => {
+  const [year, month, day] = dateValue.split('-').map(Number);
+  const date = new Date(year, (month || 1) - 1, day || 1);
+  const mondayOffset = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - mondayOffset);
+  return date;
+};
+const formatWeekRange = (dateValue: string) => {
+  const start = getWeekStart(dateValue);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return `${start.toLocaleDateString('vi-VN')} – ${end.toLocaleDateString('vi-VN')}`;
+};
+
 export const W11_Curriculum: React.FC = () => {
   const navigate = useNavigate();
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
@@ -130,17 +145,19 @@ export const W11_Curriculum: React.FC = () => {
   const [instructors, setInstructors] = useState<StaffWithProfile[]>([]);
   const [liveLessons, setLiveLessons] = useState<CourseLesson[]>([]);
   const [rooms, setRooms] = useState<BranchRoom[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [schedules, setSchedules] = useState<BatchSchedule[]>([]);
 
   const fetchCurriculum = async () => {
     try {
-      const [crsRes, batRes, instRes, lesRes, roomsRes, schedsRes] = await Promise.all([
+      const [crsRes, batRes, instRes, lesRes, roomsRes, schedsRes, branchesRes] = await Promise.all([
         academyService.getCourses(),
         academyService.getCourseBatches(),
         staffService.getInstructors(),
         academyService.getCourseLessons(),
         supabaseService.getRooms(),
         academyService.getAllBatchSchedules(),
+        supabaseService.getBranches(),
       ]);
       if (crsRes.success) setLiveCourses(crsRes.data);
       if (batRes.success) setLiveBatches(batRes.data);
@@ -148,6 +165,7 @@ export const W11_Curriculum: React.FC = () => {
       if (lesRes.success) setLiveLessons(lesRes.data);
       if (roomsRes) setRooms(roomsRes);
       if (schedsRes.success) setSchedules(schedsRes.data);
+      if (branchesRes) setBranches(branchesRes);
     } catch (err) {
       console.error('Failed to load curriculum data:', err);
     }
@@ -165,7 +183,7 @@ export const W11_Curriculum: React.FC = () => {
     return liveBatches.map((bat) => {
       const crs = crsMap.get(bat.courseId);
       const inst = instMap.get(bat.instructorId || '');
-      const branchName = bat.branchId?.includes('0002') ? 'Quận 1' : 'Quận 3';
+      const branchName = branches.find((branch) => branch.id === bat.branchId)?.name || 'Chưa xác định cơ sở';
       const status: 'active' | 'waiting' | 'upcoming' =
         (bat.status as any) === 'OPEN' || (bat.status as any) === 'OPEN_FOR_ENROLLMENT' || bat.status === BatchStatus.IN_PROGRESS
           ? 'active'
@@ -191,7 +209,7 @@ export const W11_Curriculum: React.FC = () => {
         statusLabel,
       };
     });
-  }, [liveBatches, liveCourses, instructors]);
+  }, [liveBatches, liveCourses, instructors, branches]);
 
   const practiceRooms = useMemo(() => {
     if (!rooms || rooms.length === 0) return [];
@@ -206,8 +224,8 @@ export const W11_Curriculum: React.FC = () => {
   }, [rooms]);
 
   const timetableRooms: TimetableRoom[] = useMemo(() => {
-    return practiceRooms.map((r) => {
-      const branchName = r.branchId?.includes('0002') ? 'Cơ sở Quận 1' : 'Cơ sở Quận 3';
+    const mapped = practiceRooms.map((r) => {
+      const branchName = branches.find((branch) => branch.id === r.branchId)?.name || 'Chưa xác định cơ sở';
       return {
         id: r.id,
         name: r.name,
@@ -216,7 +234,11 @@ export const W11_Curriculum: React.FC = () => {
         branch: branchName,
       };
     });
-  }, [practiceRooms, instructors]);
+    const hasUnassignedRoom = schedules.some((schedule) => !schedule.assignedRoomId);
+    return hasUnassignedRoom
+      ? [...mapped, { id: '__UNASSIGNED__', name: 'Phòng thực hành', instructorName: instructors[0]?.fullName || 'Giảng viên chuyên môn', capacity: 'Chưa xác định sức chứa', branch: 'Chưa xác định cơ sở' }]
+      : mapped;
+  }, [practiceRooms, instructors, branches, schedules]);
 
   const practicalSessionsData: PracticalSession[] = useMemo(() => {
     if (!schedules || schedules.length === 0) return [];
@@ -355,6 +377,7 @@ export const W11_Curriculum: React.FC = () => {
   // Modals state
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [isSubmittingSchedule, setIsSubmittingSchedule] = useState(false);
   const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
@@ -378,6 +401,25 @@ export const W11_Curriculum: React.FC = () => {
     endTime: '11:30',
     topic: '',
   });
+
+  const openScheduleModal = (session?: PracticalSession | null) => {
+    if (session) {
+      setEditingScheduleId(session.id);
+      const [startTime = '08:30', endTime = '11:30'] = session.timeRange.split(/[–-]/).map((value) => value.trim());
+      setScheduleForm({
+        batchId: session.batchId || '',
+        assignedRoomId: session.roomId || '',
+        sessionDate: session.dateKey || selectedDate,
+        startTime,
+        endTime,
+        topic: session.videoTopic || '',
+      });
+    } else {
+      setEditingScheduleId(null);
+      setScheduleForm((current) => ({ ...current, batchId: '', assignedRoomId: '', sessionDate: selectedDate, topic: '' }));
+    }
+    setIsScheduleModalOpen(true);
+  };
 
   // Auto select active session when displayedSessions changes
   useEffect(() => {
@@ -450,7 +492,7 @@ export const W11_Curriculum: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#2C241E]">Vận hành đào tạo</h1>
           <p className="text-xs text-[#73675F] mt-1">
-            Lớp học, phòng thực hành, bài thi Quiz & bản quyền video · Tuần 12/10/2026 – 18/10/2026
+            Lớp học, phòng thực hành, bài thi Quiz & bản quyền video · Tuần {formatWeekRange(selectedDate)}
           </p>
         </div>
       </div>
@@ -514,11 +556,21 @@ export const W11_Curriculum: React.FC = () => {
         <div className="relative shrink-0 flex-1 sm:flex-none">
           <select
             value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
+            onChange={(e) => {
+              const nextFilter = e.target.value;
+              setDateFilter(nextFilter);
+              if (nextFilter === 'next') {
+                const nextWeek = getWeekStart(selectedDate);
+                nextWeek.setDate(nextWeek.getDate() + 7);
+                setSelectedDate(dateOnly(nextWeek));
+              } else {
+                setSelectedDate(dateOnly(getWeekStart(selectedDate)));
+              }
+            }}
             className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
-            <option value="week-12-18">12/10/2026 – 18/10/2026</option>
-            <option value="week-19-25">19/10/2026 – 25/10/2026</option>
+            <option value="current">Tuần đang chọn · {formatWeekRange(selectedDate)}</option>
+            <option value="next">Tuần kế tiếp</option>
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -531,8 +583,7 @@ export const W11_Curriculum: React.FC = () => {
             className="w-full sm:w-auto appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
             <option value="all">Tất cả chi nhánh</option>
-            <option value="quận 3">Quận 3</option>
-            <option value="quận 1">Quận 1</option>
+            {branches.map((branch) => <option key={branch.id} value={branch.name}>{branch.name}</option>)}
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -598,7 +649,7 @@ export const W11_Curriculum: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => handleSelectDate('2026-10-16')}
+          onClick={() => handleSelectDate(new Date().toISOString().split('T')[0])}
           className="px-3 py-1 rounded-xl text-xs font-semibold bg-white hover:bg-[#FAF8F5] text-[#5C5046] border border-[#E8DFD8] shrink-0 cursor-pointer"
         >
           Hôm nay
@@ -676,7 +727,6 @@ export const W11_Curriculum: React.FC = () => {
               <option value="Đang diễn ra">Đang diễn ra</option>
               <option value="Sắp diễn ra">Sắp diễn ra</option>
               <option value="Đã hoàn thành">Đã hoàn thành</option>
-              <option value="Chưa diễn ra">Chưa diễn ra</option>
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -688,7 +738,7 @@ export const W11_Curriculum: React.FC = () => {
           </span>
           <button
             type="button"
-            onClick={() => setIsScheduleModalOpen(true)}
+            onClick={() => openScheduleModal()}
             className="h-9 px-3.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -869,7 +919,7 @@ export const W11_Curriculum: React.FC = () => {
               <div className="pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsScheduleModalOpen(true)}
+                  onClick={() => openScheduleModal()}
                   className="px-4 py-2 bg-[#985018] text-white text-xs font-bold rounded-xl hover:bg-[#854412] transition-colors cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1006,10 +1056,10 @@ export const W11_Curriculum: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsScheduleModalOpen(true)}
+                  onClick={() => openScheduleModal(selectedSession)}
                   className="w-full py-2 bg-white border border-[#985018] hover:bg-[#FAF5EF] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs text-center cursor-pointer"
                 >
-                  Xếp lịch / Điều chỉnh ca
+                  Điều chỉnh ca
                 </button>
               </div>
             </div>
@@ -1025,7 +1075,7 @@ export const W11_Curriculum: React.FC = () => {
               <div className="pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsScheduleModalOpen(true)}
+                  onClick={() => openScheduleModal()}
                   className="px-4 py-2 bg-[#985018] text-white text-xs font-bold rounded-xl hover:bg-[#854412] transition-colors cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1373,7 +1423,7 @@ export const W11_Curriculum: React.FC = () => {
                 }
                 setIsSubmittingSchedule(true);
                 try {
-                  const res = await academyService.createBatchSchedule({
+                  const scheduleData = {
                     batchId: effectiveBatchId,
                     assignedRoomId: scheduleForm.assignedRoomId || practiceRooms[0]?.id || null,
                     sessionDate: scheduleForm.sessionDate || selectedDate,
@@ -1381,9 +1431,13 @@ export const W11_Curriculum: React.FC = () => {
                     endTime: scheduleForm.endTime || '11:30',
                     topic: scheduleForm.topic.trim(),
                     isPracticeLab: true,
-                  });
+                  };
+                  const res = editingScheduleId
+                    ? await academyService.updateBatchSchedule(editingScheduleId, scheduleData)
+                    : await academyService.createBatchSchedule(scheduleData);
                   if (res.success) {
                     setIsScheduleModalOpen(false);
+                    setEditingScheduleId(null);
                     setScheduleForm({
                       batchId: '',
                       assignedRoomId: '',
@@ -1392,7 +1446,7 @@ export const W11_Curriculum: React.FC = () => {
                       endTime: '11:30',
                       topic: '',
                     });
-                    showToast('Đã lưu lịch thực hành thành công!');
+                    showToast(editingScheduleId ? 'Đã cập nhật lịch thực hành thành công!' : 'Đã lưu lịch thực hành thành công!');
                     fetchCurriculum();
                   } else {
                     showToast('Lỗi khi lưu lịch: ' + res.message);
@@ -1499,7 +1553,7 @@ export const W11_Curriculum: React.FC = () => {
                   disabled={isSubmittingSchedule}
                   className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  {isSubmittingSchedule ? 'Đang lưu...' : 'Lưu lịch thực hành'}
+                  {isSubmittingSchedule ? 'Đang lưu...' : editingScheduleId ? 'Cập nhật lịch thực hành' : 'Lưu lịch thực hành'}
                 </button>
               </div>
             </form>

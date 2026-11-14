@@ -19,7 +19,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
+import { adminCommand, Row } from "./api";
+import { loadQuestionRows } from "./quizData";
 
 export interface ParsedExcelQuestion {
   tempId: string;
@@ -112,40 +113,33 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [importedCount, setImportedCount] = useState<number>(0);
+  const savedImportIds = useRef(new Set<string>());
+  const importTarget = useRef("");
 
   // Load courses and quizzes if standalone
   useEffect(() => {
+    if (onStagedQuestions || !isOpen) return;
     let mounted = true;
     const loadLookups = async () => {
       setLoadingLookups(true);
       try {
-        const [cRes, qRes] = await Promise.all([
-          fetch(`${SUPABASE_URL}/rest/v1/courses?select=id,title,code&order=title.asc`, {
-            headers: getSupabaseHeaders(),
-          }),
-          fetch(
-            `${SUPABASE_URL}/rest/v1/course_quizzes?select=id,title,course_id,total_questions,courses(title,code)&order=created_at.desc`,
-            { headers: getSupabaseHeaders() }
-          ),
-        ]);
-
-        const [cData, qData] = await Promise.all([cRes.json(), qRes.json()]);
+        const [cData, qData] = await Promise.all([loadQuestionRows("courses"), loadQuestionRows("course_quizzes")]);
         if (mounted) {
           if (Array.isArray(cData)) {
             setCourses(cData);
-            if (!newQuizCourseId && cData.length > 0) {
+            if (!newQuizCourseId && cData.length === 1) {
               setNewQuizCourseId(cData[0].id);
             }
           }
           if (Array.isArray(qData)) {
             setQuizzes(qData);
-            if (!selectedQuizId && qData.length > 0 && !initialQuizId) {
+            if (!selectedQuizId && qData.length === 1 && !initialQuizId) {
               setSelectedQuizId(qData[0].id);
             }
           }
         }
       } catch (err) {
-        console.warn("Lỗi tải thông tin khóa học / đề thi:", err);
+        if (mounted) setErrorMessage(err instanceof Error ? err.message : "Không tải được đề thi.");
       } finally {
         if (mounted) setLoadingLookups(false);
       }
@@ -155,7 +149,7 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [isOpen]);
 
   // 1. GENERATE & DOWNLOAD SAMPLE EXCEL FILE
   const handleDownloadTemplate = () => {
@@ -353,6 +347,8 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
         // Auto sort by question_number
         parsed.sort((a, b) => a.question_number - b.question_number);
 
+        savedImportIds.current.clear();
+        importTarget.current = "";
         setParsedQuestions(parsed);
         setStep("preview");
 
@@ -413,7 +409,7 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
 
     try {
       // SCENARIO 1: Staging inside an unsaved QuizEditorSheet form
-      if (onStagedQuestions && !initialQuizId && targetMode === "new") {
+      if (onStagedQuestions) {
         onStagedQuestions(
           validQuestions.map((q, idx) => ({
             id: undefined,
@@ -426,7 +422,6 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
         );
         setImportedCount(validQuestions.length);
         setStep("done");
-        if (onImportSuccess) onImportSuccess(validQuestions.length);
         return;
       }
 
@@ -444,86 +439,36 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
         const quizPayload = {
           course_id: newQuizCourseId,
           title: newQuizTitle.trim(),
-          total_questions: validQuestions.length,
           time_limit_minutes: Number(newQuizTimeLimit) || 30,
           passing_score: Number(newQuizPassingScore) || 8.0,
         };
 
-        const createQuizRes = await fetch(`${SUPABASE_URL}/rest/v1/course_quizzes`, {
-          method: "POST",
-          headers: getSupabaseHeaders({
-            "Content-Type": "application/json",
-            Prefer: "return=representation",
-          }),
-          body: JSON.stringify(quizPayload),
-        });
-
-        if (!createQuizRes.ok) {
-          const errData = await createQuizRes.json().catch(() => null);
-          throw new Error(errData?.message || "Không thể tạo bài trắc nghiệm mới trên cơ sở dữ liệu.");
-        }
-
-        const createdQuiz = await createQuizRes.json();
-        if (Array.isArray(createdQuiz) && createdQuiz[0]?.id) {
-          activeQuizId = createdQuiz[0].id;
-        } else {
-          throw new Error("Phản hồi tạo bài thi không hợp lệ từ máy chủ.");
-        }
+        const createdQuiz = await adminCommand<Row>("course_quizzes/create", { values: quizPayload });
+        if (!createdQuiz?.id) throw new Error("Chưa xác nhận được đề thi đã tạo.");
+        activeQuizId = createdQuiz.id;
+        setQuizzes(items => [...items, createdQuiz]);
+        setSelectedQuizId(createdQuiz.id);
+        setTargetMode("existing");
       }
-
       if (!activeQuizId) {
         throw new Error("Chưa xác định được bài trắc nghiệm mục tiêu.");
       }
-
-      // Batch insert valid questions into quiz_questions
-      const questionsPayload = validQuestions.map((q, idx) => ({
-        quiz_id: activeQuizId,
-        question_number: idx + 1,
-        question_text: q.question_text,
-        options: q.options,
-        correct_option: q.correct_option,
-        explanation: q.explanation || null,
-      }));
-
-      const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/quiz_questions`, {
-        method: "POST",
-        headers: getSupabaseHeaders({
-          "Content-Type": "application/json",
-          Prefer: "return=representation",
-        }),
-        body: JSON.stringify(questionsPayload),
-      });
-
-      if (!insertRes.ok) {
-        const errData = await insertRes.json().catch(() => null);
-        throw new Error(errData?.message || "Không thể lưu danh sách câu hỏi vào cơ sở dữ liệu.");
+      if (savedImportIds.current.size && importTarget.current !== activeQuizId) {
+        throw new Error("Có câu đã lưu ở đề trước. Hãy chọn lại đề đó để hoàn tất lượt nhập hiện tại.");
       }
+      importTarget.current = activeQuizId;
 
-      // Update total_questions in the quiz to reflect newly added questions
-      try {
-        const countRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/quiz_questions?quiz_id=eq.${encodeURIComponent(
-            activeQuizId
-          )}&select=id`,
-          { headers: getSupabaseHeaders() }
-        );
-        const countData = await countRes.json();
-        if (Array.isArray(countData)) {
-          await fetch(
-            `${SUPABASE_URL}/rest/v1/course_quizzes?id=eq.${encodeURIComponent(
-              activeQuizId
-            )}`,
-            {
-              method: "PATCH",
-              headers: getSupabaseHeaders({ "Content-Type": "application/json" }),
-              body: JSON.stringify({ total_questions: countData.length }),
-            }
-          );
-        }
-      } catch (e) {
-        console.warn("Không thể cập nhật lại tổng số câu hỏi của bài thi:", e);
+      const existing = await loadQuestionRows("quiz_questions", { quiz_id: activeQuizId });
+      let nextNumber = Math.max(0, ...existing.map(question => Number(question.question_number) || 0)) + 1;
+      for (const question of validQuestions) {
+        if (savedImportIds.current.has(question.tempId)) continue;
+        await adminCommand("quiz_questions/create", { values: {
+          quiz_id: activeQuizId, question_number: nextNumber++,
+          question_text: question.question_text, options: question.options,
+          correct_option: question.correct_option, explanation: question.explanation || null,
+        } });
+        savedImportIds.current.add(question.tempId);
       }
-
       setImportedCount(validQuestions.length);
       setStep("done");
       if (onImportSuccess) {
@@ -531,7 +476,7 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
       }
     } catch (err: any) {
       console.error("Lỗi khi nhập câu hỏi từ Excel:", err);
-      setErrorMessage(err.message || "Đã xảy ra lỗi trong quá trình nhập dữ liệu.");
+      setErrorMessage((err.message || "Nhập chưa hoàn tất.") + (savedImportIds.current.size ? ` Đã lưu ${savedImportIds.current.size} câu; bấm nhập lại để tiếp tục phần còn lại trong đề đang chọn.` : ""));
     } finally {
       setIsSubmitting(false);
     }
@@ -700,7 +645,7 @@ export const ExcelQuizImportModal: React.FC<ExcelQuizImportModalProps> = ({
                   )}
                 </div>
 
-                {!initialQuizId && (
+                {!initialQuizId && !onStagedQuestions && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-4 text-xs font-bold">
                       <label className="flex items-center gap-2 cursor-pointer">

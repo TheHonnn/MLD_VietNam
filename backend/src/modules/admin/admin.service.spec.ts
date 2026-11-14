@@ -570,6 +570,9 @@ describe('Admin shared-schema integration', () => {
     await service.saveAttendance(actor, session.id, [change]);
     await expect(service.saveAttendance(actor, session.id, [change])).rejects.toThrow('Điểm danh đã thay đổi');
     expect((await service.attendanceRoster(actor, session.id))?.rows[0].status).toBe('PRESENT');
+    expect((await service.attendanceRoster(actor, session.id))?.history[0]).toMatchObject({
+      id: enrollment.id, present: 1, late: 0, absent: 0, excused: 0,
+    });
     await expect(service.attendanceRoster({ ...actor, role: 'BRANCH_MANAGER', scopes: [{ permission: 'student_attendance.read', branchId: actor.id }] }, session.id)).rejects.toThrow('phạm vi');
     await pg.query('DELETE FROM batch_schedules WHERE id=$1', [session.id]);
   });

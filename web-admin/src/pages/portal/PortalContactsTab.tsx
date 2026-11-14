@@ -19,6 +19,7 @@ import { portalService } from '../../services';
 export const PortalContactsTab: React.FC = () => {
   const [contacts, setContacts] = useState<PortalContacts | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
@@ -28,13 +29,16 @@ export const PortalContactsTab: React.FC = () => {
   }, []);
 
   const loadContacts = async () => {
+    setLoadError('');
     setIsLoading(true);
     try {
       const res = await portalService.getContacts();
+      if (!res.success) throw new Error(res.message || 'Không tải được dữ liệu.');
       if (res.data) {
         setContacts(res.data);
       }
     } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Không tải được dữ liệu.');
       console.error('Error loading portal contacts:', err);
     } finally {
       setIsLoading(false);
@@ -66,6 +70,8 @@ export const PortalContactsTab: React.FC = () => {
     setToastType(type);
     setTimeout(() => setToastMessage(null), 3500);
   };
+
+  if (loadError) return <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800"><p>{loadError}</p><button className="mt-2 underline" type="button" onClick={loadContacts}>Thử tải lại</button></div>;
 
   if (isLoading || !contacts) {
     return (

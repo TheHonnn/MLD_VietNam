@@ -1363,15 +1363,30 @@ export class AdminService {
       const schedule = await this.attendanceContext(client, actor, scheduleId, 'read');
       const { rows } = await client.query(
         `SELECT e.id,u.full_name,a.status,
+                COALESCE(history.present,0) AS present,COALESCE(history.late,0) AS late,
+                COALESCE(history.absent,0) AS absent,COALESCE(history.excused,0) AS excused,
                 (e.batch_id=$2 AND e.student_status IN ('ENROLLED','AWAITING_RETEST')
                    AND e.status::text NOT IN ('DROPPED','GRADUATED') AND e.access_status NOT IN ('SUSPENDED','EXPIRED')) AS eligible
          FROM course_enrollments e JOIN users u ON u.id=e.student_id
          LEFT JOIN student_attendance a ON a.enrollment_id=e.id AND a.schedule_id=$1
-         WHERE e.batch_id=$2 OR a.id IS NOT NULL ORDER BY u.full_name,e.id`,
+         LEFT JOIN (
+           SELECT h.enrollment_id,count(*) FILTER (WHERE h.status='PRESENT')::int AS present,
+                  count(*) FILTER (WHERE h.status='LATE')::int AS late,
+                  count(*) FILTER (WHERE h.status='ABSENT')::int AS absent,
+                  count(*) FILTER (WHERE h.status='EXCUSED')::int AS excused
+           FROM student_attendance h JOIN batch_schedules s ON s.id=h.schedule_id
+           WHERE s.batch_id=$2 GROUP BY h.enrollment_id
+         ) history ON history.enrollment_id=e.id
+         WHERE e.batch_id=$2 OR history.enrollment_id IS NOT NULL
+         ORDER BY u.full_name,e.id`,
         [scheduleId, schedule.batch_id],
       );
       await client.query('COMMIT');
-      return { rows: rows.filter(row => row.eligible || row.status), writable: !schedule.future && !['CANCELLED','COMPLETED'].includes(schedule.status) };
+      return {
+        rows: rows.filter(row => row.eligible || row.status),
+        history: rows.filter(row => row.eligible || row.present + row.late + row.absent + row.excused > 0),
+        writable: !schedule.future && !['CANCELLED','COMPLETED'].includes(schedule.status),
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       this.fail(error);

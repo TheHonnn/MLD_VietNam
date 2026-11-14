@@ -12,7 +12,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "prestart:prod": "node ../scripts/apply_migration.js 031_treatment_lifecycle_management.sql && node ../scripts/apply_migration.js 032_home_care_delivery_snapshots.sql && node ../scripts/apply_migration.js 033_treatment_replacement_sessions.sql && node ../scripts/apply_migration.js 034_treatment_inventory_stock.sql",
+    "prestart:prod": "node ../scripts/apply_migration.js 031_treatment_lifecycle_management.sql && node ../scripts/apply_migration.js 032_home_care_delivery_snapshots.sql && node ../scripts/apply_migration.js 033_treatment_replacement_sessions.sql && node ../scripts/apply_migration.js 034_treatment_inventory_stock.sql && node ../scripts/apply_migration.js 039_portal_schema_repair.sql && node ../scripts/apply_migration.js 040_admin_settings_fast_read.sql",
     "start:prod": "node dist/main",
     "lint": "oxlint src/ test/",
     "test": "vitest run",

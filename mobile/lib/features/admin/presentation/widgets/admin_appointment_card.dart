@@ -105,7 +105,7 @@ class AdminAppointmentCard extends StatelessWidget {
 
     if (isCompact) {
       return Container(
-        margin: const EdgeInsets.only(bottom: 5),
+        margin: const EdgeInsets.only(bottom: 6),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
@@ -130,13 +130,13 @@ class AdminAppointmentCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             onTap: onViewDetail,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               child: Row(
                 children: [
                   // Giờ hẹn
                   Container(
-                    width: 46,
-                    height: 32,
+                    width: 48,
+                    height: 34,
                     decoration: BoxDecoration(
                       color: statusBg.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(6),
@@ -145,7 +145,7 @@ class AdminAppointmentCard extends StatelessWidget {
                     child: Text(
                       booking.startTime.isNotEmpty ? booking.startTime : '09:00',
                       style: AppTypography.zaloFont(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                         color: statusText,
                       ),
@@ -161,34 +161,17 @@ class AdminAppointmentCard extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              child: RichText(
+                              child: Text(
+                                booking.customerName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                text: TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: booking.customerName,
-                                      style: AppTypography.zaloFont(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.textHeading,
-                                      ),
-                                    ),
-                                    if (booking.customerPhone.isNotEmpty) ...[
-                                      TextSpan(
-                                        text: ' · ${booking.customerPhone}',
-                                        style: AppTypography.zaloFont(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w400,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
+                                style: AppTypography.zaloFont(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textHeading,
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 4),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                               decoration: BoxDecoration(

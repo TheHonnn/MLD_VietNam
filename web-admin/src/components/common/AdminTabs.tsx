@@ -141,6 +141,7 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
   return (
     <NavWrapper
       className={`${containerClasses} ${className}`}
+      data-variant={variant}
       aria-label={ariaLabel}
       style={{ paddingLeft: 0, paddingRight: 0, marginLeft: 0, marginRight: 0 }}
       {...(!isNavigation ? { role: 'tablist' } : {})}
