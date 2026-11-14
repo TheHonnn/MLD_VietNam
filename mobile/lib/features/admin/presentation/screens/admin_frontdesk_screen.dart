@@ -569,6 +569,126 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
   );
   }
 
+  void _openStatusPickerSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Chọn trạng thái ca hẹn',
+                    style: AppTypography.zaloFont(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHeading,
+                    ),
+                  ),
+                  Text(
+                    '${_bookings.length} ca',
+                    style: AppTypography.zaloFont(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF00693F),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 10,
+                children: _statusFilters.map((sf) {
+                  final key = sf['key']!;
+                  final isSel = _selectedStatus == key;
+                  final count = key == 'ALL'
+                      ? _bookings.length
+                      : _bookings.where((b) => b.status == key).length;
+                  final label = key == 'CHECKED_IN' ? 'Tiếp đón' : sf['label']!;
+
+                  return InkWell(
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        _selectedStatus = key;
+                        if (key == 'PENDING') _isAllDates = true;
+                      });
+                      _fetchBookings();
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: isSel ? const Color(0xFF00693F) : const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSel ? const Color(0xFF00693F) : const Color(0xFFE5E7EB),
+                          width: isSel ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            label,
+                            style: AppTypography.zaloFont(
+                              fontSize: 13,
+                              fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                              color: isSel ? Colors.white : const Color(0xFF374151),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isSel ? Colors.white.withValues(alpha: 0.25) : const Color(0xFFE5E7EB),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '$count',
+                              style: AppTypography.zaloFont(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: isSel ? Colors.white : const Color(0xFF4B5563),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildMicroPill({
     required String label,
     required bool isSelected,
@@ -794,77 +914,86 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                 ),
                 const SizedBox(height: 6),
 
-                // Dòng 2: Thanh Micro-pills cuộn ngang: ĐÚNG 2 NÚT LỌC NGÀY (Chọn ngày & Tất cả) + Phân loại Trạng thái
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      // Nút 1: Chọn ngày (bấm mở DatePicker, hiện ngày đã chọn)
-                      _buildMicroPill(
-                        label: _isAllDates ? 'Chọn ngày' : DateFormat('dd/MM').format(_selectedDate),
-                        icon: Icons.calendar_month_rounded,
-                        isSelected: !_isAllDates,
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _selectedDate,
-                            firstDate: DateTime(2025),
-                            lastDate: DateTime(2030),
-                          );
-                          if (picked != null) {
-                            setState(() {
-                              _selectedDate = picked;
-                              _isAllDates = false;
-                            });
-                            _fetchBookings();
-                          }
-                        },
-                      ),
+                // Dòng 2: ĐÚNG 2 NÚT LỌC (Chọn ngày & Tất cả). Khi bấm Tất cả sẽ hiện các nút trạng thái: chờ duyệt, tiếp đón, hoàn thành...
+                Row(
+                  children: [
+                    // Nút 1: Chọn ngày (bấm mở DatePicker, hiện ngày đã chọn)
+                    _buildMicroPill(
+                      label: _isAllDates ? 'Chọn ngày' : DateFormat('dd/MM').format(_selectedDate),
+                      icon: Icons.calendar_month_rounded,
+                      isSelected: !_isAllDates,
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate,
+                          firstDate: DateTime(2025),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            _selectedDate = picked;
+                            _isAllDates = false;
+                          });
+                          _fetchBookings();
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Nút 2: Tất cả (bấm vào HIỆN CÁC NÚT TRẠNG THÁI: chờ duyệt, tiếp đón, hoàn thành...)
+                    _buildMicroPill(
+                      label: _selectedStatus == 'ALL'
+                          ? 'Tất cả'
+                          : (_selectedStatus == 'CHECKED_IN'
+                              ? 'Tiếp đón'
+                              : (_statusFilters.firstWhere((s) => s['key'] == _selectedStatus, orElse: () => {'label': 'Trạng thái'})['label'] ?? 'Trạng thái')),
+                      badgeText: _selectedStatus == 'ALL'
+                          ? '${_bookings.length}'
+                          : '${_bookings.where((b) => b.status == _selectedStatus).length}',
+                      icon: Icons.tune_rounded,
+                      isSelected: _selectedStatus != 'ALL',
+                      activeColor: _selectedStatus == 'PENDING' ? const Color(0xFFD97706) : const Color(0xFF00693F),
+                      onTap: _openStatusPickerSheet,
+                    ),
+
+                    if (_selectedStatus != 'ALL') ...[
                       const SizedBox(width: 6),
-                      // Nút 2: Tất cả (tất cả các ngày)
-                      _buildMicroPill(
-                        label: 'Tất cả',
-                        isSelected: _isAllDates,
+                      // Nút xóa lọc trạng thái về Tất cả
+                      GestureDetector(
+                        onTap: () {
+                          setState(() => _selectedStatus = 'ALL');
+                          _fetchBookings();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF3F4F6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded, size: 14, color: Color(0xFF6B7280)),
+                        ),
+                      ),
+                    ],
+
+                    if (!_isAllDates) ...[
+                      const SizedBox(width: 6),
+                      // Nút reset ngày về tất cả
+                      GestureDetector(
                         onTap: () {
                           setState(() => _isAllDates = true);
                           _fetchBookings();
                         },
-                      ),
-                      Container(
-                        height: 16,
-                        width: 1,
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        color: const Color(0xFFE5E7EB),
-                      ),
-
-                      // Bộ lọc trạng thái: Tất cả ca, Chờ duyệt, Đã tiếp đón...
-                      ..._statusFilters.map((sf) {
-                        final key = sf['key']!;
-                        final isSel = _selectedStatus == key;
-                        final count = key == 'ALL'
-                            ? _bookings.length
-                            : _bookings.where((b) => b.status == key).length;
-                        final displayLabel = key == 'ALL' ? 'Tất cả ca' : sf['label']!;
-
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: _buildMicroPill(
-                            label: displayLabel,
-                            badgeText: count > 0 ? '$count' : null,
-                            isSelected: isSel,
-                            activeColor: key == 'PENDING' ? const Color(0xFFD97706) : const Color(0xFF00693F),
-                            onTap: () {
-                              setState(() {
-                                _selectedStatus = key;
-                                if (key == 'PENDING') _isAllDates = true;
-                              });
-                              _fetchBookings();
-                            },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF3F4F6),
+                            shape: BoxShape.circle,
                           ),
-                        );
-                      }),
+                          child: const Icon(Icons.refresh_rounded, size: 14, color: Color(0xFF6B7280)),
+                        ),
+                      ),
                     ],
-                  ),
+                  ],
                 ),
               ],
             ),

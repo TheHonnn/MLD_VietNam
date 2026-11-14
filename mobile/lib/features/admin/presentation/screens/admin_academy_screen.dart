@@ -1377,6 +1377,10 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
   // 1. GIAO DIỆN BẢNG TRELLO (KANBAN BOARD KÉO THẢ & COMPACT TỐI ƯU KHÔNG GIAN)
   // ==============================================================
   Widget _buildKanbanTrelloView() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Bề ngang cột Trello chiếm ~86% màn hình, để cột bên phải chỉ lộ khoảng 10% theo yêu cầu
+    final columnWidth = (screenWidth * 0.86).clamp(320.0, 520.0);
+
     return ListView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -1400,7 +1404,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
 
             return AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 255,
+              width: columnWidth,
               margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
                 color: isHovered ? bgColor.withValues(alpha: 0.35) : const Color(0xFFF3F4F6),
