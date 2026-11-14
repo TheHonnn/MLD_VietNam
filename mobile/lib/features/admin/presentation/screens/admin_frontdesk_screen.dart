@@ -237,7 +237,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
     if (mounted) {
       setState(() => _processingBookingId = null);
       if (success) {
-        _showToast('Hoàn thành trị liệu cho ${b.customerName}. Sẵn sàng xuất hóa đơn.', AppColors.primary);
+        _showToast('Hoàn thành trị liệu cho ${b.customerName}. Đã gửi tặng voucher tri ân vào ví khách!', AppColors.primary);
         _fetchBookings();
       } else {
         _showToast('Lỗi hoàn thành Check-out. Vui lòng thử lại.', AppColors.error);

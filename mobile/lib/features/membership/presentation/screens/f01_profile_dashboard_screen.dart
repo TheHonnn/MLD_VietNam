@@ -22,6 +22,7 @@ import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
 import '../../../../core/services/portal_settings_service.dart';
 import 'f02_edit_profile_screen.dart';
+import 'f05_my_vouchers_screen.dart';
 import 'f08_settings_screen.dart';
 
 
@@ -90,6 +91,10 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     }).catchError((_) {});
 
     AcademyRepository.instance.getMyCourses().then((_) {
+      if (mounted) setState(() {});
+    }).catchError((_) {});
+
+    MembershipRepository.instance.fetchVouchers().then((_) {
       if (mounted) setState(() {});
     }).catchError((_) {});
   }
@@ -201,6 +206,11 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     final myCoursesCount = isUserLoggedIn
         ? AcademyRepository.instance.enrolledCourses
             .where((c) => AcademyRepository.instance.isCourseApproved(c.id, c.title))
+            .length
+        : 0;
+    final vouchersCount = isUserLoggedIn
+        ? MembershipRepository.instance.vouchers
+            .where((v) => v.status == 'AVAILABLE')
             .length
         : 0;
 
@@ -433,6 +443,13 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ],
               ),
 
+              const SizedBox(height: 14),
+
+              // ==========================================
+              // 2.2. VÍ VOUCHER & ƯU ĐÃI (THẺ NỔI BẬT)
+              // ==========================================
+              _buildVoucherBanner(vouchersCount),
+
               const SizedBox(height: 16),
 
               // ==========================================
@@ -481,6 +498,36 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       MaterialPageRoute(builder: (_) => const D03CareJournalScreen()),
                     );
                   }, title: 'Nhật ký trị liệu', message: 'Vui lòng đăng nhập để xem hồ sơ và nhật ký trị liệu của bạn.'),
+                ),
+                const Divider(height: 1, indent: 56, color: AppColors.border),
+                _buildMenuItem(
+                  icon: Icons.confirmation_number_outlined,
+                  iconColor: const Color(0xFFD97706),
+                  title: context.tr('Ví Voucher & Ưu đãi', 'My Vouchers & Offers'),
+                  trailing: vouchersCount > 0
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFF59E0B)),
+                          ),
+                          child: Text(
+                            '$vouchersCount voucher',
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFB45309),
+                            ),
+                          ),
+                        )
+                      : null,
+                  onTap: () => _requireLoginAndRun(() {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const F05MyVouchersScreen()),
+                    );
+                  }, title: 'Ví Voucher của tôi', message: 'Vui lòng đăng nhập để xem danh sách voucher và mã ưu đãi.'),
                 ),
               ]),
 
@@ -698,6 +745,113 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     );
   }
 
+  Widget _buildVoucherBanner(int availableCount) {
+    return InkWell(
+      onTap: () => _requireLoginAndRun(() {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const F05MyVouchersScreen()),
+        );
+      }, title: 'Ví Voucher của tôi', message: 'Vui lòng đăng nhập để xem danh sách voucher và mã ưu đãi.'),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF005834), Color(0xFF007A48)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF005834).withValues(alpha: 0.18),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        context.tr('Ví Voucher & Ưu đãi', 'My Vouchers & Offers'),
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFD700),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$availableCount',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF005834),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    availableCount > 0
+                        ? context.tr('Bạn có $availableCount mã giảm giá khả dụng', 'You have $availableCount active vouchers')
+                        : context.tr('Mã giảm giá & quà tặng tri ân khách hàng', 'Discount codes and reward gifts'),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    context.tr('Xem ví', 'View'),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Colors.white),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMenuItem({
     required IconData icon,
     Color? iconColor,
@@ -705,6 +859,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     Color? titleColor,
     required VoidCallback onTap,
     bool showChevron = true,
+    Widget? trailing,
   }) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -729,13 +884,20 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
           color: titleColor ?? AppColors.textPrimary,
         ),
       ),
-      trailing: showChevron
-          ? const Icon(
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (trailing != null) trailing,
+          if (showChevron) ...[
+            const SizedBox(width: 4),
+            const Icon(
               Icons.chevron_right_rounded,
               size: 20,
               color: AppColors.textPlaceholder,
-            )
-          : null,
+            ),
+          ],
+        ],
+      ),
       onTap: onTap,
     );
   }

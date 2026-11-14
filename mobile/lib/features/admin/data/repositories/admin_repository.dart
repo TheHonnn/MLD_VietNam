@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_endpoints.dart';
 import '../models/admin_models.dart';
 
 /// Central Admin & Manager Repository kết nối trực tiếp Supabase Cloud REST
@@ -380,10 +382,118 @@ class AdminRepository {
           'checked_out_at': DateTime.now().toIso8601String(),
         },
       );
-      return res.statusCode == 200 || res.statusCode == 204;
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        // Tự động tặng voucher tri ân cho khách hàng sau khi hoàn tất dịch vụ
+        _autoGrantBookingCompletionVoucher(bookingId);
+        return true;
+      }
+      return false;
     } catch (e) {
       debugPrint('[AdminRepository] checkOutBooking error: $e');
       return false;
+    }
+  }
+
+  /// Cấp voucher ưu đãi / tri ân cho khách hàng hoặc học viên
+  Future<bool> grantRewardVoucher({
+    required String userId,
+    String couponCode = 'SPADAY20',
+    String? note,
+  }) async {
+    try {
+      // 1. Tìm coupon theo mã
+      final cRes = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/coupons?code=eq.$couponCode&select=*',
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseServiceRoleKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+        }),
+      );
+      if (cRes.statusCode != 200 || cRes.data is! List || (cRes.data as List).isEmpty) {
+        return false;
+      }
+      final coupon = (cRes.data as List).first as Map<String, dynamic>;
+      final couponId = coupon['id']?.toString() ?? '';
+
+      // 2. Kiểm tra xem đã có voucher này chưa
+      final existRes = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?user_id=eq.$userId&coupon_id=eq.$couponId&status=eq.AVAILABLE&select=id',
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseServiceRoleKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+        }),
+      );
+      if (existRes.statusCode == 200 && existRes.data is List && (existRes.data as List).isNotEmpty) {
+        return true;
+      }
+
+      // 3. Thêm voucher vào ví user_vouchers
+      final expiresAt = coupon['valid_to']?.toString() ??
+          DateTime.now().add(const Duration(days: 60)).toIso8601String();
+
+      final res = await _apiClient.dio.post(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers',
+        data: {
+          'user_id': userId,
+          'coupon_id': couponId,
+          'status': 'AVAILABLE',
+          'source_trigger': 'MANUAL_BY_ADMIN',
+          'expires_at': expiresAt,
+        },
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseServiceRoleKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'Prefer': 'return=representation',
+        }),
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (e) {
+      debugPrint('[AdminRepository] grantRewardVoucher error: $e');
+      return false;
+    }
+  }
+
+  /// Tự động gửi voucher tri ân khi hoàn tất dịch vụ
+  Future<void> _autoGrantBookingCompletionVoucher(String bookingId) async {
+    try {
+      final res = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/bookings?id=eq.$bookingId&select=user_id,customer_id',
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseServiceRoleKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+        }),
+      );
+      if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
+        final b = (res.data as List).first as Map<String, dynamic>;
+        final userId = b['user_id']?.toString() ?? b['customer_id']?.toString();
+        if (userId != null && userId.isNotEmpty && !userId.startsWith('usr-temp')) {
+          await grantRewardVoucher(userId: userId, couponCode: 'SPADAY20');
+        }
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] _autoGrantBookingCompletionVoucher error: $e');
+    }
+  }
+
+  /// Tự động gửi voucher tri ân khi duyệt học viên nhập học
+  Future<void> _autoGrantCourseCompletionVoucher(String candidateId) async {
+    try {
+      final res = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/course_enrollments?id=eq.$candidateId&select=user_id',
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseServiceRoleKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+        }),
+      );
+      if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
+        final enr = (res.data as List).first as Map<String, dynamic>;
+        final userId = enr['user_id']?.toString();
+        if (userId != null && userId.isNotEmpty && !userId.startsWith('usr-temp')) {
+          await grantRewardVoucher(userId: userId, couponCode: 'MLDCHAOXIN');
+        }
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] _autoGrantCourseCompletionVoucher error: $e');
     }
   }
 
@@ -543,6 +653,7 @@ class AdminRepository {
         patchData['consultation_status'] = 'CONFIRMED';
       } else if (newStatus == 'PAID' || newStatus == 'PAID_WAITING_CLASS' || newStatus == 'ENROLLED') {
         patchData['status'] = 'ENROLLED';
+        _autoGrantCourseCompletionVoucher(candidateId);
       } else if (newStatus == 'STUDYING' || newStatus == 'ENROLLED_STUDYING') {
         patchData['status'] = 'STUDYING';
       }
