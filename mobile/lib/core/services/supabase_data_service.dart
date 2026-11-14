@@ -779,7 +779,7 @@ class SupabaseDataService {
 
     try {
       final query = <String, dynamic>{
-        'select': '*,courses(*,course_categories(name))',
+        'select': '*,courses(*,course_categories(name)),course_batches(batch_code,schedule_text,start_date,end_date,instructors!course_batches_instructor_id_fkey(full_name),branches(name,address))',
         'order': 'enrolled_at.desc',
       };
       if (studentId != null && studentId.isNotEmpty && studentPhone != null && studentPhone.isNotEmpty) {

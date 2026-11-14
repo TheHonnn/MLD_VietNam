@@ -375,6 +375,67 @@ class AttendanceScheduleItem {
   });
 }
 
+class StudentBatchScheduleItem {
+  final String enrollmentId;
+  final String courseId;
+  final String courseTitle;
+  final String batchCode;
+  final String scheduleDays;
+  final String timeSlot;
+  final String startDate;
+  final String endDate;
+  final String instructorName;
+  final String branchName;
+  final String branchAddress;
+  final String status; // STUDYING, ENROLLED, COMPLETED
+
+  const StudentBatchScheduleItem({
+    required this.enrollmentId,
+    required this.courseId,
+    required this.courseTitle,
+    required this.batchCode,
+    required this.scheduleDays,
+    required this.timeSlot,
+    required this.startDate,
+    required this.endDate,
+    required this.instructorName,
+    required this.branchName,
+    required this.branchAddress,
+    required this.status,
+  });
+
+  factory StudentBatchScheduleItem.fromJson(Map<String, dynamic> json) {
+    final course = json['courses'] is Map ? json['courses'] as Map : {};
+    final batch = json['course_batches'] is Map ? json['course_batches'] as Map : {};
+    final instructor = batch['instructors'] is Map ? batch['instructors'] as Map : {};
+    final branch = batch['branches'] is Map ? batch['branches'] as Map : {};
+
+    final scheduleText = batch['schedule_text']?.toString() ?? '';
+    String days = scheduleText;
+    String slot = '';
+    final match = RegExp(r'^(.*?)\s*\((.*?)\)').firstMatch(scheduleText);
+    if (match != null) {
+      days = match.group(1)?.trim() ?? scheduleText;
+      slot = match.group(2)?.trim() ?? '';
+    }
+
+    return StudentBatchScheduleItem(
+      enrollmentId: json['id']?.toString() ?? '',
+      courseId: course['id']?.toString() ?? json['course_id']?.toString() ?? '',
+      courseTitle: course['title']?.toString() ?? 'Khóa học MLD',
+      batchCode: batch['batch_code']?.toString() ?? '',
+      scheduleDays: days,
+      timeSlot: slot,
+      startDate: batch['start_date']?.toString() ?? '',
+      endDate: batch['end_date']?.toString() ?? '',
+      instructorName: instructor['full_name']?.toString() ?? 'ThS.BS Lâm Xuân Trường',
+      branchName: branch['name']?.toString() ?? 'Trụ sở MLD Việt Nam',
+      branchAddress: branch['address']?.toString() ?? 'Số 260, Bùi Xương Trạch, Hà Nội',
+      status: json['status']?.toString() ?? 'STUDYING',
+    );
+  }
+}
+
 class MockAcademyData {
   static const List<CourseModel> courses = [
     // --- 1. Nhóm: Người mới bắt đầu ---

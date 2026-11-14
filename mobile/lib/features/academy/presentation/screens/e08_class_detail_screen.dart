@@ -14,8 +14,9 @@ import 'e11_attendance_schedule_screen.dart';
 /// Khóa học đã đăng ký: hiển thị chương đang học và tiến độ hoàn thành các video bài giảng.
 class E08ClassDetailScreen extends StatefulWidget {
   final CourseModel? course;
+  final String? courseId;
 
-  const E08ClassDetailScreen({super.key, this.course});
+  const E08ClassDetailScreen({super.key, this.course, this.courseId});
 
   @override
   State<E08ClassDetailScreen> createState() => _E08ClassDetailScreenState();
@@ -28,7 +29,7 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
 
   final Set<int> _expandedChapterIndices = {0}; // Mở chương đầu tiên theo mặc định
 
-  String get _courseId => widget.course?.id ?? '30303030-0001-0001-0001-000000000001';
+  String get _courseId => widget.courseId ?? widget.course?.id ?? '30303030-0001-0001-0001-000000000001';
 
   List<LessonModel> get _allLessons => _chapters.expand((c) => c.lessons).toList();
 
