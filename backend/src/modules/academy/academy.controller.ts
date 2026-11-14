@@ -6,6 +6,8 @@ import {
   Query,
   Body,
   Req,
+  ForbiddenException,
+  HttpException,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -79,26 +81,31 @@ export class AcademyController {
   }
 
   @Get('enrollments/:id/check-payment')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AdminGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Đối soát tiền theo hồ sơ, không tự động duyệt nhập học' })
   async checkEnrollmentPayment(
-    @CurrentUser('id') adminId: string,
+    @Req() req: { admin: { id: string; role: string } },
     @Param('id') id: string,
   ) {
-    return this.academyService.checkEnrollmentPayment(id, adminId);
+    if (!['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER', 'CASHIER'].includes(req.admin.role)) {
+      throw new ForbiddenException('Tài khoản không có quyền đối soát học phí.');
+    }
+    const result = await this.academyService.checkEnrollmentPayment(id, req.admin.id);
+    if (!result.success) throw new HttpException(result.message, result.statusCode);
+    return result;
   }
 
   @Post('enrollments/:id/approve')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AdminGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Admin duyệt nhập học sau khi tư vấn và đủ mức cọc' })
   async approveEnrollment(
-    @CurrentUser('id') adminId: string,
+    @Req() req: { admin: { id: string } },
     @Param('id') id: string,
     @Body() body: { amountPaid?: number; notes?: string },
   ) {
-    return this.academyService.approveEnrollment(id, adminId, body?.amountPaid, body?.notes);
+    return this.academyService.approveEnrollment(id, req.admin.id, body?.amountPaid, body?.notes);
   }
 
   @Post('enrollments/:id/graduate')

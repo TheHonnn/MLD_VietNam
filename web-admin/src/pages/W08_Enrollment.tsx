@@ -758,9 +758,14 @@ export const W08_Enrollment: React.FC = () => {
     setCheckingCandidateId(enrollmentId);
     try {
       const res = await academyService.checkEnrollmentPayment(enrollmentId);
+      if (!res.success) throw new Error(res.message);
       if (res.success && (Number(res.data?.amountPaid || 0) > 0 || res.data?.isPaid)) {
         const refreshed = await supabaseService.getEnrollments();
         if (refreshed) setLiveEnrollments(refreshed);
+        if (res.data?.amountPaid !== undefined) {
+          const amountPaid = res.data.amountPaid;
+          setBillModalCandidate(current => current?.id === enrollmentId ? { ...current, amountPaid } : current);
+        }
         toast.success('Đối soát thành công!', res.message || 'Đã cập nhật số tiền thực nhận.');
         showToast('Đã đối soát tiền. Hồ sơ vẫn cần được admin duyệt nhập học.');
         return { isPaid: true, message: res.message || 'Thanh toán thành công' };
@@ -1728,7 +1733,7 @@ export const W08_Enrollment: React.FC = () => {
                       className="w-full py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${checkingCandidateId === selectedCandidate.id ? 'animate-spin' : ''}`} />
-                      <span>{checkingCandidateId === selectedCandidate.id ? 'Đang kiểm tra MB Bank...' : 'Kiểm tra đối soát tự động (API MB Bank)'}</span>
+                      <span>{checkingCandidateId === selectedCandidate.id ? 'Đang kiểm tra giao dịch...' : 'Kiểm tra giao dịch đã ghi nhận'}</span>
                     </button>
 
                     <button

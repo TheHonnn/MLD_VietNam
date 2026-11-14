@@ -9,6 +9,9 @@ export interface MLDInvoiceLine {
 
 export interface MLDInvoiceData {
   id: string;
+  title?: string;
+  paidAmount?: number;
+  balanceDue?: number;
   issuedAt: string;
   customerName: string;
   customerPhone?: string;
@@ -30,15 +33,15 @@ export interface MLDInvoiceData {
 
 const money = (value: number) => `${Number(value || 0).toLocaleString('vi-VN')}đ`;
 
-export function MLDInvoiceDocument({ data }: { data: MLDInvoiceData }) {
+export function MLDInvoiceDocument({ data, printId = "pos-receipt-card", children }: { data: MLDInvoiceData; printId?: string; children?: React.ReactNode }) {
   return (
-    <article id="pos-receipt-card" className="mld-invoice relative overflow-hidden bg-[#F2F4EE] text-[#153F3E]">
+    <article id={printId} className="mld-invoice relative overflow-hidden bg-[#F2F4EE] text-[#153F3E]">
       <style>{`
         @media print {
           @page { size: A5 portrait; margin: 0; }
           body * { visibility: hidden !important; }
-          #pos-receipt-card, #pos-receipt-card * { visibility: visible !important; }
-          #pos-receipt-card { position: absolute !important; inset: 0 auto auto 0 !important; width: 148mm !important; min-height: 210mm !important; box-shadow: none !important; }
+          #${printId}, #${printId} * { visibility: visible !important; }
+          #${printId} { position: absolute !important; inset: 0 auto auto 0 !important; width: 148mm !important; min-height: 210mm !important; box-shadow: none !important; }
           .no-print { display: none !important; }
         }
       `}</style>
@@ -48,12 +51,12 @@ export function MLDInvoiceDocument({ data }: { data: MLDInvoiceData }) {
         <div className="flex items-start justify-between gap-5">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#277775]">MLD Việt Nam</p>
-            <h1 className="mt-1 text-4xl font-light tracking-[-0.04em] text-[#176F6C] sm:text-5xl">HÓA ĐƠN</h1>
+            <h1 className="mt-1 text-4xl font-light tracking-[-0.04em] text-[#176F6C] sm:text-5xl">{data.title || "HÓA ĐƠN"}</h1>
             <p className="mt-3 text-xs text-[#4C6665]">Ngày lập: <strong className="font-semibold text-[#153F3E]">{data.issuedAt}</strong></p>
           </div>
           <div className="text-right">
             <img src="/logo_mld.png" alt="MLD Việt Nam" className="ml-auto h-12 w-auto object-contain" />
-            <p className="mt-2 text-[10px] text-[#5F7473]">Mã hóa đơn</p>
+            <p className="mt-2 text-[10px] text-[#5F7473]">{data.title ? "Mã chứng từ" : "Mã hóa đơn"}</p>
             <p className="font-mono text-xs font-bold text-[#176F6C]">{data.id}</p>
           </div>
         </div>
@@ -91,17 +94,20 @@ export function MLDInvoiceDocument({ data }: { data: MLDInvoiceData }) {
             <p><span className="font-semibold text-[#183D3C]">Thanh toán:</span> {data.paymentMethod}</p>
             {data.shiftCode && <p><span className="font-semibold text-[#183D3C]">Mã ca:</span> {data.shiftCode}</p>}
             {data.technicianName && <p><span className="font-semibold text-[#183D3C]">Chuyên viên:</span> {data.technicianName}</p>}
-            <p><span className="font-semibold text-[#183D3C]">Trạng thái:</span> {data.status || 'Đã thanh toán'}</p>
+            <p><span className="font-semibold text-[#183D3C]">Trạng thái:</span> {data.status || 'Chưa xác định'}</p>
           </div>
           <dl className="space-y-2 text-[11px]">
             <div className="flex justify-between gap-3"><dt className="text-[#5F7473]">Tạm tính</dt><dd className="font-medium tabular-nums">{money(data.subtotal)}</dd></div>
             {data.discount > 0 && <div className="flex justify-between gap-3"><dt className="text-[#5F7473]">Giảm giá</dt><dd className="font-medium tabular-nums">-{money(data.discount)}</dd></div>}
-            <div className="flex justify-between gap-3"><dt className="text-[#5F7473]">VAT ({data.vatRate}%)</dt><dd className="font-medium tabular-nums">{money(data.vatAmount)}</dd></div>
+            {(data.vatAmount !== 0 || data.vatRate !== 0) && <div className="flex justify-between gap-3"><dt className="text-[#5F7473]">VAT ({data.vatRate}%)</dt><dd className="font-medium tabular-nums">{money(data.vatAmount)}</dd></div>}
             <div className="flex items-end justify-between gap-3 border-t-2 border-[#176F6C] pt-3"><dt className="text-sm font-semibold text-[#176F6C]">Tổng cộng</dt><dd className="text-lg font-black tabular-nums text-[#176F6C]">{money(data.total)}</dd></div>
+            {data.paidAmount !== undefined && <div className="flex justify-between gap-3"><dt>Đã thu</dt><dd>{money(data.paidAmount)}</dd></div>}
+            {data.balanceDue !== undefined && <div className="flex justify-between gap-3 font-bold"><dt>Còn phải nộp</dt><dd>{money(data.balanceDue)}</dd></div>}
           </dl>
         </div>
       </div>
 
+      {children && <div className="relative px-7 pb-7 sm:px-10">{children}</div>}
       <footer className="grid grid-cols-1 gap-4 bg-[#E7ECE4] px-7 py-6 text-[10px] text-[#356462] sm:grid-cols-[1.2fr_1fr] sm:px-10">
         <div className="flex items-center gap-3"><img src="/logo_mld.png" alt="MLD Việt Nam" className="h-10 w-auto object-contain" /><div><p className="font-bold uppercase tracking-[0.12em]">MLD Việt Nam</p><p className="mt-1">Medical Healthcare, Spa & Academy</p></div></div>
         <div className="sm:text-right"><p className="font-semibold">Cảm ơn quý khách đã tin tưởng MLD Việt Nam.</p><p className="mt-1">Chứng từ được phát hành từ hệ thống quản trị MLD.</p></div>

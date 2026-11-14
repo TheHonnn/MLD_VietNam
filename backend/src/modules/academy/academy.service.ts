@@ -356,7 +356,7 @@ export class AcademyService {
   /** Đối soát chỉ cập nhật tài chính; duyệt nhập học là cổng độc lập. */
   async checkEnrollmentPayment(enrollmentId: string, adminUser: string) {
     try {
-      const { data: enr } = await this.supabaseService.adminClient
+      const { data: enr, error: enrollmentError } = await this.supabaseService.adminClient
         .from('course_enrollments')
         .select(`
           id,
@@ -378,6 +378,7 @@ export class AcademyService {
         .eq('id', enrollmentId)
         .maybeSingle();
 
+      if (enrollmentError) throw enrollmentError;
       if (!enr) {
         return {
           success: false,
@@ -392,19 +393,21 @@ export class AcademyService {
       const notesCode = enr.approval_notes?.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1] || '';
       const customerCode = (userRefCode || notesCode || `HV-${enr.id.slice(-4)}`).toUpperCase();
       // Chỉ nhận hóa đơn được gắn trực tiếp với hồ sơ.
-      const { data: invList } = await this.supabaseService.adminClient
+      const { data: invList, error: invoiceError } = await this.supabaseService.adminClient
         .from('invoices')
         .select('id, total_amount')
         .eq('enrollment_id', enrollmentId)
         .eq('payment_status', 'PAID')
         .order('paid_at', { ascending: false });
+      if (invoiceError) throw invoiceError;
       const invoiceAmount = (invList || []).reduce((sum, invoice) => sum + Number(invoice.total_amount || 0), 0);
 
-      const { data: txList } = await this.supabaseService.adminClient
+      const { data: txList, error: transactionError } = await this.supabaseService.adminClient
         .from('tuition_transactions')
         .select('id, amount, transaction_type')
         .eq('enrollment_id', enrollmentId)
         .eq('payment_status', 'PAID');
+      if (transactionError) throw transactionError;
       const transactionAmount = (txList || []).reduce(
         (sum, transaction) => sum + (transaction.transaction_type === 'REFUND'
           ? -Math.abs(Number(transaction.amount || 0))
@@ -449,7 +452,7 @@ export class AcademyService {
       return {
         success: true,
         statusCode: 200,
-        message: `Hệ thống chưa nhận được tiền từ ngân hàng cho mã khách hàng "${customerCode}".`,
+        message: 'Chưa có giao dịch đã thanh toán được ghi nhận cho hồ sơ này.',
         data: {
           isPaid: false,
           approved: false,

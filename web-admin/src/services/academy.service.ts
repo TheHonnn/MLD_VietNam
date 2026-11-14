@@ -401,12 +401,20 @@ export const academyService = {
     customerCode?: string;
   }>> {
     try {
-      return await apiClient.get(`/academy/enrollments/${enrollmentId}/check-payment`);
+      const result = await apiClient.get<{
+        isPaid: boolean;
+        approved: boolean;
+        amountPaid?: number;
+        tuitionTotal?: number;
+        customerCode?: string;
+      }>(`/academy/enrollments/${enrollmentId}/check-payment`);
+      if (result.success) supabaseService.invalidateCache('course_enrollments');
+      return result;
     } catch (error: any) {
       return {
         success: false,
         statusCode: error?.statusCode || 503,
-        message: 'Không kết nối được dịch vụ đối soát. Không thay đổi trạng thái hồ sơ để tránh duyệt nhầm.',
+        message: error?.message || 'Không thể kiểm tra đối soát học phí.',
         data: { isPaid: false, approved: false },
       };
     }
