@@ -138,8 +138,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           subItems: [
             { name: 'Hồ sơ Khách hàng', path: '/customers' },
             { name: 'Đánh giá từ khách', path: '/manage/reviews' },
-            { name: 'Yêu cầu hỗ trợ', path: '/manage/support_tickets' },
-            { name: 'Câu hỏi thường gặp', path: '/manage/support_faqs' },
           ],
         },
         {
