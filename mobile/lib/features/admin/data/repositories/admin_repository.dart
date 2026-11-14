@@ -272,7 +272,7 @@ class AdminRepository {
             id: 'quiz_${q['id']}',
             type: AdminActionType.newQuizSubmission,
             title: '$sName vừa nộp bài thi ($score điểm)',
-            subtitle: 'Khóa: $cTitle · ${passed ? "ĐẠT CHUẨN" : "CẦN ÔN TẬP"}',
+            subtitle: 'Khóa: $cTitle · ${passed ? "HOÀN THÀNH" : "CẦN ÔN TẬP"}',
             timeAgo: 'Bài thi mới',
             secondaryInfo: 'Cần nhận xét giảng viên',
             rawId: q['id']?.toString() ?? '',

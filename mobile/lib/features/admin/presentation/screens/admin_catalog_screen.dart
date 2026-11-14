@@ -8,6 +8,7 @@ import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../widgets/service_form_sheet.dart';
 import '../widgets/course_form_sheet.dart';
+import '../../../../core/services/top_notification_service.dart';
 
 class AdminCatalogScreen extends StatefulWidget {
   final String? initialTab; // 'SERVICES' or 'COURSES'
@@ -106,25 +107,16 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     if (mounted) {
       setState(() => _togglingId = null);
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              nextStatus
-                  ? 'Đã bật mở bán dịch vụ "${s.name}"'
-                  : 'Đã tạm dừng nhận khách dịch vụ "${s.name}"',
-              style: AppTypography.zaloFont(fontSize: 12.5),
-            ),
-            backgroundColor: nextStatus ? const Color(0xFF00693F) : const Color(0xFF6B7280),
-            behavior: SnackBarBehavior.floating,
-          ),
+        TopNotificationService.showSuccess(
+          title: 'Cập nhật dịch vụ',
+          message: nextStatus
+              ? 'Đã bật mở bán dịch vụ "${s.name}"'
+              : 'Đã tạm dừng nhận khách dịch vụ "${s.name}"',
         );
         _fetchData();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Lỗi cập nhật trạng thái. Vui lòng thử lại.'),
-            backgroundColor: AppColors.error,
-          ),
+        TopNotificationService.showError(
+          message: 'Lỗi cập nhật trạng thái. Vui lòng thử lại.',
         );
       }
     }
@@ -138,25 +130,16 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     if (mounted) {
       setState(() => _togglingId = null);
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              nextStatus
-                  ? 'Đã mở tuyển sinh khóa học "${c.title}"'
-                  : 'Đã tạm dừng tuyển sinh khóa "${c.title}"',
-              style: AppTypography.zaloFont(fontSize: 12.5),
-            ),
-            backgroundColor: nextStatus ? const Color(0xFF00693F) : const Color(0xFF6B7280),
-            behavior: SnackBarBehavior.floating,
-          ),
+        TopNotificationService.showSuccess(
+          title: 'Cập nhật tuyển sinh',
+          message: nextStatus
+              ? 'Đã mở tuyển sinh khóa học "${c.title}"'
+              : 'Đã tạm dừng tuyển sinh khóa "${c.title}"',
         );
         _fetchData();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Lỗi cập nhật trạng thái tuyển sinh.'),
-            backgroundColor: AppColors.error,
-          ),
+        TopNotificationService.showError(
+          message: 'Lỗi cập nhật trạng thái tuyển sinh.',
         );
       }
     }
@@ -170,14 +153,9 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
       builder: (_) => ServiceFormSheet(
         service: service,
         onSaved: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                service != null ? 'Đã lưu thay đổi dịch vụ!' : 'Đã tạo mới dịch vụ thành công!',
-                style: AppTypography.zaloFont(fontSize: 12.5),
-              ),
-              backgroundColor: const Color(0xFFE11D48),
-            ),
+          TopNotificationService.showSuccess(
+            title: 'Thành công',
+            message: service != null ? 'Đã lưu thay đổi dịch vụ!' : 'Đã tạo mới dịch vụ thành công!',
           );
           _fetchData();
         },
@@ -193,14 +171,9 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
       builder: (_) => CourseFormSheet(
         course: course,
         onSaved: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                course != null ? 'Đã lưu thay đổi khóa học!' : 'Đã tạo mới khóa học thành công!',
-                style: AppTypography.zaloFont(fontSize: 12.5),
-              ),
-              backgroundColor: const Color(0xFF00693F),
-            ),
+          TopNotificationService.showSuccess(
+            title: 'Thành công',
+            message: course != null ? 'Đã lưu thay đổi khóa học!' : 'Đã tạo mới khóa học thành công!',
           );
           _fetchData();
         },

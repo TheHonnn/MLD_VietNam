@@ -5,6 +5,7 @@ import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../../../academy/data/models/academy_models.dart';
 import '../../../../core/services/supabase_data_service.dart';
+import '../../../../core/services/top_notification_service.dart';
 
 class QuizSubmissionDetailSheet extends StatefulWidget {
   final AdminQuizSubmissionModel submission;
@@ -121,12 +122,14 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
       if (success) {
         Navigator.pop(context);
         widget.onSaved();
+        TopNotificationService.showSuccess(
+          title: 'Lưu nhận xét thành công',
+          message: 'Đã lưu nhận xét và cập nhật bài thi của học viên!',
+        );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Lỗi khi lưu nhận xét. Vui lòng thử lại.'),
-            backgroundColor: AppColors.error,
-          ),
+        TopNotificationService.showError(
+          title: 'Lỗi',
+          message: 'Lỗi khi lưu nhận xét. Vui lòng thử lại.',
         );
       }
     }
@@ -364,26 +367,10 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: _passed ? const Color(0xFF00693F) : const Color(0xFFD97706),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            _passed ? 'ĐẠT CHUẨN MLD' : 'CHƯA ĐẠT CHUẨN',
-                            style: AppTypography.zaloFont(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        if (sub.batchCode != null && sub.batchCode!.isNotEmpty)
+                    if (sub.batchCode != null && sub.batchCode!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                             decoration: BoxDecoration(
@@ -400,8 +387,9 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
                               ),
                             ),
                           ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Text(
                       'Bài thi: ${sub.quizTitle}',
@@ -702,7 +690,7 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
                       style: AppTypography.zaloFont(fontSize: 11.5, color: AppColors.textSecondary),
                     ),
                     Text(
-                      _passed ? 'ĐẠT CHUẨN MLD (Qua bài thi)' : 'CHƯA ĐẠT CHUẨN (Cần ôn lại)',
+                      _passed ? 'Đạt kết quả (Đã hoàn thành)' : 'Chưa đạt (Cần ôn tập)',
                       style: AppTypography.zaloFont(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,

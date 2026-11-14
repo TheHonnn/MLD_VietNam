@@ -7,6 +7,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../widgets/assign_batch_bottom_sheet.dart';
+import '../../../../core/services/top_notification_service.dart';
 
 /// Màn hình Chi tiết Lớp học Đào tạo (Admin Batch Detail Screen)
 /// Bố trí sắp xếp tinh tế, hiển thị đầy đủ thông tin giảng viên, phòng học,
@@ -264,11 +265,9 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
         }
       });
       widget.onDataChanged?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã thêm ${c.candidateName} vào lớp ${_batch.batchCode}!'),
-          backgroundColor: const Color(0xFF00693F),
-        ),
+      TopNotificationService.showSuccess(
+        title: 'Thêm vào lớp thành công',
+        message: 'Đã thêm ${c.candidateName} vào lớp ${_batch.batchCode}!',
       );
     }
   }
@@ -315,11 +314,9 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
           }
         });
         widget.onDataChanged?.call();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã đưa ${c.candidateName} về danh sách chờ xếp lớp.'),
-            backgroundColor: const Color(0xFF00693F),
-          ),
+        TopNotificationService.showInfo(
+          title: 'Đã gỡ học viên',
+          message: 'Đã đưa ${c.candidateName} về danh sách chờ xếp lớp.',
         );
       }
     }
@@ -348,11 +345,9 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
             }
           });
           widget.onDataChanged?.call();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Đã chuyển ${c.candidateName} sang lớp $batchCode!'),
-              backgroundColor: const Color(0xFF00693F),
-            ),
+          TopNotificationService.showSuccess(
+            title: 'Chuyển lớp thành công',
+            message: 'Đã chuyển ${c.candidateName} sang lớp $batchCode!',
           );
         },
       ),

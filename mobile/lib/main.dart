@@ -7,6 +7,7 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/screens/a01_splash_screen.dart';
 import 'features/home/data/repositories/branch_repository.dart';
 import 'core/services/portal_settings_service.dart';
+import 'core/services/top_notification_service.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -50,6 +51,7 @@ class MedicalHealthcareApp extends StatelessWidget {
       child: BlocBuilder<LocaleCubit, Locale>(
         builder: (context, locale) {
           return MaterialApp(
+            navigatorKey: TopNotificationService.navigatorKey,
             title: 'MLD Việt Nam',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,

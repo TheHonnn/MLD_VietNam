@@ -4,6 +4,8 @@ import 'package:medical_healthcare_app/features/admin/data/models/admin_models.d
 import 'package:medical_healthcare_app/features/admin/presentation/screens/admin_batch_detail_screen.dart';
 import 'package:medical_healthcare_app/features/admin/presentation/widgets/admin_candidate_card.dart';
 import 'package:medical_healthcare_app/features/admin/presentation/widgets/quiz_submission_detail_sheet.dart';
+import 'package:medical_healthcare_app/core/services/top_notification_service.dart';
+import 'package:medical_healthcare_app/core/widgets/top_notification.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -175,6 +177,44 @@ void main() {
       expect(find.text('ĐÁNH GIÁ & NHẬN XÉT CỦA GIẢNG VIÊN'), findsOneWidget);
       expect(find.text('Lưu nhận xét & Phê duyệt bài thi'), findsOneWidget);
       expect(find.text('Nắm rất vững lý thuyết & nguyên lý Vodder ✓'), findsOneWidget);
+    });
+
+    testWidgets('TopNotification renders at top, shows countdown progress bar, and dismisses', (WidgetTester tester) async {
+      bool dismissed = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: [
+                TopNotification(
+                  title: 'Thành công',
+                  message: 'Đã lưu nhận xét và cập nhật bài thi của học viên!',
+                  type: TopNotificationType.success,
+                  duration: const Duration(seconds: 2),
+                  onDismissed: () {
+                    dismissed = true;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Check title and message
+      expect(find.text('Thành công'), findsOneWidget);
+      expect(find.text('Đã lưu nhận xét và cập nhật bài thi của học viên!'), findsOneWidget);
+
+      // Verify progress countdown bar exists
+      expect(find.byType(AnimatedBuilder), findsWidgets);
+
+      // Let timer elapse
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+
+      expect(dismissed, isTrue);
     });
   });
 }

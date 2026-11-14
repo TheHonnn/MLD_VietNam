@@ -6,6 +6,7 @@ import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../widgets/admin_appointment_card.dart';
 import '../widgets/admin_qr_scanner_modal.dart';
+import '../../../../core/services/top_notification_service.dart';
 
 class AdminFrontdeskScreen extends StatefulWidget {
   final VoidCallback? onBackToDashboard;
@@ -312,13 +313,11 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
   }
 
   void _showToast(String message, Color bgColor) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w500)),
-        backgroundColor: bgColor,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    if (bgColor == AppColors.error || bgColor == const Color(0xFFE11D48) || bgColor == const Color(0xFFDC2626)) {
+      TopNotificationService.showError(message: message);
+    } else {
+      TopNotificationService.showSuccess(message: message);
+    }
   }
 
   // Xử lý quét mã QR tiếp đón

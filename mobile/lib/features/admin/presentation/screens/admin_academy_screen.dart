@@ -9,6 +9,7 @@ import '../../data/repositories/admin_repository.dart';
 import '../widgets/admin_candidate_card.dart';
 import '../widgets/assign_batch_bottom_sheet.dart';
 import '../widgets/quiz_submission_detail_sheet.dart';
+import '../../../../core/services/top_notification_service.dart';
 import 'admin_batch_detail_screen.dart';
 
 class AdminAcademyScreen extends StatefulWidget {
@@ -516,11 +517,8 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                             final name = nameCtrl.text.trim();
                             final phone = phoneCtrl.text.trim();
                             if (name.isEmpty || phone.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Vui lòng nhập họ tên và số điện thoại!'),
-                                  backgroundColor: AppColors.error,
-                                ),
+                              TopNotificationService.showWarning(
+                                message: 'Vui lòng nhập họ tên và số điện thoại!',
                               );
                               return;
                             }
@@ -541,19 +539,14 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                             if (mounted) {
                               Navigator.pop(ctx);
                               if (success) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Đã thêm thẻ học viên $name vào bảng Kanban!'),
-                                    backgroundColor: const Color(0xFF00693F),
-                                  ),
+                                TopNotificationService.showSuccess(
+                                  title: 'Thêm học viên thành công',
+                                  message: 'Đã thêm thẻ học viên $name vào bảng Kanban!',
                                 );
                                 _fetchData();
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Lỗi khi thêm học viên. Vui lòng thử lại.'),
-                                    backgroundColor: AppColors.error,
-                                  ),
+                                TopNotificationService.showError(
+                                  message: 'Lỗi khi thêm học viên. Vui lòng thử lại.',
                                 );
                               }
                             }
@@ -794,8 +787,9 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                       final success = await _repository.deleteCandidate(c.id);
                       if (mounted) {
                         if (success) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Đã xóa học viên ${c.candidateName}!'), backgroundColor: const Color(0xFFE11D48)),
+                          TopNotificationService.showInfo(
+                            title: 'Đã xóa',
+                            message: 'Đã xóa học viên ${c.candidateName}!',
                           );
                           _fetchData();
                         }
@@ -841,11 +835,9 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                 Navigator.pop(ctx);
                 final success = await _repository.updateCandidateStatus(c.id, targetStatus);
                 if (mounted && success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Đã chuyển ${c.candidateName} sang cột "$label"!'),
-                      backgroundColor: color,
-                    ),
+                  TopNotificationService.showSuccess(
+                    title: 'Cập nhật trạng thái',
+                    message: 'Đã chuyển ${c.candidateName} sang cột "$label"!',
                   );
                   _fetchData();
                 }
@@ -862,15 +854,9 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       builder: (_) => AssignBatchBottomSheet(
         candidate: candidate,
         onBatchAssigned: (batchId, batchCode) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Đã xếp học viên ${candidate.candidateName} vào lớp $batchCode thành công!',
-                style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w500),
-              ),
-              backgroundColor: const Color(0xFF00693F),
-              behavior: SnackBarBehavior.floating,
-            ),
+          TopNotificationService.showSuccess(
+            title: 'Xếp lớp thành công',
+            message: 'Đã xếp học viên ${candidate.candidateName} vào lớp $batchCode thành công!',
           );
           _fetchData();
         },
@@ -886,16 +872,6 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       builder: (_) => QuizSubmissionDetailSheet(
         submission: sub,
         onSaved: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Đã lưu nhận xét và cập nhật kết quả bài thi!',
-                style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w500),
-              ),
-              backgroundColor: AppColors.primary,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
           _fetchData();
         },
       ),
@@ -1529,9 +1505,9 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
 
                       const SizedBox(width: 8),
 
-                      // NÚT ĐẠT CHUẨN (VẪN GIỮ NGUYÊN)
+                      // NÚT ĐẠT (LỌC BÀI THI)
                       _buildMicroPill(
-                        label: 'Đạt chuẩn',
+                        label: 'Đạt',
                         badgeText: '${_submissions.where((s) => s.passed).length}',
                         isSelected: _selectedSubmissionResult == 'PASSED',
                         activeColor: const Color(0xFF00693F),
@@ -1945,26 +1921,9 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
 
     if (candidate.amountPaid > 0 && isInitialColumn) {
       HapticFeedback.heavyImpact();
-      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Học viên ${candidate.candidateName} đã đóng ${_formatPrice(candidate.amountPaid)} học phí. Không thể chuyển về trạng thái ban đầu!',
-                  style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFFDC2626),
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
+      TopNotificationService.showError(
+        title: 'Không thể chuyển',
+        message: 'Học viên ${candidate.candidateName} đã đóng ${_formatPrice(candidate.amountPaid)} học phí. Không thể chuyển về trạng thái ban đầu!',
       );
       return;
     }
@@ -1992,18 +1951,9 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
     });
 
     HapticFeedback.mediumImpact();
-    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Đã chuyển ${candidate.candidateName} sang "$targetColumnTitle"',
-          style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
-        ),
-        backgroundColor: const Color(0xFF00693F),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+    TopNotificationService.showSuccess(
+      title: 'Chuyển cột thành công',
+      message: 'Đã chuyển ${candidate.candidateName} sang "$targetColumnTitle"',
     );
 
     // 4. Ghi nhận vào Database ngầm
@@ -2019,11 +1969,8 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       setState(() {
         _candidates = oldList;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Không thể cập nhật trạng thái học viên. Đã hoàn tác.'),
-          backgroundColor: Color(0xFFDC2626),
-        ),
+      TopNotificationService.showError(
+        message: 'Không thể cập nhật trạng thái học viên. Đã hoàn tác.',
       );
     }
   }
@@ -2444,24 +2391,6 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-
-                      // Badge Đạt / Chưa đạt
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: sub.passed ? const Color(0xFFE8F6ED) : const Color(0xFFFEF3C7),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          sub.passed ? 'ĐẠT CHUẨN MLD' : 'CHƯA ĐẠT',
-                          style: AppTypography.zaloFont(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                            color: sub.passed ? const Color(0xFF0D6832) : const Color(0xFF92400E),
-                          ),
                         ),
                       ),
                       const Spacer(),
