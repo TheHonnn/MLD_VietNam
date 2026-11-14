@@ -26,6 +26,7 @@ import { AdminPageShell, PageHeader, PageTabs, AdminTabs, PageToolbar, PageConte
 import { portalService } from "../services/portal.service";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
+import { getResourceNavigation, navigationGroupForTable } from "./navigation";
 import {
   Plus,
   Pencil,
@@ -5813,7 +5814,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   return (
     <div className="admin-page-shell">
       <PageHeader
-        eyebrow={resource?.group || "QUẢN TRỊ"}
+        eyebrow={navigationGroupForTable(table)?.label || resource?.group || "QUẢN TRỊ"}
         title={loyaltyPages[table]?.title || (table === "service_categories" ? "Nhóm dịch vụ" : resource?.title || "Đang tải phân hệ…")}
         subtitle={
           table === "bookings" ? (
@@ -5932,28 +5933,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </>
         }
       />
-      {table !== "service_categories" && (
-        <PageTabs
-          ariaLabel="Phân hệ liên quan"
-          variant="line"
-          activeTab={table}
-          tabs={resources
-            .filter((r) => r.group === resource?.group)
-            .sort((a, b) => {
-              const order = ["coupons", "user_vouchers", "voucher_distribution_rules", "membership_tier_rules", "loyalty_point_settings", "point_transactions"];
-              const rank = (name: string) => {
-                const index = order.indexOf(name);
-                return index < 0 ? order.length : index;
-              };
-              return rank(a.name) - rank(b.name);
-            })
-            .map((r) => ({
-              id: r.name,
-              label: r.name === "invoices" ? "Hóa đơn & Đối soát" : r.title,
-              href: r.name === "invoices" ? "/cashier-pos?tab=receipts" : `/manage/${r.name}`,
-            }))}
-        />
-      )}
+      <PageTabs
+        ariaLabel="Phân hệ liên quan"
+        variant="line"
+        activeTab={table}
+        tabs={getResourceNavigation(table, resources, user?.role || "")}
+      />
       {[
         "course_lessons",
         "course_quizzes",

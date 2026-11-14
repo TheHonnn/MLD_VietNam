@@ -4,6 +4,7 @@ import { SidebarItem, type SubMenuItem } from '../../admin/SidebarItem';
 import { adminApi, Resource } from '../../admin/api';
 import { useAdmin } from '../../admin/Auth';
 import { canAccessAdminPath } from '../../admin/access';
+import { ADMIN_NAVIGATION_GROUPS } from '../../admin/navigation';
 import { toast } from '../common';
 import {
   LayoutGrid,
@@ -310,6 +311,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
         {/* Navigation Sections */}
         <nav className="px-3 py-1 space-y-3.5 flex-1 pb-6">
           {sections
+            .map(section => ({ ...section, items: section.items.map(item => {
+              const group = ADMIN_NAVIGATION_GROUPS.find(group => group.label === item.name);
+              return group ? { ...item, subItems: group.items.map(entry => ({name: entry.label, path: entry.href})) } : item;
+            }) }))
             .filter((section) => section.items.some((item) => isItemAllowed(item)))
             .map((section, idx) => (
               <div key={idx}>
