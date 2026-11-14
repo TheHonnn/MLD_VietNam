@@ -4481,7 +4481,7 @@ function availableActions(table: string, row: Row) {
             ? row.payment_status === "PAID"
               ? [{ key: "checkout", title: "Đóng dịch vụ", icon: LogOut }]
               : []
-            : [{ key: "finish-service", title: "Lưu hồ sơ & hoàn tất chuyên môn", icon: CheckCheck }]
+            : [{ key: "finish-service", title: "Hoàn tất dịch vụ", icon: CheckCheck }]
           : [];
   if (
     ["invoices", "tuition_transactions"].includes(table) &&
@@ -4541,7 +4541,7 @@ function BookingOperationsView({
     if (row.status === "CONFIRMED") return { key: "checkin", label: "Tiếp đón khách", icon: UserCheck };
     if (row.status === "CHECKED_IN") return { key: "start", label: "Bắt đầu dịch vụ", icon: Play };
     if (row.status === "IN_SERVICE" && row.session_status === "COMPLETED" && row.payment_status === "PAID") return { key: "checkout", label: "Đóng dịch vụ", icon: LogOut };
-    if (row.status === "IN_SERVICE" && row.session_status !== "COMPLETED") return { key: "finish-service", label: "Hồ sơ & hoàn tất", icon: CheckCheck };
+    if (row.status === "IN_SERVICE" && row.session_status !== "COMPLETED") return { key: "finish-service", label: "Hoàn tất dịch vụ", icon: CheckCheck };
     return null;
   };
 
@@ -5874,13 +5874,6 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
 
   const handleTriggerAction = (actionKey: string, row: Row) => {
     setActionError("");
-    if (table === "bookings" && actionKey === "finish-service") {
-      const target = new URLSearchParams({ booking: String(row.id) });
-      if (row.branch_id) target.set("branchId", String(row.branch_id));
-      if (row.booking_date) target.set("date", String(row.booking_date));
-      window.location.href = "/staff-schedule?" + target.toString();
-      return;
-    }
     if (actionKey === "share-journal") {
       setShareJournalItem({
         id: row.id,

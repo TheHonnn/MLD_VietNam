@@ -346,7 +346,6 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       expect(draft.session_number).toBe(1);
       expect(draft.customer_id).toBe(customerOneId);
       expect((await service.startTreatmentDraft(superAdminActor,pkg.id,booking.id)).id).toBe(draft.id);
-      await expect(service.action('bookings',superAdminActor,{key:{id:booking.id},action:'finish-service'})).rejects.toThrow();
       await service.action('treatment_journal',superAdminActor,{key:{id:draft.id},action:'save-draft',values:{condition_before:'Trước buổi',condition_after:'Sau buổi',treatment_notes:'Đã thực hiện chăm sóc',after_photos:['https://example.com/after.png']}});
       await service.action('treatment_journal',superAdminActor,{key:{id:draft.id},action:'submit-session'});
       await service.action('treatment_journal',superAdminActor,{key:{id:draft.id},action:'confirm-session'});
@@ -354,6 +353,23 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       expect((await pg.query<any>('SELECT status,payment_status,session_status FROM bookings WHERE id=$1',[booking.id])).rows[0]).toEqual({status:'COMPLETED',payment_status:'PAID',session_status:'COMPLETED'});
       expect((await pg.query<any>('SELECT count(*)::int n FROM treatment_journal WHERE user_package_id=$1',[pkg.id])).rows[0].n).toBe(3);
       expect((await pg.query<any>('SELECT after_photos FROM treatment_journal WHERE id=$1',[draft.id])).rows[0].after_photos).toEqual(['https://example.com/after.png']);
+    });
+
+    it('completes a covered booking without clinical input and consumes exactly one session', async () => {
+      const pkg = (await pg.query<any>("INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,expires_at) VALUES($1,$2,2,0,'ACTIVE',now()+interval '3 months') RETURNING id",[customerOneId,packageDefId])).rows[0];
+      const booking = (await pg.query<any>(`INSERT INTO bookings(booking_code,customer_id,branch_id,technician_id,booking_date,start_time,end_time,status,payment_status,payment_method,base_total,final_price,qr_code_hash)
+        VALUES('DIRECT-COMPLETE',$1,$2,$3,CURRENT_DATE,'15:00','16:00','CONFIRMED','UNPAID','MEMBERSHIP_WALLET',0,0,'direct-complete-qr') RETURNING id`,[customerOneId,branchId,technicianId])).rows[0];
+      await pg.query('INSERT INTO booking_items(booking_id,service_id,price) VALUES($1,$2,0)',[booking.id,serviceId]);
+      await service.action('bookings',superAdminActor,{key:{id:booking.id},action:'checkin',userPackageId:pkg.id});
+      await service.action('bookings',superAdminActor,{key:{id:booking.id},action:'start'});
+      await service.action('bookings',superAdminActor,{key:{id:booking.id},action:'finish-service'});
+      expect((await pg.query<any>('SELECT completed_sessions FROM user_packages WHERE id=$1',[pkg.id])).rows[0].completed_sessions).toBe(1);
+      expect((await pg.query<any>('SELECT status,session_status FROM bookings WHERE id=$1',[booking.id])).rows[0]).toEqual({status:'COMPLETED',session_status:'COMPLETED'});
+      const journals = (await pg.query<any>('SELECT condition_before,condition_after,technical_parameters FROM treatment_journal WHERE booking_id=$1',[booking.id])).rows;
+      expect(journals).toHaveLength(1);
+      expect(journals[0].condition_before).toBeNull();
+      expect(journals[0].condition_after).toBeNull();
+      expect(journals[0].technical_parameters.source).toBe('BOOKING_COMPLETION');
     });
 
     it('blocks arbitrary direct mutations to package status', async () => {

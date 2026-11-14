@@ -2194,11 +2194,11 @@ export const W05_StaffSchedule: React.FC = () => {
                         <button
                           type="button"
                           disabled={isUpdatingStatus}
-                          onClick={() => handleOpenClinicalModal(selectedApp)}
+                          onClick={() => { if (window.confirm('Xác nhận đã thực hiện xong dịch vụ? Gói liệu trình sẽ được trừ một buổi khi hoàn tất.')) void handleBookingAction(selectedApp, 'finish-service'); }}
                           className="w-full py-3 bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                         >
                           <ClipboardCheck className="w-4 h-4" />
-                          <span>Ghi hồ sơ & Hoàn tất chuyên môn</span>
+                          <span>Hoàn tất dịch vụ</span>
                         </button>
                       )}
 
