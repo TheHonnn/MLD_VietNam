@@ -1660,7 +1660,7 @@ async function requestBackend<T>(path: string, body?: unknown, signal?: AbortSig
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
-  const timeout = window.setTimeout(abort, body === undefined ? 15000 : 30000);
+  const timeout = window.setTimeout(abort, body === undefined ? 75000 : 30000);
   try {
     const token = sessionStorage.getItem("mld_admin_token");
     let response: Response;
