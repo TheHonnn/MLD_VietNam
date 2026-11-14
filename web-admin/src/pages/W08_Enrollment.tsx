@@ -127,6 +127,7 @@ export const W08_Enrollment: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [selectedCandidateId, setSelectedCandidateId] = useState<string>('');
+  const [tuitionFocusId, setTuitionFocusId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>(() => searchParams.get('search') || '');
   const [programFilter, setProgramFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
@@ -478,6 +479,14 @@ export const W08_Enrollment: React.FC = () => {
     }
   }, [filteredCandidates, selectedCandidateId]);
 
+  useEffect(() => {
+    if (!tuitionFocusId || selectedCandidateId !== tuitionFocusId) return;
+    const field = document.getElementById('enrollment-tuition-input');
+    field?.focus({ preventScroll: true });
+    field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTuitionFocusId(null);
+  }, [selectedCandidateId, tuitionFocusId]);
+
   // Selected candidate object (always prioritizing filtered list)
   const selectedCandidate: CandidateRecord | undefined = useMemo(() => {
     if (!selectedCandidateId) return filteredCandidates[0];
@@ -736,14 +745,16 @@ export const W08_Enrollment: React.FC = () => {
     }
   };
 
-  // Open Bill & QR modal
+  const canOpenPayment = (candidate: CandidateRecord) =>
+    candidate.rawAmountPaid > 0 || candidate.consultationStatus === ConsultationStatus.CONFIRMED;
+
+  const openTuitionConfirmation = (candidate: CandidateRecord) => {
+    setSelectedCandidateId(candidate.id);
+    setTuitionFocusId(candidate.id);
+  };
+
   const handleOpenBillModal = (candidate: CandidateRecord) => {
-    if (candidate.consultationStatus !== ConsultationStatus.CONFIRMED && candidate.rawAmountPaid <= 0) {
-      setSelectedCandidateId(candidate.id);
-      toast.info('Xác nhận học phí trước', 'Kiểm tra học phí và cơ sở trước khi mở thanh toán.');
-      document.getElementById('enrollment-consultation-step')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
-    }
+    if (!canOpenPayment(candidate)) return;
     setBillModalCandidate({
       id: candidate.id,
       name: candidate.name,
@@ -1374,15 +1385,15 @@ export const W08_Enrollment: React.FC = () => {
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => handleOpenBillModal(candidate)}
+                                onClick={() => canOpenPayment(candidate) ? handleOpenBillModal(candidate) : openTuitionConfirmation(candidate)}
                                 className="px-2 py-1 bg-[#FAF5EF] hover:bg-[#F3E2CE] text-[#8D4B1A] border border-[#BA7E4C]/40 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
-                                title="Xem chứng từ và thông tin thanh toán học phí"
+                                title={canOpenPayment(candidate) ? "Xem thông tin thanh toán" : "Mở phần xác nhận học phí"}
                               >
                                 <Printer className="w-3 h-3" />
-                                <span>{candidate.paymentVerificationStatus === PaymentVerificationStatus.PAID ? 'Xem phiếu thu' : candidate.consultationStatus === ConsultationStatus.CONFIRMED ? 'Thanh toán / QR' : 'Xác nhận học phí'}</span>
+                                <span>{candidate.paymentVerificationStatus === PaymentVerificationStatus.PAID ? 'Xem phiếu thu' : canOpenPayment(candidate) ? 'Thanh toán / QR' : 'Kiểm tra học phí'}</span>
                               </button>
 
-                              {candidate.paymentVerificationStatus !== PaymentVerificationStatus.PAID && (
+                              {candidate.consultationStatus === ConsultationStatus.CONFIRMED && candidate.paymentVerificationStatus !== PaymentVerificationStatus.PAID && (
                                 <button
                                   type="button"
                                   disabled={checkingCandidateId === candidate.id || candidate.consultationStatus !== ConsultationStatus.CONFIRMED}
@@ -1511,7 +1522,7 @@ export const W08_Enrollment: React.FC = () => {
                       } else if (selectedCandidate.consultationStatus === ConsultationStatus.CONFIRMED) {
                         handleOpenBillModal(selectedCandidate);
                       } else {
-                        document.getElementById('enrollment-consultation-step')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        openTuitionConfirmation(selectedCandidate);
                       }
                     }}
                     className="px-3 py-2 bg-[#1B4F72] hover:bg-[#153e5b] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
@@ -1634,7 +1645,6 @@ export const W08_Enrollment: React.FC = () => {
 
               </details>
 
-              <div id="enrollment-consultation-step" className="scroll-mt-24" />
               {/* STEP 3: Chốt tư vấn & Tạo yêu cầu thanh toán VietQR (Spec 4.2 & 4.3) */}
               {selectedCandidate.consultationStatus === ConsultationStatus.CONFIRMED || isWaitingForClass || isEnrolledOrStudying || selectedCandidate.paymentVerificationStatus === PaymentVerificationStatus.PAID ? (
                 <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-1.5">
@@ -1665,6 +1675,7 @@ export const W08_Enrollment: React.FC = () => {
                       <input
                         type="number"
                         step={500000}
+                        id="enrollment-tuition-input"
                         value={finalTuitionInput}
                         onChange={(e) => setFinalTuitionInput(Number(e.target.value))}
                         className="w-full px-2.5 py-1.5 bg-white border border-[#EFE4D9] rounded-lg text-xs font-bold text-[#8D4B1A] focus:outline-none focus:border-[#985018]"
@@ -1727,14 +1738,16 @@ export const W08_Enrollment: React.FC = () => {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleOpenBillModal(selectedCandidate)}
-                  className="w-full py-2 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF5EF] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>{selectedCandidate.rawAmountPaid > 0 ? 'Xem phiếu thu / Thanh toán phần còn lại' : 'Thanh toán / Xem QR'}</span>
-                </button>
+                {canOpenPayment(selectedCandidate) && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenBillModal(selectedCandidate)}
+                    className="w-full py-2 bg-white border border-[#BA7E4C] text-[#8D4B1A] hover:bg-[#FAF5EF] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>{selectedCandidate.rawAmountPaid > 0 ? 'Xem phiếu thu / Thanh toán phần còn lại' : 'Thanh toán / Xem QR'}</span>
+                  </button>
+                )}
 
                 {selectedCandidate.consultationStatus === ConsultationStatus.CONFIRMED && selectedCandidate.rawAmountPaid <= 0 && !isWaitingForClass && !isEnrolledOrStudying ? (
                   <div className="space-y-1.5 pt-1">
