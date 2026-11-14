@@ -4,6 +4,8 @@ import { EnrollmentRosterView } from "./EnrollmentRosterView";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDialogGuard } from "./useDialogGuard";
 import { TrainingActions } from "./TrainingActions";
+import { loadQuestionRows } from "./quizData";
+import { QuestionBankView } from "./QuestionBankView";
 import { QuizOptions, quizOptions } from "./QuizOptions";
 import { ConsultationSurveySheet, COMMON_FOCUS_AREAS } from "./ConsultationSurveyView";
 import { ServiceDetailSheet } from "./ServiceDetailView";
@@ -4870,6 +4872,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     [reason, setReason] = useState("");
   const [search, setSearch] = useState(params.get("search") || "");
   const [showExcelImportModal, setShowExcelImportModal] = useState(false);
+  const [questionQuizzes, setQuestionQuizzes] = useState<Row[]>([]);
   const [shareJournalItem, setShareJournalItem] = useState<ShareJournalItem | null>(null);
   const [certificateTemplatePreview, setCertificateTemplatePreview] = useState<Row | null>(null);
   const [isExportingTemplatePdf, setIsExportingTemplatePdf] = useState(false);
@@ -5082,6 +5085,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         .then((data) => { if (active && Array.isArray(data)) setCoursesForBatchFilter(data); })
         .catch(() => { });
     }
+    if (table === "quiz_questions") {
+      loadQuestionRows("course_quizzes", undefined, c.signal).then(rows => {
+        if (active) setQuestionQuizzes(rows);
+      }).catch(() => { if (active) setQuestionQuizzes([]); });
+    }
     if (table === "course_quizzes") {
       (async () => {
         const rows: Row[] = [];
@@ -5133,6 +5141,10 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     setConfirmation(null);
     setNotice("");
     const listParams = new URLSearchParams(params);
+    if (table === "quiz_questions" && !listParams.has("sort")) {
+      listParams.set("sort", "question_number");
+      listParams.set("direction", "asc");
+    }
     if (scheduleCalendar) {
       listParams.set("weekStart", calendarWeek);
       listParams.set("limit", "100");
@@ -5452,6 +5464,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       row:
         staffDateField
           ? staffDraft(params.get("technician") || undefined, params.get("branch") || undefined)
+          : table === "quiz_questions" && filter.quiz_id ? { quiz_id: filter.quiz_id }
           : table === "user_vouchers" && params.get("coupon") ? { coupon_id: params.get("coupon") }
           : table === "users"
           ? { role: "CUSTOMER", is_active: true }
@@ -6028,7 +6041,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                         mode: "create",
                       });
                     } else {
-                      setEdit({ row: staffDateField ? staffDraft() : {}, mode: "create" });
+                      setEdit({ row: staffDateField ? staffDraft() : table === "quiz_questions" && filter.quiz_id ? { quiz_id: filter.quiz_id } : {}, mode: "create" });
                     }
                   }}
                 >
@@ -6039,7 +6052,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                       ? "Thêm tài khoản"
                       : table === "service_categories"
                         ? "Thêm nhóm"
-                        : table === "course_quizzes" ? "Tạo đề thi"
+                        : table === "quiz_questions" ? "Thêm câu hỏi" : table === "course_quizzes" ? "Tạo đề thi"
                         : table === "course_chapters"
                           ? "Thêm chương"
                         : loyaltyPages[table]?.create || staffPages[table]?.create || "Thêm mới"}
@@ -6070,9 +6083,13 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       {table === "course_batches" && selectedBatchId && <Link className="admin-secondary mb-4" to="/manage/course_batches">Xem tất cả lớp</Link>}
       {[
         "course_lessons",
-        "quiz_questions",
         "course_chapters",
       ].includes(table) && <TrainingActions />}
+      {table === "quiz_questions" && <div className="mb-5 rounded-xl border border-[#EAD8C7] bg-white p-4 text-sm text-[#73675F]">
+        <p className="font-semibold text-[#2C241E]">Quản lý câu hỏi theo đề thi</p>
+        <p className="mt-1">Chọn đề để xem đúng bộ câu hỏi, thêm câu mới hoặc nhập Excel. Câu hỏi cùng nội dung ở các đề khác nhau là những bản ghi riêng.</p>
+        <Link className="mt-2 inline-block font-semibold text-[#985018]" to="/manage/course_quizzes">Mở danh sách đề thi →</Link>
+      </div>}
       {table === "course_quizzes" && (
         <div className="mb-5 rounded-xl border border-[#EAD8C7] bg-white px-5 py-4 text-sm">
           <p className="font-semibold text-[#2C241E]">Tạo đề → Soạn câu hỏi → Theo dõi bài đã nộp</p>
@@ -6146,6 +6163,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {table === "quiz_questions" && <select aria-label="Lọc câu hỏi theo đề thi" value={filter.quiz_id || ""} onChange={event => {
+          const next = { ...filter };
+          if (event.target.value) next.quiz_id = event.target.value; else delete next.quiz_id;
+          const query = new URLSearchParams(params); query.set("filter", JSON.stringify(next)); query.delete("page");
+          query.set("sort", "question_number"); query.set("direction", "asc"); setParams(query);
+        }}><option value="">Tất cả đề thi</option>{questionQuizzes.map(quiz => <option key={quiz.id} value={quiz.id}>{quiz.title}</option>)}</select>}
         {table === "course_quizzes" && <select aria-label="Lọc đề theo khóa học" value={filter.course_id || ""} onChange={event => {
           const next = { ...filter };
           if (event.target.value) next.course_id = event.target.value; else delete next.course_id;
@@ -7416,7 +7439,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                     </button>
                   </div>
                 )}
-                {table === "bookings" ? (
+                {table === "quiz_questions" ? (
+                  <QuestionBankView rows={listing.rows} quizzes={questionQuizzes}
+                    canEdit={Boolean(resource?.actions?.includes("update"))} canDelete={Boolean(resource?.actions?.includes("delete"))}
+                    onOpen={openRecordPreview} onEdit={row => setEdit({ row, mode: "update" })}
+                    onDelete={row => setConfirmation({ row, action: "delete", title: "Xóa câu hỏi khỏi đề thi" })} />
+                ) : table === "bookings" ? (
                   listing.rows.length ? (
                     <BookingOperationsView
                       rows={listing.rows}
@@ -8113,6 +8141,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
 
       {/* Excel Quiz Import Modal */}
       <ExcelQuizImportModal
+        key={filter.quiz_id || "all-quizzes"}
+        quizId={table === "quiz_questions" ? filter.quiz_id || undefined : undefined}
         isOpen={showExcelImportModal}
         onClose={() => setShowExcelImportModal(false)}
         onImportSuccess={() => {
