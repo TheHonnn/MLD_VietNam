@@ -509,6 +509,7 @@ class AdminRepository {
     String? notes,
   }) async {
     try {
+      final isConfirmed = status == 'CONFIRMED' || status == 'CONFIRMED_PENDING_PAY';
       final res = await _apiClient.dio.post(
         '/rest/v1/course_enrollments',
         data: {
@@ -516,7 +517,8 @@ class AdminRepository {
           'student_phone': candidatePhone,
           if (candidateEmail != null && candidateEmail.isNotEmpty) 'student_email': candidateEmail,
           'course_id': courseId,
-          'status': status,
+          'status': isConfirmed ? 'DEPOSITED' : 'CONSULTING',
+          'consultation_status': isConfirmed ? 'CONFIRMED' : 'PENDING_CONSULTATION',
           'amount_paid': amountPaid,
           'enrolled_at': DateTime.now().toIso8601String(),
           if (notes != null && notes.isNotEmpty) 'approval_notes': notes,
@@ -529,14 +531,25 @@ class AdminRepository {
     }
   }
 
-  /// 5.5. Cập nhật trạng thái cột Kanban (CRUD kiểu Trello - Update Column)
+  /// 5.5. Cập nhật trạng thái cột Kanban (CRUD kiểu Trello - Update Column, đồng bộ 100% Web Admin)
   Future<bool> updateCandidateStatus(String candidateId, String newStatus) async {
     try {
+      final patchData = <String, dynamic>{'status': newStatus};
+      if (newStatus == 'PENDING' || newStatus == 'PENDING_CONSULTATION' || newStatus == 'CONSULTING') {
+        patchData['status'] = 'CONSULTING';
+        patchData['consultation_status'] = 'PENDING_CONSULTATION';
+      } else if (newStatus == 'CONFIRMED' || newStatus == 'CONFIRMED_PENDING_PAY' || newStatus == 'DEPOSITED') {
+        patchData['status'] = 'DEPOSITED';
+        patchData['consultation_status'] = 'CONFIRMED';
+      } else if (newStatus == 'PAID' || newStatus == 'PAID_WAITING_CLASS' || newStatus == 'ENROLLED') {
+        patchData['status'] = 'ENROLLED';
+      } else if (newStatus == 'STUDYING' || newStatus == 'ENROLLED_STUDYING') {
+        patchData['status'] = 'STUDYING';
+      }
+
       final res = await _apiClient.dio.patch(
         '/rest/v1/course_enrollments?id=eq.$candidateId',
-        data: {
-          'status': newStatus,
-        },
+        data: patchData,
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -625,6 +638,38 @@ class AdminRepository {
       }
     } catch (e) {
       debugPrint('[AdminRepository] saveService error: $e');
+      return false;
+    }
+  }
+
+  /// 6.3. Lấy Danh mục Gói Liệu trình / Gói Trị liệu Bổ trợ (treatment_packages)
+  Future<List<AdminTreatmentPackageModel>> fetchTreatmentPackages() async {
+    try {
+      final res = await _apiClient.dio.get(
+        '/rest/v1/treatment_packages?select=*&order=price.asc,created_at.asc',
+      );
+      if (res.statusCode == 200 && res.data is List) {
+        return (res.data as List)
+            .map((item) => AdminTreatmentPackageModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchTreatmentPackages error: $e');
+      return [];
+    }
+  }
+
+  /// 6.4. Bật/Tắt Duyệt kinh doanh Gói liệu trình 1 chạm (is_active toggle)
+  Future<bool> toggleTreatmentPackageActive(String packageId, bool nextStatus) async {
+    try {
+      final res = await _apiClient.dio.patch(
+        '/rest/v1/treatment_packages?id=eq.$packageId',
+        data: {'is_active': nextStatus},
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      debugPrint('[AdminRepository] toggleTreatmentPackageActive error: $e');
       return false;
     }
   }

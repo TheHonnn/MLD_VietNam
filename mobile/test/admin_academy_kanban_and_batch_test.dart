@@ -57,6 +57,46 @@ void main() {
       courseTitle: 'MLD Chuyên Sâu K26',
     );
 
+    test('AdminCandidateModel maps status identically with Web Admin for PENDING_CONSULTATION', () {
+      final json = {
+        'id': '77189c3d-acf3-4d32-82ad-7de146bb5fa2',
+        'student_name': 'Bùi Thế Hoàng',
+        'student_phone': '0394316963',
+        'status': 'DEPOSITED',
+        'consultation_status': 'PENDING_CONSULTATION',
+        'approval_status': 'PENDING_APPROVAL',
+        'amount_paid': 0,
+        'tuition_total': 10000000,
+        'batch_id': null,
+      };
+
+      final candidate = AdminCandidateModel.fromJson(json);
+      expect(candidate.status, 'PENDING_CONSULTATION');
+      expect(candidate.candidateName, 'Bùi Thế Hoàng');
+    });
+
+    test('AdminTreatmentPackageModel parses treatment_packages correctly', () {
+      final json = {
+        'id': '22222222-0002-0001-0001-000000000001',
+        'name': 'Gói Chăm sóc mở rộng (10 buổi)',
+        'service_id': '235166f2-66c9-4231-bbe1-af91b48fc67c',
+        'total_sessions': 10,
+        'price': 8600000,
+        'discount_price': 8600000,
+        'validity_months': 3,
+        'description': 'Liệu trình 10 buổi Chăm sóc mở rộng',
+        'image_url': 'https://example.com/img.jpg',
+        'is_active': true,
+      };
+
+      final pkg = AdminTreatmentPackageModel.fromJson(json);
+      expect(pkg.name, 'Gói Chăm sóc mở rộng (10 buổi)');
+      expect(pkg.totalSessions, 10);
+      expect(pkg.price, 8600000);
+      expect(pkg.validityMonths, 3);
+      expect(pkg.isActive, isTrue);
+    });
+
     testWidgets('AdminCandidateCard compact mode renders all dense info', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(

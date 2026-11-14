@@ -25,12 +25,13 @@ class AdminCatalogScreen extends StatefulWidget {
 class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   final AdminRepository _repository = AdminRepository.instance;
 
-  int _selectedSegment = 0; // 0: Dịch vụ, 1: Khóa học, 2: Sản phẩm
+  int _selectedSegment = 0; // 0: Dịch vụ, 1: Gói liệu trình, 2: Khóa học, 3: Sản phẩm
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
   List<AdminServiceModel> _services = [];
+  List<AdminTreatmentPackageModel> _packages = [];
   List<AdminCourseModel> _courses = [];
   List<HomeProductModel> _products = [];
   String? _togglingId;
@@ -38,10 +39,12 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialTab == 'COURSES') {
+    if (widget.initialTab == 'PACKAGES') {
       _selectedSegment = 1;
-    } else if (widget.initialTab == 'PRODUCTS') {
+    } else if (widget.initialTab == 'COURSES') {
       _selectedSegment = 2;
+    } else if (widget.initialTab == 'PRODUCTS') {
+      _selectedSegment = 3;
     }
     _fetchData();
   }
@@ -63,6 +66,14 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
         });
       }
     } else if (_selectedSegment == 1) {
+      final list = await _repository.fetchTreatmentPackages();
+      if (mounted) {
+        setState(() {
+          _packages = list;
+          _isLoading = false;
+        });
+      }
+    } else if (_selectedSegment == 2) {
       final list = await _repository.fetchCourses();
       if (mounted) {
         setState(() {
@@ -93,6 +104,12 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     return _services.where((s) => s.name.toLowerCase().contains(q) || s.categoryName.toLowerCase().contains(q)).toList();
   }
 
+  List<AdminTreatmentPackageModel> get _filteredPackages {
+    if (_searchQuery.isEmpty) return _packages;
+    final q = _searchQuery.toLowerCase();
+    return _packages.where((p) => p.name.toLowerCase().contains(q) || p.description.toLowerCase().contains(q)).toList();
+  }
+
   List<AdminCourseModel> get _filteredCourses {
     if (_searchQuery.isEmpty) return _courses;
     final q = _searchQuery.toLowerCase();
@@ -117,6 +134,29 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
       } else {
         TopNotificationService.showError(
           message: 'Lỗi cập nhật trạng thái. Vui lòng thử lại.',
+        );
+      }
+    }
+  }
+
+  Future<void> _handleTogglePackage(AdminTreatmentPackageModel p) async {
+    final nextStatus = !p.isActive;
+    setState(() => _togglingId = p.id);
+
+    final success = await _repository.toggleTreatmentPackageActive(p.id, nextStatus);
+    if (mounted) {
+      setState(() => _togglingId = null);
+      if (success) {
+        TopNotificationService.showSuccess(
+          title: 'Cập nhật gói liệu trình',
+          message: nextStatus
+              ? 'Đã mở bán gói "${p.name}"'
+              : 'Đã tạm dừng mở bán gói "${p.name}"',
+        );
+        _fetchData();
+      } else {
+        TopNotificationService.showError(
+          message: 'Lỗi cập nhật trạng thái gói liệu trình. Vui lòng thử lại.',
         );
       }
     }
@@ -271,8 +311,10 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
               _selectedSegment == 0
                   ? '${_services.length} dịch vụ đang kinh doanh'
                   : _selectedSegment == 1
-                      ? '${_courses.length} chương trình đào tạo'
-                      : '${_products.length} sản phẩm bán lẻ',
+                      ? '${_packages.length} gói liệu trình định kỳ'
+                      : _selectedSegment == 2
+                          ? '${_courses.length} chương trình đào tạo'
+                          : '${_products.length} sản phẩm & gói bổ trợ',
               style: AppTypography.zaloFont(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -282,14 +324,14 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           ],
         ),
         actions: [
-          if (_selectedSegment != 2)
+          if (_selectedSegment == 0 || _selectedSegment == 2)
             Padding(
               padding: const EdgeInsets.only(right: 14),
               child: ElevatedButton.icon(
                 onPressed: () {
                   if (_selectedSegment == 0) {
                     _openServiceForm();
-                  } else {
+                  } else if (_selectedSegment == 2) {
                     _openCourseForm();
                   }
                 },
@@ -316,23 +358,32 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
       ),
       body: Column(
         children: [
-          // 1. Segmented Control 3 Tab
+          // 1. Segmented Control 4 Tab
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
-            child: Container(
-              height: 38,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  _buildCatalogTabButton(0, 'Dịch vụ (${_services.length})', const Color(0xFF00693F)),
-                  _buildCatalogTabButton(1, 'Khóa học (${_courses.length})', const Color(0xFF00693F)),
-                  _buildCatalogTabButton(2, 'Sản phẩm (${_products.length})', const Color(0xFF00693F)),
-                ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Container(
+                height: 38,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildCatalogTabButton(0, 'Dịch vụ (${_services.length})', const Color(0xFF00693F)),
+                    const SizedBox(width: 4),
+                    _buildCatalogTabButton(1, 'Gói liệu trình (${_packages.length})', const Color(0xFF00693F)),
+                    const SizedBox(width: 4),
+                    _buildCatalogTabButton(2, 'Khóa học (${_courses.length})', const Color(0xFF00693F)),
+                    const SizedBox(width: 4),
+                    _buildCatalogTabButton(3, 'Sản phẩm bổ trợ (${_products.length})', const Color(0xFF00693F)),
+                  ],
+                ),
               ),
             ),
           ),
@@ -347,8 +398,10 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                 hintText: _selectedSegment == 0
                     ? 'Tìm dịch vụ...'
                     : _selectedSegment == 1
-                        ? 'Tìm khóa học...'
-                        : 'Tìm sản phẩm mang về...',
+                        ? 'Tìm gói liệu trình...'
+                        : _selectedSegment == 2
+                            ? 'Tìm khóa học...'
+                            : 'Tìm sản phẩm & vật tư bổ trợ...',
                 hintStyle: AppTypography.zaloFont(fontSize: 12, color: const Color(0xFF9CA3AF)),
                 prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF9CA3AF)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -372,26 +425,20 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: _fetchData,
-              color: _selectedSegment == 0
-                  ? const Color(0xFFE11D48)
-                  : _selectedSegment == 1
-                      ? const Color(0xFF00693F)
-                      : AppColors.primary,
+              color: const Color(0xFF00693F),
               child: _isLoading
-                  ? Center(
+                  ? const Center(
                       child: CircularProgressIndicator(
-                        color: _selectedSegment == 0
-                            ? const Color(0xFFE11D48)
-                            : _selectedSegment == 1
-                                ? const Color(0xFF00693F)
-                                : AppColors.primary,
+                        color: Color(0xFF00693F),
                       ),
                     )
                   : _selectedSegment == 0
                       ? _buildServicesList()
                       : _selectedSegment == 1
-                          ? _buildCoursesList()
-                          : _buildProductsList(),
+                          ? _buildPackagesList()
+                          : _selectedSegment == 2
+                              ? _buildCoursesList()
+                              : _buildProductsList(),
             ),
           ),
         ],
@@ -652,38 +699,205 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
 
   Widget _buildCatalogTabButton(int index, String label, Color activeColor) {
     final isSelected = _selectedSegment == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() => _selectedSegment = index);
-          _fetchData();
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: AppTypography.zaloFont(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? activeColor : AppColors.textSecondary,
-              ),
+    return GestureDetector(
+      onTap: () {
+        setState(() => _selectedSegment = index);
+        _fetchData();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: AppTypography.zaloFont(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? activeColor : AppColors.textSecondary,
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPackagesList() {
+    if (_filteredPackages.isEmpty) {
+      return ListView(
+        children: [
+          const SizedBox(height: 60),
+          Center(
+            child: Column(
+              children: [
+                const Icon(Icons.layers_outlined, size: 36, color: Color(0xFF9CA3AF)),
+                const SizedBox(height: 12),
+                Text(
+                  'Không tìm thấy gói liệu trình nào',
+                  style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Dữ liệu đồng bộ trực tiếp từ CSDL treatment_packages.',
+                  style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 20),
+      itemCount: _filteredPackages.length,
+      itemBuilder: (ctx, index) {
+        final p = _filteredPackages[index];
+        final isToggling = _togglingId == p.id;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 54,
+                  height: 54,
+                  color: const Color(0xFFE8F6ED),
+                  child: p.imageUrl.isNotEmpty
+                      ? Image.network(
+                          p.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.layers_rounded,
+                            color: Color(0xFF00693F),
+                            size: 24,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.layers_rounded,
+                          color: Color(0xFF00693F),
+                          size: 24,
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F6ED),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${p.totalSessions} buổi · ${p.validityMonths}T',
+                            style: AppTypography.zaloFont(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF00693F),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            p.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.zaloFont(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textHeading,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Text(
+                          _formatPrice(p.price),
+                          style: AppTypography.zaloFont(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF00693F),
+                          ),
+                        ),
+                        if (p.discountPrice != null && p.discountPrice! > 0 && p.discountPrice! < p.price) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            _formatPrice(p.discountPrice!),
+                            style: AppTypography.zaloFont(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (p.description.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        p.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.zaloFont(
+                          fontSize: 10.5,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (isToggling)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00693F)),
+                )
+              else
+                Switch(
+                  value: p.isActive,
+                  activeThumbColor: const Color(0xFF00693F),
+                  onChanged: (_) => _handleTogglePackage(p),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

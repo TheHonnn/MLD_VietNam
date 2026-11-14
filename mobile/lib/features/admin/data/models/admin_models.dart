@@ -248,27 +248,27 @@ class AdminCandidateModel {
       title = courseObj['title']?.toString() ?? '';
     }
 
-    // Determine workflow state:
-    // 1. PENDING_CONSULTATION (CONSULTING)
-    // 2. CONFIRMED_PENDING_PAY
-    // 3. PAID_WAITING_CLASS (amountPaid >= deposit/total but no batchId)
-    // 4. ENROLLED_STUDYING (has batchId & enrolled)
-    String rawStatus = json['status']?.toString() ?? 'CONSULTING';
+    // Determine workflow state (Đồng bộ 100% với Web Admin logic):
+    // 1. ENROLLED_STUDYING: Đã được xếp vào lớp học (batchId != null)
+    // 2. PAID_WAITING_CLASS: Đã thanh toán hoặc duyệt nhập học nhưng chưa vào lớp (amountPaid > 0 hoặc approvalStatus == 'APPROVED')
+    // 3. CONFIRMED_PENDING_PAY: Đã chốt tư vấn nhưng chưa nộp đủ học phí/cọc (consultation_status == 'CONFIRMED')
+    // 4. PENDING_CONSULTATION: Chưa chốt tư vấn (consultation_status == 'PENDING_CONSULTATION' / 'CONSULTING' hoặc mới đăng ký)
     final bId = json['batch_id']?.toString();
     final paid = double.tryParse(json['amount_paid']?.toString() ?? '0') ?? 0.0;
     final total = double.tryParse(json['tuition_total']?.toString() ?? '0') ?? 0.0;
+    final rawStatus = json['status']?.toString() ?? 'CONSULTING';
+    final consultationStatus = json['consultation_status']?.toString() ?? '';
+    final approvalStatus = json['approval_status']?.toString() ?? '';
 
-    String workflowStatus = rawStatus;
-    if (bId == null || bId.isEmpty) {
-      if (paid > 0) {
-        workflowStatus = 'PAID_WAITING_CLASS';
-      } else if (rawStatus == 'CONSULTING') {
-        workflowStatus = 'PENDING_CONSULTATION';
-      } else {
-        workflowStatus = 'CONFIRMED_PENDING_PAY';
-      }
-    } else {
+    String workflowStatus;
+    if (bId != null && bId.isNotEmpty) {
       workflowStatus = 'ENROLLED_STUDYING';
+    } else if (paid > 0 || approvalStatus == 'APPROVED') {
+      workflowStatus = 'PAID_WAITING_CLASS';
+    } else if (consultationStatus == 'CONFIRMED' || rawStatus == 'CONFIRMED') {
+      workflowStatus = 'CONFIRMED_PENDING_PAY';
+    } else {
+      workflowStatus = 'PENDING_CONSULTATION';
     }
 
     final cName = json['student_name']?.toString() ?? json['candidate_name']?.toString() ?? '';
@@ -819,4 +819,71 @@ class AdminRevenueReport {
     );
   }
 }
+
+/// Model Gói Liệu trình / Gói Trị liệu Bổ trợ dành cho Admin Catalog (treatment_packages)
+class AdminTreatmentPackageModel {
+  final String id;
+  final String name;
+  final String? serviceId;
+  final int totalSessions;
+  final double price;
+  final double? discountPrice;
+  final int validityMonths;
+  final String description;
+  final String imageUrl;
+  final bool isActive;
+  final DateTime? createdAt;
+
+  const AdminTreatmentPackageModel({
+    required this.id,
+    required this.name,
+    this.serviceId,
+    required this.totalSessions,
+    required this.price,
+    this.discountPrice,
+    this.validityMonths = 6,
+    this.description = '',
+    this.imageUrl = '',
+    required this.isActive,
+    this.createdAt,
+  });
+
+  factory AdminTreatmentPackageModel.fromJson(Map<String, dynamic> json) {
+    return AdminTreatmentPackageModel(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? json['title']?.toString() ?? 'Gói liệu trình MLD',
+      serviceId: json['service_id']?.toString(),
+      totalSessions: int.tryParse(json['total_sessions']?.toString() ?? json['sessionsCount']?.toString() ?? '10') ?? 10,
+      price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
+      discountPrice: json['discount_price'] != null ? double.tryParse(json['discount_price'].toString()) : null,
+      validityMonths: int.tryParse(json['validity_months']?.toString() ?? '6') ?? 6,
+      description: json['description']?.toString() ?? '',
+      imageUrl: json['image_url']?.toString() ?? '',
+      isActive: json['is_active'] == true,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+    );
+  }
+
+  AdminTreatmentPackageModel copyWith({
+    bool? isActive,
+    String? name,
+    double? price,
+    int? totalSessions,
+  }) {
+    return AdminTreatmentPackageModel(
+      id: id,
+      name: name ?? this.name,
+      serviceId: serviceId,
+      totalSessions: totalSessions ?? this.totalSessions,
+      price: price ?? this.price,
+      discountPrice: discountPrice,
+      validityMonths: validityMonths,
+      description: description,
+      imageUrl: imageUrl,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt,
+    );
+  }
+}
+
 
