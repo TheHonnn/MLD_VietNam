@@ -526,6 +526,54 @@ describe('Admin shared-schema integration', () => {
       ).rows[0].payment_status,
     ).toBe('PENDING');
   });
+  it('rejects overlapping or stale instructor assignments and reads sessions by week', async () => {
+    const { id: instructor } = (await pg.query<{ id: string }>(
+      "INSERT INTO instructors(full_name,avatar_url,bio) VALUES('Test instructor','test','test') RETURNING id",
+    )).rows[0];
+    const { id: course } = (await pg.query<{ id: string }>('SELECT id FROM courses LIMIT 1')).rows[0];
+    const { id: branch } = (await pg.query<{ id: string }>('SELECT id FROM branches LIMIT 1')).rows[0];
+    const { rows: [source, target] } = await pg.query<{ id: string }>(
+      `INSERT INTO course_batches(course_id,branch_id,batch_code,instructor_id,start_date,end_date,schedule_text)
+       VALUES ($1,$2,'TEST-INSTRUCTOR-SOURCE',$3,CURRENT_DATE+10,CURRENT_DATE+30,'Test'),
+              ($1,$2,'TEST-INSTRUCTOR-TARGET',NULL,CURRENT_DATE+10,CURRENT_DATE+30,'Test') RETURNING id`,
+      [course, branch, instructor],
+    );
+    const { rows: [session] } = await pg.query<{ id: string; session_date: string }>(
+      `INSERT INTO batch_schedules(batch_id,session_date,start_time,end_time,topic)
+       VALUES ($1,CURRENT_DATE+14,'08:00','10:00','Source'),
+              ($2,CURRENT_DATE+14,'09:00','11:00','Target') RETURNING id,session_date::text`,
+      [source.id, target.id],
+    );
+    const update = { key: { id: target.id }, values: { instructor_id: instructor }, expectedInstructorId: null };
+    await expect(service.mutate('course_batches', actor, 'update', update)).rejects.toThrow('Giảng viên trùng giờ');
+    await pg.query("UPDATE batch_schedules SET start_time='10:00' WHERE batch_id=$1", [target.id]);
+    await service.mutate('course_batches', actor, 'update', update);
+    await expect(service.mutate('course_batches', actor, 'update', update)).rejects.toThrow('Phân công lớp đã thay đổi');
+    const listing = await service.list('batch_schedules', actor, { weekStart: session.session_date });
+    expect(listing.rows.some(row => row.id === session.id)).toBe(true);
+    expect((await service.list('batch_schedules', actor, { weekStart: '2050-01-01' })).total).toBe(0);
+  });
+  it('saves one attendance session atomically and refuses stale or out-of-scope changes', async () => {
+    const { rows: [enrollment] } = await pg.query<{ id: string; batch_id: string; branch_id: string }>(
+      "SELECT e.id,e.batch_id,b.branch_id FROM course_enrollments e JOIN course_batches b ON b.id=e.batch_id WHERE b.batch_code='TESTBATCH'",
+    );
+    await pg.query("UPDATE course_batches SET start_date=LEAST(start_date,CURRENT_DATE),end_date=GREATEST(end_date,CURRENT_DATE) WHERE id=$1", [enrollment.batch_id]);
+    const { rows: [session] } = await pg.query<{ id: string }>(
+      "INSERT INTO batch_schedules(batch_id,session_date,start_time,end_time,topic) VALUES($1,CURRENT_DATE,'16:00','17:00','Attendance test') RETURNING id",
+      [enrollment.batch_id],
+    );
+    await pg.query("UPDATE course_enrollments SET student_status='ENROLLED',access_status='ACTIVE' WHERE id=$1", [enrollment.id]);
+    expect((await service.attendanceRoster(actor, session.id))?.rows[0]).toMatchObject({ id: enrollment.id, status: null, eligible: true });
+    const change = { enrollmentId: enrollment.id, previous: null, status: 'PRESENT' };
+    await expect(service.saveAttendance(actor, session.id, [change, { ...change, enrollmentId: actor.id }])).rejects.toThrow('không còn đủ điều kiện');
+    expect((await service.attendanceRoster(actor, session.id))?.rows[0].status).toBeNull();
+    await service.saveAttendance(actor, session.id, [change]);
+    await expect(service.saveAttendance(actor, session.id, [change])).rejects.toThrow('Điểm danh đã thay đổi');
+    expect((await service.attendanceRoster(actor, session.id))?.rows[0].status).toBe('PRESENT');
+    await expect(service.attendanceRoster({ ...actor, role: 'BRANCH_MANAGER', scopes: [{ permission: 'student_attendance.read', branchId: actor.id }] }, session.id)).rejects.toThrow('phạm vi');
+    await pg.query('DELETE FROM batch_schedules WHERE id=$1', [session.id]);
+  });
+
   it('validates attendance belongs to the right batch and synchronizes attendance totals', async () => {
     const enrollment = (
       await pg.query<any>('SELECT * FROM course_enrollments LIMIT 1')
@@ -544,11 +592,17 @@ describe('Admin shared-schema integration', () => {
         enrollment_id: enrollment.id,
         theory_score: 8,
         practical_score: 8,
-        attended_sessions: 0,
-        total_batch_sessions: 1,
-        attendance_rate: 0,
+        attended_sessions: 10,
+        total_batch_sessions: 10,
+        attendance_rate: 100,
+        is_graduated: true,
       },
     });
+    const { rows: [initial] } = await pg.query<{ attendance_rate: string; is_graduated: boolean }>(
+      'SELECT attendance_rate,is_graduated FROM student_academic_records WHERE enrollment_id=$1', [enrollment.id],
+    );
+    expect(Number(initial.attendance_rate)).toBe(0);
+    expect(initial.is_graduated).toBe(false);
     const attendance = await service.mutate(
       'student_attendance',
       actor,

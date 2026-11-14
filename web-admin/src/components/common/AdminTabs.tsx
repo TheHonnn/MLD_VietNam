@@ -183,6 +183,9 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
                 className={itemClass}
                 title={tab.title || tab.label}
                 aria-current={isActive ? 'page' : undefined}
+                aria-disabled={tab.disabled || undefined}
+                tabIndex={tab.disabled ? -1 : undefined}
+                onClick={tab.disabled ? event => event.preventDefault() : undefined}
                 onKeyDown={(e) => handleKeyDown(e, idx)}
               >
                 {renderTabContent(tab, isActive)}

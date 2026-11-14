@@ -6,7 +6,7 @@ const routeResources: Record<string, string[]> = {
   '/services-catalog': ['services', 'treatment_packages', 'service_categories'],
   '/cashier-pos': ['cashier', 'invoices', 'tuition_transactions'], '/home-products': ['home_products'],
   '/academy-enrollment': ['course_enrollments', 'tuition_transactions'], '/instructors': ['instructors'],
-  '/attendance': ['student_attendance', 'student_academic_records', 'course_batches'],
+  '/attendance': ['student_attendance'],
   '/curriculum': ['courses', 'course_batches', 'batch_schedules', 'course_lessons', 'course_quizzes', 'quiz_questions'],
   '/certificates': ['student_certificates', 'certificate_templates'],
   '/reports': ['invoices', 'tuition_transactions'], '/commissions': ['staff_commissions'],

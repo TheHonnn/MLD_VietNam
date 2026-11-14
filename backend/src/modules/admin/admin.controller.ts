@@ -8,6 +8,7 @@ import {
   Get,
   Ip,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -293,6 +294,18 @@ export class AdminController {
       key: { id },
     });
   }
+  @Get('academy/attendance/:scheduleId')
+  @UseGuards(AdminGuard)
+  attendanceRoster(@Param('scheduleId', ParseUUIDPipe) scheduleId: string, @Req() req) {
+    return this.service.attendanceRoster(req.admin, scheduleId);
+  }
+
+  @Post('academy/attendance/:scheduleId')
+  @UseGuards(AdminGuard)
+  saveAttendance(@Param('scheduleId', ParseUUIDPipe) scheduleId: string, @Body() body: { changes?: unknown }, @Req() req) {
+    return this.service.saveAttendance(req.admin, scheduleId, body?.changes);
+  }
+
   @Get(':table')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()
@@ -391,7 +404,7 @@ export class AdminController {
   update(
     @Param('table') table: string,
     @Body()
-    body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string },
+    body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string; expectedInstructorId?: string | null },
     @Req() req,
   ) {
     return this.service.mutate(table, req.admin, 'update', body);

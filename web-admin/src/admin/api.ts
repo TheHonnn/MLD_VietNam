@@ -1737,8 +1737,8 @@ export async function adminApi<T>(path: string, body?: unknown, signal?: AbortSi
   return body === undefined ? requestBackend<T>(path, body, signal) : sendMutation<T>(path, body, signal);
 }
 
-export async function adminCommand<T>(path: string, body?: unknown): Promise<T> {
-  return body === undefined ? requestBackend<T>(path, body) : sendMutation<T>(path, body);
+export async function adminCommand<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  return body === undefined ? requestBackend<T>(path, body, signal) : sendMutation<T>(path, body, signal);
 }
 
 export function rowKey(columns: Column[], row: Row) {

@@ -29,7 +29,7 @@ import { AdminPageShell, PageHeader, PageTabs, AdminTabs, PageToolbar, PageConte
 import { portalService } from "../services/portal.service";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAdmin } from "./Auth";
-import { getResourceNavigation, navigationGroupForTable } from "./navigation";
+import { academyClassLink, getResourceNavigation, navigationGroupForTable } from "./navigation";
 import {
   Plus,
   Pencil,
@@ -3326,6 +3326,7 @@ function RecordDialog({
   onSaved,
   onSwitchMode,
   onShareJournal,
+  initialBatchId,
 }: {
   resource: Resource;
   columns: Column[];
@@ -3335,6 +3336,7 @@ function RecordDialog({
   onSaved: () => void;
   onSwitchMode?: (newMode: "create" | "update" | "view", targetRow?: Row) => void;
   onShareJournal?: (row: Row) => void;
+  initialBatchId?: string;
 }) {
   const [values, setValues] = useState<Row>(() =>
     mode === "create" ? { ...row } : {},
@@ -3607,15 +3609,13 @@ function RecordDialog({
       }
       if (resource.name === "student_academic_records") {
         if (!payload.enrollment_id && values.enrollment_id) payload.enrollment_id = values.enrollment_id;
-        payload.theory_score = Number(payload.theory_score ?? values.theory_score ?? 0);
-        payload.practical_score = Number(payload.practical_score ?? values.practical_score ?? 0);
-        payload.attended_sessions = Number(payload.attended_sessions ?? values.attended_sessions ?? 0);
-        payload.total_batch_sessions = Number(payload.total_batch_sessions ?? values.total_batch_sessions ?? 10);
-        payload.attendance_rate = Number(payload.attendance_rate ?? values.attendance_rate ?? 100);
-        payload.is_graduated = Boolean(payload.is_graduated ?? values.is_graduated ?? true);
-        if (payload.is_graduated && !payload.graduation_date) {
-          payload.graduation_date = values.graduation_date || new Date().toISOString().split("T")[0];
+        for (const field of ["theory_score", "practical_score"]) {
+          const value = payload[field] ?? values[field] ?? row[field];
+          if (value == null || String(value).trim() === "" || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 10)
+            throw new Error("Nhập điểm lý thuyết và thực hành từ 0 đến 10.");
+          payload[field] = Number(value);
         }
+        for (const field of ["attended_sessions", "total_batch_sessions", "attendance_rate", "is_graduated", "graduation_date", "certificate_id"]) delete payload[field];
         if (values.feedback_theory !== undefined) payload.feedback_theory = values.feedback_theory;
         if (values.feedback_practical !== undefined) payload.feedback_practical = values.feedback_practical;
         if (values.feedback_attendance !== undefined) payload.feedback_attendance = values.feedback_attendance;
@@ -3628,7 +3628,7 @@ function RecordDialog({
         payload.can_enter_grades = payload.can_enter_grades !== undefined ? Boolean(payload.can_enter_grades) : (values.can_enter_grades !== undefined ? Boolean(values.can_enter_grades) : true);
       }
       if (resource.name === "technician_slots") payload.status = "BLOCKED";
-      const write = staffPages[resource.name] || loyaltyForm ? adminCommand : adminApi;
+      const write = staffPages[resource.name] || loyaltyForm || navigationGroupForTable(resource.name)?.label === "Học viên & Lớp học" ? adminCommand : adminApi;
       await write(`${resource.name}/${mode}`, {
         values: payload,
         ...(mode === "update"
@@ -3795,7 +3795,7 @@ function RecordDialog({
                   icon_url: String(values.icon_url ?? (columns.find((x) => x.name === "icon_url") ? current(columns.find((x) => x.name === "icon_url")!) : "")),
                   description: String(values.description ?? (columns.find((x) => x.name === "description") ? current(columns.find((x) => x.name === "description")!) : "")),
                   display_order: Number(values.display_order ?? (columns.find((x) => x.name === "display_order") ? current(columns.find((x) => x.name === "display_order")!) : 1) ?? 1),
-                  is_active: Boolean(values.is_active ?? (columns.find((x) => x.name === "is_active") ? current(columns.find((x) => x.name === "is_active")!) : true) ?? true),
+                  is_active: Boolean(values.is_active ?? (columns.find((x) => x.name === "is_active") ? current(columns.find((x) => x.name === "is_active")!) : false) ?? false),
                 }}
                 onChange={(field, val) => set(field, val)}
                 isCreate={mode === "create"}
@@ -3812,7 +3812,7 @@ function RecordDialog({
                   experience_years: Number(values.experience_years ?? (columns.find((x) => x.name === "experience_years") ? current(columns.find((x) => x.name === "experience_years")!) : 1) ?? 1),
                   bio: String(values.bio ?? (columns.find((x) => x.name === "bio") ? current(columns.find((x) => x.name === "bio")!) : "")),
                   achievements: values.achievements ?? (columns.find((x) => x.name === "achievements") ? current(columns.find((x) => x.name === "achievements")!) : []),
-                  is_active: Boolean(values.is_active ?? (columns.find((x) => x.name === "is_active") ? current(columns.find((x) => x.name === "is_active")!) : true) ?? true),
+                  is_active: Boolean(values.is_active ?? (columns.find((x) => x.name === "is_active") ? current(columns.find((x) => x.name === "is_active")!) : false) ?? false),
                 }}
                 onChange={(field, val) => set(field, val)}
                 isCreate={mode === "create"}
@@ -3828,7 +3828,7 @@ function RecordDialog({
                   start_time: String(values.start_time ?? (columns.find((x) => x.name === "start_time") ? current(columns.find((x) => x.name === "start_time")!) : "")),
                   end_time: String(values.end_time ?? (columns.find((x) => x.name === "end_time") ? current(columns.find((x) => x.name === "end_time")!) : "")),
                   topic: String(values.topic ?? (columns.find((x) => x.name === "topic") ? current(columns.find((x) => x.name === "topic")!) : "")),
-                  is_practice_lab: Boolean(values.is_practice_lab ?? (columns.find((x) => x.name === "is_practice_lab") ? current(columns.find((x) => x.name === "is_practice_lab")!) : true) ?? true),
+                  is_practice_lab: Boolean(values.is_practice_lab ?? (columns.find((x) => x.name === "is_practice_lab") ? current(columns.find((x) => x.name === "is_practice_lab")!) : false) ?? false),
                 }}
                 onChange={(field, val) => set(field, val)}
                 isCreate={mode === "create"}
@@ -3837,18 +3837,19 @@ function RecordDialog({
           ) : resource.name === "student_academic_records" && mode !== "view" ? (
             <div className="p-4 sm:p-6 overflow-y-auto max-h-[82vh]">
               <StudentAcademicRecordFormEditor
+                initialBatchId={initialBatchId}
                 values={{
                   enrollment_id: String(values.enrollment_id ?? (columns.find((x) => x.name === "enrollment_id") ? current(columns.find((x) => x.name === "enrollment_id")!) : "")),
                   theory_score: values.theory_score !== undefined ? values.theory_score : (columns.find((x) => x.name === "theory_score") ? (current(columns.find((x) => x.name === "theory_score")!) ?? "") : ""),
                   practical_score: values.practical_score !== undefined ? values.practical_score : (columns.find((x) => x.name === "practical_score") ? (current(columns.find((x) => x.name === "practical_score")!) ?? "") : ""),
-                  attended_sessions: values.attended_sessions !== undefined ? values.attended_sessions : (columns.find((x) => x.name === "attended_sessions") ? (current(columns.find((x) => x.name === "attended_sessions")!) ?? 10) : 10),
-                  total_batch_sessions: values.total_batch_sessions !== undefined ? values.total_batch_sessions : (columns.find((x) => x.name === "total_batch_sessions") ? (current(columns.find((x) => x.name === "total_batch_sessions")!) ?? 10) : 10),
-                  attendance_rate: values.attendance_rate !== undefined ? values.attendance_rate : (columns.find((x) => x.name === "attendance_rate") ? (current(columns.find((x) => x.name === "attendance_rate")!) ?? 100) : 100),
+                  attended_sessions: values.attended_sessions !== undefined ? values.attended_sessions : (columns.find((x) => x.name === "attended_sessions") ? (current(columns.find((x) => x.name === "attended_sessions")!) ?? 0) : 0),
+                  total_batch_sessions: values.total_batch_sessions !== undefined ? values.total_batch_sessions : (columns.find((x) => x.name === "total_batch_sessions") ? (current(columns.find((x) => x.name === "total_batch_sessions")!) ?? 0) : 0),
+                  attendance_rate: values.attendance_rate !== undefined ? values.attendance_rate : (columns.find((x) => x.name === "attendance_rate") ? (current(columns.find((x) => x.name === "attendance_rate")!) ?? 0) : 0),
                   feedback_theory: String(values.feedback_theory ?? (columns.find((x) => x.name === "feedback_theory") ? (current(columns.find((x) => x.name === "feedback_theory")!) || "") : "")),
                   feedback_practical: String(values.feedback_practical ?? (columns.find((x) => x.name === "feedback_practical") ? (current(columns.find((x) => x.name === "feedback_practical")!) || "") : "")),
                   feedback_attendance: String(values.feedback_attendance ?? (columns.find((x) => x.name === "feedback_attendance") ? (current(columns.find((x) => x.name === "feedback_attendance")!) || "") : "")),
                   feedback_attitude: String(values.feedback_attitude ?? (columns.find((x) => x.name === "feedback_attitude") ? (current(columns.find((x) => x.name === "feedback_attitude")!) || "") : "")),
-                  is_graduated: Boolean(values.is_graduated ?? (columns.find((x) => x.name === "is_graduated") ? current(columns.find((x) => x.name === "is_graduated")!) : true) ?? true),
+                  is_graduated: Boolean(values.is_graduated ?? (columns.find((x) => x.name === "is_graduated") ? current(columns.find((x) => x.name === "is_graduated")!) : false) ?? false),
                   graduation_date: values.graduation_date !== undefined ? (values.graduation_date ? String(values.graduation_date) : null) : (columns.find((x) => x.name === "graduation_date") && current(columns.find((x) => x.name === "graduation_date")!) ? String(current(columns.find((x) => x.name === "graduation_date")!)) : null),
                 }}
                 onChange={(field, val) => set(field, val)}
@@ -4933,6 +4934,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       max_students?: number;
       enrolled_count?: number;
       status?: string;
+      course_title?: string;
+      branch_name?: string;
       courses?: { id?: string; title?: string; code?: string };
       branches?: { id?: string; name?: string; code?: string };
       instructor?: { id?: string; full_name?: string };
@@ -5005,7 +5008,18 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           if (active && Array.isArray(data)) setCategoriesForFilter(data);
         })
         .catch(() => { });
-    } else if (table === "course_enrollments" || table === "student_attendance" || table === "student_academic_records" || table === "course_batch_assistants") {
+    } else if (["course_batches", "batch_schedules", "student_academic_records", "course_batch_assistants"].includes(table)) {
+      const loadClasses = async () => {
+        const classes: Row[] = [];
+        for (let page = 1; active; page++) {
+          const result = await adminCommand<Listing>(`course_batches?limit=100&sort=id&page=${page}`);
+          classes.push(...result.rows);
+          if (classes.length >= result.total || !result.rows.length) break;
+        }
+        if (active) setBatchesForFilter(classes.map(row => ({ ...row, id: String(row.id), batch_code: String(row.batch_code), course_id: String(row.course_id) })));
+      };
+      void loadClasses().catch(() => { if (active) setBatchesForFilter([]); });
+    } else if (table === "course_enrollments" || table === "student_attendance") {
       fetch(
         `${SUPABASE_URL}/rest/v1/course_batches?select=*,courses(id,title,code),branches(id,name,code),instructor:instructors!instructor_id(id,full_name)&order=start_date.desc,created_at.desc`,
         {
@@ -5089,6 +5103,14 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     setConfirmation(null);
     setNotice("");
     const listParams = new URLSearchParams(params);
+    const batchId = params.get("batch_id");
+    if (batchId && batchId !== "__ALL__" && ["course_batches", "batch_schedules", "course_batch_assistants", "student_academic_records"].includes(table)) {
+      try {
+        const key = table === "course_batches" ? "id" : "batch_id";
+        const selection = JSON.parse(params.get("filter") || "{}");
+        listParams.set("filter", JSON.stringify({ ...selection, [key]: batchId }));
+      } catch { /* The API validates explicit filters. */ }
+    }
     if (staffDateField && !listParams.has("sort")) {
       listParams.set("sort", "start_time");
       listParams.set("direction", "asc");
@@ -5099,7 +5121,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         listParams.set("filter", JSON.stringify({ [staffDateField]: todayAtBranch(), ...selection }));
       } catch { /* The API validates explicit filters. */ }
     }
-    adminApi<Listing>(
+    const request = navigationGroupForTable(table)?.label === "Học viên & Lớp học" ? adminCommand : adminApi;
+    request<Listing>(
       table + "?" + listParams.toString(),
       undefined,
       controller.signal,
@@ -5401,14 +5424,15 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     if (!draft) return;
     const theory = Number(draft.theory_score);
     const practical = Number(draft.practical_score);
-    if (![theory, practical].every((score) => Number.isFinite(score) && score >= 0 && score <= 10)) {
+    if (!draft.theory_score.trim() || !draft.practical_score.trim() ||
+      ![theory, practical].every((score) => Number.isFinite(score) && score >= 0 && score <= 10)) {
       setError("Điểm lý thuyết và thực hành phải nằm trong khoảng 0 đến 10.");
       return;
     }
     setSavingGradeId(String(row.id));
     setError("");
     try {
-      await adminApi(`${table}/update`, {
+      await adminCommand(`${table}/update`, {
         values: { theory_score: theory, practical_score: practical },
         key: { id: row.id },
         expectedUpdatedAt: row.updated_at,
@@ -5899,12 +5923,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                         },
                         mode: "create",
                       });
-                    } else if (table === "course_batch_assistants") {
+                    } else if (table === "course_batch_assistants" || table === "batch_schedules") {
                       setEdit({
                         row: {
                           ...(selectedBatchId && selectedBatchId !== "__ALL__" ? { batch_id: selectedBatchId } : {}),
-                          can_mark_attendance: true,
-                          can_enter_grades: true,
+                          ...(table === "course_batch_assistants" ? { can_mark_attendance: false, can_enter_grades: false } : {}),
                         },
                         mode: "create",
                       });
@@ -5941,8 +5964,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         ariaLabel="Phân hệ liên quan"
         variant="line"
         activeTab={table}
-        tabs={getResourceNavigation(table, resources, user?.role || "")}
+        tabs={getResourceNavigation(table, resources, user?.role || "").map(tab =>
+          navigationGroupForTable(table)?.label === "Học viên & Lớp học"
+            ? { ...tab, href: academyClassLink(tab.href, selectedBatchId) } : tab)}
       />
+      {table === "course_batches" && selectedBatchId && <Link className="admin-secondary mb-4" to="/manage/course_batches">Xem tất cả lớp</Link>}
       {[
         "course_lessons",
         "course_quizzes",
@@ -6017,7 +6043,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
  <button className={params.get("view") === "classes" ? "admin-primary" : "admin-secondary"} onClick={() => { const p = new URLSearchParams(params); p.set("view", "classes"); p.delete("batch_id"); p.delete("filter"); p.delete("page"); setParams(p); }}>Xem theo lớp</button>
  <Link className="admin-secondary" to="/academy-enrollment">Duyệt hồ sơ &amp; Xếp lớp</Link>
  </div>}
-        {(table === "course_enrollments" || table === "student_attendance" || table === "student_academic_records" || table === "course_batch_assistants") && (
+        {(table === "course_batches" || table === "course_enrollments" || table === "student_attendance" || table === "student_academic_records" || table === "course_batch_assistants" || table === "batch_schedules") && (
           <select
             aria-label="Chọn Lớp học"
             className="font-bold text-[#8A4F23] bg-[#FFFDF9] border-[#EAD8C7]"
@@ -6031,7 +6057,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                 p.delete("batch_id");
                 p.delete("schedule_id");
               } else {
-                next.batch_id = bId;
+                if (table !== "course_batches") next.batch_id = bId;
                 p.set("batch_id", bId);
                 p.delete("schedule_id");
               }
@@ -6043,10 +6069,10 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             }}
           >
             <option value="">🎓 Chọn lớp học ({batchesForFilter.length} lớp có sẵn)</option>
-            <option value="__ALL__">🌐 {table === "student_attendance" ? "Toàn bộ lịch sử điểm danh tất cả các lớp" : table === "course_batch_assistants" ? "Toàn bộ trợ giảng tất cả các lớp" : "Toàn bộ học viên tất cả các lớp"}</option>
+            {table !== "course_batches" && <option value="__ALL__">{table === "student_attendance" ? "Toàn bộ lịch sử điểm danh" : "Tất cả lớp"}</option>}
             {batchesForFilter.map((b) => (
               <option key={b.id} value={b.id}>
-                {b.batch_code} · {b.courses?.title || "Khóa học"} {b.branches?.name ? `(${b.branches.name})` : ""}
+                {b.batch_code} · {b.course_title || b.courses?.title || "Khóa học"} {b.branch_name || b.branches?.name || ""}
               </option>
             ))}
           </select>
@@ -7190,7 +7216,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                         <tr key={JSON.stringify(rowKey(listing.columns, row)) || i}>
                           {visible.map((c, j) => (
                             <td key={c.name}>
-                              {table === "student_academic_records" && (c.name === "theory_score" || c.name === "practical_score") ? (
+                              {table === "student_academic_records" && resource?.actions?.includes("update") && (c.name === "theory_score" || c.name === "practical_score") ? (
                                 <input
                                   type="number"
                                   min={0}
@@ -7274,6 +7300,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                               )}
                               {table === "technician_slots" && row.status === "BLOCKED" && resource?.actions?.includes("delete") && (
                                 <button type="button" className="admin-secondary whitespace-nowrap" onClick={() => setConfirmation({ row, action: "delete", title: "Mở lại khung giờ" })}>Mở lại</button>
+                              )}
+                              {table === "course_batches" && getResourceNavigation(table, resources, user?.role || "").some(tab => tab.id === "batch_schedules") && (
+                                <Link className="admin-secondary whitespace-nowrap" to={academyClassLink("/manage/batch_schedules", row.id)}>Thời khóa biểu</Link>
+                              )}
+                              {table === "batch_schedules" && getResourceNavigation(table, resources, user?.role || "").some(tab => tab.id === "student_attendance") && (
+                                <Link className="admin-secondary whitespace-nowrap" to={academyClassLink("/attendance", row.batch_id) + "&schedule_id=" + encodeURIComponent(row.id)}>Điểm danh</Link>
                               )}
                               {table === "student_academic_records" && gradeDrafts[String(row.id)] && (
                                 <button
@@ -7494,6 +7526,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           columns={listing.columns}
           row={edit.row}
           mode={edit.mode}
+          initialBatchId={selectedBatchId && selectedBatchId !== "__ALL__" ? selectedBatchId : undefined}
           onSwitchMode={(newMode, targetRow) =>
             setEdit({ row: targetRow || edit.row, mode: newMode })
           }
@@ -7634,7 +7667,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   }
                   const isDeleteAction = confirmation.action === "delete";
 
-                  const runAction = staffPages[table] || loyaltyPages[table] ? adminCommand : adminApi;
+                  const runAction = staffPages[table] || loyaltyPages[table] || navigationGroupForTable(table)?.label === "Học viên & Lớp học" ? adminCommand : adminApi;
                   await runAction(
                     `${table}/${isDeleteAction ? "delete" : "action"}`,
                     {

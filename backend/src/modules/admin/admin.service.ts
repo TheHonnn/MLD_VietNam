@@ -338,6 +338,14 @@ export class AdminService {
       values.push(scopedBranches);
       where.push(branchPredicate(table, quote(table), `$${values.length}`, columns.map(column => column.name)));
     }
+    if (table === 'batch_schedules' && query.weekStart) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(query.weekStart) ||
+          !Number.isFinite(Date.parse(query.weekStart)) ||
+          new Date(query.weekStart).toISOString().slice(0, 10) !== query.weekStart)
+        throw new BadRequestException('Ngày bắt đầu tuần không hợp lệ.');
+      values.push(query.weekStart);
+      where.push(`session_date >= $${values.length}::date AND session_date < $${values.length}::date + 7`);
+    }
     if (table === 'users' && query.staffCandidates === '1') {
       where.push("is_active AND role::text NOT IN ('CUSTOMER','STUDENT','GUEST') AND NOT EXISTS (SELECT 1 FROM staff_profiles p WHERE p.user_id=users.id)");
     }
@@ -375,20 +383,33 @@ export class AdminService {
         // The class selector uses this sentinel for an unfiltered listing,
         // including attendance/grades whose batch relation is indirect.
         if (name === 'batch_id' && value === '__ALL__' &&
-          ['course_enrollments', 'student_attendance', 'student_academic_records'].includes(table)) continue;
+          ['course_enrollments', 'student_attendance', 'student_academic_records', 'course_batch_assistants', 'batch_schedules'].includes(table)) continue;
+        if (table === 'student_academic_records' && name === 'batch_id' && !columns.some(column => column.name === name)) {
+          values.push(value);
+          where.push(`EXISTS (SELECT 1 FROM course_enrollments e WHERE e.id=student_academic_records.enrollment_id AND e.batch_id=$${values.length})`);
+          continue;
+        }
         if (!columns.some((c) => c.name === name) || typeof value === 'object')
           throw new BadRequestException('Trường lọc không hợp lệ.');
         values.push(value);
         where.push(`${expression(name)}=$${values.length}`);
       }
     }
-    if (actor.role === 'INSTRUCTOR' && ['course_batches', 'course_batch_assistants', 'student_academic_records', 'student_attendance'].includes(table)) {
+    if (actor.role === 'INSTRUCTOR' && ['course_batches', 'course_batch_assistants', 'batch_schedules', 'course_enrollments', 'student_academic_records', 'student_attendance'].includes(table)) {
       values.push(actor.id);
       const actorParam = `$${values.length}`;
       if (table === 'course_batches') {
         where.push(`(EXISTS (SELECT 1 FROM public.instructors i WHERE i.id=course_batches.instructor_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=course_batches.id AND i.user_id=${actorParam}))`);
+      } else if (table === 'batch_schedules') {
+        where.push(`EXISTS (SELECT 1 FROM course_batches b WHERE b.id=batch_schedules.batch_id AND (
+          EXISTS (SELECT 1 FROM instructors i WHERE i.id=b.instructor_id AND i.user_id=${actorParam}) OR
+          EXISTS (SELECT 1 FROM course_batch_assistants a JOIN instructors i ON i.id=a.instructor_id WHERE a.batch_id=b.id AND i.user_id=${actorParam})))`);
       } else if (table === 'course_batch_assistants') {
         where.push(`(EXISTS (SELECT 1 FROM public.instructors i WHERE i.id=course_batch_assistants.instructor_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=course_batch_assistants.batch_id AND i.user_id=${actorParam}))`);
+      } else if (table === 'course_enrollments') {
+        where.push(`EXISTS (SELECT 1 FROM course_batches b WHERE b.id=course_enrollments.batch_id AND (
+          EXISTS (SELECT 1 FROM instructors i WHERE i.id=b.instructor_id AND i.user_id=${actorParam}) OR
+          EXISTS (SELECT 1 FROM course_batch_assistants a JOIN instructors i ON i.id=a.instructor_id WHERE a.batch_id=b.id AND a.can_enter_grades AND i.user_id=${actorParam})))`);
       } else if (table === 'student_academic_records') {
         where.push(`EXISTS (SELECT 1 FROM public.course_enrollments e WHERE e.id=student_academic_records.enrollment_id AND (EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=e.batch_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=e.batch_id AND a.can_enter_grades AND i.user_id=${actorParam})))`);
       } else if (table === 'student_attendance') {
@@ -545,7 +566,7 @@ export class AdminService {
     table: string,
     actor: AdminActor,
     operation: 'create' | 'update' | 'delete',
-    body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string; reason?: string },
+    body: { values?: unknown; key?: unknown; expectedUpdatedAt?: string; expectedInstructorId?: string | null; reason?: string },
     allocateTreatmentSession = false,
   ) {
     const resource = this.resource(table, actor, true);
@@ -659,6 +680,11 @@ export class AdminService {
         throw new ConflictException(
           'Bản ghi đã thay đổi. Tải lại trước khi lưu.',
         );
+      if (table === 'course_batches' && operation === 'update' &&
+          body.expectedInstructorId !== undefined &&
+          body.expectedInstructorId !== (previous?.instructor_id ?? null)) {
+        throw new ConflictException('Phân công lớp đã thay đổi. Tải lại trước khi lưu.');
+      }
       if (table === 'users') {
         if (
           previous?.id === actor.id &&
@@ -806,6 +832,55 @@ export class AdminService {
     allocateTreatmentSession = false,
   ) {
     const next = { ...previous, ...data };
+    if (table === 'student_academic_records' && operation !== 'delete') {
+      if (previous && next.enrollment_id !== previous.enrollment_id)
+        throw new ConflictException('Không thể chuyển bảng điểm sang hồ sơ ghi danh khác.');
+      for (const field of ['attended_sessions','total_batch_sessions','attendance_rate','is_graduated','graduation_date','certificate_id'])
+        delete data[field];
+      Object.assign(data, await this.academicAttendance(client, next.enrollment_id));
+    }
+    if (table === 'course_batch_assistants' && operation !== 'delete' &&
+        (next.batch_id !== previous?.batch_id || next.instructor_id !== previous?.instructor_id)) {
+      const { rows: [assignment] } = await client.query(
+        `SELECT b.instructor_id AS lead,b.status,i.is_active
+         FROM course_batches b CROSS JOIN instructors i WHERE b.id=$1 AND i.id=$2`,
+        [next.batch_id, next.instructor_id],
+      );
+      if (!assignment?.is_active) throw new ConflictException('Chọn lớp và trợ giảng đang hoạt động.');
+      if (assignment.lead === next.instructor_id)
+        throw new ConflictException('Giảng viên phụ trách đã có quyền xử lý lớp.');
+      if (['COMPLETED','CANCELLED'].includes(assignment.status))
+        throw new ConflictException('Lớp đã đóng, không thể phân công trợ giảng.');
+    }
+    if (table === 'course_batches' && operation !== 'delete' && next.instructor_id &&
+        (next.instructor_id !== previous?.instructor_id || next.status !== previous?.status) &&
+        ['UPCOMING', 'OPEN_FOR_ENROLLMENT', 'IN_PROGRESS'].includes(next.status ?? 'OPEN_FOR_ENROLLMENT')) {
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mld-academy-schedules'))");
+      const instructor = await client.query(
+        'SELECT 1 FROM instructors WHERE id=$1 AND is_active FOR SHARE',
+        [next.instructor_id],
+      );
+      if (!instructor.rowCount) throw new ConflictException('Chọn giảng viên đang hoạt động.');
+      if (previous?.id) {
+        const assistant = await client.query(
+          'SELECT 1 FROM course_batch_assistants WHERE batch_id=$1 AND instructor_id=$2',
+          [previous.id, next.instructor_id],
+        );
+        if (assistant.rowCount) throw new ConflictException('Gỡ phân công trợ giảng của người này trước khi đổi thành giảng viên phụ trách.');
+        const conflict = await client.query(
+          `SELECT 1 FROM batch_schedules target
+           JOIN batch_schedules other ON other.session_date=target.session_date
+             AND target.start_time<other.end_time AND other.start_time<target.end_time
+           JOIN course_batches b ON b.id=other.batch_id
+           WHERE target.batch_id=$1 AND other.batch_id<>$1 AND b.instructor_id=$2
+             AND target.session_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+             AND b.status::text IN ('UPCOMING','OPEN_FOR_ENROLLMENT','IN_PROGRESS')
+           LIMIT 1`,
+          [previous.id, next.instructor_id],
+        );
+        if (conflict.rowCount) throw new ConflictException('Giảng viên trùng giờ với một lớp khác. Chọn giảng viên khác hoặc điều chỉnh thời khóa biểu.');
+      }
+    }
     await validateStaffWorkflow(client, table, next, previous, operation);
     await validateLoyaltyWrite(client, table, data, previous, operation, actor);
     if (table === 'home_care_guidelines') {
@@ -1263,6 +1338,95 @@ export class AdminService {
     }
   }
 
+  private async attendanceContext(client: PoolClient, actor: AdminActor, scheduleId: string, operation: string) {
+    const branches = allowedBranches(actor, 'student_attendance.' + operation);
+    const { rows: [schedule] } = await client.query(
+      `SELECT s.batch_id,s.session_date::text,b.branch_id,b.status,
+              s.session_date > (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS future
+       FROM batch_schedules s JOIN course_batches b ON b.id=s.batch_id WHERE s.id=$1 FOR SHARE OF s,b`,
+      [scheduleId],
+    );
+    if (!schedule || (branches && !branches.includes(schedule.branch_id)))
+      throw new NotFoundException('Không tìm thấy buổi học trong phạm vi được cấp quyền.');
+    await this.authorizeAcademyWrite(client, 'student_attendance', { schedule_id: scheduleId }, null, operation, actor);
+    return schedule;
+  }
+
+  async attendanceRoster(actor: AdminActor, scheduleId: string) {
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      const schedule = await this.attendanceContext(client, actor, scheduleId, 'read');
+      const { rows } = await client.query(
+        `SELECT e.id,u.full_name,a.status,
+                (e.batch_id=$2 AND e.student_status IN ('ENROLLED','AWAITING_RETEST')
+                   AND e.status::text NOT IN ('DROPPED','GRADUATED') AND e.access_status NOT IN ('SUSPENDED','EXPIRED')) AS eligible
+         FROM course_enrollments e JOIN users u ON u.id=e.student_id
+         LEFT JOIN student_attendance a ON a.enrollment_id=e.id AND a.schedule_id=$1
+         WHERE e.batch_id=$2 OR a.id IS NOT NULL ORDER BY u.full_name,e.id`,
+        [scheduleId, schedule.batch_id],
+      );
+      await client.query('COMMIT');
+      return { rows: rows.filter(row => row.eligible || row.status), writable: !schedule.future && !['CANCELLED','COMPLETED'].includes(schedule.status) };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.fail(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async saveAttendance(actor: AdminActor, scheduleId: string, input: unknown) {
+    const statuses = ['PRESENT','ABSENT','LATE','EXCUSED'];
+    if (!Array.isArray(input) || !input.length || input.length > 250 ||
+        input.some(row => !row || typeof row.enrollmentId !== 'string' ||
+          !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(row.enrollmentId) ||
+          !statuses.includes(row.status) || (row.previous !== null && !statuses.includes(row.previous))) ||
+        new Set(input.map(row => row.enrollmentId.toLowerCase())).size !== input.length)
+      throw new BadRequestException('Danh sách điểm danh không hợp lệ.');
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mld-admin-mutation'))");
+      const hasCreate = input.some(row => row.previous === null);
+      const hasUpdate = input.some(row => row.previous !== null);
+      const schedule = await this.attendanceContext(client, actor, scheduleId, hasUpdate ? 'update' : 'create');
+      if (hasCreate && hasUpdate) await this.attendanceContext(client, actor, scheduleId, 'create');
+      if (schedule.future || ['CANCELLED','COMPLETED'].includes(schedule.status))
+        throw new ConflictException('Buổi học chưa đến ngày hoặc lớp đã đóng.');
+      for (const change of input) {
+        const { rows: [enrollment] } = await client.query(
+          `SELECT id FROM course_enrollments WHERE id=$1 AND batch_id=$2
+             AND student_status IN ('ENROLLED','AWAITING_RETEST') AND status::text NOT IN ('DROPPED','GRADUATED')
+             AND access_status NOT IN ('SUSPENDED','EXPIRED') FOR SHARE`,
+          [change.enrollmentId, schedule.batch_id],
+        );
+        if (!enrollment) throw new ConflictException('Học viên không còn đủ điều kiện điểm danh trong lớp.');
+        const { rows: [existing] } = await client.query(
+          'SELECT id,status FROM student_attendance WHERE schedule_id=$1 AND enrollment_id=$2 FOR UPDATE',
+          [scheduleId, change.enrollmentId],
+        );
+        if ((existing?.status ?? null) !== change.previous)
+          throw new ConflictException('Điểm danh đã thay đổi. Tải lại buổi học trước khi lưu.');
+        const { rows: [saved] } = await client.query(
+          `INSERT INTO student_attendance(schedule_id,enrollment_id,status,marked_by_id)
+           VALUES($1,$2,$3,$4) ON CONFLICT(schedule_id,enrollment_id)
+           DO UPDATE SET status=EXCLUDED.status,marked_by_id=EXCLUDED.marked_by_id RETURNING id,enrollment_id`,
+          [scheduleId, change.enrollmentId, change.status, actor.id],
+        );
+        await this.syncRelated(client, 'student_attendance', saved, null);
+        await this.audit(client, actor, 'student_attendance', existing ? 'update' : 'create', saved.id);
+      }
+      await client.query('COMMIT');
+      return { saved: input.length };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.fail(error);
+    } finally {
+      client.release();
+    }
+  }
+
   private async authorizeAcademyWrite(
     client: PoolClient,
     table: string,
@@ -1310,6 +1474,20 @@ export class AdminService {
       )).rows[0]?.allowed === true;
     }
     if (!allowed) throw new ForbiddenException('Chỉ giảng viên/trợ giảng được phân công cho lớp mới được thao tác điểm danh hoặc điểm số.');
+  }
+
+  private async academicAttendance(client: PoolClient, enrollmentId: string) {
+    const { rows: [stats] } = await client.query(
+      `SELECT count(s.id) FILTER (WHERE a.status IN ('PRESENT','LATE'))::int AS attended_sessions,
+              count(s.id)::int AS total_batch_sessions,
+              COALESCE(round(100.0 * count(s.id) FILTER (WHERE a.status IN ('PRESENT','LATE')) / NULLIF(count(s.id),0),2),0) AS attendance_rate
+       FROM course_enrollments e LEFT JOIN batch_schedules s ON s.batch_id=e.batch_id
+       LEFT JOIN student_attendance a ON a.schedule_id=s.id AND a.enrollment_id=e.id
+       WHERE e.id=$1 GROUP BY e.id`,
+      [enrollmentId],
+    );
+    if (!stats) throw new BadRequestException('Hồ sơ ghi danh không tồn tại.');
+    return stats;
   }
 
   private async syncRelated(
@@ -1392,12 +1570,20 @@ export class AdminService {
           [id, totals.total, totals.duration],
         );
       }
-    if (table === 'student_attendance')
-      for (const id of ids('enrollment_id'))
+    if (table === 'student_attendance' || table === 'batch_schedules') {
+      const enrollmentIds = table === 'student_attendance' ? ids('enrollment_id') :
+        (await client.query(
+          'SELECT e.id FROM course_enrollments e JOIN student_academic_records r ON r.enrollment_id=e.id WHERE e.batch_id=ANY($1::uuid[])',
+          [ids('batch_id')],
+        )).rows.map(row => row.id);
+      for (const id of enrollmentIds) {
+        const stats = await this.academicAttendance(client, id);
         await client.query(
-          "UPDATE student_academic_records SET attended_sessions=(SELECT count(*) FROM student_attendance WHERE enrollment_id=$1 AND status IN ('PRESENT','LATE')),total_batch_sessions=(SELECT count(*) FROM batch_schedules s JOIN course_enrollments e ON e.batch_id=s.batch_id WHERE e.id=$1),attendance_rate=COALESCE((SELECT round(100.0*(SELECT count(*) FROM student_attendance WHERE enrollment_id=$1 AND status IN ('PRESENT','LATE'))/NULLIF(count(*),0),2) FROM batch_schedules s JOIN course_enrollments e ON e.batch_id=s.batch_id WHERE e.id=$1),0) WHERE enrollment_id=$1",
-          [id],
+          'UPDATE student_academic_records SET attended_sessions=$2,total_batch_sessions=$3,attendance_rate=$4 WHERE enrollment_id=$1',
+          [id, stats.attended_sessions, stats.total_batch_sessions, stats.attendance_rate],
         );
+      }
+    }
   }
 
   private async preventCascade(

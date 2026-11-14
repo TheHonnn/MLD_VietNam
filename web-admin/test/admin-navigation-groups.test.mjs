@@ -22,6 +22,6 @@ test('restricted accounts only see permitted resource links and their related wo
  assert.deepEqual(getResourceNavigation('course_enrollments',resources,'RECEPTIONIST').map(tab=>tab.id),['academy-enrollment','course_enrollments']);
 });
 test('attendance and course settings are distinct navigation groups',()=>{
- assert.deepEqual(getResourceNavigation('batch_schedules',all,'SUPER_ADMIN').map(tab=>tab.id),['student_attendance','course_batches','course_batch_assistants','batch_schedules','student_academic_records']);
+ assert.deepEqual(getResourceNavigation('batch_schedules',all,'SUPER_ADMIN').map(tab=>tab.id),['course_batches','course_batch_assistants','batch_schedules','student_attendance','student_academic_records']);
  assert.ok(!getResourceNavigation('courses',all,'SUPER_ADMIN').some(tab=>tab.id==='course_enrollments'));
 });

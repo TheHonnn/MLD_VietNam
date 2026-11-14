@@ -36,7 +36,7 @@ export const ADMIN_NAVIGATION_GROUPS: NavigationGroup[] = [
   ]),
   group('Đội ngũ Giảng viên',['instructors'],[item('instructors','Giảng viên','/instructors')]),
   group('Học viên & Lớp học',['course_batches','course_batch_assistants','batch_schedules','student_attendance','student_academic_records'],[
-    item('student_attendance','Điểm danh & Sổ theo dõi','/attendance'),item('course_batches'),item('course_batch_assistants'),item('batch_schedules','Thời khóa biểu'),item('student_academic_records'),
+    item('course_batches','Lớp học'),item('course_batch_assistants'),item('batch_schedules','Thời khóa biểu'),item('student_attendance','Điểm danh & Sổ theo dõi','/attendance'),item('student_academic_records'),
   ]),
   group('Chương trình đào tạo',['course_categories','courses','course_chapters','course_lessons','course_quizzes','quiz_questions','quiz_submissions','user_lesson_progress'],[
     item('curriculum','Khung chương trình','/curriculum'),...['course_categories','courses','course_chapters','course_lessons','course_quizzes','quiz_questions','quiz_submissions','user_lesson_progress'].map(name=>item(name)),
@@ -47,6 +47,9 @@ export const ADMIN_NAVIGATION_GROUPS: NavigationGroup[] = [
 
 export function navigationGroupForTable(table: string) {
   return ADMIN_NAVIGATION_GROUPS.find(group=>group.tables.includes(table));
+}
+export function academyClassLink(href: string, batchId?: string) {
+  return batchId && batchId !== '__ALL__' ? href + '?batch_id=' + encodeURIComponent(batchId) : href;
 }
 export function getResourceNavigation(table: string, resources: Resource[], role: string): AdminNavigationItem[] {
   const currentGroup = navigationGroupForTable(table);

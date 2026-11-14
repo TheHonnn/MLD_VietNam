@@ -36,6 +36,7 @@ export function branchPredicate(table: string, row: string, parameter: string, c
     enrollment_change_requests: `EXISTS(SELECT 1 FROM course_enrollments e JOIN course_batches b ON b.id=e.batch_id WHERE e.id=${row}.enrollment_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
     enrollment_status_history: `EXISTS(SELECT 1 FROM course_enrollments e JOIN course_batches b ON b.id=e.batch_id WHERE e.id=${row}.enrollment_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
     course_batch_assistants: `EXISTS(SELECT 1 FROM course_batches b WHERE b.id=${row}.batch_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
+    batch_schedules: `EXISTS(SELECT 1 FROM course_batches b WHERE b.id=${row}.batch_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
     student_attendance: `EXISTS(SELECT 1 FROM batch_schedules s JOIN course_batches b ON b.id=s.batch_id WHERE s.id=${row}.schedule_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
     student_academic_records: `EXISTS(SELECT 1 FROM course_enrollments e JOIN course_batches b ON b.id=e.batch_id WHERE e.id=${row}.enrollment_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
     staff_leaves: `EXISTS(SELECT 1 FROM staff_profiles s WHERE s.id=${row}.staff_id AND s.branch_id=ANY(${parameter}::uuid[]))`,

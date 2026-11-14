@@ -80,6 +80,11 @@ const InvoicesRedirect: React.FC = () => {
   return <Navigate to={`/cashier-pos${search}`} replace />;
 };
 
+function AttendanceRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={'/attendance' + search} replace />;
+}
+
 const RoleRoute: React.FC<{ allowedRoles: string[]; children: React.ReactNode }> = ({
   allowedRoles,
   children,
@@ -355,6 +360,7 @@ const AppContent: React.FC = () => {
             <Route path="manage/treatment_journal" element={<TreatmentJournalWorkspace />} />
             <Route path="treatment-inventory" element={<TreatmentInventoryWorkspace />} />
             <Route path="manage/home_care_guidelines" element={<HomeCareWorkspace />} />
+            <Route path="manage/student_attendance" element={<AttendanceRedirect />} />
             <Route path="manage/:table" element={<div className="admin-module"><ResourcePage /></div>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
