@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/features/admin/data/models/admin_models.dart';
 import 'package:medical_healthcare_app/features/admin/presentation/screens/admin_batch_detail_screen.dart';
 import 'package:medical_healthcare_app/features/admin/presentation/widgets/admin_candidate_card.dart';
+import 'package:medical_healthcare_app/features/admin/presentation/widgets/quiz_submission_detail_sheet.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -133,6 +134,47 @@ void main() {
       expect(model.batchCode, 'K26-GV-Q3');
       expect(model.passed, isTrue);
       expect(model.score, 95.0);
+    });
+
+    testWidgets('QuizSubmissionDetailSheet displays student answers, questions, right/wrong badges, and feedback section', (tester) async {
+      const mockSub = AdminQuizSubmissionModel(
+        id: 'sub-test-1',
+        enrollmentId: 'enr-1',
+        studentName: 'Bùi Thế Hoàng',
+        studentPhone: '0394316963',
+        batchCode: 'K26-MLD-CS',
+        quizId: 'quiz-vodder-01',
+        quizTitle: 'Bài kiểm tra Đánh giá Năng lực Thực hành Tổng hợp',
+        courseTitle: 'Dẫn lưu bạch huyết chuyên sâu cho người làm nghề',
+        score: 9.0,
+        correctCount: 9,
+        passed: true,
+        submittedAt: '2026-11-14T08:00:00Z',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuizSubmissionDetailSheet(
+              submission: mockSub,
+              onSaved: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Check header and student info
+      expect(find.text('Bài làm & Đánh giá Học viên'), findsOneWidget);
+      expect(find.text('Bùi Thế Hoàng'), findsOneWidget);
+      expect(find.textContaining('Đúng 9/10 câu'), findsOneWidget);
+      expect(find.text('Đúng (+1.0 đ)'), findsWidgets);
+      expect(find.text('Chưa đúng (0 đ)'), findsWidgets);
+
+      // Check feedback & approval section
+      expect(find.text('ĐÁNH GIÁ & NHẬN XÉT CỦA GIẢNG VIÊN'), findsOneWidget);
+      expect(find.text('Lưu nhận xét & Phê duyệt bài thi'), findsOneWidget);
+      expect(find.text('Nắm rất vững lý thuyết & nguyên lý Vodder ✓'), findsOneWidget);
     });
   });
 }

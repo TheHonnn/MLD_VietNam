@@ -2391,169 +2391,172 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
         final sub = list[index];
         final bCode = _getSubmissionBatchCode(sub);
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-          decoration: BoxDecoration(
-            color: Colors.white,
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _openSubmissionDetail(sub),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: sub.passed ? const Color(0xFFE5E7EB) : const Color(0xFFFDE68A),
-              width: sub.passed ? 1 : 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1)),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Dòng 1: Badge Lớp học + Badge Kết quả + Điểm số
-              Row(
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: sub.passed ? const Color(0xFFE5E7EB) : const Color(0xFFFDE68A),
+                  width: sub.passed ? 1 : 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1)),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Badge Lớp học (BÀI THI LỌC THEO LỚP)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: bCode.isNotEmpty ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: bCode.isNotEmpty ? const Color(0xFF00693F).withValues(alpha: 0.3) : const Color(0xFFE5E7EB),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.school_rounded,
-                          size: 12,
-                          color: bCode.isNotEmpty ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                  // Dòng 1: Badge Lớp học + Badge Kết quả + Điểm số
+                  Row(
+                    children: [
+                      // Badge Lớp học (BÀI THI LỌC THEO LỚP)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: bCode.isNotEmpty ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: bCode.isNotEmpty ? const Color(0xFF00693F).withValues(alpha: 0.3) : const Color(0xFFE5E7EB),
+                          ),
                         ),
-                        const SizedBox(width: 3),
-                        Text(
-                          bCode.isNotEmpty ? 'Lớp: $bCode' : 'Chưa có lớp',
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.school_rounded,
+                              size: 12,
+                              color: bCode.isNotEmpty ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              bCode.isNotEmpty ? 'Lớp: $bCode' : 'Chưa có lớp',
+                              style: AppTypography.zaloFont(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: bCode.isNotEmpty ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+
+                      // Badge Đạt / Chưa đạt
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: sub.passed ? const Color(0xFFE8F6ED) : const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          sub.passed ? 'ĐẠT CHUẨN MLD' : 'CHƯA ĐẠT',
                           style: AppTypography.zaloFont(
-                            fontSize: 10,
+                            fontSize: 9.5,
                             fontWeight: FontWeight.w700,
-                            color: bCode.isNotEmpty ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                            color: sub.passed ? const Color(0xFF0D6832) : const Color(0xFF92400E),
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+
+                      // Điểm số nổi bật
+                      Text(
+                        '${sub.score.toStringAsFixed(sub.score.truncateToDouble() == sub.score ? 0 : 1)} đ',
+                        style: AppTypography.zaloFont(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                          color: sub.passed ? const Color(0xFF00693F) : const Color(0xFFD97706),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Dòng 2: Tên học viên + SĐT
+                  Row(
+                    children: [
+                      Text(
+                        sub.studentName,
+                        style: AppTypography.zaloFont(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textHeading,
+                        ),
+                      ),
+                      if (sub.studentPhone.isNotEmpty) ...[
+                        Text(
+                          ' · ${sub.studentPhone}',
+                          style: AppTypography.zaloFont(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(height: 2),
 
-                  // Badge Đạt / Chưa đạt
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: sub.passed ? const Color(0xFFE8F6ED) : const Color(0xFFFEF3C7),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      sub.passed ? 'ĐẠT CHUẨN MLD' : 'CHƯA ĐẠT',
-                      style: AppTypography.zaloFont(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
-                        color: sub.passed ? const Color(0xFF0D6832) : const Color(0xFF92400E),
+                  // Dòng 3: Bài thi & Khóa học
+                  Text(
+                    '${sub.quizTitle} · ${sub.courseTitle}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.zaloFont(fontSize: 11, color: AppColors.textSecondary),
+                  ),
+
+                  if (sub.instructorFeedback != null && sub.instructorFeedback!.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
                       ),
-                    ),
-                  ),
-                  const Spacer(),
-
-                  // Điểm số nổi bật
-                  Text(
-                    '${sub.score.toStringAsFixed(sub.score.truncateToDouble() == sub.score ? 0 : 1)} đ',
-                    style: AppTypography.zaloFont(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: sub.passed ? const Color(0xFF00693F) : const Color(0xFFD97706),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-
-              // Dòng 2: Tên học viên + SĐT
-              Row(
-                children: [
-                  Text(
-                    sub.studentName,
-                    style: AppTypography.zaloFont(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textHeading,
-                    ),
-                  ),
-                  if (sub.studentPhone.isNotEmpty) ...[
-                    Text(
-                      ' · ${sub.studentPhone}',
-                      style: AppTypography.zaloFont(
-                        fontSize: 11,
-                        color: AppColors.textSecondary,
+                      child: Text(
+                        'GV nhận xét: "${sub.instructorFeedback}"',
+                        style: AppTypography.zaloFont(fontSize: 10.5, fontStyle: FontStyle.italic, color: const Color(0xFF4B5563)),
                       ),
                     ),
                   ],
-                ],
-              ),
-              const SizedBox(height: 2),
+                  const SizedBox(height: 8),
 
-              // Dòng 3: Bài thi & Khóa học
-              Text(
-                '${sub.quizTitle} · ${sub.courseTitle}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.zaloFont(fontSize: 11, color: AppColors.textSecondary),
-              ),
-
-              if (sub.instructorFeedback != null && sub.instructorFeedback!.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  child: Text(
-                    'GV nhận xét: "${sub.instructorFeedback}"',
-                    style: AppTypography.zaloFont(fontSize: 10.5, fontStyle: FontStyle.italic, color: const Color(0xFF4B5563)),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 8),
-
-              // Dòng 4: Số câu đúng + Nút Xem & Nhận xét
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Đúng: ${sub.correctCount} câu',
-                    style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xFF6B7280)),
-                  ),
-                  InkWell(
-                    onTap: () => _openSubmissionDetail(sub),
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00693F),
-                        borderRadius: BorderRadius.circular(6),
+                  // Dòng 4: Số câu đúng + Nút Xem & Nhận xét
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Đúng: ${sub.correctCount} câu',
+                        style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xFF6B7280)),
                       ),
-                      child: Text(
-                        'Xem & Nhận xét',
-                        style: AppTypography.zaloFont(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00693F),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Xem & Nhận xét',
+                          style: AppTypography.zaloFont(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         );
       },
