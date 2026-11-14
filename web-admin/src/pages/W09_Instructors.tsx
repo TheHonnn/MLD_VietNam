@@ -262,7 +262,7 @@ export const W09_Instructors: React.FC = () => {
       </section>}
       </div>
     </>}
-    {(editor || target || deleteTarget) && <dialog ref={dialog} aria-labelledby="instructor-dialog-title" onCancel={event => { event.preventDefault(); closeDialog(); }} className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-xl overflow-auto rounded-xl bg-white p-5 shadow-xl backdrop:bg-black/40">
+    {(editor || target || deleteTarget) && <dialog ref={dialog} aria-labelledby="instructor-dialog-title" onCancel={event => { event.preventDefault(); closeDialog(); }} className={`m-auto max-h-[90vh] w-[calc(100%-2rem)] overflow-y-auto overflow-x-hidden rounded-xl bg-white p-5 shadow-xl backdrop:bg-black/40 ${editor ? 'max-w-4xl' : 'max-w-xl'}`}>
       <form onSubmit={save} className="space-y-4">
         <h2 id="instructor-dialog-title" className="text-lg font-bold">{deleteTarget ? 'Xóa hồ sơ giảng viên' : editor ? editor.id ? 'Sửa hồ sơ giảng viên' : 'Thêm giảng viên' : 'Phân công lớp ' + target?.batch_code}</h2>
         {deleteTarget && <p className="text-sm">Bạn muốn xóa hồ sơ <strong>{deleteTarget.full_name}</strong>? Với hồ sơ đã liên kết dữ liệu, hãy dùng Sửa để chuyển sang ngừng hoạt động.</p>}

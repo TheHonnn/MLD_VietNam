@@ -153,7 +153,7 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
     <div className="admin-field-wide space-y-4">
       {/* 1. HAI CỘT: TÀI KHOẢN HỆ THỐNG & HỌ VÀ TÊN */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center justify-between mb-1">
             <label className="text-xs font-bold text-[#2C241E] flex items-center gap-1">
               <User size={13} className="text-[#985018]" />
@@ -178,7 +178,7 @@ export const InstructorFormEditor: React.FC<InstructorFormEditorProps> = ({
           </select>
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label className="block text-xs font-bold text-[#2C241E] mb-1">
             Họ và tên giảng viên <b className="text-[#B6443C]">*</b>
           </label>

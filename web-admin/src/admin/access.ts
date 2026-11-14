@@ -10,7 +10,10 @@ const routeResources: Record<string, string[]> = {
   '/curriculum': ['courses', 'course_batches', 'batch_schedules', 'course_lessons', 'course_quizzes', 'quiz_questions'],
   '/certificates': ['student_certificates', 'certificate_templates'],
   '/reports': ['invoices', 'tuition_transactions'], '/commissions': ['staff_commissions'],
-  '/portal-content': ['portal_banners', 'documents', 'email_templates'], '/zalo-zns': ['zalo_zns_logs'],
+  // Portal CMS stores banners, documents and community content in the shared
+  // content table; using the physical table name keeps menu visibility aligned
+  // with the backend resource catalog and assigned CRUD scopes.
+  '/portal-content': ['miniapp_shared_content', 'documents', 'email_templates'], '/zalo-zns': ['zalo_zns_logs'],
 };
 export function canAccessAdminPath(path: string, role: string, resources: Resource[]) {
   const route = path.split('?')[0];

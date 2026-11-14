@@ -5256,6 +5256,83 @@ export const SCHEMA_COLUMNS: Record<string, Column[]> = {
       "primary": false,
       "writable": true,
       "reference": null
+    },
+    {
+      "name": "consultation_status",
+      "type": "varchar",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "payment_status",
+      "type": "varchar",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "student_status",
+      "type": "varchar",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "approval_status",
+      "type": "varchar",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "approved_by",
+      "type": "varchar",
+      "required": false,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "approved_at",
+      "type": "timestamptz",
+      "required": false,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "approval_notes",
+      "type": "varchar",
+      "required": false,
+      "hasDefault": false,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
     }
   ],
   "user_lesson_progress": [

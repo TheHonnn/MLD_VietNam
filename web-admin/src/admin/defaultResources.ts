@@ -82,4 +82,10 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'role_permissions', title: 'Quyền của vai trò', group: 'Phân quyền & Bảo mật', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'user_roles', title: 'Phân quyền tài khoản', group: 'Phân quyền & Bảo mật', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'audit_logs', title: 'Nhật ký bảo mật Audit Trail', group: 'Phân quyền & Bảo mật', readonly: true, actions: [] },
+
+  // 14. Nội dung Portal & App (banner, giáo trình, email)
+  { name: 'miniapp_shared_content', title: 'Nội dung Portal & App', group: 'Nội dung Portal', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'documents', title: 'Tài liệu Portal', group: 'Nội dung Portal', actions: ['create', 'update', 'delete'] },
+  { name: 'email_templates', title: 'Mẫu email thông báo', group: 'Nội dung Portal', actions: ['create', 'update', 'delete'] },
+  { name: 'email_logs', title: 'Nhật ký email', group: 'Nội dung Portal', readonly: true, actions: [] },
 ];

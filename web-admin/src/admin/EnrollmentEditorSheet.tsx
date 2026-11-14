@@ -114,6 +114,10 @@ export const EnrollmentEditorSheet: React.FC<EnrollmentEditorSheetProps> = ({
   const [courseId, setCourseId] = useState<string>(row.course_id || "");
   const [batchId, setBatchId] = useState<string>(row.batch_id || "");
   const [status, setStatus] = useState<string>(row.status || "ENROLLED");
+  const [approvalStatus, setApprovalStatus] = useState<string>(row.approval_status || "PENDING_APPROVAL");
+  const [studentAdmissionStatus, setStudentAdmissionStatus] = useState<string>(row.student_status || "NOT_APPROVED");
+  const [paymentVerificationStatus, setPaymentVerificationStatus] = useState<string>(row.payment_status || "UNPAID");
+  const [approvalNotes, setApprovalNotes] = useState<string>(row.approval_notes || "");
 
   // Tuition & Payment state
   const [tuitionTotal, setTuitionTotal] = useState<number>(
@@ -363,6 +367,11 @@ export const EnrollmentEditorSheet: React.FC<EnrollmentEditorSheetProps> = ({
         enrolled_at: enrolledAt ? new Date(enrolledAt).toISOString() : new Date().toISOString(),
         completed_lessons_count: completedLessons,
         progress_percent: progressPercent,
+        approval_status: approvalStatus,
+        student_status: studentAdmissionStatus,
+        payment_status: paymentVerificationStatus,
+        approval_notes: approvalNotes.trim() || null,
+        approved_at: approvalStatus === "APPROVED" ? (row.approved_at || new Date().toISOString()) : null,
       };
 
       if (useExistingStudent) {
@@ -776,6 +785,66 @@ export const EnrollmentEditorSheet: React.FC<EnrollmentEditorSheetProps> = ({
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="col-span-full border-t border-[#F0EAE4] pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#4A3E31] mb-1">Trạng thái phê duyệt</label>
+                  <select
+                    disabled={isView}
+                    value={approvalStatus}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setApprovalStatus(next);
+                      if (next === "APPROVED" && studentAdmissionStatus === "NOT_APPROVED") setStudentAdmissionStatus("APPROVED");
+                      if (next !== "APPROVED" && studentAdmissionStatus === "APPROVED") setStudentAdmissionStatus("NOT_APPROVED");
+                    }}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white focus:outline-none focus:border-[#985018] disabled:bg-[#F3EFEA]"
+                  >
+                    <option value="PENDING_APPROVAL">Chờ phê duyệt</option>
+                    <option value="APPROVED">Đã phê duyệt</option>
+                    <option value="REJECTED">Từ chối</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#4A3E31] mb-1">Trạng thái nhập học</label>
+                  <select
+                    disabled={isView}
+                    value={studentAdmissionStatus}
+                    onChange={(e) => setStudentAdmissionStatus(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white focus:outline-none focus:border-[#985018] disabled:bg-[#F3EFEA]"
+                  >
+                    <option value="NOT_APPROVED">Chưa duyệt</option>
+                    <option value="APPROVED">Đã duyệt</option>
+                    <option value="ENROLLED">Đã xếp lớp</option>
+                    <option value="GRADUATED">Đã tốt nghiệp</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#4A3E31] mb-1">Đối soát học phí</label>
+                  <select
+                    disabled={isView}
+                    value={paymentVerificationStatus}
+                    onChange={(e) => setPaymentVerificationStatus(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white focus:outline-none focus:border-[#985018] disabled:bg-[#F3EFEA]"
+                  >
+                    <option value="UNPAID">Chưa thanh toán</option>
+                    <option value="PARTIALLY_PAID">Đã thanh toán một phần</option>
+                    <option value="PAID">Đã thanh toán đủ</option>
+                    <option value="REFUNDED">Đã hoàn tiền</option>
+                  </select>
+                </div>
+              </div>
+              <label className="block text-xs font-bold text-[#4A3E31] mt-3 mb-1">Ghi chú phê duyệt</label>
+              <textarea
+                disabled={isView}
+                value={approvalNotes}
+                onChange={(e) => setApprovalNotes(e.target.value)}
+                rows={2}
+                placeholder="Ghi rõ lý do duyệt / từ chối hoặc nội dung đối soát..."
+                className="w-full text-xs px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white focus:outline-none focus:border-[#985018] disabled:bg-[#F3EFEA]"
+              />
             </div>
           </div>
         </div>
