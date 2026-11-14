@@ -64,7 +64,9 @@ export const PortalLegalPoliciesTab: React.FC = () => {
       const res = await portalService.saveLegalPolicy(selectedPolicy);
       if (res.success && res.data) {
         showToast('Cập nhật chính sách pháp lý thành công!', 'success');
-        setPolicies((prev) => prev.map((p) => (p.id === res.data!.id ? res.data! : p)));
+        setPolicies((prev) => prev.some(p => p.id === res.data!.id)
+          ? prev.map((p) => (p.id === res.data!.id ? res.data! : p))
+          : [...prev, res.data!]);
         setSelectedPolicy(res.data);
       } else {
         showToast(res.message || 'Lỗi khi lưu chính sách.', 'error');
@@ -171,6 +173,8 @@ export const PortalLegalPoliciesTab: React.FC = () => {
           </div>
 
           <div className="space-y-2">
+            <button type="button" className="w-full rounded-lg border border-[#E8DFD8] p-3 text-sm text-[#985018]" onClick={() => setSelectedPolicy({ id: '', slug: '', title: '', version: '1.0', contentMarkdown: '', effectiveDate: new Date().toISOString().slice(0, 10), isPublished: false })}>Thêm bản nháp chính sách</button>
+            {!policies.length && <p className="px-2 text-xs text-[#73675F]">Chưa có chính sách. Soạn nội dung thực tế và kiểm tra trước khi xuất bản.</p>}
             {policies.map((p) => {
               const isSelected = selectedPolicy?.id === p.id;
               return (
@@ -214,7 +218,9 @@ export const PortalLegalPoliciesTab: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8DFD8]">
               <div>
                 <h4 className="text-sm font-bold text-[#2C241E]">Chỉnh sửa: {selectedPolicy.title}</h4>
-                <span className="text-[10px] text-[#73675F] font-mono">Định danh slug: {selectedPolicy.slug}</span>
+                <label className="block text-xs text-[#73675F]">Mã chính sách
+                  <input required pattern="[a-z0-9_-]+" disabled={Boolean(selectedPolicy.id)} className="mt-1 block rounded border p-2" placeholder="privacy_policy" value={selectedPolicy.slug} onChange={e => setSelectedPolicy({ ...selectedPolicy, slug: e.target.value })} />
+                </label>
               </div>
 
               {/* Toggle Editor / Preview Tab */}
