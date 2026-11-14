@@ -1,0 +1,38 @@
+const assert = require('node:assert/strict');
+const path = require('node:path');
+async function verifyAcademyWorkspaces({ pg, page, frontendUrl, output, browserAdmin, branch, course }) {
+  const batch = (await pg.query('SELECT id FROM course_batches WHERE course_id=$1 LIMIT 1',[course.id])).rows[0];
+  const enrollment = (await pg.query("INSERT INTO course_enrollments(student_id,course_id,batch_id,tuition_total,amount_paid,consultation_status,student_status,approval_status) VALUES($1,$2,$3,1000000,200000,'CONFIRMED','APPROVED','APPROVED') RETURNING id",[browserAdmin.id,course.id,batch.id])).rows[0];
+  await pg.query("INSERT INTO tuition_transactions(transaction_code,enrollment_id,student_id,course_id,branch_id,amount,transaction_type,payment_status) VALUES('BROWSER-TUITION',$1,$2,$3,$4,200000,'DEPOSIT','PAID')",[enrollment.id,browserAdmin.id,course.id,branch.id]);
+  await pg.query("INSERT INTO enrollment_change_requests(enrollment_id,request_type,reason,requested_by) VALUES($1,'HOLD','Browser acceptance hold request',$2)",[enrollment.id,browserAdmin.id]);
+  await page.goto(frontendUrl+'/manage/course_enrollments');
+  await page.getByRole('table').getByText('Kiểm thử giao diện',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('columnheader',{name:'Việc tiếp theo'}).count(),1);
+  await page.getByRole('combobox',{name:'Chọn Lớp học',exact:true}).selectOption(batch.id);
+  await page.getByRole('table').getByText('Kiểm thử giao diện',{exact:true}).waitFor();
+  const link = page.getByRole('table').getByRole('link').first();
+  assert.ok((await link.getAttribute('href')).includes('enrollmentId='+enrollment.id));
+  await page.screenshot({path:path.join(output,'academy-roster-laptop.png'),fullPage:true});
+  await page.reload();
+  await page.getByRole('table').getByText('Kiểm thử giao diện',{exact:true}).waitFor();
+  await page.goto(frontendUrl+'/manage/tuition_transactions');
+  await page.getByRole('button',{name:'BROWSER-TUITION',exact:true}).waitFor();
+  assert.equal(await page.getByRole('link',{name:'Mở hồ sơ',exact:true}).count(),1);
+  await page.screenshot({path:path.join(output,'academy-tuition-laptop.png'),fullPage:true});
+  await page.goto(frontendUrl+'/manage/enrollment_change_requests');
+  await page.getByRole('button',{name:'Xem & duyệt',exact:true}).first().click();
+  const dialog=page.getByRole('dialog');
+  await dialog.waitFor();
+  await dialog.getByLabel('Ghi chú xử lý (ít nhất 5 ký tự)').fill('Nghiệm thu giao diện');
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(()=>Boolean(document.querySelector('dialog')?.contains(document.activeElement))),true);
+  await page.keyboard.press('Escape');
+  await dialog.waitFor({state:'hidden'});
+  await page.setViewportSize({width:1024,height:768});
+  await page.getByRole('button',{name:'Từ chối',exact:true}).first().click();
+  await dialog.waitFor();
+  await page.screenshot({path:path.join(output,'academy-request-tablet.png'),fullPage:true});
+  await dialog.getByRole('button',{name:'Đóng',exact:true}).click();
+  return { rosterAndClassFilter:'passed', enrollmentDeepLink:'passed', reload:'passed', tuitionLedger:'passed', dialogKeyboard:'passed', viewportScreenshots:'1440x1000 and 1024x768', decisionsSubmitted:false };
+}
+module.exports={verifyAcademyWorkspaces};

@@ -30,6 +30,25 @@ async function verifyHttpPermissions(pg, app, target, config) {
     assert.equal((await call('cashier/collect',{kind:'TUITION'})).status,403);
     assert.equal((await call('schema/status')).status,403);
     assert.equal((await call('roles')).status,403);
+    // A real JWT and branch permission grants exercise academy listing scopes over HTTP.
+    await pg.query("UPDATE users SET role='BRANCH_MANAGER' WHERE id=$1",[cashier.id]);
+    for (const code of ['enrollment_change_requests.read','enrollment_status_history.read']) {
+      const permission=(await pg.query("INSERT INTO permissions(code,module,name) VALUES($1,'admin',$1) ON CONFLICT(code) DO UPDATE SET name=excluded.name RETURNING id",[code])).rows[0];
+      await pg.query('INSERT INTO role_permissions(role_id,permission_id) VALUES($1,$2)',[role.id,permission.id]);
+    }
+    const course=(await pg.query('SELECT id FROM courses LIMIT 1')).rows[0];
+    for (const [index, branchId] of [branches[0].id,other.id].entries()) {
+      const batch=(await pg.query("INSERT INTO course_batches(course_id,branch_id,batch_code,start_date,end_date,schedule_text) VALUES($1,$2,$3,CURRENT_DATE,CURRENT_DATE+30,'HTTP fixture') RETURNING id",[course.id,branchId,'HTTP-ACADEMY-'+index])).rows[0];
+      const student=(await pg.query("INSERT INTO users(phone,full_name,role,referral_code) VALUES($1,'HTTP academy student','STUDENT',$2) RETURNING id",['HTTP-STUDENT-'+index,'HTTPSTUDENT'+index])).rows[0];
+      const enrollment=(await pg.query('INSERT INTO course_enrollments(student_id,course_id,batch_id) VALUES($1,$2,$3) RETURNING id',[student.id,course.id,batch.id])).rows[0];
+      await pg.query("INSERT INTO enrollment_change_requests(enrollment_id,request_type,reason) VALUES($1,'HOLD',$2)",[enrollment.id,'HTTP scope '+index]);
+      await pg.query("INSERT INTO enrollment_status_history(enrollment_id,event,reason) VALUES($1,'HTTP_TEST',$2)",[enrollment.id,'HTTP scope '+index]);
+    }
+    for (const table of ['enrollment_change_requests','enrollment_status_history']) {
+      const scoped=await call(table);
+      assert.equal(scoped.status,200);
+      assert.deepEqual(scoped.json.data.rows.map(row=>row.reason),['HTTP scope 0']);
+    }
     await pg.query('UPDATE users SET is_active=false WHERE id=$1',[cashier.id]);
     assert.equal((await call('branches')).status,403);
     return {jwtAndActiveAccount:'passed',branchScopedReadAndWrite:'passed',cashierPermissions:'passed'};

@@ -1,3 +1,4 @@
+import { tuitionBalance } from "../admin/tuition-balance";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -1076,9 +1077,16 @@ export const W07_CashierPOS: React.FC = () => {
       return;
     }
 
-    const due = Math.max(0, (selectedEnrollment.tuitionTotal || 9000000) - (selectedEnrollment.amountPaid || 0));
+    const totalTuition = selectedEnrollment.finalTuition ?? selectedEnrollment.tuitionTotal;
+    const paidTuition = selectedEnrollment.amountPaid;
+    const due = tuitionBalance(totalTuition, paidTuition);
+    if (due === null) {
+      toast.error('Thiếu dữ liệu học phí', 'Vui lòng kiểm tra học phí đã chốt và số tiền đã thu trong hồ sơ tuyển sinh.');
+      return;
+    }
+    if (due === 0) { toast.warning('Đã thu đủ học phí', 'Hồ sơ này không còn khoản phải thu.'); return; }
     const amount = tuitionPaymentAmount || due;
-    if (amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       toast.error('Số tiền không hợp lệ', 'Số thu phải lớn hơn 0.');
       return;
     }

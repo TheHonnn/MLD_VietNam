@@ -133,7 +133,7 @@ export const W08_Enrollment: React.FC = () => {
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<EnrollmentWorkflowTab>('ALL');
 
   // Modals state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(searchParams.get("create") === "1");
   const [isBillModalOpen, setIsBillModalOpen] = useState(false);
   const [billModalCandidate, setBillModalCandidate] = useState<CandidateBillInfo | null>(null);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -469,7 +469,7 @@ export const W08_Enrollment: React.FC = () => {
   useEffect(() => {
     if (filteredCandidates.length > 0) {
       if (!selectedCandidateId || !filteredCandidates.some((c) => c.id === selectedCandidateId)) {
-        setSelectedCandidateId(filteredCandidates[0].id);
+        setSelectedCandidateId(filteredCandidates.find(c => c.id === searchParams.get("enrollmentId"))?.id || filteredCandidates[0].id);
       }
     } else {
       setSelectedCandidateId('');

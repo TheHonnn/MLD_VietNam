@@ -1,3 +1,6 @@
+import { EnrollmentChangesView } from "./EnrollmentChangesView";
+import { TuitionLedgerView } from "./TuitionLedgerView";
+import { EnrollmentRosterView } from "./EnrollmentRosterView";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDialogGuard } from "./useDialogGuard";
 import { TrainingActions } from "./TrainingActions";
@@ -5367,7 +5370,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     if (
       !listing ||
       !resource?.actions?.includes("create") ||
-      params.get("create") !== "1"
+      params.get("create") !== "1" ||
+      ["course_enrollments", "tuition_transactions"].includes(table)
     )
       return;
     setEdit({
@@ -5821,7 +5825,9 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             <p className="mt-1 text-xs text-[#73675F]">Theo dõi khách từ lúc đặt lịch, đến cơ sở, thực hiện dịch vụ và thanh toán.</p>
           ) : table === "booking_items" ? (
             <p className="mt-1 text-xs text-[#73675F]">Kiểm tra dịch vụ, chuyên viên, thời lượng và giá cấu thành của từng lịch hẹn.</p>
-          ) : table === "invoice_items" ? (
+          ) : table === "course_enrollments" ? (
+ <p className="mt-1 text-xs text-[#73675F]">Tra cứu hồ sơ và lớp học. Duyệt hồ sơ, xác nhận học phí và xếp lớp tại trang tuyển sinh.</p>
+ ) : table === "invoice_items" ? (
             <p className="mt-1 text-xs text-[#73675F]">Đối chiếu nội dung thu, số lượng, đơn giá và thành tiền của từng hóa đơn.</p>
           ) : table === "users" ? (
             <p className="mt-1 text-xs text-[#73675F]">Quản lý danh tính đăng nhập, vai trò và trạng thái truy cập. Hồ sơ chăm sóc khách hàng được quản lý riêng tại CRM.</p>
@@ -5869,7 +5875,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
               <RefreshCw size={18} />
             </button>
             {resource?.actions?.includes("create") && listing && (
-              table === "invoice_items" ? (
+              table === "tuition_transactions" ? (
+                <Link to="/cashier-pos?tab=tuition" className="admin-primary"><CreditCard size={16} />Thu học phí tại POS</Link>
+              ) : table === "course_enrollments" ? (
+ <Link to="/academy-enrollment?create=1" className="admin-primary"><Plus size={16} />Tạo hồ sơ tại quầy</Link>
+ ) : table === "invoice_items" ? (
                 <Link to="/cashier-pos" className="admin-primary">
                   <CreditCard size={16} />
                   Mở Thu ngân POS
@@ -5879,13 +5889,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   className="admin-primary"
                   onClick={() => {
                     if (table === "course_enrollments" && selectedBatch) {
-                      setEdit({
-                        row: {
-                          batch_id: selectedBatch.id,
-                          course_id: selectedBatch.course_id,
-                        },
-                        mode: "create",
-                      });
+                      window.location.assign("/academy-enrollment");
                     } else if (table === "student_attendance" && effectiveScheduleId) {
                       setEdit({
                         row: {
@@ -6008,6 +6012,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {table === "course_enrollments" && <div className="flex flex-wrap items-center gap-2" aria-label="Chế độ xem ghi danh">
+ <button className={params.get("view") !== "classes" ? "admin-primary" : "admin-secondary"} onClick={() => { const p = new URLSearchParams(params); p.delete("view"); p.delete("batch_id"); p.delete("filter"); p.delete("page"); setParams(p); }}>Danh sách hồ sơ</button>
+ <button className={params.get("view") === "classes" ? "admin-primary" : "admin-secondary"} onClick={() => { const p = new URLSearchParams(params); p.set("view", "classes"); p.delete("batch_id"); p.delete("filter"); p.delete("page"); setParams(p); }}>Xem theo lớp</button>
+ <Link className="admin-secondary" to="/academy-enrollment">Duyệt hồ sơ &amp; Xếp lớp</Link>
+ </div>}
         {(table === "course_enrollments" || table === "student_attendance" || table === "student_academic_records" || table === "course_batch_assistants") && (
           <select
             aria-label="Chọn Lớp học"
@@ -6673,11 +6682,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           Vui lòng ghi danh học viên vào lớp trước khi tiến hành điểm danh buổi học.
                         </p>
                         <Link
-                          to={`/manage/course_enrollments?batch_id=${selectedBatch.id}&create=1`}
+                          to="/academy-enrollment"
                           className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#8A4F23] hover:bg-[#723F1A] transition-colors cursor-pointer"
                         >
                           <Plus size={14} />
-                          <span>+ Ghi danh học viên ngay</span>
+                          <span>Chọn hồ sơ để xếp lớp ngay</span>
                         </Link>
                       </div>
                     ) : (
@@ -6836,7 +6845,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   </div>
                 )}
               </div>
-            ) : table === "course_enrollments" && !selectedBatchId && !params.get("search") ? (
+            ) : table === "course_enrollments" && params.get("view") === "classes" && !selectedBatchId && !params.get("search") ? (
               <div className="space-y-6 my-2 font-['Plus_Jakarta_Sans',sans-serif]">
                 {batchesForFilter.length === 0 ? (
                   <div className="p-12 text-center bg-white rounded-2xl border border-[#EAD8C7] space-y-3">
@@ -7040,18 +7049,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                         <button
                           type="button"
                           onClick={() => {
-                            setEdit({
-                              row: {
-                                batch_id: selectedBatch.id,
-                                course_id: selectedBatch.course_id,
-                              },
-                              mode: "create",
-                            });
+                            window.location.assign("/academy-enrollment");
                           }}
                           className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#8A4F23] hover:bg-[#723F1A] transition-all cursor-pointer shadow-sm inline-flex items-center gap-1.5"
                         >
                           <Plus size={15} />
-                          <span>+ Ghi danh học viên</span>
+                          <span>Chọn hồ sơ để xếp lớp</span>
                         </button>
                       </div>
                     </div>
@@ -7142,6 +7145,12 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                       <p className="mt-1 text-xs text-[#73675F]">Tạo giao dịch tại Thu ngân POS hoặc đổi từ khóa tìm kiếm.</p>
                     </div>
                   )
+                ) : table === "enrollment_change_requests" ? (
+                  <EnrollmentChangesView rows={listing.rows} role={user?.role} onRefresh={() => setVersion(v => v + 1)} />
+                ) : table === "tuition_transactions" ? (
+                  <TuitionLedgerView rows={listing.rows} onOpen={openRecordPreview} />
+                ) : table === "course_enrollments" ? (
+                  <EnrollmentRosterView rows={listing.rows} onOpen={openRecordPreview} />
                 ) : (
                 <div className="admin-table-wrap">
                   <table className="admin-table">
@@ -7341,7 +7350,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                         <span>Xem hồ sơ chi tiết</span>
                       </button>
 
-                      {resource?.actions?.includes("update") && (table !== "technician_slots" || activeRowMenu.row.status === "BLOCKED") && (
+                      {table === "course_enrollments" && <Link className="admin-secondary" to={"/academy-enrollment?enrollmentId=" + encodeURIComponent(String(activeRowMenu.row.id))}>Xử lý hồ sơ tuyển sinh / Xếp lớp</Link>}
+                      {table !== "course_enrollments" && resource?.actions?.includes("update") && (table !== "technician_slots" || activeRowMenu.row.status === "BLOCKED") && (
                         <button
                           type="button"
                           className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#2C241E] hover:bg-[#FAF4ED] hover:text-[#985018] rounded-xl transition-colors text-left cursor-pointer"
@@ -7412,23 +7422,17 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                           </h3>
                           <p className="text-xs text-[#7D6E63] leading-relaxed">
                             Khóa học: <b className="text-[#8A4F23]">{selectedBatch.courses?.title || selectedBatch.batch_code}</b>.
-                            Hãy ghi danh học viên mới hoặc tiếp nhận học viên đã đặt cọc vào lớp học này.
+                            Xác nhận học phí và duyệt hồ sơ tại trang tuyển sinh trước khi xếp lớp.
                           </p>
                           <button
                             type="button"
                             onClick={() => {
-                              setEdit({
-                                row: {
-                                  batch_id: selectedBatch.id,
-                                  course_id: selectedBatch.course_id,
-                                },
-                                mode: "create",
-                              });
+                              window.location.assign("/academy-enrollment");
                             }}
                             className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#8A4F23] hover:bg-[#723F1A] transition-colors shadow-sm cursor-pointer"
                           >
                             <Plus size={15} />
-                            <span>Ghi danh học viên đầu tiên vào lớp này</span>
+                            <span>Mở tuyển sinh để xếp lớp</span>
                           </button>
                         </div>
                       ) : (

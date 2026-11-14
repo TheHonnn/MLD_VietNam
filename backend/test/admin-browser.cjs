@@ -204,6 +204,13 @@ async function main() {
       .getByRole('heading', { name: 'Tổng quan vận hành', exact: true })
       .waitFor();
     await page.screenshot({ path: path.join(output, 'dashboard-desktop.png') });
+    if (process.env.ADMIN_ACADEMY_ACCEPTANCE === '1') {
+      const result = await require('./support/academy-workspaces-browser.cjs').verifyAcademyWorkspaces({ pg, page, frontendUrl, output, browserAdmin, branch, course });
+      fs.writeFileSync(path.join(output, 'academy-result.json'), JSON.stringify({ ...result, httpPermissions, pageErrors: errors }, null, 2));
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify(result));
+      return;
+    }
     const legacyLinks = [['Tổng quan','/'],['Chi nhánh & Phòng ốc','/branches'],['Khách hàng (CRM)','/customers'],['Nhân sự & Kỹ thuật viên','/staff-schedule'],['Quản lý Liệu trình','/medical-records'],['Thu ngân & Tiếp đón','/cashier-pos'],['Tuyển sinh & Ghi danh','/academy-enrollment'],['Đội ngũ Giảng viên','/instructors'],['Học viên & Lớp học','/attendance'],['Chương trình đào tạo','/curriculum'],['Giấy chứng nhận','/certificates'],['Báo cáo doanh thu','/reports']];
     for(const [name,href] of legacyLinks) assert.equal(await page.getByRole('navigation').getByRole('link',{name,exact:true}).getAttribute('href'),href);
     const sidebar=page.locator('aside');
@@ -299,7 +306,7 @@ async function main() {
         0,
         name + ' error',
       );
-      const canCreate = !resource.readonly && (!resource.actions || resource.actions.includes('create')) && name !== 'invoice_items';
+      const canCreate = !resource.readonly && (!resource.actions || resource.actions.includes('create')) && !['invoice_items','course_enrollments','tuition_transactions'].includes(name);
       if (canCreate) {
         await page.locator('button.admin-primary').click();
         await page.getByRole('dialog').waitFor();
