@@ -2844,6 +2844,50 @@ class SupabaseService {
     return null;
   }
 
+  public async updateBatchSchedule(
+    scheduleId: string,
+    data: Partial<{
+      batchId: string;
+      assignedRoomId: string | null;
+      sessionDate: string;
+      startTime: string;
+      endTime: string;
+      topic: string;
+      isPracticeLab: boolean;
+    }>
+  ): Promise<BatchSchedule | null> {
+    if (!scheduleId || !isUuid(scheduleId)) return null;
+    try {
+      const payload: Record<string, any> = {};
+      if (data.batchId !== undefined) payload.batch_id = data.batchId;
+      if (data.assignedRoomId !== undefined) payload.assigned_room_id = isUuid(data.assignedRoomId) ? data.assignedRoomId : null;
+      if (data.sessionDate !== undefined) payload.session_date = data.sessionDate;
+      if (data.startTime !== undefined) payload.start_time = data.startTime.length === 5 ? `${data.startTime}:00` : data.startTime;
+      if (data.endTime !== undefined) payload.end_time = data.endTime.length === 5 ? `${data.endTime}:00` : data.endTime;
+      if (data.topic !== undefined) payload.topic = data.topic;
+      if (data.isPracticeLab !== undefined) payload.is_practice_lab = data.isPracticeLab;
+      const rows = await this.query<any[]>(`batch_schedules?id=eq.${encodeURIComponent(scheduleId)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      });
+      const r = Array.isArray(rows) ? rows[0] : null;
+      return r ? {
+        id: r.id,
+        batchId: r.batch_id,
+        assignedRoomId: r.assigned_room_id,
+        sessionDate: r.session_date,
+        startTime: (r.start_time || '').slice(0, 5),
+        endTime: (r.end_time || '').slice(0, 5),
+        topic: r.topic,
+        isPracticeLab: Boolean(r.is_practice_lab),
+      } : null;
+    } catch (err) {
+      console.warn('[SupabaseService] updateBatchSchedule error:', err);
+      return null;
+    }
+  }
+
   public async seedBatchSchedules(batchId: string, startDateStr?: string, scheduleText?: string): Promise<BatchSchedule[]> {
     if (!batchId || !isUuid(batchId)) return [];
 

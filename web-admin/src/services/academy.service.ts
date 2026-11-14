@@ -967,6 +967,32 @@ export const academyService = {
     }
   },
 
+  async updateBatchSchedule(
+    scheduleId: string,
+    data: Partial<{
+      batchId: string;
+      assignedRoomId: string | null;
+      sessionDate: string;
+      startTime: string;
+      endTime: string;
+      topic: string;
+      isPracticeLab: boolean;
+    }>
+  ): Promise<ApiResponse<BatchSchedule | null>> {
+    try {
+      const updated = await supabaseService.updateBatchSchedule(scheduleId, data);
+      return {
+        success: Boolean(updated),
+        statusCode: updated ? 200 : 400,
+        message: updated ? 'Đã cập nhật lịch thực hành thành công' : 'Không thể cập nhật lịch thực hành',
+        data: updated,
+      };
+    } catch (err) {
+      console.error('[academyService] updateBatchSchedule error:', err);
+      return { success: false, statusCode: 500, message: 'Lỗi khi cập nhật lịch thực hành', data: null };
+    }
+  },
+
   async seedBatchSchedules(batchId: string, startDate?: string, scheduleText?: string): Promise<ApiResponse<BatchSchedule[]>> {
     try {
       const seeded = await supabaseService.seedBatchSchedules(batchId, startDate, scheduleText);

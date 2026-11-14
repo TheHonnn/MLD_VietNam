@@ -355,6 +355,7 @@ export const W11_Curriculum: React.FC = () => {
   // Modals state
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [isSubmittingSchedule, setIsSubmittingSchedule] = useState(false);
   const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
@@ -378,6 +379,25 @@ export const W11_Curriculum: React.FC = () => {
     endTime: '11:30',
     topic: '',
   });
+
+  const openScheduleModal = (session?: PracticalSession | null) => {
+    if (session) {
+      setEditingScheduleId(session.id);
+      const [startTime = '08:30', endTime = '11:30'] = session.timeRange.split(/[–-]/).map((value) => value.trim());
+      setScheduleForm({
+        batchId: session.batchId || '',
+        assignedRoomId: session.roomId || '',
+        sessionDate: session.dateKey || selectedDate,
+        startTime,
+        endTime,
+        topic: session.videoTopic || '',
+      });
+    } else {
+      setEditingScheduleId(null);
+      setScheduleForm((current) => ({ ...current, batchId: '', assignedRoomId: '', sessionDate: selectedDate, topic: '' }));
+    }
+    setIsScheduleModalOpen(true);
+  };
 
   // Auto select active session when displayedSessions changes
   useEffect(() => {
@@ -598,7 +618,7 @@ export const W11_Curriculum: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => handleSelectDate('2026-10-16')}
+          onClick={() => handleSelectDate(new Date().toISOString().split('T')[0])}
           className="px-3 py-1 rounded-xl text-xs font-semibold bg-white hover:bg-[#FAF8F5] text-[#5C5046] border border-[#E8DFD8] shrink-0 cursor-pointer"
         >
           Hôm nay
@@ -676,7 +696,6 @@ export const W11_Curriculum: React.FC = () => {
               <option value="Đang diễn ra">Đang diễn ra</option>
               <option value="Sắp diễn ra">Sắp diễn ra</option>
               <option value="Đã hoàn thành">Đã hoàn thành</option>
-              <option value="Chưa diễn ra">Chưa diễn ra</option>
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -688,7 +707,7 @@ export const W11_Curriculum: React.FC = () => {
           </span>
           <button
             type="button"
-            onClick={() => setIsScheduleModalOpen(true)}
+            onClick={() => openScheduleModal()}
             className="h-9 px-3.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -869,7 +888,7 @@ export const W11_Curriculum: React.FC = () => {
               <div className="pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsScheduleModalOpen(true)}
+                  onClick={() => openScheduleModal()}
                   className="px-4 py-2 bg-[#985018] text-white text-xs font-bold rounded-xl hover:bg-[#854412] transition-colors cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1006,10 +1025,10 @@ export const W11_Curriculum: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsScheduleModalOpen(true)}
+                  onClick={() => openScheduleModal(selectedSession)}
                   className="w-full py-2 bg-white border border-[#985018] hover:bg-[#FAF5EF] text-[#985018] text-xs font-bold rounded-xl transition-all shadow-xs text-center cursor-pointer"
                 >
-                  Xếp lịch / Điều chỉnh ca
+                  Điều chỉnh ca
                 </button>
               </div>
             </div>
@@ -1025,7 +1044,7 @@ export const W11_Curriculum: React.FC = () => {
               <div className="pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsScheduleModalOpen(true)}
+                  onClick={() => openScheduleModal()}
                   className="px-4 py-2 bg-[#985018] text-white text-xs font-bold rounded-xl hover:bg-[#854412] transition-colors cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1373,7 +1392,7 @@ export const W11_Curriculum: React.FC = () => {
                 }
                 setIsSubmittingSchedule(true);
                 try {
-                  const res = await academyService.createBatchSchedule({
+                  const scheduleData = {
                     batchId: effectiveBatchId,
                     assignedRoomId: scheduleForm.assignedRoomId || practiceRooms[0]?.id || null,
                     sessionDate: scheduleForm.sessionDate || selectedDate,
@@ -1381,9 +1400,13 @@ export const W11_Curriculum: React.FC = () => {
                     endTime: scheduleForm.endTime || '11:30',
                     topic: scheduleForm.topic.trim(),
                     isPracticeLab: true,
-                  });
+                  };
+                  const res = editingScheduleId
+                    ? await academyService.updateBatchSchedule(editingScheduleId, scheduleData)
+                    : await academyService.createBatchSchedule(scheduleData);
                   if (res.success) {
                     setIsScheduleModalOpen(false);
+                    setEditingScheduleId(null);
                     setScheduleForm({
                       batchId: '',
                       assignedRoomId: '',
@@ -1392,7 +1415,7 @@ export const W11_Curriculum: React.FC = () => {
                       endTime: '11:30',
                       topic: '',
                     });
-                    showToast('Đã lưu lịch thực hành thành công!');
+                    showToast(editingScheduleId ? 'Đã cập nhật lịch thực hành thành công!' : 'Đã lưu lịch thực hành thành công!');
                     fetchCurriculum();
                   } else {
                     showToast('Lỗi khi lưu lịch: ' + res.message);
@@ -1499,7 +1522,7 @@ export const W11_Curriculum: React.FC = () => {
                   disabled={isSubmittingSchedule}
                   className="px-5 py-2 bg-[#8D4B1A] hover:bg-[#783E15] text-white rounded-xl font-semibold cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  {isSubmittingSchedule ? 'Đang lưu...' : 'Lưu lịch thực hành'}
+                  {isSubmittingSchedule ? 'Đang lưu...' : editingScheduleId ? 'Cập nhật lịch thực hành' : 'Lưu lịch thực hành'}
                 </button>
               </div>
             </form>
