@@ -700,6 +700,7 @@ export const W05_StaffSchedule: React.FC = () => {
       const found = allAppointments.find(
         (a) =>
           a.id.toLowerCase() === kw ||
+          liveBookings.find((booking) => booking.id === a.id)?.bookingCode?.toLowerCase() === kw ||
           a.customerCode.toLowerCase().includes(kw) ||
           a.customer.toLowerCase().includes(kw)
       );
@@ -710,7 +711,7 @@ export const W05_StaffSchedule: React.FC = () => {
         }
       }
     }
-  }, [searchParams, allAppointments, selectedDate]);
+  }, [searchParams, allAppointments, selectedDate, liveBookings]);
 
   // Date Navigator Helpers
   const handleSelectDate = (newDate: string) => {
