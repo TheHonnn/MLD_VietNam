@@ -3,7 +3,11 @@ import { adminApi, Listing, Row } from "./api";
 
 type Preview = { sessions: { date: string; existing: boolean }[]; created: number; saved: boolean };
 
-export function SchedulePlanDialog({ batchId, onSaved }: { batchId: string; onSaved: () => void }) {
+export function SchedulePlanDialog({ batchId, onSaved, onOpenWeek }: {
+  batchId: string;
+  onSaved: () => void;
+  onOpenWeek: (date: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [batch, setBatch] = useState<Row>();
   const [rooms, setRooms] = useState<Row[]>([]);
@@ -15,6 +19,7 @@ export function SchedulePlanDialog({ batchId, onSaved }: { batchId: string; onSa
   const [preview, setPreview] = useState<Preview>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [savedPlan, setSavedPlan] = useState<{ batchId: string; count: number; firstDate?: string }>();
   useEffect(() => {
     if (!open) return;
     let active = true;
@@ -35,13 +40,24 @@ export function SchedulePlanDialog({ batchId, onSaved }: { batchId: string; onSa
       const result = await adminApi<Preview>("academy/batches/" + batchId + "/schedule-plan", {
         days, startTime, endTime, roomId: roomId || undefined, isPractice, save,
       });
-      if (save && result.saved) { setOpen(false); onSaved(); }
+      if (save && result.saved) {
+        const firstDate = result.sessions.filter(session => !session.existing).map(session => session.date).sort()[0];
+        setSavedPlan({ batchId, count: result.created, firstDate });
+        setOpen(false);
+        onSaved();
+      }
       else setPreview(result);
     } catch (err: any) { setPreview(undefined); setError(err.message || "Không kiểm tra được lịch học."); }
     finally { setBusy(false); }
   }
   return <>
-    <button className="admin-secondary" onClick={() => setOpen(true)}>Tạo buổi từ lịch dự kiến</button>
+    <div className="flex flex-wrap items-center gap-3">
+      <button className="admin-secondary" onClick={() => setOpen(true)}>Tạo buổi từ lịch dự kiến</button>
+      {savedPlan?.batchId === batchId && <>
+        <span role="status" className="text-sm">{savedPlan.count ? `Đã lưu ${savedPlan.count} buổi học` : "Các buổi học đã có trong thời khóa biểu."}</span>
+        {savedPlan.firstDate && <button className="admin-secondary" onClick={() => onOpenWeek(savedPlan.firstDate!)}>Mở tuần có lịch mới</button>}
+      </>}
+    </div>
     {open && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <section role="dialog" aria-modal="true" aria-label="Tạo buổi học theo lịch dự kiến" className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 space-y-4">
         <h2 className="text-lg font-semibold">Tạo buổi học theo lịch dự kiến</h2>

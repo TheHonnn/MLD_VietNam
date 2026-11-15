@@ -703,7 +703,8 @@ export const academyService = {
   }): Promise<ApiResponse<StudentCertificate[]>> {
     try {
       const live = await supabaseService.getStudentCertificates();
-      let res = live || [];
+      if (live === null) throw new Error('Không tải được giấy chứng nhận.');
+      let res = live;
       if (params?.status) {
         res = res.filter((c) => c.status === params.status);
       }
