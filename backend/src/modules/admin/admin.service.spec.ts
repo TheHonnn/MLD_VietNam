@@ -673,6 +673,18 @@ describe('Admin shared-schema integration', () => {
     });
     expect(cert.status).toBe('DRAFT');
     expect(cert.qr_verification_code).toBeTruthy();
+    await expect(service.mutate('student_certificates', actor, 'create', {
+      values: {
+        enrollment_id: e.id,
+        student_id: e.student_id,
+        course_id: e.course_id,
+        certificate_code: 'TESTCERT-DUPLICATE',
+        student_name: 'Test student',
+        course_title: 'Test course',
+        theory_score: 8,
+        practical_score: 8,
+      },
+    })).rejects.toThrow('đã có bản nháp');
     await expect(
       service.action('student_certificates', actor, {
         key: { id: cert.id },

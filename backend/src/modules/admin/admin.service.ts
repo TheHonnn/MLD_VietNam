@@ -1260,6 +1260,23 @@ export class AdminService {
       if (data.status && data.status !== 'DRAFT')
         throw new BadRequestException('Dùng thao tác phát hành chứng chỉ.');
       if (operation === 'create') {
+        if (!data.enrollment_id)
+          throw new BadRequestException('Cần liên kết hồ sơ ghi danh.');
+        const enrollment = (await client.query(
+          `SELECT e.student_id,e.course_id,COALESCE(NULLIF(btrim(e.student_name),''),u.full_name) AS student_name,c.title AS course_title
+           FROM course_enrollments e JOIN users u ON u.id=e.student_id JOIN courses c ON c.id=e.course_id WHERE e.id=$1`,
+          [data.enrollment_id],
+        )).rows[0];
+        if (!enrollment || enrollment.student_id !== data.student_id || enrollment.course_id !== data.course_id)
+          throw new BadRequestException('Học viên và khóa đào tạo phải khớp với hồ sơ ghi danh.');
+        const existing = await client.query(
+          "SELECT id FROM student_certificates WHERE enrollment_id=$1 AND status IN ('DRAFT','ISSUED')",
+          [data.enrollment_id],
+        );
+        if (existing.rows.length)
+          throw new ConflictException('Hồ sơ ghi danh đã có bản nháp hoặc chứng nhận đang hiệu lực.');
+        data.student_name = enrollment.student_name;
+        data.course_title = enrollment.course_title;
         data.status = 'DRAFT';
         data.qr_verification_code = randomUUID();
       }
@@ -2245,19 +2262,21 @@ export class AdminService {
         ).rows[0];
         if (
           !record?.is_graduated ||
-          Number(record.theory_score) < 5 ||
-          Number(record.practical_score) < 5 ||
-          Number(record.attendance_rate) < 80 ||
+          !(Number(record.theory_score) >= 5) ||
+          !(Number(record.practical_score) >= 5) ||
+          !(Number(record.attendance_rate) >= 80) ||
           enrollment?.student_id !== row.student_id ||
           enrollment?.course_id !== row.course_id ||
-          Number(enrollment.amount_paid) < Number(enrollment.tuition_total)
+          !(Number(enrollment.amount_paid) >= Number(enrollment.final_tuition ?? enrollment.tuition_total))
         )
           throw new ConflictException(
             'Cần tốt nghiệp, đủ học phí, điểm lý thuyết/thực hành từ 5 và chuyên cần từ 80%.',
           );
+        const average = (Number(record.theory_score) + Number(record.practical_score)) / 2;
+        const grade = average >= 9 ? 'XUẤT SẮC' : average >= 8 ? 'GIỎI' : average >= 7 ? 'KHÁ' : 'ĐẠT';
         await client.query(
-          "UPDATE student_certificates SET status='ISSUED',issue_date=CURRENT_DATE,theory_score=$2,practical_score=$3 WHERE id=$1",
-          [row.id, record.theory_score, record.practical_score],
+          "UPDATE student_certificates SET status='ISSUED',issue_date=(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,theory_score=$2,practical_score=$3,final_grade=$4 WHERE id=$1",
+          [row.id, record.theory_score, record.practical_score, grade],
         );
         await client.query(
           'UPDATE student_academic_records SET certificate_id=$2 WHERE enrollment_id=$1',
