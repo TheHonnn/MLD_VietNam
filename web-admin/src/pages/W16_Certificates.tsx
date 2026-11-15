@@ -221,9 +221,9 @@ export function W16_Certificates() {
       <div className="flex flex-wrap items-center gap-3 border-b p-4">
         <label className="relative min-w-[220px] flex-1">
           <Search size={16} className="absolute left-3 top-3 text-stone-500" />
-          <input className="admin-input w-full pl-9" aria-label="Tìm chứng nhận" placeholder="Tên học viên, số hiệu hoặc khóa đào tạo" value={search} onChange={event => { setSearch(event.target.value); setPage(1); setLoading(true); }} />
+          <input className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-800 w-full !pl-9" aria-label="Tìm chứng nhận" placeholder="Tên học viên, số hiệu hoặc khóa đào tạo" value={search} onChange={event => { setSearch(event.target.value); setPage(1); setLoading(true); }} />
         </label>
-        <select className="admin-input" aria-label="Trạng thái chứng nhận" value={status} onChange={event => { setStatus(event.target.value); setPage(1); setLoading(true); }}>
+        <select className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-800" aria-label="Trạng thái chứng nhận" value={status} onChange={event => { setStatus(event.target.value); setPage(1); setLoading(true); }}>
           <option value="">Tất cả trạng thái</option>
           {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
@@ -283,19 +283,19 @@ export function W16_Certificates() {
       <form className="space-y-4 rounded-2xl border bg-white p-5" onSubmit={saveDraft}>
         <h2 className="text-lg font-semibold">1. Chọn hồ sơ ghi danh</h2>
         <label className="block text-sm">Tìm theo tên, mã hồ sơ hoặc số điện thoại
-          <input className="admin-input mt-1 w-full" value={lookup} onChange={event => {
+          <input className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-800 mt-1 w-full" value={lookup} onChange={event => {
             setLookup(event.target.value); setSelected(undefined); setCandidates([]);
             setLookupStatus(event.target.value.trim().length >= 2 ? 'Đang tìm…' : '');
           }} />
         </label>
         {lookupStatus && <p role="status" className="text-sm text-stone-600">{lookupStatus}</p>}
         {candidates.length > 0 && <label className="block text-sm">Hồ sơ ghi danh
-          <select className="admin-input mt-1 w-full" aria-label="Hồ sơ ghi danh" value={selected?.id || ''} onChange={event => {
+          <select className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-800 mt-1 w-full" aria-label="Hồ sơ ghi danh" value={selected?.id || ''} onChange={event => {
             setRecord(undefined); setEligibilityError('');
             setSelected(candidates.find(row => row.id === event.target.value));
           }}>
             <option value="">Chọn hồ sơ</option>
-            {candidates.map(row => <option key={row.id} value={row.id}>{row.student_name || 'Chưa có tên học viên'} · {row.order_code || row.id}</option>)}
+            {candidates.map(row => <option key={row.id} value={row.id}>{row.student_name || 'Chưa có tên học viên'} · {row.order_code || row.course_title || row.id}</option>)}
           </select>
         </label>}
         {selected && <div className="space-y-2 rounded-xl bg-stone-50 p-4 text-sm">
@@ -307,8 +307,8 @@ export function W16_Certificates() {
         </div>}
         <h2 className="border-t pt-4 text-lg font-semibold">2. Xác nhận người ký</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">Họ tên người ký<input className="admin-input mt-1 w-full" required maxLength={100} value={signer} onChange={event => setSigner(event.target.value)} /></label>
-          <label className="text-sm">Chức danh<input className="admin-input mt-1 w-full" required maxLength={100} value={signerTitle} onChange={event => setSignerTitle(event.target.value)} /></label>
+          <label className="text-sm">Họ tên người ký<input className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-800 mt-1 w-full" required maxLength={100} value={signer} onChange={event => setSigner(event.target.value)} /></label>
+          <label className="text-sm">Chức danh<input className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-800 mt-1 w-full" required maxLength={100} value={signerTitle} onChange={event => setSignerTitle(event.target.value)} /></label>
         </div>
         <button className="admin-primary" disabled={busy || checking || !eligible || Boolean(eligibilityError) || !selected?.student_name?.trim() || !signer.trim() || !signerTitle.trim()}>{busy ? 'Đang lưu…' : 'Lưu bản nháp'}</button>
       </form>
@@ -332,7 +332,7 @@ export function W16_Certificates() {
         <h2 id="certificate-action-title" className="text-lg font-semibold">{pending.action === 'issue' ? 'Phát hành giấy chứng nhận' : 'Thu hồi giấy chứng nhận'}</h2>
         <p className="text-sm">{pending.row.student_name} · {pending.row.certificate_code}</p>
         {pending.action === 'issue' ? <p className="text-sm text-stone-600">Máy chủ sẽ kiểm tra lại điều kiện tốt nghiệp, học phí, điểm và chuyên cần trước khi phát hành.</p> :
-          <label className="block text-sm">Lý do thu hồi<textarea autoFocus className="admin-input mt-1 w-full" rows={3} maxLength={2000} required value={reason} onChange={event => setReason(event.target.value)} /></label>}
+          <label className="block text-sm">Lý do thu hồi<textarea autoFocus className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-800 mt-1 w-full" rows={3} maxLength={2000} required value={reason} onChange={event => setReason(event.target.value)} /></label>}
         <div className="flex justify-end gap-2">
           <button className="admin-secondary" type="button" disabled={busy} onClick={() => setPending(undefined)}>Hủy</button>
           <button className="admin-primary" disabled={busy || (pending.action === 'revoke' && !reason.trim())}>{busy ? 'Đang xử lý…' : 'Xác nhận'}</button>
