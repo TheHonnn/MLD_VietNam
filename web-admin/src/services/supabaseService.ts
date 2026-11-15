@@ -1940,7 +1940,7 @@ class SupabaseService {
       ? `tuition_transactions?enrollment_id=eq.${enrollmentId}&order=paid_at.desc`
       : `tuition_transactions?order=paid_at.desc`;
     const raw = await this.query<any[]>(path);
-    if (!raw || raw.length === 0) return null;
+    if (!raw) return null;
 
     return raw.map((tt) => ({
       id: tt.id,

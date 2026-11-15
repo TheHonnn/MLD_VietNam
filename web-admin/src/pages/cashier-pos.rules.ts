@@ -81,3 +81,14 @@ export function classifyPosSource(bookingId: string | undefined, cart: CartLine[
   return 'CART';
 }
 
+export function findTuitionEnrollment<T extends { id: string; orderCode?: string | null }>(
+  enrollments: T[],
+  reference: string,
+): T | undefined {
+  const key = reference.trim().toLowerCase();
+  if (!key) return undefined;
+  const exactId = enrollments.find(enrollment => enrollment.id.toLowerCase() === key);
+  if (exactId) return exactId;
+  const matches = enrollments.filter(enrollment => enrollment.orderCode?.trim().toLowerCase() === key);
+  return matches.length === 1 ? matches[0] : undefined;
+}

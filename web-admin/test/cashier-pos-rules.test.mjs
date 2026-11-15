@@ -60,3 +60,10 @@ test('source classification is explicit and deterministic', () => {
   assert.equal(rules.classifyPosSource(undefined, service), 'WALK_IN');
   assert.equal(rules.classifyPosSource(undefined, product), 'CART');
 });
+test('tuition deep link selects only an exact and unique enrollment', () => {
+  const rows = [{ id: 'row-a', orderCode: 'KH-001' }, { id: 'row-b', orderCode: 'KH-0010' }];
+  assert.equal(rules.findTuitionEnrollment(rows, ' kh-001 '), rows[0]);
+  assert.equal(rules.findTuitionEnrollment(rows, 'row-b'), rows[1]);
+  assert.equal(rules.findTuitionEnrollment(rows, 'KH'), undefined);
+  assert.equal(rules.findTuitionEnrollment([...rows, { id: 'row-c', orderCode: 'KH-001' }], 'KH-001'), undefined);
+});

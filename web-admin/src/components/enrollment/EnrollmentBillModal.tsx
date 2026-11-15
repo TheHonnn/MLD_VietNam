@@ -314,7 +314,7 @@ const EnrollmentBillContent: React.FC<Omit<EnrollmentBillModalProps, 'isOpen' | 
             {/* Nút 2: Duyệt tại quầy */}
             {remaining > 0 && (
               <Link
-                to={`/cashier-pos?tab=tuition&tuitionOrder=${encodeURIComponent(candidate.orderCode || candidate.id)}`}
+                to={`/cashier-pos?tab=tuition&tuitionOrder=${encodeURIComponent(candidate.orderCode || candidate.id)}&tuitionEnrollment=${encodeURIComponent(candidate.id)}`}
                 className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />

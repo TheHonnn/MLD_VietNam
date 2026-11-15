@@ -87,6 +87,7 @@ import {
   isCompletedServiceBooking,
   hasCashierShiftSnapshotChanged,
   SYSTEM_GUEST_CUSTOMER_ID,
+  findTuitionEnrollment,
 } from './cashier-pos.rules';
 
 export const POS_TIME_SLOTS = [
@@ -151,14 +152,18 @@ export const W07_CashierPOS: React.FC = () => {
     return 'pos';
   });
   const [tuitionLedger, setTuitionLedger] = useState<TuitionTransaction[] | null>(null);
+  const [tuitionLedgerError, setTuitionLedgerError] = useState(false);
+  const [tuitionLedgerRevision, setTuitionLedgerRevision] = useState(0);
   useEffect(() => {
     if (activeTab !== 'tuition') return;
     let active = true;
     academyService.getTuitionTransactions().then(result => {
-      if (active) setTuitionLedger(result.success ? result.data : null);
+      if (!active) return;
+      setTuitionLedgerError(!result.success);
+      if (result.success) setTuitionLedger(result.data);
     });
     return () => { active = false; };
-  }, [activeTab]);
+  }, [activeTab, tuitionLedgerRevision]);
 
   const handleBranchSelect = (bId: string) => {
     setSelectedBranchId(bId);
@@ -263,7 +268,30 @@ export const W07_CashierPOS: React.FC = () => {
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [selectedEnrollment, setSelectedEnrollment] = useState<CourseEnrollment | undefined>(undefined);
   const [tuitionPaymentAmount, setTuitionPaymentAmount] = useState<number>(0);
-  const [tuitionSearchTerm, setTuitionSearchTerm] = useState(() => searchParams.get('tuitionOrder') || '');
+  const tuitionOrder = searchParams.get('tuitionOrder') || '';
+  const tuitionEnrollmentId = searchParams.get('tuitionEnrollment') || '';
+  const tuitionReference = tuitionEnrollmentId || tuitionOrder;
+  const handledTuitionReference = useRef('');
+  const [enrollmentLoad, setEnrollmentLoad] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [tuitionSearchTerm, setTuitionSearchTerm] = useState(tuitionOrder);
+
+  useEffect(() => {
+    if (!tuitionReference) {
+      handledTuitionReference.current = '';
+      return;
+    }
+    if (enrollmentLoad !== 'ready' || handledTuitionReference.current === tuitionReference) return;
+    handledTuitionReference.current = tuitionReference;
+    const enrollment = findTuitionEnrollment(allEnrollments, tuitionReference);
+    setSelectedEnrollment(enrollment);
+    setTuitionSearchTerm(enrollment ? '' : tuitionOrder || tuitionReference);
+    setSelectedMethod('transfer');
+    setTuitionPaymentAmount(0);
+  }, [allEnrollments, enrollmentLoad, tuitionOrder, tuitionReference]);
+
+  useEffect(() => {
+    setTuitionBankReference('');
+  }, [selectedEnrollment?.id]);
   const [tuitionReceiptSearchTerm, setTuitionReceiptSearchTerm] = useState('');
   const [tuitionReceiptBranchFilter, setTuitionReceiptBranchFilter] = useState('ALL');
   const [tuitionReceiptMethodFilter, setTuitionReceiptMethodFilter] = useState('ALL');
@@ -382,16 +410,34 @@ export const W07_CashierPOS: React.FC = () => {
     }
   };
 
+  const loadTuitionEnrollments = async () => {
+    setEnrollmentLoad('loading');
+    try {
+      const result = await academyService.getEnrollments();
+      if (!result.success || !result.data) {
+        setEnrollmentLoad('error');
+        return;
+      }
+      setAllEnrollments(result.data);
+      setEnrollmentLoad('ready');
+    } catch {
+      setEnrollmentLoad('error');
+    }
+  };
+
+  useEffect(() => {
+    void loadTuitionEnrollments();
+  }, []);
+
   const fetchPosData = async () => {
     try {
-      const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, enrRes, srvRes, techRes, courseRes] = await Promise.allSettled([
+      const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, srvRes, techRes, courseRes] = await Promise.allSettled([
         posService.getInvoices(),
         bookingService.getBookings(),
         customerService.getCustomers(),
         branchService.getAllBranches(),
         treatmentService.getTreatmentPackages(),
         posService.getActiveShift(selectedBranchId !== 'ALL' ? selectedBranchId : undefined),
-        academyService.getEnrollments(),
         supabaseService.getServices(),
         supabaseService.getTechnicians(),
         academyService.getCourses(),
@@ -416,9 +462,6 @@ export const W07_CashierPOS: React.FC = () => {
       }
       if (shiftRes.status === 'fulfilled' && shiftRes.value.success) {
         setCurrentShift(shiftRes.value.data || null);
-      }
-      if (enrRes.status === 'fulfilled' && enrRes.value.success && enrRes.value.data) {
-        setAllEnrollments(enrRes.value.data);
       }
       if (courseRes.status === 'fulfilled' && courseRes.value.success && courseRes.value.data) {
         setAllCourses(courseRes.value.data);
@@ -1073,7 +1116,7 @@ export const W07_CashierPOS: React.FC = () => {
       toast.error('Lỗi', 'Chưa chọn hồ sơ học viên để thanh toán học phí.');
       return;
     }
-    if (!currentShift) {
+    if (!currentShift || currentShift.branchId !== selectedBranchId) {
       toast.warning('Chưa mở ca', 'Vui lòng mở ca thu ngân trước khi thu học phí.');
       setShowOpenShiftModal(true);
       return;
@@ -1131,7 +1174,14 @@ export const W07_CashierPOS: React.FC = () => {
       setTuitionBankReference('');
       const generatedInvoiceCode = collection.data.transactionCode;
       const newPaidTotal = collection.data.paidTotal;
-      const isFull = newPaidTotal >= collection.data.tuitionTotal;
+      supabaseService.invalidateCache('tuition_transactions');
+      setTuitionLedgerRevision(revision => revision + 1);
+      const remainingTuition = Math.max(0, collection.data.tuitionTotal - newPaidTotal);
+      const isFull = remainingTuition === 0;
+      const updatedEnrollment = { ...selectedEnrollment, amountPaid: newPaidTotal };
+      setAllEnrollments(rows => rows.map(row => row.id === updatedEnrollment.id ? updatedEnrollment : row));
+      setSelectedEnrollment(current => current?.id === updatedEnrollment.id ? updatedEnrollment : current);
+      setTuitionPaymentAmount(0);
       const shift = await posService.getActiveShift(currentShift.branchId);
       if (shift.success) setCurrentShift(shift.data);
 
@@ -1158,7 +1208,7 @@ export const W07_CashierPOS: React.FC = () => {
           month: '2-digit',
           year: 'numeric',
         }).format(new Date()),
-        status: isFull ? 'Đã tất toán toàn khóa' : `Đã đóng đợt (còn nợ ${(selectedEnrollment.tuitionTotal! - newPaidTotal).toLocaleString('vi-VN')}đ)`,
+        status: isFull ? 'Đã tất toán toàn khóa' : `Đã đóng đợt (còn nợ ${remainingTuition.toLocaleString('vi-VN')}đ)`,
         sourceKind: 'TUITION',
         customerId: validCustomerId !== GUEST_CUSTOMER.id ? validCustomerId : undefined,
         lineItems: [{ description: getEnrollmentCourseTitle(selectedEnrollment), quantity: 1, unitPrice: amount, amount }],
@@ -1171,7 +1221,7 @@ export const W07_CashierPOS: React.FC = () => {
 
       setShowReceiptModal(true);
       toast.success('Đã thu học phí', `${amount.toLocaleString('vi-VN')}đ · ${generatedInvoiceCode}`);
-      await fetchPosData();
+      await Promise.all([fetchPosData(), loadTuitionEnrollments()]);
     } catch (err: any) {
       console.error('Lỗi thu học phí:', err);
       toast.error('Lỗi thu học phí', err?.message || 'Không thể ghi nhận thanh toán.');
@@ -3027,7 +3077,7 @@ export const W07_CashierPOS: React.FC = () => {
       {activeTab === 'tuition' && (
         <div className="space-y-6 animate-in fade-in duration-200">
           <div className="rounded-xl border border-[#EFE4D9] bg-white px-5 py-3 text-sm font-semibold text-[#2C241E]">
-            Học phí thực thu: <span data-testid="tuition-net-total" className="text-[#985018]">{tuitionLedger === null ? 'Đang tải…' : `${tuitionLedger.filter(row => row.paymentStatus === PaymentStatus.PAID && (selectedBranchId === 'ALL' || row.branchId === selectedBranchId)).reduce((sum, row) => sum + (row.transactionType === 'REFUND' ? -Math.abs(row.amount) : row.amount), 0).toLocaleString('vi-VN')}đ`}</span>
+            Học phí thực thu: <span data-testid="tuition-net-total" className="text-[#985018]">{tuitionLedgerError ? <button type="button" className="underline" onClick={() => { setTuitionLedgerError(false); setTuitionLedgerRevision(revision => revision + 1); }}>Tải lại số thực thu</button> : tuitionLedger === null ? 'Đang tải…' : `${tuitionLedger.filter(row => row.paymentStatus === PaymentStatus.PAID && (selectedBranchId === 'ALL' || row.branchId === selectedBranchId)).reduce((sum, row) => sum + (row.transactionType === 'REFUND' ? -Math.abs(row.amount) : row.amount), 0).toLocaleString('vi-VN')}đ`}</span>
           </div>
           {/* PHẦN 1: GHI NHẬN PHIẾU THU HỌC PHÍ MỚI */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -3053,6 +3103,16 @@ export const W07_CashierPOS: React.FC = () => {
                 )}
               </div>
 
+              {enrollmentLoad === 'error' ? (
+                <p role="alert" className="text-sm text-rose-700">
+                  Không tải được hồ sơ học viên.{' '}
+                  <button type="button" className="underline" onClick={() => { handledTuitionReference.current = ''; void loadTuitionEnrollments(); }}>Tải lại</button>
+                </p>
+              ) : tuitionReference && !selectedEnrollment && tuitionSearchTerm === (tuitionOrder || tuitionReference) ? (
+                <p role="status" className="text-xs text-[#73675F]">
+                  {enrollmentLoad === 'loading' ? 'Đang mở hồ sơ học viên…' : 'Không tìm được hồ sơ khớp duy nhất. Kiểm tra mã hoặc chọn hồ sơ bằng ô tìm kiếm.'}
+                </p>
+              ) : null}
               {/* Search Combobox Input */}
               <div className="relative">
                 <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -3113,7 +3173,7 @@ export const W07_CashierPOS: React.FC = () => {
                         const sName = getEnrollmentStudentName(enr);
                         const sPhone = getEnrollmentStudentPhone(enr);
                         const cTitle = getEnrollmentCourseTitle(enr);
-                        const total = enr.tuitionTotal || 9000000;
+                        const total = (enr.finalTuition ?? enr.tuitionTotal ?? 0);
                         const paid = enr.amountPaid || 0;
                         const due = Math.max(0, total - paid);
                         const isSelected = selectedEnrollment?.id === enr.id;
@@ -3123,7 +3183,7 @@ export const W07_CashierPOS: React.FC = () => {
                             key={enr.id}
                             onClick={() => {
                               setSelectedEnrollment(enr);
-                              setTuitionPaymentAmount(due > 0 ? due : total);
+                              setTuitionPaymentAmount(due);
                               setIsTuitionStudentDropdownOpen(false);
                               setTuitionSearchTerm('');
                             }}
@@ -3184,9 +3244,9 @@ export const W07_CashierPOS: React.FC = () => {
                             type="button"
                             onClick={() => {
                               setSelectedEnrollment(enr);
-                              const total = enr.tuitionTotal || 9000000;
+                              const total = (enr.finalTuition ?? enr.tuitionTotal ?? 0);
                               const paid = enr.amountPaid || 0;
-                              setTuitionPaymentAmount(Math.max(0, total - paid) || total);
+                              setTuitionPaymentAmount(Math.max(0, total - paid));
                             }}
                             className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
                           >
@@ -3236,7 +3296,7 @@ export const W07_CashierPOS: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-[#73675F]">Học phí toàn khóa:</span>
                       <strong className="text-sm text-[#2C241E]">
-                        {(selectedEnrollment.tuitionTotal || 9000000).toLocaleString('vi-VN')}đ
+                        {(selectedEnrollment.finalTuition ?? selectedEnrollment.tuitionTotal ?? 0).toLocaleString('vi-VN')}đ
                       </strong>
                     </div>
                     <div className="flex items-center justify-between">
@@ -3250,7 +3310,7 @@ export const W07_CashierPOS: React.FC = () => {
                       <span>
                         {Math.max(
                           0,
-                          (selectedEnrollment.tuitionTotal || 9000000) - (selectedEnrollment.amountPaid || 0)
+                          (selectedEnrollment.finalTuition ?? selectedEnrollment.tuitionTotal ?? 0) - (selectedEnrollment.amountPaid || 0)
                         ).toLocaleString('vi-VN')}đ
                       </span>
                     </div>
@@ -3292,7 +3352,7 @@ export const W07_CashierPOS: React.FC = () => {
                     }`}
                   >
                     <QrCode className="w-3.5 h-3.5" />
-                    <span>Chuyển khoản VietQR</span>
+                    <span>Chuyển khoản đã nhận</span>
                   </button>
                 </div>
               </div>
@@ -3307,10 +3367,10 @@ export const W07_CashierPOS: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        const total = selectedEnrollment.tuitionTotal || 9000000;
+                        const total = selectedEnrollment.finalTuition ?? selectedEnrollment.tuitionTotal ?? 0;
                         const paid = selectedEnrollment.amountPaid || 0;
                         const due = Math.max(0, total - paid);
-                        setTuitionPaymentAmount(due > 0 ? due : total);
+                        setTuitionPaymentAmount(due);
                       }}
                       className="text-[11px] font-bold text-[#8A4F23] hover:underline cursor-pointer"
                     >
@@ -3322,6 +3382,7 @@ export const W07_CashierPOS: React.FC = () => {
                   type="number"
                   min="0"
                   step="100000"
+                  disabled={!selectedEnrollment || isProcessing}
                   value={tuitionPaymentAmount || ''}
                   onChange={(e) => setTuitionPaymentAmount(Math.max(0, Number(e.target.value) || 0))}
                   placeholder="Nhập số tiền học phí..."
@@ -3332,7 +3393,7 @@ export const W07_CashierPOS: React.FC = () => {
                 {selectedEnrollment && (
                   <div className="pt-2 flex flex-wrap gap-1.5">
                     {(() => {
-                      const total = selectedEnrollment.tuitionTotal || 9000000;
+                      const total = selectedEnrollment.finalTuition ?? selectedEnrollment.tuitionTotal ?? 0;
                       const paid = selectedEnrollment.amountPaid || 0;
                       const due = Math.max(0, total - paid);
                       const presets = [due, 5000000, 10000000, 20000000].filter(
@@ -3358,7 +3419,11 @@ export const W07_CashierPOS: React.FC = () => {
               </div>
 
               {(() => {
-                if (!currentShift) {
+                if (!selectedEnrollment) {
+                  return <p className="text-xs text-[#73675F]">Chọn hồ sơ học viên để tiếp tục.</p>;
+                }
+
+                if (!currentShift || currentShift.branchId !== selectedBranchId) {
                   return (
                     <button
                       type="button"
@@ -3385,9 +3450,10 @@ export const W07_CashierPOS: React.FC = () => {
                 }
 
                 const due = selectedEnrollment
-                  ? Math.max(0, (selectedEnrollment.tuitionTotal || 9000000) - (selectedEnrollment.amountPaid || 0))
+                  ? Math.max(0, (selectedEnrollment.finalTuition ?? selectedEnrollment.tuitionTotal ?? 0) - (selectedEnrollment.amountPaid || 0))
                   : 0;
-                const isOverdue = Boolean(selectedEnrollment && due > 0 && tuitionPaymentAmount > due);
+                if (due === 0) return <p className="text-xs text-[#73675F]">Hồ sơ không có số dư học phí để thu.</p>;
+                const isOverdue = tuitionPaymentAmount > due;
 
                 if (isOverdue) {
                   return (
@@ -3791,7 +3857,7 @@ export const W07_CashierPOS: React.FC = () => {
                           const sName = getEnrollmentStudentName(enr);
                           const sPhone = getEnrollmentStudentPhone(enr);
                           const cTitle = getEnrollmentCourseTitle(enr);
-                          const total = enr.tuitionTotal || 9000000;
+                          const total = (enr.finalTuition ?? enr.tuitionTotal ?? 0);
                           const paid = enr.amountPaid || 0;
                           const due = Math.max(0, total - paid);
 
@@ -3837,7 +3903,7 @@ export const W07_CashierPOS: React.FC = () => {
                                   type="button"
                                   onClick={() => {
                                     setSelectedEnrollment(enr);
-                                    setTuitionPaymentAmount(due > 0 ? due : total);
+                                    setTuitionPaymentAmount(due);
                                     window.scrollTo({ top: 120, behavior: 'smooth' });
                                     toast.info(
                                       'Đã chọn hồ sơ học viên',
