@@ -34,6 +34,7 @@ import {
   CourseEnrollment,
   Course,
   CourseBatch,
+  Instructor,
   User,
   EnrollmentStatus,
   UserRole,
@@ -181,7 +182,7 @@ export const W08_Enrollment: React.FC = () => {
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
-  const [instructors, setInstructors] = useState<StaffWithProfile[]>([]);
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffWithProfile[]>([]);
 
   useEffect(() => {
@@ -192,7 +193,7 @@ export const W08_Enrollment: React.FC = () => {
           academyService.getCourses(),
           academyService.getCourseBatches(),
           customerService.getCustomers(),
-          staffService.getInstructors(),
+          academyService.getInstructors(),
           staffService.getStaffList(),
         ]);
         void supabaseService.getBranches().then(branches => setLiveBranches(branches ?? [])).catch(() => setLiveBranches([]));
@@ -290,7 +291,8 @@ export const W08_Enrollment: React.FC = () => {
       const scheduleDisplay = bat?.scheduleText || 'Chưa có thời khóa biểu';
       const timeSlotDisplay = scheduleDisplay;
 
-      const instructorDisplay = instructors.find((i) => i.id === bat?.instructorId)?.fullName || 'Chưa phân công giảng viên';
+      const instructorDisplay = instructors.find((i) => i.id === bat?.instructorId)?.fullName?.trim() ||
+        (bat?.instructorId ? 'Chưa tải được tên giảng viên' : 'Chưa phân công giảng viên');
 
       const statusBadge =
         isGraduated
