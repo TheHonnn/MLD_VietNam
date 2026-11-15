@@ -1129,24 +1129,47 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
         ),
         child: Stack(
           children: [
-            // Ảnh trị liệu massage/banner bên phải tràn lên đỉnh (phía sau Header)
-            Positioned(
-              right: -10,
-              top: 0,
-              bottom: 0,
-              width: MediaQuery.of(context).size.width * 0.52,
-              child: ShaderMask(
-                shaderCallback: (rect) => LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [Colors.transparent, Colors.white.withValues(alpha: 0.95)],
-                  stops: const [0.0, 0.35],
-                ).createShader(rect),
-                blendMode: BlendMode.dstIn,
-                child: SmartImage(
-                  imageUrl: imageUrl.isNotEmpty ? imageUrl : 'assets/images/therapy_hero_banner.jpg',
-                  fit: BoxFit.cover,
-                  placeholder: _buildFallbackHeroImage(),
+            // 1. Ảnh Banner toàn màn hình (Full Width - không bị cắt nửa trắng)
+            Positioned.fill(
+              child: SmartImage(
+                imageUrl: imageUrl.isNotEmpty ? imageUrl : 'assets/images/therapy_hero_banner.jpg',
+                fit: BoxFit.cover,
+                placeholder: _buildFallbackHeroImage(),
+              ),
+            ),
+
+            // 2. Lớp phủ Gradient mờ tinh tế từ trái sang phải để làm nổi bật chữ & nút bấm
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.92),
+                      Colors.white.withValues(alpha: 0.72),
+                      Colors.white.withValues(alpha: 0.20),
+                    ],
+                    stops: const [0.0, 0.52, 1.0],
+                  ),
+                ),
+              ),
+            ),
+
+            // 3. Lớp phủ Gradient nhẹ từ trên xuống để làm rõ Header (Logo & Avatar)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.50),
+                      Colors.transparent,
+                      Colors.white.withValues(alpha: 0.35),
+                    ],
+                    stops: const [0.0, 0.28, 1.0],
+                  ),
                 ),
               ),
             ),
