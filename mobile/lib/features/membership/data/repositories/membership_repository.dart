@@ -176,8 +176,9 @@ class MembershipRepository {
     ]);
   }
 
-  // Getters
+  // Getters & Setters
   UserProfile get profile => _userProfile;
+  set profile(UserProfile p) => _userProfile = p;
   UserSettings get settings => _userSettings;
   List<MembershipPerk> get perks => _perks;
   List<MembershipTier> get tiers => _tiers;
