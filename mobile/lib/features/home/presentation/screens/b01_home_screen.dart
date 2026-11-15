@@ -657,21 +657,15 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     decoration: const BoxDecoration(
                       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                     ),
-                    child: imageUrl.startsWith('http')
-                        ? Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              decoration: const BoxDecoration(
-                                gradient: AppColors.brandGradient,
-                              ),
-                            ),
-                          )
-                        : Container(
-                            decoration: const BoxDecoration(
-                              gradient: AppColors.brandGradient,
-                            ),
-                          ),
+                    child: SmartImage(
+                      imageUrl: imageUrl.isNotEmpty ? imageUrl : 'assets/images/therapy_hero_banner.jpg',
+                      fit: BoxFit.cover,
+                      placeholder: Container(
+                        decoration: const BoxDecoration(
+                          gradient: AppColors.brandGradient,
+                        ),
+                      ),
+                    ),
                   ),
                   Positioned.fill(
                     child: Container(
