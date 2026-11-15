@@ -1797,11 +1797,11 @@ class SupabaseService {
   }
 
   // 13. HỒ SƠ HỌC VIÊN GHI DANH (COURSE ENROLLMENTS)
-  async getEnrollments(batchId?: string): Promise<CourseEnrollment[] | null> {
+  async getEnrollments(batchId?: string, options: { fresh?: boolean } = {}): Promise<CourseEnrollment[] | null> {
     const path = batchId
       ? `course_enrollments?batch_id=eq.${batchId}&order=enrolled_at.desc`
       : `course_enrollments?order=enrolled_at.desc`;
-    const raw = await this.query<any[]>(path);
+    const raw = await this.query<any[]>(path, options.fresh ? { cache: 'no-store' } : {});
     if (!raw || raw.length === 0) return null;
 
     return raw.map((e) => ({
@@ -1940,7 +1940,7 @@ class SupabaseService {
       ? `tuition_transactions?enrollment_id=eq.${enrollmentId}&order=paid_at.desc`
       : `tuition_transactions?order=paid_at.desc`;
     const raw = await this.query<any[]>(path);
-    if (!raw || raw.length === 0) return null;
+    if (!raw) return null;
 
     return raw.map((tt) => ({
       id: tt.id,
