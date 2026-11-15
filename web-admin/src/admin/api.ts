@@ -194,7 +194,7 @@ const TABLE_SELECTS: Record<string, string> = {
   course_lessons: "*,course_chapters(title,course_id,courses(title,code))",
   course_quizzes: "*,courses(title)",
   quiz_questions: "*,course_quizzes(title)",
-  quiz_submissions: "*,course_quizzes(title),course_enrollments(student_name,student_phone,student_email,courses(title))",
+  quiz_submissions: "*,course_quizzes(id,title,total_questions,passing_score),course_enrollments(id,order_code,student_name,student_phone,student_email,courses(id,title,code),student:users!student_id(id,full_name,phone,email))",
   consultation_surveys: "*,customer:users!customer_id(full_name,phone,avatar_url),bookings(booking_code,booking_date,start_time,status)",
   reviews: "*,customer:users!customer_id(full_name,phone),services(name),technicians(full_name),bookings(booking_code)",
   support_tickets: "*,customer:users!customer_id(full_name,phone)",

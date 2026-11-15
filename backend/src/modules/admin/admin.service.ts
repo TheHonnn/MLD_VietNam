@@ -368,6 +368,9 @@ export class AdminService {
         if (table === 'staff_profiles') {
           predicates.push(`EXISTS (SELECT 1 FROM public.users u WHERE u.id="staff_profiles".user_id AND u.full_name ILIKE $${values.length})`);
           predicates.push(`EXISTS (SELECT 1 FROM public.branches b WHERE b.id="staff_profiles".branch_id AND b.name ILIKE $${values.length})`);
+        } else if (table === 'quiz_submissions') {
+          predicates.push(`EXISTS (SELECT 1 FROM public.course_enrollments e LEFT JOIN public.users u ON u.id=e.student_id LEFT JOIN public.courses c ON c.id=e.course_id WHERE e.id="quiz_submissions".enrollment_id AND (e.student_name ILIKE $${values.length} OR u.full_name ILIKE $${values.length} OR e.student_phone ILIKE $${values.length} OR e.order_code ILIKE $${values.length} OR c.title ILIKE $${values.length}))`);
+          predicates.push(`EXISTS (SELECT 1 FROM public.course_quizzes q WHERE q.id="quiz_submissions".quiz_id AND q.title ILIKE $${values.length})`);
         }
         where.push('(' + predicates.join(' OR ') + ')');
       }
@@ -391,13 +394,28 @@ export class AdminService {
           where.push(`EXISTS (SELECT 1 FROM course_enrollments e WHERE e.id=student_academic_records.enrollment_id AND e.batch_id=$${values.length})`);
           continue;
         }
+        if (table === 'quiz_submissions' && name === 'course_id' && !columns.some(column => column.name === name)) {
+          values.push(value);
+          where.push(`(EXISTS (SELECT 1 FROM course_quizzes q WHERE q.id=quiz_submissions.quiz_id AND q.course_id=$${values.length}) OR EXISTS (SELECT 1 FROM course_enrollments e WHERE e.id=quiz_submissions.enrollment_id AND e.course_id=$${values.length}))`);
+          continue;
+        }
+        if (table === 'quiz_submissions' && (name === 'date_from' || name === 'submitted_from') && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+          values.push(value);
+          where.push(`quiz_submissions.submitted_at >= $${values.length}::date`);
+          continue;
+        }
+        if (table === 'quiz_submissions' && (name === 'date_to' || name === 'submitted_to') && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+          values.push(value);
+          where.push(`quiz_submissions.submitted_at < ($${values.length}::date + INTERVAL '1 day')`);
+          continue;
+        }
         if (!columns.some((c) => c.name === name) || typeof value === 'object')
           throw new BadRequestException('Trường lọc không hợp lệ.');
         values.push(value);
         where.push(`${expression(name)}=$${values.length}`);
       }
     }
-    if (actor.role === 'INSTRUCTOR' && ['course_batches', 'course_batch_assistants', 'batch_schedules', 'course_enrollments', 'student_academic_records', 'student_attendance'].includes(table)) {
+    if (actor.role === 'INSTRUCTOR' && ['course_batches', 'course_batch_assistants', 'batch_schedules', 'course_enrollments', 'student_academic_records', 'student_attendance', 'quiz_submissions'].includes(table)) {
       values.push(actor.id);
       const actorParam = `$${values.length}`;
       if (table === 'course_batches') {
@@ -416,6 +434,10 @@ export class AdminService {
         where.push(`EXISTS (SELECT 1 FROM public.course_enrollments e WHERE e.id=student_academic_records.enrollment_id AND (EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=e.batch_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=e.batch_id AND a.can_enter_grades AND i.user_id=${actorParam})))`);
       } else if (table === 'student_attendance') {
         where.push(`EXISTS (SELECT 1 FROM public.batch_schedules s WHERE s.id=student_attendance.schedule_id AND (EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=s.batch_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=s.batch_id AND a.can_mark_attendance AND i.user_id=${actorParam})))`);
+      } else if (table === 'quiz_submissions') {
+        where.push(`EXISTS (SELECT 1 FROM public.course_enrollments e WHERE e.id=quiz_submissions.enrollment_id AND (
+          EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=e.batch_id AND i.user_id=${actorParam}) OR
+          EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=e.batch_id AND i.user_id=${actorParam})))`);
       }
     }
     const clause = where.length ? ' WHERE ' + where.join(' AND ') : '';
@@ -463,6 +485,58 @@ export class AdminService {
         );
         const contexts = new Map(context.rows.map(row => [row.id, row]));
         for (const row of data.rows) Object.assign(row, contexts.get(row.id) || {});
+      }
+      if (table === 'quiz_submissions' && data.rows.length) {
+        const ids = data.rows.map(row => row.id);
+        const context = await client.query(
+          `SELECT s.id,
+             e.id AS enrollment_id,
+             e.order_code,
+             COALESCE(NULLIF(TRIM(e.student_name), ''), u.full_name, 'Chưa có tên') AS student_name,
+             COALESCE(e.student_phone, u.phone) AS student_phone,
+             COALESCE(e.student_email, u.email) AS student_email,
+             u.id AS user_id,
+             u.full_name AS user_full_name,
+             c.id AS course_id,
+             c.title AS course_title,
+             b.id AS batch_id,
+             b.batch_code,
+             q.id AS quiz_id,
+             q.title AS quiz_title,
+             q.total_questions,
+             q.passing_score
+           FROM quiz_submissions s
+           LEFT JOIN course_enrollments e ON e.id = s.enrollment_id
+           LEFT JOIN users u ON u.id = e.student_id
+           LEFT JOIN courses c ON c.id = e.course_id
+           LEFT JOIN course_batches b ON b.id = e.batch_id
+           LEFT JOIN course_quizzes q ON q.id = s.quiz_id
+           WHERE s.id = ANY($1::uuid[])`,
+          [ids],
+        );
+        const contexts = new Map(context.rows.map((row: any) => [row.id, row]));
+        for (const row of data.rows) {
+          const extra: any = contexts.get(row.id);
+          if (extra) {
+            Object.assign(row, extra);
+            row.course_enrollments = {
+              id: extra.enrollment_id,
+              student_name: extra.student_name,
+              student_phone: extra.student_phone,
+              student_email: extra.student_email,
+              order_code: extra.order_code,
+              batch_code: extra.batch_code,
+              courses: { id: extra.course_id, title: extra.course_title },
+              student: { id: extra.user_id, full_name: extra.user_full_name, phone: extra.student_phone, email: extra.student_email },
+            };
+            row.course_quizzes = {
+              id: extra.quiz_id,
+              title: extra.quiz_title,
+              total_questions: extra.total_questions,
+              passing_score: extra.passing_score,
+            };
+          }
+        }
       }
       await client.query('COMMIT');
       return {

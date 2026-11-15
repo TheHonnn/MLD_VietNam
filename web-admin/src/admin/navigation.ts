@@ -59,7 +59,7 @@ export function getResourceNavigation(table: string, resources: Resource[], role
   if (currentGroup) return currentGroup.items.filter(entry =>
     (entry.id === table || canAccessAdminPath(entry.href,role,resources)) &&
     (!entry.href.startsWith('/manage/') || resources.some(resource=>resource.name === entry.id)),
-  ).map(entry => entry.id === 'catalog' && ['services','treatment_packages'].includes(table) ? {...entry,id:table} : entry);
+  ).map(entry => entry.id === 'catalog' && ['services','treatment_packages'].includes(table) ? {...entry,id:table} : entry.id === 'course_chapters' && table === 'course_lessons' ? {...entry, id: 'course_lessons'} : entry);
   const current = resources.find(resource=>resource.name===table);
   if (!current?.group) return [];
   return resources.filter(resource=>resource.group===current.group).map(resource=>item(resource.name,resource.title));

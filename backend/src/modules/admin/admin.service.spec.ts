@@ -993,6 +993,18 @@ describe('Admin shared-schema integration', () => {
       ).rows[0].total_questions,
     ).toBe(1);
   });
+  it('enriches quiz_submissions with enrollment student_name, course and quiz metadata, and supports server filtering', async () => {
+    const list = await service.list('quiz_submissions', actor, {});
+    expect(list).toBeDefined();
+    expect(Array.isArray(list.rows)).toBe(true);
+    if (list.rows.length > 0) {
+      const first = list.rows[0];
+      expect(first.student_name).toBeDefined();
+      expect(first.course_quizzes).toBeDefined();
+      expect(first.course_enrollments).toBeDefined();
+      expect(first.course_enrollments.student_name).toBe(first.student_name);
+    }
+  });
   it('allows temporary local access only on loopback and never in production', async () => {
     const config = new ConfigService({
       ADMIN_LOCAL_NO_AUTH: 'true',

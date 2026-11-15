@@ -98,6 +98,7 @@ export const labels: Record<string, string> = {
   qr_verification_code: "Mã xác minh",
   student_name: "Tên học viên trên chứng nhận",
   course_title: "Tên khóa trên chứng nhận",
+  score: "Điểm bài thi",
   theory_score: "Điểm lý thuyết",
   practical_score: "Điểm thực hành",
   final_grade: "Xếp loại",
