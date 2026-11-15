@@ -20,7 +20,7 @@ const defaultSettings = {
   title: 'CHỨNG NHẬN',
   subtitle: 'HOÀN THÀNH ĐÀO TẠO',
   intro: 'Chứng nhận này xác nhận rằng, học viên:',
-  completion: 'Đã hoàn thành xuất sắc chương trình đào tạo:',
+  completion: 'Đã hoàn thành chương trình đào tạo:',
   framework: 'thuộc Khung đào tạo số 4 của MLD Việt Nam',
   location: 'Thành phố Hồ Chí Minh',
   footerNotes: [
@@ -44,7 +44,7 @@ const formatCertificateDate = (value?: string | null) => {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
 };
 
-const readSettings = (): TemplateSettings => {
+export const readCertificateTemplateSettings = (): TemplateSettings => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return defaultSettings;
@@ -63,6 +63,8 @@ const readSettings = (): TemplateSettings => {
 
 interface CertificateTemplateEditorProps {
   certificate: StudentCertificate;
+  readOnly?: boolean;
+  allowPrint?: boolean;
   templateName?: string;
   isExporting: boolean;
   onClose: () => void;
@@ -97,13 +99,15 @@ const Field: React.FC<{ label: string; value: string; onChange: (value: string) 
 
 export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps> = ({
   certificate,
+  readOnly = false,
+  allowPrint = true,
   templateName,
   isExporting,
   onClose,
   onExportingChange,
   onPrint,
 }) => {
-  const [settings, setSettings] = useState<TemplateSettings>(readSettings);
+  const [settings, setSettings] = useState<TemplateSettings>(readCertificateTemplateSettings);
   const [fields, setFields] = useState<PrintFields>({
     studentName: certificate.studentName,
     dateOfBirth: formatCertificateDate(certificate.dateOfBirth),
@@ -190,29 +194,29 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
             </div>
             <div className="min-w-0">
               <h2 className="truncate text-sm font-bold text-gray-900">{templateName || 'Mẫu chứng nhận hoàn thành khóa học'}</h2>
-              <p className="truncate font-mono text-[11px] text-gray-500">Mã học viên: {certificate.certificateCode}</p>
+              <p className="truncate font-mono text-[11px] text-gray-500">{certificate.certificateCode}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={handleDownloadPdf} disabled={isExporting} className="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50" title="Tải bản xem trước thành PDF A4 dọc">
+            {allowPrint && <><button type="button" onClick={handleDownloadPdf} disabled={isExporting} className="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50" title="Tải bản xem trước thành PDF A4 dọc">
               <Download className="h-4 w-4" />{isExporting ? 'Đang tạo PDF' : 'Tải PDF'}
             </button>
             <button type="button" onClick={onPrint} className="inline-flex h-9 items-center gap-2 rounded-md bg-sky-700 px-3 text-xs font-semibold text-white hover:bg-sky-800">
               <Printer className="h-4 w-4" />In
-            </button>
+            </button></>}
             <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50" title="Đóng trình chỉnh sửa">
               <X className="h-4 w-4" />
             </button>
           </div>
         </header>
 
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className={`grid min-h-0 flex-1 ${readOnly ? '' : 'lg:grid-cols-[minmax(0,1fr)_320px]'}`}>
           <section className="min-h-[65vh] overflow-auto bg-gray-100 p-3 sm:p-6" aria-label="Bản xem trước chứng nhận">
             <div className="mx-auto w-full max-w-[590px]">
               <CertificateDocumentPreview
-                id="printable-certificate"
+                id={allowPrint ? "printable-certificate" : undefined}
                 elementRef={printRef}
-                settings={settings}
+                settings={readOnly ? { ...settings, completion: defaultSettings.completion } : settings}
                 fields={{
                   studentName: fields.studentName || '',
                   dateOfBirth: fields.dateOfBirth || '',
@@ -226,7 +230,7 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
             </div>
           </section>
 
-          <aside className="min-h-0 border-t border-gray-200 bg-white lg:border-l lg:border-t-0" aria-label="Công cụ chỉnh sửa mẫu">
+          {!readOnly && <aside className="min-h-0 border-t border-gray-200 bg-white lg:border-l lg:border-t-0" aria-label="Công cụ chỉnh sửa mẫu">
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
               <div>
                 <h3 className="text-sm font-bold text-gray-900">Chỉnh sửa</h3>
@@ -301,7 +305,7 @@ export const CertificateTemplateEditor: React.FC<CertificateTemplateEditorProps>
                 <Save className="h-3.5 w-3.5" />{saved ? 'Đã lưu' : 'Lưu mẫu'}
               </button>
             </div>
-          </aside>
+          </aside>}
         </div>
       </div>
     </div>

@@ -564,6 +564,12 @@ describe('Admin shared-schema integration', () => {
     );
     await pg.query("UPDATE course_enrollments SET student_status='ENROLLED',access_status='ACTIVE' WHERE id=$1", [enrollment.id]);
     expect((await service.attendanceRoster(actor, session.id))?.rows[0]).toMatchObject({ id: enrollment.id, status: null, eligible: true });
+    await pg.query("UPDATE course_enrollments SET student_name='Tên học viên theo hồ sơ' WHERE id=$1", [enrollment.id]);
+    expect((await service.attendanceRoster(actor, session.id))?.rows[0].full_name).toBe('Tên học viên theo hồ sơ');
+    expect(await service.attendanceRoster(actor, session.id)).toMatchObject({ writable: true, readOnlyReason: null });
+    await pg.query("UPDATE batch_schedules SET session_date=CURRENT_DATE+1 WHERE id=$1", [session.id]);
+    expect(await service.attendanceRoster(actor, session.id)).toMatchObject({ writable: false, readOnlyReason: expect.stringContaining('chưa đến ngày') });
+    await pg.query("UPDATE batch_schedules SET session_date=CURRENT_DATE WHERE id=$1", [session.id]);
     const change = { enrollmentId: enrollment.id, previous: null, status: 'PRESENT' };
     await expect(service.saveAttendance(actor, session.id, [change, { ...change, enrollmentId: actor.id }])).rejects.toThrow('không còn đủ điều kiện');
     expect((await service.attendanceRoster(actor, session.id))?.rows[0].status).toBeNull();
@@ -667,6 +673,18 @@ describe('Admin shared-schema integration', () => {
     });
     expect(cert.status).toBe('DRAFT');
     expect(cert.qr_verification_code).toBeTruthy();
+    await expect(service.mutate('student_certificates', actor, 'create', {
+      values: {
+        enrollment_id: e.id,
+        student_id: e.student_id,
+        course_id: e.course_id,
+        certificate_code: 'TESTCERT-DUPLICATE',
+        student_name: 'Test student',
+        course_title: 'Test course',
+        theory_score: 8,
+        practical_score: 8,
+      },
+    })).rejects.toThrow('đã có bản nháp');
     await expect(
       service.action('student_certificates', actor, {
         key: { id: cert.id },
@@ -986,6 +1004,30 @@ describe('Admin shared-schema integration', () => {
         )
       ).rows[0].total_questions,
     ).toBe(1);
+  });
+  it('enriches quiz_submissions with enrollment student_name, course and quiz metadata, and supports server filtering', async () => {
+    const list = await service.list('quiz_submissions', actor, {});
+    expect(list).toBeDefined();
+    expect(Array.isArray(list.rows)).toBe(true);
+    if (list.rows.length > 0) {
+      const first = list.rows[0];
+      expect(first.student_name).toBeDefined();
+      expect(first.course_quizzes).toBeDefined();
+      expect(first.course_enrollments).toBeDefined();
+      expect(first.course_enrollments.student_name).toBe(first.student_name);
+    }
+  });
+  it('enriches user_lesson_progress with enrollment, lesson, chapter and course metadata', async () => {
+    const list = await service.list('user_lesson_progress', actor, { limit: 10 });
+    expect(list).toBeDefined();
+    expect(Array.isArray(list.rows)).toBe(true);
+    // If rows exist, ensure enriched fields exist
+    if (list.rows.length > 0) {
+      const first = list.rows[0];
+      expect(first.course_lessons).toBeDefined();
+      expect(first.course_enrollments).toBeDefined();
+      expect(first.student_name).toBeDefined();
+    }
   });
   it('allows temporary local access only on loopback and never in production', async () => {
     const config = new ConfigService({

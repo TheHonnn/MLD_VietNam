@@ -34,6 +34,7 @@ import {
   CourseEnrollment,
   Course,
   CourseBatch,
+  Instructor,
   User,
   EnrollmentStatus,
   UserRole,
@@ -181,7 +182,7 @@ export const W08_Enrollment: React.FC = () => {
   const [liveCourses, setLiveCourses] = useState<Course[]>([]);
   const [liveBatches, setLiveBatches] = useState<CourseBatch[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
-  const [instructors, setInstructors] = useState<StaffWithProfile[]>([]);
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffWithProfile[]>([]);
 
   useEffect(() => {
@@ -192,7 +193,7 @@ export const W08_Enrollment: React.FC = () => {
           academyService.getCourses(),
           academyService.getCourseBatches(),
           customerService.getCustomers(),
-          staffService.getInstructors(),
+          academyService.getInstructors(),
           staffService.getStaffList(),
         ]);
         void supabaseService.getBranches().then(branches => setLiveBranches(branches ?? [])).catch(() => setLiveBranches([]));
@@ -290,7 +291,8 @@ export const W08_Enrollment: React.FC = () => {
       const scheduleDisplay = bat?.scheduleText || 'Chưa có thời khóa biểu';
       const timeSlotDisplay = scheduleDisplay;
 
-      const instructorDisplay = instructors.find((i) => i.id === bat?.instructorId)?.fullName || 'Chưa phân công giảng viên';
+      const instructorDisplay = instructors.find((i) => i.id === bat?.instructorId)?.fullName?.trim() ||
+        (bat?.instructorId ? 'Chưa tải được tên giảng viên' : 'Chưa phân công giảng viên');
 
       const statusBadge =
         isGraduated
@@ -732,8 +734,16 @@ export const W08_Enrollment: React.FC = () => {
         authorName: 'Admin Tuyển Sinh',
       });
       if (res.success) {
-        const refreshed = await supabaseService.getEnrollments();
+        const refreshed = await supabaseService.getEnrollments(undefined, { fresh: true }).catch(() => null);
+        const saved = refreshed?.find(enrollment => enrollment.id === selectedCandidate.id);
         if (refreshed) setLiveEnrollments(refreshed);
+        if (saved?.consultationStatus !== ConsultationStatus.CONFIRMED ||
+            Number(saved.finalTuition ?? saved.tuitionTotal) !== finalTuitionInput ||
+            saved.selectedBranch !== finalBranchInput) {
+          toast.info('Chưa đồng bộ được hồ sơ', 'Hãy tải lại trang để kiểm tra kết quả trước khi xác nhận lại.');
+          return;
+        }
+        setActiveWorkflowTab(current => current === 'PENDING_CONSULTATION' ? 'ALL' : current);
         toast.success('Đã xác nhận học phí', 'Chọn Thanh toán / Xem QR để tiếp tục. Chưa ghi nhận khoản thu.');
       } else {
         toast.error('Không thể xác nhận học phí', res.message);
@@ -840,13 +850,12 @@ export const W08_Enrollment: React.FC = () => {
     if (!window.confirm(`Duyệt nhập học cho ${candidate.name}?\nĐã thực nhận: ${candidate.rawAmountPaid.toLocaleString('vi-VN')}đ\nSau khi duyệt, hồ sơ sẽ chuyển sang chờ xếp lớp.`)) return;
     setIsApprovingEnrollment(true);
     try {
-      const result = await academyService.approveEnrollment(candidate.id, {
-        amountPaid: candidate.rawAmountPaid,
-        notes: `Duyệt nhập học hồ sơ ${candidate.orderCode} sau khi kiểm tra tư vấn và mức cọc`,
-      });
-      if (!result.success) throw new Error(result.message);
-      const refreshed = await supabaseService.getEnrollments();
-      if (refreshed) setLiveEnrollments(refreshed);
+      const approval = await academyService.approveEnrollment(
+        candidate.id, `Duyệt nhập học hồ sơ ${candidate.orderCode} sau khi kiểm tra học phí`,
+      );
+      setLiveEnrollments(rows => rows.map(row => row.id === approval.id ? { ...row, ...approval } : row));
+      setActiveWorkflowTab('ALL');
+      setSelectedCandidateId(approval.id);
       toast.success('Đã duyệt nhập học', 'Hồ sơ đã chuyển sang chờ xếp lớp.');
     } catch (error: any) {
       toast.error('Không thể duyệt', error?.message || 'Vui lòng kiểm tra tư vấn và mức cọc.');
@@ -880,9 +889,14 @@ export const W08_Enrollment: React.FC = () => {
   const handleConfirmAssignBatch = async (enrollmentId: string, batchId: string, reason?: string) => {
     try {
       const res = await academyService.assignBatchToStudent(enrollmentId, batchId, 'Admin Tuyển Sinh', reason);
-      if (res.data?.success) {
-        const refreshed = await supabaseService.getEnrollments();
-        if (refreshed) setLiveEnrollments(refreshed);
+      if (res.data?.success && 'batchId' in res.data && 'status' in res.data) {
+        const assignment = res.data;
+        setLiveEnrollments(rows => rows.map(row => row.id === enrollmentId
+          ? { ...row, batchId: assignment.batchId as string, status: assignment.status as EnrollmentStatus,
+              studentAdmissionStatus: StudentAdmissionStatus.ENROLLED, approvalStatus: 'APPROVED' }
+          : row));
+        setActiveWorkflowTab('ALL');
+        setSelectedCandidateId(enrollmentId);
         const chosenBatch = liveBatches.find((b) => b.id === batchId);
         toast.success('Xếp lớp thành công!', `Học viên đã được xếp vào lớp ${chosenBatch?.batchCode || ''} và sẵn sàng học.`);
         showToast(`Đã xếp lớp ${chosenBatch?.batchCode || ''} thành công!`);
@@ -2073,7 +2087,6 @@ export const W08_Enrollment: React.FC = () => {
         onClose={() => setIsBillModalOpen(false)}
         candidate={billModalCandidate}
         onCheckPayment={handleCheckPayment}
-        onApproveAtDesk={handleManualConfirmPayment}
       />
 
       {/* MODAL: Xếp lớp & Phân đợt khai giảng */}

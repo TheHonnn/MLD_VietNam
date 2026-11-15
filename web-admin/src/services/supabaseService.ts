@@ -202,7 +202,7 @@ class SupabaseService {
   // 1. CHI NHÁNH (BRANCHES)
   async getBranches(includeArchived = false): Promise<Branch[] | null> {
     const raw = await this.query<any[]>('branches?select=*&order=code.asc');
-    if (!raw || raw.length === 0) return null;
+    if (!raw) return null;
 
     const filtered = includeArchived
       ? raw
@@ -994,11 +994,11 @@ class SupabaseService {
   // 10. LỊCH ĐẶT CHỖ (BOOKINGS)
   async getBookings(branchId?: string, customerId?: string): Promise<Booking[] | null> {
     let path = `bookings?select=*,customer:users!bookings_customer_id_fkey(*),branch:branches!bookings_branch_id_fkey(*),technician:technicians(*),room:branch_rooms(*),items:booking_items(*,service:services(*))&order=booking_date.desc,start_time.asc`;
-    if (branchId) path += `&branch_id=eq.${branchId}`;
+    if (branchId && branchId !== 'ALL') path += `&branch_id=eq.${branchId}`;
     if (customerId) path += `&customer_id=eq.${customerId}`;
 
     const raw = await this.query<any[]>(path);
-    if (!raw || raw.length === 0) return null;
+    if (!raw) return null;
 
     return raw.map((b) => ({
       id: b.id,
@@ -1500,7 +1500,7 @@ class SupabaseService {
     if (customerId) path += `&customer_id=eq.${customerId}`;
 
     const raw = await this.query<any[]>(path);
-    if (!raw || raw.length === 0) return null;
+    if (!raw) return null;
 
     return raw.map((inv) => {
       const parsedItems = Array.isArray(inv.items)
@@ -1828,11 +1828,11 @@ class SupabaseService {
   }
 
   // 13. HỒ SƠ HỌC VIÊN GHI DANH (COURSE ENROLLMENTS)
-  async getEnrollments(batchId?: string): Promise<CourseEnrollment[] | null> {
+  async getEnrollments(batchId?: string, options: { fresh?: boolean } = {}): Promise<CourseEnrollment[] | null> {
     const path = batchId
       ? `course_enrollments?batch_id=eq.${batchId}&order=enrolled_at.desc`
       : `course_enrollments?order=enrolled_at.desc`;
-    const raw = await this.query<any[]>(path);
+    const raw = await this.query<any[]>(path, options.fresh ? { cache: 'no-store' } : {});
     if (!raw || raw.length === 0) return null;
 
     return raw.map((e) => ({
@@ -1971,7 +1971,7 @@ class SupabaseService {
       ? `tuition_transactions?enrollment_id=eq.${enrollmentId}&order=paid_at.desc`
       : `tuition_transactions?order=paid_at.desc`;
     const raw = await this.query<any[]>(path);
-    if (!raw || raw.length === 0) return null;
+    if (!raw) return null;
 
     return raw.map((tt) => ({
       id: tt.id,
@@ -2526,10 +2526,10 @@ class SupabaseService {
   // ==========================================
   // GIẤY CHỨNG NHẬN CHUẨN Y KHOA (STUDENT CERTIFICATES)
   // ==========================================
-  async getStudentCertificates(): Promise<StudentCertificate[]> {
+  async getStudentCertificates(): Promise<StudentCertificate[] | null> {
     try {
       const rows = await this.query<any[]>('student_certificates?select=*&order=issue_date.desc');
-      if (rows && rows.length > 0) {
+      if (rows) {
         return rows.map((r) => ({
           id: r.id,
           enrollmentId: r.enrollment_id,
@@ -2554,7 +2554,7 @@ class SupabaseService {
     } catch (err) {
       console.warn('[SupabaseService] getStudentCertificates error:', err);
     }
-    return [];
+    return null;
   }
 
   async createStudentCertificate(data: Partial<StudentCertificate>): Promise<StudentCertificate | null> {

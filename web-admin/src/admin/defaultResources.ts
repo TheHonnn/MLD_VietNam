@@ -66,8 +66,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'course_lessons', title: 'Bài học & video', group: 'Chương trình đào tạo', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'course_quizzes', title: 'Đề thi & Trắc nghiệm', group: 'Chương trình đào tạo', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'quiz_questions', title: 'Ngân hàng câu hỏi', group: 'Chương trình đào tạo', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'quiz_submissions', title: 'Bài thi đã nộp', group: 'Chương trình đào tạo', readonly: true, actions: [] },
-  { name: 'user_lesson_progress', title: 'Tiến độ học', group: 'Chương trình đào tạo', readonly: true, actions: [] },
+  { name: 'quiz_submissions', title: 'Bài đã nộp', group: 'Chương trình đào tạo', readonly: true, actions: [] },
 
   // 12. Giấy chứng nhận
   { name: 'certificate_templates', title: 'Mẫu chứng nhận', group: 'Giấy chứng nhận', actions: ['create', 'update', 'delete', 'action'] },

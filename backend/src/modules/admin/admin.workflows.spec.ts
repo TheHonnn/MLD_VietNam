@@ -27,6 +27,26 @@ describe('Admin business workflows on the complete migrated schema', () => {
     spaPackage=(await query("INSERT INTO treatment_packages(name,service_id,total_sessions,price,description,image_url) VALUES('Flow package',$1,5,500000,'Test','https://example.invalid/img.png') RETURNING *",[spaService.id])).rows[0];
     service=new AdminService({connection:{query,connect:async()=>client}} as any,new ConfigService({JWT_SECRET:'isolated-flow-secret-at-least-32-characters'}),new JwtService());
   },60000);
+
+  it('previews and saves generated sessions atomically, skips existing sessions and rejects inactive rooms', async () => {
+    const planned=(await query("INSERT INTO course_batches(course_id,branch_id,batch_code,start_date,end_date,schedule_text) VALUES($1,$2,'PLAN',CURRENT_DATE+1,CURRENT_DATE+3,'Admin confirmed weekdays') RETURNING *",[course.id,branch.id])).rows[0];
+    const room=(await query("INSERT INTO branch_rooms(branch_id,name,is_available) VALUES($1,'Planning room',true) RETURNING *",[branch.id])).rows[0];
+    const input={days:[0,1,2,3,4,5,6],startTime:'16:00',endTime:'17:00',roomId:room.id};
+    expect((await service.generateAcademySchedule(actor,planned.id,input))?.created).toBe(3);
+    expect(Number((await query('SELECT count(*) AS n FROM batch_schedules WHERE batch_id=$1',[planned.id])).rows[0].n)).toBe(0);
+    expect((await service.generateAcademySchedule(actor,planned.id,{...input,save:true}))?.created).toBe(3);
+    expect((await service.generateAcademySchedule(actor,planned.id,{...input,save:true}))?.created).toBe(0);
+    await expect(service.mutate('branch_rooms',actor,'update',{key:{id:room.id},values:{is_available:false}})).rejects.toThrow(/còn lịch học/);
+    const other=(await query("INSERT INTO course_batches(course_id,branch_id,batch_code,start_date,end_date,schedule_text) VALUES($1,$2,'PLAN-CONFLICT',CURRENT_DATE+1,CURRENT_DATE+3,'Test') RETURNING *",[course.id,branch.id])).rows[0];
+    await expect(service.generateAcademySchedule(actor,other.id,{...input,save:true})).rejects.toThrow(/Trùng lịch/);
+    expect(Number((await query('SELECT count(*) AS n FROM batch_schedules WHERE batch_id=$1',[other.id])).rows[0].n)).toBe(0);
+    const teacher=(await query("INSERT INTO instructors(full_name,avatar_url,bio) VALUES('Plan teacher','','') RETURNING id")).rows[0];
+    await service.mutate('course_batches',actor,'update',{key:{id:planned.id},values:{instructor_id:teacher.id}});
+    await service.generateAcademySchedule(actor,other.id,{...input,roomId:undefined,save:true});
+    await expect(service.mutate('course_batches',actor,'update',{key:{id:other.id},values:{instructor_id:teacher.id}})).rejects.toThrow(/trùng giờ/);
+    await query('UPDATE branch_rooms SET is_available=false WHERE id=$1',[room.id]);
+    await expect(service.generateAcademySchedule(actor,planned.id,input)).rejects.toThrow(/đang sử dụng/);
+  });
   afterAll(async()=>{await pg?.close();});
 
   it('preflights the migrated schema and identifies missing columns precisely', async()=>{

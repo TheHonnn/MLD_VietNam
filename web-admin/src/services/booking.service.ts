@@ -36,7 +36,8 @@ export const bookingService = {
   }): Promise<ApiResponse<Booking[]>> {
     try {
       const live = await supabaseService.getBookings(params?.branchId, params?.customerId);
-      let result = live || [];
+      if (live === null) throw new Error('Không tải được lịch hẹn.');
+      let result = live;
 
       if (params?.branchId && params.branchId !== 'ALL') {
         result = result.filter((b) => !b.branchId || b.branchId === params.branchId);

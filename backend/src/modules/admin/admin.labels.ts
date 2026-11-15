@@ -3,7 +3,7 @@ export const REFERENCE_DISPLAYS: Record<string, string> = {
   service_categories: 'name', treatment_packages: 'name', technicians: 'full_name',
   instructors: 'full_name', courses: 'title', course_categories: 'name',
   course_batches: 'batch_code', course_chapters: 'title', course_lessons: 'title',
-  course_quizzes: 'title', bookings: 'booking_code', invoices: 'invoice_code',
+  course_quizzes: 'title', bookings: 'booking_code', invoices: 'invoice_code', course_enrollments: 'student_name',
 };
 const outputNames: Record<string, string> = {
   coupon_id: 'coupon_code', birthday_voucher_id: 'birthday_voucher_code', user_id: 'full_name', customer_id: 'customer_name', student_id: 'student_name',
@@ -11,6 +11,7 @@ const outputNames: Record<string, string> = {
   primary_instructor_id: 'instructor_name', assistant_instructor_id: 'assistant_name',
   assigned_room_id: 'assigned_room_name', branch_id: 'branch_name', department_id: 'department_name', service_id: 'service_name',
   package_id: 'package_name', course_id: 'course_title', batch_id: 'batch_code',
+  enrollment_id: 'student_name', quiz_id: 'quiz_title', lesson_id: 'lesson_title', chapter_id: 'chapter_title',
 };
 export async function enrichReferenceLabels(connection: any, columns: any[], rows: any[]) {
   for (const column of columns) {

@@ -1,3 +1,4 @@
+import { plannedDates, SchedulePlanInput } from './academy-schedule-plan';
 import {
   BadRequestException,
   ConflictException,
@@ -367,6 +368,12 @@ export class AdminService {
         if (table === 'staff_profiles') {
           predicates.push(`EXISTS (SELECT 1 FROM public.users u WHERE u.id="staff_profiles".user_id AND u.full_name ILIKE $${values.length})`);
           predicates.push(`EXISTS (SELECT 1 FROM public.branches b WHERE b.id="staff_profiles".branch_id AND b.name ILIKE $${values.length})`);
+        } else if (table === 'quiz_submissions') {
+          predicates.push(`EXISTS (SELECT 1 FROM public.course_enrollments e LEFT JOIN public.users u ON u.id=e.student_id LEFT JOIN public.courses c ON c.id=e.course_id WHERE e.id="quiz_submissions".enrollment_id AND (e.student_name ILIKE $${values.length} OR u.full_name ILIKE $${values.length} OR e.student_phone ILIKE $${values.length} OR e.order_code ILIKE $${values.length} OR c.title ILIKE $${values.length}))`);
+          predicates.push(`EXISTS (SELECT 1 FROM public.course_quizzes q WHERE q.id="quiz_submissions".quiz_id AND q.title ILIKE $${values.length})`);
+        } else if (table === 'user_lesson_progress') {
+          predicates.push(`EXISTS (SELECT 1 FROM public.course_enrollments e LEFT JOIN public.users u ON u.id=e.student_id LEFT JOIN public.courses c ON c.id=e.course_id WHERE e.id="user_lesson_progress".enrollment_id AND (e.student_name ILIKE $${values.length} OR u.full_name ILIKE $${values.length} OR e.student_phone ILIKE $${values.length} OR e.order_code ILIKE $${values.length} OR c.title ILIKE $${values.length}))`);
+          predicates.push(`EXISTS (SELECT 1 FROM public.course_lessons l LEFT JOIN public.course_chapters ch ON ch.id=l.chapter_id WHERE l.id="user_lesson_progress".lesson_id AND (l.title ILIKE $${values.length} OR ch.title ILIKE $${values.length}))`);
         }
         where.push('(' + predicates.join(' OR ') + ')');
       }
@@ -390,13 +397,48 @@ export class AdminService {
           where.push(`EXISTS (SELECT 1 FROM course_enrollments e WHERE e.id=student_academic_records.enrollment_id AND e.batch_id=$${values.length})`);
           continue;
         }
+        if (table === 'quiz_submissions' && name === 'course_id' && !columns.some(column => column.name === name)) {
+          values.push(value);
+          where.push(`(EXISTS (SELECT 1 FROM course_quizzes q WHERE q.id=quiz_submissions.quiz_id AND q.course_id=$${values.length}) OR EXISTS (SELECT 1 FROM course_enrollments e WHERE e.id=quiz_submissions.enrollment_id AND e.course_id=$${values.length}))`);
+          continue;
+        }
+        if (table === 'quiz_submissions' && (name === 'date_from' || name === 'submitted_from') && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+          values.push(value);
+          where.push(`quiz_submissions.submitted_at >= $${values.length}::date`);
+          continue;
+        }
+        if (table === 'quiz_submissions' && (name === 'date_to' || name === 'submitted_to') && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+          values.push(value);
+          where.push(`quiz_submissions.submitted_at < ($${values.length}::date + INTERVAL '1 day')`);
+          continue;
+        }
+        if (table === 'user_lesson_progress' && name === 'course_id' && !columns.some(column => column.name === name)) {
+          values.push(value);
+          where.push(`(EXISTS (SELECT 1 FROM course_enrollments e WHERE e.id=user_lesson_progress.enrollment_id AND e.course_id=$${values.length}) OR EXISTS (SELECT 1 FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id WHERE l.id=user_lesson_progress.lesson_id AND ch.course_id=$${values.length}))`);
+          continue;
+        }
+        if (table === 'user_lesson_progress' && name === 'batch_id' && !columns.some(column => column.name === name)) {
+          values.push(value);
+          where.push(`EXISTS (SELECT 1 FROM course_enrollments e WHERE e.id=user_lesson_progress.enrollment_id AND e.batch_id=$${values.length})`);
+          continue;
+        }
+        if (table === 'user_lesson_progress' && (name === 'date_from' || name === 'completed_from') && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+          values.push(value);
+          where.push(`user_lesson_progress.completed_at >= $${values.length}::date`);
+          continue;
+        }
+        if (table === 'user_lesson_progress' && (name === 'date_to' || name === 'completed_to') && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+          values.push(value);
+          where.push(`user_lesson_progress.completed_at < ($${values.length}::date + INTERVAL '1 day')`);
+          continue;
+        }
         if (!columns.some((c) => c.name === name) || typeof value === 'object')
           throw new BadRequestException('Trường lọc không hợp lệ.');
         values.push(value);
         where.push(`${expression(name)}=$${values.length}`);
       }
     }
-    if (actor.role === 'INSTRUCTOR' && ['course_batches', 'course_batch_assistants', 'batch_schedules', 'course_enrollments', 'student_academic_records', 'student_attendance'].includes(table)) {
+    if (actor.role === 'INSTRUCTOR' && ['course_batches', 'course_batch_assistants', 'batch_schedules', 'course_enrollments', 'student_academic_records', 'student_attendance', 'quiz_submissions', 'user_lesson_progress'].includes(table)) {
       values.push(actor.id);
       const actorParam = `$${values.length}`;
       if (table === 'course_batches') {
@@ -415,6 +457,14 @@ export class AdminService {
         where.push(`EXISTS (SELECT 1 FROM public.course_enrollments e WHERE e.id=student_academic_records.enrollment_id AND (EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=e.batch_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=e.batch_id AND a.can_enter_grades AND i.user_id=${actorParam})))`);
       } else if (table === 'student_attendance') {
         where.push(`EXISTS (SELECT 1 FROM public.batch_schedules s WHERE s.id=student_attendance.schedule_id AND (EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=s.batch_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=s.batch_id AND a.can_mark_attendance AND i.user_id=${actorParam})))`);
+      } else if (table === 'quiz_submissions') {
+        where.push(`EXISTS (SELECT 1 FROM public.course_enrollments e WHERE e.id=quiz_submissions.enrollment_id AND (
+          EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=e.batch_id AND i.user_id=${actorParam}) OR
+          EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=e.batch_id AND i.user_id=${actorParam})))`);
+      } else if (table === 'user_lesson_progress') {
+        where.push(`EXISTS (SELECT 1 FROM public.course_enrollments e WHERE e.id=user_lesson_progress.enrollment_id AND (
+          EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=e.batch_id AND i.user_id=${actorParam}) OR
+          EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=e.batch_id AND i.user_id=${actorParam})))`);
       }
     }
     const clause = where.length ? ' WHERE ' + where.join(' AND ') : '';
@@ -462,6 +512,131 @@ export class AdminService {
         );
         const contexts = new Map(context.rows.map(row => [row.id, row]));
         for (const row of data.rows) Object.assign(row, contexts.get(row.id) || {});
+      }
+      if (table === 'quiz_submissions' && data.rows.length) {
+        const ids = data.rows.map(row => row.id);
+        const context = await client.query(
+          `SELECT s.id,
+             e.id AS enrollment_id,
+             e.order_code,
+             COALESCE(NULLIF(TRIM(e.student_name), ''), u.full_name, 'Chưa có tên') AS student_name,
+             COALESCE(e.student_phone, u.phone) AS student_phone,
+             COALESCE(e.student_email, u.email) AS student_email,
+             u.id AS user_id,
+             u.full_name AS user_full_name,
+             c.id AS course_id,
+             c.title AS course_title,
+             b.id AS batch_id,
+             b.batch_code,
+             q.id AS quiz_id,
+             q.title AS quiz_title,
+             q.total_questions,
+             q.passing_score
+           FROM quiz_submissions s
+           LEFT JOIN course_enrollments e ON e.id = s.enrollment_id
+           LEFT JOIN users u ON u.id = e.student_id
+           LEFT JOIN courses c ON c.id = e.course_id
+           LEFT JOIN course_batches b ON b.id = e.batch_id
+           LEFT JOIN course_quizzes q ON q.id = s.quiz_id
+           WHERE s.id = ANY($1::uuid[])`,
+          [ids],
+        );
+        const contexts = new Map(context.rows.map((row: any) => [row.id, row]));
+        for (const row of data.rows) {
+          const extra: any = contexts.get(row.id);
+          if (extra) {
+            Object.assign(row, extra);
+            row.course_enrollments = {
+              id: extra.enrollment_id,
+              student_name: extra.student_name,
+              student_phone: extra.student_phone,
+              student_email: extra.student_email,
+              order_code: extra.order_code,
+              batch_code: extra.batch_code,
+              courses: { id: extra.course_id, title: extra.course_title },
+              student: { id: extra.user_id, full_name: extra.user_full_name, phone: extra.student_phone, email: extra.student_email },
+            };
+            row.course_quizzes = {
+              id: extra.quiz_id,
+              title: extra.quiz_title,
+              total_questions: extra.total_questions,
+              passing_score: extra.passing_score,
+            };
+          }
+        }
+      }
+      if (table === 'user_lesson_progress' && data.rows.length) {
+        const ids = data.rows.map(row => row.id);
+        const context = await client.query(
+          `SELECT p.id,
+             e.id AS enrollment_id,
+             e.order_code,
+             e.enrolled_at,
+             COALESCE(NULLIF(TRIM(e.student_name), ''), u.full_name, 'Chưa có tên') AS student_name,
+             COALESCE(e.student_phone, u.phone) AS student_phone,
+             COALESCE(e.student_email, u.email) AS student_email,
+             u.id AS user_id,
+             u.full_name AS user_full_name,
+             b.id AS batch_id,
+             b.batch_code,
+             ec.id AS enrollment_course_id,
+             ec.title AS enrollment_course_title,
+             l.id AS lesson_id,
+             l.title AS lesson_title,
+             l.lesson_order,
+             l.lesson_type,
+             l.duration_minutes,
+             l.video_url,
+             ch.id AS chapter_id,
+             ch.title AS chapter_title,
+             ch.chapter_order,
+             lc.id AS lesson_course_id,
+             lc.title AS lesson_course_title,
+             (e.id IS NULL) AS missing_enrollment,
+             (l.id IS NULL) AS missing_lesson,
+             (ec.id IS NOT NULL AND lc.id IS NOT NULL AND ec.id != lc.id) AS course_mismatch
+           FROM user_lesson_progress p
+           LEFT JOIN course_enrollments e ON e.id = p.enrollment_id
+           LEFT JOIN users u ON u.id = e.student_id
+           LEFT JOIN course_batches b ON b.id = e.batch_id
+           LEFT JOIN courses ec ON ec.id = e.course_id
+           LEFT JOIN course_lessons l ON l.id = p.lesson_id
+           LEFT JOIN course_chapters ch ON ch.id = l.chapter_id
+           LEFT JOIN courses lc ON lc.id = ch.course_id
+           WHERE p.id = ANY($1::uuid[])`,
+          [ids],
+        );
+        const contexts = new Map(context.rows.map((row: any) => [row.id, row]));
+        for (const row of data.rows) {
+          const extra: any = contexts.get(row.id);
+          if (extra) {
+            Object.assign(row, extra);
+            row.course_enrollments = {
+              id: extra.enrollment_id,
+              student_name: extra.student_name,
+              student_phone: extra.student_phone,
+              student_email: extra.student_email,
+              order_code: extra.order_code,
+              batch_code: extra.batch_code,
+              enrolled_at: extra.enrolled_at,
+              courses: { id: extra.enrollment_course_id, title: extra.enrollment_course_title },
+              student: { id: extra.user_id, full_name: extra.user_full_name, phone: extra.student_phone, email: extra.student_email },
+            };
+            row.course_lessons = {
+              id: extra.lesson_id,
+              title: extra.lesson_title,
+              lesson_order: extra.lesson_order,
+              lesson_type: extra.lesson_type,
+              duration_minutes: extra.duration_minutes,
+              video_url: extra.video_url,
+              course_chapters: {
+                id: extra.chapter_id,
+                title: extra.chapter_title,
+                courses: { id: extra.lesson_course_id, title: extra.lesson_course_title },
+              },
+            };
+          }
+        }
       }
       await client.query('COMMIT');
       return {
@@ -561,6 +736,53 @@ export class AdminService {
       clause: pks.map((c, i) => `${quote(c.name)}=$${i + 1}`).join(' AND '),
       values,
     };
+  }
+
+
+  async generateAcademySchedule(actor: AdminActor, batchId: string, input: SchedulePlanInput) {
+    this.resource('batch_schedules', actor, true);
+    const permitted = allowedBranches(actor, 'batch_schedules.create');
+    if (!this.isUuid(batchId) || !input || !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.startTime) ||
+        !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.endTime) || input.endTime <= input.startTime)
+      throw new BadRequestException('Chọn lớp và giờ bắt đầu/kết thúc hợp lệ.');
+    if (input.roomId && !this.isUuid(input.roomId)) throw new BadRequestException('Phòng học không hợp lệ.');
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      const batch = (await client.query("SELECT *,to_char(start_date,'YYYY-MM-DD') AS plan_start,to_char(end_date,'YYYY-MM-DD') AS plan_end FROM course_batches WHERE id=$1 FOR UPDATE", [batchId])).rows[0];
+      if (!batch) throw new NotFoundException('Không tìm thấy lớp.');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mld-academy-schedules'))");
+      if (permitted && !permitted.includes(batch.branch_id)) throw new ForbiddenException('Lớp nằm ngoài chi nhánh được cấp quyền.');
+      if (!['UPCOMING','OPEN_FOR_ENROLLMENT','IN_PROGRESS'].includes(batch.status)) throw new ConflictException('Lớp đã kết thúc hoặc đã hủy.');
+      if (input.roomId) {
+        const room = (await client.query('SELECT * FROM branch_rooms WHERE id=$1 FOR SHARE',[input.roomId])).rows[0];
+        if (!room || room.branch_id !== batch.branch_id || !room.is_available || /^\[ARCHIVED\]/i.test(room.name))
+          throw new ConflictException('Chọn phòng đang sử dụng thuộc chi nhánh của lớp.');
+      }
+      const today = (await client.query("SELECT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM-DD') AS day")).rows[0].day;
+      const start = batch.plan_start, end = batch.plan_end;
+      const dates = plannedDates(start, end, input.days, today);
+      const preview: Array<{ date: string; existing: boolean }> = [];
+      for (const date of dates) {
+        const existing = await client.query('SELECT id FROM batch_schedules WHERE batch_id=$1 AND session_date=$2 AND start_time=$3 AND end_time=$4',
+          [batchId,date,input.startTime,input.endTime]);
+        if (!existing.rowCount) {
+          await client.query('INSERT INTO batch_schedules(batch_id,session_date,start_time,end_time,topic,assigned_room_id,is_practice_lab) VALUES($1,$2,$3,$4,$5,$6,$7)',
+            [batchId,date,input.startTime,input.endTime,input.topicPrefix?.trim().slice(0,150) || 'Buổi học',input.roomId || null,Boolean(input.isPractice)]);
+        }
+        preview.push({date,existing:Boolean(existing.rowCount)});
+      }
+      if (input.save === true) {
+        await this.syncRelated(client, 'batch_schedules', {batch_id:batchId}, null);
+        await this.audit(client, actor, 'batch_schedules', 'GENERATE_SCHEDULE', batchId);
+        await client.query('COMMIT');
+      } else await client.query('ROLLBACK');
+      return { sessions: preview, created: preview.filter(row=>!row.existing).length, saved: input.save === true };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if ((error as {code?: string}).code === 'P0001') throw new ConflictException((error as Error).message);
+      this.fail(error);
+    } finally { client.release(); }
   }
 
   async mutate(
@@ -886,6 +1108,21 @@ export class AdminService {
         if (conflict.rowCount) throw new ConflictException('Giảng viên trùng giờ với một lớp khác. Chọn giảng viên khác hoặc điều chỉnh thời khóa biểu.');
       }
     }
+
+    if (table === 'batch_schedules' && operation !== 'delete' && next.assigned_room_id &&
+        (next.assigned_room_id !== previous?.assigned_room_id || next.session_date !== previous?.session_date || next.start_time !== previous?.start_time || next.end_time !== previous?.end_time)) {
+      const room = (await client.query('SELECT is_available,name FROM branch_rooms WHERE id=$1 FOR SHARE',[next.assigned_room_id])).rows[0];
+      if (!room?.is_available || /^\[ARCHIVED\]/i.test(room.name))
+        throw new ConflictException('Phòng đã ngừng sử dụng. Hãy chọn phòng khác trước khi xếp lịch.');
+    }
+    if (table === 'branch_rooms' && previous?.id &&
+        (operation === 'delete' || next.is_available === false || /^\[ARCHIVED\]/i.test(next.name || ''))) {
+      const scheduled = await client.query(
+        "SELECT 1 FROM batch_schedules s JOIN course_batches b ON b.id=s.batch_id WHERE s.assigned_room_id=$1 AND s.session_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AND b.status::text IN ('UPCOMING','OPEN_FOR_ENROLLMENT','IN_PROGRESS') LIMIT 1",
+        [previous.id],
+      );
+      if (scheduled.rowCount) throw new ConflictException('Phòng còn lịch học sắp tới. Chuyển các buổi sang phòng khác trước khi ngừng sử dụng.');
+    }
     await validateStaffWorkflow(client, table, next, previous, operation);
     await validateLoyaltyWrite(client, table, data, previous, operation, actor);
     if (table === 'home_care_guidelines') {
@@ -1023,6 +1260,23 @@ export class AdminService {
       if (data.status && data.status !== 'DRAFT')
         throw new BadRequestException('Dùng thao tác phát hành chứng chỉ.');
       if (operation === 'create') {
+        if (!data.enrollment_id)
+          throw new BadRequestException('Cần liên kết hồ sơ ghi danh.');
+        const enrollment = (await client.query(
+          `SELECT e.student_id,e.course_id,COALESCE(NULLIF(btrim(e.student_name),''),u.full_name) AS student_name,c.title AS course_title
+           FROM course_enrollments e JOIN users u ON u.id=e.student_id JOIN courses c ON c.id=e.course_id WHERE e.id=$1`,
+          [data.enrollment_id],
+        )).rows[0];
+        if (!enrollment || enrollment.student_id !== data.student_id || enrollment.course_id !== data.course_id)
+          throw new BadRequestException('Học viên và khóa đào tạo phải khớp với hồ sơ ghi danh.');
+        const existing = await client.query(
+          "SELECT id FROM student_certificates WHERE enrollment_id=$1 AND status IN ('DRAFT','ISSUED')",
+          [data.enrollment_id],
+        );
+        if (existing.rows.length)
+          throw new ConflictException('Hồ sơ ghi danh đã có bản nháp hoặc chứng nhận đang hiệu lực.');
+        data.student_name = enrollment.student_name;
+        data.course_title = enrollment.course_title;
         data.status = 'DRAFT';
         data.qr_verification_code = randomUUID();
       }
@@ -1363,7 +1617,7 @@ export class AdminService {
       await client.query('BEGIN');
       const schedule = await this.attendanceContext(client, actor, scheduleId, 'read');
       const { rows } = await client.query(
-        `SELECT e.id,u.full_name,a.status,
+        `SELECT e.id,COALESCE(NULLIF(btrim(e.student_name),''),u.full_name) AS full_name,a.status,
                 COALESCE(history.present,0) AS present,COALESCE(history.late,0) AS late,
                 COALESCE(history.absent,0) AS absent,COALESCE(history.excused,0) AS excused,
                 (e.batch_id=$2 AND e.student_status IN ('ENROLLED','AWAITING_RETEST')
@@ -1379,7 +1633,7 @@ export class AdminService {
            WHERE s.batch_id=$2 GROUP BY h.enrollment_id
          ) history ON history.enrollment_id=e.id
          WHERE e.batch_id=$2 OR history.enrollment_id IS NOT NULL
-         ORDER BY u.full_name,e.id`,
+         ORDER BY full_name,e.id`,
         [scheduleId, schedule.batch_id],
       );
       await client.query('COMMIT');
@@ -1387,6 +1641,10 @@ export class AdminService {
         rows: rows.filter(row => row.eligible || row.status),
         history: rows.filter(row => row.eligible || row.present + row.late + row.absent + row.excused > 0),
         writable: !schedule.future && !['CANCELLED','COMPLETED'].includes(schedule.status),
+        readOnlyReason: schedule.future ? 'Buổi học chưa đến ngày. Chỉ được điểm danh từ ngày ' + schedule.session_date.split('-').reverse().join('/') + '.'
+          : ['CANCELLED','COMPLETED'].includes(schedule.status) ? 'Lớp đã kết thúc hoặc đã hủy. Chỉ xem dữ liệu đã ghi nhận.' : null,
+        sessionDate: schedule.session_date,
+        classStatus: schedule.status,
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -2004,19 +2262,21 @@ export class AdminService {
         ).rows[0];
         if (
           !record?.is_graduated ||
-          Number(record.theory_score) < 5 ||
-          Number(record.practical_score) < 5 ||
-          Number(record.attendance_rate) < 80 ||
+          !(Number(record.theory_score) >= 5) ||
+          !(Number(record.practical_score) >= 5) ||
+          !(Number(record.attendance_rate) >= 80) ||
           enrollment?.student_id !== row.student_id ||
           enrollment?.course_id !== row.course_id ||
-          Number(enrollment.amount_paid) < Number(enrollment.tuition_total)
+          !(Number(enrollment.amount_paid) >= Number(enrollment.final_tuition ?? enrollment.tuition_total))
         )
           throw new ConflictException(
             'Cần tốt nghiệp, đủ học phí, điểm lý thuyết/thực hành từ 5 và chuyên cần từ 80%.',
           );
+        const average = (Number(record.theory_score) + Number(record.practical_score)) / 2;
+        const grade = average >= 9 ? 'XUẤT SẮC' : average >= 8 ? 'GIỎI' : average >= 7 ? 'KHÁ' : 'ĐẠT';
         await client.query(
-          "UPDATE student_certificates SET status='ISSUED',issue_date=CURRENT_DATE,theory_score=$2,practical_score=$3 WHERE id=$1",
-          [row.id, record.theory_score, record.practical_score],
+          "UPDATE student_certificates SET status='ISSUED',issue_date=(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,theory_score=$2,practical_score=$3,final_grade=$4 WHERE id=$1",
+          [row.id, record.theory_score, record.practical_score, grade],
         );
         await client.query(
           'UPDATE student_academic_records SET certificate_id=$2 WHERE enrollment_id=$1',

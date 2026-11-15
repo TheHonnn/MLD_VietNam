@@ -5,11 +5,12 @@ export const branchService = {
   async getAllBranches(): Promise<ApiResponse<Branch[]>> {
     try {
       const live = await supabaseService.getBranches();
+      if (live === null) throw new Error('Không tải được chi nhánh.');
       return {
         success: true,
         statusCode: 200,
         message: 'Dữ liệu trực tiếp từ Supabase Cloud',
-        data: live || [],
+        data: live,
       };
     } catch (err) {
       console.error('[branchService] getAllBranches error:', err);
