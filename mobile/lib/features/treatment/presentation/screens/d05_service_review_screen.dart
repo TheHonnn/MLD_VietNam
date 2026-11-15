@@ -1,6 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/treatment_models.dart';
@@ -40,15 +43,18 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
   late final TabController _tabController;
 
   int _overallRating = 5;
-  int _serviceQualityRating = 5;
-  int _staffAttitudeRating = 5;
-  int _spaceAmbianceRating = 5;
-  int _procedureRating = 5;
   bool _isSubmitting = false;
   bool _isLoadingReviews = true;
 
+  String? _resolvedBookingId;
+  String? _resolvedServiceId;
+  String? _resolvedTechnicianId;
+  String? _resolvedServiceName;
+  String? _resolvedSpecialistName;
+  String? _resolvedBranchName;
+  String? _resolvedSessionInfo;
+
   late final TextEditingController _commentCtrl;
-  String _willingnessToRefer = 'Có';
   final Set<String> _selectedTags = {
     'Kỹ thuật viên chu đáo',
     'Giảm đau / Nhẹ nhõm ngay',
@@ -75,6 +81,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
     _commentCtrl = TextEditingController(
       text: 'Chuyên viên chu đáo, thao tác nhẹ nhàng chuẩn y khoa MLD và không gian yên tĩnh. Tôi rất hài lòng.',
     );
+    _loadLatestAppointment();
     _loadMyReviews();
   }
 
@@ -83,6 +90,63 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
     _tabController.dispose();
     _commentCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadLatestAppointment() async {
+    if (widget.bookingId != null && widget.bookingId!.isNotEmpty) {
+      _resolvedBookingId = widget.bookingId;
+      _resolvedServiceId = widget.serviceId;
+      _resolvedTechnicianId = widget.technicianId;
+      _resolvedServiceName = widget.serviceName;
+      _resolvedSpecialistName = widget.specialistName;
+      _resolvedBranchName = widget.branchName;
+      _resolvedSessionInfo = widget.sessionInfo;
+      return;
+    }
+
+    try {
+      final userId = AuthService.instance.currentUserId ?? '50a941ef-df2f-442e-ad2d-6a60ba6d6bb1';
+      final res = await ApiClient.instance.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/bookings',
+        queryParameters: {
+          'customer_id': 'eq.$userId',
+          'select': 'id,service_id,technician_id,appointment_date,time_slot,services(name),technicians(full_name),branches(name)',
+          'order': 'created_at.desc',
+          'limit': '1',
+        },
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseAnonKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+        }),
+      );
+
+      if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
+        final b = (res.data as List).first as Map<String, dynamic>;
+        if (mounted) {
+          setState(() {
+            _resolvedBookingId = b['id']?.toString();
+            _resolvedServiceId = b['service_id']?.toString();
+            _resolvedTechnicianId = b['technician_id']?.toString();
+            if (b['services'] is Map && b['services']['name'] != null) {
+              _resolvedServiceName = b['services']['name'].toString();
+            }
+            if (b['technicians'] is Map && b['technicians']['full_name'] != null) {
+              _resolvedSpecialistName = b['technicians']['full_name'].toString();
+            }
+            if (b['branches'] is Map && b['branches']['name'] != null) {
+              _resolvedBranchName = b['branches']['name'].toString();
+            }
+            final date = b['appointment_date']?.toString() ?? '';
+            final slot = b['time_slot']?.toString() ?? '';
+            if (date.isNotEmpty || slot.isNotEmpty) {
+              _resolvedSessionInfo = '$date · $slot';
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('>>> [_loadLatestAppointment] Error fetching appointment: $e');
+    }
   }
 
   Future<void> _loadMyReviews() async {
@@ -116,21 +180,23 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
     setState(() => _isSubmitting = true);
 
     try {
+      final effectiveBookingId = _resolvedBookingId ?? widget.bookingId;
+      final effectiveServiceId = _resolvedServiceId ?? widget.serviceId;
+      final effectiveTechnicianId = _resolvedTechnicianId ?? widget.technicianId;
+      final effectiveServiceName = _resolvedServiceName ?? widget.serviceName;
+      final effectiveTechnicianName = _resolvedSpecialistName ?? widget.specialistName;
+
       final result = await _repo.saveReview(
         ServiceReviewDataModel(
-          bookingId: widget.bookingId,
-          serviceId: widget.serviceId,
-          technicianId: widget.technicianId,
+          bookingId: effectiveBookingId,
+          serviceId: effectiveServiceId,
+          technicianId: effectiveTechnicianId,
           overallRating: _overallRating,
-          serviceQualityRating: _serviceQualityRating,
-          staffAttitudeRating: _staffAttitudeRating,
-          spaceAmbianceRating: _spaceAmbianceRating,
-          procedureRating: _procedureRating,
           comment: _commentCtrl.text.trim(),
-          willingnessToRefer: _willingnessToRefer,
           reviewTags: _selectedTags.toList(),
-          serviceName: widget.serviceName,
-          technicianName: widget.specialistName,
+          photos: const [],
+          serviceName: effectiveServiceName,
+          technicianName: effectiveTechnicianName,
         ),
       );
 
@@ -379,7 +445,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.serviceName,
+                        _resolvedServiceName ?? widget.serviceName,
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
                       ),
                       const SizedBox(height: 4),
@@ -389,7 +455,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              'Chuyên viên: ${widget.specialistName}',
+                              'Chuyên viên: ${_resolvedSpecialistName ?? widget.specialistName}',
                               style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF4B5563)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -404,7 +470,22 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              widget.branchName,
+                              _resolvedBranchName ?? widget.branchName,
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.access_time_rounded, size: 13, color: Colors.grey.shade600),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              _resolvedSessionInfo ?? widget.sessionInfo,
                               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -623,38 +704,9 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
             ),
           ),
 
-          const SizedBox(height: 16),
-
-          // 6. ĐÁNH GIÁ CHI TIẾT CÁC TIÊU CHÍ (EXPANDABLE)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Đánh giá từng tiêu chí',
-                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
-                ),
-                const SizedBox(height: 12),
-                _buildCriterionRatingRow('Chuyên môn & Tay nghề trị liệu', _serviceQualityRating, (v) => setState(() => _serviceQualityRating = v)),
-                const Divider(height: 18, color: Color(0xFFF3F4F6)),
-                _buildCriterionRatingRow('Thái độ & Sự chu đáo của chuyên viên', _staffAttitudeRating, (v) => setState(() => _staffAttitudeRating = v)),
-                const Divider(height: 18, color: Color(0xFFF3F4F6)),
-                _buildCriterionRatingRow('Không gian, vệ sinh & âm nhạc thư giãn', _spaceAmbianceRating, (v) => setState(() => _spaceAmbianceRating = v)),
-                const Divider(height: 18, color: Color(0xFFF3F4F6)),
-                _buildCriterionRatingRow('Quy trình thực hiện chuẩn Y khoa MLD', _procedureRating, (v) => setState(() => _procedureRating = v)),
-              ],
-            ),
-          ),
-
           const SizedBox(height: 24),
 
-          // 7. NÚT GỬI ĐÁNH GIÁ (+50 ĐIỂM)
+          // 6. NÚT GỬI ĐÁNH GIÁ (+50 ĐIỂM)
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -693,39 +745,6 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
           const SizedBox(height: 28),
         ],
       ),
-    );
-  }
-
-  Widget _buildCriterionRatingRow(String title, int rating, ValueChanged<int> onChanged) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF374151)),
-          ),
-        ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(5, (index) {
-            final star = index + 1;
-            final isFilled = star <= rating;
-            return InkWell(
-              onTap: () => onChanged(star),
-              borderRadius: BorderRadius.circular(4),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: Icon(
-                  isFilled ? Icons.star_rounded : Icons.star_outline_rounded,
-                  color: isFilled ? const Color(0xFFF59E0B) : const Color(0xFFD1D5DB),
-                  size: 22,
-                ),
-              ),
-            );
-          }),
-        ),
-      ],
     );
   }
 

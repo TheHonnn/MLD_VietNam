@@ -312,7 +312,8 @@ class TreatmentRepository {
         'comment': model.comment,
         'willingnessToRefer': model.willingnessToRefer,
         'reviewTags': model.reviewTags,
-        'photos': model.photos,
+        'quickTags': model.reviewTags,
+        'photos': model.photos ?? <String>[],
       };
       if (model.bookingId != null && model.bookingId!.isNotEmpty) {
         payload['bookingId'] = model.bookingId;
@@ -348,7 +349,7 @@ class TreatmentRepository {
         if (bookingId == null || bookingId.isEmpty) {
           try {
             final bRes = await _apiClient.dio.get(
-              '${ApiEndpoints.supabaseUrl}/rest/v1/bookings?customer_id=eq.$userId&select=id,technician_id&order=created_at.desc&limit=1',
+              '${ApiEndpoints.supabaseUrl}/rest/v1/bookings?customer_id=eq.$userId&select=id,technician_id,service_id&order=created_at.desc&limit=1',
               options: Options(headers: {
                 'apikey': ApiEndpoints.supabaseAnonKey,
                 'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
@@ -358,6 +359,7 @@ class TreatmentRepository {
               final b = (bRes.data as List).first as Map<String, dynamic>;
               bookingId = b['id']?.toString();
               technicianId ??= b['technician_id']?.toString();
+              serviceId ??= b['service_id']?.toString();
             }
           } catch (_) {}
         }
@@ -379,7 +381,7 @@ class TreatmentRepository {
           'rating': model.overallRating,
           'review_tags': model.reviewTags,
           'comment': model.comment,
-          'photos': model.photos,
+          'photos': model.photos ?? <String>[],
         };
 
         // Check if review already exists for this booking_id
@@ -398,7 +400,7 @@ class TreatmentRepository {
               'rating': model.overallRating,
               'review_tags': model.reviewTags,
               'comment': model.comment,
-              'photos': model.photos,
+              'photos': model.photos ?? <String>[],
             },
             options: Options(headers: {
               'apikey': ApiEndpoints.supabaseAnonKey,
