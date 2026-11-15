@@ -477,15 +477,24 @@ export class AcademyService {
   }
 
   async assignEnrollmentBatch(enrollmentId: string, batchId: string, adminUser: string, reason?: string) {
-    if (!adminUser) return { success: false, message: 'Không xác định được admin thực hiện thao tác' };
-    const { data, error } = await this.supabaseService.adminClient.rpc('fn_assign_enrollment_batch', {
-      p_enrollment_id: enrollmentId,
-      p_batch_id: batchId,
-      p_actor_id: adminUser,
-      p_transfer_reason: reason?.trim() || null,
-    });
-    if (error) return { success: false, message: error.message };
-    return { success: true, message: 'Đã xếp lớp và gửi thông báo cho học viên.', data };
+    try {
+      const { rows } = await this.adminDatabase.connection.query(
+        'SELECT public.fn_assign_enrollment_batch($1,$2,$3,$4) AS assignment',
+        [enrollmentId, batchId, adminUser, reason?.trim() || null],
+      );
+      const assignment = rows[0]?.assignment;
+      if (assignment?.success !== true || assignment.batchId !== batchId) {
+        throw new Error('Database did not confirm class assignment');
+      }
+      return { success: true, message: 'Đã xếp lớp.', data: assignment };
+    } catch (error) {
+      const databaseError = error as { code?: string; message?: string };
+      if (databaseError.code === 'P0001' || databaseError.code === '22P02') {
+        throw new BadRequestException(databaseError.code === '22P02' ? 'Mã hồ sơ hoặc lớp không hợp lệ.' : databaseError.message);
+      }
+      this.logger.error('Class assignment failed', databaseError.code);
+      throw new InternalServerErrorException('Chưa xác nhận được kết quả xếp lớp. Hãy tải lại hồ sơ.');
+    }
   }
 
   async finalizeEnrollmentConsultation(
