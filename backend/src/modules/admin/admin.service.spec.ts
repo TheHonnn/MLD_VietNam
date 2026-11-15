@@ -564,6 +564,10 @@ describe('Admin shared-schema integration', () => {
     );
     await pg.query("UPDATE course_enrollments SET student_status='ENROLLED',access_status='ACTIVE' WHERE id=$1", [enrollment.id]);
     expect((await service.attendanceRoster(actor, session.id))?.rows[0]).toMatchObject({ id: enrollment.id, status: null, eligible: true });
+    expect(await service.attendanceRoster(actor, session.id)).toMatchObject({ writable: true, readOnlyReason: null });
+    await pg.query("UPDATE batch_schedules SET session_date=CURRENT_DATE+1 WHERE id=$1", [session.id]);
+    expect(await service.attendanceRoster(actor, session.id)).toMatchObject({ writable: false, readOnlyReason: expect.stringContaining('chưa đến ngày') });
+    await pg.query("UPDATE batch_schedules SET session_date=CURRENT_DATE WHERE id=$1", [session.id]);
     const change = { enrollmentId: enrollment.id, previous: null, status: 'PRESENT' };
     await expect(service.saveAttendance(actor, session.id, [change, { ...change, enrollmentId: actor.id }])).rejects.toThrow('không còn đủ điều kiện');
     expect((await service.attendanceRoster(actor, session.id))?.rows[0].status).toBeNull();

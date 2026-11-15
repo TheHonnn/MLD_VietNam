@@ -1450,6 +1450,10 @@ export class AdminService {
         rows: rows.filter(row => row.eligible || row.status),
         history: rows.filter(row => row.eligible || row.present + row.late + row.absent + row.excused > 0),
         writable: !schedule.future && !['CANCELLED','COMPLETED'].includes(schedule.status),
+        readOnlyReason: schedule.future ? 'Buổi học chưa đến ngày. Chỉ được điểm danh từ ngày ' + schedule.session_date.split('-').reverse().join('/') + '.'
+          : ['CANCELLED','COMPLETED'].includes(schedule.status) ? 'Lớp đã kết thúc hoặc đã hủy. Chỉ xem dữ liệu đã ghi nhận.' : null,
+        sessionDate: schedule.session_date,
+        classStatus: schedule.status,
       };
     } catch (error) {
       await client.query('ROLLBACK');
