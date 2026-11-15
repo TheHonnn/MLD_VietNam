@@ -128,7 +128,12 @@ describe('Admin business workflows on the complete migrated schema', () => {
     await service.collectCashierPayment(actor,deposit); await service.collectCashierPayment(actor,deposit);
     expect(Number((await query('SELECT amount_paid FROM course_enrollments WHERE id=$1',[enrollment.id])).rows[0].amount_paid)).toBe(200000);
     await expect(service.collectCashierPayment(actor,{...deposit,requestId:randomUUID(),amount:900000})).rejects.toThrow(/vượt quá/);
-    await service.collectCashierPayment(actor,{...deposit,requestId:randomUUID(),amount:800000});
+    await query("UPDATE course_enrollments SET consultation_status='CONFIRMED' WHERE id=$1",[enrollment.id]);
+    const transfer={...deposit,paymentMethod:'BANK_TRANSFER',amount:300000,bankReference:' FLOW-BANK-123 ',requestId:randomUUID()};
+    await expect(service.collectCashierPayment(actor,{...transfer,bankReference:''})).rejects.toThrow(/sao kê/);
+    await service.collectCashierPayment(actor,transfer);
+    await expect(service.collectCashierPayment(actor,{...transfer,requestId:randomUUID(),bankReference:'flow-bank-123'})).rejects.toThrow(/đã có phiếu thu/);
+    await service.collectCashierPayment(actor,{...deposit,requestId:randomUUID(),amount:500000});
     expect((await query('SELECT approval_status,student_status FROM course_enrollments WHERE id=$1',[enrollment.id])).rows[0]).toMatchObject({approval_status:'PENDING_APPROVAL',student_status:'NOT_APPROVED'});
     const schedule=await service.mutate('batch_schedules',actor,'create',{values:{batch_id:batch.id,session_date:'2026-11-08',start_time:'08:00',end_time:'10:00',topic:'Flow'}});
     const record=await service.mutate('student_academic_records',actor,'create',{values:{enrollment_id:enrollment.id,theory_score:8,practical_score:8,is_graduated:false,total_batch_sessions:1}});
@@ -141,7 +146,7 @@ describe('Admin business workflows on the complete migrated schema', () => {
     expect((await query('SELECT status FROM student_certificates WHERE id=$1',[certificate.id])).rows[0].status).toBe('ISSUED');
     await service.action('student_certificates',actor,{key:{id:certificate.id},action:'revoke',reason:'Test correction'});
     expect((await query('SELECT status FROM student_certificates WHERE id=$1',[certificate.id])).rows[0].status).toBe('REVOKED');
-    await service.closeCashierShift(actor,shift.id,{closingCash:1000000});
+    await service.closeCashierShift(actor,shift.id,{closingCash:700000});
   });
 
   it('limits branch roles at reads, writes, actions and cashier operations',async()=>{

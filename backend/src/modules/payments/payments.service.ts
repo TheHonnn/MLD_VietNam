@@ -12,7 +12,7 @@ import { RedisService } from '../../database/redis.service';
 import { CreatePaymentLinkDto } from './dto/create-payment-link.dto';
 import { EmailService } from '../auth/services/email.service';
 import { AdminDatabase } from '../admin/admin.database';
-import { createHash } from 'node:crypto';
+import { tuitionBankCode } from '../../common/tuition-bank-reference';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { PayOS } = require('@payos/node');
@@ -571,7 +571,7 @@ export class PaymentsService {
     }
   }
 
-  private async recordTuitionTransfer(orderCode: string, amount: number, reference: string, gateway: string) {
+  private async recordTuitionTransfer(orderCode: string, amount: number, reference: string) {
     if (!this.adminDatabase || !reference.trim()) {
       throw new BadRequestException('Giao dịch học phí cần mã giao dịch ngân hàng.');
     }
@@ -588,9 +588,11 @@ export class PaymentsService {
       );
       if (rows.length !== 1) throw new BadRequestException('Không xác định duy nhất hồ sơ học phí.');
       const enrollment = rows[0];
-      const code = 'BANK-EDU-' + createHash('sha256').update(JSON.stringify([gateway, reference.trim()])).digest('hex').slice(0, 36);
+      const code = tuitionBankCode(reference);
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [code]);
       const prior = (await client.query(
-        'SELECT enrollment_id,amount FROM tuition_transactions WHERE transaction_code=$1', [code],
+        'SELECT enrollment_id,amount FROM tuition_transactions WHERE transaction_code=$1 OR upper(notes)=upper($2)',
+        [code, `Webhook ngân hàng: ${reference.trim()}`],
       )).rows[0];
       if (prior) {
         if (prior.enrollment_id !== enrollment.id || Number(prior.amount) !== amount)
@@ -730,7 +732,7 @@ export class PaymentsService {
       const tuitionCode = upperContent.match(/(?:^|[^A-Z0-9_-])(?:MLD\s+)?(KH-\d{8}-\d{3,})(?![A-Z0-9_-])/);
       if (tuitionCode) {
         matchedCode = tuitionCode[1];
-        matchedId = await this.recordTuitionTransfer(matchedCode, amount, referenceCode, tx.gateway);
+        matchedId = await this.recordTuitionTransfer(matchedCode, amount, referenceCode);
         results.push({ amount, referenceCode, matchedType: 'ENROLLMENT', matchedCode, matchedId, success: true });
         continue;
       }
