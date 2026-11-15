@@ -11,7 +11,7 @@ const outputNames: Record<string, string> = {
   primary_instructor_id: 'instructor_name', assistant_instructor_id: 'assistant_name',
   assigned_room_id: 'assigned_room_name', branch_id: 'branch_name', department_id: 'department_name', service_id: 'service_name',
   package_id: 'package_name', course_id: 'course_title', batch_id: 'batch_code',
-  enrollment_id: 'student_name', quiz_id: 'quiz_title',
+  enrollment_id: 'student_name', quiz_id: 'quiz_title', lesson_id: 'lesson_title', chapter_id: 'chapter_title',
 };
 export async function enrichReferenceLabels(connection: any, columns: any[], rows: any[]) {
   for (const column of columns) {

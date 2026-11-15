@@ -371,6 +371,9 @@ export class AdminService {
         } else if (table === 'quiz_submissions') {
           predicates.push(`EXISTS (SELECT 1 FROM public.course_enrollments e LEFT JOIN public.users u ON u.id=e.student_id LEFT JOIN public.courses c ON c.id=e.course_id WHERE e.id="quiz_submissions".enrollment_id AND (e.student_name ILIKE $${values.length} OR u.full_name ILIKE $${values.length} OR e.student_phone ILIKE $${values.length} OR e.order_code ILIKE $${values.length} OR c.title ILIKE $${values.length}))`);
           predicates.push(`EXISTS (SELECT 1 FROM public.course_quizzes q WHERE q.id="quiz_submissions".quiz_id AND q.title ILIKE $${values.length})`);
+        } else if (table === 'user_lesson_progress') {
+          predicates.push(`EXISTS (SELECT 1 FROM public.course_enrollments e LEFT JOIN public.users u ON u.id=e.student_id LEFT JOIN public.courses c ON c.id=e.course_id WHERE e.id="user_lesson_progress".enrollment_id AND (e.student_name ILIKE $${values.length} OR u.full_name ILIKE $${values.length} OR e.student_phone ILIKE $${values.length} OR e.order_code ILIKE $${values.length} OR c.title ILIKE $${values.length}))`);
+          predicates.push(`EXISTS (SELECT 1 FROM public.course_lessons l LEFT JOIN public.course_chapters ch ON ch.id=l.chapter_id WHERE l.id="user_lesson_progress".lesson_id AND (l.title ILIKE $${values.length} OR ch.title ILIKE $${values.length}))`);
         }
         where.push('(' + predicates.join(' OR ') + ')');
       }
@@ -409,13 +412,33 @@ export class AdminService {
           where.push(`quiz_submissions.submitted_at < ($${values.length}::date + INTERVAL '1 day')`);
           continue;
         }
+        if (table === 'user_lesson_progress' && name === 'course_id' && !columns.some(column => column.name === name)) {
+          values.push(value);
+          where.push(`(EXISTS (SELECT 1 FROM course_enrollments e WHERE e.id=user_lesson_progress.enrollment_id AND e.course_id=$${values.length}) OR EXISTS (SELECT 1 FROM course_lessons l JOIN course_chapters ch ON ch.id=l.chapter_id WHERE l.id=user_lesson_progress.lesson_id AND ch.course_id=$${values.length}))`);
+          continue;
+        }
+        if (table === 'user_lesson_progress' && name === 'batch_id' && !columns.some(column => column.name === name)) {
+          values.push(value);
+          where.push(`EXISTS (SELECT 1 FROM course_enrollments e WHERE e.id=user_lesson_progress.enrollment_id AND e.batch_id=$${values.length})`);
+          continue;
+        }
+        if (table === 'user_lesson_progress' && (name === 'date_from' || name === 'completed_from') && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+          values.push(value);
+          where.push(`user_lesson_progress.completed_at >= $${values.length}::date`);
+          continue;
+        }
+        if (table === 'user_lesson_progress' && (name === 'date_to' || name === 'completed_to') && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+          values.push(value);
+          where.push(`user_lesson_progress.completed_at < ($${values.length}::date + INTERVAL '1 day')`);
+          continue;
+        }
         if (!columns.some((c) => c.name === name) || typeof value === 'object')
           throw new BadRequestException('Trường lọc không hợp lệ.');
         values.push(value);
         where.push(`${expression(name)}=$${values.length}`);
       }
     }
-    if (actor.role === 'INSTRUCTOR' && ['course_batches', 'course_batch_assistants', 'batch_schedules', 'course_enrollments', 'student_academic_records', 'student_attendance', 'quiz_submissions'].includes(table)) {
+    if (actor.role === 'INSTRUCTOR' && ['course_batches', 'course_batch_assistants', 'batch_schedules', 'course_enrollments', 'student_academic_records', 'student_attendance', 'quiz_submissions', 'user_lesson_progress'].includes(table)) {
       values.push(actor.id);
       const actorParam = `$${values.length}`;
       if (table === 'course_batches') {
@@ -436,6 +459,10 @@ export class AdminService {
         where.push(`EXISTS (SELECT 1 FROM public.batch_schedules s WHERE s.id=student_attendance.schedule_id AND (EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=s.batch_id AND i.user_id=${actorParam}) OR EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=s.batch_id AND a.can_mark_attendance AND i.user_id=${actorParam})))`);
       } else if (table === 'quiz_submissions') {
         where.push(`EXISTS (SELECT 1 FROM public.course_enrollments e WHERE e.id=quiz_submissions.enrollment_id AND (
+          EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=e.batch_id AND i.user_id=${actorParam}) OR
+          EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=e.batch_id AND i.user_id=${actorParam})))`);
+      } else if (table === 'user_lesson_progress') {
+        where.push(`EXISTS (SELECT 1 FROM public.course_enrollments e WHERE e.id=user_lesson_progress.enrollment_id AND (
           EXISTS (SELECT 1 FROM public.course_batches b JOIN public.instructors i ON i.id=b.instructor_id WHERE b.id=e.batch_id AND i.user_id=${actorParam}) OR
           EXISTS (SELECT 1 FROM public.course_batch_assistants a JOIN public.instructors i ON i.id=a.instructor_id WHERE a.batch_id=e.batch_id AND i.user_id=${actorParam})))`);
       }
@@ -534,6 +561,79 @@ export class AdminService {
               title: extra.quiz_title,
               total_questions: extra.total_questions,
               passing_score: extra.passing_score,
+            };
+          }
+        }
+      }
+      if (table === 'user_lesson_progress' && data.rows.length) {
+        const ids = data.rows.map(row => row.id);
+        const context = await client.query(
+          `SELECT p.id,
+             e.id AS enrollment_id,
+             e.order_code,
+             e.enrolled_at,
+             COALESCE(NULLIF(TRIM(e.student_name), ''), u.full_name, 'Chưa có tên') AS student_name,
+             COALESCE(e.student_phone, u.phone) AS student_phone,
+             COALESCE(e.student_email, u.email) AS student_email,
+             u.id AS user_id,
+             u.full_name AS user_full_name,
+             b.id AS batch_id,
+             b.batch_code,
+             ec.id AS enrollment_course_id,
+             ec.title AS enrollment_course_title,
+             l.id AS lesson_id,
+             l.title AS lesson_title,
+             l.lesson_order,
+             l.lesson_type,
+             l.duration_minutes,
+             l.video_url,
+             ch.id AS chapter_id,
+             ch.title AS chapter_title,
+             ch.chapter_order,
+             lc.id AS lesson_course_id,
+             lc.title AS lesson_course_title,
+             (e.id IS NULL) AS missing_enrollment,
+             (l.id IS NULL) AS missing_lesson,
+             (ec.id IS NOT NULL AND lc.id IS NOT NULL AND ec.id != lc.id) AS course_mismatch
+           FROM user_lesson_progress p
+           LEFT JOIN course_enrollments e ON e.id = p.enrollment_id
+           LEFT JOIN users u ON u.id = e.student_id
+           LEFT JOIN course_batches b ON b.id = e.batch_id
+           LEFT JOIN courses ec ON ec.id = e.course_id
+           LEFT JOIN course_lessons l ON l.id = p.lesson_id
+           LEFT JOIN course_chapters ch ON ch.id = l.chapter_id
+           LEFT JOIN courses lc ON lc.id = ch.course_id
+           WHERE p.id = ANY($1::uuid[])`,
+          [ids],
+        );
+        const contexts = new Map(context.rows.map((row: any) => [row.id, row]));
+        for (const row of data.rows) {
+          const extra: any = contexts.get(row.id);
+          if (extra) {
+            Object.assign(row, extra);
+            row.course_enrollments = {
+              id: extra.enrollment_id,
+              student_name: extra.student_name,
+              student_phone: extra.student_phone,
+              student_email: extra.student_email,
+              order_code: extra.order_code,
+              batch_code: extra.batch_code,
+              enrolled_at: extra.enrolled_at,
+              courses: { id: extra.enrollment_course_id, title: extra.enrollment_course_title },
+              student: { id: extra.user_id, full_name: extra.user_full_name, phone: extra.student_phone, email: extra.student_email },
+            };
+            row.course_lessons = {
+              id: extra.lesson_id,
+              title: extra.lesson_title,
+              lesson_order: extra.lesson_order,
+              lesson_type: extra.lesson_type,
+              duration_minutes: extra.duration_minutes,
+              video_url: extra.video_url,
+              course_chapters: {
+                id: extra.chapter_id,
+                title: extra.chapter_title,
+                courses: { id: extra.lesson_course_id, title: extra.lesson_course_title },
+              },
             };
           }
         }

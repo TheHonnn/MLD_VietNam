@@ -11,15 +11,16 @@ beforeAll(async () => {
     CREATE TABLE course_enrollments(id uuid PRIMARY KEY,batch_id uuid);
     CREATE TABLE enrollment_change_requests(id int,enrollment_id uuid);
     CREATE TABLE enrollment_status_history(id int,enrollment_id uuid);
-    CREATE TABLE quiz_submissions(id int,enrollment_id uuid);`);
+    CREATE TABLE quiz_submissions(id int,enrollment_id uuid);
+    CREATE TABLE user_lesson_progress(id int,enrollment_id uuid);`);
   await pg.query('INSERT INTO course_batches VALUES($1,$1),($2,$2)', [branch,other]);
   await pg.query('INSERT INTO course_enrollments VALUES($1,$1),($2,$2)', [branch,other]);
-  for (const table of ['enrollment_change_requests','enrollment_status_history','quiz_submissions']) {
+  for (const table of ['enrollment_change_requests','enrollment_status_history','quiz_submissions','user_lesson_progress']) {
     await pg.query(`INSERT INTO ${table} VALUES(1,$1),(2,$2),(3,NULL)`, [branch,other]);
   }
 },60000);
 afterAll(async () => pg?.close());
-for (const table of ['enrollment_change_requests','enrollment_status_history','quiz_submissions']) {
+for (const table of ['enrollment_change_requests','enrollment_status_history','quiz_submissions','user_lesson_progress']) {
   it(`${table} only exposes records attached to an authorized branch`, async () => {
     const predicate = branchPredicate(table,'r','$1',['id','enrollment_id']);
     const result = await pg.query(`SELECT id FROM ${table} r WHERE ${predicate}`, [[branch]]);

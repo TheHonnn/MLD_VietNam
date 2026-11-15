@@ -320,7 +320,7 @@ export const labels: Record<string, string> = {
   completed_lessons_count: "Số bài đã hoàn thành",
   progress_percent: "Tiến độ học (%)",
   enrolled_at: "Ngày ghi danh",
-  watched_seconds: "Số giây đã xem",
+  watched_seconds: "Vị trí video đã ghi nhận",
   is_completed: "Đã hoàn thành",
   student_notes: "Ghi chú học viên",
   completed_at: "Thời điểm hoàn thành",

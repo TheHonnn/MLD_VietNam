@@ -8,6 +8,7 @@ import { TrainingActions } from "./TrainingActions";
 import { loadQuestionRows } from "./quizData";
 import { QuestionBankView } from "./QuestionBankView";
 import { QuizSubmissionsView } from "./QuizSubmissionsView";
+import { LessonProgressView } from "./LessonProgressView";
 import { QuizOptions, quizOptions } from "./QuizOptions";
 import { ConsultationSurveySheet, COMMON_FOCUS_AREAS } from "./ConsultationSurveyView";
 import { ServiceDetailSheet } from "./ServiceDetailView";
@@ -5083,7 +5084,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       })
       .catch(() => { });
 
-    if (["student_academic_records", "course_chapters", "course_lessons", "quiz_submissions"].includes(table)) {
+    if (["student_academic_records", "course_chapters", "course_lessons", "quiz_submissions", "user_lesson_progress"].includes(table)) {
       fetch(`${SUPABASE_URL}/rest/v1/courses?select=id,title,code&order=title.asc`, { headers: getSupabaseHeaders() })
         .then((r) => r.json())
         .then((data) => { if (active && Array.isArray(data)) setCoursesForBatchFilter(data); })
@@ -5175,7 +5176,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         listParams.set("filter", JSON.stringify({ [staffDateField]: todayAtBranch(), ...selection }));
       } catch { /* The API validates explicit filters. */ }
     }
-    const request = navigationGroupForTable(table)?.label === "Học viên & Lớp học" || ["course_quizzes", "quiz_questions", "quiz_submissions"].includes(table) ? adminCommand : adminApi;
+    const request = navigationGroupForTable(table)?.label === "Học viên & Lớp học" || ["course_quizzes", "quiz_questions", "quiz_submissions", "user_lesson_progress"].includes(table) ? adminCommand : adminApi;
     request<Listing>(
       table + "?" + listParams.toString(),
       undefined,
@@ -5950,9 +5951,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     <div className="admin-page-shell">
       <PageHeader
         eyebrow={navigationGroupForTable(table)?.label || resource?.group || "QUẢN TRỊ"}
-        title={table === "quiz_submissions" ? "Bài đã nộp" : table === "course_quizzes" ? "Đề thi & Trắc nghiệm" : loyaltyPages[table]?.title || (table === "service_categories" ? "Nhóm dịch vụ" : resource?.title || "Đang tải phân hệ…")}
+        title={table === "quiz_submissions" ? "Bài đã nộp" : table === "user_lesson_progress" ? "Tiến độ học" : table === "course_quizzes" ? "Đề thi & Trắc nghiệm" : loyaltyPages[table]?.title || (table === "service_categories" ? "Nhóm dịch vụ" : resource?.title || "Đang tải phân hệ…")}
         subtitle={
-          table === "quiz_submissions" ? (
+          table === "user_lesson_progress" ? (
+            <p className="mt-1 text-xs text-[#73675F]">Theo dõi tiến độ bài học đã được đồng bộ từ ứng dụng</p>
+          ) : table === "quiz_submissions" ? (
             <p className="mt-1 text-xs text-[#73675F]">Theo dõi và tra cứu kết quả bài làm trắc nghiệm của học viên theo khóa học và đề thi.</p>
           ) : table === "bookings" ? (
             <p className="mt-1 text-xs text-[#73675F]">Theo dõi khách từ lúc đặt lịch, đến cơ sở, thực hiện dịch vụ và thanh toán.</p>
@@ -6015,7 +6018,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             >
               <RefreshCw size={18} />
             </button>
-            {resource?.actions?.includes("create") && listing && (
+            {resource?.actions?.includes("create") && table !== "user_lesson_progress" && listing && (
               table === "tuition_transactions" ? (
                 <Link to="/cashier-pos?tab=tuition" className="admin-primary"><CreditCard size={16} />Thu học phí tại POS</Link>
               ) : table === "course_enrollments" ? (
@@ -6088,7 +6091,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           navigationGroupForTable(table)?.label === "Học viên & Lớp học"
             ? { ...tab, href: academyClassLink(tab.href, selectedBatchId) } : tab)}
       />
-      {table === "user_lesson_progress" && <div role="note" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">Tiến độ chỉ phản ánh bản ghi đã đồng bộ từ ứng dụng. Không có bản ghi không đồng nghĩa học viên chưa học. Dữ liệu chỉ đọc; không tạo tiến độ thay học viên.</div>}
+      {table === "user_lesson_progress" && <div role="note" className="mb-4 rounded-xl border border-[#EAD8C7] bg-[#FAF7F2] p-3 text-xs text-[#73675F]">Chỉ hiển thị dữ liệu đã đồng bộ. Thiếu bản ghi không đồng nghĩa học viên chưa học.</div>}
       {table === "course_chapters" && <div className="mb-4 rounded-xl border bg-white p-4 text-sm">Chọn khóa học → tạo chương → mở “Bài học” ở từng chương để quản lý video theo đúng thứ tự. Đề thi và kết quả được quản lý ở các tab kế tiếp.</div>}
       {table === "course_batches" && selectedBatchId && <Link className="admin-secondary mb-4" to="/manage/course_batches">Xem tất cả lớp</Link>}
       {[
@@ -6169,6 +6172,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   ? "Tìm tiêu đề bài học hoặc video..."
                 : table === "quiz_submissions"
                   ? "Tìm học viên, SĐT, mã hồ sơ, tên đề..."
+                : table === "user_lesson_progress"
+                  ? "Tìm học viên, SĐT, mã hồ sơ, bài học..."
                 : "Tìm kiếm…"}
             aria-label="Tìm kiếm bản ghi"
             value={search}
@@ -6283,6 +6288,68 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             </div>
 
             {(filter.course_id || filter.quiz_id || filter.passed !== undefined || filter.date_from || filter.date_to || search.trim()) && (
+              <button
+                type="button"
+                className="admin-secondary !py-1.5 !px-2.5 text-xs text-[#8A4F23] hover:bg-[#FAF0E4]"
+                onClick={() => {
+                  setSearch("");
+                  const p = new URLSearchParams(params);
+                  p.delete("filter");
+                  p.delete("search");
+                  p.delete("page");
+                  setParams(p);
+                }}
+              >
+                Xóa bộ lọc
+              </button>
+            )}
+          </div>
+        )}
+        {table === "user_lesson_progress" && (
+          <div className="flex flex-wrap items-center gap-2" aria-label="Bộ lọc tiến độ học">
+            <select
+              aria-label="Lọc theo Khóa học"
+              className="font-bold text-[#8A4F23] bg-[#FFFDF9] border-[#EAD8C7] rounded-lg text-xs py-2 px-2.5"
+              value={filter.course_id || ""}
+              onChange={(e) => {
+                const next = { ...filter };
+                if (e.target.value) next.course_id = e.target.value;
+                else delete next.course_id;
+                const p = new URLSearchParams(params);
+                Object.keys(next).length ? p.set("filter", JSON.stringify(next)) : p.delete("filter");
+                p.delete("page");
+                setParams(p);
+              }}
+            >
+              <option value="">🎓 Tất cả khóa học ({coursesForBatchFilter.length})</option>
+              {coursesForBatchFilter.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+
+            <select
+              aria-label="Lọc theo Trạng thái hoàn thành"
+              className="font-bold text-[#2C241E] bg-[#FFFDF9] border-[#EAD8C7] rounded-lg text-xs py-2 px-2.5"
+              value={filter.is_completed === undefined ? "" : String(filter.is_completed)}
+              onChange={(e) => {
+                const next = { ...filter };
+                if (e.target.value === "true") next.is_completed = true;
+                else if (e.target.value === "false") next.is_completed = false;
+                else delete next.is_completed;
+                const p = new URLSearchParams(params);
+                Object.keys(next).length ? p.set("filter", JSON.stringify(next)) : p.delete("filter");
+                p.delete("page");
+                setParams(p);
+              }}
+            >
+              <option value="">Tất cả trạng thái</option>
+              <option value="false">Đang học</option>
+              <option value="true">Đã hoàn thành</option>
+            </select>
+
+            {(filter.course_id || filter.is_completed !== undefined || search.trim()) && (
               <button
                 type="button"
                 className="admin-secondary !py-1.5 !px-2.5 text-xs text-[#8A4F23] hover:bg-[#FAF0E4]"
@@ -6497,7 +6564,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             {staffDepartments.map(item => <option key={item.id} value={item.id}>{item.name}{item.is_active ? "" : " (Ngừng hoạt động)"}</option>)}
           </select>
         )}
-        {filterColumns.slice(0, 3).map((c) => (
+        {!["quiz_submissions", "user_lesson_progress"].includes(table) && filterColumns.slice(0, 3).map((c) => (
           <select
             key={c.name}
             aria-label={`Lọc ${label(c.name, table)}`}
@@ -7585,7 +7652,22 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                     </button>
                   </div>
                 )}
-                {table === "quiz_submissions" ? (
+                {table === "user_lesson_progress" ? (
+                  <LessonProgressView
+                    rows={listing.rows}
+                    hasFilters={Boolean(search.trim() || Object.keys(filter).length)}
+                    onClearFilters={() => {
+                      setSearch("");
+                      const p = new URLSearchParams(params);
+                      p.delete("filter");
+                      p.delete("search");
+                      p.delete("page");
+                      setParams(p);
+                    }}
+                    canViewEnrollment={resources.some((r) => r.name === "course_enrollments")}
+                    canViewLesson={resources.some((r) => r.name === "course_lessons")}
+                  />
+                ) : table === "quiz_submissions" ? (
                   <QuizSubmissionsView
                     rows={listing.rows}
                     hasFilters={Boolean(search.trim() || Object.keys(filter).length)}

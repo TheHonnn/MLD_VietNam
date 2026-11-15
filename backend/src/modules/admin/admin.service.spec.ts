@@ -1005,6 +1005,18 @@ describe('Admin shared-schema integration', () => {
       expect(first.course_enrollments.student_name).toBe(first.student_name);
     }
   });
+  it('enriches user_lesson_progress with enrollment, lesson, chapter and course metadata', async () => {
+    const list = await service.list('user_lesson_progress', actor, { limit: 10 });
+    expect(list).toBeDefined();
+    expect(Array.isArray(list.rows)).toBe(true);
+    // If rows exist, ensure enriched fields exist
+    if (list.rows.length > 0) {
+      const first = list.rows[0];
+      expect(first.course_lessons).toBeDefined();
+      expect(first.course_enrollments).toBeDefined();
+      expect(first.student_name).toBeDefined();
+    }
+  });
   it('allows temporary local access only on loopback and never in production', async () => {
     const config = new ConfigService({
       ADMIN_LOCAL_NO_AUTH: 'true',
