@@ -67,3 +67,72 @@ test('tuition deep link selects only an exact and unique enrollment', () => {
   assert.equal(rules.findTuitionEnrollment(rows, 'KH'), undefined);
   assert.equal(rules.findTuitionEnrollment([...rows, { id: 'row-c', orderCode: 'KH-001' }], 'KH-001'), undefined);
 });
+
+test('getBookingEffectiveDiscount extracts discount correctly', () => {
+  // Direct camelCase discountAmount
+  assert.equal(
+    rules.getBookingEffectiveDiscount({
+      baseTotal: 900000,
+      discountAmount: 100000,
+      pointsDiscount: 0,
+      finalPrice: 800000,
+    }),
+    100000
+  );
+
+  // snake_case discount_amount + points_discount
+  assert.equal(
+    rules.getBookingEffectiveDiscount({
+      base_total: 900000,
+      discount_amount: 50000,
+      points_discount: 20000,
+      final_price: 830000,
+    }),
+    70000
+  );
+
+  // Fallback to baseTotal - finalPrice when recorded discount is 0
+  assert.equal(
+    rules.getBookingEffectiveDiscount({
+      baseTotal: 900000,
+      discountAmount: 0,
+      pointsDiscount: 0,
+      finalPrice: 750000,
+    }),
+    150000
+  );
+
+  // No discount
+  assert.equal(
+    rules.getBookingEffectiveDiscount({
+      baseTotal: 900000,
+      finalPrice: 900000,
+    }),
+    0
+  );
+
+  // Null / undefined booking
+  assert.equal(rules.getBookingEffectiveDiscount(null), 0);
+  assert.equal(rules.getBookingEffectiveDiscount(undefined), 0);
+});
+
+test('calculatePosTotals computes totals matching backend expectedTotal exactly', () => {
+  // Scenario #MLD-DL-065155: 900k service, 100k discount, 8% VAT
+  const { preTax, vat, total } = rules.calculatePosTotals(900000, 100000, 8);
+  assert.equal(preTax, 800000);
+  assert.equal(vat, 64000);
+  assert.equal(total, 864000);
+
+  // Zero discount, 10% VAT
+  const standard = rules.calculatePosTotals(500000, 0, 10);
+  assert.equal(standard.preTax, 500000);
+  assert.equal(standard.vat, 50000);
+  assert.equal(standard.total, 550000);
+
+  // Discount exceeding subtotal
+  const fullDiscount = rules.calculatePosTotals(500000, 600000, 8);
+  assert.equal(fullDiscount.preTax, 0);
+  assert.equal(fullDiscount.vat, 0);
+  assert.equal(fullDiscount.total, 0);
+});
+

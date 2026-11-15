@@ -83,6 +83,7 @@ import {
   bookingItemsToCart,
   cartCompositionError,
   classifyPosSource,
+  getBookingEffectiveDiscount,
   isBookingWaitingPayment,
   isCompletedServiceBooking,
   hasCashierShiftSnapshotChanged,
@@ -862,6 +863,9 @@ export const W07_CashierPOS: React.FC = () => {
     }
 
     setPosCart(bookingLines);
+
+    // Nạp đúng số tiền chiết khấu / ưu đãi theo lịch hẹn đã xác nhận
+    setDiscountAmount(getBookingEffectiveDiscount(bk));
 
     setBooking(bk);
     setActiveTab('pos');
@@ -2683,6 +2687,9 @@ export const W07_CashierPOS: React.FC = () => {
                   {packageHasPreconfiguredDiscount && (
                     <div className="text-[10px] text-amber-700 font-medium">Gói đã áp dụng giá ưu đãi niêm yết</div>
                   )}
+                  {booking?.id && (
+                    <div className="text-[10px] text-sky-800 font-medium">Chiết khấu theo lịch hẹn đã xác nhận</div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <input
@@ -2692,9 +2699,11 @@ export const W07_CashierPOS: React.FC = () => {
                     value={discountAmount || ''}
                     onChange={(e) => setDiscountAmount(Math.max(0, Number(e.target.value) || 0))}
                     placeholder="0"
-                    disabled={isTreatmentRegistration || packageHasPreconfiguredDiscount}
+                    disabled={isTreatmentRegistration || packageHasPreconfiguredDiscount || Boolean(booking?.id)}
                     title={
-                      isTreatmentRegistration || packageHasPreconfiguredDiscount
+                      booking?.id
+                        ? 'Chiết khấu và ưu đãi được áp dụng theo lịch hẹn đã đặt.'
+                        : isTreatmentRegistration || packageHasPreconfiguredDiscount
                         ? 'Gói liệu trình sử dụng đúng giá ưu đãi đã cấu hình của gói.'
                         : undefined
                     }
@@ -2999,7 +3008,8 @@ export const W07_CashierPOS: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
               {sortedPendingBookings.map((bk) => {
                 const srv = bk.items?.[0]?.service;
-                const srvPrice = Number(srv?.price || bk.finalPrice || bk.baseTotal || 500000);
+                const effectiveDiscount = getBookingEffectiveDiscount(bk);
+                const srvPrice = Number(bk.finalPrice || (srv?.price ? Math.max(0, srv.price - effectiveDiscount) : undefined) || bk.baseTotal || 500000);
                 const srvName = srv?.name || (bk as any).serviceName || 'Trị liệu Dẫn lưu MLD';
                 const custName = bk.customer?.fullName || bk.bookedForName || 'Khách hàng';
                 const custPhone = bk.customer?.phone || bk.bookedForPhone || '--';
@@ -3048,8 +3058,15 @@ export const W07_CashierPOS: React.FC = () => {
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-[#E8DFD8]">
-                      <div className="text-sm font-black text-[#985018]">
-                        {srvPrice.toLocaleString('vi-VN')}đ
+                      <div>
+                        <div className="text-sm font-black text-[#985018]">
+                          {srvPrice.toLocaleString('vi-VN')}đ
+                        </div>
+                        {effectiveDiscount > 0 && (
+                          <div className="text-[10px] text-emerald-700 font-semibold">
+                            Đã trừ ưu đãi {effectiveDiscount.toLocaleString('vi-VN')}đ
+                          </div>
+                        )}
                       </div>
                       <button
                         type="button"

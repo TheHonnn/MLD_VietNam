@@ -92,3 +92,35 @@ export function findTuitionEnrollment<T extends { id: string; orderCode?: string
   const matches = enrollments.filter(enrollment => enrollment.orderCode?.trim().toLowerCase() === key);
   return matches.length === 1 ? matches[0] : undefined;
 }
+
+export function getBookingEffectiveDiscount(booking?: {
+  baseTotal?: number;
+  finalPrice?: number;
+  discountAmount?: number;
+  discount_amount?: number;
+  pointsDiscount?: number;
+  points_discount?: number;
+} | null): number {
+  if (!booking) return 0;
+  const recorded = Math.max(
+    0,
+    Number(booking.discountAmount ?? booking.discount_amount ?? 0) +
+      Number(booking.pointsDiscount ?? booking.points_discount ?? 0),
+  );
+  if (
+    recorded === 0 &&
+    Number(booking.baseTotal) > Number(booking.finalPrice) &&
+    Number(booking.finalPrice) > 0
+  ) {
+    return Math.max(0, Number(booking.baseTotal) - Number(booking.finalPrice));
+  }
+  return recorded;
+}
+
+export function calculatePosTotals(subtotal: number, discount: number, vatRate: number) {
+  const preTax = Math.max(0, subtotal - discount);
+  const vat = Math.round(preTax * (vatRate / 100));
+  const total = preTax + vat;
+  return { preTax, vat, total };
+}
+
