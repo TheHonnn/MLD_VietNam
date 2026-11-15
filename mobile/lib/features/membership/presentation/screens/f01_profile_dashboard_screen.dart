@@ -459,25 +459,33 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               _buildSectionHeader(context.tr('ƯU ĐÃI', 'OFFERS & PROMOTIONS')),
               const SizedBox(height: 8),
               _buildCardContainer([
-                // 1. Ví Voucher & Ưu đãi (Màu xanh lá MLD đặc trưng #007A48 - Đơn dòng gọn gàng)
+                // 1. Ví Voucher & Ưu đãi (Màu xanh lá MLD đặc trưng #007A48 - Bỏ mũi tên, nút pill đồng bộ)
                 _buildMenuItem(
                   icon: Icons.confirmation_number_rounded,
                   iconColor: const Color(0xFF007A48),
                   title: context.tr('Ví Voucher & Ưu đãi', 'My Vouchers & Offers'),
+                  showChevron: false,
                   trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8F5E9),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF007A48).withValues(alpha: 0.6)),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF208C58).withValues(alpha: 0.35)),
                     ),
-                    child: Text(
-                      '$vouchersCount voucher',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF007A48),
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.confirmation_number_outlined, size: 13, color: Color(0xFF007A48)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$vouchersCount voucher',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF007A48),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   onTap: () => _requireLoginAndRun(() {
@@ -487,9 +495,9 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     );
                   }, title: 'Ví Voucher của tôi', message: 'Vui lòng đăng nhập để xem danh sách voucher và mã ưu đãi.'),
                 ),
-                const Divider(height: 1, indent: 50, color: AppColors.border),
+                const Divider(height: 1, indent: 54, color: AppColors.border),
 
-                // 2. Mã giới thiệu của tôi (Hiện đầy đủ mã GT, có nút Copy - Đơn dòng)
+                // 2. Mã giới thiệu của tôi (Hiện đầy đủ mã GT, nút Copy pill đồng bộ)
                 _buildMenuItem(
                   icon: Icons.qr_code_2_rounded,
                   iconColor: AppColors.secondary,
@@ -501,7 +509,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       Text(
                         myReferralCode,
                         style: const TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: AppColors.primary,
                           letterSpacing: 0.4,
@@ -519,22 +527,23 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                             ),
                           );
                         },
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: AppColors.secondary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.copy_rounded, size: 12, color: AppColors.secondary),
-                              SizedBox(width: 3),
+                              Icon(Icons.copy_rounded, size: 13, color: AppColors.secondary),
+                              SizedBox(width: 4),
                               Text(
                                 'Sao chép',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.secondary,
                                 ),
@@ -556,9 +565,9 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     );
                   },
                 ),
-                const Divider(height: 1, indent: 50, color: AppColors.border),
+                const Divider(height: 1, indent: 54, color: AppColors.border),
 
-                // 3. Người giới thiệu (Đồng bộ, hiện tên người GT, có nút Nhập mã / Đổi mã - Đơn dòng)
+                // 3. Người giới thiệu (Cố định sau khi nhập, không cho sửa)
                 Builder(
                   builder: (context) {
                     final bool hasReferrer = _profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty;
@@ -572,65 +581,91 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 95),
+                            constraints: const BoxConstraints(maxWidth: 105),
                             child: Text(
                               referrerDisplay,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
                                 color: hasReferrer ? AppColors.primary : AppColors.textSecondary,
                               ),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          InkWell(
-                            onTap: () => _requireLoginAndRun(
-                              _showEnterReferralCodeDialog,
-                              title: 'Người giới thiệu',
-                              message: 'Vui lòng đăng nhập để nhập mã người giới thiệu.',
-                            ),
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          if (hasReferrer)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: hasReferrer ? AppColors.iceBlue : const Color(0xFFE8F5E9),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: hasReferrer
-                                      ? AppColors.border
-                                      : const Color(0xFF208C58).withValues(alpha: 0.4),
-                                ),
+                                color: const Color(0xFFE8F5E9),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFF208C58).withValues(alpha: 0.35)),
                               ),
-                              child: Row(
+                              child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    hasReferrer ? Icons.swap_horiz_rounded : Icons.edit_note_rounded,
-                                    size: 12,
-                                    color: hasReferrer ? AppColors.primary : const Color(0xFF007A48),
-                                  ),
-                                  const SizedBox(width: 3),
+                                  Icon(Icons.check_circle_rounded, size: 13, color: Color(0xFF007A48)),
+                                  SizedBox(width: 4),
                                   Text(
-                                    hasReferrer ? 'Đổi mã' : 'Nhập mã',
+                                    'Đã liên kết',
                                     style: TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w700,
-                                      color: hasReferrer ? AppColors.primary : const Color(0xFF007A48),
+                                      color: Color(0xFF007A48),
                                     ),
                                   ),
                                 ],
                               ),
+                            )
+                          else
+                            InkWell(
+                              onTap: () => _requireLoginAndRun(
+                                _showEnterReferralCodeDialog,
+                                title: 'Người giới thiệu',
+                                message: 'Vui lòng đăng nhập để nhập mã người giới thiệu.',
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE8F5E9),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFF208C58).withValues(alpha: 0.4)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.edit_note_rounded, size: 14, color: Color(0xFF007A48)),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Nhập mã',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF007A48),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
                         ],
                       ),
-                      onTap: () => _requireLoginAndRun(
-                        _showEnterReferralCodeDialog,
-                        title: 'Người giới thiệu',
-                        message: 'Vui lòng đăng nhập để nhập mã người giới thiệu.',
-                      ),
+                      onTap: hasReferrer
+                          ? () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Người giới thiệu đã được lưu cố định và không thể chỉnh sửa.'),
+                                  backgroundColor: AppColors.primary,
+                                ),
+                              );
+                            }
+                          : () => _requireLoginAndRun(
+                              _showEnterReferralCodeDialog,
+                              title: 'Người giới thiệu',
+                              message: 'Vui lòng đăng nhập để nhập mã người giới thiệu.',
+                            ),
                     );
                   },
                 ),
@@ -905,27 +940,27 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
   }) {
     return ListTile(
       dense: true,
-      visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+      visualDensity: const VisualDensity(horizontal: 0, vertical: -0.5),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       minLeadingWidth: 0,
-      horizontalTitleGap: 12,
+      horizontalTitleGap: 14,
       leading: Container(
-        width: 32,
-        height: 32,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: (iconColor ?? AppColors.primary).withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(9),
         ),
         child: Icon(
           icon,
-          size: 18,
+          size: 20,
           color: iconColor ?? AppColors.primary,
         ),
       ),
       title: Text(
         title,
         style: TextStyle(
-          fontSize: 13.5,
+          fontSize: 14.5,
           fontWeight: FontWeight.w600,
           color: titleColor ?? AppColors.textPrimary,
         ),
@@ -934,7 +969,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
           ? Text(
               subtitle,
               style: const TextStyle(
-                fontSize: 11.5,
+                fontSize: 12,
                 color: AppColors.textSecondary,
               ),
             )
@@ -947,7 +982,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             const SizedBox(width: 4),
             const Icon(
               Icons.chevron_right_rounded,
-              size: 18,
+              size: 20,
               color: AppColors.textPlaceholder,
             ),
           ],
@@ -958,22 +993,35 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
   }
 
   void _showEnterReferralCodeDialog() {
-    final ctrl = TextEditingController();
     final bool hasExistingReferrer = _profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty;
+    if (hasExistingReferrer) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Người giới thiệu đã được lưu cố định và không thể chỉnh sửa.'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+
+    final ctrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          hasExistingReferrer ? 'Đổi mã người giới thiệu' : 'Nhập mã người giới thiệu',
-          style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppColors.textHeading),
+        title: const Text(
+          'Nhập mã người giới thiệu',
+          style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppColors.textHeading),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Nhập mã của Bác sĩ hoặc Kỹ thuật viên đã giới thiệu bạn:', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            const Text(
+              'Nhập mã của Bác sĩ hoặc Kỹ thuật viên đã giới thiệu bạn:\n(Lưu ý: Mã người giới thiệu sau khi xác nhận sẽ được lưu cố định và không thể thay đổi)',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: ctrl,
@@ -989,25 +1037,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
           ],
         ),
         actions: [
-          if (hasExistingReferrer)
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await MembershipRepository.instance.clearReferral();
-                if (mounted) {
-                  setState(() {
-                    _profile = MembershipRepository.instance.profile;
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đã gỡ người giới thiệu (cho về 0)!'),
-                      backgroundColor: AppColors.primary,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Gỡ mã (về 0)', style: TextStyle(color: Colors.red)),
-            ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Hủy', style: TextStyle(color: AppColors.textSecondary)),

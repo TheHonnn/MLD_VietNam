@@ -104,5 +104,29 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Nhập mã người giới thiệu'), findsNothing);
     });
+
+    testWidgets('When referrer is already set, it shows Đã liên kết and cannot be edited', (tester) async {
+      tester.view.physicalSize = const Size(390, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      MembershipRepository.instance.profile = MembershipRepository.instance.profile.copyWith(referrerName: 'BS. Nguyễn Văn Trường');
+
+      await tester.pumpWidget(_buildTestApp(home: const F01ProfileDashboardScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Đã liên kết'), findsOneWidget);
+      expect(find.text('Nhập mã'), findsNothing);
+      expect(find.text('Đổi mã'), findsNothing);
+
+      // Tap on the row - verify SnackBar appears and no dialog opens
+      await tester.tap(find.text('Đã liên kết'));
+      await tester.pump();
+      expect(find.textContaining('không thể chỉnh sửa'), findsOneWidget);
+      expect(find.text('Nhập mã người giới thiệu'), findsNothing);
+
+      // Reset
+      MembershipRepository.instance.profile = MembershipRepository.instance.profile.copyWith(clearReferrer: true);
+    });
   });
 }
