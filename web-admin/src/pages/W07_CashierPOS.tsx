@@ -248,7 +248,9 @@ export const W07_CashierPOS: React.FC = () => {
   // Discount & VAT states
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [vatRate, setVatRate] = useState<number>(8); // Mặc định VAT 8% (Chuẩn Y tế Nghị định 72/2024)
-  const [selectedMethod, setSelectedMethod] = useState<'onsite' | 'transfer' | 'online'>('onsite');
+  const [selectedMethod, setSelectedMethod] = useState<'onsite' | 'transfer' | 'online'>(() =>
+    searchParams.get('tuitionOrder') ? 'transfer' : 'onsite');
+  const [tuitionBankReference, setTuitionBankReference] = useState('');
   const [draftInvoiceCode, setDraftInvoiceCode] = useState<string>(() => {
     const d = new Date();
     const dateStr = `${d.getFullYear().toString().slice(-2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
@@ -261,7 +263,7 @@ export const W07_CashierPOS: React.FC = () => {
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [selectedEnrollment, setSelectedEnrollment] = useState<CourseEnrollment | undefined>(undefined);
   const [tuitionPaymentAmount, setTuitionPaymentAmount] = useState<number>(0);
-  const [tuitionSearchTerm, setTuitionSearchTerm] = useState('');
+  const [tuitionSearchTerm, setTuitionSearchTerm] = useState(() => searchParams.get('tuitionOrder') || '');
   const [tuitionReceiptSearchTerm, setTuitionReceiptSearchTerm] = useState('');
   const [tuitionReceiptBranchFilter, setTuitionReceiptBranchFilter] = useState('ALL');
   const [tuitionReceiptMethodFilter, setTuitionReceiptMethodFilter] = useState('ALL');
@@ -1085,7 +1087,11 @@ export const W07_CashierPOS: React.FC = () => {
       return;
     }
     if (due === 0) { toast.warning('Đã thu đủ học phí', 'Hồ sơ này không còn khoản phải thu.'); return; }
-    const amount = tuitionPaymentAmount || due;
+    const amount = tuitionPaymentAmount;
+    if (selectedMethod === 'transfer' && !tuitionBankReference.trim()) {
+      toast.error('Thiếu mã giao dịch', 'Nhập mã giao dịch chuyển khoản trên sao kê.');
+      return;
+    }
     if (!Number.isFinite(amount) || amount <= 0) {
       toast.error('Số tiền không hợp lệ', 'Số thu phải lớn hơn 0.');
       return;
@@ -1097,6 +1103,9 @@ export const W07_CashierPOS: React.FC = () => {
       );
       return;
     }
+
+    if (selectedMethod === 'transfer' &&
+        !window.confirm(`Xác nhận đã đối chiếu sao kê và thực nhận ${amount.toLocaleString('vi-VN')}đ cho hồ sơ ${selectedEnrollment.orderCode || selectedEnrollment.id}?\nMã giao dịch: ${tuitionBankReference.trim()}`)) return;
 
     paymentLock.current = true;
     setIsProcessing(true);
@@ -1116,8 +1125,10 @@ export const W07_CashierPOS: React.FC = () => {
 
       const collection = await posService.collectPayment({ kind: 'TUITION', enrollmentId: selectedEnrollment.id, amount,
         shiftId: currentShift.id, branchId: currentShift.branchId,
+        bankReference: selectedMethod === 'transfer' ? tuitionBankReference.trim() : undefined,
         paymentMethod: paymentMethodEnum as PaymentMethod.CASH_AT_SPA | PaymentMethod.BANK_TRANSFER });
       if (!collection.success || !collection.data?.transactionCode) throw new Error(collection.message);
+      setTuitionBankReference('');
       const generatedInvoiceCode = collection.data.transactionCode;
       const newPaidTotal = collection.data.paidTotal;
       const isFull = newPaidTotal >= collection.data.tuitionTotal;
@@ -3092,6 +3103,7 @@ export const W07_CashierPOS: React.FC = () => {
                             getEnrollmentStudentName(enr),
                             getEnrollmentStudentPhone(enr),
                             enr.orderCode,
+                            enr.id,
                             getEnrollmentCourseTitle(enr),
                           ],
                           tuitionSearchTerm
@@ -3391,6 +3403,19 @@ export const W07_CashierPOS: React.FC = () => {
                 }
 
                 return (
+                  <>
+                  {selectedMethod === 'transfer' && (
+                    <label className="block space-y-1 text-xs font-semibold">
+                      Mã giao dịch ngân hàng trên sao kê
+                      <input
+                        className="block w-full rounded-xl border border-[#E8DFD8] px-3 py-2"
+                        value={tuitionBankReference}
+                        onChange={event => setTuitionBankReference(event.target.value)}
+                        maxLength={128}
+                        autoComplete="off"
+                      />
+                    </label>
+                  )}
                   <button
                     type="button"
                     disabled={isProcessing || !selectedEnrollment || tuitionPaymentAmount <= 0}
@@ -3413,6 +3438,7 @@ export const W07_CashierPOS: React.FC = () => {
                       </>
                     )}
                   </button>
+                  </>
                 );
               })()}
             </div>

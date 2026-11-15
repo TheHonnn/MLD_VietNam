@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { X, Printer, Download, CheckCircle2, RefreshCw, QrCode, AlertCircle, Copy, Check } from 'lucide-react';
 import { toast } from '../common';
 import { MLDInvoiceDocument } from '../invoices/MLDInvoiceDocument';
@@ -26,7 +27,6 @@ interface EnrollmentBillModalProps {
   onClose: () => void;
   candidate: CandidateBillInfo | null;
   onCheckPayment: (enrollmentId: string) => Promise<{ isPaid: boolean; message: string }>;
-  onApproveAtDesk: (enrollmentId: string) => Promise<void>;
 }
 
 export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
@@ -44,10 +44,8 @@ const EnrollmentBillContent: React.FC<Omit<EnrollmentBillModalProps, 'isOpen' | 
   onClose,
   candidate,
   onCheckPayment,
-  onApproveAtDesk,
 }) => {
   const [isChecking, setIsChecking] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
@@ -100,17 +98,6 @@ const EnrollmentBillContent: React.FC<Omit<EnrollmentBillModalProps, 'isOpen' | 
       toast.error('Lỗi kiểm tra', err?.message || 'Không thể kiểm tra giao dịch.');
     } finally {
       setIsChecking(false);
-    }
-  };
-
-  const handleApprove = async () => {
-    setIsApproving(true);
-    try {
-      await onApproveAtDesk(candidate.id);
-    } catch (err: any) {
-      toast.error('Lỗi xác nhận', err?.message || 'Không thể xác nhận thanh toán.');
-    } finally {
-      setIsApproving(false);
     }
   };
 
@@ -305,7 +292,7 @@ const EnrollmentBillContent: React.FC<Omit<EnrollmentBillModalProps, 'isOpen' | 
               <button
                 type="button"
                 aria-pressed={showPaidDemo}
-                disabled={isChecking || isApproving || isExportingPdf}
+                disabled={isChecking || isExportingPdf}
                 onClick={() => setShowPaidDemo(current => !current)}
                 className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold text-blue-900 disabled:opacity-50"
               >
@@ -326,15 +313,13 @@ const EnrollmentBillContent: React.FC<Omit<EnrollmentBillModalProps, 'isOpen' | 
 
             {/* Nút 2: Duyệt tại quầy */}
             {remaining > 0 && (
-              <button
-                type="button"
-                disabled={isApproving}
-                onClick={handleApprove}
+              <Link
+                to={`/cashier-pos?tab=tuition&tuitionOrder=${encodeURIComponent(candidate.orderCode || candidate.id)}`}
                 className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>{isApproving ? 'Đang xác nhận...' : 'Xác nhận đã nhận tiền'}</span>
-              </button>
+                <span>Ghi nhận chuyển khoản thực tế</span>
+              </Link>
             )}
 
             {/* Nút 3: In phiếu */}

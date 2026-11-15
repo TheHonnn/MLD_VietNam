@@ -2081,7 +2081,6 @@ export const W08_Enrollment: React.FC = () => {
         onClose={() => setIsBillModalOpen(false)}
         candidate={billModalCandidate}
         onCheckPayment={handleCheckPayment}
-        onApproveAtDesk={handleManualConfirmPayment}
       />
 
       {/* MODAL: Xếp lớp & Phân đợt khai giảng */}
