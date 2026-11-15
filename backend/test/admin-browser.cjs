@@ -244,7 +244,8 @@ async function main() {
       'home_products', 'staff_commissions',
       'home_care_deliveries', 'user_package_lifecycle_logs', 'treatment_session_reversals',
       'treatment_inventory_outbox', 'branch_material_stock', 'treatment_stock_movements',
-      'post_care_outbox', 'enrollment_status_history', 'enrollment_change_requests', 'academy_enrollment_funnel'
+      'post_care_outbox', 'enrollment_status_history', 'enrollment_change_requests', 'academy_enrollment_funnel',
+      'support_tickets', 'support_faqs', 'miniapp_shared_content', 'email_templates', 'email_logs', 'user_lesson_progress'
     ]);
     const unlinkedResources = Object.keys(ADMIN_RESOURCES).filter((name) => !linkedResources.has(name) && !dedicatedRoutes.has(name));
     assert.equal(unlinkedResources.length, 0, `Resources missing from business menus: ${unlinkedResources.join(', ')}`);
@@ -292,6 +293,8 @@ async function main() {
       home_products: '/home-products',
       instructors: '/manage/instructors',
       student_attendance: '/attendance',
+      support_faqs: '/portal-content?tab=faqs',
+      support_tickets: '/customers',
     };
     const selectedResources = process.env.ADMIN_BROWSER_RESOURCES?.split(',');
     const resourcesToCheck = Object.entries(ADMIN_RESOURCES).filter(([name]) => !selectedResources || selectedResources.includes(name));

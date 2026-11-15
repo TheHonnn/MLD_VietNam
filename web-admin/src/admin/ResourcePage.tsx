@@ -4854,7 +4854,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const { table: routeTable } = useParams(),
     table = fixedTable || routeTable || "";
   const [params, setParams] = useSearchParams();
-  const scheduleCalendar = table === "batch_schedules" && params.get("view") !== "list";
+  const scheduleCalendar = table === "batch_schedules" && params.get("view") === "calendar";
   const calendarWeek = calendarMonday(params.get("week") || todayAtBranch());
   const [resources, setResources] = useState<Resource[]>(DEFAULT_RESOURCES.map(resource => ({ ...resource, actions: [] }))),
     [listing, setListing] = useState<Listing | null>(null),
@@ -6060,7 +6060,6 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                       ? "Thêm tài khoản"
                       : table === "service_categories"
                         ? "Thêm nhóm"
-                        : table === "quiz_questions" ? "Thêm câu hỏi" : table === "course_quizzes" ? "Tạo đề thi"
                         : table === "course_chapters"
                           ? "Thêm chương"
                         : loyaltyPages[table]?.create || staffPages[table]?.create || "Thêm mới"}
@@ -6547,8 +6546,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
         <div className="mb-4"><SchedulePlanDialog batchId={selectedBatchId} onSaved={() => setVersion(v => v + 1)} onOpenWeek={date => updateParam("week", date)} /></div>}
       {table === "batch_schedules" && <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2" aria-label="Chế độ xem thời khóa biểu" role="group">
-          <button className={scheduleCalendar ? "admin-primary" : "admin-secondary"} aria-pressed={scheduleCalendar} onClick={() => updateParam("view", "")}>Lịch tuần</button>
-          <button className={scheduleCalendar ? "admin-secondary" : "admin-primary"} aria-pressed={!scheduleCalendar} onClick={() => updateParam("view", "list")}>Danh sách</button>
+          <button className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${scheduleCalendar ? 'bg-[#8A4F23] text-white shadow-xs' : 'bg-white text-[#73675F] border border-[#EAD8C7] hover:bg-[#FAF7F2]'}`} aria-pressed={scheduleCalendar} onClick={() => updateParam("view", "calendar")}>Lịch tuần</button>
+          <button className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${!scheduleCalendar ? 'bg-[#8A4F23] text-white shadow-xs' : 'bg-white text-[#73675F] border border-[#EAD8C7] hover:bg-[#FAF7F2]'}`} aria-pressed={!scheduleCalendar} onClick={() => updateParam("view", "")}>Danh sách</button>
         </div>
         {scheduleCalendar && <div className="flex flex-wrap items-center gap-2">
           <button className="admin-secondary" onClick={() => updateParam("week", calendarDate(calendarWeek, -7))} aria-label="Tuần trước"><ChevronLeft size={16} /></button>
