@@ -1,3 +1,4 @@
+import { SchedulePlanInput } from './academy-schedule-plan';
 import {
   Body,
   BadRequestException,
@@ -36,6 +37,13 @@ export class AdminController {
     private readonly supabase: SupabaseService,
     private readonly emailService: EmailService,
   ) {}
+
+  @Post('academy/batches/:id/schedule-plan')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  async schedulePlan(@Req() req, @Param('id', ParseUUIDPipe) id: string, @Body() body: SchedulePlanInput) {
+    return this.service.generateAcademySchedule(req.admin, id, body);
+  }
 
   @Post('email/test')
   @UseGuards(AdminGuard)

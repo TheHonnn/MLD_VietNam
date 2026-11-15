@@ -1,3 +1,4 @@
+import { plannedDates, SchedulePlanInput } from './academy-schedule-plan';
 import {
   BadRequestException,
   ConflictException,
@@ -563,6 +564,53 @@ export class AdminService {
     };
   }
 
+
+  async generateAcademySchedule(actor: AdminActor, batchId: string, input: SchedulePlanInput) {
+    this.resource('batch_schedules', actor, true);
+    const permitted = allowedBranches(actor, 'batch_schedules.create');
+    if (!this.isUuid(batchId) || !input || !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.startTime) ||
+        !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.endTime) || input.endTime <= input.startTime)
+      throw new BadRequestException('Chọn lớp và giờ bắt đầu/kết thúc hợp lệ.');
+    if (input.roomId && !this.isUuid(input.roomId)) throw new BadRequestException('Phòng học không hợp lệ.');
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      const batch = (await client.query("SELECT *,to_char(start_date,'YYYY-MM-DD') AS plan_start,to_char(end_date,'YYYY-MM-DD') AS plan_end FROM course_batches WHERE id=$1 FOR UPDATE", [batchId])).rows[0];
+      if (!batch) throw new NotFoundException('Không tìm thấy lớp.');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mld-academy-schedules'))");
+      if (permitted && !permitted.includes(batch.branch_id)) throw new ForbiddenException('Lớp nằm ngoài chi nhánh được cấp quyền.');
+      if (!['UPCOMING','OPEN_FOR_ENROLLMENT','IN_PROGRESS'].includes(batch.status)) throw new ConflictException('Lớp đã kết thúc hoặc đã hủy.');
+      if (input.roomId) {
+        const room = (await client.query('SELECT * FROM branch_rooms WHERE id=$1 FOR SHARE',[input.roomId])).rows[0];
+        if (!room || room.branch_id !== batch.branch_id || !room.is_available || /^\[ARCHIVED\]/i.test(room.name))
+          throw new ConflictException('Chọn phòng đang sử dụng thuộc chi nhánh của lớp.');
+      }
+      const today = (await client.query("SELECT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM-DD') AS day")).rows[0].day;
+      const start = batch.plan_start, end = batch.plan_end;
+      const dates = plannedDates(start, end, input.days, today);
+      const preview: Array<{ date: string; existing: boolean }> = [];
+      for (const date of dates) {
+        const existing = await client.query('SELECT id FROM batch_schedules WHERE batch_id=$1 AND session_date=$2 AND start_time=$3 AND end_time=$4',
+          [batchId,date,input.startTime,input.endTime]);
+        if (!existing.rowCount) {
+          await client.query('INSERT INTO batch_schedules(batch_id,session_date,start_time,end_time,topic,assigned_room_id,is_practice_lab) VALUES($1,$2,$3,$4,$5,$6,$7)',
+            [batchId,date,input.startTime,input.endTime,input.topicPrefix?.trim().slice(0,150) || 'Buổi học',input.roomId || null,Boolean(input.isPractice)]);
+        }
+        preview.push({date,existing:Boolean(existing.rowCount)});
+      }
+      if (input.save === true) {
+        await this.syncRelated(client, 'batch_schedules', {batch_id:batchId}, null);
+        await this.audit(client, actor, 'batch_schedules', 'GENERATE_SCHEDULE', batchId);
+        await client.query('COMMIT');
+      } else await client.query('ROLLBACK');
+      return { sessions: preview, created: preview.filter(row=>!row.existing).length, saved: input.save === true };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if ((error as {code?: string}).code === 'P0001') throw new ConflictException((error as Error).message);
+      this.fail(error);
+    } finally { client.release(); }
+  }
+
   async mutate(
     table: string,
     actor: AdminActor,
@@ -885,6 +933,21 @@ export class AdminService {
         );
         if (conflict.rowCount) throw new ConflictException('Giảng viên trùng giờ với một lớp khác. Chọn giảng viên khác hoặc điều chỉnh thời khóa biểu.');
       }
+    }
+
+    if (table === 'batch_schedules' && operation !== 'delete' && next.assigned_room_id &&
+        (next.assigned_room_id !== previous?.assigned_room_id || next.session_date !== previous?.session_date || next.start_time !== previous?.start_time || next.end_time !== previous?.end_time)) {
+      const room = (await client.query('SELECT is_available,name FROM branch_rooms WHERE id=$1 FOR SHARE',[next.assigned_room_id])).rows[0];
+      if (!room?.is_available || /^\[ARCHIVED\]/i.test(room.name))
+        throw new ConflictException('Phòng đã ngừng sử dụng. Hãy chọn phòng khác trước khi xếp lịch.');
+    }
+    if (table === 'branch_rooms' && previous?.id &&
+        (operation === 'delete' || next.is_available === false || /^\[ARCHIVED\]/i.test(next.name || ''))) {
+      const scheduled = await client.query(
+        "SELECT 1 FROM batch_schedules s JOIN course_batches b ON b.id=s.batch_id WHERE s.assigned_room_id=$1 AND s.session_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AND b.status::text IN ('UPCOMING','OPEN_FOR_ENROLLMENT','IN_PROGRESS') LIMIT 1",
+        [previous.id],
+      );
+      if (scheduled.rowCount) throw new ConflictException('Phòng còn lịch học sắp tới. Chuyển các buổi sang phòng khác trước khi ngừng sử dụng.');
     }
     await validateStaffWorkflow(client, table, next, previous, operation);
     await validateLoyaltyWrite(client, table, data, previous, operation, actor);
