@@ -889,9 +889,14 @@ export const W08_Enrollment: React.FC = () => {
   const handleConfirmAssignBatch = async (enrollmentId: string, batchId: string, reason?: string) => {
     try {
       const res = await academyService.assignBatchToStudent(enrollmentId, batchId, 'Admin Tuyển Sinh', reason);
-      if (res.data?.success) {
-        const refreshed = await supabaseService.getEnrollments();
-        if (refreshed) setLiveEnrollments(refreshed);
+      if (res.data?.success && 'batchId' in res.data && 'status' in res.data) {
+        const assignment = res.data;
+        setLiveEnrollments(rows => rows.map(row => row.id === enrollmentId
+          ? { ...row, batchId: assignment.batchId as string, status: assignment.status as EnrollmentStatus,
+              studentAdmissionStatus: StudentAdmissionStatus.ENROLLED, approvalStatus: 'APPROVED' }
+          : row));
+        setActiveWorkflowTab('ALL');
+        setSelectedCandidateId(enrollmentId);
         const chosenBatch = liveBatches.find((b) => b.id === batchId);
         toast.success('Xếp lớp thành công!', `Học viên đã được xếp vào lớp ${chosenBatch?.batchCode || ''} và sẵn sàng học.`);
         showToast(`Đã xếp lớp ${chosenBatch?.batchCode || ''} thành công!`);

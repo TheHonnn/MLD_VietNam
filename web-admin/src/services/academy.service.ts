@@ -561,7 +561,7 @@ export const academyService = {
     batchId: string,
     authorName?: string,
     reason?: string
-  ): Promise<ApiResponse<{ success: boolean; message: string }>> {
+  ): Promise<ApiResponse<{ success: boolean; message: string; batchId?: string; status?: EnrollmentStatus }>> {
     try {
       const [enrollments, batches] = await Promise.all([
         supabaseService.getEnrollments(),
@@ -604,13 +604,18 @@ export const academyService = {
         };
       }
 
-      const result = await apiClient.post<any>(`/academy/enrollments/${enrollmentId}/assign-batch`, { batchId, reason });
+      const result = await apiClient.post<{ success: boolean; batchId: string; status: EnrollmentStatus }>(`/academy/enrollments/${enrollmentId}/assign-batch`, { batchId, reason });
 
+      if (result.data?.success !== true || result.data.batchId !== batchId || !result.data.status) {
+        throw new Error('Máy chủ chưa xác nhận lớp đã lưu. Hãy tải lại hồ sơ.');
+      }
+      supabaseService.invalidateCache("course_enrollments");
+      supabaseService.invalidateCache("course_batches");
       return {
         success: result.success,
         statusCode: result.statusCode || 200,
         message: result.message || `Đã xếp học viên vào lớp ${batch.batchCode} thành công!`,
-        data: { success: result.success, message: result.message || 'Xếp lớp thành công' },
+        data: { success: true, message: result.message || 'Xếp lớp thành công', batchId: result.data.batchId, status: result.data.status },
       };
     } catch (err: any) {
       return {
