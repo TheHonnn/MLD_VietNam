@@ -513,15 +513,26 @@ export class AcademyService {
     branchName?: string,
     note?: string,
   ) {
-    const { data, error } = await this.supabaseService.adminClient.rpc('fn_finalize_enrollment_consultation', {
-      p_enrollment_id: enrollmentId,
-      p_actor_id: adminUser,
-      p_final_tuition: finalTuition,
-      p_branch_name: branchName || null,
-      p_note: note || null,
-    });
-    if (error) return { success: false, message: error.message };
-    return { success: true, message: 'Đã chốt tư vấn và gửi yêu cầu đóng cọc cho học viên.', data };
+    if (!Number.isSafeInteger(finalTuition) || finalTuition <= 0) {
+      throw new BadRequestException('Học phí phải là số nguyên dương.');
+    }
+    try {
+      const { rows } = await this.adminDatabase.connection.query(
+        'SELECT public.fn_finalize_enrollment_consultation($1,$2,$3,$4,$5) AS confirmation',
+        [enrollmentId, adminUser, finalTuition, branchName?.trim() || null, note?.trim() || null],
+      );
+      const data = rows[0]?.confirmation;
+      if (data?.success === true && data.consultationStatus === 'CONFIRMED') {
+        return { success: true, message: 'Đã xác nhận học phí.', data };
+      }
+    } catch (error) {
+      const databaseError = error as { code?: string; message?: string };
+      if (databaseError.code === 'P0001' || databaseError.code === '22P02') {
+        throw new BadRequestException(databaseError.code === '22P02' ? 'Mã hồ sơ không hợp lệ.' : databaseError.message);
+      }
+      this.logger.error('Tuition confirmation failed', databaseError.code);
+    }
+    throw new InternalServerErrorException('Chưa xác nhận được kết quả lưu học phí. Hãy tải lại hồ sơ trước khi thử lại.');
   }
 
   async createEnrollmentChangeRequest(

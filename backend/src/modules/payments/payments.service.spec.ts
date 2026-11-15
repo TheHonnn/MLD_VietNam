@@ -27,6 +27,32 @@ describe('PaymentsService Security & Webhook Hardening Tests', () => {
     expect((service as any).payos).toBeNull();
   });
 
+  it('records a confirmed KH VietQR transfer once and ignores outbound transfers', async () => {
+    const enrollment = {
+      id: 'enrollment', student_id: 'student', course_id: 'course', receipt_branch_id: 'hq',
+      consultation_status: 'CONFIRMED', tuition_total: 350000, amount_paid: 0,
+    };
+    let receipt: { enrollment_id: string; amount: number } | undefined;
+    const query = vi.fn(async (sql: string, values?: unknown[]) => {
+      if (sql.includes('FOR UPDATE OF e')) return { rows: [enrollment] };
+      if (sql.startsWith('SELECT enrollment_id')) return { rows: receipt ? [receipt] : [] };
+      if (sql.includes('INSERT INTO tuition_transactions')) receipt = { enrollment_id: 'enrollment', amount: Number(values?.[6]) };
+      return { rows: [] };
+    });
+    const db = { connection: { connect: async () => ({ query, release: vi.fn() }) } };
+    const service = new PaymentsService(new ConfigService({ BANK_WEBHOOK_SECRET: 'test-secret' }), mockSupabase, mockRedis, undefined, db as any);
+    const headers = { authorization: 'Bearer test-secret' };
+    const transfer = { transferAmount: 350000, content: 'MLD KH-20261114-001', referenceCode: 'bank-1', transferType: 'in' };
+    await service.handleBankTransferWebhook({ ...transfer, transferType: 'out' }, headers);
+    expect(query).not.toHaveBeenCalled();
+    const result = await service.handleBankTransferWebhook(transfer, headers);
+    expect(result.data).toEqual([expect.objectContaining({ matchedType: 'ENROLLMENT', matchedId: 'enrollment' })]);
+    await service.handleBankTransferWebhook(transfer, headers);
+    expect(query.mock.calls.filter(([sql]) => sql.includes('INSERT INTO tuition_transactions'))).toHaveLength(1);
+    expect(query.mock.calls.filter(([sql]) => sql.includes('UPDATE course_enrollments'))).toHaveLength(1);
+    expect(mockSupabase.adminClient.from).not.toHaveBeenCalled();
+  });
+
   it('rejects handleWebhook when PayOS is not configured with ServiceUnavailableException', async () => {
     const config = new ConfigService({});
     const service = new PaymentsService(config, mockSupabase, mockRedis);

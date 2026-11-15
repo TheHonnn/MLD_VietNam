@@ -1728,12 +1728,67 @@ export class AdminService {
         } else if (action === 'finish-service') {
           if (row.status !== 'IN_SERVICE' || row.session_status === 'COMPLETED')
             throw new ConflictException('Ca dịch vụ không ở trạng thái có thể hoàn tất.');
-          const journal = await client.query(
-            "SELECT 1 FROM treatment_journal WHERE booking_id=$1 AND is_reversed IS NOT TRUE AND (user_package_id IS NULL OR confirmation_status='CONFIRMED') LIMIT 1",
+          const journals = await client.query(
+            'SELECT * FROM treatment_journal WHERE booking_id=$1 AND is_reversed IS NOT TRUE FOR UPDATE',
             [row.id],
           );
-          if (!journal.rowCount)
-            throw new ConflictException('Cần lưu hồ sơ buổi chăm sóc trước khi hoàn tất chuyên môn.');
+          if (journals.rows.some((journal: any) =>
+            (journal.has_abnormal_reaction || journal.confirmation_status === 'REVIEW_REQUIRED') && !journal.clinical_approved_at))
+            throw new ConflictException('Buổi đã ghi nhận phản ứng bất thường cần được duyệt trước khi hoàn tất.');
+
+          const packageId = String(row.special_notes || '').match(/user_package_id=([0-9a-f-]{36})/i)?.[1];
+          if (row.payment_method === 'MEMBERSHIP_WALLET') {
+            if (!packageId) throw new ConflictException('Lịch dùng gói chưa liên kết liệu trình.');
+            const confirmed = journals.rows.find((journal: any) =>
+              journal.user_package_id === packageId && journal.confirmation_status === 'CONFIRMED');
+            if (!confirmed) {
+              const pkg = (await client.query(
+                `SELECT up.*,tp.service_id FROM user_packages up
+                 JOIN treatment_packages tp ON tp.id=up.package_id WHERE up.id=$1 FOR UPDATE OF up`,
+                [packageId],
+              )).rows[0];
+              if (!pkg || pkg.customer_id !== row.customer_id || pkg.status !== 'ACTIVE'
+                || (pkg.expires_at && new Date(pkg.expires_at).getTime() <= Date.now())
+                || Number(pkg.completed_sessions) >= Number(pkg.total_sessions))
+                throw new ConflictException('Gói không hợp lệ, hết hạn hoặc không còn buổi.');
+              const matches = await client.query(
+                'SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id=$2 LIMIT 1',
+                [row.id, pkg.service_id],
+              );
+              const uncovered = await client.query(
+                'SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id<>$2 LIMIT 1',
+                [row.id, pkg.service_id],
+              );
+              if (!matches.rowCount || uncovered.rowCount || Number(row.final_price) !== 0)
+                throw new ConflictException('Dịch vụ hoặc giá lịch hẹn không khớp gói.');
+              const existing = journals.rows.find((journal: any) => journal.user_package_id === packageId);
+              const sessionNumber = existing?.session_number || (await client.query(
+                `SELECT n FROM generate_series(1,$2::int) n
+                 WHERE NOT EXISTS(SELECT 1 FROM treatment_journal j WHERE j.user_package_id=$1
+                   AND j.session_number=n AND j.is_reversed IS NOT TRUE
+                   AND j.confirmation_status='CONFIRMED') ORDER BY n LIMIT 1`,
+                [packageId, pkg.total_sessions],
+              )).rows[0]?.n;
+              if (!sessionNumber) throw new ConflictException('Không còn số buổi khả dụng.');
+              const confirmation = JSON.stringify({ confirmed_by: actor.id, confirmed_at: new Date().toISOString(), source: 'BOOKING_COMPLETION' });
+              if (existing) {
+                await client.query(
+                  "UPDATE treatment_journal SET confirmation_status='CONFIRMED',technical_parameters=COALESCE(technical_parameters,'{}'::jsonb)||$2::jsonb WHERE id=$1",
+                  [existing.id, confirmation],
+                );
+              } else {
+                await client.query(
+                  `INSERT INTO treatment_journal(user_package_id,booking_id,customer_id,technician_id,session_number,session_date,confirmation_status,technical_parameters)
+                   VALUES($1,$2,$3,$4,$5,(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,'CONFIRMED',$6::jsonb)`,
+                  [packageId,row.id,row.customer_id,row.technician_id,sessionNumber,confirmation],
+                );
+              }
+              await client.query(
+                "UPDATE user_packages SET completed_sessions=completed_sessions+1,status=CASE WHEN completed_sessions+1>=total_sessions THEN 'COMPLETED' ELSE status END WHERE id=$1",
+                [packageId],
+              );
+            }
+          }
           await client.query(
             `UPDATE bookings SET session_status='COMPLETED',
              status=CASE WHEN payment_status='PAID' THEN 'COMPLETED'::booking_status ELSE status END,

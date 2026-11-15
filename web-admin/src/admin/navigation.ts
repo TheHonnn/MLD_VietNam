@@ -18,8 +18,8 @@ export const ADMIN_NAVIGATION_GROUPS: NavigationGroup[] = [
   group('Thu ngân & Tiếp đón',['bookings','booking_items','invoices','invoice_items'],[
     item('cashier','Thu ngân POS','/cashier-pos'),item('bookings'),item('booking_items'),item('invoices','Hóa đơn & Đối soát','/cashier-pos?tab=receipts'),item('invoice_items'),
   ]),
-  group('Khách hàng (CRM)',['reviews','support_tickets','support_faqs'],[
-    item('customers','Hồ sơ Khách hàng','/customers'),item('reviews'),item('support_tickets'),item('support_faqs'),
+  group('Khách hàng (CRM)',['reviews'],[
+    item('customers','Hồ sơ Khách hàng','/customers'),item('reviews'),
   ]),
   group('Quản lý Liệu trình',['user_packages','treatment_journal','home_care_guidelines'],[
     item('medical-records','Hồ sơ phác đồ MLD','/medical-records'),item('user_packages'),item('treatment_journal'),item('home_care_guidelines'),

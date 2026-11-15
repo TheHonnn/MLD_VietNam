@@ -38,6 +38,14 @@ describe('Admin business workflows on the complete migrated schema', () => {
     } finally { await query('ROLLBACK'); }
   });
 
+  it('loads Portal and Email schemas without sample business content', async () => {
+    for (const table of ['miniapp_shared_content', 'email_templates', 'email_logs']) {
+      expect((await query(`SELECT count(*)::int AS count FROM ${table}`)).rows[0].count).toBe(0);
+    }
+    const columns = await query("SELECT column_name FROM information_schema.columns WHERE table_name='miniapp_shared_content'");
+    expect(columns.rows.map(row => row.column_name)).toEqual(expect.arrayContaining(['target_link', 'access_level', 'file_url']));
+  });
+
   it('rejects a schema that is missing treatment lifecycle columns', async()=>{
     await query('BEGIN');
     try {
@@ -54,8 +62,8 @@ describe('Admin business workflows on the complete migrated schema', () => {
     await service.action('bookings',actor,{key:{id:booking.id},action:'checkin'});
     await service.action('bookings',actor,{key:{id:booking.id},action:'start'});
     await expect(service.action('bookings',actor,{key:{id:booking.id},action:'checkout'})).rejects.toThrow(/chuyên môn/);
-    await query("INSERT INTO treatment_journal(booking_id,customer_id,session_number,session_date,treatment_notes) VALUES($1,$2,1,'2026-11-08','Flow completed')",[booking.id,customer.id]);
     await service.action('bookings',actor,{key:{id:booking.id},action:'finish-service'});
+    expect((await query('SELECT count(*)::int n FROM treatment_journal WHERE booking_id=$1',[booking.id])).rows[0].n).toBe(0);
     expect((await query('SELECT status,session_status FROM bookings WHERE id=$1',[booking.id])).rows[0]).toMatchObject({status:'IN_SERVICE',session_status:'COMPLETED'});
     const shift=await service.openCashierShift(actor,{branchId:branch.id,openingCash:50000});
     const body={kind:'BOOKING',bookingId:booking.id,shiftId:shift.id,paymentMethod:'CASH_AT_SPA',vatRate:8,expectedTotal:108000,requestId:randomUUID()};
