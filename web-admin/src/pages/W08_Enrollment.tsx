@@ -848,13 +848,12 @@ export const W08_Enrollment: React.FC = () => {
     if (!window.confirm(`Duyệt nhập học cho ${candidate.name}?\nĐã thực nhận: ${candidate.rawAmountPaid.toLocaleString('vi-VN')}đ\nSau khi duyệt, hồ sơ sẽ chuyển sang chờ xếp lớp.`)) return;
     setIsApprovingEnrollment(true);
     try {
-      const result = await academyService.approveEnrollment(candidate.id, {
-        amountPaid: candidate.rawAmountPaid,
-        notes: `Duyệt nhập học hồ sơ ${candidate.orderCode} sau khi kiểm tra tư vấn và mức cọc`,
-      });
-      if (!result.success) throw new Error(result.message);
-      const refreshed = await supabaseService.getEnrollments();
-      if (refreshed) setLiveEnrollments(refreshed);
+      const approval = await academyService.approveEnrollment(
+        candidate.id, `Duyệt nhập học hồ sơ ${candidate.orderCode} sau khi kiểm tra học phí`,
+      );
+      setLiveEnrollments(rows => rows.map(row => row.id === approval.id ? { ...row, ...approval } : row));
+      setActiveWorkflowTab('ALL');
+      setSelectedCandidateId(approval.id);
       toast.success('Đã duyệt nhập học', 'Hồ sơ đã chuyển sang chờ xếp lớp.');
     } catch (error: any) {
       toast.error('Không thể duyệt', error?.message || 'Vui lòng kiểm tra tư vấn và mức cọc.');

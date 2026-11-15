@@ -423,34 +423,18 @@ export const academyService = {
   /**
    * Admin duyệt học viên & thu tiền tại quầy
    */
-  async approveEnrollment(
-    enrollmentId: string,
-    options?: { adminUser?: string; amountPaid?: number; notes?: string }
-  ): Promise<ApiResponse<CourseEnrollment | null>> {
-    try {
-      const enrollments = await supabaseService.getEnrollments();
-      const enr = enrollments?.find((e) => e.id === enrollmentId);
-      if (!enr) return { success: false, statusCode: 404, message: 'Không tìm thấy hồ sơ', data: null };
-      await apiClient.post(`/academy/enrollments/${enrollmentId}/approve`, {
-        amountPaid: options?.amountPaid ?? enr.amountPaid,
-        notes: options?.notes,
-      });
-
-      const updated = (await supabaseService.getEnrollments())?.find((e) => e.id === enrollmentId);
-      return {
-        success: true,
-        statusCode: 200,
-        message: 'Đã duyệt nhập học. Hồ sơ đã chuyển sang chờ xếp lớp.',
-        data: updated || null,
-      };
-    } catch (err: any) {
-      return {
-        success: false,
-        statusCode: 500,
-        message: err?.message || 'Lỗi khi duyệt học viên',
-        data: null,
-      };
+  async approveEnrollment(enrollmentId: string, notes?: string) {
+    type Approval = Pick<CourseEnrollment, 'id' | 'status' | 'approvalStatus' | 'studentAdmissionStatus' | 'paymentVerificationStatus'>;
+    const result = await apiClient.post<Approval>(
+      `/academy/enrollments/${enrollmentId}/approve`, { notes },
+    );
+    const approval = result.data;
+    if (approval?.id !== enrollmentId ||
+        approval.studentAdmissionStatus !== StudentAdmissionStatus.APPROVED) {
+      throw new Error('Máy chủ chưa xác nhận trạng thái duyệt. Hãy tải lại hồ sơ.');
     }
+    supabaseService.invalidateCache('course_enrollments');
+    return approval;
   },
 
   async graduateEnrollment(enrollmentId: string): Promise<ApiResponse<any>> {
