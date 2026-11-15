@@ -1070,353 +1070,270 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     final hasBanners = _banners.isNotEmpty;
     final bannerCount = hasBanners ? _banners.length : 1;
 
-    return Container(
+    return SizedBox(
       height: heroHeight,
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-        child: Stack(
-          children: [
-            // 1. PageView chuyển slide banner (vuốt trái/phải mượt mà 60fps & tự chuyển theo s)
-            Positioned.fill(
-              child: PageView.builder(
-                controller: _bannerPageController,
-                itemCount: bannerCount,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentBannerIndex = index;
-                  });
-                  _startBannerAutoScroll();
-                },
-                itemBuilder: (context, index) {
-                  final banner = hasBanners && index < _banners.length
-                      ? _banners[index]
-                      : null;
+      width: double.infinity,
+      child: Stack(
+        children: [
+          // 1. PageView chuyển slide banner tràn viền (vuốt trái/phải mượt mà 60fps & tự chuyển theo s)
+          Positioned.fill(
+            child: PageView.builder(
+              controller: _bannerPageController,
+              itemCount: bannerCount,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentBannerIndex = index;
+                });
+                _startBannerAutoScroll();
+              },
+              itemBuilder: (context, index) {
+                final banner = hasBanners && index < _banners.length
+                    ? _banners[index]
+                    : null;
 
-                  final bannerTitle = (banner?['title'] as String?)?.trim();
-                  final bool isTitleValid = bannerTitle != null &&
-                      bannerTitle.isNotEmpty &&
-                      bannerTitle != 'MLD Banner' &&
-                      bannerTitle.toLowerCase() != 'test';
-                  final displayTitle = isTitleValid
-                      ? bannerTitle
-                      : 'Chăm sóc đúng cách,\nsống khỏe mỗi ngày';
+                final bannerTitle = (banner?['title'] as String?)?.trim();
+                final bool isTitleValid = bannerTitle != null &&
+                    bannerTitle.isNotEmpty &&
+                    bannerTitle != 'MLD Banner' &&
+                    bannerTitle.toLowerCase() != 'test';
+                final displayTitle = isTitleValid
+                    ? bannerTitle
+                    : 'Chăm sóc đúng cách,\nsống khỏe mỗi ngày';
 
-                  final bannerSummary = (banner?['summary'] as String?)?.trim();
-                  final bool isSummaryValid = bannerSummary != null &&
-                      bannerSummary.isNotEmpty &&
-                      bannerSummary.toLowerCase() != 'test';
-                  final displaySummary = isSummaryValid
-                      ? bannerSummary
-                      : 'Đặt lịch trị liệu và tìm khóa học phù hợp với bạn.';
+                final bannerSummary = (banner?['summary'] as String?)?.trim();
+                final bool isSummaryValid = bannerSummary != null &&
+                    bannerSummary.isNotEmpty &&
+                    bannerSummary.toLowerCase() != 'test';
+                final displaySummary = isSummaryValid
+                    ? bannerSummary
+                    : 'Đặt lịch trị liệu và tìm khóa học phù hợp với bạn.';
 
-                  final imageUrl = (banner?['image_url'] as String?)?.trim() ?? '';
+                final imageUrl = (banner?['image_url'] as String?)?.trim() ?? '';
 
-                  return GestureDetector(
-                    onTap: banner != null ? () => _handleBannerTap(banner) : null,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // 1.1 Ảnh Banner toàn màn hình - Giữ 100% màu sắc ảnh gốc sắc nét, không phủ lớp trắng mờ
-                        SmartImage(
-                          imageUrl: imageUrl.isNotEmpty ? imageUrl : 'assets/images/therapy_hero_banner.jpg',
-                          fit: BoxFit.cover,
-                          placeholder: _buildFallbackHeroImage(),
-                        ),
+                return GestureDetector(
+                  onTap: banner != null ? () => _handleBannerTap(banner) : null,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // 1.1 Ảnh Banner tràn viền toàn màn hình - Giữ 100% màu sắc ảnh gốc sắc nét, không phủ lớp trắng mờ
+                      SmartImage(
+                        imageUrl: imageUrl.isNotEmpty ? imageUrl : 'assets/images/therapy_hero_banner.jpg',
+                        fit: BoxFit.cover,
+                        placeholder: _buildFallbackHeroImage(),
+                      ),
 
-                        // 1.2 Lớp phủ Vignette tối màu nhẹ nhàng (KHÔNG DÙNG LỚP TRẮNG MỜ) để làm nổi bật chữ & nút bấm
-                        Positioned.fill(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.35),
-                                  Colors.transparent,
-                                  Colors.black.withValues(alpha: 0.22),
-                                  Colors.black.withValues(alpha: 0.78),
-                                ],
-                                stops: const [0.0, 0.35, 0.62, 1.0],
-                              ),
+                      // 1.2 Lớp phủ Vignette tối màu nhẹ nhàng ở đáy để tôn độ tương phản chữ trắng (KHÔNG PHỦ LỚP TRẮNG MỜ)
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.35),
+                                Colors.transparent,
+                                Colors.black.withValues(alpha: 0.22),
+                                Colors.black.withValues(alpha: 0.78),
+                              ],
+                              stops: const [0.0, 0.35, 0.62, 1.0],
                             ),
                           ),
                         ),
+                      ),
 
-                        // 1.3 Nội dung Banner (Huy hiệu, Tiêu đề, Phụ đề, Nút bấm)
-                        Positioned(
-                          left: 18,
-                          right: 18,
-                          bottom: 24,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Huy hiệu danh mục Banner từ Database
-                              Builder(
-                                builder: (context) {
-                                  final rawCat = (banner?['category'] as String?)?.trim() ?? '';
-                                  String catLabel = '';
-                                  switch (rawCat.toUpperCase()) {
-                                    case 'DAO_TAO':
-                                      catLabel = 'ĐÀO TẠO Y KHOA';
-                                      break;
-                                    case 'DICH_VU':
-                                      catLabel = 'DỊCH VỤ TRỊ LIỆU';
-                                      break;
-                                    case 'KHUYEN_MAI':
-                                      catLabel = 'ƯU ĐÃI ĐẶC QUYỀN';
-                                      break;
-                                    case 'SU_KIEN':
-                                      catLabel = 'SỰ KIỆN CHUYÊN NGÀNH';
-                                      break;
-                                    default:
-                                      catLabel = rawCat.isNotEmpty ? rawCat.toUpperCase() : '';
-                                  }
-                                  if (catLabel.isEmpty) return const SizedBox.shrink();
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 7),
-                                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.accent,
-                                      borderRadius: BorderRadius.circular(6),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.30),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.stars_rounded, size: 12, color: Colors.white),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          catLabel,
-                                          style: const TextStyle(
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.w800,
-                                            color: Colors.white,
-                                            letterSpacing: 0.4,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
+                      // 1.3 Thông điệp Banner (Chỉ Tiêu đề & Phụ đề - Tuyệt đối không thêm badge Đào tạo Y khoa)
+                      Positioned(
+                        left: 18,
+                        right: 18,
+                        bottom: 80,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Tiêu đề chính (Chữ trắng sắc nét, bóng đổ nhẹ)
+                            Text(
+                              displayTitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 21,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                height: 1.25,
+                                letterSpacing: -0.3,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black54,
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
                               ),
+                            ),
+                            const SizedBox(height: 6),
 
-                              // Tiêu đề chính (Chữ trắng sắc nét, bóng đổ nhẹ)
-                              Text(
-                                displayTitle,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 21,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                  height: 1.25,
-                                  letterSpacing: -0.3,
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.black54,
-                                      blurRadius: 8,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
+                            // Phụ đề (Chữ trắng 90%, bóng đổ nhẹ)
+                            Text(
+                              displaySummary,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withValues(alpha: 0.90),
+                                height: 1.35,
+                                shadows: const [
+                                  Shadow(
+                                    color: Colors.black45,
+                                    blurRadius: 6,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 6),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
 
-                              // Phụ đề (Chữ trắng 90%, bóng đổ nhẹ)
-                              Text(
-                                displaySummary,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white.withValues(alpha: 0.90),
-                                  height: 1.35,
-                                  shadows: const [
-                                    Shadow(
-                                      color: Colors.black45,
-                                      blurRadius: 6,
-                                      offset: Offset(0, 1),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 14),
+          // 2. Header cố định tràn đỉnh màn hình (Logo & Avatar & Chuông thông báo)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: _buildTopHeader(),
+            ),
+          ),
 
-                              // 2 Nút thao tác nổi bật khối
-                              Builder(
-                                builder: (context) {
-                                  final targetLink = (banner?['target_link'] as String?)?.trim() ?? '';
-                                  String primaryBtnText = 'Đặt lịch trị liệu';
-                                  if (targetLink.contains('academy') || targetLink.contains('khoa-hoc')) {
-                                    primaryBtnText = 'Khám phá ngay';
-                                  } else if (targetLink.contains('package')) {
-                                    primaryBtnText = 'Xem gói bổ trợ';
-                                  } else if (targetLink.contains('document')) {
-                                    primaryBtnText = 'Xem tài liệu';
-                                  } else if (targetLink.contains('community')) {
-                                    primaryBtnText = 'Xem cộng đồng';
-                                  }
+          // 3. 2 Nút thao tác MẶC ĐỊNH CỐ ĐỊNH (Luôn là Đặt lịch trị liệu & Gọi tư vấn, không bị trượt hay đổi tên khi vuốt banner)
+          Positioned(
+            left: 18,
+            right: 18,
+            bottom: 24,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                // Nút 1: Đặt lịch trị liệu (Mặc định cố định màu xanh lá MLD nổi bật)
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(26),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accent.withValues(alpha: 0.45),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const B02ServiceListingScreen(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
+                      side: BorderSide.none,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Đặt lịch trị liệu',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+                        ),
+                        SizedBox(width: 5),
+                        Icon(Icons.arrow_forward_rounded, size: 15),
+                      ],
+                    ),
+                  ),
+                ),
 
-                                  return Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
-                                    children: [
-                                      // Nút 1: Hành động chính -> Khối xanh lá MLD nổi bật
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(26),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: AppColors.accent.withValues(alpha: 0.45),
-                                              blurRadius: 10,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ],
-                                        ),
-                                        child: ElevatedButton(
-                                          onPressed: () {
-                                            if (banner != null && targetLink.isNotEmpty) {
-                                              _handleBannerTap(banner);
-                                            } else {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) => const B02ServiceListingScreen(),
-                                                ),
-                                              );
-                                            }
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppColors.accent,
-                                            foregroundColor: Colors.white,
-                                            elevation: 0,
-                                            shadowColor: Colors.transparent,
-                                            side: BorderSide.none,
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10.5),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                primaryBtnText,
-                                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: -0.2),
-                                              ),
-                                              const SizedBox(width: 5),
-                                              const Icon(Icons.arrow_forward_rounded, size: 15),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-
-                                      // Nút 2: Gọi tư vấn -> Khối trắng nổi bật
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(26),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.15),
-                                              blurRadius: 10,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ],
-                                        ),
-                                        child: ElevatedButton(
-                                          onPressed: () => _launchExternal('tel:${PortalSettingsService.instance.hotlineSupport.replaceAll(RegExp(r'\D'), '')}'),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.white,
-                                            foregroundColor: AppColors.primary,
-                                            elevation: 0,
-                                            shadowColor: Colors.transparent,
-                                            side: BorderSide.none,
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10.5),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(Icons.phone_in_talk_rounded, size: 14, color: AppColors.primary),
-                                              SizedBox(width: 5),
-                                              Text(
-                                                'Gọi tư vấn',
-                                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary, letterSpacing: -0.2),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
+                // Nút 2: Gọi tư vấn (Mặc định cố định màu trắng chữ xanh)
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(26),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () => _launchExternal('tel:${PortalSettingsService.instance.hotlineSupport.replaceAll(RegExp(r'\D'), '')}'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.primary,
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
+                      side: BorderSide.none,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.phone_in_talk_rounded, size: 14, color: AppColors.primary),
+                        SizedBox(width: 5),
+                        Text(
+                          'Gọi tư vấn',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary, letterSpacing: -0.2),
                         ),
                       ],
                     ),
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
+          ),
 
-            // 2. Header cố định tràn đỉnh màn hình (Logo & Avatar & Chuông thông báo)
+          // 4. Chấm chỉ số carousel ở giữa đáy banner (chỉ hiển thị khi có từ 2 banner trở lên)
+          if (bannerCount > 1)
             Positioned(
-              top: 0,
+              bottom: 8,
               left: 0,
               right: 0,
-              child: SafeArea(
-                bottom: false,
-                child: _buildTopHeader(),
-              ),
-            ),
-
-            // 3. Chấm chỉ số carousel ở giữa đáy banner (chỉ hiển thị khi có từ 2 banner trở lên)
-            if (bannerCount > 1)
-              Positioned(
-                bottom: 8,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: List.generate(
-                      bannerCount,
-                      (index) => AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                        width: index == _currentBannerIndex ? 18 : 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: index == _currentBannerIndex
-                              ? AppColors.accent
-                              : Colors.white.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(2.5),
-                        ),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(
+                    bannerCount,
+                    (index) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                      width: index == _currentBannerIndex ? 18 : 5,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: index == _currentBannerIndex
+                            ? AppColors.accent
+                            : Colors.white.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(2.5),
                       ),
                     ),
                   ),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
