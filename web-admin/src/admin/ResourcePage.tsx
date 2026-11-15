@@ -1,3 +1,4 @@
+import { SchedulePlanDialog } from "./SchedulePlanDialog";
 import { EnrollmentChangesView } from "./EnrollmentChangesView";
 import { TuitionLedgerView } from "./TuitionLedgerView";
 import { EnrollmentRosterView } from "./EnrollmentRosterView";
@@ -6410,6 +6411,9 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </button>
         )}
       </PageToolbar>
+      {table === "batch_schedules" && selectedBatchId && selectedBatchId !== "__ALL__" &&
+        (user?.role === "SUPER_ADMIN" || user?.role === "ADMIN" || user?.role === "BRANCH_MANAGER") &&
+        <div className="mb-4"><SchedulePlanDialog batchId={selectedBatchId} onSaved={() => setVersion(v => v + 1)} /></div>}
       {table === "batch_schedules" && <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2" aria-label="Chế độ xem thời khóa biểu" role="group">
           <button className={scheduleCalendar ? "admin-primary" : "admin-secondary"} aria-pressed={scheduleCalendar} onClick={() => updateParam("view", "")}>Lịch tuần</button>

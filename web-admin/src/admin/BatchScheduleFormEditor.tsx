@@ -246,10 +246,10 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
 
   // Phòng thuộc chi nhánh của lớp học (được ưu tiên hiển thị trước)
   const priorityRooms = selectedBatch
-    ? rooms.filter((r) => String(r.branch_id) === String(selectedBatch.branch_id))
+    ? rooms.filter((r) => String(r.branch_id) === String(selectedBatch.branch_id) && r.is_available && !/^\[ARCHIVED\]/i.test(r.name))
     : [];
   const otherRooms = selectedBatch
-    ? rooms.filter((r) => String(r.branch_id) !== String(selectedBatch.branch_id))
+    ? []
     : rooms;
 
   // Xử lý khi đổi lớp học
@@ -263,7 +263,7 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
       }
       // 2. Gợi ý phòng đầu tiên thuộc chi nhánh của lớp nếu có
       if (!values.assigned_room_id) {
-        const matchingRoom = rooms.find((r) => String(r.branch_id) === String(b.branch_id));
+        const matchingRoom = rooms.find((r) => String(r.branch_id) === String(b.branch_id) && r.is_available && !/^\[ARCHIVED\]/i.test(r.name));
         if (matchingRoom) {
           onChange("assigned_room_id", String(matchingRoom.id));
         }
@@ -406,6 +406,8 @@ export const BatchScheduleFormEditor: React.FC<BatchScheduleFormEditorProps> = (
             className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-[#2C241E] focus:outline-none focus:border-[#B38A58] focus:ring-1 focus:ring-[#B38A58] transition-all"
           >
             <option value="">-- Chưa chỉ định phòng (Học Online / Tự do) --</option>
+            {selectedRoom && (!selectedRoom.is_available || /^\[ARCHIVED\]/i.test(selectedRoom.name)) &&
+              <option value={selectedRoom.id} disabled>{selectedRoom.name} · Ngừng sử dụng, cần đổi phòng</option>}
 
             {priorityRooms.length > 0 && (
               <optgroup label={`📍 Phòng tại ${selectedBranch?.name || "Chi nhánh của lớp"}`}>
