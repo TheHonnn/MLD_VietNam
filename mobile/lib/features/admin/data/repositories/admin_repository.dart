@@ -301,7 +301,7 @@ class AdminRepository {
   }) async {
     try {
       String query =
-          '/rest/v1/bookings?select=*,branches(name),technicians(full_name),branch_rooms(name)&order=booking_date.desc,start_time.asc';
+          '/rest/v1/bookings?select=*,branches(name),technicians(full_name),branch_rooms(name),booking_items(*,services(name))&order=booking_date.desc,start_time.asc';
       if (!isAllDates && bookingDate != null && bookingDate.isNotEmpty) {
         query += '&booking_date=eq.$bookingDate';
       }
@@ -521,7 +521,15 @@ class AdminRepository {
     try {
       String query =
           '/rest/v1/course_enrollments?select=*,courses(title),course_batches(batch_code)&order=enrolled_at.desc';
-      final res = await _apiClient.dio.get(query);
+      final res = await _apiClient.dio.get(
+        query,
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
       if (res.data is List) {
         final all = (res.data as List)
             .map((item) => AdminCandidateModel.fromJson(item as Map<String, dynamic>))
@@ -539,7 +547,6 @@ class AdminRepository {
     }
   }
 
-  /// 5.1. Xếp lớp học viên (Assign Batch)
   Future<bool> assignBatchToCandidate(String enrollmentId, String batchId) async {
     try {
       final res = await _apiClient.dio.patch(
@@ -548,6 +555,12 @@ class AdminRepository {
           'batch_id': batchId,
           'status': 'ENROLLED',
         },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -556,7 +569,6 @@ class AdminRepository {
     }
   }
 
-  /// 5.1.1. Gỡ học viên khỏi lớp về danh sách chờ xếp lớp (Unassign Batch)
   Future<bool> unassignBatchFromCandidate(String enrollmentId) async {
     try {
       final res = await _apiClient.dio.patch(
@@ -565,6 +577,12 @@ class AdminRepository {
           'batch_id': null,
           'status': 'PAID',
         },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -578,6 +596,12 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.get(
         '/rest/v1/course_batches?select=*,courses(title),branches(name),instructors!course_batches_instructor_id_fkey(full_name)&course_id=eq.$courseId&order=start_date.asc',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
       );
       if (res.data is List) {
         return (res.data as List)
@@ -596,6 +620,12 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.get(
         '/rest/v1/course_batches?select=*,courses(title),branches(name),instructors!course_batches_instructor_id_fkey(full_name)&order=start_date.desc',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
       );
       if (res.data is List) {
         return (res.data as List)
@@ -777,6 +807,12 @@ class AdminRepository {
           'enrolled_at': DateTime.now().toIso8601String(),
           if (notes != null && notes.isNotEmpty) 'approval_notes': notes,
         },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
       );
       return res.statusCode == 201 || res.statusCode == 200;
     } catch (e) {
@@ -785,7 +821,6 @@ class AdminRepository {
     }
   }
 
-  /// 5.5. Cập nhật trạng thái cột Kanban (CRUD kiểu Trello - Update Column, đồng bộ 100% Web Admin)
   Future<bool> updateCandidateStatus(String candidateId, String newStatus) async {
     try {
       final patchData = <String, dynamic>{'status': newStatus};
@@ -805,6 +840,12 @@ class AdminRepository {
       final res = await _apiClient.dio.patch(
         '/rest/v1/course_enrollments?id=eq.$candidateId',
         data: patchData,
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -813,11 +854,16 @@ class AdminRepository {
     }
   }
 
-  /// 5.6. Xóa / Hủy học viên (CRUD kiểu Trello - Delete)
   Future<bool> deleteCandidate(String candidateId) async {
     try {
       final res = await _apiClient.dio.delete(
         '/rest/v1/course_enrollments?id=eq.$candidateId',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -959,7 +1005,15 @@ class AdminRepository {
       if (level != null && level.isNotEmpty && level != 'ALL') {
         query += '&level=eq.$level';
       }
-      final res = await _apiClient.dio.get(query);
+      final res = await _apiClient.dio.get(
+        query,
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
       if (res.data is List) {
         return (res.data as List)
             .map((item) => AdminCourseModel.fromJson(item as Map<String, dynamic>))
@@ -1013,6 +1067,12 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.get(
         '/rest/v1/quiz_submissions?select=*,course_quizzes(title),course_enrollments(student_name,student_phone,courses(title))&order=submitted_at.desc',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
       );
       if (res.data is List) {
         return (res.data as List)

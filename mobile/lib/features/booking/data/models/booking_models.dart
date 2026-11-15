@@ -124,6 +124,14 @@ class AppointmentItemModel {
   final AppointmentStatus status;
   final DateTime createdAt;
   final List<BookingTimelineEvent> timeline;
+  final String? couponId;
+  final String? couponCode;
+  final double discountAmount;
+  final int pointsUsed;
+  final double pointsDiscount;
+  final double? baseTotal;
+  final double? finalPrice;
+  final String? userVoucherId;
 
   const AppointmentItemModel({
     required this.id,
@@ -156,6 +164,14 @@ class AppointmentItemModel {
     this.status = AppointmentStatus.confirmed,
     required this.createdAt,
     this.timeline = const [],
+    this.couponId,
+    this.couponCode,
+    this.discountAmount = 0.0,
+    this.pointsUsed = 0,
+    this.pointsDiscount = 0.0,
+    this.baseTotal,
+    this.finalPrice,
+    this.userVoucherId,
   });
 
   AppointmentItemModel copyWith({
@@ -189,6 +205,14 @@ class AppointmentItemModel {
     AppointmentStatus? status,
     DateTime? createdAt,
     List<BookingTimelineEvent>? timeline,
+    String? couponId,
+    String? couponCode,
+    double? discountAmount,
+    int? pointsUsed,
+    double? pointsDiscount,
+    double? baseTotal,
+    double? finalPrice,
+    String? userVoucherId,
   }) {
     return AppointmentItemModel(
       id: id ?? this.id,
@@ -221,9 +245,16 @@ class AppointmentItemModel {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       timeline: timeline ?? this.timeline,
+      couponId: couponId ?? this.couponId,
+      couponCode: couponCode ?? this.couponCode,
+      discountAmount: discountAmount ?? this.discountAmount,
+      pointsUsed: pointsUsed ?? this.pointsUsed,
+      pointsDiscount: pointsDiscount ?? this.pointsDiscount,
+      baseTotal: baseTotal ?? this.baseTotal,
+      finalPrice: finalPrice ?? this.finalPrice,
+      userVoucherId: userVoucherId ?? this.userVoucherId,
     );
   }
-
 }
 
 /// 4. Quản lý trạng thái xuyên suốt luồng đặt lịch (BookingFlowState)

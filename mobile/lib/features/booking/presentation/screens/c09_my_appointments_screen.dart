@@ -206,8 +206,8 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
 
   Widget _buildAppointmentCard(AppointmentItemModel app) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -243,14 +243,14 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
 
           // Tên dịch vụ
           Text(
             app.serviceName.tr(context),
             style: const TextStyle(
               
-              fontSize: 15.5,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
               height: 1.35,
@@ -291,7 +291,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
             ],
           ),
 
-          const Divider(height: 20, color: AppColors.border),
+          const Divider(height: 12, color: AppColors.border),
 
           // Chi phí & Nút Xem chi tiết
           Row(
@@ -310,7 +310,7 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
                       _formatCurrency(app.totalAmount),
                       style: const TextStyle(
                         
-                        fontSize: 16,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.w800,
                         color: AppColors.servicePrice,
                       ),

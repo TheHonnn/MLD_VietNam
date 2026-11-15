@@ -284,6 +284,7 @@ export interface Branch {
   longitude: number;
   openingTime: string;
   closingTime: string;
+  customTimeSlots?: string[];
   imageUrl: string;
   galleryUrls: string[];
   amenities: string[];

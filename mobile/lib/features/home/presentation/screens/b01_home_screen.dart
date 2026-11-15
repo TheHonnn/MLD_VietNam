@@ -1718,11 +1718,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     ),
                   ),
                 ),
-                onTap: () => _launchExternal('https://zalo.me/1424469774232439257?src=qr'),
+                onTap: () => _launchExternal(PortalSettingsService.instance.zaloOaUrl),
               ),
             ),
             const SizedBox(width: 8),
-            // 2. Facebook
             Expanded(
               child: _buildSocialPillCard(
                 title: 'Facebook',
@@ -1742,11 +1741,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     child: const Text('f', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
                   ),
                 ),
-                onTap: () => _launchExternal('https://www.facebook.com/hebachhuyet.mldvietnam'),
+                onTap: () => _launchExternal(PortalSettingsService.instance.fanpageUrl),
               ),
             ),
             const SizedBox(width: 8),
-            // 3. TikTok
             Expanded(
               child: _buildSocialPillCard(
                 title: 'TikTok',
@@ -1769,11 +1767,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     ),
                   ),
                 ),
-                onTap: () => _launchExternal('https://www.tiktok.com/@trungtamgiamphu'),
+                onTap: () => _launchExternal(PortalSettingsService.instance.tiktokUrl),
               ),
             ),
             const SizedBox(width: 8),
-            // 4. Messenger
             Expanded(
               child: _buildSocialPillCard(
                 title: 'Messenger',
@@ -1800,13 +1797,12 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                     ),
                   ),
                 ),
-                onTap: () => _launchExternal('https://m.me/hebachhuyet.mldvietnam'),
+                onTap: () => _launchExternal(PortalSettingsService.instance.messengerUrl),
               ),
             ),
           ],
         ),
 
-        // Khối nền tảng mở rộng khi Admin có thêm nền tảng (Bấm Xem thêm sẽ đẩy cơ sở xuống)
         AnimatedSize(
           duration: const Duration(milliseconds: 320),
           curve: Curves.easeInOutCubic,
@@ -1816,7 +1812,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Row(
                     children: [
-                      // 5. YouTube
                       Expanded(
                         child: _buildSocialPillCard(
                           title: 'YouTube',
@@ -1834,7 +1829,6 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // 6. Hotline
                       Expanded(
                         child: _buildSocialPillCard(
                           title: 'Hotline',
@@ -1848,7 +1842,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                             alignment: Alignment.center,
                             child: const Icon(Icons.phone_in_talk_rounded, color: Colors.white, size: 20),
                           ),
-                          onTap: () => _launchExternal('tel:0987186399'),
+                          onTap: () => _launchExternal('tel:${PortalSettingsService.instance.hotlineSupport.replaceAll(RegExp(r'\D'), '')}'),
                         ),
                       ),
                       const SizedBox(width: 8),

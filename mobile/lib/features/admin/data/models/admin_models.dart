@@ -146,15 +146,32 @@ class AdminBookingModel {
       custPhone = userObj['phone']?.toString() ?? '';
     }
 
+    String sTime = json['start_time']?.toString() ?? '';
+    if (sTime.length > 5) {
+      sTime = sTime.substring(0, 5);
+    }
+    String eTime = json['end_time']?.toString() ?? '';
+    if (eTime.length > 5) {
+      eTime = eTime.substring(0, 5);
+    }
+
+    String sName = json['service_name']?.toString() ?? '';
+    if (sName.isEmpty && json['booking_items'] is List && (json['booking_items'] as List).isNotEmpty) {
+      final firstItem = (json['booking_items'] as List).first;
+      if (firstItem is Map && firstItem['services'] is Map) {
+        sName = firstItem['services']['name']?.toString() ?? '';
+      }
+    }
+
     return AdminBookingModel(
       id: json['id']?.toString() ?? '',
       bookingCode: json['booking_code']?.toString() ?? 'BK-000',
       bookingDate: json['booking_date']?.toString() ?? '',
-      startTime: json['start_time']?.toString() ?? '',
-      endTime: json['end_time']?.toString() ?? '',
+      startTime: sTime,
+      endTime: eTime,
       customerName: custName.isNotEmpty ? custName : 'Khách hàng',
       customerPhone: custPhone,
-      serviceName: json['service_name']?.toString() ?? 'Trị liệu MLD',
+      serviceName: sName.isNotEmpty ? sName : 'Trị liệu MLD',
       finalPrice: (json['final_price'] != null)
           ? double.tryParse(json['final_price'].toString()) ?? 0.0
           : (json['base_total'] != null)
@@ -272,9 +289,19 @@ class AdminCandidateModel {
       workflowStatus = 'PENDING_CONSULTATION';
     }
 
-    final cName = json['student_name']?.toString() ?? json['candidate_name']?.toString() ?? '';
-    final cPhone = json['student_phone']?.toString() ?? json['candidate_phone']?.toString() ?? '';
-    final cEmail = json['student_email']?.toString() ?? json['candidate_email']?.toString();
+    final userObj = json['users'];
+    String cName = json['student_name']?.toString() ?? json['candidate_name']?.toString() ?? '';
+    if (cName.isEmpty && userObj is Map) {
+      cName = userObj['full_name']?.toString() ?? '';
+    }
+    String cPhone = json['student_phone']?.toString() ?? json['candidate_phone']?.toString() ?? '';
+    if (cPhone.isEmpty && userObj is Map) {
+      cPhone = userObj['phone']?.toString() ?? '';
+    }
+    String? cEmail = json['student_email']?.toString() ?? json['candidate_email']?.toString();
+    if ((cEmail == null || cEmail.isEmpty) && userObj is Map) {
+      cEmail = userObj['email']?.toString();
+    }
 
     return AdminCandidateModel(
       id: json['id']?.toString() ?? '',

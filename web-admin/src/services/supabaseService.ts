@@ -208,26 +208,44 @@ class SupabaseService {
       ? raw
       : raw.filter((b) => !b.name?.startsWith('[ARCHIVED]') && !b.name?.startsWith('[DELETED]'));
 
-    return filtered.map((b) => ({
-      id: b.id,
-      name: b.name,
-      code: b.code,
-      phone: b.phone,
-      address: b.address,
-      district: b.district,
-      city: b.city,
-      latitude: Number(b.latitude),
-      longitude: Number(b.longitude),
-      openingTime: b.opening_time,
-      closingTime: b.closing_time,
-      imageUrl: b.image_url,
-      galleryUrls: Array.isArray(b.gallery_urls) ? b.gallery_urls : [],
-      amenities: Array.isArray(b.amenities) ? b.amenities : [],
-      isActive: Boolean(b.is_active),
-      isArchived: Boolean(b.name?.startsWith('[ARCHIVED]') || b.name?.startsWith('[DELETED]')),
-      createdAt: b.created_at,
-      updatedAt: b.updated_at,
-    }));
+    return filtered.map((b) => {
+      let customSlots: string[] = [];
+      if (Array.isArray(b.custom_time_slots) && b.custom_time_slots.length > 0) {
+        customSlots = b.custom_time_slots.map((s: any) => String(s).trim());
+      }
+      const rawAmenities: string[] = Array.isArray(b.amenities) ? b.amenities : [];
+      const cleanAmenities = rawAmenities.filter((a: string) => {
+        if (typeof a === 'string' && a.startsWith('SLOTS:')) {
+          if (customSlots.length === 0) {
+            customSlots = a.substring(6).split(',').map((s) => s.trim()).filter(Boolean);
+          }
+          return false;
+        }
+        return true;
+      });
+
+      return {
+        id: b.id,
+        name: b.name,
+        code: b.code,
+        phone: b.phone,
+        address: b.address,
+        district: b.district,
+        city: b.city,
+        latitude: Number(b.latitude),
+        longitude: Number(b.longitude),
+        openingTime: b.opening_time,
+        closingTime: b.closing_time,
+        customTimeSlots: customSlots,
+        imageUrl: b.image_url,
+        galleryUrls: Array.isArray(b.gallery_urls) ? b.gallery_urls : [],
+        amenities: cleanAmenities,
+        isActive: Boolean(b.is_active),
+        isArchived: Boolean(b.name?.startsWith('[ARCHIVED]') || b.name?.startsWith('[DELETED]')),
+        createdAt: b.created_at,
+        updatedAt: b.updated_at,
+      };
+    });
   }
 
   async getArchivedBranches(): Promise<Branch[]> {
@@ -259,6 +277,12 @@ class SupabaseService {
 
   async createBranch(branch: Partial<Branch> & { name: string; code: string; phone: string; address: string; district: string }): Promise<Branch | null> {
     try {
+      const rawAmenities = branch.amenities || ['Phòng VIP riêng biệt', 'Đỗ xe ô tô', 'Trà thảo mộc'];
+      const cleanAmenities = rawAmenities.filter((a: string) => !a.startsWith('SLOTS:'));
+      if (branch.customTimeSlots && branch.customTimeSlots.length > 0) {
+        cleanAmenities.push(`SLOTS:${branch.customTimeSlots.join(',')}`);
+      }
+
       const payload = {
         name: branch.name,
         code: branch.code,
@@ -272,7 +296,7 @@ class SupabaseService {
         closing_time: branch.closingTime || '20:30:00',
         image_url: branch.imageUrl || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
         gallery_urls: branch.galleryUrls || [],
-        amenities: branch.amenities || ['Phòng VIP riêng biệt', 'Đỗ xe ô tô', 'Trà thảo mộc'],
+        amenities: cleanAmenities,
         is_active: branch.isActive !== undefined ? branch.isActive : true,
       };
 
@@ -319,7 +343,14 @@ class SupabaseService {
       if (updates.openingTime !== undefined) payload.opening_time = updates.openingTime;
       if (updates.closingTime !== undefined) payload.closing_time = updates.closingTime;
       if (updates.imageUrl !== undefined) payload.image_url = updates.imageUrl;
-      if (updates.amenities !== undefined) payload.amenities = updates.amenities;
+      if (updates.amenities !== undefined || updates.customTimeSlots !== undefined) {
+        const raw = updates.amenities !== undefined ? updates.amenities : [];
+        const clean = raw.filter((a: string) => !a.startsWith('SLOTS:'));
+        if (updates.customTimeSlots && updates.customTimeSlots.length > 0) {
+          clean.push(`SLOTS:${updates.customTimeSlots.join(',')}`);
+        }
+        payload.amenities = clean;
+      }
       if (updates.isActive !== undefined) payload.is_active = updates.isActive;
 
       const res = await this.query<any>(`branches?id=eq.${branchId}`, {

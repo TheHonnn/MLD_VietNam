@@ -192,18 +192,63 @@ class ConsultationPreferenceModel {
 }
 
 /// Mô hình Đánh giá dịch vụ (D05 ServiceReview)
-class ServiceReviewDataModel {
-  final String? id;
-  final int overallRating; // 1 - 5
-  final int serviceQualityRating; // 1 - 5
-  final int staffAttitudeRating; // 1 - 5
-  final int spaceAmbianceRating; // 1 - 5
-  final int procedureRating; // 1 - 5
-  final String comment;
-  final String willingnessToRefer; // 'Có', 'Có thể', 'Chưa'
+enum ReviewTargetType {
+  service,
+  product,
+}
+
+class ReviewableItemModel {
+  final String id;
+  final ReviewTargetType type;
+  final String title;
+  final String? subtitle;
+  final String? branchName;
+  final String? specialistName;
+  final String? sessionInfo;
+  final String? imageUrl;
   final String? bookingId;
   final String? serviceId;
   final String? technicianId;
+  final String? productId;
+  final bool isReviewed;
+  final ServiceReviewDataModel? review;
+
+  const ReviewableItemModel({
+    required this.id,
+    required this.type,
+    required this.title,
+    this.subtitle,
+    this.branchName,
+    this.specialistName,
+    this.sessionInfo,
+    this.imageUrl,
+    this.bookingId,
+    this.serviceId,
+    this.technicianId,
+    this.productId,
+    this.isReviewed = false,
+    this.review,
+  });
+
+  bool get isService => type == ReviewTargetType.service;
+  bool get isProduct => type == ReviewTargetType.product;
+}
+
+class ServiceReviewDataModel {
+  final String? id;
+  final int overallRating;
+  final int serviceQualityRating;
+  final int staffAttitudeRating;
+  final int spaceAmbianceRating;
+  final int procedureRating;
+  final String comment;
+  final String willingnessToRefer;
+  final String? bookingId;
+  final String? serviceId;
+  final String? technicianId;
+  final String? productId;
+  final String? productName;
+  final String? targetType;
   final List<String> reviewTags;
   final List<String> photos;
   final String? branchReply;
@@ -223,6 +268,9 @@ class ServiceReviewDataModel {
     this.bookingId,
     this.serviceId,
     this.technicianId,
+    this.productId,
+    this.productName,
+    this.targetType,
     this.reviewTags = const [],
     this.photos = const [],
     this.branchReply,
@@ -262,6 +310,10 @@ class ServiceReviewDataModel {
       tName = json['technician_name'].toString();
     }
 
+    final pId = json['product_id']?.toString() ?? json['productId']?.toString();
+    final pName = json['product_name']?.toString() ?? json['productName']?.toString();
+    final tType = json['target_type']?.toString() ?? json['targetType']?.toString() ?? (pId != null || pName != null ? 'product' : 'service');
+
     return ServiceReviewDataModel(
       id: json['id']?.toString(),
       overallRating: (json['rating'] as num?)?.toInt() ?? (json['overallRating'] as num?)?.toInt() ?? 5,
@@ -274,12 +326,61 @@ class ServiceReviewDataModel {
       bookingId: json['booking_id']?.toString() ?? json['bookingId']?.toString(),
       serviceId: json['service_id']?.toString() ?? json['serviceId']?.toString(),
       technicianId: json['technician_id']?.toString() ?? json['technicianId']?.toString(),
+      productId: pId,
+      productName: pName,
+      targetType: tType,
       reviewTags: tags,
       photos: photoList,
       branchReply: json['branch_reply']?.toString(),
       createdAt: json['created_at']?.toString(),
       serviceName: sName,
       technicianName: tName,
+    );
+  }
+
+  ServiceReviewDataModel copyWith({
+    String? id,
+    int? overallRating,
+    int? serviceQualityRating,
+    int? staffAttitudeRating,
+    int? spaceAmbianceRating,
+    int? procedureRating,
+    String? comment,
+    String? willingnessToRefer,
+    String? bookingId,
+    String? serviceId,
+    String? technicianId,
+    String? productId,
+    String? productName,
+    String? targetType,
+    List<String>? reviewTags,
+    List<String>? photos,
+    String? branchReply,
+    String? createdAt,
+    String? serviceName,
+    String? technicianName,
+  }) {
+    return ServiceReviewDataModel(
+      id: id ?? this.id,
+      overallRating: overallRating ?? this.overallRating,
+      serviceQualityRating: serviceQualityRating ?? this.serviceQualityRating,
+      staffAttitudeRating: staffAttitudeRating ?? this.staffAttitudeRating,
+      spaceAmbianceRating: spaceAmbianceRating ?? this.spaceAmbianceRating,
+      procedureRating: procedureRating ?? this.procedureRating,
+      comment: comment ?? this.comment,
+      willingnessToRefer: willingnessToRefer ?? this.willingnessToRefer,
+      bookingId: bookingId ?? this.bookingId,
+      serviceId: serviceId ?? this.serviceId,
+      technicianId: technicianId ?? this.technicianId,
+      productId: productId ?? this.productId,
+      productName: productName ?? this.productName,
+      targetType: targetType ?? this.targetType,
+      reviewTags: reviewTags ?? this.reviewTags,
+      photos: photos ?? this.photos,
+      branchReply: branchReply ?? this.branchReply,
+      createdAt: createdAt ?? this.createdAt,
+      serviceName: serviceName ?? this.serviceName,
+      technicianName: technicianName ?? this.technicianName,
     );
   }
 }

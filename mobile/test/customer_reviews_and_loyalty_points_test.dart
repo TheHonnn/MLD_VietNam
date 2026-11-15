@@ -142,21 +142,58 @@ void main() {
           ),
         ),
       );
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
 
-      // Verify Screen title
       expect(find.text('Đánh giá dịch vụ'), findsWidgets);
-
-      // Verify Tab headers
-      expect(find.text('Viết đánh giá'), findsOneWidget);
+      expect(find.textContaining('Chưa đánh giá'), findsOneWidget);
       expect(find.textContaining('Đánh giá của tôi'), findsOneWidget);
+      expect(find.text('Dịch vụ trị liệu'), findsWidgets);
+      expect(find.text('Sản phẩm bổ trợ'), findsWidgets);
+      expect(find.text('Đánh giá ngay'), findsWidgets);
+      expect(find.textContaining('+50 điểm'), findsWidgets);
+    });
 
-      // Verify Service and specialist info
+    testWidgets('D05ServiceReviewScreen category filtering and opening review bottom sheet', (tester) async {
+      tester.view.physicalSize = const Size(390, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          home: const D05ServiceReviewScreen(
+            serviceName: 'Chăm sóc toàn diện chuẩn Y khoa MLD',
+            specialistName: 'Trần Lan Anh',
+            branchName: 'Chi nhánh Quận 3',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final productChip = find.text('Sản phẩm bổ trợ').first;
+      await tester.ensureVisible(productChip);
+      await tester.tap(productChip);
+      await tester.pumpAndSettle();
+      expect(find.text('Băng ép đa lớp MLD Pro Care'), findsOneWidget);
+
+      final serviceChip = find.text('Dịch vụ trị liệu').first;
+      await tester.ensureVisible(serviceChip);
+      await tester.tap(serviceChip);
+      await tester.pumpAndSettle();
       expect(find.text('Chăm sóc toàn diện chuẩn Y khoa MLD'), findsOneWidget);
-      expect(find.text('Chuyên viên: Trần Lan Anh'), findsOneWidget);
 
-      // Verify Points incentive banner
-      expect(find.textContaining('+50 điểm thưởng'), findsWidgets);
+      await tester.tap(find.text('Đánh giá ngay').first);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Đánh giá dịch vụ trị liệu'), findsOneWidget);
+      expect(find.text('Thẻ đánh giá nhanh:'), findsOneWidget);
+      expect(find.text('Gửi đánh giá (+50 điểm)'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.textContaining('Đánh giá của tôi'));
+      await tester.pumpAndSettle();
+      expect(find.text('Sửa đánh giá'), findsWidgets);
     });
   });
 }

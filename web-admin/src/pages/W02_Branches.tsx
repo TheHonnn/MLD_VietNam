@@ -61,6 +61,7 @@ const INITIAL_BRANCH_FORM_DATA = {
   city: 'TP. Hồ Chí Minh',
   openingTime: '08:30',
   closingTime: '20:30',
+  customTimeSlots: [] as string[],
   imageUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
   amenities: ['Phòng VIP riêng biệt', 'Đỗ xe ô tô miễn phí', 'Trà thảo mộc & bánh ngọt'],
 };
@@ -485,6 +486,7 @@ export const W02_Branches: React.FC = () => {
     city: 'TP. Hồ Chí Minh',
     openingTime: '08:30',
     closingTime: '20:30',
+    customTimeSlots: [] as string[],
     imageUrl: '',
     isActive: true,
     amenities: [] as string[],
@@ -507,6 +509,8 @@ export const W02_Branches: React.FC = () => {
   });
   const [newEditAmenity, setNewEditAmenity] = useState('');
   const [newCreateAmenity, setNewCreateAmenity] = useState('');
+  const [newEditSlot, setNewEditSlot] = useState('');
+  const [newCreateSlot, setNewCreateSlot] = useState('');
 
   const [isCustomDistrict, setIsCustomDistrict] = useState(false);
   const [isCustomEditDistrict, setIsCustomEditDistrict] = useState(false);
@@ -1498,6 +1502,7 @@ export const W02_Branches: React.FC = () => {
       imageUrl: branch.imageUrl || '',
       isActive: branch.isActive !== undefined ? branch.isActive : true,
       amenities: branch.amenities ? [...branch.amenities] : [],
+      customTimeSlots: branch.customTimeSlots ? [...branch.customTimeSlots] : [],
     });
 
     try {
@@ -1925,6 +1930,7 @@ export const W02_Branches: React.FC = () => {
         imageUrl: editForm.imageUrl || managingBranch.imageUrl,
         isActive: editForm.isActive,
         amenities: editForm.amenities,
+        customTimeSlots: editForm.customTimeSlots,
       };
 
       await branchService.updateBranch(managingBranch.id, updates);
@@ -2090,6 +2096,7 @@ export const W02_Branches: React.FC = () => {
         imageUrl: formData.imageUrl || '',
         galleryUrls: formData.imageUrl ? [formData.imageUrl] : [],
         amenities: formData.amenities,
+        customTimeSlots: formData.customTimeSlots,
         isActive: true,
       };
 
@@ -3653,6 +3660,97 @@ export const W02_Branches: React.FC = () => {
                     />
                   </div>
 
+                  <div className="sm:col-span-2 p-3.5 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-xs font-bold text-[#2C241E]">
+                          Khung giờ hẹn đón khách tùy chỉnh (Custom Time Slots)
+                        </label>
+                        <p className="text-[11px] text-[#73675F] mt-0.5">
+                          Cấu hình danh sách các ca hẹn hiển thị trên Mobile App. Giao diện đặt lịch trên App sẽ tự động co giãn vừa khung theo số lượng ca bạn cài đặt.
+                        </p>
+                      </div>
+                      {editForm.customTimeSlots.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setEditForm({ ...editForm, customTimeSlots: [] })}
+                          className="text-[11px] text-rose-600 hover:underline font-semibold shrink-0"
+                        >
+                          Xóa tất cả ca
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      {editForm.customTimeSlots.length === 0 ? (
+                        <span className="text-xs text-[#8C7A6B] italic">
+                          Chưa cài ca riêng (hệ thống tự sinh ca theo giờ mở - đóng cửa)
+                        </span>
+                      ) : (
+                        editForm.customTimeSlots.map((slot, sIdx) => (
+                          <span
+                            key={sIdx}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-[#BA7E4C] text-xs font-bold text-[#985018] shadow-2xs"
+                          >
+                            <span>{slot}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextSlots = editForm.customTimeSlots.filter((_, i) => i !== sIdx);
+                                setEditForm({ ...editForm, customTimeSlots: nextSlots });
+                              }}
+                              className="text-[#985018] hover:text-rose-600 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 flex-wrap">
+                      <input
+                        type="time"
+                        value={newEditSlot}
+                        onChange={(e) => setNewEditSlot(e.target.value)}
+                        className="px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!newEditSlot) return;
+                          const slotStr = newEditSlot.slice(0, 5);
+                          if (!editForm.customTimeSlots.includes(slotStr)) {
+                            const updated = [...editForm.customTimeSlots, slotStr].sort();
+                            setEditForm({ ...editForm, customTimeSlots: updated });
+                          }
+                          setNewEditSlot('');
+                        }}
+                        className="px-3 py-1.5 bg-[#985018] text-white rounded-lg text-xs font-bold hover:bg-[#7D4011] transition-all shadow-2xs"
+                      >
+                        + Thêm ca
+                      </button>
+                      <div className="flex items-center gap-1 text-[11px] text-[#73675F] ml-auto flex-wrap">
+                        <span className="hidden sm:inline">Thêm nhanh:</span>
+                        {['08:30', '10:00', '14:00', '16:00', '18:00', '19:30'].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => {
+                              if (!editForm.customTimeSlots.includes(preset)) {
+                                const updated = [...editForm.customTimeSlots, preset].sort();
+                                setEditForm({ ...editForm, customTimeSlots: updated });
+                              }
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-white border border-[#E8DFD8] text-[10px] font-semibold text-[#73675F] hover:border-[#985018] hover:text-[#985018]"
+                          >
+                            +{preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                       Trạng thái hoạt động
@@ -4552,6 +4650,97 @@ export const W02_Branches: React.FC = () => {
                       }
                       className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                     />
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] space-y-3 mb-3.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E]">
+                        Khung giờ hẹn đón khách tùy chỉnh (Custom Time Slots)
+                      </label>
+                      <p className="text-[11px] text-[#73675F] mt-0.5">
+                        Cấu hình các ca hẹn cho chi nhánh này. Giao diện đặt lịch trên App sẽ tự động co giãn vừa khung.
+                      </p>
+                    </div>
+                    {formData.customTimeSlots.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, customTimeSlots: [] })}
+                        className="text-[11px] text-rose-600 hover:underline font-semibold shrink-0"
+                      >
+                        Xóa tất cả ca
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    {formData.customTimeSlots.length === 0 ? (
+                      <span className="text-xs text-[#8C7A6B] italic">
+                        Chưa cài ca riêng (hệ thống tự sinh ca theo giờ mở - đóng cửa)
+                      </span>
+                    ) : (
+                      formData.customTimeSlots.map((slot, sIdx) => (
+                        <span
+                          key={sIdx}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-[#BA7E4C] text-xs font-bold text-[#985018] shadow-2xs"
+                        >
+                          <span>{slot}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextSlots = formData.customTimeSlots.filter((_, i) => i !== sIdx);
+                              setFormData({ ...formData, customTimeSlots: nextSlots });
+                            }}
+                            className="text-[#985018] hover:text-rose-600 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                    <input
+                      type="time"
+                      value={newCreateSlot}
+                      onChange={(e) => setNewCreateSlot(e.target.value)}
+                      className="px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newCreateSlot) return;
+                        const slotStr = newCreateSlot.slice(0, 5);
+                        if (!formData.customTimeSlots.includes(slotStr)) {
+                          const updated = [...formData.customTimeSlots, slotStr].sort();
+                          setFormData({ ...formData, customTimeSlots: updated });
+                        }
+                        setNewCreateSlot('');
+                      }}
+                      className="px-3 py-1.5 bg-[#985018] text-white rounded-lg text-xs font-bold hover:bg-[#7D4011] transition-all shadow-2xs"
+                    >
+                      + Thêm ca
+                    </button>
+                    <div className="flex items-center gap-1 text-[11px] text-[#73675F] ml-auto flex-wrap">
+                      <span className="hidden sm:inline">Thêm nhanh:</span>
+                      {['08:30', '10:00', '14:00', '16:00', '18:00', '19:30'].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => {
+                            if (!formData.customTimeSlots.includes(preset)) {
+                              const updated = [...formData.customTimeSlots, preset].sort();
+                              setFormData({ ...formData, customTimeSlots: updated });
+                            }
+                          }}
+                          className="px-1.5 py-0.5 rounded bg-white border border-[#E8DFD8] text-[10px] font-semibold text-[#73675F] hover:border-[#985018] hover:text-[#985018]"
+                        >
+                          +{preset}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 

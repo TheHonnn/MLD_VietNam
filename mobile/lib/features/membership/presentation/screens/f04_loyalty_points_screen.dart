@@ -377,10 +377,10 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> with Si
                 // 1. VIP MEMBERSHIP CARD
                 Container(
                   color: Colors.white,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       gradient: _getTierGradient(memberTierName),
                       borderRadius: BorderRadius.circular(16),
@@ -450,7 +450,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> with Si
                           ],
                         ),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 10),
 
                         // Tên hội viên & Số điện thoại / mã thẻ
                         Text(
@@ -473,9 +473,9 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> with Si
                           ),
                         ),
 
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 8),
                         Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 8),
 
                         // Điểm thưởng & Giá trị quy đổi
                         Row(
@@ -503,7 +503,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> with Si
                                       _formatNumber(pointsBalance),
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 28,
+                                        fontSize: 22,
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: -0.5,
                                       ),

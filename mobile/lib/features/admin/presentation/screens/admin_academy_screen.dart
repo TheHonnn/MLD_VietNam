@@ -986,7 +986,6 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
         children: [
           // 1. Thanh Tab Bar Tuyển sinh chuẩn MLD (Indicator gạch chân, không dùng nút trắng bo viền trên nền xám)
           Container(
-            color: Colors.white,
             height: 42,
             decoration: const BoxDecoration(
               color: Colors.white,

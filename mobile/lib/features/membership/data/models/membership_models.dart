@@ -196,6 +196,12 @@ class VoucherItem {
   final String code;
   final String status;
   final String statusText;
+  final String? couponId;
+  final String? userVoucherId;
+  final double discountPercent;
+  final double discountAmount;
+  final double minOrderAmount;
+  final double? maxDiscount;
 
   const VoucherItem({
     required this.id,
@@ -207,7 +213,82 @@ class VoucherItem {
     required this.code,
     required this.status,
     required this.statusText,
+    this.couponId,
+    this.userVoucherId,
+    this.discountPercent = 0.0,
+    this.discountAmount = 0.0,
+    this.minOrderAmount = 0.0,
+    this.maxDiscount,
   });
+
+  double calculateDiscount(double subtotal) {
+    if (subtotal < minOrderAmount) return 0.0;
+    if (discountPercent > 0) {
+      double disc = subtotal * (discountPercent / 100.0);
+      if (maxDiscount != null && maxDiscount! > 0 && disc > maxDiscount!) {
+        disc = maxDiscount!;
+      }
+      return disc > subtotal ? subtotal : disc;
+    } else if (discountAmount > 0) {
+      return discountAmount > subtotal ? subtotal : discountAmount;
+    }
+    return 0.0;
+  }
+
+  bool isEligible(double subtotal) => subtotal >= minOrderAmount;
+
+  bool get isAvailable => status == 'AVAILABLE';
+  bool get isUsed => status == 'USED';
+  bool get isExpired => status == 'EXPIRED';
+
+  String get discountDescription {
+    if (discountPercent > 0) {
+      final maxStr = (maxDiscount != null && maxDiscount! > 0)
+          ? ' tối đa ${(maxDiscount! / 1000).toInt()}k'
+          : '';
+      return 'Giảm ${discountPercent.toInt()}%$maxStr';
+    }
+    if (discountAmount > 0) {
+      return 'Giảm ${(discountAmount / 1000).toInt()}k';
+    }
+    return discountBanner.isNotEmpty ? discountBanner : 'Ưu đãi đặc biệt';
+  }
+}
+
+class VoucherValidationResult {
+  final bool isValid;
+  final String message;
+  final VoucherItem? voucher;
+  final double discount;
+
+  const VoucherValidationResult({
+    required this.isValid,
+    required this.message,
+    this.voucher,
+    this.discount = 0.0,
+  });
+
+  factory VoucherValidationResult.success({
+    required VoucherItem voucher,
+    required String message,
+    double discount = 0.0,
+  }) {
+    return VoucherValidationResult(
+      isValid: true,
+      message: message,
+      voucher: voucher,
+      discount: discount,
+    );
+  }
+
+  factory VoucherValidationResult.failure(String message) {
+    return VoucherValidationResult(
+      isValid: false,
+      message: message,
+      voucher: null,
+      discount: 0.0,
+    );
+  }
 }
 
 class PaymentTransaction {

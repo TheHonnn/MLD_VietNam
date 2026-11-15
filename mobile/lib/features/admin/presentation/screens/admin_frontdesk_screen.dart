@@ -658,8 +658,6 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
@@ -1190,33 +1188,43 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.layers_rounded, size: 16, color: AppColors.primary),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'TIẾP ĐÓN PHÂN THEO CA (${_filteredBookings.length} khách)',
-                                        style: AppTypography.zaloFont(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.textHeading,
-                                          letterSpacing: 0.5,
+                                  Expanded(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.layers_rounded, size: 16, color: AppColors.primary),
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            'TIẾP ĐÓN PHÂN THEO CA (${_filteredBookings.length} khách)',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: AppTypography.zaloFont(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.textHeading,
+                                              letterSpacing: 0.3,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
+                                  const SizedBox(width: 6),
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       InkWell(
                                         onTap: () => setState(() => _isCompactView = !_isCompactView),
                                         borderRadius: BorderRadius.circular(6),
                                         child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                           decoration: BoxDecoration(
                                             color: _isCompactView ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Row(
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(
                                                 _isCompactView ? Icons.view_compact_rounded : Icons.view_agenda_rounded,
@@ -1225,7 +1233,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                                               ),
                                               const SizedBox(width: 3),
                                               Text(
-                                                _isCompactView ? 'Xem gọn' : 'Xem chi tiết',
+                                                _isCompactView ? 'Gọn' : 'Chi tiết',
                                                 style: AppTypography.zaloFont(
                                                   fontSize: 10.5,
                                                   fontWeight: FontWeight.w600,
@@ -1236,16 +1244,16 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: 6),
                                       InkWell(
                                         onTap: _toggleAllShifts,
                                         borderRadius: BorderRadius.circular(6),
                                         child: Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                           child: Text(
-                                            _expandedShifts.isEmpty ? 'Mở tất cả' : 'Thu gọn tất cả',
+                                            _expandedShifts.isEmpty ? 'Mở ca' : 'Thu gọn',
                                             style: AppTypography.zaloFont(
-                                              fontSize: 11,
+                                              fontSize: 10.5,
                                               fontWeight: FontWeight.w600,
                                               color: AppColors.primary,
                                             ),
