@@ -14,6 +14,7 @@ import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/branch_repository.dart';
 import '../../../home/data/repositories/service_repository.dart';
+import '../../../membership/data/models/membership_models.dart';
 import '../../data/models/home_product_model.dart';
 import '../../data/repositories/product_repository.dart';
 import 'home_product_detail_screen.dart';
@@ -63,7 +64,8 @@ class B02ServiceListingScreen extends StatefulWidget {
   final String? initialQuery;
   final String? initialCategory;
   final String? initialBranch;
-  final int initialSegment; // 0: Trị liệu, 1: Sản phẩm
+  final int initialSegment;
+  final VoucherItem? initialVoucher;
 
   const B02ServiceListingScreen({
     super.key,
@@ -72,6 +74,7 @@ class B02ServiceListingScreen extends StatefulWidget {
     this.initialCategory,
     this.initialBranch,
     this.initialSegment = 0,
+    this.initialVoucher,
   });
 
   @override
@@ -82,6 +85,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _therapyScrollController = ScrollController();
   final ScrollController _productScrollController = ScrollController();
+  VoucherItem? _appliedVoucher;
   
   // Phân hệ chính: 0: Trị liệu, 1: Sản phẩm
   late int _selectedSegment;
@@ -125,6 +129,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   @override
   void initState() {
     super.initState();
+    _appliedVoucher = widget.initialVoucher;
     _selectedSegment = widget.initialSegment;
 
     if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
@@ -298,7 +303,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     }).toList();
   }
 
-  /// Đặt lịch trực tiếp cho dịch vụ hoặc gói bổ trợ
   void _handleBookingItem(TherapyDisplayItem item) async {
     final ok = await GuestAuthPrompt.ensureLoggedIn(
       context,
@@ -321,7 +325,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
           categoryName: item.category.isNotEmpty ? item.category : 'Gói liệu trình bổ trợ',
           shortDescription: item.description,
           fullDescription: item.package?.description ?? item.description,
-          durationMinutes: (item.package?.sessionsCount ?? 1) * 60,
+          durationMinutes: 60,
           price: item.price,
           imageUrl: item.imageUrl,
           steps: const ['Khám & tư vấn phác đồ', 'Tiến hành liệu trình chuyên sâu', 'Theo dõi phục hồi & dặn dò'],
@@ -336,8 +340,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
           initialService: service,
           initialBranch: chosenBranch,
           initialSpecialty: service.categoryName.isNotEmpty ? service.categoryName : null,
-          userPackageId: item.isPackage ? (item.package?.id ?? item.id) : null,
-          userPackageName: item.isPackage ? item.title : null,
+          userPackageId: null,
+          userPackageName: null,
+          initialVoucher: _appliedVoucher,
         ),
       ),
     );
@@ -746,6 +751,74 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     );
   }
 
+  Widget _buildVoucherBanner() {
+    if (_appliedVoucher == null) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFEFF6EE),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.confirmation_number_outlined, color: Colors.white, size: 16),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      _appliedVoucher!.code,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.accent,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '(${_appliedVoucher!.discountBanner})',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFD97706),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  context.tr('Chọn dịch vụ bên dưới để đặt lịch áp mã ưu đãi', 'Select a service below to book with voucher'),
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () {
+              setState(() => _appliedVoucher = null);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -785,6 +858,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            if (_appliedVoucher != null) _buildVoucherBanner(),
             // 1. Phân hệ 2 Tab lớn: [ TRỊ LIỆU ] & [ SẢN PHẨM ]
             Container(
               color: Colors.white,

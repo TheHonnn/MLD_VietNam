@@ -13,8 +13,21 @@ void main() {
       expect(service.hotlineTraining, '096.7786.399');
       expect(service.zaloOaUrl, contains('zalo.me'));
       expect(service.messengerUrl, contains('m.me'));
+      expect(service.youtubeUrl, contains('youtube.com'));
+      expect(service.websiteUrl, contains('mldvietnam.com'));
       expect(service.consultationBadgeText, 'TƯ VẤN Y KHOA MLD');
       expect(service.workingHours, '09:00 – 20:00 hàng ngày');
+    });
+
+    test('Provides dynamic contactChannels list with codes and icons', () {
+      final channels = service.contactChannels;
+      expect(channels.length, greaterThanOrEqualTo(5));
+      expect(channels.any((c) => c['code'] == 'HOTLINE'), isTrue);
+      expect(channels.any((c) => c['code'] == 'ZALO'), isTrue);
+      expect(channels.any((c) => c['code'] == 'FACEBOOK'), isTrue);
+      expect(channels.any((c) => c['code'] == 'TIKTOK'), isTrue);
+      expect(channels.any((c) => c['code'] == 'YOUTUBE'), isTrue);
+      expect(channels.any((c) => c['code'] == 'WEBSITE'), isTrue);
     });
 
     test('Provides valid audienceFilterList with "Tất cả đối tượng" prefix', () {

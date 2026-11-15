@@ -105,7 +105,7 @@ export class AcademyController {
     @Param('id') id: string,
     @Body() body: { amountPaid?: number; notes?: string },
   ) {
-    return this.academyService.approveEnrollment(id, req.admin.id, body?.amountPaid, body?.notes);
+    return this.academyService.approveEnrollment(id, req.admin.id, body?.notes);
   }
 
   @Post('enrollments/:id/graduate')
@@ -120,15 +120,18 @@ export class AcademyController {
   }
 
   @Post('enrollments/:id/assign-batch')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AdminGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Xếp hoặc chuyển lớp có khóa sĩ số và audit' })
   async assignEnrollmentBatch(
-    @CurrentUser('id') adminId: string,
+    @Req() req: { admin: { id: string; role: string } },
     @Param('id') id: string,
     @Body() body: { batchId: string; reason?: string },
   ) {
-    return this.academyService.assignEnrollmentBatch(id, body.batchId, adminId, body.reason);
+    if (!['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(req.admin.role)) {
+      throw new ForbiddenException('Tài khoản không có quyền xếp lớp.');
+    }
+    return this.academyService.assignEnrollmentBatch(id, body?.batchId, req.admin.id, body?.reason);
   }
 
   @Post('enrollments/:id/finalize-consultation')

@@ -5,6 +5,7 @@ import 'dart:math';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../models/booking_models.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 
 /// Central Booking Repository connecting Mobile to NestJS Backend Gateway
 /// (/api/v1/bookings/*) with automatic resilient caching.
@@ -386,6 +387,48 @@ class BookingRepository {
       }
       final combinedNotes = notesBuffer.join(' | ');
 
+      double appliedDiscount = appointment.discountAmount;
+      double appliedFinalPrice = appointment.finalPrice ?? appointment.totalAmount;
+      String? appliedCouponId = appointment.couponId;
+      String? appliedUserVoucherId = appointment.userVoucherId;
+
+      if (appliedCouponId != null && appliedCouponId.isNotEmpty) {
+        bool alreadyUsed = false;
+        try {
+          final uvCheck = await _apiClient.dio.get(
+            '/rest/v1/user_vouchers?user_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=eq.USED&select=id&limit=1',
+            options: Options(headers: {
+              'apikey': ApiEndpoints.supabaseServiceRoleKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            }),
+          );
+          if (uvCheck.statusCode == 200 && uvCheck.data is List && (uvCheck.data as List).isNotEmpty) {
+            alreadyUsed = true;
+          }
+
+          if (!alreadyUsed) {
+            final bkCheck = await _apiClient.dio.get(
+              '/rest/v1/bookings?customer_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=neq.CANCELLED&select=id&limit=1',
+              options: Options(headers: {
+                'apikey': ApiEndpoints.supabaseServiceRoleKey,
+                'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+              }),
+            );
+            if (bkCheck.statusCode == 200 && bkCheck.data is List && (bkCheck.data as List).isNotEmpty) {
+              alreadyUsed = true;
+            }
+          }
+        } catch (_) {}
+
+        if (alreadyUsed) {
+          debugPrint('>>> [BookingRepository] FRAUD PREVENTION: Coupon $appliedCouponId already used by customer $effectiveCustomerId! Discount cancelled.');
+          appliedDiscount = 0.0;
+          appliedFinalPrice = (appointment.baseTotal ?? appointment.totalAmount) - appointment.pointsDiscount;
+          appliedCouponId = null;
+          appliedUserVoucherId = null;
+        }
+      }
+
       final bookingPayload = {
         'booking_code': appointment.bookingCode,
         'customer_id': effectiveCustomerId,
@@ -397,8 +440,13 @@ class BookingRepository {
         'status': 'PENDING',
         'payment_status': 'UNPAID',
         'payment_method': method,
-        'base_total': appointment.totalAmount,
-        'final_price': appointment.totalAmount,
+        'base_total': appointment.baseTotal ?? appointment.totalAmount,
+        'discount_amount': appliedDiscount,
+        'points_used': appointment.pointsUsed,
+        'points_discount': appointment.pointsDiscount,
+        'final_price': appliedFinalPrice,
+        if (appliedCouponId != null && appliedCouponId.isNotEmpty)
+          'coupon_id': appliedCouponId,
         'booked_for_name': appointment.customerName,
         'booked_for_phone': appointment.customerPhone,
         'special_notes': combinedNotes,
@@ -426,10 +474,97 @@ class BookingRepository {
                 'service_id': effectiveServiceId,
                 'technician_id': effectiveTechId,
                 'duration_minutes': appointment.durationMinutes,
-                'price': appointment.totalAmount,
+                'price': appointment.baseTotal ?? appointment.totalAmount,
               },
             );
           } catch (_) {}
+
+          if (appliedUserVoucherId != null && appliedUserVoucherId.isNotEmpty) {
+            try {
+              await _apiClient.dio.patch(
+                '/rest/v1/user_vouchers?id=eq.$appliedUserVoucherId',
+                data: {
+                  'status': 'USED',
+                  'used_at': DateTime.now().toIso8601String(),
+                  'used_in_booking_id': realId,
+                },
+                options: Options(headers: {
+                  'apikey': ApiEndpoints.supabaseServiceRoleKey,
+                  'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                }),
+              );
+            } catch (e) {
+              debugPrint('>>> [BookingRepository] Update user_voucher status error: $e');
+            }
+          } else if (appliedCouponId != null && appliedCouponId.isNotEmpty) {
+            try {
+              final uvRes = await _apiClient.dio.get(
+                '/rest/v1/user_vouchers?user_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=eq.AVAILABLE&limit=1',
+                options: Options(headers: {
+                  'apikey': ApiEndpoints.supabaseServiceRoleKey,
+                  'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                }),
+              );
+              if (uvRes.statusCode == 200 && uvRes.data is List && (uvRes.data as List).isNotEmpty) {
+                final uvId = (uvRes.data as List).first['id'];
+                await _apiClient.dio.patch(
+                  '/rest/v1/user_vouchers?id=eq.$uvId',
+                  data: {
+                    'status': 'USED',
+                    'used_at': DateTime.now().toIso8601String(),
+                    'used_in_booking_id': realId,
+                  },
+                  options: Options(headers: {
+                    'apikey': ApiEndpoints.supabaseServiceRoleKey,
+                    'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                  }),
+                );
+              } else {
+                await _apiClient.dio.post(
+                  '/rest/v1/user_vouchers',
+                  data: {
+                    'user_id': effectiveCustomerId,
+                    'coupon_id': appliedCouponId,
+                    'source_trigger': 'PUBLIC_CLAIM',
+                    'status': 'USED',
+                    'claimed_at': DateTime.now().toIso8601String(),
+                    'expires_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+                    'used_at': DateTime.now().toIso8601String(),
+                    'used_in_booking_id': realId,
+                  },
+                  options: Options(headers: {
+                    'apikey': ApiEndpoints.supabaseServiceRoleKey,
+                    'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                  }),
+                );
+              }
+            } catch (e) {
+              debugPrint('>>> [BookingRepository] Record used coupon error: $e');
+            }
+          }
+
+          if (appliedCouponId != null && appliedCouponId.isNotEmpty) {
+            try {
+              final cRes = await _apiClient.dio.get(
+                '/rest/v1/coupons?id=eq.$appliedCouponId&select=used_count&limit=1',
+                options: Options(headers: {
+                  'apikey': ApiEndpoints.supabaseServiceRoleKey,
+                  'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                }),
+              );
+              if (cRes.statusCode == 200 && cRes.data is List && (cRes.data as List).isNotEmpty) {
+                final currentUsed = (cRes.data as List).first['used_count'] as int? ?? 0;
+                await _apiClient.dio.patch(
+                  '/rest/v1/coupons?id=eq.$appliedCouponId',
+                  data: {'used_count': currentUsed + 1},
+                  options: Options(headers: {
+                    'apikey': ApiEndpoints.supabaseServiceRoleKey,
+                    'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                  }),
+                );
+              }
+            } catch (_) {}
+          }
           return realId;
         }
       }
@@ -819,45 +954,28 @@ class BookingRepository {
     return 0.0;
   }
 
-  /// Xác thực mã giảm giá trực tuyến với bảng coupons trên Supabase Cloud
   static Future<Map<String, dynamic>> validateCouponOnline(String code, double currentPrice) async {
     final cleanCode = code.trim().toUpperCase();
     if (cleanCode.isEmpty) {
       return {'isValid': false, 'message': 'Vui lòng nhập mã ưu đãi'};
     }
     try {
-      final res = await ApiClient.instance.dio.get(
-        '/rest/v1/coupons?code=eq.$cleanCode&is_active=eq.true',
+      final res = await MembershipRepository.instance.validateVoucherCodeDetails(
+        cleanCode,
+        currentPrice: currentPrice,
       );
-      if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
-        final coupon = (res.data as List).first as Map<String, dynamic>;
-        final minOrder = (coupon['min_order_amount'] as num?)?.toDouble() ?? 0.0;
-        if (currentPrice < minOrder) {
-          final minStr = minOrder.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
-          return {
-            'isValid': false,
-            'message': 'Đơn hàng chưa đạt mức tối thiểu $minStrđ để áp dụng mã này.',
-          };
-        }
-        final discountPercent = (coupon['discount_percent'] as num?)?.toDouble() ?? 0.0;
-        final discountAmount = (coupon['discount_amount'] as num?)?.toDouble() ?? 0.0;
-        final maxDiscount = (coupon['max_discount'] as num?)?.toDouble() ?? 0.0;
-
-        double calculatedDiscount = 0.0;
-        if (discountPercent > 0) {
-          calculatedDiscount = currentPrice * (discountPercent / 100);
-          if (maxDiscount > 0 && calculatedDiscount > maxDiscount) {
-            calculatedDiscount = maxDiscount;
-          }
-        } else if (discountAmount > 0) {
-          calculatedDiscount = discountAmount;
-        }
-
-        final discountStr = calculatedDiscount.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
+      if (res.isValid) {
         return {
           'isValid': true,
-          'discount': calculatedDiscount,
-          'message': 'Áp dụng thành công mã $cleanCode (-$discountStrđ)!',
+          'discount': res.discount,
+          'couponId': res.voucher?.couponId,
+          'message': res.message,
+        };
+      } else {
+        return {
+          'isValid': false,
+          'discount': 0.0,
+          'message': res.message,
         };
       }
     } catch (_) {}

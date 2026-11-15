@@ -11,8 +11,7 @@ import {
   ExternalLink,
   BookOpen,
 } from 'lucide-react';
-import { CourseBatch, Course, User } from '../../types/shared_types';
-import { StaffWithProfile } from '../../services';
+import { CourseBatch, Course, Instructor, User } from '../../types/shared_types';
 import { useNavigate } from 'react-router-dom';
 
 export interface AssignCandidateInfo {
@@ -34,7 +33,7 @@ interface AssignBatchModalProps {
   candidate: AssignCandidateInfo | null;
   batches: CourseBatch[];
   courses: Course[];
-  instructors: StaffWithProfile[];
+  instructors: Pick<Instructor, 'id' | 'fullName'>[];
   onAssignBatch: (enrollmentId: string, batchId: string, reason?: string) => Promise<boolean>;
 }
 
@@ -176,9 +175,8 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
                   const isSelected = selectedBatchId === batch.id;
                   const isFull = Boolean(batch.maxStudents && (batch.enrolledCount || 0) >= batch.maxStudents);
                   const instName =
-                    instMap.get(batch.instructorId || '') ||
-                    batch.instructorId ||
-                    'Lâm Xuân Trường';
+                    instMap.get(batch.instructorId || '')?.trim() ||
+                    (batch.instructorId ? 'Chưa tải được tên giảng viên' : 'Chưa phân công giảng viên');
                   const branchLabel = batch.branchId?.includes('0002') ? 'Quận 1' : 'Quận 3';
                   const formattedStartDate = batch.startDate
                     ? new Intl.DateTimeFormat('vi-VN').format(new Date(batch.startDate))

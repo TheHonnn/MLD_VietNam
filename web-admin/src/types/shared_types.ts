@@ -308,6 +308,7 @@ export interface Branch {
   longitude: number;
   openingTime: string;
   closingTime: string;
+  customTimeSlots?: string[];
   imageUrl: string;
   galleryUrls: string[];
   amenities: string[];
@@ -1112,7 +1113,7 @@ export interface PortalContacts {
   updatedAt: string;
 }
 
-export type TaxonomyType = 'TARGET_AUDIENCE' | 'TARGET_NEED';
+export type TaxonomyType = 'TARGET_AUDIENCE' | 'TARGET_NEED' | 'CONTACT_CHANNEL';
 
 export interface PortalTaxonomyItem {
   id: string;

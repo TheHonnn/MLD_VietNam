@@ -18,10 +18,85 @@ class PortalSettingsService {
   static const String defaultMessenger = 'https://m.me/hebachhuyet.mldvietnam';
   static const String defaultFanpage = 'https://facebook.com/hebachhuyet.mldvietnam';
   static const String defaultTiktok = 'https://tiktok.com/@mldvietnam';
+  static const String defaultYoutube = 'https://www.youtube.com/@mldvietnam';
+  static const String defaultWebsite = 'https://mldvietnam.com';
   static const String defaultWorkingHours = '09:00 – 20:00 hàng ngày';
   static const String defaultAddress =
       'Chi nhánh Quận 3, 123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh';
   static const String defaultBadgeText = 'TƯ VẤN Y KHOA MLD';
+
+  static const List<Map<String, dynamic>> defaultContactChannels = [
+    {
+      'id': 'cc000000-0001-0001-0001-000000000001',
+      'type': 'CONTACT_CHANNEL',
+      'code': 'HOTLINE',
+      'name': 'Hotline CSKH & Đặt lịch',
+      'description': '096.7786.399',
+      'icon_name': 'phone',
+      'sort_order': 1,
+      'is_active': true,
+    },
+    {
+      'id': 'cc000000-0001-0001-0001-000000000002',
+      'type': 'CONTACT_CHANNEL',
+      'code': 'ZALO',
+      'name': 'Zalo Official Account',
+      'description': 'https://zalo.me/1424469774232439257?src=qr',
+      'icon_name': 'zalo',
+      'sort_order': 2,
+      'is_active': true,
+    },
+    {
+      'id': 'cc000000-0001-0001-0001-000000000003',
+      'type': 'CONTACT_CHANNEL',
+      'code': 'FACEBOOK',
+      'name': 'Facebook Fanpage',
+      'description': 'https://facebook.com/hebachhuyet.mldvietnam',
+      'icon_name': 'facebook',
+      'sort_order': 3,
+      'is_active': true,
+    },
+    {
+      'id': 'cc000000-0001-0001-0001-000000000004',
+      'type': 'CONTACT_CHANNEL',
+      'code': 'MESSENGER',
+      'name': 'Messenger Fanpage',
+      'description': 'https://m.me/hebachhuyet.mldvietnam',
+      'icon_name': 'messenger',
+      'sort_order': 4,
+      'is_active': true,
+    },
+    {
+      'id': 'cc000000-0001-0001-0001-000000000005',
+      'type': 'CONTACT_CHANNEL',
+      'code': 'TIKTOK',
+      'name': 'TikTok Official',
+      'description': 'https://www.tiktok.com/@trungtamgiamphu',
+      'icon_name': 'tiktok',
+      'sort_order': 5,
+      'is_active': true,
+    },
+    {
+      'id': 'cc000000-0001-0001-0001-000000000006',
+      'type': 'CONTACT_CHANNEL',
+      'code': 'YOUTUBE',
+      'name': 'Kênh YouTube MLD',
+      'description': 'https://www.youtube.com/@mldvietnam',
+      'icon_name': 'youtube',
+      'sort_order': 6,
+      'is_active': true,
+    },
+    {
+      'id': 'cc000000-0001-0001-0001-000000000007',
+      'type': 'CONTACT_CHANNEL',
+      'code': 'WEBSITE',
+      'name': 'Website MLD Việt Nam',
+      'description': 'https://mldvietnam.com',
+      'icon_name': 'globe',
+      'sort_order': 7,
+      'is_active': true,
+    },
+  ];
 
   static const List<String> defaultAudiences = [
     'Tất cả đối tượng',
@@ -46,6 +121,8 @@ class PortalSettingsService {
   String _messengerUrl = defaultMessenger;
   String _fanpageUrl = defaultFanpage;
   String _tiktokUrl = defaultTiktok;
+  String _youtubeUrl = defaultYoutube;
+  String _websiteUrl = defaultWebsite;
   String _workingHours = defaultWorkingHours;
   String _headquartersAddress = defaultAddress;
   String _consultationBadgeText = defaultBadgeText;
@@ -56,13 +133,14 @@ class PortalSettingsService {
 
   bool _initialized = false;
 
-  // Getters
   String get hotlineSupport => _hotlineSupport;
   String get hotlineTraining => _hotlineTraining;
   String get zaloOaUrl => _zaloOaUrl;
   String get messengerUrl => _messengerUrl;
   String get fanpageUrl => _fanpageUrl;
   String get tiktokUrl => _tiktokUrl;
+  String get youtubeUrl => _youtubeUrl;
+  String get websiteUrl => _websiteUrl;
   String get workingHours => _workingHours;
   String get headquartersAddress => _headquartersAddress;
   String get consultationBadgeText => _consultationBadgeText;
@@ -70,6 +148,21 @@ class PortalSettingsService {
   List<Map<String, dynamic>> get taxonomies => List.unmodifiable(_taxonomies);
   List<Map<String, dynamic>> get faqs => List.unmodifiable(_faqs);
   List<Map<String, dynamic>> get legalPolicies => List.unmodifiable(_legalPolicies);
+
+  List<Map<String, dynamic>> get contactChannels {
+    final list = _taxonomies
+        .where((x) => x['type'] == 'CONTACT_CHANNEL' && (x['is_active'] == true || x['isActive'] == true))
+        .toList();
+    if (list.isNotEmpty) {
+      list.sort((a, b) {
+        final ordA = (a['sort_order'] as num?)?.toInt() ?? ((a['sortOrder'] as num?)?.toInt() ?? 999);
+        final ordB = (b['sort_order'] as num?)?.toInt() ?? ((b['sortOrder'] as num?)?.toInt() ?? 999);
+        return ordA.compareTo(ordB);
+      });
+      return list;
+    }
+    return defaultContactChannels;
+  }
 
   /// Lấy danh sách tên Đối tượng lọc (có 'Tất cả đối tượng')
   List<String> get audienceFilterList {
@@ -174,6 +267,12 @@ class PortalSettingsService {
     if (data['messenger_url'] != null) _messengerUrl = data['messenger_url'];
     if (data['fanpage_url'] != null) _fanpageUrl = data['fanpage_url'];
     if (data['tiktok_url'] != null) _tiktokUrl = data['tiktok_url'];
+    if (data['youtube_url'] != null && (data['youtube_url'] as String).trim().isNotEmpty) {
+      _youtubeUrl = data['youtube_url'];
+    }
+    if (data['website_url'] != null && (data['website_url'] as String).trim().isNotEmpty) {
+      _websiteUrl = data['website_url'];
+    }
     if (data['working_hours'] != null) _workingHours = data['working_hours'];
     if (data['headquarters_address'] != null) _headquartersAddress = data['headquarters_address'];
     if (data['consultation_badge_text'] != null) {

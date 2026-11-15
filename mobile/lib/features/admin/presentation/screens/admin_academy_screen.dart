@@ -39,13 +39,9 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
   List<AdminCourseBatchModel> _batches = [];
   List<AdminCourseModel> _courses = [];
   List<AdminQuizSubmissionModel> _submissions = [];
-  final Set<String> _expandedBatchIds = {};
 
-  // Bộ lọc cho Tab Bài thi (Lọc theo Lớp & Kết quả)
   String _selectedSubmissionBatchId = 'ALL';
-  String _selectedSubmissionResult = 'ALL'; // ALL, PASSED, FAILED
-
-  // Bộ lọc cho Tab Lớp học (Đúng 2 nút: Chọn ngày & Tất cả theo yêu cầu)
+  String _selectedSubmissionResult = 'ALL';
   DateTime? _selectedBatchDate;
   bool _isAllBatchDates = true;
 
@@ -366,27 +362,32 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F6ED),
-                            borderRadius: BorderRadius.circular(10),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F6ED),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.person_add_rounded, color: Color(0xFF0D6832), size: 20),
                           ),
-                          child: const Icon(Icons.person_add_rounded, color: Color(0xFF0D6832), size: 20),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Thêm thẻ học viên mới',
-                          style: AppTypography.zaloFont(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textHeading,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Thêm thẻ học viên mới',
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.zaloFont(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textHeading,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close_rounded),
@@ -986,7 +987,6 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
         children: [
           // 1. Thanh Tab Bar Tuyển sinh chuẩn MLD (Indicator gạch chân, không dùng nút trắng bo viền trên nền xám)
           Container(
-            color: Colors.white,
             height: 42,
             decoration: const BoxDecoration(
               color: Colors.white,
@@ -1769,10 +1769,15 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      c.candidateName,
-                      style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                    Expanded(
+                      child: Text(
+                        c.candidateName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       _formatPrice(c.amountPaid),
                       style: AppTypography.zaloFont(
@@ -2046,9 +2051,9 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
         if (!matches) return false;
       }
       if (!_isAllBatchDates && _selectedBatchDate != null) {
-        if (b.startDate == null || b.startDate!.isEmpty) return false;
+        if (b.startDate.isEmpty) return false;
         try {
-          final parsed = DateTime.parse(b.startDate!);
+          final parsed = DateTime.parse(b.startDate);
           if (!DateUtils.isSameDay(parsed, _selectedBatchDate!)) return false;
         } catch (_) {
           return false;

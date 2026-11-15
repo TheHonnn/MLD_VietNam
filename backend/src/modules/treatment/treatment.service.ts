@@ -395,7 +395,11 @@ export class TreatmentService {
     }
 
     const ratingVal = dto.rating || (dto as any).overallRating || 5;
-    const quickTags: string[] = dto.quickTags && dto.quickTags.length > 0 ? [...dto.quickTags] : [];
+    const quickTags: string[] = dto.quickTags && dto.quickTags.length > 0
+      ? [...dto.quickTags]
+      : dto.reviewTags && dto.reviewTags.length > 0
+        ? [...dto.reviewTags]
+        : [];
     if ((dto as any).serviceQualityRating) quickTags.push(`Chất lượng dịch vụ: ${(dto as any).serviceQualityRating}★`);
     if ((dto as any).staffAttitudeRating) quickTags.push(`Thái độ nhân viên: ${(dto as any).staffAttitudeRating}★`);
     if ((dto as any).spaceAmbianceRating) quickTags.push(`Không gian: ${(dto as any).spaceAmbianceRating}★`);

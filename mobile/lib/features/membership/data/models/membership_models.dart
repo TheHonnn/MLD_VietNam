@@ -17,6 +17,7 @@ class UserProfile {
   final String validUntil;
   final String? referrerName;
   final String? referredById;
+  final double totalSpent;
 
   const UserProfile({
     required this.id,
@@ -37,9 +38,11 @@ class UserProfile {
     required this.validUntil,
     this.referrerName,
     this.referredById,
+    this.totalSpent = 0.0,
   });
 
   UserProfile copyWith({
+    String? id,
     String? fullName,
     String? phone,
     bool? isPhoneVerified,
@@ -57,10 +60,11 @@ class UserProfile {
     String? validUntil,
     String? referrerName,
     String? referredById,
+    double? totalSpent,
     bool clearReferrer = false,
   }) {
     return UserProfile(
-      id: id,
+      id: id ?? this.id,
       fullName: fullName ?? this.fullName,
       phone: phone ?? this.phone,
       isPhoneVerified: isPhoneVerified ?? this.isPhoneVerified,
@@ -78,6 +82,7 @@ class UserProfile {
       validUntil: validUntil ?? this.validUntil,
       referrerName: clearReferrer ? null : (referrerName ?? this.referrerName),
       referredById: clearReferrer ? null : (referredById ?? this.referredById),
+      totalSpent: totalSpent ?? this.totalSpent,
     );
   }
 }
@@ -104,6 +109,49 @@ class MembershipTier {
     required this.minPoints,
     required this.isCurrent,
   });
+}
+
+/// Quy tắc & Đặc quyền từng hạng hội viên (đồng bộ với Web Admin: membership_tier_rules)
+class TierRuleModel {
+  final String tier; // 'STANDARD', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND'
+  final String displayName;
+  final double minSpent;
+  final double pointEarningRate;
+  final double discountPercent;
+  final int freeHeadSpaCount;
+  final bool priorityBooking;
+  final String description;
+
+  const TierRuleModel({
+    required this.tier,
+    required this.displayName,
+    required this.minSpent,
+    required this.pointEarningRate,
+    required this.discountPercent,
+    required this.freeHeadSpaCount,
+    required this.priorityBooking,
+    required this.description,
+  });
+
+  factory TierRuleModel.fromJson(Map<String, dynamic> json) {
+    final t = json['tier']?.toString().toUpperCase() ?? 'STANDARD';
+    String dName = 'Hội viên Tiêu chuẩn';
+    if (t == 'SILVER') dName = 'Hội viên Bạc';
+    if (t == 'GOLD') dName = 'Hội viên Vàng';
+    if (t == 'PLATINUM') dName = 'Hội viên Bạch Kim';
+    if (t == 'DIAMOND') dName = 'Hội viên Kim Cương';
+
+    return TierRuleModel(
+      tier: t,
+      displayName: dName,
+      minSpent: (json['min_accumulated_spent'] as num?)?.toDouble() ?? 0.0,
+      pointEarningRate: (json['point_earning_rate'] as num?)?.toDouble() ?? 1.0,
+      discountPercent: (json['discount_service_percent'] as num?)?.toDouble() ?? 0.0,
+      freeHeadSpaCount: (json['free_head_spa_sessions'] as num?)?.toInt() ?? 0,
+      priorityBooking: json['priority_booking'] == true,
+      description: json['description']?.toString() ?? '',
+    );
+  }
 }
 
 class PointsTransaction {
@@ -148,6 +196,12 @@ class VoucherItem {
   final String code;
   final String status;
   final String statusText;
+  final String? couponId;
+  final String? userVoucherId;
+  final double discountPercent;
+  final double discountAmount;
+  final double minOrderAmount;
+  final double? maxDiscount;
 
   const VoucherItem({
     required this.id,
@@ -159,7 +213,82 @@ class VoucherItem {
     required this.code,
     required this.status,
     required this.statusText,
+    this.couponId,
+    this.userVoucherId,
+    this.discountPercent = 0.0,
+    this.discountAmount = 0.0,
+    this.minOrderAmount = 0.0,
+    this.maxDiscount,
   });
+
+  double calculateDiscount(double subtotal) {
+    if (subtotal < minOrderAmount) return 0.0;
+    if (discountPercent > 0) {
+      double disc = subtotal * (discountPercent / 100.0);
+      if (maxDiscount != null && maxDiscount! > 0 && disc > maxDiscount!) {
+        disc = maxDiscount!;
+      }
+      return disc > subtotal ? subtotal : disc;
+    } else if (discountAmount > 0) {
+      return discountAmount > subtotal ? subtotal : discountAmount;
+    }
+    return 0.0;
+  }
+
+  bool isEligible(double subtotal) => subtotal >= minOrderAmount;
+
+  bool get isAvailable => status == 'AVAILABLE';
+  bool get isUsed => status == 'USED';
+  bool get isExpired => status == 'EXPIRED';
+
+  String get discountDescription {
+    if (discountPercent > 0) {
+      final maxStr = (maxDiscount != null && maxDiscount! > 0)
+          ? ' tối đa ${(maxDiscount! / 1000).toInt()}k'
+          : '';
+      return 'Giảm ${discountPercent.toInt()}%$maxStr';
+    }
+    if (discountAmount > 0) {
+      return 'Giảm ${(discountAmount / 1000).toInt()}k';
+    }
+    return discountBanner.isNotEmpty ? discountBanner : 'Ưu đãi đặc biệt';
+  }
+}
+
+class VoucherValidationResult {
+  final bool isValid;
+  final String message;
+  final VoucherItem? voucher;
+  final double discount;
+
+  const VoucherValidationResult({
+    required this.isValid,
+    required this.message,
+    this.voucher,
+    this.discount = 0.0,
+  });
+
+  factory VoucherValidationResult.success({
+    required VoucherItem voucher,
+    required String message,
+    double discount = 0.0,
+  }) {
+    return VoucherValidationResult(
+      isValid: true,
+      message: message,
+      voucher: voucher,
+      discount: discount,
+    );
+  }
+
+  factory VoucherValidationResult.failure(String message) {
+    return VoucherValidationResult(
+      isValid: false,
+      message: message,
+      voucher: null,
+      discount: 0.0,
+    );
+  }
 }
 
 class PaymentTransaction {

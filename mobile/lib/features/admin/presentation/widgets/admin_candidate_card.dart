@@ -127,9 +127,10 @@ class AdminCandidateCard extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      candidate.candidateName.trim().isNotEmpty
-                          ? candidate.candidateName.trim().split(' ').last[0].toUpperCase()
-                          : 'H',
+                      () {
+                        final tokens = candidate.candidateName.trim().split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+                        return tokens.isNotEmpty && tokens.last.isNotEmpty ? tokens.last[0].toUpperCase() : 'H';
+                      }(),
                       style: AppTypography.zaloFont(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,

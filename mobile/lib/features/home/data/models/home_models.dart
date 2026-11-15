@@ -208,6 +208,7 @@ class BranchModel {
   final List<String> services;
   final String district;
   final List<String> amenities;
+  final List<String> customTimeSlots;
   final int totalRooms;
   final int totalBeds;
   final double? latitude;
@@ -228,6 +229,7 @@ class BranchModel {
     required this.services,
     this.district = 'Quận 3',
     this.amenities = const ['Phòng VIP', 'Máy soi da 3D', 'Trà thảo mộc'],
+    this.customTimeSlots = const [],
     this.totalRooms = 8,
     this.totalBeds = 16,
     this.latitude,
@@ -248,6 +250,29 @@ class BranchModel {
       gallery = (json['galleryUrls'] as List).map((e) => e.toString()).toList();
     }
 
+    List<String> customSlots = const [];
+    if (json['custom_time_slots'] is List) {
+      customSlots = (json['custom_time_slots'] as List).map((e) => e.toString().trim()).toList();
+    } else if (json['customTimeSlots'] is List) {
+      customSlots = (json['customTimeSlots'] as List).map((e) => e.toString().trim()).toList();
+    }
+
+    List<String> rawAmenities = const [];
+    if (json['amenities'] is List) {
+      rawAmenities = (json['amenities'] as List).map((e) => e.toString()).toList();
+    }
+
+    final cleanAmenities = <String>[];
+    for (final a in rawAmenities) {
+      if (a.startsWith('SLOTS:')) {
+        if (customSlots.isEmpty) {
+          customSlots = a.substring(6).split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+        }
+      } else {
+        cleanAmenities.add(a);
+      }
+    }
+
     return BranchModel(
       id: json['id']?.toString() ?? '',
       code: json['code']?.toString() ?? '',
@@ -262,9 +287,8 @@ class BranchModel {
       imageUrl: json['image_url']?.toString() ?? 'assets/images/gioithieu_1.png',
       galleryUrls: gallery,
       services: const ['Massage', 'Chăm sóc da', 'Chăm sóc cơ thể', 'Chăm sóc sức khỏe', 'Gói liệu trình'],
-      amenities: (json['amenities'] is List)
-          ? (json['amenities'] as List).map((e) => e.toString()).toList()
-          : const ['Phòng VIP', 'Máy soi da 3D', 'Trà thảo mộc'],
+      amenities: cleanAmenities.isNotEmpty ? cleanAmenities : const ['Phòng VIP', 'Máy soi da 3D', 'Trà thảo mộc'],
+      customTimeSlots: customSlots,
       totalRooms: (json['total_rooms'] as num?)?.toInt() ?? 8,
       totalBeds: (json['total_beds'] as num?)?.toInt() ?? 16,
       latitude: (json['latitude'] as num?)?.toDouble(),

@@ -228,15 +228,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           icon: BookOpen,
           subItems: [
             { name: 'Khung chương trình', path: '/curriculum' },
-            { name: 'Danh mục khóa học', path: '/manage/course_categories' },
             { name: 'Khóa đào tạo', path: '/manage/courses' },
             { name: 'Chương & Bài học video', path: '/manage/course_chapters' },
             { name: 'Bài học & video', path: '/manage/course_lessons' },
             { name: 'Đề thi & Trắc nghiệm', path: '/manage/course_quizzes' },
             { name: 'Ngân hàng câu hỏi', path: '/manage/quiz_questions' },
-            { name: 'Bài thi đã nộp', path: '/manage/quiz_submissions' },
-            { name: 'Tiến độ học', path: '/manage/user_lesson_progress' },
+            { name: 'Bài đã nộp', path: '/manage/quiz_submissions' },
           ],
+        },
+        {
+          name: 'Cấu hình đào tạo',
+          path: '/manage/course_categories',
+          icon: BookOpen,
+          subItems: [{ name: 'Danh mục khóa học', path: '/manage/course_categories' }],
         },
         {
           name: 'Giấy chứng nhận',
@@ -346,6 +350,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
         <nav className="px-3 py-1 space-y-3.5 flex-1 pb-6">
           {sections
             .map(section => ({ ...section, items: section.items.map(item => {
+              if (item.subItems && item.subItems.length > 0) return item;
               const group = ADMIN_NAVIGATION_GROUPS.find(group => group.label === item.name);
               return group ? { ...item, subItems: group.items.map(entry => ({name: entry.label, path: entry.href})) } : item;
             }) }))

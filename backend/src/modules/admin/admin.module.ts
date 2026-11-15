@@ -13,7 +13,7 @@ import { SupportService } from './support/support.service';
 
 @Module({
   imports: [JwtModule.register({}), AuthModule],
-  controllers: [AdminController, SettingsController, SupportController],
+  controllers: [SettingsController, SupportController, AdminController],
   providers: [AdminDatabase, AdminGuard, AdminService, TreatmentInventoryWorker, SettingsService, SupportService],
   exports: [SettingsService, SupportService, AdminGuard, AdminDatabase, JwtModule],
 })

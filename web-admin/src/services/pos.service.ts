@@ -25,6 +25,7 @@ export interface CashierCollection {
   paymentMethod: PaymentMethod.CASH_AT_SPA | PaymentMethod.BANK_TRANSFER;
   shiftId: string;
   notes?: string;
+  bankReference?: string;
 }
 
 const failed = <T>(error: any, data: T): ApiResponse<T> => ({

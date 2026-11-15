@@ -176,9 +176,13 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Thêm học viên vào lớp ${_batch.batchCode}',
-                        style: AppTypography.zaloFont(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                      Expanded(
+                        child: Text(
+                          'Thêm học viên vào lớp ${_batch.batchCode}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.zaloFont(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close_rounded),

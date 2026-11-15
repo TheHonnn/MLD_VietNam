@@ -61,9 +61,21 @@ const INITIAL_BRANCH_FORM_DATA = {
   city: 'TP. Hồ Chí Minh',
   openingTime: '08:30',
   closingTime: '20:30',
+  customTimeSlots: [] as string[],
   imageUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
   amenities: ['Phòng VIP riêng biệt', 'Đỗ xe ô tô miễn phí', 'Trà thảo mộc & bánh ngọt'],
 };
+
+const TIME_SLOT_PRESETS = [
+  '08:00 - 09:00',
+  '09:00 - 10:00',
+  '10:00 - 11:00',
+  '14:00 - 15:00',
+  '15:00 - 16:00',
+  '17:00 - 18:00',
+  '18:00 - 19:00',
+  '19:00 - 20:00',
+];
 
 const roomTypeLabels: Record<string, string> = {
   VIP_ROOM: 'Phòng VIP',
@@ -485,6 +497,7 @@ export const W02_Branches: React.FC = () => {
     city: 'TP. Hồ Chí Minh',
     openingTime: '08:30',
     closingTime: '20:30',
+    customTimeSlots: [] as string[],
     imageUrl: '',
     isActive: true,
     amenities: [] as string[],
@@ -507,6 +520,18 @@ export const W02_Branches: React.FC = () => {
   });
   const [newEditAmenity, setNewEditAmenity] = useState('');
   const [newCreateAmenity, setNewCreateAmenity] = useState('');
+
+  const [editSlotStart, setEditSlotStart] = useState('08:00');
+  const [editSlotEnd, setEditSlotEnd] = useState('09:00');
+  const [editingSlotIndex, setEditingSlotIndex] = useState<number | null>(null);
+  const [editingSlotValStart, setEditingSlotValStart] = useState('');
+  const [editingSlotValEnd, setEditingSlotValEnd] = useState('');
+
+  const [createSlotStart, setCreateSlotStart] = useState('08:00');
+  const [createSlotEnd, setCreateSlotEnd] = useState('09:00');
+  const [creatingSlotIndex, setCreatingSlotIndex] = useState<number | null>(null);
+  const [creatingSlotValStart, setCreatingSlotValStart] = useState('');
+  const [creatingSlotValEnd, setCreatingSlotValEnd] = useState('');
 
   const [isCustomDistrict, setIsCustomDistrict] = useState(false);
   const [isCustomEditDistrict, setIsCustomEditDistrict] = useState(false);
@@ -1498,6 +1523,7 @@ export const W02_Branches: React.FC = () => {
       imageUrl: branch.imageUrl || '',
       isActive: branch.isActive !== undefined ? branch.isActive : true,
       amenities: branch.amenities ? [...branch.amenities] : [],
+      customTimeSlots: branch.customTimeSlots ? [...branch.customTimeSlots] : [],
     });
 
     try {
@@ -1925,6 +1951,7 @@ export const W02_Branches: React.FC = () => {
         imageUrl: editForm.imageUrl || managingBranch.imageUrl,
         isActive: editForm.isActive,
         amenities: editForm.amenities,
+        customTimeSlots: editForm.customTimeSlots,
       };
 
       await branchService.updateBranch(managingBranch.id, updates);
@@ -2090,6 +2117,7 @@ export const W02_Branches: React.FC = () => {
         imageUrl: formData.imageUrl || '',
         galleryUrls: formData.imageUrl ? [formData.imageUrl] : [],
         amenities: formData.amenities,
+        customTimeSlots: formData.customTimeSlots,
         isActive: true,
       };
 
@@ -3653,6 +3681,190 @@ export const W02_Branches: React.FC = () => {
                     />
                   </div>
 
+                  <div className="sm:col-span-2 p-3.5 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-xs font-bold text-[#2C241E]">
+                          Khung giờ hẹn đón khách tùy chỉnh (Custom Time Slots)
+                        </label>
+                        <p className="text-[11px] text-[#73675F] mt-0.5">
+                          Cấu hình danh sách các ca hẹn theo khoảng thời gian (Từ mấy giờ đến mấy giờ). Mobile App sẽ tự động co giãn vừa khung theo số lượng ca bạn cài đặt.
+                        </p>
+                      </div>
+                      {editForm.customTimeSlots.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditForm({ ...editForm, customTimeSlots: [] });
+                            setEditingSlotIndex(null);
+                          }}
+                          className="text-[11px] text-rose-600 hover:underline font-semibold shrink-0"
+                        >
+                          Xóa tất cả ca
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      {editForm.customTimeSlots.length === 0 ? (
+                        <span className="text-xs text-[#8C7A6B] italic">
+                          Chưa cài ca riêng (hệ thống tự sinh ca theo giờ mở - đóng cửa)
+                        </span>
+                      ) : (
+                        editForm.customTimeSlots.map((slot, sIdx) => {
+                          if (editingSlotIndex === sIdx) {
+                            return (
+                              <div
+                                key={sIdx}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FAF0E4] border border-[#985018] shadow-xs"
+                              >
+                                <span className="text-[11px] text-[#985018] font-bold">Từ:</span>
+                                <input
+                                  type="time"
+                                  value={editingSlotValStart}
+                                  onChange={(e) => setEditingSlotValStart(e.target.value)}
+                                  className="px-1.5 py-0.5 bg-white border border-[#BA7E4C] rounded text-xs text-[#2C241E] focus:outline-none"
+                                />
+                                <span className="text-[11px] text-[#985018] font-bold">Đến:</span>
+                                <input
+                                  type="time"
+                                  value={editingSlotValEnd}
+                                  onChange={(e) => setEditingSlotValEnd(e.target.value)}
+                                  className="px-1.5 py-0.5 bg-white border border-[#BA7E4C] rounded text-xs text-[#2C241E] focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!editingSlotValStart || !editingSlotValEnd) return;
+                                    const s1 = editingSlotValStart.slice(0, 5);
+                                    const s2 = editingSlotValEnd.slice(0, 5);
+                                    if (s1 >= s2) {
+                                      alert('Giờ bắt đầu phải nhỏ hơn giờ kết thúc!');
+                                      return;
+                                    }
+                                    const updatedStr = `${s1} - ${s2}`;
+                                    const next = [...editForm.customTimeSlots];
+                                    next[sIdx] = updatedStr;
+                                    setEditForm({ ...editForm, customTimeSlots: next.sort() });
+                                    setEditingSlotIndex(null);
+                                  }}
+                                  title="Lưu ca hẹn"
+                                  className="p-1 rounded bg-[#985018] text-white hover:bg-[#7D4011] transition-colors"
+                                >
+                                  <Check className="w-3 h-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingSlotIndex(null)}
+                                  title="Hủy sửa"
+                                  className="p-1 rounded bg-white text-slate-500 hover:text-slate-800 border border-[#E8DFD8] transition-colors"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <span
+                              key={sIdx}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-[#BA7E4C] text-xs font-bold text-[#985018] shadow-2xs"
+                            >
+                              <span>{slot}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingSlotIndex(sIdx);
+                                  if (slot.includes('-')) {
+                                    const parts = slot.split('-').map((p) => p.trim());
+                                    setEditingSlotValStart(parts[0] || '08:00');
+                                    setEditingSlotValEnd(parts[1] || '09:00');
+                                  } else {
+                                    setEditingSlotValStart(slot.trim());
+                                    setEditingSlotValEnd('');
+                                  }
+                                }}
+                                title="Chỉnh sửa ca này"
+                                className="text-[#985018] hover:text-[#004890] transition-colors"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nextSlots = editForm.customTimeSlots.filter((_, i) => i !== sIdx);
+                                  setEditForm({ ...editForm, customTimeSlots: nextSlots });
+                                  if (editingSlotIndex === sIdx) setEditingSlotIndex(null);
+                                }}
+                                title="Xóa ca này"
+                                className="text-[#985018] hover:text-rose-600 transition-colors"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </span>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-[#73675F] font-semibold">Từ:</span>
+                        <input
+                          type="time"
+                          value={editSlotStart}
+                          onChange={(e) => setEditSlotStart(e.target.value)}
+                          className="px-2 py-1 bg-white border border-[#E8DFD8] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                        />
+                        <span className="text-[11px] text-[#73675F] font-semibold">Đến:</span>
+                        <input
+                          type="time"
+                          value={editSlotEnd}
+                          onChange={(e) => setEditSlotEnd(e.target.value)}
+                          className="px-2 py-1 bg-white border border-[#E8DFD8] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!editSlotStart || !editSlotEnd) return;
+                          const s1 = editSlotStart.slice(0, 5);
+                          const s2 = editSlotEnd.slice(0, 5);
+                          if (s1 >= s2) {
+                            alert('Giờ bắt đầu phải nhỏ hơn giờ kết thúc!');
+                            return;
+                          }
+                          const slotStr = `${s1} - ${s2}`;
+                          if (!editForm.customTimeSlots.includes(slotStr)) {
+                            const updated = [...editForm.customTimeSlots, slotStr].sort();
+                            setEditForm({ ...editForm, customTimeSlots: updated });
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-[#985018] text-white rounded-lg text-xs font-bold hover:bg-[#7D4011] transition-all shadow-2xs"
+                      >
+                        + Thêm ca hẹn
+                      </button>
+                      <div className="flex items-center gap-1 text-[11px] text-[#73675F] ml-auto flex-wrap">
+                        <span className="hidden sm:inline">Thêm nhanh:</span>
+                        {TIME_SLOT_PRESETS.map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => {
+                              if (!editForm.customTimeSlots.includes(preset)) {
+                                const updated = [...editForm.customTimeSlots, preset].sort();
+                                setEditForm({ ...editForm, customTimeSlots: updated });
+                              }
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-white border border-[#E8DFD8] text-[10px] font-semibold text-[#73675F] hover:border-[#985018] hover:text-[#985018]"
+                          >
+                            +{preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                       Trạng thái hoạt động
@@ -4552,6 +4764,190 @@ export const W02_Branches: React.FC = () => {
                       }
                       className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                     />
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] space-y-3 mb-3.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E]">
+                        Khung giờ hẹn đón khách tùy chỉnh (Custom Time Slots)
+                      </label>
+                      <p className="text-[11px] text-[#73675F] mt-0.5">
+                        Cấu hình danh sách các ca hẹn theo khoảng thời gian (Từ mấy giờ đến mấy giờ). Mobile App sẽ tự động co giãn vừa khung theo số lượng ca bạn cài đặt.
+                      </p>
+                    </div>
+                    {formData.customTimeSlots.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, customTimeSlots: [] });
+                          setCreatingSlotIndex(null);
+                        }}
+                        className="text-[11px] text-rose-600 hover:underline font-semibold shrink-0"
+                      >
+                        Xóa tất cả ca
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    {formData.customTimeSlots.length === 0 ? (
+                      <span className="text-xs text-[#8C7A6B] italic">
+                        Chưa cài ca riêng (hệ thống tự sinh ca theo giờ mở - đóng cửa)
+                      </span>
+                    ) : (
+                      formData.customTimeSlots.map((slot, sIdx) => {
+                        if (creatingSlotIndex === sIdx) {
+                          return (
+                            <div
+                              key={sIdx}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FAF0E4] border border-[#985018] shadow-xs"
+                            >
+                              <span className="text-[11px] text-[#985018] font-bold">Từ:</span>
+                              <input
+                                type="time"
+                                value={creatingSlotValStart}
+                                onChange={(e) => setCreatingSlotValStart(e.target.value)}
+                                className="px-1.5 py-0.5 bg-white border border-[#BA7E4C] rounded text-xs text-[#2C241E] focus:outline-none"
+                              />
+                              <span className="text-[11px] text-[#985018] font-bold">Đến:</span>
+                              <input
+                                type="time"
+                                value={creatingSlotValEnd}
+                                onChange={(e) => setCreatingSlotValEnd(e.target.value)}
+                                className="px-1.5 py-0.5 bg-white border border-[#BA7E4C] rounded text-xs text-[#2C241E] focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!creatingSlotValStart || !creatingSlotValEnd) return;
+                                  const s1 = creatingSlotValStart.slice(0, 5);
+                                  const s2 = creatingSlotValEnd.slice(0, 5);
+                                  if (s1 >= s2) {
+                                    alert('Giờ bắt đầu phải nhỏ hơn giờ kết thúc!');
+                                    return;
+                                  }
+                                  const updatedStr = `${s1} - ${s2}`;
+                                  const next = [...formData.customTimeSlots];
+                                  next[sIdx] = updatedStr;
+                                  setFormData({ ...formData, customTimeSlots: next.sort() });
+                                  setCreatingSlotIndex(null);
+                                }}
+                                title="Lưu ca hẹn"
+                                className="p-1 rounded bg-[#985018] text-white hover:bg-[#7D4011] transition-colors"
+                              >
+                                <Check className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCreatingSlotIndex(null)}
+                                title="Hủy sửa"
+                                className="p-1 rounded bg-white text-slate-500 hover:text-slate-800 border border-[#E8DFD8] transition-colors"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <span
+                            key={sIdx}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-[#BA7E4C] text-xs font-bold text-[#985018] shadow-2xs"
+                          >
+                            <span>{slot}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCreatingSlotIndex(sIdx);
+                                if (slot.includes('-')) {
+                                  const parts = slot.split('-').map((p) => p.trim());
+                                  setCreatingSlotValStart(parts[0] || '08:00');
+                                  setCreatingSlotValEnd(parts[1] || '09:00');
+                                } else {
+                                  setCreatingSlotValStart(slot.trim());
+                                  setCreatingSlotValEnd('');
+                                }
+                              }}
+                              title="Chỉnh sửa ca này"
+                              className="text-[#985018] hover:text-[#004890] transition-colors"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextSlots = formData.customTimeSlots.filter((_, i) => i !== sIdx);
+                                setFormData({ ...formData, customTimeSlots: nextSlots });
+                                if (creatingSlotIndex === sIdx) setCreatingSlotIndex(null);
+                              }}
+                              title="Xóa ca này"
+                              className="text-[#985018] hover:text-rose-600 transition-colors"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </span>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-[#73675F] font-semibold">Từ:</span>
+                      <input
+                        type="time"
+                        value={createSlotStart}
+                        onChange={(e) => setCreateSlotStart(e.target.value)}
+                        className="px-2 py-1 bg-white border border-[#E8DFD8] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                      <span className="text-[11px] text-[#73675F] font-semibold">Đến:</span>
+                      <input
+                        type="time"
+                        value={createSlotEnd}
+                        onChange={(e) => setCreateSlotEnd(e.target.value)}
+                        className="px-2 py-1 bg-white border border-[#E8DFD8] rounded-lg text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!createSlotStart || !createSlotEnd) return;
+                        const s1 = createSlotStart.slice(0, 5);
+                        const s2 = createSlotEnd.slice(0, 5);
+                        if (s1 >= s2) {
+                          alert('Giờ bắt đầu phải nhỏ hơn giờ kết thúc!');
+                          return;
+                        }
+                        const slotStr = `${s1} - ${s2}`;
+                        if (!formData.customTimeSlots.includes(slotStr)) {
+                          const updated = [...formData.customTimeSlots, slotStr].sort();
+                          setFormData({ ...formData, customTimeSlots: updated });
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-[#985018] text-white rounded-lg text-xs font-bold hover:bg-[#7D4011] transition-all shadow-2xs"
+                    >
+                      + Thêm ca hẹn
+                    </button>
+                    <div className="flex items-center gap-1 text-[11px] text-[#73675F] ml-auto flex-wrap">
+                      <span className="hidden sm:inline">Thêm nhanh:</span>
+                      {TIME_SLOT_PRESETS.map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => {
+                            if (!formData.customTimeSlots.includes(preset)) {
+                              const updated = [...formData.customTimeSlots, preset].sort();
+                              setFormData({ ...formData, customTimeSlots: updated });
+                            }
+                          }}
+                          className="px-1.5 py-0.5 rounded bg-white border border-[#E8DFD8] text-[10px] font-semibold text-[#73675F] hover:border-[#985018] hover:text-[#985018]"
+                        >
+                          +{preset}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 

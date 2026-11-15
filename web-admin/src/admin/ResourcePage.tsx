@@ -1,3 +1,4 @@
+import { SchedulePlanDialog } from "./SchedulePlanDialog";
 import { EnrollmentChangesView } from "./EnrollmentChangesView";
 import { TuitionLedgerView } from "./TuitionLedgerView";
 import { EnrollmentRosterView } from "./EnrollmentRosterView";
@@ -6,6 +7,7 @@ import { useDialogGuard } from "./useDialogGuard";
 import { TrainingActions } from "./TrainingActions";
 import { loadQuestionRows } from "./quizData";
 import { QuestionBankView } from "./QuestionBankView";
+import { QuizSubmissionsView } from "./QuizSubmissionsView";
 import { QuizOptions, quizOptions } from "./QuizOptions";
 import { ConsultationSurveySheet, COMMON_FOCUS_AREAS } from "./ConsultationSurveyView";
 import { ServiceDetailSheet } from "./ServiceDetailView";
@@ -4852,7 +4854,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
   const { table: routeTable } = useParams(),
     table = fixedTable || routeTable || "";
   const [params, setParams] = useSearchParams();
-  const scheduleCalendar = table === "batch_schedules" && params.get("view") !== "list";
+  const scheduleCalendar = table === "batch_schedules" && params.get("view") === "calendar";
   const calendarWeek = calendarMonday(params.get("week") || todayAtBranch());
   const [resources, setResources] = useState<Resource[]>(DEFAULT_RESOURCES.map(resource => ({ ...resource, actions: [] }))),
     [listing, setListing] = useState<Listing | null>(null),
@@ -5081,13 +5083,13 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
       })
       .catch(() => { });
 
-    if (["student_academic_records", "course_chapters", "course_lessons"].includes(table)) {
+    if (["student_academic_records", "course_chapters", "course_lessons", "quiz_submissions"].includes(table)) {
       fetch(`${SUPABASE_URL}/rest/v1/courses?select=id,title,code&order=title.asc`, { headers: getSupabaseHeaders() })
         .then((r) => r.json())
         .then((data) => { if (active && Array.isArray(data)) setCoursesForBatchFilter(data); })
         .catch(() => { });
     }
-    if (table === "quiz_questions") {
+    if (table === "quiz_questions" || table === "quiz_submissions") {
       loadQuestionRows("course_quizzes", undefined, c.signal).then(rows => {
         if (active) setQuestionQuizzes(rows);
       }).catch(() => { if (active) setQuestionQuizzes([]); });
@@ -5948,9 +5950,11 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     <div className="admin-page-shell">
       <PageHeader
         eyebrow={navigationGroupForTable(table)?.label || resource?.group || "QUẢN TRỊ"}
-        title={table === "course_quizzes" ? "Đề thi & Trắc nghiệm" : loyaltyPages[table]?.title || (table === "service_categories" ? "Nhóm dịch vụ" : resource?.title || "Đang tải phân hệ…")}
+        title={table === "quiz_submissions" ? "Bài đã nộp" : table === "course_quizzes" ? "Đề thi & Trắc nghiệm" : loyaltyPages[table]?.title || (table === "service_categories" ? "Nhóm dịch vụ" : resource?.title || "Đang tải phân hệ…")}
         subtitle={
-          table === "bookings" ? (
+          table === "quiz_submissions" ? (
+            <p className="mt-1 text-xs text-[#73675F]">Theo dõi và tra cứu kết quả bài làm trắc nghiệm của học viên theo khóa học và đề thi.</p>
+          ) : table === "bookings" ? (
             <p className="mt-1 text-xs text-[#73675F]">Theo dõi khách từ lúc đặt lịch, đến cơ sở, thực hiện dịch vụ và thanh toán.</p>
           ) : table === "booking_items" ? (
             <p className="mt-1 text-xs text-[#73675F]">Kiểm tra dịch vụ, chuyên viên, thời lượng và giá cấu thành của từng lịch hẹn.</p>
@@ -6056,7 +6060,6 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                       ? "Thêm tài khoản"
                       : table === "service_categories"
                         ? "Thêm nhóm"
-                        : table === "quiz_questions" ? "Thêm câu hỏi" : table === "course_quizzes" ? "Tạo đề thi"
                         : table === "course_chapters"
                           ? "Thêm chương"
                         : loyaltyPages[table]?.create || staffPages[table]?.create || "Thêm mới"}
@@ -6084,6 +6087,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           navigationGroupForTable(table)?.label === "Học viên & Lớp học"
             ? { ...tab, href: academyClassLink(tab.href, selectedBatchId) } : tab)}
       />
+      {table === "course_chapters" && <div className="mb-4 rounded-xl border bg-white p-4 text-sm">Chọn khóa học → tạo chương → mở “Bài học” ở từng chương để quản lý video theo đúng thứ tự. Đề thi và kết quả được quản lý ở các tab kế tiếp.</div>}
       {table === "course_batches" && selectedBatchId && <Link className="admin-secondary mb-4" to="/manage/course_batches">Xem tất cả lớp</Link>}
       {[
         "course_lessons",
@@ -6161,12 +6165,139 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                   ? "Tìm tên hoặc mã khóa học..."
                 : table === "course_lessons"
                   ? "Tìm tiêu đề bài học hoặc video..."
+                : table === "quiz_submissions"
+                  ? "Tìm học viên, SĐT, mã hồ sơ, tên đề..."
                 : "Tìm kiếm…"}
             aria-label="Tìm kiếm bản ghi"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {table === "quiz_submissions" && (
+          <div className="flex flex-wrap items-center gap-2" aria-label="Bộ lọc bài đã nộp">
+            <select
+              aria-label="Lọc theo Khóa học"
+              className="font-bold text-[#8A4F23] bg-[#FFFDF9] border-[#EAD8C7] rounded-lg text-xs py-2 px-2.5"
+              value={filter.course_id || ""}
+              onChange={(e) => {
+                const next = { ...filter };
+                if (e.target.value) next.course_id = e.target.value;
+                else delete next.course_id;
+                if (next.quiz_id && e.target.value) {
+                  const quiz = questionQuizzes.find((q) => q.id === next.quiz_id);
+                  if (quiz && quiz.course_id && quiz.course_id !== e.target.value) delete next.quiz_id;
+                }
+                const p = new URLSearchParams(params);
+                Object.keys(next).length ? p.set("filter", JSON.stringify(next)) : p.delete("filter");
+                p.delete("page");
+                setParams(p);
+              }}
+            >
+              <option value="">🎓 Tất cả khóa học ({coursesForBatchFilter.length})</option>
+              {coursesForBatchFilter.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+
+            <select
+              aria-label="Lọc theo Đề thi"
+              className="font-bold text-[#2C241E] bg-[#FFFDF9] border-[#EAD8C7] rounded-lg text-xs py-2 px-2.5 max-w-[220px]"
+              value={filter.quiz_id || ""}
+              onChange={(e) => {
+                const next = { ...filter };
+                if (e.target.value) next.quiz_id = e.target.value;
+                else delete next.quiz_id;
+                const p = new URLSearchParams(params);
+                Object.keys(next).length ? p.set("filter", JSON.stringify(next)) : p.delete("filter");
+                p.delete("page");
+                setParams(p);
+              }}
+            >
+              <option value="">📝 Tất cả đề thi ({questionQuizzes.length})</option>
+              {questionQuizzes
+                .filter((q) => !filter.course_id || q.course_id === filter.course_id)
+                .map((q) => (
+                  <option key={q.id} value={q.id} title={q.title}>
+                    {q.title}
+                  </option>
+                ))}
+            </select>
+
+            <select
+              aria-label="Lọc theo Kết quả"
+              className="font-bold text-[#2C241E] bg-[#FFFDF9] border-[#EAD8C7] rounded-lg text-xs py-2 px-2.5"
+              value={filter.passed === undefined ? "" : String(filter.passed)}
+              onChange={(e) => {
+                const next = { ...filter };
+                if (e.target.value === "true") next.passed = true;
+                else if (e.target.value === "false") next.passed = false;
+                else delete next.passed;
+                const p = new URLSearchParams(params);
+                Object.keys(next).length ? p.set("filter", JSON.stringify(next)) : p.delete("filter");
+                p.delete("page");
+                setParams(p);
+              }}
+            >
+              <option value="">Tất cả kết quả</option>
+              <option value="true">✅ Đạt</option>
+              <option value="false">❌ Chưa đạt</option>
+            </select>
+
+            <div className="flex items-center gap-1.5 bg-[#FFFDF9] border border-[#EAD8C7] rounded-lg px-2.5 py-1 text-xs">
+              <span className="text-[#73675F] text-[11px] font-medium">Từ:</span>
+              <input
+                type="date"
+                aria-label="Ngày nộp từ ngày"
+                className="bg-transparent border-0 text-xs text-[#2C241E] p-0 focus:ring-0"
+                value={filter.date_from || ""}
+                onChange={(e) => {
+                  const next = { ...filter };
+                  if (e.target.value) next.date_from = e.target.value;
+                  else delete next.date_from;
+                  const p = new URLSearchParams(params);
+                  Object.keys(next).length ? p.set("filter", JSON.stringify(next)) : p.delete("filter");
+                  p.delete("page");
+                  setParams(p);
+                }}
+              />
+              <span className="text-[#73675F] text-[11px] font-medium ml-1">Đến:</span>
+              <input
+                type="date"
+                aria-label="Ngày nộp đến ngày"
+                className="bg-transparent border-0 text-xs text-[#2C241E] p-0 focus:ring-0"
+                value={filter.date_to || ""}
+                onChange={(e) => {
+                  const next = { ...filter };
+                  if (e.target.value) next.date_to = e.target.value;
+                  else delete next.date_to;
+                  const p = new URLSearchParams(params);
+                  Object.keys(next).length ? p.set("filter", JSON.stringify(next)) : p.delete("filter");
+                  p.delete("page");
+                  setParams(p);
+                }}
+              />
+            </div>
+
+            {(filter.course_id || filter.quiz_id || filter.passed !== undefined || filter.date_from || filter.date_to || search.trim()) && (
+              <button
+                type="button"
+                className="admin-secondary !py-1.5 !px-2.5 text-xs text-[#8A4F23] hover:bg-[#FAF0E4]"
+                onClick={() => {
+                  setSearch("");
+                  const p = new URLSearchParams(params);
+                  p.delete("filter");
+                  p.delete("search");
+                  p.delete("page");
+                  setParams(p);
+                }}
+              >
+                Xóa bộ lọc
+              </button>
+            )}
+          </div>
+        )}
         {table === "quiz_questions" && <select aria-label="Lọc câu hỏi theo đề thi" value={filter.quiz_id || ""} onChange={event => {
           const next = { ...filter };
           if (event.target.value) next.quiz_id = event.target.value; else delete next.quiz_id;
@@ -6364,7 +6495,7 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
             {staffDepartments.map(item => <option key={item.id} value={item.id}>{item.name}{item.is_active ? "" : " (Ngừng hoạt động)"}</option>)}
           </select>
         )}
-        {filterColumns.slice(0, 3).map((c) => (
+        {table !== "quiz_submissions" && filterColumns.slice(0, 3).map((c) => (
           <select
             key={c.name}
             aria-label={`Lọc ${label(c.name, table)}`}
@@ -6410,10 +6541,13 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           </button>
         )}
       </PageToolbar>
+      {table === "batch_schedules" && selectedBatchId && selectedBatchId !== "__ALL__" &&
+        (user?.role === "SUPER_ADMIN" || user?.role === "ADMIN" || user?.role === "BRANCH_MANAGER") &&
+        <div className="mb-4"><SchedulePlanDialog batchId={selectedBatchId} onSaved={() => setVersion(v => v + 1)} onOpenWeek={date => updateParam("week", date)} /></div>}
       {table === "batch_schedules" && <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2" aria-label="Chế độ xem thời khóa biểu" role="group">
-          <button className={scheduleCalendar ? "admin-primary" : "admin-secondary"} aria-pressed={scheduleCalendar} onClick={() => updateParam("view", "")}>Lịch tuần</button>
-          <button className={scheduleCalendar ? "admin-secondary" : "admin-primary"} aria-pressed={!scheduleCalendar} onClick={() => updateParam("view", "list")}>Danh sách</button>
+          <button className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${scheduleCalendar ? 'bg-[#8A4F23] text-white shadow-xs' : 'bg-white text-[#73675F] border border-[#EAD8C7] hover:bg-[#FAF7F2]'}`} aria-pressed={scheduleCalendar} onClick={() => updateParam("view", "calendar")}>Lịch tuần</button>
+          <button className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${!scheduleCalendar ? 'bg-[#8A4F23] text-white shadow-xs' : 'bg-white text-[#73675F] border border-[#EAD8C7] hover:bg-[#FAF7F2]'}`} aria-pressed={!scheduleCalendar} onClick={() => updateParam("view", "")}>Danh sách</button>
         </div>
         {scheduleCalendar && <div className="flex flex-wrap items-center gap-2">
           <button className="admin-secondary" onClick={() => updateParam("week", calendarDate(calendarWeek, -7))} aria-label="Tuần trước"><ChevronLeft size={16} /></button>
@@ -7449,7 +7583,22 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
                     </button>
                   </div>
                 )}
-                {table === "quiz_questions" ? (
+                {table === "quiz_submissions" ? (
+                  <QuizSubmissionsView
+                    rows={listing.rows}
+                    hasFilters={Boolean(search.trim() || Object.keys(filter).length)}
+                    onClearFilters={() => {
+                      setSearch("");
+                      const p = new URLSearchParams(params);
+                      p.delete("filter");
+                      p.delete("search");
+                      p.delete("page");
+                      setParams(p);
+                    }}
+                    canViewEnrollment={resources.some(r => r.name === "course_enrollments")}
+                    canViewQuiz={resources.some(r => r.name === "course_quizzes")}
+                  />
+                ) : table === "quiz_questions" ? (
                   <QuestionBankView rows={listing.rows} quizzes={questionQuizzes}
                     canEdit={Boolean(resource?.actions?.includes("update"))} canDelete={Boolean(resource?.actions?.includes("delete"))}
                     onOpen={openRecordPreview} onEdit={row => setEdit({ row, mode: "update" })}

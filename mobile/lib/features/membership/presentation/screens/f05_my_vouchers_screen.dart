@@ -102,11 +102,10 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
   }
 
   void _handleUseVoucher(VoucherItem item) {
-    // Chuyển sang màn Đặt lịch All-in-One hoặc Danh mục dịch vụ
     Navigator.push(
       context,
-      AppPageTransitions.modalSlideUp(
-        page: const AllInOneBookingScreen(),
+      MaterialPageRoute(
+        builder: (_) => B02ServiceListingScreen(initialVoucher: item),
       ),
     );
   }
@@ -181,8 +180,8 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
             // ==========================================
             Container(
               width: double.infinity,
-              margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [Color(0xFF005834), Color(0xFF007A48)],
@@ -201,13 +200,13 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
               child: Row(
                 children: [
                   Container(
-                    width: 48,
-                    height: 48,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 26),
+                    child: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -226,7 +225,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                         Text(
                           '$_availableCount voucher khả dụng',
                           style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: 16,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
                           ),
@@ -261,7 +260,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
             // 2. Ô NHẬP MÃ VOUCHER THỦ CÔNG
             // ==========================================
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
@@ -324,7 +323,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
             // 3. TAB CHỌN BỘ LỌC
             // ==========================================
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Row(
                 children: [
                   _buildTabChip(0, 'Tất cả (${_allVouchers.length})'),
@@ -348,10 +347,10 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                           onRefresh: _loadVouchers,
                           color: AppColors.primary,
                           child: ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
                             physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                             itemCount: _filteredVouchers.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 12),
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final item = _filteredVouchers[index];
                               return _buildVoucherCard(item);
@@ -418,8 +417,8 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
             children: [
               // Khối trái: Giảm giá & Icon
               Container(
-                width: 104,
-                padding: const EdgeInsets.all(12),
+                width: 82,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: isAvailable
@@ -432,13 +431,13 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 28),
+                    const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 22),
                     const SizedBox(height: 6),
                     Text(
                       item.discountBanner,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
                         letterSpacing: 0.3,
@@ -463,7 +462,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
               // Khối phải: Chi tiết mã & Nút hành động
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -477,7 +476,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.zaloFont(
-                                fontSize: 13.5,
+                                fontSize: 12.5,
                                 fontWeight: FontWeight.w700,
                                 color: isAvailable ? AppColors.textPrimary : const Color(0xFF64748B),
                                 height: 1.25,
@@ -565,7 +564,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                       if (isAvailable)
                         SizedBox(
                           width: double.infinity,
-                          height: 32,
+                          height: 28,
                           child: ElevatedButton(
                             onPressed: () => _handleUseVoucher(item),
                             style: ElevatedButton.styleFrom(
@@ -580,10 +579,10 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.calendar_month_outlined, size: 13, color: Colors.white),
-                                const SizedBox(width: 4),
+                                const Icon(Icons.spa_outlined, size: 14, color: Colors.white),
+                                const SizedBox(width: 6),
                                 Text(
-                                  context.tr('Dùng ngay khi đặt lịch', 'Use Now'),
+                                  context.tr('Chọn dịch vụ áp dụng', 'Select service to apply'),
                                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                                 ),
                               ],

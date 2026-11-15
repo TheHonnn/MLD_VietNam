@@ -22,8 +22,10 @@ import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
 import '../../../../core/services/portal_settings_service.dart';
 import 'f02_edit_profile_screen.dart';
+import 'f04_loyalty_points_screen.dart';
 import 'f05_my_vouchers_screen.dart';
 import 'f08_settings_screen.dart';
+import '../../../treatment/presentation/screens/d05_service_review_screen.dart';
 
 
 /// Screen F01: Trang Cá nhân chuẩn Design System (#2860EB)
@@ -221,6 +223,13 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             .where((v) => v.status == 'AVAILABLE')
             .length
         : 0;
+
+    final pointsFormatted = isUserLoggedIn
+        ? _profile.points.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')
+        : '0';
+    final tierDisplay = isUserLoggedIn && _profile.memberTier.isNotEmpty
+        ? _profile.memberTier
+        : 'Tiêu chuẩn';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -459,7 +468,45 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               _buildSectionHeader(context.tr('ƯU ĐÃI', 'OFFERS & PROMOTIONS')),
               const SizedBox(height: 8),
               _buildCardContainer([
-                // 1. Ví Voucher & Ưu đãi (Màu xanh lá MLD đặc trưng #007A48 - Bỏ mũi tên, nút pill đồng bộ)
+                // 1. Điểm thưởng & Hạng hội viên
+                _buildMenuItem(
+                  icon: Icons.stars_rounded,
+                  iconColor: const Color(0xFFD97706),
+                  title: context.tr('Điểm thưởng & Hạng hội viên', 'Points & Tier'),
+                  showChevron: false,
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.stars_rounded, size: 13, color: Color(0xFFD97706)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$pointsFormatted đ',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFB45309),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  onTap: () => _requireLoginAndRun(() {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const F04LoyaltyPointsScreen()),
+                    ).then((_) => _refreshProfile());
+                  }, title: 'Điểm thưởng & Hạng hội viên', message: 'Vui lòng đăng nhập để xem điểm và hạng hội viên.'),
+                ),
+                const Divider(height: 1, indent: 54, color: AppColors.border),
+
+                // 2. Ví Voucher & Ưu đãi (Màu xanh lá MLD đặc trưng #007A48 - Bỏ mũi tên, nút pill đồng bộ)
                 _buildMenuItem(
                   icon: Icons.confirmation_number_rounded,
                   iconColor: const Color(0xFF007A48),
@@ -710,6 +757,42 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       MaterialPageRoute(builder: (_) => const D03CareJournalScreen()),
                     );
                   }, title: 'Nhật ký trị liệu', message: 'Vui lòng đăng nhập để xem hồ sơ và nhật ký trị liệu của bạn.'),
+                ),
+                const Divider(height: 1, indent: 50, color: AppColors.border),
+                _buildMenuItem(
+                  icon: Icons.rate_review_outlined,
+                  iconColor: const Color(0xFF007A48),
+                  title: context.tr('Đánh giá dịch vụ', 'Service Reviews'),
+                  showChevron: false,
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF208C58).withValues(alpha: 0.35)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.star_rounded, size: 13, color: Color(0xFF007A48)),
+                        SizedBox(width: 3),
+                        Text(
+                          '+50 điểm',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF007A48),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  onTap: () => _requireLoginAndRun(() {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const D05ServiceReviewScreen()),
+                    ).then((_) => _refreshProfile());
+                  }, title: 'Đánh giá dịch vụ', message: 'Vui lòng đăng nhập để gửi đánh giá dịch vụ.'),
                 ),
               ]),
 

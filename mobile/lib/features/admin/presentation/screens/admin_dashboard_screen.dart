@@ -91,49 +91,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           }
         }
       } else if (item.type == AdminActionType.waitingBatch) {
-        if (item.rawData != null) {
-          final candidate = AdminCandidateModel.fromJson(item.rawData!);
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (_) => AssignBatchBottomSheet(
-              candidate: candidate,
-              onBatchAssigned: (batchId, batchCode) async {
-                TopNotificationService.showSuccess(
-                  title: 'Xếp lớp học viên',
-                  message: 'Đã xếp học viên ${candidate.candidateName} vào lớp $batchCode',
-                );
-                await _fetchData();
-              },
-            ),
-          );
-        } else {
-          // Chuyển sang Tab 2 (Tuyển sinh & Học viện) ở phân hệ Chờ xếp lớp
-          widget.onNavigateTab?.call(2, subTab: 'PAID_WAITING_CLASS');
-        }
+        final candidate = AdminCandidateModel.fromJson(item.rawData);
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => AssignBatchBottomSheet(
+            candidate: candidate,
+            onBatchAssigned: (batchId, batchCode) async {
+              TopNotificationService.showSuccess(
+                title: 'Xếp lớp học viên',
+                message: 'Đã xếp học viên ${candidate.candidateName} vào lớp $batchCode',
+              );
+              await _fetchData();
+            },
+          ),
+        );
       } else if (item.type == AdminActionType.newQuizSubmission) {
-        if (item.rawData != null) {
-          final sub = AdminQuizSubmissionModel.fromJson(item.rawData!);
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (_) => QuizSubmissionDetailSheet(
-              submission: sub,
-              onSaved: () async {
-                TopNotificationService.showSuccess(
-                  title: 'Nhận xét bài thi',
-                  message: 'Đã lưu nhận xét bài thi thành công!',
-                );
-                await _fetchData();
-              },
-            ),
-          );
-        } else {
-          // Chuyển sang Tab 2 ở phân hệ Bài thi
-          widget.onNavigateTab?.call(2, subTab: 'QUIZZES');
-        }
+        final sub = AdminQuizSubmissionModel.fromJson(item.rawData);
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => QuizSubmissionDetailSheet(
+            submission: sub,
+            onSaved: () async {
+              TopNotificationService.showSuccess(
+                title: 'Nhận xét bài thi',
+                message: 'Đã lưu nhận xét bài thi thành công!',
+              );
+              await _fetchData();
+            },
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -556,29 +546,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  Icon(activeCategoryIcon, size: 14, color: activeCategoryColor),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'DANH SÁCH ${activeCategoryTitle.toUpperCase()} (${activeItems.length})',
-                                    style: AppTypography.zaloFont(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: activeCategoryColor,
-                                      letterSpacing: 0.5,
+                              Expanded(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(activeCategoryIcon, size: 14, color: activeCategoryColor),
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
+                                        'DANH SÁCH ${activeCategoryTitle.toUpperCase()} (${activeItems.length})',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.zaloFont(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: activeCategoryColor,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
+                              const SizedBox(width: 6),
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   if (activeItems.isNotEmpty)
                                     InkWell(
                                       onTap: () => _showCategoryApprovalSheet(context, _selectedApprovalBox),
                                       borderRadius: BorderRadius.circular(6),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                         decoration: BoxDecoration(
                                           color: activeCategoryColor.withValues(alpha: 0.1),
                                           borderRadius: BorderRadius.circular(6),
@@ -600,7 +599,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                         ),
                                       ),
                                     ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 6),
                                   InkWell(
                                     onTap: onOpenTab,
                                     borderRadius: BorderRadius.circular(6),

@@ -77,10 +77,10 @@ export const ADMIN_RESOURCES: Record<
   student_academic_records: { title: 'Bảng điểm', group: 'Đào tạo' },
   course_chapters: { title: 'Chương học', group: 'Nội dung học' },
   course_lessons: { title: 'Bài học & video', group: 'Nội dung học' },
-  course_quizzes: { title: 'Bài trắc nghiệm', group: 'Nội dung học' },
+  course_quizzes: { title: 'Đề thi & Trắc nghiệm', group: 'Nội dung học' },
   quiz_questions: { title: 'Ngân hàng câu hỏi', group: 'Nội dung học' },
   quiz_submissions: {
-    title: 'Bài thi đã nộp',
+    title: 'Bài đã nộp',
     group: 'Nội dung học',
     readonly: true,
   },

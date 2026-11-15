@@ -92,7 +92,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
 
                     return Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
@@ -168,7 +168,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                   },
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
                 // 2. BỘ LỌC TRẠNG THÁI GÓI
                 Row(
@@ -194,7 +194,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                   else
                     ..._repo.packages.where((p) => p.status == PackageStatus.active).map(
                           (pkg) => Padding(
-                            padding: const EdgeInsets.only(bottom: 14.0),
+                            padding: const EdgeInsets.only(bottom: 8.0),
                             child: _buildPackageCard(
                               package: pkg,
                               onTap: () {
@@ -219,7 +219,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                   else
                     ..._repo.packages.where((p) => p.status == PackageStatus.completed || p.completedSessions >= p.totalSessions).map(
                           (pkg) => Padding(
-                            padding: const EdgeInsets.only(bottom: 14.0),
+                            padding: const EdgeInsets.only(bottom: 8.0),
                             child: _buildPackageCard(
                               package: pkg,
                               onTap: () {
@@ -244,7 +244,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                   else
                     ..._repo.packages.where((p) => p.status == PackageStatus.expired).map(
                           (pkg) => Padding(
-                            padding: const EdgeInsets.only(bottom: 14.0),
+                            padding: const EdgeInsets.only(bottom: 8.0),
                             child: _buildPackageCard(
                               package: pkg,
                               onTap: () {
@@ -436,7 +436,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

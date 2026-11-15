@@ -105,21 +105,33 @@ class MembershipRepository {
   final List<RewardItem> _rewards = const [
     RewardItem(
       id: 'rw-01',
-      title: 'Voucher chăm sóc da 100.000đ',
+      title: 'Voucher Chăm sóc Da 100.000đ',
       pointsRequired: 500,
-      condition: 'Hóa đơn chăm sóc da từ 500.000đ. Không cộng dồn ưu đãi khác.',
+      condition: 'Hóa đơn chăm sóc da từ 300.000đ. Không giới hạn chi nhánh. HSD: 6 tháng.',
     ),
     RewardItem(
       id: 'rw-02',
-      title: 'Voucher dịch vụ giảm 20%',
+      title: 'Voucher Dịch vụ Giảm 20%',
       pointsRequired: 300,
-      condition: 'Hóa đơn massage từ 300.000đ, giảm tối đa 150.000đ.',
+      condition: 'Hóa đơn massage & trị liệu từ 300.000đ, giảm tối đa 150.000đ. HSD: 6 tháng.',
     ),
     RewardItem(
       id: 'rw-03',
-      title: 'Quà trải nghiệm chăm sóc cơ thể',
+      title: 'Quà Trải nghiệm Chăm sóc Cơ thể',
       pointsRequired: 800,
-      condition: 'Áp dụng cho 01 dịch vụ chăm sóc cơ thể tiêu chuẩn, cần đặt lịch trước.',
+      condition: 'Áp dụng cho 01 dịch vụ chăm sóc cơ thể tiêu chuẩn 60 phút. Cần đặt lịch trước.',
+    ),
+    RewardItem(
+      id: 'rw-04',
+      title: 'Voucher Giảm 50.000đ Toàn hệ thống',
+      pointsRequired: 250,
+      condition: 'Áp dụng cho mọi hóa đơn dịch vụ bất kỳ tại MLD Việt Nam.',
+    ),
+    RewardItem(
+      id: 'rw-05',
+      title: 'Buổi Head Spa Dưỡng sinh Chuẩn Y khoa',
+      pointsRequired: 400,
+      condition: 'Tặng 01 buổi gội đầu dưỡng sinh Head Spa MLD thảo dược 45 phút.',
     ),
   ];
 
@@ -178,6 +190,7 @@ class MembershipRepository {
 
   // Getters & Setters
   UserProfile get profile => _userProfile;
+  UserProfile get userProfile => _userProfile;
   set profile(UserProfile p) => _userProfile = p;
   UserSettings get settings => _userSettings;
   List<MembershipPerk> get perks => _perks;
@@ -397,7 +410,7 @@ class MembershipRepository {
             : (lookupPhone.isNotEmpty ? 'phone=eq.$lookupPhone' : 'email=eq.$lookupEmail');
 
         final sRes = await _apiClient.dio.get(
-          '${ApiEndpoints.users}?$queryParam&select=id,full_name,phone,email,avatar_url,gender,date_of_birth,address,emergency_contact_name,emergency_contact_phone,membership_tier,reward_points,referral_code,referred_by_id&limit=1',
+          '${ApiEndpoints.users}?$queryParam&select=id,full_name,phone,email,avatar_url,gender,date_of_birth,address,emergency_contact_name,emergency_contact_phone,membership_tier,reward_points,referral_code,referred_by_id,total_spent&limit=1',
           options: Options(
             headers: {
               'apikey': ApiEndpoints.supabaseAnonKey,
@@ -433,6 +446,7 @@ class MembershipRepository {
           final dbCode = u['referral_code']?.toString().trim() ?? '';
           final dbPoints = (u['reward_points'] as num?)?.toInt();
           final dbTier = u['membership_tier']?.toString();
+          final dbTotalSpent = (u['total_spent'] as num?)?.toDouble() ?? 0.0;
 
           // Đồng bộ thông tin người giới thiệu từ DB một cách an toàn không gây lỗi quan hệ
           final dbReferredById = u['referred_by_id']?.toString().trim();
@@ -479,6 +493,7 @@ class MembershipRepository {
               : _userProfile.avatarUrl;
 
           _userProfile = _userProfile.copyWith(
+            id: u['id']?.toString() ?? _userProfile.id,
             fullName: dbName.isNotEmpty ? dbName : _userProfile.fullName,
             phone: dbPhone.isNotEmpty ? dbPhone : _userProfile.phone,
             isPhoneVerified: dbPhone.isNotEmpty ? true : _userProfile.isPhoneVerified,
@@ -494,6 +509,7 @@ class MembershipRepository {
             memberTier: dbTier != null ? _mapTierName(dbTier) : _userProfile.memberTier,
             referrerName: dbReferrerName,
             referredById: dbReferredById,
+            totalSpent: dbTotalSpent,
             clearReferrer: (dbReferrerName == null || dbReferrerName.isEmpty),
           );
           _persistLocalProfile(_userProfile);
@@ -736,8 +752,46 @@ class MembershipRepository {
     ).then((_) {}, onError: (_) {});
   }
 
-  /// F04: Lấy danh sách biến động điểm thưởng từ Backend Gateway
+  void updateLocalPoints(int points) {
+    _userProfile = _userProfile.copyWith(points: points);
+    _persistLocalProfile(_userProfile);
+  }
+
+  /// F04: Lấy danh sách quy tắc hạng hội viên từ Supabase membership_tier_rules
+  Future<List<TierRuleModel>> fetchTierRules() async {
+    try {
+      final res = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/membership_tier_rules',
+        queryParameters: {'select': '*', 'order': 'min_accumulated_spent.asc'},
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+      if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
+        return (res.data as List)
+            .map((item) => TierRuleModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('>>> [MembershipRepository] Error fetching tier rules: $e');
+    }
+    return const [
+      TierRuleModel(tier: 'STANDARD', displayName: 'Hội viên Tiêu chuẩn', minSpent: 0, pointEarningRate: 1.0, discountPercent: 0, freeHeadSpaCount: 0, priorityBooking: false, description: 'Tích lũy 1% giá trị đơn hàng làm điểm thưởng.'),
+      TierRuleModel(tier: 'SILVER', displayName: 'Hội viên Bạc', minSpent: 5000000, pointEarningRate: 1.5, discountPercent: 5.0, freeHeadSpaCount: 0, priorityBooking: false, description: 'Tích 1.5% điểm, giảm 5% dịch vụ lẻ.'),
+      TierRuleModel(tier: 'GOLD', displayName: 'Hội viên Vàng', minSpent: 15000000, pointEarningRate: 2.0, discountPercent: 10.0, freeHeadSpaCount: 1, priorityBooking: true, description: 'Tích 2% điểm, giảm 10% dịch vụ, ưu tiên xếp lịch.'),
+      TierRuleModel(tier: 'PLATINUM', displayName: 'Hội viên Bạch Kim', minSpent: 30000000, pointEarningRate: 3.0, discountPercent: 15.0, freeHeadSpaCount: 2, priorityBooking: true, description: 'Tích 3% điểm, giảm 15% dịch vụ, phòng VIP riêng.'),
+      TierRuleModel(tier: 'DIAMOND', displayName: 'Hội viên Kim Cương', minSpent: 60000000, pointEarningRate: 5.0, discountPercent: 20.0, freeHeadSpaCount: 4, priorityBooking: true, description: 'Tích 5% điểm, giảm 20% dịch vụ, chuyên gia trưởng phục vụ.'),
+    ];
+  }
+
+  /// F04: Lấy danh sách biến động điểm thưởng từ Supabase & Backend Gateway
   Future<List<PointsTransaction>> fetchLoyaltyPoints() async {
+    final userId = AuthService.instance.currentUserId ?? _userProfile.id;
+
+    // 1. Thử lấy từ Backend Gateway
     try {
       final response = await _apiClient.dio.get(ApiEndpoints.membershipPoints);
       if (response.statusCode == 200 && response.data != null) {
@@ -767,13 +821,96 @@ class MembershipRepository {
             if (list.isNotEmpty) {
               _pointHistory.clear();
               _pointHistory.addAll(list);
+              return _pointHistory;
             }
           }
         }
       }
     } catch (e) {
-      debugPrint('>>> [MembershipRepository] Error fetching loyalty points: $e');
+      debugPrint('>>> [MembershipRepository] Backend loyalty points failed, falling back to direct Supabase: $e');
     }
+
+    // 2. Dự phòng trực tiếp từ Supabase: bảng point_transactions và users
+    if (userId.isNotEmpty) {
+      try {
+        // Cập nhật số dư điểm mới nhất từ users
+        final uRes = await _apiClient.dio.get(
+          '${ApiEndpoints.supabaseUrl}/rest/v1/users?id=eq.$userId&select=reward_points,total_spent,membership_tier&limit=1',
+          options: Options(
+            headers: {
+              'apikey': ApiEndpoints.supabaseAnonKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+            },
+          ),
+        );
+        if (uRes.statusCode == 200 && uRes.data is List && (uRes.data as List).isNotEmpty) {
+          final u = (uRes.data as List).first;
+          final pts = (u['reward_points'] as num?)?.toInt();
+          final spent = (u['total_spent'] as num?)?.toDouble();
+          final tier = u['membership_tier']?.toString();
+          if (pts != null || spent != null || tier != null) {
+            _userProfile = _userProfile.copyWith(
+              points: pts ?? _userProfile.points,
+              totalSpent: spent ?? _userProfile.totalSpent,
+              memberTier: tier != null ? _mapTierName(tier) : _userProfile.memberTier,
+            );
+            _persistLocalProfile(_userProfile);
+          }
+        }
+
+        // Lấy lịch sử biến động từ point_transactions
+        final txRes = await _apiClient.dio.get(
+          '${ApiEndpoints.supabaseUrl}/rest/v1/point_transactions',
+          queryParameters: {
+            'user_id': 'eq.$userId',
+            'order': 'created_at.desc',
+            'limit': '50',
+          },
+          options: Options(
+            headers: {
+              'apikey': ApiEndpoints.supabaseAnonKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+            },
+          ),
+        );
+
+        if (txRes.statusCode == 200 && txRes.data is List) {
+          final list = <PointsTransaction>[];
+          for (final item in (txRes.data as List)) {
+            if (item is Map<String, dynamic>) {
+              final ptsChange = (item['points_change'] as num?)?.toInt() ?? 0;
+              final ptsFormatted = ptsChange >= 0 ? '+$ptsChange' : '$ptsChange';
+              final createdAtStr = item['created_at']?.toString() ?? '';
+              String formattedDate = 'Gần đây';
+              if (createdAtStr.isNotEmpty) {
+                try {
+                  final dt = DateTime.parse(createdAtStr).toLocal();
+                  formattedDate = '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+                } catch (_) {}
+              }
+              list.add(
+                PointsTransaction(
+                  id: item['id']?.toString() ?? 'pt-${DateTime.now().millisecondsSinceEpoch}',
+                  type: ptsChange >= 0 ? 'EARN' : 'REDEEM',
+                  title: item['description']?.toString() ?? (ptsChange >= 0 ? 'Tích điểm dịch vụ' : 'Đổi quà voucher'),
+                  date: formattedDate,
+                  branch: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
+                  points: ptsFormatted,
+                ),
+              );
+            }
+          }
+          if (list.isNotEmpty) {
+            _pointHistory.clear();
+            _pointHistory.addAll(list);
+            return _pointHistory;
+          }
+        }
+      } catch (e) {
+        debugPrint('>>> [MembershipRepository] Supabase direct point_transactions error: $e');
+      }
+    }
+
     if (_pointHistory.isEmpty) {
       _pointHistory.addAll([
         const PointsTransaction(
@@ -789,30 +926,142 @@ class MembershipRepository {
     return _pointHistory;
   }
 
-  /// F04: Đổi điểm thưởng nhận voucher/quà
-  Future<void> redeemReward(RewardItem reward) async {
+  /// F04: Đổi điểm thưởng nhận voucher/quà (đồng bộ với Web Admin user_vouchers & point_transactions)
+  Future<Map<String, dynamic>> redeemReward(RewardItem reward) async {
+    final userId = AuthService.instance.currentUserId ?? _userProfile.id;
+    if (userId.isEmpty) {
+      return {'success': false, 'message': 'Vui lòng đăng nhập để đổi điểm thưởng.'};
+    }
+
+    if (_userProfile.points < reward.pointsRequired) {
+      return {
+        'success': false,
+        'message': 'Bạn cần ${reward.pointsRequired} điểm nhưng hiện chỉ có ${_userProfile.points} điểm.',
+      };
+    }
+
+    // 1. Thử qua Backend Gateway
     try {
       final res = await _apiClient.dio.post(
         ApiEndpoints.membershipPointsRedeem,
         data: {'code': reward.id},
       );
-      if (res.data != null && res.data['currentPoints'] != null) {
-        final pts = (res.data['currentPoints'] as num).toInt();
-        _userProfile = _userProfile.copyWith(points: pts);
+      if (res.statusCode == 200 && res.data != null) {
+        final data = res.data['data'] ?? res.data;
+        if (data is Map && data['currentPoints'] != null) {
+          final pts = (data['currentPoints'] as num).toInt();
+          _userProfile = _userProfile.copyWith(points: pts);
+          _persistLocalProfile(_userProfile);
+        }
+        await fetchLoyaltyPoints();
+        await fetchVouchers();
+        return {'success': true, 'message': 'Đổi voucher thành công! Voucher đã sẵn sàng trong Ví của bạn.'};
       }
+    } catch (e) {
+      debugPrint('>>> [MembershipRepository] Backend redeem failed, falling back to direct Supabase: $e');
+    }
+
+    // 2. Dự phòng trực tiếp Supabase: cập nhật điểm, ghi point_transactions và user_vouchers
+    try {
+      int currentPoints = _userProfile.points;
+      final uRes = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/users?id=eq.$userId&select=reward_points&limit=1',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+      if (uRes.statusCode == 200 && uRes.data is List && (uRes.data as List).isNotEmpty) {
+        final u = (uRes.data as List).first;
+        if (u['reward_points'] != null) {
+          currentPoints = (u['reward_points'] as num).toInt();
+        }
+      }
+
+      if (currentPoints < reward.pointsRequired) {
+        return {
+          'success': false,
+          'message': 'Bạn cần ${reward.pointsRequired} điểm nhưng hiện chỉ có $currentPoints điểm.',
+        };
+      }
+
+      final newPoints = currentPoints - reward.pointsRequired;
+
+      // Cập nhật điểm người dùng
+      await _apiClient.dio.patch(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/users?id=eq.$userId',
+        data: {'reward_points': newPoints},
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+
+      // Ghi nhận biến động điểm
+      await _apiClient.dio.post(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/point_transactions',
+        data: {
+          'user_id': userId,
+          'points_change': -reward.pointsRequired,
+          'balance_after': newPoints,
+          'action_type': 'REDEEM_VOUCHER',
+          'description': 'Đổi điểm: ${reward.title} (-${reward.pointsRequired} điểm)',
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+
+      // Thêm voucher vào user_vouchers
+      String couponId = '44444444-0001-0001-0001-000000000001';
+      if (reward.id == 'rw-02' || reward.title.contains('20%')) {
+        couponId = '44444444-0001-0001-0001-000000000002';
+      }
+
+      final expiryDate = DateTime.now().add(const Duration(days: 180)).toIso8601String();
+      await _apiClient.dio.post(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers',
+        data: {
+          'user_id': userId,
+          'coupon_id': couponId,
+          'source_trigger': 'LOYALTY_REDEEM',
+          'status': 'AVAILABLE',
+          'claimed_at': DateTime.now().toIso8601String(),
+          'expires_at': expiryDate,
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+
+      _userProfile = _userProfile.copyWith(points: newPoints);
+      _persistLocalProfile(_userProfile);
       await fetchLoyaltyPoints();
       await fetchVouchers();
+      return {'success': true, 'message': 'Đổi voucher thành công! Voucher đã được lưu vào Ví Voucher của bạn.'};
     } catch (e) {
-      debugPrint('>>> [MembershipRepository] Error redeeming reward: $e');
+      debugPrint('>>> [MembershipRepository] Supabase direct redeem error: $e');
+      return {'success': false, 'message': 'Không thể thực hiện đổi điểm: $e'};
     }
   }
 
-  /// F05: Lấy danh sách voucher từ Supabase / Backend Gateway
   Future<List<VoucherItem>> fetchVouchers({String? filter}) async {
     final list = <VoucherItem>[];
     final userId = AuthService.instance.currentUserId ?? _userProfile.id;
 
-    // 1. Lấy từ Supabase user_vouchers của user hiện tại
+    final Set<String> usedCouponIds = {};
+    final Set<String> usedCouponCodes = {};
+
     if (userId.isNotEmpty && !userId.startsWith('usr-temp')) {
       try {
         final res = await _apiClient.dio.get(
@@ -821,7 +1070,6 @@ class MembershipRepository {
             'user_id': 'eq.$userId',
             'select': 'id,status,expires_at,claimed_at,coupons(*)',
             'order': 'claimed_at.desc',
-            if (filter != null && filter.isNotEmpty && filter != 'ALL') 'status': 'eq.$filter',
           },
           options: Options(headers: {
             'apikey': ApiEndpoints.supabaseServiceRoleKey,
@@ -832,26 +1080,42 @@ class MembershipRepository {
           for (final item in res.data) {
             if (item is Map<String, dynamic>) {
               final c = item['coupons'] as Map<String, dynamic>?;
-              final pct = (num.tryParse(c?['discount_percent']?.toString() ?? '0') ?? 0).toInt();
+              final cid = c?['id']?.toString() ?? item['coupon_id']?.toString() ?? '';
+              final ccode = (c?['code']?.toString() ?? '').toUpperCase();
+              final status = item['status']?.toString() ?? 'AVAILABLE';
+
+              if (status == 'USED') {
+                if (cid.isNotEmpty) usedCouponIds.add(cid);
+                if (ccode.isNotEmpty) usedCouponCodes.add(ccode);
+              }
+
+              final pct = (num.tryParse(c?['discount_percent']?.toString() ?? '0') ?? 0).toDouble();
               final amt = (num.tryParse(c?['discount_amount']?.toString() ?? '0') ?? 0).toDouble();
-              final banner = pct > 0 ? 'GIẢM $pct%' : (amt > 0 ? 'GIẢM ${_formatVoucherAmount(amt)}' : 'ƯU ĐÃI');
+              final minOrder = (num.tryParse(c?['min_order_amount']?.toString() ?? '0') ?? 0).toDouble();
+              final maxDisc = (num.tryParse(c?['max_discount']?.toString() ?? '0') ?? 0).toDouble();
+              final banner = pct > 0 ? 'GIẢM ${pct.toInt()}%' : (amt > 0 ? 'GIẢM ${_formatVoucherAmount(amt)}' : 'ƯU ĐÃI');
               final rawExpiry = item['expires_at']?.toString() ?? c?['valid_to']?.toString() ?? '';
               final expiryFormatted = _formatExpiryDate(rawExpiry);
-              final status = item['status']?.toString() ?? 'AVAILABLE';
 
               list.add(
                 VoucherItem(
                   id: item['id']?.toString() ?? 'vc-${DateTime.now().millisecondsSinceEpoch}',
+                  couponId: cid.isNotEmpty ? cid : null,
+                  userVoucherId: item['id']?.toString(),
                   title: c?['title']?.toString() ?? 'Ưu đãi dịch vụ MLD',
-                  subtitle: c?['code']?.toString() ?? 'Đặc quyền hội viên',
+                  subtitle: ccode.isNotEmpty ? ccode : 'Đặc quyền hội viên',
                   discountBanner: banner,
                   description: c?['description']?.toString() ?? 'Áp dụng tại Chi nhánh MLD Vietnam.',
                   expiryDate: expiryFormatted,
-                  code: c?['code']?.toString() ?? 'MLDVIP',
+                  code: ccode.isNotEmpty ? ccode : 'MLDVIP',
                   status: status,
                   statusText: status == 'AVAILABLE'
                       ? 'Có thể sử dụng'
                       : (status == 'USED' ? 'Đã sử dụng' : 'Đã hết hạn'),
+                  discountPercent: pct,
+                  discountAmount: amt,
+                  minOrderAmount: minOrder,
+                  maxDiscount: maxDisc > 0 ? maxDisc : null,
                 ),
               );
             }
@@ -860,9 +1124,34 @@ class MembershipRepository {
       } catch (e) {
         debugPrint('>>> [MembershipRepository] Error fetching user vouchers from Supabase: $e');
       }
+
+      try {
+        final bRes = await _apiClient.dio.get(
+          '${ApiEndpoints.supabaseUrl}/rest/v1/bookings',
+          queryParameters: {
+            'customer_id': 'eq.$userId',
+            'coupon_id': 'not.is.null',
+            'status': 'neq.CANCELLED',
+            'select': 'coupon_id',
+          },
+          options: Options(headers: {
+            'apikey': ApiEndpoints.supabaseServiceRoleKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          }),
+        );
+        if (bRes.statusCode == 200 && bRes.data is List) {
+          for (final b in bRes.data) {
+            final cid = b['coupon_id']?.toString();
+            if (cid != null && cid.isNotEmpty) {
+              usedCouponIds.add(cid);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('>>> [MembershipRepository] Error fetching used coupons from bookings: $e');
+      }
     }
 
-    // 2. Lấy thêm các voucher / khuyến mãi chung từ coupons table
     try {
       final resCoupons = await _apiClient.dio.get(
         '${ApiEndpoints.supabaseUrl}/rest/v1/coupons',
@@ -879,26 +1168,58 @@ class MembershipRepository {
       if (resCoupons.statusCode == 200 && resCoupons.data is List) {
         for (final item in resCoupons.data) {
           if (item is Map<String, dynamic>) {
-            final code = item['code']?.toString() ?? '';
-            // Tránh trùng nếu user đã có voucher này trong user_vouchers
-            if (list.any((v) => v.code == code)) continue;
+            final cid = item['id']?.toString() ?? '';
+            final code = (item['code']?.toString() ?? '').toUpperCase();
 
-            final pct = (num.tryParse(item['discount_percent']?.toString() ?? '0') ?? 0).toInt();
+            if (list.any((v) => (v.couponId != null && v.couponId == cid) || v.code.toUpperCase() == code)) {
+              continue;
+            }
+
+            final isAlreadyUsedByUser = usedCouponIds.contains(cid) || usedCouponCodes.contains(code);
+
+            final validTo = item['valid_to'] != null ? DateTime.tryParse(item['valid_to'].toString()) : null;
+            final isExpired = validTo != null && DateTime.now().isAfter(validTo);
+            final usedCount = (item['used_count'] as num?)?.toInt() ?? 0;
+            final usageLimit = (item['usage_limit'] as num?)?.toInt() ?? 0;
+            final isLimitExceeded = usageLimit > 0 && usedCount >= usageLimit;
+
+            String computedStatus = 'AVAILABLE';
+            String computedStatusText = 'Có thể sử dụng';
+            if (isAlreadyUsedByUser) {
+              computedStatus = 'USED';
+              computedStatusText = 'Đã sử dụng';
+            } else if (isExpired) {
+              computedStatus = 'EXPIRED';
+              computedStatusText = 'Đã hết hạn';
+            } else if (isLimitExceeded) {
+              computedStatus = 'EXPIRED';
+              computedStatusText = 'Đã hết lượt';
+            }
+
+            final pct = (num.tryParse(item['discount_percent']?.toString() ?? '0') ?? 0).toDouble();
             final amt = (num.tryParse(item['discount_amount']?.toString() ?? '0') ?? 0).toDouble();
-            final banner = pct > 0 ? 'GIẢM $pct%' : (amt > 0 ? 'GIẢM ${_formatVoucherAmount(amt)}' : 'ƯU ĐÃI');
+            final minOrder = (num.tryParse(item['min_order_amount']?.toString() ?? '0') ?? 0).toDouble();
+            final maxDisc = (num.tryParse(item['max_discount']?.toString() ?? '0') ?? 0).toDouble();
+            final banner = pct > 0 ? 'GIẢM ${pct.toInt()}%' : (amt > 0 ? 'GIẢM ${_formatVoucherAmount(amt)}' : 'ƯU ĐÃI');
             final expiryFormatted = _formatExpiryDate(item['valid_to']?.toString() ?? '');
 
             list.add(
               VoucherItem(
-                id: item['id']?.toString() ?? 'cp-${DateTime.now().millisecondsSinceEpoch}',
+                id: cid.isNotEmpty ? cid : 'cp-${DateTime.now().millisecondsSinceEpoch}',
+                couponId: cid,
+                userVoucherId: null,
                 title: item['title']?.toString() ?? 'Ưu đãi dịch vụ MLD',
                 subtitle: code,
                 discountBanner: banner,
                 description: item['description']?.toString() ?? 'Áp dụng cho mọi dịch vụ Spa hoặc Gói liệu trình.',
                 expiryDate: expiryFormatted,
                 code: code,
-                status: 'AVAILABLE',
-                statusText: 'Có thể sử dụng',
+                status: computedStatus,
+                statusText: computedStatusText,
+                discountPercent: pct,
+                discountAmount: amt,
+                minOrderAmount: minOrder,
+                maxDiscount: maxDisc > 0 ? maxDisc : null,
               ),
             );
           }
@@ -908,11 +1229,11 @@ class MembershipRepository {
       debugPrint('>>> [MembershipRepository] Error fetching public coupons: $e');
     }
 
-    // Fallback nếu rỗng
     if (list.isEmpty) {
       list.addAll([
         const VoucherItem(
           id: 'vc-01',
+          couponId: '44444444-0001-0001-0001-000000000001',
           title: 'Tặng 100.000đ cho khách hàng mới',
           subtitle: 'MLDCHAOXIN',
           discountBanner: 'GIẢM 100K',
@@ -921,9 +1242,12 @@ class MembershipRepository {
           code: 'MLDCHAOXIN',
           status: 'AVAILABLE',
           statusText: 'Có thể sử dụng',
+          discountAmount: 100000,
+          minOrderAmount: 300000,
         ),
         const VoucherItem(
           id: 'vc-02',
+          couponId: '44444444-0001-0001-0001-000000000002',
           title: 'Ưu đãi 20% Dịch vụ Chăm sóc Da & Dưỡng sinh',
           subtitle: 'SPADAY20',
           discountBanner: 'GIẢM 20%',
@@ -932,13 +1256,20 @@ class MembershipRepository {
           code: 'SPADAY20',
           status: 'AVAILABLE',
           statusText: 'Có thể sử dụng',
+          discountPercent: 20,
+          maxDiscount: 150000,
+          minOrderAmount: 400000,
         ),
       ]);
     }
 
     _vouchers.clear();
     _vouchers.addAll(list);
-    return _vouchers;
+
+    if (filter != null && filter.isNotEmpty && filter != 'ALL') {
+      return list.where((v) => v.status == filter).toList();
+    }
+    return List.unmodifiable(_vouchers);
   }
 
   String _formatVoucherAmount(double amt) {
@@ -949,6 +1280,13 @@ class MembershipRepository {
       return '${(amt / 1000).toStringAsFixed(0)}K';
     }
     return '${amt.toInt()}đ';
+  }
+
+  String _formatCurrency(double val) {
+    return val.toInt().toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
+    );
   }
 
   String _formatExpiryDate(String raw) {
@@ -964,7 +1302,173 @@ class MembershipRepository {
     }
   }
 
-  /// Áp dụng / Nhận mã voucher vào ví
+  Future<VoucherValidationResult> validateVoucherCodeDetails(String code, {double? currentPrice}) async {
+    final cleanCode = code.trim().toUpperCase();
+    if (cleanCode.isEmpty) {
+      return VoucherValidationResult.failure('Vui lòng nhập mã ưu đãi.');
+    }
+
+    try {
+      final res = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/coupons',
+        queryParameters: {
+          'code': 'eq.$cleanCode',
+          'select': '*',
+          'limit': '1',
+        },
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseServiceRoleKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+        }),
+      );
+
+      if (res.statusCode != 200 || res.data is! List || (res.data as List).isEmpty) {
+        return VoucherValidationResult.failure('Mã ưu đãi "$cleanCode" không tồn tại trên hệ thống.');
+      }
+
+      final item = (res.data as List).first as Map<String, dynamic>;
+      final couponId = item['id']?.toString() ?? '';
+      final isActive = item['is_active'] == true;
+      if (!isActive) {
+        return VoucherValidationResult.failure('Mã ưu đãi "$cleanCode" hiện đã tạm dừng áp dụng.');
+      }
+
+      if (item['valid_to'] != null) {
+        final validTo = DateTime.tryParse(item['valid_to'].toString());
+        if (validTo != null && DateTime.now().isAfter(validTo)) {
+          return VoucherValidationResult.failure('Mã ưu đãi "$cleanCode" đã hết hạn sử dụng.');
+        }
+      }
+      if (item['valid_from'] != null) {
+        final validFrom = DateTime.tryParse(item['valid_from'].toString());
+        if (validFrom != null && DateTime.now().isBefore(validFrom)) {
+          return VoucherValidationResult.failure('Mã ưu đãi "$cleanCode" chưa đến thời gian áp dụng.');
+        }
+      }
+
+      final usageLimit = (item['usage_limit'] as num?)?.toInt() ?? 0;
+      final usedCount = (item['used_count'] as num?)?.toInt() ?? 0;
+      if (usageLimit > 0 && usedCount >= usageLimit) {
+        return VoucherValidationResult.failure('Mã ưu đãi "$cleanCode" đã hết lượt sử dụng trên hệ thống.');
+      }
+
+      final userId = AuthService.instance.currentUserId ?? _userProfile.id;
+      String? userVoucherId;
+
+      if (userId.isNotEmpty && !userId.startsWith('usr-temp')) {
+        try {
+          final uvUsedRes = await _apiClient.dio.get(
+            '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers',
+            queryParameters: {
+              'user_id': 'eq.$userId',
+              'coupon_id': 'eq.$couponId',
+              'status': 'eq.USED',
+              'select': 'id,used_at',
+              'limit': '1',
+            },
+            options: Options(headers: {
+              'apikey': ApiEndpoints.supabaseServiceRoleKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            }),
+          );
+          if (uvUsedRes.statusCode == 200 && uvUsedRes.data is List && (uvUsedRes.data as List).isNotEmpty) {
+            return VoucherValidationResult.failure('Bạn đã sử dụng mã ưu đãi "$cleanCode" rồi. Mỗi khách hàng chỉ được áp dụng 1 lần.');
+          }
+        } catch (_) {}
+
+        try {
+          final bUsedRes = await _apiClient.dio.get(
+            '${ApiEndpoints.supabaseUrl}/rest/v1/bookings',
+            queryParameters: {
+              'customer_id': 'eq.$userId',
+              'coupon_id': 'eq.$couponId',
+              'status': 'neq.CANCELLED',
+              'select': 'id,booking_code',
+              'limit': '1',
+            },
+            options: Options(headers: {
+              'apikey': ApiEndpoints.supabaseServiceRoleKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            }),
+          );
+          if (bUsedRes.statusCode == 200 && bUsedRes.data is List && (bUsedRes.data as List).isNotEmpty) {
+            return VoucherValidationResult.failure('Bạn đã sử dụng mã ưu đãi "$cleanCode" cho một lịch hẹn trước đó rồi. Mỗi khách hàng chỉ được áp dụng 1 lần.');
+          }
+        } catch (_) {}
+
+        try {
+          final uvAvailRes = await _apiClient.dio.get(
+            '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers',
+            queryParameters: {
+              'user_id': 'eq.$userId',
+              'coupon_id': 'eq.$couponId',
+              'status': 'eq.AVAILABLE',
+              'select': 'id',
+              'limit': '1',
+            },
+            options: Options(headers: {
+              'apikey': ApiEndpoints.supabaseServiceRoleKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            }),
+          );
+          if (uvAvailRes.statusCode == 200 && uvAvailRes.data is List && (uvAvailRes.data as List).isNotEmpty) {
+            userVoucherId = (uvAvailRes.data as List).first['id']?.toString();
+          }
+        } catch (_) {}
+      }
+
+      final pct = (num.tryParse(item['discount_percent']?.toString() ?? '0') ?? 0).toDouble();
+      final amt = (num.tryParse(item['discount_amount']?.toString() ?? '0') ?? 0).toDouble();
+      final minOrder = (num.tryParse(item['min_order_amount']?.toString() ?? '0') ?? 0).toDouble();
+      final maxDisc = (num.tryParse(item['max_discount']?.toString() ?? '0') ?? 0).toDouble();
+      final banner = pct > 0 ? 'GIẢM ${pct.toInt()}%' : (amt > 0 ? 'GIẢM ${_formatVoucherAmount(amt)}' : 'ƯU ĐÃI');
+      final expiry = _formatExpiryDate(item['valid_to']?.toString() ?? '');
+
+      final voucher = VoucherItem(
+        id: couponId.isNotEmpty ? couponId : 'cp-$cleanCode',
+        couponId: couponId,
+        userVoucherId: userVoucherId,
+        title: item['title']?.toString() ?? 'Ưu đãi dịch vụ MLD',
+        subtitle: cleanCode,
+        discountBanner: banner,
+        description: item['description']?.toString() ?? 'Áp dụng cho mọi dịch vụ Spa hoặc Gói liệu trình.',
+        expiryDate: expiry,
+        code: cleanCode,
+        status: 'AVAILABLE',
+        statusText: 'Có thể sử dụng',
+        discountPercent: pct,
+        discountAmount: amt,
+        minOrderAmount: minOrder,
+        maxDiscount: maxDisc > 0 ? maxDisc : null,
+      );
+
+      if (currentPrice != null && currentPrice > 0) {
+        if (!voucher.isEligible(currentPrice)) {
+          return VoucherValidationResult.failure('Đơn hàng chưa đạt mức tối thiểu ${_formatCurrency(minOrder)}đ để áp dụng mã này.');
+        }
+        final calculatedDiscount = voucher.calculateDiscount(currentPrice);
+        return VoucherValidationResult.success(
+          voucher: voucher,
+          discount: calculatedDiscount,
+          message: 'Áp dụng mã $cleanCode thành công! Tiết kiệm ${_formatCurrency(calculatedDiscount)}đ',
+        );
+      }
+
+      return VoucherValidationResult.success(
+        voucher: voucher,
+        message: 'Mã ưu đãi $cleanCode hợp lệ và có thể sử dụng.',
+      );
+    } catch (e) {
+      debugPrint('>>> [validateVoucherCodeDetails] Error: $e');
+      return VoucherValidationResult.failure('Không thể kiểm tra mã ưu đãi: $e');
+    }
+  }
+
+  Future<VoucherItem?> validateVoucherCode(String code) async {
+    final result = await validateVoucherCodeDetails(code);
+    return result.isValid ? result.voucher : null;
+  }
+
   Future<Map<String, dynamic>> claimVoucherByCode(String code) async {
     final cleanCode = code.trim().toUpperCase();
     if (cleanCode.isEmpty) {
@@ -977,7 +1481,6 @@ class MembershipRepository {
     }
 
     try {
-      // 1. Kiểm tra mã tồn tại trong coupons
       final res = await _apiClient.dio.get(
         '${ApiEndpoints.supabaseUrl}/rest/v1/coupons',
         queryParameters: {
@@ -998,14 +1501,12 @@ class MembershipRepository {
       final coupon = (res.data as List).first as Map<String, dynamic>;
       final couponId = coupon['id']?.toString() ?? '';
 
-      // 2. Kiểm tra xem user đã có voucher này chưa
       final existingRes = await _apiClient.dio.get(
         '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers',
         queryParameters: {
           'user_id': 'eq.$userId',
           'coupon_id': 'eq.$couponId',
-          'status': 'eq.AVAILABLE',
-          'select': 'id',
+          'select': 'id,status',
         },
         options: Options(headers: {
           'apikey': ApiEndpoints.supabaseServiceRoleKey,
@@ -1014,7 +1515,29 @@ class MembershipRepository {
       );
 
       if (existingRes.statusCode == 200 && existingRes.data is List && (existingRes.data as List).isNotEmpty) {
+        final existingStatus = (existingRes.data as List).first['status']?.toString();
+        if (existingStatus == 'USED') {
+          return {'success': false, 'message': 'Bạn đã sử dụng mã ưu đãi này rồi. Mỗi khách hàng chỉ được áp dụng 1 lần.'};
+        }
         return {'success': true, 'message': 'Bạn đã lưu mã này trong ví voucher rồi!'};
+      }
+
+      final bCheck = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/bookings',
+        queryParameters: {
+          'customer_id': 'eq.$userId',
+          'coupon_id': 'eq.$couponId',
+          'status': 'neq.CANCELLED',
+          'select': 'id',
+          'limit': '1',
+        },
+        options: Options(headers: {
+          'apikey': ApiEndpoints.supabaseServiceRoleKey,
+          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+        }),
+      );
+      if (bCheck.statusCode == 200 && bCheck.data is List && (bCheck.data as List).isNotEmpty) {
+        return {'success': false, 'message': 'Bạn đã sử dụng mã ưu đãi này cho một lịch hẹn trước đó rồi.'};
       }
 
       // 3. Insert vào user_vouchers

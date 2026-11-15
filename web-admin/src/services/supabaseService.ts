@@ -202,32 +202,50 @@ class SupabaseService {
   // 1. CHI NHÁNH (BRANCHES)
   async getBranches(includeArchived = false): Promise<Branch[] | null> {
     const raw = await this.query<any[]>('branches?select=*&order=code.asc');
-    if (!raw || raw.length === 0) return null;
+    if (!raw) return null;
 
     const filtered = includeArchived
       ? raw
       : raw.filter((b) => !b.name?.startsWith('[ARCHIVED]') && !b.name?.startsWith('[DELETED]'));
 
-    return filtered.map((b) => ({
-      id: b.id,
-      name: b.name,
-      code: b.code,
-      phone: b.phone,
-      address: b.address,
-      district: b.district,
-      city: b.city,
-      latitude: Number(b.latitude),
-      longitude: Number(b.longitude),
-      openingTime: b.opening_time,
-      closingTime: b.closing_time,
-      imageUrl: b.image_url,
-      galleryUrls: Array.isArray(b.gallery_urls) ? b.gallery_urls : [],
-      amenities: Array.isArray(b.amenities) ? b.amenities : [],
-      isActive: Boolean(b.is_active),
-      isArchived: Boolean(b.name?.startsWith('[ARCHIVED]') || b.name?.startsWith('[DELETED]')),
-      createdAt: b.created_at,
-      updatedAt: b.updated_at,
-    }));
+    return filtered.map((b) => {
+      let customSlots: string[] = [];
+      if (Array.isArray(b.custom_time_slots) && b.custom_time_slots.length > 0) {
+        customSlots = b.custom_time_slots.map((s: any) => String(s).trim());
+      }
+      const rawAmenities: string[] = Array.isArray(b.amenities) ? b.amenities : [];
+      const cleanAmenities = rawAmenities.filter((a: string) => {
+        if (typeof a === 'string' && a.startsWith('SLOTS:')) {
+          if (customSlots.length === 0) {
+            customSlots = a.substring(6).split(',').map((s) => s.trim()).filter(Boolean);
+          }
+          return false;
+        }
+        return true;
+      });
+
+      return {
+        id: b.id,
+        name: b.name,
+        code: b.code,
+        phone: b.phone,
+        address: b.address,
+        district: b.district,
+        city: b.city,
+        latitude: Number(b.latitude),
+        longitude: Number(b.longitude),
+        openingTime: b.opening_time,
+        closingTime: b.closing_time,
+        customTimeSlots: customSlots,
+        imageUrl: b.image_url,
+        galleryUrls: Array.isArray(b.gallery_urls) ? b.gallery_urls : [],
+        amenities: cleanAmenities,
+        isActive: Boolean(b.is_active),
+        isArchived: Boolean(b.name?.startsWith('[ARCHIVED]') || b.name?.startsWith('[DELETED]')),
+        createdAt: b.created_at,
+        updatedAt: b.updated_at,
+      };
+    });
   }
 
   async getArchivedBranches(): Promise<Branch[]> {
@@ -259,6 +277,12 @@ class SupabaseService {
 
   async createBranch(branch: Partial<Branch> & { name: string; code: string; phone: string; address: string; district: string }): Promise<Branch | null> {
     try {
+      const rawAmenities = branch.amenities || ['Phòng VIP riêng biệt', 'Đỗ xe ô tô', 'Trà thảo mộc'];
+      const cleanAmenities = rawAmenities.filter((a: string) => !a.startsWith('SLOTS:'));
+      if (branch.customTimeSlots && branch.customTimeSlots.length > 0) {
+        cleanAmenities.push(`SLOTS:${branch.customTimeSlots.join(',')}`);
+      }
+
       const payload = {
         name: branch.name,
         code: branch.code,
@@ -272,7 +296,7 @@ class SupabaseService {
         closing_time: branch.closingTime || '20:30:00',
         image_url: branch.imageUrl || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
         gallery_urls: branch.galleryUrls || [],
-        amenities: branch.amenities || ['Phòng VIP riêng biệt', 'Đỗ xe ô tô', 'Trà thảo mộc'],
+        amenities: cleanAmenities,
         is_active: branch.isActive !== undefined ? branch.isActive : true,
       };
 
@@ -319,7 +343,14 @@ class SupabaseService {
       if (updates.openingTime !== undefined) payload.opening_time = updates.openingTime;
       if (updates.closingTime !== undefined) payload.closing_time = updates.closingTime;
       if (updates.imageUrl !== undefined) payload.image_url = updates.imageUrl;
-      if (updates.amenities !== undefined) payload.amenities = updates.amenities;
+      if (updates.amenities !== undefined || updates.customTimeSlots !== undefined) {
+        const raw = updates.amenities !== undefined ? updates.amenities : [];
+        const clean = raw.filter((a: string) => !a.startsWith('SLOTS:'));
+        if (updates.customTimeSlots && updates.customTimeSlots.length > 0) {
+          clean.push(`SLOTS:${updates.customTimeSlots.join(',')}`);
+        }
+        payload.amenities = clean;
+      }
       if (updates.isActive !== undefined) payload.is_active = updates.isActive;
 
       const res = await this.query<any>(`branches?id=eq.${branchId}`, {
@@ -963,11 +994,11 @@ class SupabaseService {
   // 10. LỊCH ĐẶT CHỖ (BOOKINGS)
   async getBookings(branchId?: string, customerId?: string): Promise<Booking[] | null> {
     let path = `bookings?select=*,customer:users!bookings_customer_id_fkey(*),branch:branches!bookings_branch_id_fkey(*),technician:technicians(*),room:branch_rooms(*),items:booking_items(*,service:services(*))&order=booking_date.desc,start_time.asc`;
-    if (branchId) path += `&branch_id=eq.${branchId}`;
+    if (branchId && branchId !== 'ALL') path += `&branch_id=eq.${branchId}`;
     if (customerId) path += `&customer_id=eq.${customerId}`;
 
     const raw = await this.query<any[]>(path);
-    if (!raw || raw.length === 0) return null;
+    if (!raw) return null;
 
     return raw.map((b) => ({
       id: b.id,
@@ -1469,7 +1500,7 @@ class SupabaseService {
     if (customerId) path += `&customer_id=eq.${customerId}`;
 
     const raw = await this.query<any[]>(path);
-    if (!raw || raw.length === 0) return null;
+    if (!raw) return null;
 
     return raw.map((inv) => {
       const parsedItems = Array.isArray(inv.items)
@@ -1797,11 +1828,11 @@ class SupabaseService {
   }
 
   // 13. HỒ SƠ HỌC VIÊN GHI DANH (COURSE ENROLLMENTS)
-  async getEnrollments(batchId?: string): Promise<CourseEnrollment[] | null> {
+  async getEnrollments(batchId?: string, options: { fresh?: boolean } = {}): Promise<CourseEnrollment[] | null> {
     const path = batchId
       ? `course_enrollments?batch_id=eq.${batchId}&order=enrolled_at.desc`
       : `course_enrollments?order=enrolled_at.desc`;
-    const raw = await this.query<any[]>(path);
+    const raw = await this.query<any[]>(path, options.fresh ? { cache: 'no-store' } : {});
     if (!raw || raw.length === 0) return null;
 
     return raw.map((e) => ({
@@ -1940,7 +1971,7 @@ class SupabaseService {
       ? `tuition_transactions?enrollment_id=eq.${enrollmentId}&order=paid_at.desc`
       : `tuition_transactions?order=paid_at.desc`;
     const raw = await this.query<any[]>(path);
-    if (!raw || raw.length === 0) return null;
+    if (!raw) return null;
 
     return raw.map((tt) => ({
       id: tt.id,
@@ -2495,10 +2526,10 @@ class SupabaseService {
   // ==========================================
   // GIẤY CHỨNG NHẬN CHUẨN Y KHOA (STUDENT CERTIFICATES)
   // ==========================================
-  async getStudentCertificates(): Promise<StudentCertificate[]> {
+  async getStudentCertificates(): Promise<StudentCertificate[] | null> {
     try {
       const rows = await this.query<any[]>('student_certificates?select=*&order=issue_date.desc');
-      if (rows && rows.length > 0) {
+      if (rows) {
         return rows.map((r) => ({
           id: r.id,
           enrollmentId: r.enrollment_id,
@@ -2523,7 +2554,7 @@ class SupabaseService {
     } catch (err) {
       console.warn('[SupabaseService] getStudentCertificates error:', err);
     }
-    return [];
+    return null;
   }
 
   async createStudentCertificate(data: Partial<StudentCertificate>): Promise<StudentCertificate | null> {

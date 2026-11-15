@@ -11,7 +11,7 @@ type Student = {
   id: string; full_name: string; status: Status | null; eligible: boolean;
   present: number; late: number; absent: number; excused: number;
 };
-type AttendanceRoster = { rows: Student[]; history?: Student[]; writable: boolean };
+type AttendanceRoster = { rows: Student[]; history?: Student[]; writable: boolean; readOnlyReason?: string | null };
 
 async function list(resource: string, signal: AbortSignal, filter?: object) {
   const rows: Row[] = [];
@@ -97,6 +97,11 @@ export function W10_Attendance() {
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [changes.length]);
+  useEffect(() => {
+    const refresh = () => { if (!savingRef.current && !changes.length) setVersion(value => value + 1); };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [changes.length]);
   const selected = batches.find(row => row.id === batchId);
   const currentStudents = view === 'history' ? roster?.history ?? [] : roster?.rows ?? [];
   const visibleStudents = currentStudents.filter(row => row.full_name.toLocaleLowerCase('vi').includes(search.trim().toLocaleLowerCase('vi')));
@@ -134,7 +139,7 @@ export function W10_Attendance() {
   }));
 
   return <AdminPageShell>
-    <PageHeader eyebrow="Học viên & Lớp học" title="Điểm danh & Sổ theo dõi" subtitle="Chọn lớp và buổi học để ghi nhận chuyên cần." />
+    <PageHeader eyebrow="Học viên & Lớp học" title="Điểm danh & Sổ theo dõi" subtitle="Chọn lớp và buổi học để ghi nhận chuyên cần." actions={<button className="admin-secondary" disabled={loading || saving} onClick={() => { if (!changes.length || window.confirm('Bỏ thay đổi chưa lưu và tải lại?')) reload(); }}>Tải lại dữ liệu</button>} />
     <AdminTabs tabs={tabs} variant="line" activeTab="student_attendance" ariaLabel="Học viên & Lớp học" />
     <div className="mb-4 grid gap-3 rounded-xl border border-[#EAD8C7] bg-white p-4 sm:grid-cols-2">
       <label className="text-sm font-medium">Lớp học
@@ -155,12 +160,12 @@ export function W10_Attendance() {
     {error && <div role="alert" className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-800">{error} <button className="ml-2 underline" disabled={saving} onClick={() => { if (!changes.length || window.confirm('Bỏ thay đổi chưa lưu và tải lại?')) reload(); }}>Tải lại</button></div>}
     {loading ? <p role="status">Đang tải dữ liệu lớp…</p> : roster ? <section className="admin-table-wrap">
       <div className="flex flex-wrap items-center justify-between gap-2 p-4">
-        <h2 className="font-semibold">Sổ điểm danh · {roster.rows.length} học viên</h2>
+        <h2 className="font-semibold">Sổ điểm danh · {roster.rows.filter(row => row.eligible).length} học viên đủ điều kiện</h2>
         {changes.length > 0 && <button className="admin-primary" disabled={saving || changes.length > 250} onClick={save}>{saving ? 'Đang lưu…' : 'Lưu điểm danh (' + changes.length + ')'}</button>}
         {changes.length > 0 && <button className="admin-secondary" disabled={saving} onClick={() => setDraft({})}>Bỏ thay đổi</button>}
       </div>
       {changes.length > 250 && <p role="alert" className="px-4 pb-3 text-sm text-red-800">Có thể lưu tối đa 250 thay đổi mỗi lần. Giảm số thay đổi trước khi lưu.</p>}
-      {!roster.writable && <p className="px-4 pb-3 text-sm">Buổi học chưa đến ngày hoặc lớp đã đóng. Bạn có thể xem dữ liệu đã ghi nhận.</p>}
+      {!roster.writable && <p className="px-4 pb-3 text-sm">{roster.readOnlyReason || 'Buổi học đang ở chế độ chỉ xem.'}</p>}
       <div className="flex flex-wrap items-center gap-2 border-t border-[#EAD8C7] p-4">
         <button type="button" className="admin-secondary" aria-pressed={view === 'session'} onClick={() => setView('session')}>Điểm danh buổi học</button>
         <button type="button" className="admin-secondary" aria-pressed={view === 'history'} onClick={() => setView('history')}>Theo dõi cả lớp</button>
@@ -174,7 +179,7 @@ export function W10_Attendance() {
         <thead><tr><th>Học viên</th><th>Có mặt</th><th>Đi muộn</th><th>Vắng</th><th>Vắng có phép</th></tr></thead>
         <tbody>{visibleStudents.map(row => <tr key={row.id}><td>{row.full_name}</td><td>{row.present}</td><td>{row.late}</td><td>{row.absent}</td><td>{row.excused}</td></tr>)}</tbody>
       </table> : visibleStudents.length ? <table className="admin-table"><thead><tr><th>Học viên</th><th>Trạng thái buổi học</th></tr></thead><tbody>
-        {visibleStudents.map(row => <tr key={row.id}><td>{row.full_name}</td><td>{canMark(row) ? <select aria-label={'Điểm danh ' + row.full_name} className="rounded-lg border bg-white p-2" disabled={saving} value={draft[row.id] ?? row.status ?? ''} onChange={event => {
+        {visibleStudents.map(row => <tr key={row.id}><td>{row.full_name}{!row.eligible && <span className="block text-xs text-[#73675F]">Dữ liệu lịch sử · Không còn thuộc diện điểm danh</span>}</td><td>{canMark(row) ? <select aria-label={'Điểm danh ' + row.full_name} className="rounded-lg border bg-white p-2" disabled={saving} value={draft[row.id] ?? row.status ?? ''} onChange={event => {
           const status = event.target.value as Status;
           setDraft(current => { const next = { ...current }; if (status) next[row.id] = status; else delete next[row.id]; return next; });
         }}>
