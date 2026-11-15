@@ -564,6 +564,8 @@ describe('Admin shared-schema integration', () => {
     );
     await pg.query("UPDATE course_enrollments SET student_status='ENROLLED',access_status='ACTIVE' WHERE id=$1", [enrollment.id]);
     expect((await service.attendanceRoster(actor, session.id))?.rows[0]).toMatchObject({ id: enrollment.id, status: null, eligible: true });
+    await pg.query("UPDATE course_enrollments SET student_name='Tên học viên theo hồ sơ' WHERE id=$1", [enrollment.id]);
+    expect((await service.attendanceRoster(actor, session.id))?.rows[0].full_name).toBe('Tên học viên theo hồ sơ');
     expect(await service.attendanceRoster(actor, session.id)).toMatchObject({ writable: true, readOnlyReason: null });
     await pg.query("UPDATE batch_schedules SET session_date=CURRENT_DATE+1 WHERE id=$1", [session.id]);
     expect(await service.attendanceRoster(actor, session.id)).toMatchObject({ writable: false, readOnlyReason: expect.stringContaining('chưa đến ngày') });

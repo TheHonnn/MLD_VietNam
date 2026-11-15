@@ -1426,7 +1426,7 @@ export class AdminService {
       await client.query('BEGIN');
       const schedule = await this.attendanceContext(client, actor, scheduleId, 'read');
       const { rows } = await client.query(
-        `SELECT e.id,u.full_name,a.status,
+        `SELECT e.id,COALESCE(NULLIF(btrim(e.student_name),''),u.full_name) AS full_name,a.status,
                 COALESCE(history.present,0) AS present,COALESCE(history.late,0) AS late,
                 COALESCE(history.absent,0) AS absent,COALESCE(history.excused,0) AS excused,
                 (e.batch_id=$2 AND e.student_status IN ('ENROLLED','AWAITING_RETEST')
@@ -1442,7 +1442,7 @@ export class AdminService {
            WHERE s.batch_id=$2 GROUP BY h.enrollment_id
          ) history ON history.enrollment_id=e.id
          WHERE e.batch_id=$2 OR history.enrollment_id IS NOT NULL
-         ORDER BY u.full_name,e.id`,
+         ORDER BY full_name,e.id`,
         [scheduleId, schedule.batch_id],
       );
       await client.query('COMMIT');
