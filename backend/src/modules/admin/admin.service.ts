@@ -14,6 +14,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PoolClient } from 'pg';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, randomUUID } from 'crypto';
+import { tuitionBankCode } from '../../common/tuition-bank-reference';
 import { AdminDatabase } from './admin.database';
 import { inspectAdminSchema } from './admin.schema';
 import { createTreatmentBooking } from './treatment-booking';
@@ -3055,15 +3056,22 @@ export class AdminService {
       if (kind === 'TUITION') {
         const enrollmentId = String(body.enrollmentId || '');
         const amount = Number(body.amount);
+        const reference = typeof body.bankReference === 'string' ? body.bankReference.trim() : '';
+        if (paymentMethod === 'BANK_TRANSFER' && (!reference || reference.length > 128))
+          throw new BadRequestException('Nhập mã giao dịch ngân hàng trên sao kê (tối đa 128 ký tự).');
         if (!this.isUuid(enrollmentId) || !Number.isFinite(amount) || amount <= 0)
           throw new BadRequestException('Hồ sơ học viên hoặc số tiền thu không hợp lệ.');
         const enrollment = (await client.query(
-          `SELECT e.*,b.branch_id AS batch_branch_id FROM course_enrollments e
-           LEFT JOIN course_batches b ON b.id=e.batch_id WHERE e.id=$1 FOR UPDATE OF e`,
+          `SELECT e.*,b.branch_id AS batch_branch_id, r.id AS selected_branch_id FROM course_enrollments e
+           LEFT JOIN course_batches b ON b.id=e.batch_id
+           LEFT JOIN LATERAL (SELECT id FROM branches WHERE name=e.selected_branch LIMIT 1) r ON true
+           WHERE e.id=$1 FOR UPDATE OF e`,
           [enrollmentId],
         )).rows[0];
         if (!enrollment) throw new NotFoundException('Không tìm thấy hồ sơ học viên.');
-        const branchId = enrollment.batch_branch_id || String(body.branchId || '');
+        if (paymentMethod === 'BANK_TRANSFER' && enrollment.consultation_status !== 'CONFIRMED')
+          throw new ConflictException('Xác nhận học phí trước khi ghi nhận chuyển khoản.');
+        const branchId = enrollment.batch_branch_id || enrollment.selected_branch_id || String(body.branchId || '');
         if (!this.isUuid(branchId) || branchId !== shift.branch_id)
           throw new BadRequestException('Ca thu ngân không khớp chi nhánh của lớp học.');
         const paid = Number(enrollment.amount_paid || 0);
@@ -3071,14 +3079,22 @@ export class AdminService {
         if (amount > tuition - paid)
           throw new ConflictException('Số tiền vượt quá học phí còn phải thu.');
         const nextPaid = paid + amount;
-        const transactionCode = `TT-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+        const transactionCode = paymentMethod === 'BANK_TRANSFER' ? tuitionBankCode(reference) : `TT-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+        if (paymentMethod === 'BANK_TRANSFER') {
+          await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [transactionCode]);
+          const existing = await client.query(
+            "SELECT 1 FROM tuition_transactions WHERE transaction_code=$1 OR upper(notes)=upper($2) LIMIT 1",
+            [transactionCode, `Webhook ngân hàng: ${reference}`],
+          );
+          if (existing.rows.length) throw new ConflictException('Mã giao dịch ngân hàng đã có phiếu thu.');
+        }
         const transactionType = nextPaid >= tuition
           ? (paid > 0 ? 'REMAINING_BALANCE' : 'FULL_PAYMENT')
           : (paid > 0 ? 'INSTALLMENT_1' : 'DEPOSIT');
         const transaction = (await client.query(
           `INSERT INTO tuition_transactions(transaction_code,enrollment_id,student_id,course_id,branch_id,cashier_id,shift_id,transaction_type,amount,payment_method,payment_status,receipt_number,notes,paid_at)
            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PAID',$1,$11,now()) RETURNING *`,
-          [transactionCode,enrollment.id,enrollment.student_id,enrollment.course_id,branchId,actor.id,shiftId,transactionType,amount,paymentMethod,typeof body.notes === 'string' ? body.notes.trim().slice(0, 1000) : null],
+          [transactionCode,enrollment.id,enrollment.student_id,enrollment.course_id,branchId,actor.id,shiftId,transactionType,amount,paymentMethod,reference ? `Mã giao dịch ngân hàng: ${reference}` : typeof body.notes === 'string' ? body.notes.trim().slice(0, 1000) : null],
         )).rows[0];
         if (enrollment.assigned_staff_id) {
           const commissionRate = Number((await client.query(
