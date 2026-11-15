@@ -105,7 +105,7 @@ export class AcademyController {
     @Param('id') id: string,
     @Body() body: { amountPaid?: number; notes?: string },
   ) {
-    return this.academyService.approveEnrollment(id, req.admin.id, body?.amountPaid, body?.notes);
+    return this.academyService.approveEnrollment(id, req.admin.id, body?.notes);
   }
 
   @Post('enrollments/:id/graduate')

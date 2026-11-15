@@ -36,6 +36,8 @@ describe('academy enrollment lifecycle database contract', () => {
     await pg.query("SELECT fn_approve_enrollment($1,$2,200000,'Đủ cọc')", [enrollmentId, adminId]);
     expect(await one('SELECT status,student_status FROM course_enrollments WHERE id=$1', [enrollmentId]))
       .toMatchObject({ status: 'DEPOSITED', student_status: 'APPROVED' });
+    await expect(pg.query('SELECT fn_approve_enrollment($1,$2,NULL,NULL)', [enrollmentId, adminId])).rejects.toThrow(/đã được duyệt/);
+    expect(Number((await one("SELECT count(*) AS count FROM enrollment_status_history WHERE enrollment_id=$1 AND event='ADMISSION_APPROVED'", [enrollmentId])).count)).toBe(1);
   });
 
   it('assigns a batch atomically and starts study only when the batch has started', async () => {

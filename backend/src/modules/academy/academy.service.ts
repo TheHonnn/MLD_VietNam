@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, InternalServerErrorException, Ba
 import { SupabaseService } from '../../database/supabase.service';
 import { AdminDatabase } from '../admin/admin.database';
 import { EnrollCourseDto } from './dto/enroll-course.dto';
-import { decideEnrollmentAction, paymentState } from './enrollment-workflow';
+import { paymentState } from './enrollment-workflow';
 
 @Injectable()
 export class AcademyService {
@@ -438,49 +438,31 @@ export class AcademyService {
   /**
    * Admin duyệt học viên vào khóa học (thu tiền tại quầy hoặc miễn giảm)
    */
-  async approveEnrollment(enrollmentId: string, adminUser: string, amountPaid?: number, notes?: string) {
+  async approveEnrollment(enrollmentId: string, adminUser: string, notes?: string) {
     try {
-      const { data: enr } = await this.supabaseService.adminClient
-        .from('course_enrollments')
-        .select('id, status, tuition_total, amount_paid, required_deposit, consultation_status, student_id, course_id, courses:course_id(deposit_amount)')
-        .eq('id', enrollmentId)
-        .maybeSingle();
-
-      if (!enr) return { success: false, message: 'Không tìm thấy hồ sơ đăng ký' };
-      if (!adminUser || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(adminUser)) {
-        return { success: false, message: 'Không xác định được admin thực hiện thao tác' };
+      const { rows } = await this.adminDatabase.connection.query(
+        'SELECT public.fn_approve_enrollment($1,$2,NULL,$3) AS approval',
+        [enrollmentId, adminUser, notes?.trim() || null],
+      );
+      if (rows[0]?.approval?.success !== true || rows[0].approval.status !== 'DEPOSITED') {
+        throw new Error('Unexpected result from admission approval');
       }
-      const verifiedPaid = Number(enr.amount_paid ?? 0);
-      const requiredDeposit = Number(enr.required_deposit || (enr.courses as any)?.deposit_amount || 2000000);
-      const tuitionTotal = Number(enr.tuition_total || 0);
-      const decision = decideEnrollmentAction('APPROVE_ADMISSION', {
-        consultationStatus: enr.consultation_status,
-        paymentStatus: paymentState(verifiedPaid, tuitionTotal),
-        admissionStatus: 'NOT_APPROVED',
-        enrollmentStatus: enr.status || 'PENDING_APPROVAL',
-        amountPaid: verifiedPaid,
-        tuitionTotal,
-        requiredDeposit,
-      });
-      if (!decision.allowed) return { success: false, message: decision.reasons.join('. ') };
-
-      const { error } = await this.supabaseService.adminClient.rpc('fn_approve_enrollment', {
-        p_enrollment_id: enrollmentId,
-        p_actor_id: adminUser,
-        p_amount_paid: verifiedPaid,
-        p_notes: notes || null,
-      });
-      if (error) return { success: false, message: error.message };
-
       return {
         success: true,
-        message: 'Đã duyệt học viên vào khóa học thành công!',
+        message: 'Đã duyệt nhập học.',
+        data: {
+          id: enrollmentId, status: rows[0].approval.status,
+          approvalStatus: 'APPROVED', studentAdmissionStatus: 'APPROVED',
+          paymentVerificationStatus: rows[0].approval.paymentStatus,
+        },
       };
-    } catch (err: any) {
-      return {
-        success: false,
-        message: err.message || 'Lỗi khi duyệt hồ sơ',
-      };
+    } catch (error) {
+      const databaseError = error as { code?: string; message?: string };
+      if (databaseError.code === 'P0001' || databaseError.code === '22P02') {
+        throw new BadRequestException(databaseError.code === '22P02' ? 'Mã hồ sơ không hợp lệ.' : databaseError.message);
+      }
+      this.logger.error('Admission approval failed', databaseError.code);
+      throw new InternalServerErrorException('Chưa xác nhận được kết quả duyệt. Hãy tải lại hồ sơ trước khi thử lại.');
     }
   }
 
