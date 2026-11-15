@@ -193,6 +193,7 @@ class ConsultationPreferenceModel {
 
 /// Mô hình Đánh giá dịch vụ (D05 ServiceReview)
 class ServiceReviewDataModel {
+  final String? id;
   final int overallRating; // 1 - 5
   final int serviceQualityRating; // 1 - 5
   final int staffAttitudeRating; // 1 - 5
@@ -203,8 +204,15 @@ class ServiceReviewDataModel {
   final String? bookingId;
   final String? serviceId;
   final String? technicianId;
+  final List<String> reviewTags;
+  final List<String> photos;
+  final String? branchReply;
+  final String? createdAt;
+  final String? serviceName;
+  final String? technicianName;
 
   const ServiceReviewDataModel({
+    this.id,
     this.overallRating = 5,
     this.serviceQualityRating = 5,
     this.staffAttitudeRating = 5,
@@ -215,7 +223,65 @@ class ServiceReviewDataModel {
     this.bookingId,
     this.serviceId,
     this.technicianId,
+    this.reviewTags = const [],
+    this.photos = const [],
+    this.branchReply,
+    this.createdAt,
+    this.serviceName,
+    this.technicianName,
   });
+
+  factory ServiceReviewDataModel.fromJson(Map<String, dynamic> json) {
+    final tagsRaw = json['review_tags'];
+    final tags = <String>[];
+    if (tagsRaw is List) {
+      for (final t in tagsRaw) {
+        if (t != null) tags.add(t.toString());
+      }
+    }
+
+    final photosRaw = json['photos'];
+    final photoList = <String>[];
+    if (photosRaw is List) {
+      for (final p in photosRaw) {
+        if (p != null) photoList.add(p.toString());
+      }
+    }
+
+    String? sName;
+    if (json['services'] is Map && json['services']['name'] != null) {
+      sName = json['services']['name'].toString();
+    } else if (json['service_name'] != null) {
+      sName = json['service_name'].toString();
+    }
+
+    String? tName;
+    if (json['technicians'] is Map && json['technicians']['full_name'] != null) {
+      tName = json['technicians']['full_name'].toString();
+    } else if (json['technician_name'] != null) {
+      tName = json['technician_name'].toString();
+    }
+
+    return ServiceReviewDataModel(
+      id: json['id']?.toString(),
+      overallRating: (json['rating'] as num?)?.toInt() ?? (json['overallRating'] as num?)?.toInt() ?? 5,
+      serviceQualityRating: (json['service_quality_rating'] as num?)?.toInt() ?? (json['serviceQualityRating'] as num?)?.toInt() ?? 5,
+      staffAttitudeRating: (json['staff_attitude_rating'] as num?)?.toInt() ?? (json['staffAttitudeRating'] as num?)?.toInt() ?? 5,
+      spaceAmbianceRating: (json['space_ambiance_rating'] as num?)?.toInt() ?? (json['spaceAmbianceRating'] as num?)?.toInt() ?? 5,
+      procedureRating: (json['procedure_rating'] as num?)?.toInt() ?? (json['procedureRating'] as num?)?.toInt() ?? 5,
+      comment: json['comment']?.toString() ?? '',
+      willingnessToRefer: json['willingness_to_refer']?.toString() ?? 'Có',
+      bookingId: json['booking_id']?.toString() ?? json['bookingId']?.toString(),
+      serviceId: json['service_id']?.toString() ?? json['serviceId']?.toString(),
+      technicianId: json['technician_id']?.toString() ?? json['technicianId']?.toString(),
+      reviewTags: tags,
+      photos: photoList,
+      branchReply: json['branch_reply']?.toString(),
+      createdAt: json['created_at']?.toString(),
+      serviceName: sName,
+      technicianName: tName,
+    );
+  }
 }
 
 /// Mô hình Hướng dẫn chăm sóc tại nhà (D06 HomeCareGuidelines)

@@ -105,21 +105,33 @@ class MembershipRepository {
   final List<RewardItem> _rewards = const [
     RewardItem(
       id: 'rw-01',
-      title: 'Voucher chăm sóc da 100.000đ',
+      title: 'Voucher Chăm sóc Da 100.000đ',
       pointsRequired: 500,
-      condition: 'Hóa đơn chăm sóc da từ 500.000đ. Không cộng dồn ưu đãi khác.',
+      condition: 'Hóa đơn chăm sóc da từ 300.000đ. Không giới hạn chi nhánh. HSD: 6 tháng.',
     ),
     RewardItem(
       id: 'rw-02',
-      title: 'Voucher dịch vụ giảm 20%',
+      title: 'Voucher Dịch vụ Giảm 20%',
       pointsRequired: 300,
-      condition: 'Hóa đơn massage từ 300.000đ, giảm tối đa 150.000đ.',
+      condition: 'Hóa đơn massage & trị liệu từ 300.000đ, giảm tối đa 150.000đ. HSD: 6 tháng.',
     ),
     RewardItem(
       id: 'rw-03',
-      title: 'Quà trải nghiệm chăm sóc cơ thể',
+      title: 'Quà Trải nghiệm Chăm sóc Cơ thể',
       pointsRequired: 800,
-      condition: 'Áp dụng cho 01 dịch vụ chăm sóc cơ thể tiêu chuẩn, cần đặt lịch trước.',
+      condition: 'Áp dụng cho 01 dịch vụ chăm sóc cơ thể tiêu chuẩn 60 phút. Cần đặt lịch trước.',
+    ),
+    RewardItem(
+      id: 'rw-04',
+      title: 'Voucher Giảm 50.000đ Toàn hệ thống',
+      pointsRequired: 250,
+      condition: 'Áp dụng cho mọi hóa đơn dịch vụ bất kỳ tại MLD Việt Nam.',
+    ),
+    RewardItem(
+      id: 'rw-05',
+      title: 'Buổi Head Spa Dưỡng sinh Chuẩn Y khoa',
+      pointsRequired: 400,
+      condition: 'Tặng 01 buổi gội đầu dưỡng sinh Head Spa MLD thảo dược 45 phút.',
     ),
   ];
 
@@ -178,6 +190,7 @@ class MembershipRepository {
 
   // Getters & Setters
   UserProfile get profile => _userProfile;
+  UserProfile get userProfile => _userProfile;
   set profile(UserProfile p) => _userProfile = p;
   UserSettings get settings => _userSettings;
   List<MembershipPerk> get perks => _perks;
@@ -397,7 +410,7 @@ class MembershipRepository {
             : (lookupPhone.isNotEmpty ? 'phone=eq.$lookupPhone' : 'email=eq.$lookupEmail');
 
         final sRes = await _apiClient.dio.get(
-          '${ApiEndpoints.users}?$queryParam&select=id,full_name,phone,email,avatar_url,gender,date_of_birth,address,emergency_contact_name,emergency_contact_phone,membership_tier,reward_points,referral_code,referred_by_id&limit=1',
+          '${ApiEndpoints.users}?$queryParam&select=id,full_name,phone,email,avatar_url,gender,date_of_birth,address,emergency_contact_name,emergency_contact_phone,membership_tier,reward_points,referral_code,referred_by_id,total_spent&limit=1',
           options: Options(
             headers: {
               'apikey': ApiEndpoints.supabaseAnonKey,
@@ -433,6 +446,7 @@ class MembershipRepository {
           final dbCode = u['referral_code']?.toString().trim() ?? '';
           final dbPoints = (u['reward_points'] as num?)?.toInt();
           final dbTier = u['membership_tier']?.toString();
+          final dbTotalSpent = (u['total_spent'] as num?)?.toDouble() ?? 0.0;
 
           // Đồng bộ thông tin người giới thiệu từ DB một cách an toàn không gây lỗi quan hệ
           final dbReferredById = u['referred_by_id']?.toString().trim();
@@ -479,6 +493,7 @@ class MembershipRepository {
               : _userProfile.avatarUrl;
 
           _userProfile = _userProfile.copyWith(
+            id: u['id']?.toString() ?? _userProfile.id,
             fullName: dbName.isNotEmpty ? dbName : _userProfile.fullName,
             phone: dbPhone.isNotEmpty ? dbPhone : _userProfile.phone,
             isPhoneVerified: dbPhone.isNotEmpty ? true : _userProfile.isPhoneVerified,
@@ -494,6 +509,7 @@ class MembershipRepository {
             memberTier: dbTier != null ? _mapTierName(dbTier) : _userProfile.memberTier,
             referrerName: dbReferrerName,
             referredById: dbReferredById,
+            totalSpent: dbTotalSpent,
             clearReferrer: (dbReferrerName == null || dbReferrerName.isEmpty),
           );
           _persistLocalProfile(_userProfile);
@@ -736,8 +752,46 @@ class MembershipRepository {
     ).then((_) {}, onError: (_) {});
   }
 
-  /// F04: Lấy danh sách biến động điểm thưởng từ Backend Gateway
+  void updateLocalPoints(int points) {
+    _userProfile = _userProfile.copyWith(points: points);
+    _persistLocalProfile(_userProfile);
+  }
+
+  /// F04: Lấy danh sách quy tắc hạng hội viên từ Supabase membership_tier_rules
+  Future<List<TierRuleModel>> fetchTierRules() async {
+    try {
+      final res = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/membership_tier_rules',
+        queryParameters: {'select': '*', 'order': 'min_accumulated_spent.asc'},
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+      if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
+        return (res.data as List)
+            .map((item) => TierRuleModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('>>> [MembershipRepository] Error fetching tier rules: $e');
+    }
+    return const [
+      TierRuleModel(tier: 'STANDARD', displayName: 'Hội viên Tiêu chuẩn', minSpent: 0, pointEarningRate: 1.0, discountPercent: 0, freeHeadSpaCount: 0, priorityBooking: false, description: 'Tích lũy 1% giá trị đơn hàng làm điểm thưởng.'),
+      TierRuleModel(tier: 'SILVER', displayName: 'Hội viên Bạc', minSpent: 5000000, pointEarningRate: 1.5, discountPercent: 5.0, freeHeadSpaCount: 0, priorityBooking: false, description: 'Tích 1.5% điểm, giảm 5% dịch vụ lẻ.'),
+      TierRuleModel(tier: 'GOLD', displayName: 'Hội viên Vàng', minSpent: 15000000, pointEarningRate: 2.0, discountPercent: 10.0, freeHeadSpaCount: 1, priorityBooking: true, description: 'Tích 2% điểm, giảm 10% dịch vụ, ưu tiên xếp lịch.'),
+      TierRuleModel(tier: 'PLATINUM', displayName: 'Hội viên Bạch Kim', minSpent: 30000000, pointEarningRate: 3.0, discountPercent: 15.0, freeHeadSpaCount: 2, priorityBooking: true, description: 'Tích 3% điểm, giảm 15% dịch vụ, phòng VIP riêng.'),
+      TierRuleModel(tier: 'DIAMOND', displayName: 'Hội viên Kim Cương', minSpent: 60000000, pointEarningRate: 5.0, discountPercent: 20.0, freeHeadSpaCount: 4, priorityBooking: true, description: 'Tích 5% điểm, giảm 20% dịch vụ, chuyên gia trưởng phục vụ.'),
+    ];
+  }
+
+  /// F04: Lấy danh sách biến động điểm thưởng từ Supabase & Backend Gateway
   Future<List<PointsTransaction>> fetchLoyaltyPoints() async {
+    final userId = AuthService.instance.currentUserId ?? _userProfile.id;
+
+    // 1. Thử lấy từ Backend Gateway
     try {
       final response = await _apiClient.dio.get(ApiEndpoints.membershipPoints);
       if (response.statusCode == 200 && response.data != null) {
@@ -767,13 +821,96 @@ class MembershipRepository {
             if (list.isNotEmpty) {
               _pointHistory.clear();
               _pointHistory.addAll(list);
+              return _pointHistory;
             }
           }
         }
       }
     } catch (e) {
-      debugPrint('>>> [MembershipRepository] Error fetching loyalty points: $e');
+      debugPrint('>>> [MembershipRepository] Backend loyalty points failed, falling back to direct Supabase: $e');
     }
+
+    // 2. Dự phòng trực tiếp từ Supabase: bảng point_transactions và users
+    if (userId.isNotEmpty) {
+      try {
+        // Cập nhật số dư điểm mới nhất từ users
+        final uRes = await _apiClient.dio.get(
+          '${ApiEndpoints.supabaseUrl}/rest/v1/users?id=eq.$userId&select=reward_points,total_spent,membership_tier&limit=1',
+          options: Options(
+            headers: {
+              'apikey': ApiEndpoints.supabaseAnonKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+            },
+          ),
+        );
+        if (uRes.statusCode == 200 && uRes.data is List && (uRes.data as List).isNotEmpty) {
+          final u = (uRes.data as List).first;
+          final pts = (u['reward_points'] as num?)?.toInt();
+          final spent = (u['total_spent'] as num?)?.toDouble();
+          final tier = u['membership_tier']?.toString();
+          if (pts != null || spent != null || tier != null) {
+            _userProfile = _userProfile.copyWith(
+              points: pts ?? _userProfile.points,
+              totalSpent: spent ?? _userProfile.totalSpent,
+              memberTier: tier != null ? _mapTierName(tier) : _userProfile.memberTier,
+            );
+            _persistLocalProfile(_userProfile);
+          }
+        }
+
+        // Lấy lịch sử biến động từ point_transactions
+        final txRes = await _apiClient.dio.get(
+          '${ApiEndpoints.supabaseUrl}/rest/v1/point_transactions',
+          queryParameters: {
+            'user_id': 'eq.$userId',
+            'order': 'created_at.desc',
+            'limit': '50',
+          },
+          options: Options(
+            headers: {
+              'apikey': ApiEndpoints.supabaseAnonKey,
+              'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+            },
+          ),
+        );
+
+        if (txRes.statusCode == 200 && txRes.data is List) {
+          final list = <PointsTransaction>[];
+          for (final item in (txRes.data as List)) {
+            if (item is Map<String, dynamic>) {
+              final ptsChange = (item['points_change'] as num?)?.toInt() ?? 0;
+              final ptsFormatted = ptsChange >= 0 ? '+$ptsChange' : '$ptsChange';
+              final createdAtStr = item['created_at']?.toString() ?? '';
+              String formattedDate = 'Gần đây';
+              if (createdAtStr.isNotEmpty) {
+                try {
+                  final dt = DateTime.parse(createdAtStr).toLocal();
+                  formattedDate = '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+                } catch (_) {}
+              }
+              list.add(
+                PointsTransaction(
+                  id: item['id']?.toString() ?? 'pt-${DateTime.now().millisecondsSinceEpoch}',
+                  type: ptsChange >= 0 ? 'EARN' : 'REDEEM',
+                  title: item['description']?.toString() ?? (ptsChange >= 0 ? 'Tích điểm dịch vụ' : 'Đổi quà voucher'),
+                  date: formattedDate,
+                  branch: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
+                  points: ptsFormatted,
+                ),
+              );
+            }
+          }
+          if (list.isNotEmpty) {
+            _pointHistory.clear();
+            _pointHistory.addAll(list);
+            return _pointHistory;
+          }
+        }
+      } catch (e) {
+        debugPrint('>>> [MembershipRepository] Supabase direct point_transactions error: $e');
+      }
+    }
+
     if (_pointHistory.isEmpty) {
       _pointHistory.addAll([
         const PointsTransaction(
@@ -789,21 +926,132 @@ class MembershipRepository {
     return _pointHistory;
   }
 
-  /// F04: Đổi điểm thưởng nhận voucher/quà
-  Future<void> redeemReward(RewardItem reward) async {
+  /// F04: Đổi điểm thưởng nhận voucher/quà (đồng bộ với Web Admin user_vouchers & point_transactions)
+  Future<Map<String, dynamic>> redeemReward(RewardItem reward) async {
+    final userId = AuthService.instance.currentUserId ?? _userProfile.id;
+    if (userId.isEmpty) {
+      return {'success': false, 'message': 'Vui lòng đăng nhập để đổi điểm thưởng.'};
+    }
+
+    if (_userProfile.points < reward.pointsRequired) {
+      return {
+        'success': false,
+        'message': 'Bạn cần ${reward.pointsRequired} điểm nhưng hiện chỉ có ${_userProfile.points} điểm.',
+      };
+    }
+
+    // 1. Thử qua Backend Gateway
     try {
       final res = await _apiClient.dio.post(
         ApiEndpoints.membershipPointsRedeem,
         data: {'code': reward.id},
       );
-      if (res.data != null && res.data['currentPoints'] != null) {
-        final pts = (res.data['currentPoints'] as num).toInt();
-        _userProfile = _userProfile.copyWith(points: pts);
+      if (res.statusCode == 200 && res.data != null) {
+        final data = res.data['data'] ?? res.data;
+        if (data is Map && data['currentPoints'] != null) {
+          final pts = (data['currentPoints'] as num).toInt();
+          _userProfile = _userProfile.copyWith(points: pts);
+          _persistLocalProfile(_userProfile);
+        }
+        await fetchLoyaltyPoints();
+        await fetchVouchers();
+        return {'success': true, 'message': 'Đổi voucher thành công! Voucher đã sẵn sàng trong Ví của bạn.'};
       }
+    } catch (e) {
+      debugPrint('>>> [MembershipRepository] Backend redeem failed, falling back to direct Supabase: $e');
+    }
+
+    // 2. Dự phòng trực tiếp Supabase: cập nhật điểm, ghi point_transactions và user_vouchers
+    try {
+      int currentPoints = _userProfile.points;
+      final uRes = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/users?id=eq.$userId&select=reward_points&limit=1',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+      if (uRes.statusCode == 200 && uRes.data is List && (uRes.data as List).isNotEmpty) {
+        final u = (uRes.data as List).first;
+        if (u['reward_points'] != null) {
+          currentPoints = (u['reward_points'] as num).toInt();
+        }
+      }
+
+      if (currentPoints < reward.pointsRequired) {
+        return {
+          'success': false,
+          'message': 'Bạn cần ${reward.pointsRequired} điểm nhưng hiện chỉ có $currentPoints điểm.',
+        };
+      }
+
+      final newPoints = currentPoints - reward.pointsRequired;
+
+      // Cập nhật điểm người dùng
+      await _apiClient.dio.patch(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/users?id=eq.$userId',
+        data: {'reward_points': newPoints},
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+
+      // Ghi nhận biến động điểm
+      await _apiClient.dio.post(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/point_transactions',
+        data: {
+          'user_id': userId,
+          'points_change': -reward.pointsRequired,
+          'balance_after': newPoints,
+          'action_type': 'REDEEM_VOUCHER',
+          'description': 'Đổi điểm: ${reward.title} (-${reward.pointsRequired} điểm)',
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+
+      // Thêm voucher vào user_vouchers
+      String couponId = '44444444-0001-0001-0001-000000000001';
+      if (reward.id == 'rw-02' || reward.title.contains('20%')) {
+        couponId = '44444444-0001-0001-0001-000000000002';
+      }
+
+      final expiryDate = DateTime.now().add(const Duration(days: 180)).toIso8601String();
+      await _apiClient.dio.post(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers',
+        data: {
+          'user_id': userId,
+          'coupon_id': couponId,
+          'source_trigger': 'LOYALTY_REDEEM',
+          'status': 'AVAILABLE',
+          'claimed_at': DateTime.now().toIso8601String(),
+          'expires_at': expiryDate,
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+
+      _userProfile = _userProfile.copyWith(points: newPoints);
+      _persistLocalProfile(_userProfile);
       await fetchLoyaltyPoints();
       await fetchVouchers();
+      return {'success': true, 'message': 'Đổi voucher thành công! Voucher đã được lưu vào Ví Voucher của bạn.'};
     } catch (e) {
-      debugPrint('>>> [MembershipRepository] Error redeeming reward: $e');
+      debugPrint('>>> [MembershipRepository] Supabase direct redeem error: $e');
+      return {'success': false, 'message': 'Không thể thực hiện đổi điểm: $e'};
     }
   }
 

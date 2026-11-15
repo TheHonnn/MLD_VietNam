@@ -70,6 +70,8 @@ void main() {
 
       // Tap on Sao chép button
       final copyBtn = find.text('Sao chép');
+      await tester.ensureVisible(copyBtn);
+      await tester.pumpAndSettle();
       expect(copyBtn, findsOneWidget);
       await tester.tap(copyBtn);
       await tester.pump();
@@ -115,12 +117,15 @@ void main() {
       await tester.pumpWidget(_buildTestApp(home: const F01ProfileDashboardScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text('Đã liên kết'), findsOneWidget);
+      final linkedBtn = find.text('Đã liên kết');
+      await tester.ensureVisible(linkedBtn);
+      await tester.pumpAndSettle();
+      expect(linkedBtn, findsOneWidget);
       expect(find.text('Nhập mã'), findsNothing);
       expect(find.text('Đổi mã'), findsNothing);
 
       // Tap on the row - verify SnackBar appears and no dialog opens
-      await tester.tap(find.text('Đã liên kết'));
+      await tester.tap(linkedBtn);
       await tester.pump();
       expect(find.textContaining('không thể chỉnh sửa'), findsOneWidget);
       expect(find.text('Nhập mã người giới thiệu'), findsNothing);
