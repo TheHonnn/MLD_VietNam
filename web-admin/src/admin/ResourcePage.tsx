@@ -6085,6 +6085,8 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
           navigationGroupForTable(table)?.label === "Học viên & Lớp học"
             ? { ...tab, href: academyClassLink(tab.href, selectedBatchId) } : tab)}
       />
+      {table === "user_lesson_progress" && <div role="note" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">Tiến độ chỉ phản ánh bản ghi đã đồng bộ từ ứng dụng. Không có bản ghi không đồng nghĩa học viên chưa học. Dữ liệu chỉ đọc; không tạo tiến độ thay học viên.</div>}
+      {table === "course_chapters" && <div className="mb-4 rounded-xl border bg-white p-4 text-sm">Chọn khóa học → tạo chương → mở “Bài học” ở từng chương để quản lý video theo đúng thứ tự. Đề thi và kết quả được quản lý ở các tab kế tiếp.</div>}
       {table === "course_batches" && selectedBatchId && <Link className="admin-secondary mb-4" to="/manage/course_batches">Xem tất cả lớp</Link>}
       {[
         "course_lessons",

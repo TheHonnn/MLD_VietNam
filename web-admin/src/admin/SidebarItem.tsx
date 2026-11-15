@@ -19,6 +19,8 @@ export const menuResources: Record<string, string[]> = {
   '/academy-enrollment': ['course_enrollments', 'tuition_transactions'],
   '/instructors': ['instructors'],
   '/attendance': ['student_attendance', 'student_academic_records'],
+  '/manage/courses': ['courses','course_chapters','course_lessons','course_quizzes','quiz_questions','quiz_submissions','user_lesson_progress'],
+  '/manage/course_categories': ['course_categories'],
   '/curriculum': ['course_categories', 'courses', 'course_batches', 'batch_schedules', 'course_chapters', 'course_lessons', 'course_quizzes', 'quiz_questions', 'quiz_submissions', 'user_lesson_progress'],
   '/manage/services': ['service_categories', 'services', 'service_materials'],
   '/manage/staff_profiles': ['staff_profiles', 'technicians'],
