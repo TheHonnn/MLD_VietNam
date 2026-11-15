@@ -31,8 +31,8 @@ test('support_tickets and support_faqs are removed from CRM navigation',()=>{
  assert.deepEqual(crmGroup.tables, ['reviews']);
  assert.deepEqual(crmGroup.items.map(i => i.id), ['customers', 'reviews']);
 });
-test('training workflow has six canonical tabs and lesson details share the content tab',()=>{
- assert.deepEqual(getResourceNavigation('courses',all,'SUPER_ADMIN').map(tab=>tab.id),['courses','course_chapters','course_quizzes','quiz_questions','quiz_submissions','user_lesson_progress']);
+test('training workflow has five canonical tabs and lesson details share the content tab',()=>{
+ assert.deepEqual(getResourceNavigation('courses',all,'SUPER_ADMIN').map(tab=>tab.id),['courses','course_chapters','course_quizzes','quiz_questions','quiz_submissions']);
  assert.ok(getResourceNavigation('course_lessons',all,'SUPER_ADMIN').some(tab=>tab.id==='course_lessons' && tab.href==='/manage/course_chapters'));
  assert.deepEqual(getResourceNavigation('course_categories',all,'SUPER_ADMIN').map(tab=>tab.id),['course_categories','curriculum']);
 });

@@ -38,8 +38,8 @@ export const ADMIN_NAVIGATION_GROUPS: NavigationGroup[] = [
   group('Học viên & Lớp học',['course_batches','course_batch_assistants','batch_schedules','student_attendance','student_academic_records'],[
     item('course_batches','Lớp học'),item('course_batch_assistants'),item('batch_schedules','Thời khóa biểu'),item('student_attendance','Điểm danh & Sổ theo dõi','/attendance'),item('student_academic_records'),
   ]),
-  group('Chương trình đào tạo',['courses','course_chapters','course_lessons','course_quizzes','quiz_questions','quiz_submissions','user_lesson_progress'],[
-    item('courses','Khóa đào tạo'),item('course_chapters','Nội dung chương/bài'),item('course_quizzes','Đề thi'),item('quiz_questions','Câu hỏi'),item('quiz_submissions','Bài đã nộp'),item('user_lesson_progress','Tiến độ'),
+  group('Chương trình đào tạo',['courses','course_chapters','course_lessons','course_quizzes','quiz_questions','quiz_submissions'],[
+    item('courses','Khóa đào tạo'),item('course_chapters','Nội dung chương/bài'),item('course_quizzes','Đề thi'),item('quiz_questions','Câu hỏi'),item('quiz_submissions','Bài đã nộp'),
   ]),
   group('Cấu hình đào tạo',['course_categories'],[
     item('course_categories','Danh mục khóa học'),item('curriculum','Khung chương trình','/curriculum'),

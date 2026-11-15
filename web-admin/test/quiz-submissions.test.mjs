@@ -114,7 +114,7 @@ test('labels has Vietnamese translation for score', () => {
   assert.equal(label('score', 'quiz_submissions'), 'Điểm bài thi');
 });
 
-test('curriculum tabs preserve strict canonical 6-tab order ending in progress', () => {
+test('curriculum tabs preserve strict canonical 5-tab order ending in quiz submissions', () => {
   const all = ADMIN_NAVIGATION_GROUPS.flatMap(group => group.tables).map(name => ({
     name,
     title: name,
@@ -129,7 +129,6 @@ test('curriculum tabs preserve strict canonical 6-tab order ending in progress',
     'course_quizzes',
     'quiz_questions',
     'quiz_submissions',
-    'user_lesson_progress',
   ]);
   const currentTab = tabs.find(t => t.id === 'quiz_submissions');
   assert.equal(currentTab.label, 'Bài đã nộp');
