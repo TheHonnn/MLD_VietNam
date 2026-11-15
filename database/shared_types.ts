@@ -643,3 +643,19 @@ export interface VoucherDistributionRule {
   description: string;
   isActive: boolean;
 }
+
+export type TaxonomyType = 'TARGET_AUDIENCE' | 'TARGET_NEED' | 'CONTACT_CHANNEL';
+
+export interface PortalTaxonomyItem {
+  id: string;
+  type: TaxonomyType;
+  code: string;
+  name: string;
+  description?: string;
+  iconName?: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

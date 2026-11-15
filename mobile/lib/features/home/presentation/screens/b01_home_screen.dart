@@ -1692,205 +1692,219 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        // Dàn 4 kênh trên 1 hàng ngang với icon chuẩn nền tảng từ assets/icons (Không viền, bóng mờ mỏng, không ghi chú thừa)
-        Row(
-          children: [
-            // 1. Zalo
-            Expanded(
-              child: _buildSocialPillCard(
-                title: 'Zalo',
-                iconWidget: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    'assets/icons/logo-zalo-vector-03.webp',
-                    width: 38,
-                    height: 38,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0068FF),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text('Z', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
-                    ),
-                  ),
-                ),
-                onTap: () => _launchExternal(PortalSettingsService.instance.zaloOaUrl),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildSocialPillCard(
-                title: 'Facebook',
-                iconWidget: Image.asset(
-                  'assets/icons/Facebook_Logo_(2019).png',
-                  width: 38,
-                  height: 38,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1877F2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text('f', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
-                  ),
-                ),
-                onTap: () => _launchExternal(PortalSettingsService.instance.fanpageUrl),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildSocialPillCard(
-                title: 'TikTok',
-                iconWidget: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    'assets/icons/tiktok.png',
-                    width: 38,
-                    height: 38,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.music_note_rounded, color: Colors.white, size: 20),
-                    ),
-                  ),
-                ),
-                onTap: () => _launchExternal(PortalSettingsService.instance.tiktokUrl),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildSocialPillCard(
-                title: 'Messenger',
-                iconWidget: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    'assets/icons/mesenger.jpg',
-                    width: 38,
-                    height: 38,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF00B2FE), Color(0xFF006AFF), Color(0xFF9B00E8)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 20),
-                    ),
-                  ),
-                ),
-                onTap: () => _launchExternal(PortalSettingsService.instance.messengerUrl),
-              ),
-            ),
-          ],
-        ),
+        Builder(
+          builder: (context) {
+            final allChannels = PortalSettingsService.instance.contactChannels;
+            final topChannels = allChannels.take(4).toList();
+            final remainingChannels = allChannels.skip(4).toList();
 
-        AnimatedSize(
-          duration: const Duration(milliseconds: 320),
-          curve: Curves.easeInOutCubic,
-          alignment: Alignment.topCenter,
-          child: _isSocialExpanded
-              ? Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _buildSocialPillCard(
-                          title: 'YouTube',
-                          iconWidget: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF0000),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 24),
-                          ),
-                          onTap: () => _launchExternal('https://www.youtube.com/@mldvietnam'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildSocialPillCard(
-                          title: 'Hotline',
-                          iconWidget: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: AppColors.accent,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(Icons.phone_in_talk_rounded, color: Colors.white, size: 20),
-                          ),
-                          onTap: () => _launchExternal('tel:${PortalSettingsService.instance.hotlineSupport.replaceAll(RegExp(r'\D'), '')}'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // 7. Website
-                      Expanded(
-                        child: _buildSocialPillCard(
-                          title: 'Website',
-                          iconWidget: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(Icons.language_rounded, color: Colors.white, size: 20),
-                          ),
-                          onTap: () => _launchExternal('https://mldvietnam.com'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // 8. Instagram
-                      Expanded(
-                        child: _buildSocialPillCard(
-                          title: 'Instagram',
-                          iconWidget: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCB045)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
-                          ),
-                          onTap: () => _launchExternal('https://www.instagram.com/mldvietnam'),
-                        ),
-                      ),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    for (int i = 0; i < topChannels.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 8),
+                      Expanded(child: _buildChannelWidget(topChannels[i])),
                     ],
-                  ),
-                )
-              : const SizedBox.shrink(),
+                  ],
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 320),
+                  curve: Curves.easeInOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: _isSocialExpanded && remainingChannels.isNotEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              const int itemsPerRow = 4;
+                              final itemWidth = (constraints.maxWidth - (itemsPerRow - 1) * 8) / itemsPerRow;
+                              return Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: remainingChannels.map((ch) {
+                                  return SizedBox(
+                                    width: itemWidth,
+                                    child: _buildChannelWidget(ch),
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            );
+          },
         ),
       ],
+    );
+  }
+
+  Widget _buildChannelWidget(Map<String, dynamic> channel) {
+    final title = (channel['name'] as String?)?.trim() ?? 'MLD';
+    final link = (channel['description'] as String?)?.trim() ?? '';
+    final code = (channel['code'] as String?)?.toUpperCase().trim() ?? '';
+    final iconName = (channel['icon_name'] as String?)?.toLowerCase().trim() ?? '';
+
+    Widget iconWidget;
+    if (code == 'ZALO' || iconName == 'zalo') {
+      iconWidget = ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.asset(
+          'assets/icons/logo-zalo-vector-03.webp',
+          width: 38,
+          height: 38,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0068FF),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            alignment: Alignment.center,
+            child: const Text('Z', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+          ),
+        ),
+      );
+    } else if (code == 'FACEBOOK' || iconName == 'facebook') {
+      iconWidget = Image.asset(
+        'assets/icons/Facebook_Logo_(2019).png',
+        width: 38,
+        height: 38,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1877F2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          alignment: Alignment.center,
+          child: const Text('f', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+        ),
+      );
+    } else if (code == 'TIKTOK' || iconName == 'tiktok') {
+      iconWidget = ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.asset(
+          'assets/icons/tiktok.png',
+          width: 38,
+          height: 38,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.music_note_rounded, color: Colors.white, size: 20),
+          ),
+        ),
+      );
+    } else if (code == 'MESSENGER' || iconName == 'messenger') {
+      iconWidget = ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.asset(
+          'assets/icons/mesenger.jpg',
+          width: 38,
+          height: 38,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF00B2FE), Color(0xFF006AFF), Color(0xFF9B00E8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 20),
+          ),
+        ),
+      );
+    } else if (code == 'YOUTUBE' || iconName == 'youtube') {
+      iconWidget = Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF0000),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 24),
+      );
+    } else if (code == 'HOTLINE' || iconName == 'phone' || (link.replaceAll(RegExp(r'\D'), '').length >= 9 && !link.startsWith('http'))) {
+      iconWidget = Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppColors.accent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.phone_in_talk_rounded, color: Colors.white, size: 20),
+      );
+    } else if (code == 'WEBSITE' || iconName == 'globe' || iconName == 'website') {
+      iconWidget = Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.language_rounded, color: Colors.white, size: 20),
+      );
+    } else if (code == 'INSTAGRAM' || iconName == 'instagram') {
+      iconWidget = Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCB045)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
+      );
+    } else {
+      iconWidget = Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppColors.secondary,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.forum_rounded, color: Colors.white, size: 20),
+      );
+    }
+
+    void launchAction() {
+      final digits = link.replaceAll(RegExp(r'\D'), '');
+      if (iconName == 'phone' || code == 'HOTLINE' || (digits.length >= 9 && !link.startsWith('http'))) {
+        _launchExternal('tel:$digits');
+      } else {
+        _launchExternal(link);
+      }
+    }
+
+    return _buildSocialPillCard(
+      title: title,
+      iconWidget: iconWidget,
+      onTap: launchAction,
     );
   }
 

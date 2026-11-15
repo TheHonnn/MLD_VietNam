@@ -1113,7 +1113,7 @@ export interface PortalContacts {
   updatedAt: string;
 }
 
-export type TaxonomyType = 'TARGET_AUDIENCE' | 'TARGET_NEED';
+export type TaxonomyType = 'TARGET_AUDIENCE' | 'TARGET_NEED' | 'CONTACT_CHANNEL';
 
 export interface PortalTaxonomyItem {
   id: string;

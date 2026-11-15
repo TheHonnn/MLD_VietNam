@@ -473,18 +473,23 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
             style: AppTypography.zaloFont(fontSize: 12.5, color: AppColors.textSecondary),
           ),
-          Text(
-            value,
-            style: AppTypography.zaloFont(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textHeading,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: AppTypography.zaloFont(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textHeading,
+              ),
             ),
           ),
         ],
@@ -513,12 +518,16 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Chi tiết ca hẹn ${b.bookingCode}',
-                  style: AppTypography.zaloFont(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textHeading,
+                Expanded(
+                  child: Text(
+                    'Chi tiết ca hẹn ${b.bookingCode}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.zaloFont(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHeading,
+                    ),
                   ),
                 ),
                 IconButton(

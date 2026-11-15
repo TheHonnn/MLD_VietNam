@@ -1183,10 +1183,11 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                           );
                         }
 
+                        final bool hasRangeFormat = _bookingTimeSlots.any((s) => s.contains('-'));
                         final int columns;
                         if (count == 1) {
                           columns = 1;
-                        } else if (count == 2 || count == 4) {
+                        } else if (count == 2 || count == 4 || (hasRangeFormat && count <= 6)) {
                           columns = 2;
                         } else {
                           columns = 3;
@@ -1210,7 +1211,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 150),
                                   alignment: Alignment.center,
-                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
                                   decoration: BoxDecoration(
                                     color: isSel ? AppColors.primary : const Color(0xFFF8FAFC),
                                     borderRadius: BorderRadius.circular(7),
@@ -1224,7 +1225,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontSize: columns == 1 ? 12.5 : (columns == 2 ? 12 : 11),
+                                      fontSize: columns == 1 ? 12.5 : (columns == 2 ? 11.5 : 10.5),
                                       fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
                                       color: isSel ? Colors.white : AppColors.textPrimary,
                                     ),
