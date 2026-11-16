@@ -3,9 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/localization/app_translation.dart';
-import '../../../../core/motion/app_page_transitions.dart';
 import '../../../../core/services/auth_service.dart';
-import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../services/presentation/screens/b02_service_listing_screen.dart';
 import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
@@ -181,7 +179,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
             Container(
               width: double.infinity,
               margin: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [Color(0xFF005834), Color(0xFF007A48)],
@@ -200,13 +198,13 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
               child: Row(
                 children: [
                   Container(
-                    width: 38,
-                    height: 38,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 20),
+                    child: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 22),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -216,7 +214,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                         Text(
                           context.tr('Ví Voucher Khách hàng', 'Customer Voucher Wallet'),
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 14.5,
                             color: Color(0xFFD1E7DD),
                             fontWeight: FontWeight.w500,
                           ),
@@ -225,7 +223,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                         Text(
                           '$_availableCount voucher khả dụng',
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 18.5,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
                           ),
@@ -243,11 +241,11 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.stars_rounded, color: Color(0xFFFFD700), size: 14),
+                        Icon(Icons.stars_rounded, color: Color(0xFFFFD700), size: 16),
                         SizedBox(width: 4),
                         Text(
                           'MLD VIP',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFFFFD700)),
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFFFFD700)),
                         ),
                       ],
                     ),
@@ -256,9 +254,6 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
               ),
             ),
 
-            // ==========================================
-            // 2. Ô NHẬP MÃ VOUCHER THỦ CÔNG
-            // ==========================================
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Container(
@@ -277,7 +272,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                 child: Row(
                   children: [
                     const SizedBox(width: 12),
-                    const Icon(Icons.confirmation_number_outlined, color: AppColors.accent, size: 20),
+                    const Icon(Icons.confirmation_number_outlined, color: AppColors.accent, size: 22),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
@@ -285,12 +280,12 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                         textCapitalization: TextCapitalization.characters,
                         decoration: InputDecoration(
                           hintText: context.tr('Nhập mã voucher (VD: MLDCHAOXIN)', 'Enter voucher code'),
-                          hintStyle: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                          hintStyle: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
                           border: InputBorder.none,
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 11),
                         ),
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 0.5),
                         onSubmitted: (_) => _handleClaimCode(),
                       ),
                     ),
@@ -300,7 +295,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                         backgroundColor: AppColors.accent,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
                       ),
                       child: _isClaiming
@@ -311,7 +306,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                             )
                           : Text(
                               context.tr('Áp dụng', 'Apply'),
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                             ),
                     ),
                   ],
@@ -374,7 +369,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
       onTap: () => setState(() => _selectedTabIndex = index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -389,7 +384,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 12.5,
+            fontSize: 14.5,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             color: isSelected ? Colors.white : AppColors.textSecondary,
           ),
@@ -419,9 +414,8 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Khối trái: Giảm giá & Icon
               Container(
-                width: 82,
+                width: 92,
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -435,13 +429,13 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 22),
+                    const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 24),
                     const SizedBox(height: 6),
                     Text(
                       item.discountBanner,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
                         letterSpacing: 0.3,
@@ -454,7 +448,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                         color: Colors.white.withValues(alpha: 0.85),
                       ),
@@ -463,7 +457,6 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                 ),
               ),
 
-              // Khối phải: Chi tiết mã & Nút hành động
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
@@ -480,7 +473,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.zaloFont(
-                                fontSize: 12.5,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w700,
                                 color: isAvailable ? AppColors.textPrimary : const Color(0xFF64748B),
                                 height: 1.25,
@@ -499,7 +492,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                             child: Text(
                               item.statusText,
                               style: TextStyle(
-                                fontSize: 9.5,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 color: isAvailable
                                     ? const Color(0xFF2E7D32)
@@ -515,13 +508,12 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 13,
                           color: AppColors.textSecondary,
                           height: 1.3,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // Mã code & Hạn dùng
                       Row(
                         children: [
                           InkWell(
@@ -540,14 +532,14 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                                   Text(
                                     item.code,
                                     style: const TextStyle(
-                                      fontSize: 11.5,
+                                      fontSize: 13.5,
                                       fontWeight: FontWeight.w800,
                                       color: AppColors.primary,
                                       letterSpacing: 0.5,
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.copy_rounded, size: 12, color: AppColors.primary),
+                                  const Icon(Icons.copy_rounded, size: 14, color: AppColors.primary),
                                 ],
                               ),
                             ),
@@ -556,7 +548,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                           Text(
                             'HSD: ${item.expiryDate}',
                             style: const TextStyle(
-                              fontSize: 10.5,
+                              fontSize: 12,
                               color: Color(0xFF94A3B8),
                               fontWeight: FontWeight.w500,
                             ),
@@ -564,11 +556,10 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      // Nút hành động
                       if (isAvailable)
                         SizedBox(
                           width: double.infinity,
-                          height: 28,
+                          height: 38,
                           child: ElevatedButton(
                             onPressed: () => _handleUseVoucher(item),
                             style: ElevatedButton.styleFrom(
@@ -583,11 +574,11 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.spa_outlined, size: 14, color: Colors.white),
+                                const Icon(Icons.spa_outlined, size: 16, color: Colors.white),
                                 const SizedBox(width: 6),
                                 Text(
                                   context.tr('Chọn dịch vụ áp dụng', 'Select service to apply'),
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                                 ),
                               ],
                             ),

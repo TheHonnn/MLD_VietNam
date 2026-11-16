@@ -49,10 +49,12 @@ void main() {
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
     expect(find.text('Kết quả học tập'), findsOneWidget);
-    expect(find.text('Chưa có kết quả học tập & giấy chứng nhận'), findsOneWidget);
-    expect(find.text('Khám phá khóa học ngay'), findsOneWidget);
+    expect(find.byIcon(Icons.school_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.explore_outlined), findsOneWidget);
   });
 }

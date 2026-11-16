@@ -563,7 +563,6 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> with Si
                   ),
                 ),
 
-                // 2. TAB CONTROLLER
                 Container(
                   color: Colors.white,
                   child: TabBar(
@@ -572,8 +571,8 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> with Si
                     unselectedLabelColor: const Color(0xFF6B7280),
                     indicatorColor: const Color(0xFF007A48),
                     indicatorWeight: 3,
-                    labelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
-                    unselectedLabelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500),
+                    labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                     tabs: [
                       Tab(text: context.tr('Lịch sử điểm', 'Points History')),
                       Tab(text: context.tr('Đổi Voucher', 'Redeem Voucher')),
