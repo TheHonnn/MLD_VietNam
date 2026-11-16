@@ -51,10 +51,8 @@ const COURSE_GROUP_SUGGESTIONS = [
 ];
 
 const TARGET_AUDIENCE_SUGGESTIONS = [
-  "Kỹ thuật viên, Y bác sĩ & Người quan tâm đến sức khỏe",
-  "Chủ Spa, Quản lý thẩm mỹ viện & KTV ngành làm đẹp",
-  "Người mới bắt đầu tìm hiểu dẫn lưu bạch huyết Vodder",
-  "Bệnh nhân và người nhà có nhu cầu tự chăm sóc tại nhà",
+  "Người làm nghề",
+  "Người mới bắt đầu",
 ];
 
 const TARGET_NEED_SUGGESTIONS = [

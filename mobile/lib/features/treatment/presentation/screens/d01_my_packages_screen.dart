@@ -457,9 +457,8 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                           const Icon(Icons.qr_code_rounded, size: 14, color: AppColors.primary),
                           const SizedBox(width: 4),
                           Text(
-                            '#',
+                            '#$packageCodeDisplay',
                             style: const TextStyle(
-                              
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: AppColors.primary,
@@ -520,7 +519,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                                 style: const TextStyle( fontSize: 13, color: AppColors.textPrimary),
                                 children: [
                                   TextSpan(
-                                    text: ' ',
+                                    text: '${context.tr("Dịch vụ:", "Service:")} ',
                                     style: const TextStyle(fontWeight: FontWeight.w500, color: AppColors.textSecondary),
                                   ),
                                   TextSpan(
@@ -544,7 +543,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                                 style: const TextStyle( fontSize: 13, color: AppColors.textPrimary),
                                 children: [
                                   TextSpan(
-                                    text: ' ',
+                                    text: '${context.tr("Khách hàng:", "Customer:")} ',
                                     style: const TextStyle(fontWeight: FontWeight.w500, color: AppColors.textSecondary),
                                   ),
                                   TextSpan(
@@ -568,27 +567,26 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                   children: [
                     RichText(
                       text: TextSpan(
-                        style: const TextStyle( fontSize: 13.5, color: AppColors.textPrimary),
+                        style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary),
                         children: [
                           TextSpan(
-                            text: ' ',
+                            text: context.tr('Đã thực hiện: ', 'Completed: '),
                             style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500),
                           ),
                           TextSpan(
-                            text: '',
+                            text: '${package.completedSessions}',
                             style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 15),
                           ),
                           TextSpan(
-                            text: ' /  ',
+                            text: ' / ${package.totalSessions} ${context.tr("buổi", "sessions")}',
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
                     ),
                     Text(
-                      '%',
+                      '$percentText%',
                       style: const TextStyle(
-                        
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary,
@@ -631,9 +629,8 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                 const SizedBox(height: 12),
                 if (package.expiryDate.isNotEmpty)
                   Text(
-                    ' ',
+                    '${context.tr("Hạn sử dụng:", "Expiry Date:")} ${package.expiryDate}',
                     style: const TextStyle(
-                      
                       fontSize: 12,
                       color: AppColors.textSecondary,
                     ),
@@ -758,9 +755,8 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                 icon,
                 const SizedBox(width: 4),
                 Text(
-                  ' ',
+                  '${context.tr("Buổi", "Session")} $sessionNum',
                   style: TextStyle(
-                    
                     fontSize: 12,
                     fontWeight: isDone || isCurrent ? FontWeight.w700 : FontWeight.w500,
                     color: textColor,
@@ -774,32 +770,4 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
     );
   }
 
-  Widget _buildStatCol(String val, String label) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            val,
-            style: const TextStyle(
-              
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
