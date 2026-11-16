@@ -496,7 +496,37 @@ class AcademyRepository {
       if (response.statusCode == 200 && response.data != null) {
         final body = response.data;
         final list = (body is Map && body.containsKey('data')) ? body['data'] : body;
-        if (list is List) {
+        if (list is List && list.isNotEmpty) {
+          return list
+              .map((json) => StudentCertificateModel.fromJson(json as Map<String, dynamic>))
+              .toList();
+        }
+      }
+    } catch (_) {}
+
+    try {
+      final userId = AuthService.instance.currentUserId ?? MembershipRepository.instance.profile.id;
+      if (userId.isNotEmpty) {
+        final enrollRes = await _apiClient.dio.get(
+          '${ApiEndpoints.courseEnrollments}?student_id=eq.$userId&select=id',
+        );
+        final enrollmentIds = <String>[];
+        if (enrollRes.statusCode == 200 && enrollRes.data is List) {
+          for (final item in (enrollRes.data as List)) {
+            if (item is Map && item['id'] != null) {
+              enrollmentIds.add(item['id'].toString());
+            }
+          }
+        }
+
+        final queryParam = enrollmentIds.isNotEmpty
+            ? 'or=(student_id.eq.$userId,enrollment_id.in.(${enrollmentIds.join(",")}))&'
+            : 'student_id=eq.$userId&';
+        final response = await _apiClient.dio.get(
+          '${ApiEndpoints.studentCertificates}?${queryParam}status=eq.ISSUED&order=issue_date.desc',
+        );
+        if (response.statusCode == 200 && response.data is List) {
+          final list = response.data as List;
           return list
               .map((json) => StudentCertificateModel.fromJson(json as Map<String, dynamic>))
               .toList();

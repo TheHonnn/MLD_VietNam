@@ -70,6 +70,7 @@ class ApiEndpoints {
   static const String courseQuizzes = '/rest/v1/course_quizzes';
   static const String quizQuestions = '/rest/v1/quiz_questions';
   static const String quizSubmissions = '/rest/v1/quiz_submissions';
+  static const String studentCertificates = '/rest/v1/student_certificates';
 
   // --- Supabase Edge Functions ---
   static const String appointmentReminder = '/functions/v1/appointment-reminder';
