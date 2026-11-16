@@ -181,4 +181,15 @@ describe('Treatment Lifecycle & Reversal State Machine Tests (Web-Admin)', () =>
       assert.equal(typeof label, 'string');
     }
   });
+
+  test('W06 and W05 enforce backend FSM and recognize mobile package note format', () => {
+    const w06 = readFileSync(new URL('../src/pages/W06_TreatmentManagement.tsx', import.meta.url), 'utf8');
+    const w05 = readFileSync(new URL('../src/pages/W05_StaffSchedule.tsx', import.meta.url), 'utf8');
+    assert.doesNotMatch(w06, /updateBookingStatus\(bookingId,\s*BookingStatus\.IN_SERVICE\)/);
+    assert.doesNotMatch(w06, /updateBookingStatus\(\s*bookingId,\s*BookingStatus\.CANCELLED/);
+    assert.match(w06, /runWorkflowAction\(bookingId,\s*'checkin'/);
+    assert.match(w06, /runWorkflowAction\(openBk\.id,\s*'cancel'/);
+    assert.equal(w05.includes('specialNotes?.match(/\\[user_package_id=([0-9a-f-]{36})\\]/i)'), false);
+    assert.equal(w05.includes('specialNotes?.match(/(?:\\[|\\|\\s*)user_package_id=([0-9a-f-]{36})\\]/i)'), true);
+  });
 });
