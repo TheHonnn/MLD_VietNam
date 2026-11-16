@@ -213,7 +213,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   void _openServiceForm([AdminServiceModel? service]) {
     showDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -241,7 +241,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   void _openPackageForm([AdminTreatmentPackageModel? package]) {
     showDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -262,7 +262,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   void _openProductForm([HomeProductModel? product]) {
     showDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
