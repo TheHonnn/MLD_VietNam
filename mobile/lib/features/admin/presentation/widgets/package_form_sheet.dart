@@ -204,12 +204,14 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      isEdit ? 'Chỉnh sửa Gói bổ trợ' : 'Thêm Gói bổ trợ mới',
-                      style: AppTypography.zaloFont(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textHeading,
+                    Expanded(
+                      child: Text(
+                        isEdit ? 'Chỉnh sửa Gói bổ trợ' : 'Thêm Gói bổ trợ mới',
+                        style: AppTypography.zaloFont(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textHeading,
+                        ),
                       ),
                     ),
                     IconButton(
@@ -247,10 +249,13 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Ảnh đại diện gói bổ trợ (Link hoặc từ máy)',
-                      style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                    Expanded(
+                      child: Text(
+                        'Ảnh đại diện gói bổ trợ (Link hoặc từ máy)',
+                        style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     InkWell(
                       onTap: _pickFromDevice,
                       child: Row(
@@ -626,20 +631,23 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Mở bán cho Khách hàng',
-                            style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textHeading),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _isActive ? 'Gói đang mở bán (User thấy và mua được)' : 'Gói tạm dừng (User không thấy trên App)',
-                            style: AppTypography.zaloFont(fontSize: 11, color: _isActive ? const Color(0xFF00693F) : const Color(0xFFE11D48)),
-                          ),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Mở bán cho Khách hàng',
+                              style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _isActive ? 'Gói đang mở bán (User thấy và mua được)' : 'Gói tạm dừng (User không thấy trên App)',
+                              style: AppTypography.zaloFont(fontSize: 11, color: _isActive ? const Color(0xFF00693F) : const Color(0xFFE11D48)),
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       Switch(
                         value: _isActive,
                         activeThumbColor: const Color(0xFF00693F),

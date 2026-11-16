@@ -30,14 +30,22 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
   @override
   void initState() {
     super.initState();
-    final maxIndex = _isFullAdmin ? 3 : 1;
+    final maxIndex = _isFullAdmin ? 3 : 2;
     _currentIndex = widget.initialTab.clamp(0, maxIndex);
   }
 
   void _onNavigateTab(int index, {String? subTab}) {
-    final maxIndex = _isFullAdmin ? 3 : 1;
+    int targetIndex = index;
+    if (!_isFullAdmin) {
+      if (index == 3) {
+        targetIndex = 2;
+      } else if (index == 2) {
+        targetIndex = 1;
+      }
+    }
+    final maxIndex = _isFullAdmin ? 3 : 2;
     setState(() {
-      _currentIndex = index.clamp(0, maxIndex);
+      _currentIndex = targetIndex.clamp(0, maxIndex);
       _subTab = subTab;
     });
   }
@@ -48,7 +56,7 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
       builder: (_) => AdminQrScannerModal(
         onCodeScanned: (code) {
           setState(() {
-            _currentIndex = _isFullAdmin ? 1 : 0;
+            _currentIndex = 1;
           });
         },
       ),
@@ -135,6 +143,11 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
             ),
           ]
         : [
+            AdminDashboardScreen(
+              onNavigateTab: _onNavigateTab,
+              onOpenQrScanner: _openQrScanner,
+              onLogout: _handleLogout,
+            ),
             AdminFrontdeskScreen(
               key: ValueKey('frontdesk_$_subTab'),
               initialStatus: _subTab,
@@ -180,8 +193,9 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
                       _buildLogoutItem(),
                     ]
                   : [
-                      _buildNavItem(0, 'Tiếp đón', Icons.calendar_month_rounded),
-                      _buildNavItem(1, 'Danh mục & SP', Icons.storefront_rounded),
+                      _buildNavItem(0, 'Tổng quan', Icons.grid_view_rounded),
+                      _buildNavItem(1, 'Tiếp đón', Icons.calendar_month_rounded),
+                      _buildNavItem(2, 'Danh mục & SP', Icons.storefront_rounded),
                       _buildLogoutItem(),
                     ],
             ),

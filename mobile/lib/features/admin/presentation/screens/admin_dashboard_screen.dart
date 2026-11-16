@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
@@ -91,6 +92,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           }
         }
       } else if (item.type == AdminActionType.waitingBatch) {
+        if (!AuthService.instance.isAdmin) {
+          TopNotificationService.showInfo(
+            title: 'Phân quyền học viện',
+            message: 'Chức năng xếp lớp học viên chỉ dành cho Quản trị viên.',
+          );
+          return;
+        }
         final candidate = AdminCandidateModel.fromJson(item.rawData);
         showModalBottomSheet(
           context: context,
@@ -108,6 +116,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         );
       } else if (item.type == AdminActionType.newQuizSubmission) {
+        if (!AuthService.instance.isAdmin) {
+          TopNotificationService.showInfo(
+            title: 'Phân quyền học viện',
+            message: 'Chức năng chấm bài thi học viên chỉ dành cho Quản trị viên.',
+          );
+          return;
+        }
         final sub = AdminQuizSubmissionModel.fromJson(item.rawData);
         showModalBottomSheet(
           context: context,

@@ -68,24 +68,34 @@ class _AdminQrScannerModalState extends State<AdminQrScannerModal> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Tiếp đón Quét mã QR',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Tiếp đón Quét mã QR',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.montserrat(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 6),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
                         tooltip: 'Bật/tắt Flash',
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                         icon: Icon(
                           _isTorchOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
                           color: _isTorchOn ? const Color(0xFFFBBF24) : Colors.white70,
@@ -98,11 +108,15 @@ class _AdminQrScannerModalState extends State<AdminQrScannerModal> {
                       ),
                       IconButton(
                         tooltip: 'Đổi Camera',
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                         icon: const Icon(Icons.flip_camera_ios_rounded, color: Colors.white70, size: 20),
                         onPressed: () => _controller.switchCamera(),
                       ),
                       IconButton(
                         tooltip: 'Đóng',
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                         icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
                         onPressed: () => Navigator.pop(context),
                       ),
