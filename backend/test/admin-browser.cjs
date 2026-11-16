@@ -241,7 +241,7 @@ async function main() {
       'branches', 'branch_rooms', 'users', 'consultation_surveys', 'instructors',
       'student_attendance', 'services', 'treatment_packages', 'invoices',
       'student_certificates', 'certificate_templates',
-      'home_products', 'staff_commissions',
+      'home_products', 'staff_commissions', 'technician_slots',
       'home_care_deliveries', 'user_package_lifecycle_logs', 'treatment_session_reversals',
       'treatment_inventory_outbox', 'branch_material_stock', 'treatment_stock_movements',
       'post_care_outbox', 'enrollment_status_history', 'enrollment_change_requests', 'academy_enrollment_funnel',

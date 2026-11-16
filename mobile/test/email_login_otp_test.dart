@@ -14,7 +14,7 @@ void main() {
     await AuthService.instance.logout();
   });
 
-  testWidgets('A03LoginScreen tab 0 renders Email OTP login option', (WidgetTester tester) async {
+  testWidgets('A03LoginScreen tab 0 renders clean Email login form with password', (WidgetTester tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -24,18 +24,22 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Gửi mã xác nhận qua Email'), findsOneWidget);
-    expect(find.textContaining('hòm thư Gmail của bạn'), findsOneWidget);
-    expect(find.text('hoặc đăng nhập bằng mật khẩu'), findsOneWidget);
+    expect(find.text('Địa chỉ Email'), findsOneWidget);
+    expect(find.text('Mật khẩu'), findsOneWidget);
+    expect(find.text('Đăng nhập'), findsOneWidget);
+    expect(find.text('Chưa có tài khoản? '), findsOneWidget);
+    expect(find.text('Đăng ký ngay'), findsOneWidget);
+    expect(find.text('Gửi mã xác nhận qua Email'), findsNothing);
+    expect(find.text('hoặc đăng nhập bằng mật khẩu'), findsNothing);
   });
 
-  testWidgets('A04OtpScreen with LOGIN_EMAIL purpose displays Gmail action and notes', (WidgetTester tester) async {
+  testWidgets('A04OtpScreen with REGISTER_EMAIL purpose displays Gmail action and notes', (WidgetTester tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
           body: A04OtpScreen(
             email: 'xuantruong.dev26@gmail.com',
-            purpose: 'LOGIN_EMAIL',
+            purpose: 'REGISTER_EMAIL',
           ),
         ),
       ),

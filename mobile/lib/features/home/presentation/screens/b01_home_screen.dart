@@ -269,21 +269,23 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   }
 
   Future<void> _loadUserProfile() async {
-    if (true) {
-      try {
-        await MembershipRepository.instance.fetchProfile();
-        if (mounted) {
-                    setState(() {});
-        }
-      } catch (_) {}
-    }
+    try {
+      await MembershipRepository.instance.fetchProfile();
+      if (mounted) {
+        setState(() {});
+        _checkPhonePrompt();
+      }
+    } catch (_) {}
   }
 
+  bool _hasCheckedPhonePrompt = false;
+
   void _checkPhonePrompt() {
-    if (!mounted) return;
+    if (!mounted || _hasCheckedPhonePrompt) return;
     final hasPhone = AuthService.instance.hasPhoneNumber ||
         MembershipRepository.instance.profile.phone.trim().isNotEmpty;
     if (AuthService.instance.isLoggedIn && !hasPhone) {
+      _hasCheckedPhonePrompt = true;
       UpdatePhoneModal.show(context);
     }
   }

@@ -202,18 +202,20 @@ export class AuthService {
       else if (!targetPhone.startsWith('0') && /^\d+$/.test(targetPhone)) targetPhone = '0' + targetPhone;
 
       const rawOtp = await this.otpService.generateAndSaveOtp(targetPhone, purpose);
-      if (this.smsService) {
-        await this.smsService.sendOtpSms({
-          to: targetPhone,
-          otp: rawOtp,
-          purpose: purpose as any,
-        });
+      if (this.zaloService) {
+        const zaloRes = await this.zaloService.sendOtpZns(targetPhone, rawOtp);
+        if (!zaloRes.success) {
+          this.logger.warn(`ZNS resend failed: ${zaloRes.error}`);
+          throw new BadRequestException(
+            zaloRes.error || 'Không thể gửi lại mã xác nhận qua Zalo lúc này. Vui lòng thử lại sau.',
+          );
+        }
       } else {
-        this.logger.log(`[SMS OTP Simulator] ${targetPhone}: ${rawOtp}`);
+        this.logger.log(`📱 [Zalo OTP Simulator] ${targetPhone}: ${rawOtp}`);
       }
       return {
         success: true,
-        message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi lại qua tin nhắn SMS tới số điện thoại của bạn.',
+        message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi lại qua Zalo OA MLD Việt Nam tới số điện thoại của bạn.',
         phone: targetPhone,
       };
     }
@@ -816,19 +818,21 @@ export class AuthService {
     );
 
     const rawOtp = await this.otpService.generateAndSaveOtp(targetPhone, 'REGISTER');
-    if (this.smsService) {
-      await this.smsService.sendOtpSms({
-        to: targetPhone,
-        otp: rawOtp,
-        purpose: 'REGISTER_PHONE' as any,
-      });
+    if (this.zaloService) {
+      const zaloRes = await this.zaloService.sendOtpZns(targetPhone, rawOtp);
+      if (!zaloRes.success) {
+        this.logger.warn(`ZNS send failed during phone registration: ${zaloRes.error}`);
+        throw new BadRequestException(
+          zaloRes.error || 'Không thể gửi mã xác nhận qua Zalo lúc này. Vui lòng kiểm tra lại số điện thoại.',
+        );
+      }
     } else {
-      this.logger.log(`[SMS OTP Simulator] ${targetPhone}: ${rawOtp}`);
+      this.logger.log(`📱 [Zalo OTP Simulator] ${targetPhone}: ${rawOtp}`);
     }
 
     return {
       success: true,
-      message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi qua tin nhắn SMS tới số điện thoại của bạn.',
+      message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi qua Zalo OA MLD Việt Nam tới số điện thoại của bạn.',
       phone: targetPhone,
     };
   }

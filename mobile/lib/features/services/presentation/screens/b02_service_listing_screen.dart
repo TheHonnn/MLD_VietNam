@@ -864,7 +864,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
               child: Container(
-                height: 42,
+                height: 48,
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF1F5F9),
@@ -902,14 +902,14 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                               children: [
                                 Icon(
                                   Icons.spa_rounded,
-                                  size: 16,
+                                  size: 18,
                                   color: _selectedSegment == 0 ? AppColors.primary : const Color(0xFF64748B),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'TRỊ LIỆU (${_allTherapyItems.length})',
                                   style: AppTypography.zaloFont(
-                                    fontSize: 12.5,
+                                    fontSize: 14.5,
                                     fontWeight: _selectedSegment == 0 ? FontWeight.w700 : FontWeight.w500,
                                     color: _selectedSegment == 0 ? AppColors.primary : const Color(0xFF64748B),
                                   ),
@@ -950,14 +950,14 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                               children: [
                                 Icon(
                                   Icons.shopping_bag_rounded,
-                                  size: 16,
+                                  size: 18,
                                   color: _selectedSegment == 1 ? const Color(0xFF00693F) : const Color(0xFF64748B),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'SẢN PHẨM (${_products.length})',
                                   style: AppTypography.zaloFont(
-                                    fontSize: 12.5,
+                                    fontSize: 14.5,
                                     fontWeight: _selectedSegment == 1 ? FontWeight.w700 : FontWeight.w500,
                                     color: _selectedSegment == 1 ? const Color(0xFF00693F) : const Color(0xFF64748B),
                                   ),
@@ -973,7 +973,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               ),
             ),
 
-            // 2. Ô tìm kiếm chuẩn Y khoa
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -997,16 +996,16 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                       _currentProductPage = 1;
                     });
                   },
-                  style: AppTypography.zaloFont(fontSize: 13.5, color: AppColors.textPrimary),
+                  style: AppTypography.zaloFont(fontSize: 15, color: AppColors.textPrimary),
                   decoration: InputDecoration(
                     hintText: _selectedSegment == 0
                         ? context.tr('Tìm kiếm dịch vụ, gói liệu trình...', 'Search therapy services & packages...')
                         : 'Tìm kiếm sản phẩm, băng ép, cẩm nang...',
-                    hintStyle: AppTypography.zaloFont(fontSize: 13, color: AppColors.textPlaceholder),
-                    prefixIcon: const Icon(Icons.search, color: AppColors.primary, size: 20),
+                    hintStyle: AppTypography.zaloFont(fontSize: 14.5, color: AppColors.textPlaceholder),
+                    prefixIcon: const Icon(Icons.search, color: AppColors.primary, size: 22),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18, color: AppColors.textSecondary),
+                            icon: const Icon(Icons.clear, size: 20, color: AppColors.textSecondary),
                             onPressed: () {
                               _searchController.clear();
                               setState(() {
@@ -1017,7 +1016,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           )
                         : null,
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                   ),
                 ),
               ),
@@ -1222,7 +1221,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                 crossAxisCount: 2,
                                 crossAxisSpacing: 12,
                                 mainAxisSpacing: 14,
-                                childAspectRatio: 0.60,
+                                childAspectRatio: 0.58,
                               ),
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) {
@@ -1303,7 +1302,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                       top: 8,
                       left: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: item.isPackage ? AppColors.accent : AppColors.primary,
                           borderRadius: BorderRadius.circular(6),
@@ -1320,7 +1319,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                               ? 'GÓI ${item.package?.sessionsCount ?? 10} BUỔI'
                               : 'DỊCH VỤ LẺ',
                           style: AppTypography.zaloFont(
-                            fontSize: 9.5,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                             letterSpacing: 0.2,
@@ -1334,7 +1333,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               Expanded(
                 flex: 11,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1343,7 +1342,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.zaloFont(
-                          fontSize: 12.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textHeading,
                           height: 1.25,
@@ -1354,7 +1353,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         children: [
                           Icon(
                             item.isPackage ? Icons.calendar_today_rounded : Icons.access_time_rounded,
-                            size: 12,
+                            size: 14,
                             color: AppColors.textSecondary,
                           ),
                           const SizedBox(width: 4),
@@ -1364,7 +1363,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.zaloFont(
-                                fontSize: 11,
+                                fontSize: 13,
                                 color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -1380,7 +1379,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           Text(
                             '${formatter.format(item.price)} ₫',
                             style: AppTypography.zaloFont(
-                              fontSize: 13.5,
+                              fontSize: 16,
                               fontWeight: FontWeight.w800,
                               color: AppColors.servicePrice,
                             ),
@@ -1390,7 +1389,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                             Text(
                               '${formatter.format(item.originalPrice)} ₫',
                               style: const TextStyle(
-                                fontSize: 10,
+                                fontSize: 12,
                                 decoration: TextDecoration.lineThrough,
                                 color: Color(0xFF94A3B8),
                               ),
@@ -1401,7 +1400,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                       const Spacer(),
                       SizedBox(
                         width: double.infinity,
-                        height: 32,
+                        height: 38,
                         child: ElevatedButton(
                           onPressed: () => _handleBookingItem(item),
                           style: ElevatedButton.styleFrom(
@@ -1418,14 +1417,14 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                             children: [
                               const Icon(
                                 Icons.calendar_month_outlined,
-                                size: 14,
+                                size: 16,
                                 color: Colors.white,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 'Đặt lịch',
                                 style: AppTypography.zaloFont(
-                                  fontSize: 12,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
                                 ),
@@ -1625,12 +1624,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               Expanded(
                 flex: 11,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
                           color: AppColors.iceBlue,
                           borderRadius: BorderRadius.circular(6),
@@ -1640,22 +1639,22 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTypography.zaloFont(
-                            fontSize: 9.5,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w700,
                             color: AppColors.primaryNavy,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       Text(
                         product.name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.zaloFont(
-                          fontSize: 12,
+                          fontSize: 14.5,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textHeading,
-                          height: 1.2,
+                          height: 1.25,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1664,23 +1663,23 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.zaloFont(
-                          fontSize: 12.5,
+                          fontSize: 15.5,
                           fontWeight: FontWeight.w800,
                           color: AppColors.servicePrice,
                         ),
                       ),
-                      const SizedBox(height: 1),
+                      const SizedBox(height: 2),
                       Text(
                         'Đơn vị: ${product.unit}',
                         style: AppTypography.zaloFont(
-                          fontSize: 10,
+                          fontSize: 12,
                           color: AppColors.textSecondary,
                         ),
                       ),
                       const Spacer(),
                       SizedBox(
                         width: double.infinity,
-                        height: 30,
+                        height: 36,
                         child: ElevatedButton.icon(
                           onPressed: () => _showContactSheet(
                             title: product.name,
@@ -1689,11 +1688,11 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                             priceText: product.formattedPrice,
                             subtitle: 'Đơn vị: ${product.unit}',
                           ),
-                          icon: const Icon(Icons.support_agent_rounded, size: 14),
+                          icon: const Icon(Icons.support_agent_rounded, size: 16),
                           label: Text(
                             'Liên hệ',
                             style: AppTypography.zaloFont(
-                              fontSize: 11.5,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -1719,7 +1718,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     );
   }
 
-  /// Nút bộ lọc được thiết kế chuẩn như bên Đào tạo (nổi khối, bo tròn 14px, bóng nhẹ)
   Widget _buildAcademyStyleFilterButton({
     required String label,
     required bool isExpanded,
@@ -1730,7 +1728,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: isExpanded ? const Color(0xFFEFF6FF) : Colors.white,
           borderRadius: BorderRadius.circular(14),
@@ -1750,7 +1748,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.zaloFont(
-                  fontSize: 13,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: isExpanded || isSelected
                       ? AppColors.primary
@@ -1762,7 +1760,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               isExpanded
                   ? Icons.keyboard_arrow_up_rounded
                   : Icons.keyboard_arrow_down_rounded,
-              size: 18,
+              size: 20,
               color: isExpanded || isSelected
                   ? AppColors.primary
                   : AppColors.textSecondary,
@@ -1773,7 +1771,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     );
   }
 
-  /// Thanh phân trang chuẩn 1, 2, 3... đồng bộ Admin
   Widget _buildPaginationBar({
     required int currentPage,
     required int totalPages,
@@ -1792,13 +1789,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Nút Previous
               InkWell(
                 onTap: currentPage > 1 ? () => onPageChanged(currentPage - 1) : null,
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  width: 36,
-                  height: 36,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: currentPage > 1 ? Colors.white : const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(8),
@@ -1808,14 +1804,13 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                   ),
                   child: Icon(
                     Icons.chevron_left_rounded,
-                    size: 20,
+                    size: 22,
                     color: currentPage > 1 ? AppColors.textPrimary : const Color(0xFF94A3B8),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
 
-              // Các nút số trang
               ...List.generate(totalPages, (index) {
                 final pageNumber = index + 1;
                 final isCurrent = pageNumber == currentPage;
@@ -1825,8 +1820,8 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                     onTap: () => onPageChanged(pageNumber),
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      width: 36,
-                      height: 36,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: isCurrent ? AppColors.primary : Colors.white,
                         borderRadius: BorderRadius.circular(8),
@@ -1847,7 +1842,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         child: Text(
                           '$pageNumber',
                           style: AppTypography.zaloFont(
-                            fontSize: 13,
+                            fontSize: 15,
                             fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
                             color: isCurrent ? Colors.white : AppColors.textPrimary,
                           ),
@@ -1860,13 +1855,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
 
               const SizedBox(width: 8),
 
-              // Nút Next
               InkWell(
                 onTap: currentPage < totalPages ? () => onPageChanged(currentPage + 1) : null,
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  width: 36,
-                  height: 36,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: currentPage < totalPages ? Colors.white : const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(8),
@@ -1876,18 +1870,18 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                   ),
                   child: Icon(
                     Icons.chevron_right_rounded,
-                    size: 20,
+                    size: 22,
                     color: currentPage < totalPages ? AppColors.textPrimary : const Color(0xFF94A3B8),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           Text(
             'Hiển thị $startIndex–$endIndex trong $totalItems mục',
             style: AppTypography.zaloFont(
-              fontSize: 11.5,
+              fontSize: 13,
               color: AppColors.textSecondary,
             ),
           ),

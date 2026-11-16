@@ -1505,3 +1505,69 @@ class QuizSubmissionModel {
     );
   }
 }
+
+class StudentCertificateModel {
+  final String id;
+  final String certificateCode;
+  final String studentName;
+  final String courseTitle;
+  final String issueDate;
+  final double theoryScore;
+  final double practicalScore;
+  final String finalGrade;
+  final String status;
+  final String signerName;
+  final String signerTitle;
+  final String qrVerificationCode;
+  final String? certificatePdfUrl;
+
+  const StudentCertificateModel({
+    required this.id,
+    required this.certificateCode,
+    required this.studentName,
+    required this.courseTitle,
+    required this.issueDate,
+    required this.theoryScore,
+    required this.practicalScore,
+    required this.finalGrade,
+    required this.status,
+    required this.signerName,
+    required this.signerTitle,
+    required this.qrVerificationCode,
+    this.certificatePdfUrl,
+  });
+
+  factory StudentCertificateModel.fromJson(Map<String, dynamic> json) {
+    return StudentCertificateModel(
+      id: json['id']?.toString() ?? '',
+      certificateCode: json['certificateCode']?.toString() ?? json['certificate_code']?.toString() ?? '',
+      studentName: json['studentName']?.toString() ?? json['student_name']?.toString() ?? '',
+      courseTitle: json['courseTitle']?.toString() ?? json['course_title']?.toString() ?? '',
+      issueDate: json['issueDate']?.toString() ?? json['issue_date']?.toString() ?? '',
+      theoryScore: (json['theoryScore'] as num?)?.toDouble() ?? (json['theory_score'] as num?)?.toDouble() ?? 0.0,
+      practicalScore: (json['practicalScore'] as num?)?.toDouble() ?? (json['practical_score'] as num?)?.toDouble() ?? 0.0,
+      finalGrade: json['finalGrade']?.toString() ?? json['final_grade']?.toString() ?? 'ĐẠT',
+      status: json['status']?.toString() ?? 'ISSUED',
+      signerName: json['signerName']?.toString() ?? json['signer_name']?.toString() ?? 'Học viện MLD Việt Nam',
+      signerTitle: json['signerTitle']?.toString() ?? json['signer_title']?.toString() ?? 'GIÁM ĐỐC HỌC VIỆN MLD VIỆT NAM',
+      qrVerificationCode: json['qrVerificationCode']?.toString() ?? json['qr_verification_code']?.toString() ?? '',
+      certificatePdfUrl: json['certificatePdfUrl']?.toString() ?? json['certificate_pdf_url']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'certificateCode': certificateCode,
+    'studentName': studentName,
+    'courseTitle': courseTitle,
+    'issueDate': issueDate,
+    'theoryScore': theoryScore,
+    'practicalScore': practicalScore,
+    'finalGrade': finalGrade,
+    'status': status,
+    'signerName': signerName,
+    'signerTitle': signerTitle,
+    'qrVerificationCode': qrVerificationCode,
+    'certificatePdfUrl': certificatePdfUrl,
+  };
+}

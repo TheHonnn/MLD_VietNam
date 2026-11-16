@@ -80,6 +80,14 @@ export class AcademyController {
     return this.academyService.getMyResults(userId);
   }
 
+  @Get('certificates')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'E12: Danh sách chứng chỉ tốt nghiệp đã được cấp của học viên' })
+  async getMyCertificates(@CurrentUser('id') userId: string) {
+    return this.academyService.getMyCertificates(userId);
+  }
+
   @Get('enrollments/:id/check-payment')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()

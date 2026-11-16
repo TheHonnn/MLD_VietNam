@@ -27,8 +27,8 @@ export const ADMIN_NAVIGATION_GROUPS: NavigationGroup[] = [
   group('Dịch vụ & Định mức',['services','treatment_packages','home_products','service_categories','service_materials','inventory_consumption_logs'],[
     item('catalog','Bảng giá & Gói liệu trình','/services-catalog'),item('home_products','Sản phẩm mang về','/home-products'),item('service_categories'),item('service_materials'),item('inventory_consumption_logs'),
   ]),
-  group('Nhân sự & Kỹ thuật viên',['staff_profiles','departments','technicians','technician_shifts','technician_slots','staff_commissions'],[
-    item('staff-schedule','Lịch trực & Điều phối ca','/staff-schedule'),item('staff_profiles'),item('departments'),item('technicians'),item('technician_shifts'),item('technician_slots'),item('staff_commissions','Hoa hồng KTV & Thưởng','/commissions'),
+  group('Nhân sự & Kỹ thuật viên',['staff_profiles','departments','technicians','technician_shifts','staff_commissions'],[
+    item('staff-schedule','Lịch trực & Điều phối ca','/staff-schedule'),item('staff_profiles'),item('departments'),item('technicians'),item('technician_shifts'),item('staff_commissions','Hoa hồng KTV & Thưởng','/commissions'),
   ]),
   group('Voucher & Hội viên',['coupons','user_vouchers','voucher_distribution_rules','membership_tier_rules','loyalty_point_settings','point_transactions']),
   group('Tuyển sinh & Ghi danh',['course_enrollments','tuition_transactions','enrollment_change_requests','enrollment_status_history','academy_enrollment_funnel'],[

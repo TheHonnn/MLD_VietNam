@@ -692,7 +692,6 @@ export const W05_StaffSchedule: React.FC = () => {
     );
   }, [consultationSurveys, selectedApp, customers]);
 
-  // Handle URL navigation with booking code or id
   useEffect(() => {
     const bookingParam = searchParams.get('booking') || searchParams.get('appId');
     if (bookingParam && allAppointments.length > 0) {
@@ -709,17 +708,42 @@ export const W05_StaffSchedule: React.FC = () => {
         if (found.dateRaw && found.dateRaw !== selectedDate) {
           setSelectedDate(found.dateRaw);
         }
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          if (found.dateRaw) {
+            next.set('date', found.dateRaw);
+          }
+          next.delete('booking');
+          next.delete('appId');
+          return next;
+        }, { replace: true });
       }
     }
-  }, [searchParams, allAppointments, selectedDate, liveBookings]);
+  }, [searchParams, allAppointments, liveBookings]);
 
-  // Date Navigator Helpers
-  const handleSelectDate = (newDate: string) => {
+  const handleCloseDrawer = () => {
+    setSelectedAppId('');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('booking');
+      next.delete('appId');
+      return next;
+    }, { replace: true });
+  };
+
+  const handleSelectDate = (newDate: string, preserveAppId = false) => {
     setSelectedDate(newDate);
+    if (!preserveAppId) {
+      setSelectedAppId('');
+    }
     localStorage.setItem('mld_schedule_date', newDate);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set('date', newDate);
+      if (!preserveAppId) {
+        next.delete('booking');
+        next.delete('appId');
+      }
       return next;
     });
   };
@@ -805,7 +829,7 @@ export const W05_StaffSchedule: React.FC = () => {
       setLiveBookings((prev) =>
         prev.filter((b) => b.id !== id && b.bookingCode !== id && (!bCode || b.bookingCode !== bCode))
       );
-      setSelectedAppId('');
+      handleCloseDrawer();
       toast.success('Đã xóa lịch hẹn', 'Lịch hẹn đã được xóa hoàn toàn khỏi bảng phân công.');
     } catch (err) {
       console.error('Delete booking error:', err);
@@ -1212,7 +1236,7 @@ export const W05_StaffSchedule: React.FC = () => {
   const lastHour = Math.ceil(Math.max(...(closing.length ? closing : [20]), ...displayedAppointments.map(app => app.startHour + app.durationHours)));
   const hours = Array.from({ length: lastHour - firstHour }, (_, index) => String(firstHour + index).padStart(2, '0') + ':00');
 
-  const ROW_HEIGHT = 58;
+  const ROW_HEIGHT = 80;
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -1464,7 +1488,7 @@ export const W05_StaffSchedule: React.FC = () => {
                 if (targetApp) {
                   setSelectedAppId(targetApp.id);
                   if (targetApp.dateRaw && targetApp.dateRaw !== selectedDate) {
-                    handleSelectDate(targetApp.dateRaw);
+                    handleSelectDate(targetApp.dateRaw, true);
                   }
                 }
               }}
@@ -1567,7 +1591,7 @@ export const W05_StaffSchedule: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-auto max-h-[65vh] shadow-xs">
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-auto max-h-[70vh] shadow-xs">
             <div className="w-max min-w-full inline-block align-top">
               {/* Timetable Header Row */}
               <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE] w-max min-w-full sticky top-0 z-30">
@@ -1580,7 +1604,7 @@ export const W05_StaffSchedule: React.FC = () => {
                 {timetableColumns.map((col, idx) => (
                   <div
                     key={col.id}
-                    className={`w-[200px] min-w-[200px] shrink-0 px-4 py-3 border-r ${
+                    className={`w-[215px] min-w-[215px] shrink-0 px-3.5 py-3 border-r ${
                       col.isUnassignedColumn
                         ? 'bg-[#FFFBEB] border-[#FDE68A]'
                         : 'border-[#EFE4D9]'
@@ -1616,7 +1640,7 @@ export const W05_StaffSchedule: React.FC = () => {
                       <div
                         key={hour}
                         style={{ height: `${ROW_HEIGHT}px` }}
-                        className="border-b border-[#F0E6DC] text-center pt-1.5 px-1 flex flex-col items-center justify-start text-[11px] sm:text-xs text-[#73675F] font-medium"
+                        className="border-b border-[#F0E6DC] text-center pt-2 px-1 flex flex-col items-center justify-start text-[11px] sm:text-xs text-[#73675F] font-medium"
                       >
                         <span className="font-bold text-[#2C241E]">{hour}</span>
                       </div>
@@ -1633,7 +1657,7 @@ export const W05_StaffSchedule: React.FC = () => {
                   return (
                     <div
                       key={col.id}
-                      className={`w-[200px] min-w-[200px] shrink-0 relative border-r ${
+                      className={`w-[215px] min-w-[215px] shrink-0 relative border-r ${
                         col.isUnassignedColumn ? 'bg-[#FFFDF7] border-[#FDE68A]' : 'border-[#EFE4D9]'
                       } ${colIdx === timetableColumns.length - 1 ? 'border-r-0' : ''}`}
                     >
@@ -1653,7 +1677,7 @@ export const W05_StaffSchedule: React.FC = () => {
                       {/* Dynamic Appointment Cards for this column */}
                       {colAppointments.map((app) => {
                         const topOffset = Math.max(0, (app.startHour - firstHour) * ROW_HEIGHT);
-                        const blockHeight = app.durationHours * ROW_HEIGHT;
+                        const blockHeight = Math.max(54, app.durationHours * ROW_HEIGHT);
                         const isSelected = selectedApp?.id === app.id;
 
                         const isCompleted = app.statusRaw === 'COMPLETED';
@@ -1672,7 +1696,7 @@ export const W05_StaffSchedule: React.FC = () => {
                                 top: `${topOffset}px`,
                                 height: `${blockHeight}px`,
                               }}
-                              className={`absolute inset-x-2 p-2.5 text-left cursor-pointer transition-all duration-150 z-10 flex flex-col justify-between overflow-hidden ${
+                              className={`absolute inset-x-1.5 p-2 text-left cursor-pointer transition-all duration-150 z-10 flex flex-col justify-between overflow-hidden ${
                                 app.hasCleaningBuffer && !isUnassigned ? 'rounded-t-xl' : 'rounded-xl'
                               } ${
                                 isSelected
@@ -1688,18 +1712,18 @@ export const W05_StaffSchedule: React.FC = () => {
                                   : 'bg-[#FDF6EE] border border-[#D7BBA6] hover:border-[#985018]'
                               }`}
                             >
-                              <div>
-                                <div className="text-[11.5px] font-bold text-[#2C241E] truncate leading-tight">
+                              <div className="min-w-0">
+                                <div className="text-[12px] font-bold text-[#2C241E] truncate leading-tight" title={app.title}>
                                   {app.title}
                                 </div>
-                                <div className="text-[10.5px] text-[#73675F] truncate mt-0.5">
+                                <div className="text-[10.5px] text-[#73675F] truncate mt-0.5 font-medium">
                                   {app.timeRange}
                                 </div>
                               </div>
 
-                              <div className="flex items-center justify-between gap-1 mt-1">
+                              <div className="flex items-center justify-between gap-1 mt-1 shrink-0">
                                 <span
-                                  className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold ${
+                                  className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold truncate max-w-full leading-normal ${
                                     isUnassigned
                                       ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]'
                                       : isCompleted
@@ -1714,7 +1738,7 @@ export const W05_StaffSchedule: React.FC = () => {
                                   {isUnassigned ? '⚠️ Chưa gán KTV' : app.status}
                                 </span>
                                 {isUnassigned && (
-                                  <span className="text-[9px] text-[#B45309] font-medium hidden sm:inline">
+                                  <span className="text-[9px] text-[#B45309] font-medium hidden sm:inline shrink-0">
                                     Chọn để gán
                                   </span>
                                 )}
@@ -1726,11 +1750,12 @@ export const W05_StaffSchedule: React.FC = () => {
                               <div
                                 style={{
                                   top: `${topOffset + blockHeight}px`,
-                                  height: ROW_HEIGHT / 4,
+                                  height: `${Math.max(20, Math.round(ROW_HEIGHT / 4))}px`,
                                 }}
-                                className="absolute inset-x-2 rounded-b-md bg-[#DEC6B0] border-x border-b border-[#CDB59E] px-2 flex items-center text-[9.5px] font-medium text-[#4A3E34] truncate z-10"
+                                className="absolute inset-x-1.5 rounded-b-md bg-[#DEC6B0] border-x border-b border-[#CDB59E] px-2 flex items-center text-[9.5px] font-semibold text-[#4A3E34] truncate z-10 leading-none shadow-2xs"
+                                title={app.cleaningText}
                               >
-                                {app.cleaningText}
+                                <span className="truncate">{app.cleaningText}</span>
                               </div>
                             )}
                           </div>
@@ -1791,12 +1816,12 @@ export const W05_StaffSchedule: React.FC = () => {
 
         {/* Right Column (Sidebar Cards) */}
         {selectedApp && (
-          <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setSelectedAppId('')}>
+          <div className="fixed inset-0 z-50 bg-black/30" onClick={handleCloseDrawer}>
             <aside role="dialog" aria-modal="true" aria-label="Chi tiết lịch hẹn" className="ml-auto h-full w-full max-w-lg space-y-4 overflow-y-auto bg-[#FAF8F5] p-4 shadow-xl" onClick={event => event.stopPropagation()}
-              onKeyDown={event => { if (event.key === 'Escape') setSelectedAppId(''); }}>
+              onKeyDown={event => { if (event.key === 'Escape') handleCloseDrawer(); }}>
               <div className="flex items-center justify-between">
                 <h2 className="font-bold">Chi tiết lịch hẹn</h2>
-                <button type="button" autoFocus onClick={() => setSelectedAppId('')} aria-label="Đóng chi tiết" className="rounded-lg border bg-white p-2"><X size={16} /></button>
+                <button type="button" autoFocus onClick={handleCloseDrawer} aria-label="Đóng chi tiết" className="rounded-lg border bg-white p-2"><X size={16} /></button>
               </div>
           {selectedApp ? (
             /* Card 1: Selected Appointment Details */

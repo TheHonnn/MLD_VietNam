@@ -388,6 +388,18 @@ export class AdminController {
     return this.service.assignScheduleBooking(req.admin, body);
   }
 
+  @Get('staff-schedule/:bookingId/earlier')
+  @UseGuards(AdminGuard)
+  earlierScheduleSlots(@Param('bookingId') bookingId: string, @Req() req) {
+    return this.service.moveScheduleBookingEarlier(req.admin, bookingId);
+  }
+
+  @Post('staff-schedule/:bookingId/earlier')
+  @UseGuards(AdminGuard)
+  moveScheduleBookingEarlier(@Param('bookingId') bookingId: string, @Body() body: Record<string, unknown>, @Req() req) {
+    return this.service.moveScheduleBookingEarlier(req.admin, bookingId, body ?? {});
+  }
+
   @Post('treatment/inventory/count')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()
