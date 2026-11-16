@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminCommand, Listing, Row } from '../admin/api';
 import { useAdmin } from '../admin/Auth';
+import { AdminTabs } from '../components/common';
 import './TreatmentPackagesWorkspace.css';
 
 export async function loadHomeCareRows(table: string, filter?: Row) {
@@ -13,6 +15,7 @@ export async function loadHomeCareRows(table: string, filter?: Row) {
   }
 }
 export function HomeCareWorkspace() {
+  const navigate = useNavigate();
   const { user } = useAdmin();
   const [tab, setTab] = useState('templates');
   const [rows, setRows] = useState<Row[]>([]);
@@ -81,7 +84,25 @@ export function HomeCareWorkspace() {
     } catch (e) { setFormError(e instanceof Error ? e.message : 'Không lưu được hướng dẫn.'); }
     finally { setSaving(false); }
   }
-  return <main className="treatment-workspace"><header><div><p className="tw-eyebrow">QUẢN LÝ LIỆU TRÌNH</p><h1>Hướng dẫn chăm sóc tại nhà</h1><p>Quản lý mẫu hướng dẫn và theo dõi nội dung đã giao theo từng buổi.</p></div>{tab === 'templates' && <button className="tw-primary" onClick={() => edit()}>Soạn mẫu hướng dẫn</button>}</header><nav className="tw-journal-tabs"><button aria-pressed={tab === 'templates'} onClick={() => { setTab('templates'); setPublished(''); }}>Mẫu hướng dẫn</button><button aria-pressed={tab === 'deliveries'} onClick={() => { setTab('deliveries'); setPublished(''); }}>Đã giao trong ứng dụng</button><button aria-pressed={tab === 'queue'} onClick={() => { setTab('queue'); setPublished(''); }}>Hàng đợi lời dặn</button></nav>
+  return <main className="treatment-workspace"><header><div><p className="tw-eyebrow">QUẢN LÝ LIỆU TRÌNH</p><h1>Hướng dẫn chăm sóc tại nhà</h1><p>Quản lý mẫu hướng dẫn và theo dõi nội dung đã giao theo từng buổi.</p></div>{tab === 'templates' && <button className="tw-primary" onClick={() => edit()}>Soạn mẫu hướng dẫn</button>}</header>
+    <AdminTabs
+      variant="line"
+      ariaLabel="Điều hướng phân hệ Quản lý Liệu trình"
+      activeTab="home_care_guidelines"
+      onChange={(id) => {
+        if (id === 'medical-records') navigate('/medical-records');
+        else if (id === 'user_packages') navigate('/manage/user_packages');
+        else if (id === 'treatment_journal') navigate('/manage/treatment_journal');
+        else if (id === 'home_care_guidelines') navigate('/manage/home_care_guidelines');
+      }}
+      tabs={[
+        { id: 'medical-records', label: '1. Hồ sơ & Phác đồ MLD' },
+        { id: 'user_packages', label: '2. Sổ cái Liệu trình khách hàng' },
+        { id: 'treatment_journal', label: '3. Nhật ký điều trị & Duyệt buổi' },
+        { id: 'home_care_guidelines', label: '4. Hướng dẫn chăm sóc tại nhà', count: rows.length },
+      ]}
+    />
+    <nav className="tw-journal-tabs"><button aria-pressed={tab === 'templates'} onClick={() => { setTab('templates'); setPublished(''); }}>Mẫu hướng dẫn</button><button aria-pressed={tab === 'deliveries'} onClick={() => { setTab('deliveries'); setPublished(''); }}>Đã giao trong ứng dụng</button><button aria-pressed={tab === 'queue'} onClick={() => { setTab('queue'); setPublished(''); }}>Hàng đợi lời dặn</button></nav>
     <section className="tw-filters"><input aria-label="Tìm hướng dẫn" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tiêu đề, chuyên mục hoặc tên khách…" />{tab === 'templates' && <select aria-label="Xuất bản" value={published} onChange={e => setPublished(e.target.value)}><option value="">Tất cả trạng thái</option><option value="true">Đã xuất bản</option><option value="false">Bản nháp / Đã gỡ xuất bản</option></select>}<button onClick={() => setRevision(v => v + 1)}>Tải lại</button></section>
     {error ? <p role="alert" className="tw-error">{error}</p> : loading ? <p role="status">Đang tải hướng dẫn…</p> : <section className="tw-panel"><div className="tw-table"><table><thead><tr><th>{tab === 'templates' ? 'Tiêu đề / Chuyên mục' : 'Khách hàng / Hướng dẫn'}</th><th>Trạng thái</th><th>Phiên bản / Thời gian</th><th>Thao tác</th></tr></thead><tbody>{filtered.map(row => <tr key={row.id}><td><strong>{tab === 'templates' ? row.title : row.customer_name || 'Chưa có tên khách'}</strong><span>{tab === 'templates' ? row.category : row.content_snapshot?.title || 'Lời dặn ghi nhận theo buổi'}</span></td><td>{tab === 'templates' ? row.is_published ? 'Đã xuất bản' : 'Bản nháp / Đã gỡ xuất bản' : ({ PENDING: 'Đã xếp hàng, chưa gửi', SENT: 'Đã gửi', FAILED: 'Gửi thất bại' }[String(row.status)] || row.status)}</td><td>{tab === 'templates' ? `Phiên bản ${row.version}` : `Phiên bản ${row.guideline_version || '—'}`}<span>{new Date(row.updated_at || row.sent_at || row.created_at).toLocaleString('vi-VN')}</span></td><td><button onClick={() => setDetail(row)}>Xem nội dung</button>{tab === 'templates' && <button onClick={() => edit(row)}>Chỉnh sửa</button>}</td></tr>)}</tbody></table></div>{!filtered.length && <p className="tw-empty">Chưa có nội dung phù hợp.</p>}</section>}
     {editing && <div className="tw-overlay"><section className="tw-dialog tw-journal-dialog tw-care-dialog" role="dialog" aria-modal="true" aria-labelledby="care-edit-title"><form onSubmit={save}><h2 id="care-edit-title">{editing.id ? 'Cập nhật mẫu hướng dẫn' : 'Soạn mẫu hướng dẫn'}</h2><p>Nội dung đã giao cho khách được giữ nguyên. Bản chỉnh sửa được lưu thành phiên bản mới.</p>{[['title','Tiêu đề'],['category','Chuyên mục'],['summary','Tóm tắt'],['content','Nội dung, điều cần tránh và dấu hiệu cần liên hệ'],['image_url','Đường dẫn hình ảnh'],['author_name','Tác giả']].map(([key,label]) => <label key={key}>{label}{['summary','content'].includes(key) ? <textarea required value={editing[key]} onChange={e => setEditing({ ...editing, [key]: e.target.value })} /> : <input required type={key === 'image_url' ? 'url' : 'text'} value={editing[key]} onChange={e => setEditing({ ...editing, [key]: e.target.value })} />}</label>)}<label>Dịch vụ áp dụng<select value={editing.service_id || ''} onChange={e => setEditing({ ...editing, service_id: e.target.value || null })}><option value="">Dùng chung cho các dịch vụ</option>{services.map(service => <option key={service.id} value={service.id}>{service.name}</option>)}</select></label><label>Các bước thực hiện (mỗi dòng một bước)<textarea value={steps} onChange={e => setSteps(e.target.value)} /></label>{canPublish && <label><input type="checkbox" checked={editing.is_published} onChange={e => setEditing({ ...editing, is_published: e.target.checked })} /> Xuất bản phiên bản này</label>}{formError && <p role="alert" className="tw-error">{formError}</p>}<footer><button type="button" disabled={saving} onClick={() => setEditing(undefined)}>Đóng</button><button className="tw-primary" disabled={saving}>{saving ? 'Đang lưu…' : 'Lưu phiên bản'}</button></footer></form></section></div>}

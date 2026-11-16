@@ -249,6 +249,75 @@ export const treatmentService = {
     }
   },
 
+  async completeAndConfirmSessionFromBooking(
+    userPackageId: string,
+    journalData?: any
+  ): Promise<ApiResponse<boolean>> {
+    if (!journalData?.bookingId) return { success: false, statusCode: 400, message: 'Cần chọn ca đang phục vụ để ghi nhận.', data: false };
+    try {
+      const draft = await adminCommand<any>(`treatment/packages/${encodeURIComponent(userPackageId)}/start-draft`, { bookingId: journalData.bookingId });
+      if (draft.is_reversed || draft.confirmation_status === 'CONFIRMED') {
+        return { success: false, statusCode: 409, message: 'Buổi điều trị này đã được xác nhận hoặc hoàn tác trước đó.', data: false };
+      }
+      const values = Object.fromEntries(Object.entries(journalData).map(([key, value]) => [key.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase()), value]));
+      if (['DRAFT', 'PENDING'].includes(draft.confirmation_status)) {
+        const saved = await this.saveTreatmentDraft(draft.id, values);
+        if (!saved.success) return { success: false, statusCode: saved.statusCode, message: saved.message, data: false };
+        const submitted = await this.submitTreatmentSession(draft.id, values);
+        if (!submitted.success) return { success: false, statusCode: submitted.statusCode, message: submitted.message, data: false };
+      }
+      if (Boolean(journalData.hasAbnormalReaction) || draft.confirmation_status === 'REVIEW_REQUIRED') {
+        const approved = await this.approveClinicalSession(draft.id);
+        if (!approved.success) return { success: false, statusCode: approved.statusCode, message: approved.message, data: false };
+      }
+      const confirmed = await this.confirmTreatmentSession(draft.id, `confirm-session:${draft.id}`);
+      if (!confirmed.success) return { success: false, statusCode: confirmed.statusCode, message: confirmed.message, data: false };
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã hoàn tất ghi nhật ký lâm sàng và xác nhận trừ 1 buổi vào gói liệu trình.',
+        data: true,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        statusCode: error?.statusCode || 400,
+        message: error?.message || 'Không thể hoàn tất và xác nhận buổi điều trị.',
+        data: false,
+      };
+    }
+  },
+
+  async finalizeExistingJournalSession(
+    journalId: string,
+    options?: { isDraft?: boolean; hasAbnormalReaction?: boolean }
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      if (options?.isDraft) {
+        const submitted = await this.submitTreatmentSession(journalId);
+        if (!submitted.success) return { success: false, statusCode: submitted.statusCode, message: submitted.message, data: false };
+      }
+      if (options?.hasAbnormalReaction) {
+        const approved = await this.approveClinicalSession(journalId);
+        if (!approved.success) return { success: false, statusCode: approved.statusCode, message: approved.message, data: false };
+      }
+      const confirmed = await this.confirmTreatmentSession(journalId, `confirm-session:${journalId}`);
+      return {
+        success: confirmed.success,
+        statusCode: confirmed.statusCode,
+        message: confirmed.message,
+        data: confirmed.success,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        statusCode: error?.statusCode || 400,
+        message: error?.message || 'Không thể xác nhận buổi điều trị.',
+        data: false,
+      };
+    }
+  },
+
   // --- VẬN HÀNH VÒNG ĐỜI GÓI LIỆU TRÌNH (ADMIN FSM) ---
 
   async _executePackageAction(userPackageId: string, payload: Record<string, unknown>): Promise<void> {
