@@ -7,6 +7,7 @@ import '../../data/models/booking_models.dart';
 import '../../data/repositories/booking_repository.dart';
 import '../widgets/booking_status_badge.dart';
 import '../widgets/cancel_booking_dialog.dart';
+import '../widgets/group_c_widgets.dart';
 
 /// Screen C10: Chi tiết lịch hẹn - Tinh giản chuẩn Design System (#2860EB)
 class C10AppointmentDetailScreen extends StatefulWidget {
@@ -192,6 +193,40 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
               ),
 
               const SizedBox(height: 14),
+
+              if (app.status == AppointmentStatus.pending || app.status == AppointmentStatus.confirmed) ...[
+                CheckInQRCodeWidget(
+                  qrData: app.bookingCode,
+                  bookingCode: app.bookingCode,
+                  note: context.tr(
+                    'Đưa mã này cho lễ tân để được tiếp đón nhanh chóng tại chi nhánh',
+                    'Show this QR code at reception for fast check-in',
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ] else if (app.status == AppointmentStatus.checkedIn) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6EE),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          context.tr('Khách hàng đã được tiếp đón tại chi nhánh', 'Customer has been checked in at branch'),
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.accent),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
 
               // ==========================================
               // TIẾN TRÌNH TRỊ LIỆU TỐI GIẢN (Mục 5.4)

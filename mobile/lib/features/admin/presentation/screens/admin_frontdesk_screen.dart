@@ -335,7 +335,10 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
   void _handleScannedCode(String code) {
     final cleanCode = code.trim().toUpperCase();
     final match = _bookings.firstWhere(
-      (b) => b.bookingCode.toUpperCase() == cleanCode || b.id.toUpperCase() == cleanCode,
+      (b) =>
+          b.bookingCode.toUpperCase() == cleanCode ||
+          b.id.toUpperCase() == cleanCode ||
+          (b.bookingCode.isNotEmpty && cleanCode.contains(b.bookingCode.toUpperCase())),
       orElse: () => _bookings.firstWhere(
         (b) => b.customerPhone == cleanCode,
         orElse: () => const AdminBookingModel(

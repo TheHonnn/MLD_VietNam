@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../data/models/booking_models.dart';
 
 /// Bảng màu & Quy chuẩn thiết kế chuẩn Figma Group C
@@ -589,10 +590,6 @@ class PriceBreakdownCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final preTaxSubtotal = subtotal > 0 ? (subtotal / (1.0 + vatRate)) : 0.0;
-    final vatAmount = subtotal > 0 ? (subtotal - preTaxSubtotal) : 0.0;
-    final vatPercentStr = (vatRate * 100).toInt();
-
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -778,12 +775,15 @@ class PrepaidPackageSelectorWidget extends StatelessWidget {
   }
 }
 
-/// 10. ComponentFamily / CheckInQRCode [8111:28812]
 class CheckInQRCodeWidget extends StatelessWidget {
+  final String qrData;
+  final String? bookingCode;
   final String note;
 
   const CheckInQRCodeWidget({
     super.key,
+    required this.qrData,
+    this.bookingCode,
     this.note = 'Mã check-in dùng khi đến chi nhánh',
   });
 
@@ -800,26 +800,53 @@ class CheckInQRCodeWidget extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            width: 112,
-            height: 112,
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: BookingColors.qrBorder),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: BookingColors.qrBorder.withValues(alpha: 0.15)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: const Icon(
-              Icons.qr_code_2,
-              size: 84,
-              color: BookingColors.primary,
+            child: QrImageView(
+              data: qrData,
+              version: QrVersions.auto,
+              size: 130,
+              backgroundColor: Colors.white,
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.square,
+                color: BookingColors.primary,
+              ),
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.square,
+                color: BookingColors.textPrimary,
+              ),
             ),
           ),
-          const SizedBox(height: 10),
+          if (bookingCode != null && bookingCode!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              bookingCode!,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.1,
+                color: BookingColors.primary,
+              ),
+            ),
+          ],
+          const SizedBox(height: 6),
           Text(
             note,
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 12,
-              color: BookingColors.textPrimary,
+              color: BookingColors.textSecondary,
             ),
           ),
         ],
