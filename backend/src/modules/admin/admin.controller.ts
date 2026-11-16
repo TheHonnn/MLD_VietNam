@@ -354,6 +354,12 @@ export class AdminController {
   startTreatmentDraft(@Param('id') id: string, @Body() body: { bookingId: string }, @Req() req) {
     return this.service.startTreatmentDraft(req.admin,id,body.bookingId);
   }
+  @Post('treatment/packages/:id/complete-session')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  completeTreatmentSession(@Param('id') id: string, @Body() body: Record<string, unknown>, @Req() req) {
+    return this.service.completePackageSession(req.admin, id, body);
+  }
   @Post('treatment/packages/:id/book-session')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()

@@ -276,7 +276,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       if (custRes.success) setCustomers(custRes.data);
       if (brRes.success && brRes.data.length > 0) {
         setBranches(brRes.data);
-        setBookingBranchId(brRes.data[0].id);
+        setBookingBranchId((prev) => prev || brRes.data[0].id);
       }
       if (techList && techList.length > 0) {
         setTechnicians(techList);
@@ -672,34 +672,15 @@ export const W06_TreatmentManagement: React.FC = () => {
     if (pkgId) setSelectedPkgId(pkgId);
     const effectivePkgId = pkgId || selectedPkg.id;
     const targetBooking = bookingMap.get(bookingId);
-    let currentStatus = String(targetBooking?.status || 'CONFIRMED');
     try {
-      if (currentStatus === 'PENDING') {
-        const confirmRes = await bookingService.runWorkflowAction(bookingId, 'confirm');
-        if (!confirmRes.success) {
-          toast.error('Không thể xác nhận lịch hẹn', confirmRes.message || 'Vui lòng thử lại.');
-          return;
-        }
-        currentStatus = 'CONFIRMED';
-      }
-      if (currentStatus === 'CONFIRMED') {
-        const checkinPayload =
-          !targetBooking?.paymentMethod || targetBooking.paymentMethod === 'MEMBERSHIP_WALLET'
-            ? { userPackageId: effectivePkgId }
-            : {};
-        const checkinRes = await bookingService.runWorkflowAction(bookingId, 'checkin', checkinPayload);
-        if (!checkinRes.success) {
-          toast.error('Không thể Check-in', checkinRes.message || 'Vui lòng thử lại.');
-          return;
-        }
-        currentStatus = 'CHECKED_IN';
-      }
-      if (currentStatus === 'CHECKED_IN') {
-        const startRes = await bookingService.runWorkflowAction(bookingId, 'start');
-        if (!startRes.success) {
-          toast.error('Không thể bắt đầu ca', startRes.message || 'Vui lòng thử lại.');
-          return;
-        }
+      const payload =
+        !targetBooking?.paymentMethod || targetBooking.paymentMethod === 'MEMBERSHIP_WALLET'
+          ? { userPackageId: effectivePkgId }
+          : {};
+      const res = await bookingService.runWorkflowAction(bookingId, 'start-service', payload);
+      if (!res.success) {
+        toast.error('Không thể bắt đầu ca', res.message || 'Vui lòng thử lại.');
+        return;
       }
       toast.success('Đã bắt đầu phục vụ', 'Lịch hẹn đã chuyển sang Đang phục vụ. Bạn có thể bấm Ghi nhật ký để hoàn tất và trừ buổi ngay.');
       await fetchTreatmentData();
@@ -766,9 +747,17 @@ export const W06_TreatmentManagement: React.FC = () => {
       toast.warning('Gói đã hoàn tất', 'Gói liệu trình này đã hoàn thành đầy đủ các buổi.');
       return;
     }
+    const nowVnHm = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date());
     const todayVn = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
-    setBookingDate(todayVn);
-    setBookingTime('09:00');
+    const tomorrowVn = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(Date.now() + 86400000));
+    const futureTodaySlot = STANDARD_SPA_SLOTS.find((s) => s.startHour > nowVnHm);
+    setBookingDate(futureTodaySlot ? todayVn : tomorrowVn);
+    setBookingTime(futureTodaySlot ? futureTodaySlot.startHour : STANDARD_SPA_SLOTS[0].startHour);
     const targetBranchId = bookingBranchId || branches[0]?.id || '';
     const branchTechs = technicians.filter((t) => !targetBranchId || t.branchId === targetBranchId);
     setBookingTechnicianId(branchTechs[0]?.id || technicians[0]?.id || '');

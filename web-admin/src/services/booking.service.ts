@@ -6,7 +6,7 @@ import { adminCommand } from '../admin/api';
 export const bookingService = {
   async runWorkflowAction(
     id: string,
-    action: 'confirm' | 'checkin' | 'start' | 'finish-service' | 'checkout' | 'cancel' | 'no-show',
+    action: 'confirm' | 'checkin' | 'start' | 'start-service' | 'finish-service' | 'checkout' | 'cancel' | 'no-show',
     options: { reason?: string; userPackageId?: string; requireEnded?: boolean } = {}
   ): Promise<ApiResponse<{ completed: boolean }>> {
     try {

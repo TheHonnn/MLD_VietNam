@@ -14,10 +14,16 @@ type CartLine = {
 
 type BookingLike = {
   id: string;
-  status?: string;
-  sessionStatus?: string;
-  session_status?: string;
-  paymentStatus?: string;
+  status?: string | null;
+  sessionStatus?: string | null;
+  session_status?: string | null;
+  paymentStatus?: string | null;
+  paymentMethod?: string | null;
+  payment_method?: string | null;
+  finalPrice?: number | null;
+  final_price?: number | null;
+  specialNotes?: string | null;
+  special_notes?: string | null;
   items?: Array<{
     id?: string;
     price?: number;
@@ -55,7 +61,13 @@ export function isCompletedServiceBooking(booking: BookingLike): boolean {
 
 export function isBookingWaitingPayment(booking: BookingLike, paidBookingIds: ReadonlySet<string>): boolean {
   if (booking.paymentStatus === 'PAID' || paidBookingIds.has(booking.id)) return false;
-  return !['CANCELLED', 'NO_SHOW'].includes(String(booking.status || ''));
+  if (['CANCELLED', 'NO_SHOW'].includes(String(booking.status || ''))) return false;
+  const method = String(booking.paymentMethod || booking.payment_method || '').toUpperCase();
+  if (method === 'MEMBERSHIP_WALLET') return false;
+  const finalAmount = booking.finalPrice ?? booking.final_price;
+  const notes = String(booking.specialNotes || booking.special_notes || '');
+  if (Number(finalAmount) === 0 && /user_package_id=/i.test(notes)) return false;
+  return true;
 }
 
 export function bookingItemsToCart(booking: BookingLike): CartLine[] {

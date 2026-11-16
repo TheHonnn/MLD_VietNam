@@ -255,23 +255,10 @@ export const treatmentService = {
   ): Promise<ApiResponse<boolean>> {
     if (!journalData?.bookingId) return { success: false, statusCode: 400, message: 'Cần chọn ca đang phục vụ để ghi nhận.', data: false };
     try {
-      const draft = await adminCommand<any>(`treatment/packages/${encodeURIComponent(userPackageId)}/start-draft`, { bookingId: journalData.bookingId });
-      if (draft.is_reversed || draft.confirmation_status === 'CONFIRMED') {
-        return { success: false, statusCode: 409, message: 'Buổi điều trị này đã được xác nhận hoặc hoàn tác trước đó.', data: false };
-      }
-      const values = Object.fromEntries(Object.entries(journalData).map(([key, value]) => [key.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase()), value]));
-      if (['DRAFT', 'PENDING'].includes(draft.confirmation_status)) {
-        const saved = await this.saveTreatmentDraft(draft.id, values);
-        if (!saved.success) return { success: false, statusCode: saved.statusCode, message: saved.message, data: false };
-        const submitted = await this.submitTreatmentSession(draft.id, values);
-        if (!submitted.success) return { success: false, statusCode: submitted.statusCode, message: submitted.message, data: false };
-      }
-      if (Boolean(journalData.hasAbnormalReaction) || draft.confirmation_status === 'REVIEW_REQUIRED') {
-        const approved = await this.approveClinicalSession(draft.id);
-        if (!approved.success) return { success: false, statusCode: approved.statusCode, message: approved.message, data: false };
-      }
-      const confirmed = await this.confirmTreatmentSession(draft.id, `confirm-session:${draft.id}`);
-      if (!confirmed.success) return { success: false, statusCode: confirmed.statusCode, message: confirmed.message, data: false };
+      await adminCommand<any>(
+        `treatment/packages/${encodeURIComponent(userPackageId)}/complete-session`,
+        journalData
+      );
       return {
         success: true,
         statusCode: 200,

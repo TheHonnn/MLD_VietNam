@@ -963,17 +963,23 @@ return {
       throw new ForbiddenException('Bạn không có quyền thao tác trên lịch hẹn này');
     }
 
-    // 3. Kiểm tra trạng thái booking: Chặn hủy nếu booking đã COMPLETED hoặc CANCELLED
-    if (currentBooking.status === 'COMPLETED' || currentBooking.status === 'CANCELLED') {
+    if (['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(currentBooking.status)) {
       throw new BadRequestException(
         `Không thể hủy lịch hẹn đã ${currentBooking.status === 'COMPLETED' ? 'hoàn thành' : 'bị hủy'}`,
       );
     }
+    if (['CHECKED_IN', 'IN_SERVICE'].includes(currentBooking.status)) {
+      throw new BadRequestException(
+        'Khách đã check-in hoặc đang phục vụ, vui lòng liên hệ nhân viên tại cơ sở để được hỗ trợ.',
+      );
+    }
 
-    // 3.1. Chặn hủy nếu lịch hẹn đã thanh toán và đã được duyệt
     const isPaid = (currentBooking.payment_status || '').toUpperCase() === 'PAID';
+    const isWalletPrepaid =
+      String(currentBooking.payment_method || '').toUpperCase() === 'MEMBERSHIP_WALLET' &&
+      Number(currentBooking.final_price || 0) === 0;
     const isApproved = ['CONFIRMED', 'IN_SERVICE', 'COMPLETED'].includes(currentBooking.status);
-    if (isPaid && isApproved) {
+    if (isPaid && isApproved && !isWalletPrepaid) {
       throw new BadRequestException(
         'Không thể Hủy. Dịch vụ đã thanh toán, vui lòng liên hệ nhân viên để được hỗ trợ.',
       );

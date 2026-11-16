@@ -172,17 +172,21 @@ export async function createTreatmentBooking(
       );
     const overlapping = (
       await client.query(
-        `SELECT assigned_room_id,assigned_bed_number,technician_id FROM bookings
-      WHERE branch_id=$1 AND booking_date=$2 AND status NOT IN ('CANCELLED','NO_SHOW','COMPLETED')
-      AND start_time<$4::time AND end_time>$3::time`,
-        [branchId, day, start, times.finish],
+        `SELECT branch_id,customer_id,assigned_room_id,assigned_bed_number,technician_id FROM bookings
+      WHERE booking_date=$2 AND status NOT IN ('CANCELLED','NO_SHOW','COMPLETED')
+      AND start_time<$4::time AND end_time>$3::time
+      AND (branch_id=$1 OR customer_id=$5)`,
+        [branchId, day, start, times.finish, pkg.customer_id],
       )
     ).rows;
+    if (overlapping.some((booking) => booking.customer_id === pkg.customer_id))
+      throw new ConflictException('Khách hàng đã có lịch hẹn trùng khung giờ này.');
+    const branchOverlapping = overlapping.filter((booking) => booking.branch_id === branchId);
     const capacity = rooms.reduce(
       (sum, room) => sum + Number(room.bed_capacity),
       0,
     );
-    if (overlapping.length >= capacity)
+    if (branchOverlapping.length >= capacity)
       throw new ConflictException('Khung giờ đã hết giường phục vụ.');
     const technicians = (
       await client.query(
@@ -192,7 +196,7 @@ export async function createTreatmentBooking(
     ).rows;
     const assignedTech = technicians.find(
       (tech) =>
-        !overlapping.some((booking) => booking.technician_id === tech.id),
+        !branchOverlapping.some((booking) => booking.technician_id === tech.id),
     );
     if (!assignedTech)
       throw new ConflictException(
@@ -201,7 +205,7 @@ export async function createTreatmentBooking(
     let roomId: string | undefined;
     let bed: string | undefined;
     for (const room of rooms) {
-      const occupied = overlapping.filter(
+      const occupied = branchOverlapping.filter(
         (booking) => booking.assigned_room_id === room.id,
       );
       const occupiedIndexes = occupied.map((booking) =>
