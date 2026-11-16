@@ -50,40 +50,12 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
       : AcademyRepository.instance.cachedCourses;
   bool _isLoading = false;
 
-  // Trạng thái mở rộng bộ lọc: mặc định là null (thu gọn, hiển thị tất cả)
   AcademyFilterExpanded? _expandedFilter;
 
-  List<String> get _audienceCategories {
-    final list = <String>[];
-    for (final aud in PortalSettingsService.instance.audienceFilterList) {
-      if (!list.contains(aud)) list.add(aud);
-    }
-    for (final c in _allCourses) {
-      final aud = c.targetAudience.trim();
-      if (aud.isNotEmpty && aud != 'Tất cả đối tượng' && !list.contains(aud)) {
-        list.add(aud);
-      }
-    }
-    if (!list.contains('Khóa học đã đăng ký')) {
-      list.add('Khóa học đã đăng ký');
-    }
-    return list;
-  }
+  List<String> get _audienceCategories => PortalSettingsService.instance.audienceFilterList;
   String _selectedAudience = 'Tất cả đối tượng';
 
-  List<String> get _needCategories {
-    final list = <String>[];
-    for (final need in PortalSettingsService.instance.needFilterList) {
-      if (!list.contains(need)) list.add(need);
-    }
-    for (final c in _allCourses) {
-      final need = c.targetNeed.trim();
-      if (need.isNotEmpty && need != 'Tất cả nhu cầu' && !list.contains(need)) {
-        list.add(need);
-      }
-    }
-    return list;
-  }
+  List<String> get _needCategories => PortalSettingsService.instance.needFilterList;
   String _selectedNeed = 'Tất cả nhu cầu';
 
   @override
