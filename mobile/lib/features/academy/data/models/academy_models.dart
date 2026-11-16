@@ -1520,6 +1520,7 @@ class StudentCertificateModel {
   final String signerTitle;
   final String qrVerificationCode;
   final String? certificatePdfUrl;
+  final String? dateOfBirth;
 
   const StudentCertificateModel({
     required this.id,
@@ -1535,6 +1536,7 @@ class StudentCertificateModel {
     required this.signerTitle,
     required this.qrVerificationCode,
     this.certificatePdfUrl,
+    this.dateOfBirth,
   });
 
   factory StudentCertificateModel.fromJson(Map<String, dynamic> json) {
@@ -1552,6 +1554,7 @@ class StudentCertificateModel {
       signerTitle: json['signerTitle']?.toString() ?? json['signer_title']?.toString() ?? 'GIÁM ĐỐC HỌC VIỆN MLD VIỆT NAM',
       qrVerificationCode: json['qrVerificationCode']?.toString() ?? json['qr_verification_code']?.toString() ?? '',
       certificatePdfUrl: json['certificatePdfUrl']?.toString() ?? json['certificate_pdf_url']?.toString(),
+      dateOfBirth: json['dateOfBirth']?.toString() ?? json['date_of_birth']?.toString(),
     );
   }
 
@@ -1569,5 +1572,6 @@ class StudentCertificateModel {
     'signerTitle': signerTitle,
     'qrVerificationCode': qrVerificationCode,
     'certificatePdfUrl': certificatePdfUrl,
+    'dateOfBirth': dateOfBirth,
   };
 }

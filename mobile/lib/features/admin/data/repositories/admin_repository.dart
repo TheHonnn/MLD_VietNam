@@ -554,6 +554,7 @@ class AdminRepository {
         data: {
           'batch_id': batchId,
           'status': 'ENROLLED',
+          'student_status': 'ENROLLED',
         },
         options: Options(
           headers: {
@@ -575,7 +576,9 @@ class AdminRepository {
         '/rest/v1/course_enrollments?id=eq.$enrollmentId',
         data: {
           'batch_id': null,
-          'status': 'PAID',
+          'status': 'ENROLLED',
+          'approval_status': 'APPROVED',
+          'student_status': 'APPROVED',
         },
         options: Options(
           headers: {
@@ -639,6 +642,80 @@ class AdminRepository {
     }
   }
 
+  Future<bool> createCourseBatch({
+    required String courseId,
+    required String batchCode,
+    required String startDate,
+    required String endDate,
+    required String scheduleText,
+    String? branchId,
+    String? instructorId,
+    int maxStudents = 15,
+  }) async {
+    lastScheduleError = null;
+    try {
+      final defaultBranchId = (branchId != null && branchId.isNotEmpty)
+          ? branchId
+          : (_branches.isNotEmpty ? _branches.first.id : 'aaaaaaaa-0001-0001-0001-000000000001');
+      final res = await _apiClient.dio.post(
+        '/rest/v1/course_batches',
+        data: {
+          'course_id': courseId,
+          'branch_id': defaultBranchId,
+          'batch_code': batchCode.trim(),
+          'start_date': startDate,
+          'end_date': endDate,
+          'schedule_text': scheduleText.trim(),
+          'max_students': maxStudents,
+          'enrolled_count': 0,
+          'status': 'OPEN_FOR_ENROLLMENT',
+          if (instructorId != null && instructorId.isNotEmpty) 'instructor_id': instructorId,
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Prefer': 'return=representation',
+          },
+        ),
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map && data.containsKey('message')) {
+        lastScheduleError = data['message'].toString();
+      } else if (data is String) {
+        lastScheduleError = data;
+      } else {
+        lastScheduleError = e.message;
+      }
+      return false;
+    } catch (e) {
+      lastScheduleError = e.toString();
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchInstructors() async {
+    try {
+      final res = await _apiClient.dio.get(
+        '/rest/v1/instructors?select=id,full_name,title&order=full_name.asc',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      if (res.data is List) {
+        return (res.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchInstructors error: $e');
+    }
+    return [];
+  }
+
   /// 5.3.1. Lấy danh sách Lịch học chi tiết theo Buổi (Batch Schedules)
   Future<List<AdminBatchScheduleModel>> fetchBatchSchedules(String batchId) async {
     try {
@@ -687,7 +764,8 @@ class AdminRepository {
     return [];
   }
 
-  /// 5.3.2. Thêm buổi học mới cho Lớp (Create Batch Schedule)
+  String? lastScheduleError;
+
   Future<bool> createBatchSchedule({
     required String batchId,
     required String topic,
@@ -697,6 +775,7 @@ class AdminRepository {
     required bool isPracticeLab,
     String? assignedRoomId,
   }) async {
+    lastScheduleError = null;
     try {
       final res = await _apiClient.dio.post(
         '/rest/v1/batch_schedules',
@@ -713,12 +792,23 @@ class AdminRepository {
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
             'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Prefer': 'return=representation',
           },
         ),
       );
       return res.statusCode == 200 || res.statusCode == 201;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map && data.containsKey('message')) {
+        lastScheduleError = data['message'].toString();
+      } else if (data is String) {
+        lastScheduleError = data;
+      } else {
+        lastScheduleError = e.message;
+      }
+      return false;
     } catch (e) {
-      debugPrint('[AdminRepository] createBatchSchedule error: $e');
+      lastScheduleError = e.toString();
       return false;
     }
   }
@@ -732,6 +822,7 @@ class AdminRepository {
     required bool isPracticeLab,
     String? assignedRoomId,
   }) async {
+    lastScheduleError = null;
     try {
       final res = await _apiClient.dio.patch(
         '/rest/v1/batch_schedules?id=eq.$scheduleId',
@@ -747,12 +838,52 @@ class AdminRepository {
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
             'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Prefer': 'return=representation',
           },
         ),
       );
       return res.statusCode == 200 || res.statusCode == 204;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map && data.containsKey('message')) {
+        lastScheduleError = data['message'].toString();
+      } else if (data is String) {
+        lastScheduleError = data;
+      } else {
+        lastScheduleError = e.message;
+      }
+      return false;
     } catch (e) {
-      debugPrint('[AdminRepository] updateBatchSchedule error: $e');
+      lastScheduleError = e.toString();
+      return false;
+    }
+  }
+
+  Future<bool> deleteBatchSchedule(String scheduleId) async {
+    lastScheduleError = null;
+    try {
+      final res = await _apiClient.dio.delete(
+        '/rest/v1/batch_schedules?id=eq.$scheduleId',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map && data.containsKey('message')) {
+        lastScheduleError = data['message'].toString();
+      } else if (data is String) {
+        lastScheduleError = data;
+      } else {
+        lastScheduleError = e.message;
+      }
+      return false;
+    } catch (e) {
+      lastScheduleError = e.toString();
       return false;
     }
   }
@@ -857,18 +988,29 @@ class AdminRepository {
 
   Future<bool> updateCandidateStatus(String candidateId, String newStatus) async {
     try {
-      final patchData = <String, dynamic>{'status': newStatus};
+      final patchData = <String, dynamic>{};
       if (newStatus == 'PENDING' || newStatus == 'PENDING_CONSULTATION' || newStatus == 'CONSULTING') {
         patchData['status'] = 'CONSULTING';
         patchData['consultation_status'] = 'PENDING_CONSULTATION';
+        patchData['approval_status'] = 'PENDING_APPROVAL';
+        patchData['student_status'] = 'NOT_APPROVED';
       } else if (newStatus == 'CONFIRMED' || newStatus == 'CONFIRMED_PENDING_PAY' || newStatus == 'DEPOSITED') {
         patchData['status'] = 'DEPOSITED';
         patchData['consultation_status'] = 'CONFIRMED';
       } else if (newStatus == 'PAID' || newStatus == 'PAID_WAITING_CLASS' || newStatus == 'ENROLLED') {
         patchData['status'] = 'ENROLLED';
+        patchData['approval_status'] = 'APPROVED';
+        patchData['student_status'] = 'APPROVED';
+        patchData['batch_id'] = null;
         _autoGrantCourseCompletionVoucher(candidateId);
       } else if (newStatus == 'STUDYING' || newStatus == 'ENROLLED_STUDYING') {
         patchData['status'] = 'STUDYING';
+        patchData['student_status'] = 'ENROLLED';
+      } else if (newStatus == 'COMPLETED' || newStatus == 'GRADUATED') {
+        patchData['status'] = 'GRADUATED';
+        patchData['student_status'] = 'GRADUATED';
+      } else {
+        patchData['status'] = newStatus;
       }
 
       final res = await _apiClient.dio.patch(

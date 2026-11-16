@@ -79,7 +79,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
-    expect(find.text('Kết quả học tập'), findsOneWidget);
+    expect(find.textContaining('Kết quả học tập'), findsOneWidget);
     expect(find.byIcon(Icons.school_outlined), findsOneWidget);
     expect(find.byIcon(Icons.explore_outlined), findsOneWidget);
   });

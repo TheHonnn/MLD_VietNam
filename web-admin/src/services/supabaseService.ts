@@ -2871,6 +2871,7 @@ class SupabaseService {
       }
     } catch (err) {
       console.warn('[SupabaseService] createBatchSchedule error:', err);
+      throw err;
     }
     return null;
   }

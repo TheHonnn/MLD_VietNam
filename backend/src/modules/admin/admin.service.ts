@@ -767,8 +767,12 @@ export class AdminService {
         const existing = await client.query('SELECT id FROM batch_schedules WHERE batch_id=$1 AND session_date=$2 AND start_time=$3 AND end_time=$4',
           [batchId,date,input.startTime,input.endTime]);
         if (!existing.rowCount) {
+          const currentCountRes = await client.query('SELECT count(*) as count FROM batch_schedules WHERE batch_id=$1', [batchId]);
+          const sessionNum = Number(currentCountRes.rows[0]?.count || 0) + 1;
+          const prefix = input.topicPrefix?.trim() || (input.isPractice ? 'Thực hành lâm sàng Vodder' : 'Lý thuyết chuyên sâu');
+          const finalTopic = prefix.toLowerCase().startsWith('buổi') ? prefix.slice(0, 150) : `Buổi ${sessionNum}: ${prefix}`.slice(0, 150);
           await client.query('INSERT INTO batch_schedules(batch_id,session_date,start_time,end_time,topic,assigned_room_id,is_practice_lab) VALUES($1,$2,$3,$4,$5,$6,$7)',
-            [batchId,date,input.startTime,input.endTime,input.topicPrefix?.trim().slice(0,150) || 'Buổi học',input.roomId || null,Boolean(input.isPractice)]);
+            [batchId,date,input.startTime,input.endTime,finalTopic,input.roomId || null,Boolean(input.isPractice)]);
         }
         preview.push({date,existing:Boolean(existing.rowCount)});
       }

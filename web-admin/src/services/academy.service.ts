@@ -956,12 +956,12 @@ export const academyService = {
         message: created ? 'Đã xếp lịch thực hành thành công' : 'Không thể lưu lịch thực hành',
         data: created,
       };
-    } catch (err) {
+    } catch (err: any) {
       console.error('[academyService] createBatchSchedule error:', err);
       return {
         success: false,
         statusCode: 500,
-        message: 'Lỗi khi xếp lịch thực hành',
+        message: err?.message || 'Lỗi khi xếp lịch thực hành',
         data: null,
       };
     }

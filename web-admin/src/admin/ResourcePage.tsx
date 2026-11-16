@@ -3607,9 +3607,9 @@ function RecordDialog({
           payload.assigned_room_id = null;
         }
 
-        // Default topic fallback if empty
         if (!payload.topic) {
-          payload.topic = "Buổi học chuyên đề Dẫn lưu Bạch huyết Vodder";
+          const nextIndex = (schedulesOfBatch?.length || 0) + 1;
+          payload.topic = `Buổi ${nextIndex}: Thực hành Dẫn lưu Bạch huyết Vodder`;
         }
       }
       if (resource.name === "student_academic_records") {
