@@ -903,6 +903,7 @@ export const W18_PortalContent: React.FC = () => {
 
   // Content States
   const [banners, setBanners] = useState<PortalContentItem[]>([]);
+  const [isReorderingBanners, setIsReorderingBanners] = useState(false);
   const [documents, setDocuments] = useState<PortalContentItem[]>([]);
   const [communityPosts, setCommunityPosts] = useState<PortalContentItem[]>([]);
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
@@ -1036,6 +1037,7 @@ export const W18_PortalContent: React.FC = () => {
       return true;
     });
   }, [banners, statusFilter, categoryFilter, searchTerm]);
+  const canReorderBanners = !searchTerm.trim() && statusFilter === 'ALL' && categoryFilter === 'ALL' && !isReorderingBanners;
 
   // ==========================================
   // HANDLERS: BANNER ACTIONS & REORDERING
@@ -1058,7 +1060,7 @@ export const W18_PortalContent: React.FC = () => {
       summary: '',
       imageUrl: '',
       targetLink: '/academy',
-      sortOrder: banners.length + 1,
+      sortOrder: Math.max(0, ...banners.map(banner => banner.sortOrder)) + 1,
       category: 'DAO_TAO',
       status: 'DRAFT',
       isFeatured: true,
@@ -1117,33 +1119,22 @@ export const W18_PortalContent: React.FC = () => {
   };
 
   const handleMoveBannerOrder = async (index: number, direction: 'up' | 'down') => {
-    const selected = filteredBanners[index];
-    index = banners.findIndex(item => item.id === selected?.id);
-    if (index < 0) return;
-    if (direction === 'up' && index === 0) return;
-    if (direction === 'down' && index === banners.length - 1) return;
-
+    if (!canReorderBanners) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    const currentBanner = banners[index];
-    const swapBanner = banners[targetIndex];
-
-    const currentOrder = currentBanner.sortOrder || index + 1;
-    const swapOrder = swapBanner.sortOrder || targetIndex + 1;
-
+    const first = banners[Math.min(index, targetIndex)];
+    const second = banners[Math.max(index, targetIndex)];
+    if (!first || !second) return;
+    setIsReorderingBanners(true);
     try {
-      await Promise.all([
-        confirmed(portalService.setSortOrder(currentBanner.id, swapOrder)),
-        confirmed(portalService.setSortOrder(swapBanner.id, currentOrder)),
-      ]);
-
-      const newBanners = [...banners];
-      newBanners[index] = { ...swapBanner, sortOrder: currentOrder };
-      newBanners[targetIndex] = { ...currentBanner, sortOrder: swapOrder };
-      setBanners(newBanners);
-      toast.success('Đã cập nhật thứ tự', `Banner "${currentBanner.title}" xếp vị trí #${swapOrder}`);
-    } catch {
+      await confirmed(portalService.swapBanners(first.id, second.id));
+      const saved = await confirmed(portalService.getContentList({ kind: 'BANNER' }));
+      setBanners(saved.data);
+      toast.success('Đã cập nhật thứ tự banner');
+    } catch (error) {
       await loadData();
-      toast.error('Lỗi', 'Thứ tự chưa được lưu đầy đủ. Đã tải lại dữ liệu để kiểm tra.');
+      toast.error('Không xác nhận được thứ tự banner', (error as Error).message);
+    } finally {
+      setIsReorderingBanners(false);
     }
   };
 
@@ -1755,7 +1746,7 @@ export const W18_PortalContent: React.FC = () => {
                       {/* Reorder Buttons */}
                       <button
                         type="button"
-                        disabled={index === 0}
+                        disabled={!canReorderBanners || index === 0}
                         onClick={() => handleMoveBannerOrder(index, 'up')}
                         className="p-1.5 rounded-lg border border-[#E8DFD8] bg-white text-[#73675F] hover:text-[#985018] disabled:opacity-30 cursor-pointer"
                         title="Đẩy lên trước"
@@ -1764,7 +1755,7 @@ export const W18_PortalContent: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        disabled={index === banners.length - 1}
+                        disabled={!canReorderBanners || index === banners.length - 1}
                         onClick={() => handleMoveBannerOrder(index, 'down')}
                         className="p-1.5 rounded-lg border border-[#E8DFD8] bg-white text-[#73675F] hover:text-[#985018] disabled:opacity-30 cursor-pointer"
                         title="Đẩy xuống sau"

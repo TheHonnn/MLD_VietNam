@@ -124,7 +124,7 @@ export const portalService = {
     search?: string;
   }): Promise<ApiResponse<PortalContentItem[]>> {
     try {
-      let queryPath = 'miniapp_shared_content?select=*,courses:course_id(id,title)&order=sort_order.asc,created_at.desc';
+      let queryPath = 'miniapp_shared_content?select=*,courses:course_id(id,title)&order=sort_order.asc,created_at.desc,id.asc';
       
       if (params?.kind) {
         queryPath += `&kind=eq.${params.kind}`;
@@ -348,8 +348,16 @@ export const portalService = {
   /**
    * Thay đổi thứ tự sắp xếp (sort_order)
    */
-  async setSortOrder(id: string, sortOrder: number): Promise<ApiResponse<boolean>> {
-    return this.updateContent(id, { sortOrder });
+  async swapBanners(firstId: string, secondId: string): Promise<ApiResponse<boolean>> {
+    try {
+      await portalQuery('rpc/fn_swap_portal_banners', {
+        method: 'POST',
+        body: JSON.stringify({ p_first: firstId, p_second: secondId }),
+      });
+      return { success: true, statusCode: 200, data: true, message: 'Đã lưu thứ tự banner' };
+    } catch (error) {
+      return { success: false, statusCode: 500, data: false, message: (error as Error).message };
+    }
   },
 
   /**
