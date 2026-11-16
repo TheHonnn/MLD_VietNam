@@ -143,14 +143,24 @@ export interface ScheduleValidationResult {
   scheduledTimeStr: string;
 }
 
+const vietnamScheduleClock = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+function currentScheduleTime() {
+  const parts = Object.fromEntries(vietnamScheduleClock.formatToParts().map(({ type, value }) => [type, value]));
+  return {
+    todayStr: [parts.year, parts.month, parts.day].join('-'),
+    displayDate: [parts.day, parts.month, parts.year].join('/'),
+    displayTime: [parts.hour, parts.minute].join(':'),
+    currentMinutes: Number(parts.hour) * 60 + Number(parts.minute),
+  };
+}
+
 export const isBookingOverdue = (b: Booking): boolean => {
-  if (b.status === BookingStatus.COMPLETED || b.status === BookingStatus.CANCELLED) return false;
-  const now = new Date();
-  const nowY = now.getFullYear();
-  const nowM = String(now.getMonth() + 1).padStart(2, '0');
-  const nowD = String(now.getDate()).padStart(2, '0');
-  const todayStr = `${nowY}-${nowM}-${nowD}`;
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  if (![BookingStatus.PENDING, BookingStatus.CONFIRMED].includes(b.status)) return false;
+  const { todayStr, currentMinutes } = currentScheduleTime();
 
   const bDate = (b.bookingDate || '').split('T')[0];
   if (!bDate) return false;
@@ -167,12 +177,7 @@ export const isBookingOverdue = (b: Booking): boolean => {
 };
 
 export const validateAppointmentSchedule = (app: ScheduleAppointment): ScheduleValidationResult => {
-  const now = new Date();
-  const nowY = now.getFullYear();
-  const nowM = String(now.getMonth() + 1).padStart(2, '0');
-  const nowD = String(now.getDate()).padStart(2, '0');
-  const todayStr = `${nowY}-${nowM}-${nowD}`;
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const { todayStr, displayDate, displayTime, currentMinutes } = currentScheduleTime();
 
   const appDateStr = (app.dateRaw || '2026-10-16').split('T')[0];
   const times = app.timeRange.split(/[–-]/);
@@ -192,7 +197,7 @@ export const validateAppointmentSchedule = (app: ScheduleAppointment): ScheduleV
       isEarlyTime: false,
       isValid: false,
       reason: 'Đã quá ngày hẹn',
-      detail: `Lịch hẹn được đặt vào ngày ${app.date} (hôm nay là ${nowD}/${nowM}/${nowY}). Khách hàng đã không đến đúng ngày hẹn.`,
+      detail: `Lịch hẹn được đặt vào ngày ${app.date} (hôm nay là ${displayDate}). Khách hàng đã không đến đúng ngày hẹn.`,
       scheduledTimeStr: `${startTimeStr}–${endTimeStr} ngày ${app.date}`,
     };
   }
@@ -220,7 +225,7 @@ export const validateAppointmentSchedule = (app: ScheduleAppointment): ScheduleV
         isEarlyTime: true,
         isValid: false,
         reason: 'Khách đến sớm hơn giờ hẹn',
-        detail: `Khách đến sớm trước giờ hẹn (Giờ hẹn lúc ${startTimeStr}, hiện tại là ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}).`,
+        detail: `Khách đến sớm trước giờ hẹn (Giờ hẹn lúc ${startTimeStr}, hiện tại là ${displayTime}).`,
         scheduledTimeStr: `${startTimeStr}–${endTimeStr} hôm nay`,
       };
     }
@@ -244,7 +249,7 @@ export const validateAppointmentSchedule = (app: ScheduleAppointment): ScheduleV
     isEarlyTime: false,
     isValid: false,
     reason: 'Chưa đến ngày hẹn',
-    detail: `Lịch hẹn được đặt vào ngày ${app.date} (chưa đến ngày hẹn). Hôm nay là ngày ${nowD}/${nowM}/${nowY}.`,
+    detail: `Lịch hẹn được đặt vào ngày ${app.date} (chưa đến ngày hẹn). Hôm nay là ngày ${displayDate}.`,
     scheduledTimeStr: `${startTimeStr}–${endTimeStr} ngày ${app.date}`,
   };
 };
@@ -762,7 +767,7 @@ export const W05_StaffSchedule: React.FC = () => {
         confirm: 'Đã xác nhận lịch hẹn',
         checkin: 'Đã check-in và xác minh quyền sử dụng dịch vụ',
         start: 'Đã bắt đầu thực hiện dịch vụ',
-        'finish-service': 'Đã hoàn tất hồ sơ chuyên môn',
+        'finish-service': 'Đã hoàn tất dịch vụ',
         checkout: 'Đã đóng ca dịch vụ',
         cancel: 'Đã hủy lịch hẹn',
         'no-show': 'Đã ghi nhận khách không đến',
@@ -863,7 +868,7 @@ export const W05_StaffSchedule: React.FC = () => {
     try {
       const app = allAppointments.find((item) => item.id === bookingId);
       const success = app
-        ? await handleBookingAction(app, 'no-show', { reason: 'Khách không đến và lịch đã quá thời gian giữ chỗ.' })
+        ? await handleBookingAction(app, app.statusRaw === 'PENDING' ? 'cancel' : 'no-show', { reason: 'Khách không đến và lịch đã quá thời gian giữ chỗ.' })
         : false;
       if (success) {
         toast.success(
@@ -890,15 +895,19 @@ export const W05_StaffSchedule: React.FC = () => {
 
     setIsUpdatingStatus(true);
     try {
+      let removed = 0;
       for (const booking of overdueBookings) {
         const app = allAppointments.find((item) => item.id === booking.id);
-        if (app) await handleBookingAction(app, 'no-show', { reason: 'Khách không đến và lịch đã quá thời gian giữ chỗ.' });
+        if (app && await handleBookingAction(app, app.statusRaw === 'PENDING' ? 'cancel' : 'no-show', {
+          reason: 'Khách không đến và lịch đã quá thời gian giữ chỗ.',
+        })) removed += 1;
       }
       await fetchScheduleData();
-      toast.success(
-        'Đã dọn dẹp lịch quá hạn',
-        `Đã hủy và giải phóng thành công ${overdueBookings.length} lịch hẹn quá hạn.`
-      );
+      if (removed === overdueBookings.length) {
+        toast.success('Đã giải phóng lịch quá hạn', `Đã xử lý ${removed} lịch hẹn.`);
+      } else {
+        toast.warning('Còn lịch chưa xử lý', `Đã xử lý ${removed}/${overdueBookings.length} lịch hẹn.`);
+      }
     } catch (err) {
       toast.error('Lỗi dọn dẹp', 'Không thể hoàn tất hủy các lịch quá hạn.');
     } finally {
@@ -1949,20 +1958,6 @@ export const W05_StaffSchedule: React.FC = () => {
                 </div>
               )}
 
-              {/* Enterprise Trụ cột 2 & 3: Hoa hồng KTV & Zalo ZNS */}
-              <div className="bg-[#FAF8F5] border border-[#E8DFD8] rounded-2xl p-3 space-y-2.5 text-xs animate-in fade-in">
-                <div className="flex items-center justify-between text-[#8A4F23] bg-[#FFF8F0] px-2.5 py-1.5 rounded-lg border border-[#F5E5D5]">
-                  <span className="font-medium flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#8A4F23]" />
-                    <span>Hoa hồng KTV (10% ca):</span>
-                  </span>
-                  <span className="font-bold text-[#8A4F23]">
-                    +{Math.round((parseInt(selectedApp.price.replace(/\D/g, ''), 10) || 0) * 0.1).toLocaleString('vi-VN')}đ
-                  </span>
-                </div>
-
-              </div>
-
               {/* Consultation Survey / Customer Intake Card */}
               {surveyForSelectedApp && (
                 <div className="bg-[#FAF8F5] border border-[#E8DFD8] rounded-2xl p-3.5 space-y-2 text-xs animate-in fade-in">
@@ -2183,7 +2178,7 @@ export const W05_StaffSchedule: React.FC = () => {
                         <button
                           type="button"
                           disabled={isUpdatingStatus}
-                          onClick={() => { if (window.confirm('Xác nhận đã thực hiện xong dịch vụ? Gói liệu trình sẽ được trừ một buổi khi hoàn tất.')) void handleBookingAction(selectedApp, 'finish-service'); }}
+                          onClick={() => { if (window.confirm(selectedTreatmentPackageId ? 'Xác nhận hoàn tất và ghi nhận một buổi đã dùng trong liệu trình?' : 'Xác nhận đã thực hiện xong dịch vụ?')) void handleBookingAction(selectedApp, 'finish-service'); }}
                           className="w-full py-3 bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                         >
                           <ClipboardCheck className="w-4 h-4" />
@@ -2227,7 +2222,16 @@ export const W05_StaffSchedule: React.FC = () => {
                 <button type="button" disabled={isUpdatingStatus} onClick={() => handleBookingAction(selectedApp, 'checkout')}
                   className="w-full rounded-xl bg-emerald-800 py-2.5 text-sm font-semibold text-white">Kết thúc ca</button>
               )}
-              {selectedApp.statusRaw === 'COMPLETED' && <button
+              {selectedApp.statusRaw === 'COMPLETED' && selectedTreatmentPackageId && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/medical-records?userPackageId=${encodeURIComponent(selectedTreatmentPackageId)}`)}
+                  className="w-full rounded-xl border border-[#D8BDA7] bg-white py-2.5 text-xs font-bold text-[#904206] hover:bg-[#FAF8F5]"
+                >
+                  Xem tiến độ liệu trình
+                </button>
+              )}
+              {selectedApp.statusRaw === 'COMPLETED' && !selectedTreatmentPackageId && <button
                 type="button"
                 onClick={() => {
                   const bCode = selectedApp.customerCode?.split('·')[1]?.trim() || selectedApp.id;
@@ -2686,6 +2690,7 @@ export const W05_StaffSchedule: React.FC = () => {
                   <span>Thời điểm hiện tại:</span>
                   <span className="font-extrabold">
                     {new Intl.DateTimeFormat('vi-VN', {
+                      timeZone: 'Asia/Ho_Chi_Minh',
                       hour: '2-digit',
                       minute: '2-digit',
                       day: '2-digit',
@@ -2758,13 +2763,6 @@ export const W05_StaffSchedule: React.FC = () => {
                     <span>Đóng và giữ nguyên ngày hẹn</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setValidationModalApp(null)}
-                    className="w-full py-2 bg-white hover:bg-[#FAF8F5] border border-[#E8DFD8] text-[#73675F] font-semibold rounded-xl text-xs transition-colors cursor-pointer"
-                  >
-                    Giữ nguyên ngày hẹn ({validationModalApp.app.date})
-                  </button>
                 </>
               ) : null}
             </div>
@@ -3136,7 +3134,7 @@ export const W05_StaffSchedule: React.FC = () => {
                 <ul className="list-disc list-inside space-y-0.5 text-[10px] text-[#854412]">
                   <li>Lưu nhật ký điều trị vào bảng <code>treatment_journals</code> trên Supabase Cloud.</li>
                   <li>Tự động trừ 1 buổi trong gói liệu trình <code>user_packages</code> (nếu áp dụng).</li>
-                  <li>Tự động trừ kho vật tư tiêu hao (BOM) & Trích 10% hoa hồng KTV <code>staff_commissions</code>.</li>
+                  <li>Tự động trừ kho vật tư tiêu hao (BOM) & Ghi nhận hoa hồng theo cấu hình KTV <code>staff_commissions</code>.</li>
                 </ul>
               </div>
             </div>
