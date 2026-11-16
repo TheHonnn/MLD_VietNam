@@ -399,26 +399,26 @@ export const portalService = {
         ? 'image/jpeg'
         : undefined);
 
-    // Bước 1: Thử tải trực tiếp lên Supabase Storage
-    try {
-      const bucket = isDoc ? 'documents' : 'avatars';
-      const { data, error } = await supabase.storage.from(bucket).upload(uniquePath, uploadPayload, {
-        cacheControl: '3600',
-        upsert: true,
-        contentType,
-      });
+    const bucketsToTry = isDoc ? ['documents'] : ['avatars', 'services'];
+    for (const bucket of bucketsToTry) {
+      try {
+        const { data, error } = await supabase.storage.from(bucket).upload(uniquePath, uploadPayload, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType,
+        });
 
-      if (!error && data?.path) {
-        const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(data.path);
-        if (publicUrlData?.publicUrl) {
-          return publicUrlData.publicUrl;
+        if (!error && data?.path) {
+          const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(data.path);
+          if (publicUrlData?.publicUrl) {
+            return publicUrlData.publicUrl;
+          }
         }
+      } catch (storageErr) {
+        console.warn('[portalService] Supabase Storage upload skipped or failed:', storageErr);
       }
-    } catch (storageErr) {
-      console.warn('[portalService] Supabase Storage upload skipped or failed:', storageErr);
     }
 
-    // Bước 2: Thử gọi Backend API nếu có cấu hình URL hợp lệ (tránh Mixed-Content HTTP trên HTTPS)
     try {
       const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
       const configuredApiBase = String((import.meta as any).env?.VITE_API_BASE_URL || '').trim();
@@ -451,6 +451,26 @@ export const portalService = {
       }
     } catch (apiErr) {
       console.warn('[portalService] Backend upload API failed:', apiErr);
+    }
+
+    if (!isDoc && uploadPayload && typeof FileReader !== 'undefined') {
+      const payloadSize = (uploadPayload as any).size || 0;
+      if (payloadSize > 0 && payloadSize <= 1024 * 1024) {
+        try {
+          const base64Url = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              if (typeof reader.result === 'string') resolve(reader.result);
+              else reject(new Error('Failed to read as data URL'));
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(uploadPayload);
+          });
+          if (base64Url && base64Url.startsWith('data:image/')) {
+            return base64Url;
+          }
+        } catch (_) {}
+      }
     }
 
     throw new Error('Không tải được tệp lên kho lưu trữ. Vui lòng kiểm tra quyền tải tệp và thử lại; tệp chưa được lưu.');
