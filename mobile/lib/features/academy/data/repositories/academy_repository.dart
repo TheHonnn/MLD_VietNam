@@ -467,7 +467,6 @@ class AcademyRepository {
     return [];
   }
 
-  /// E12: Kết quả học tập
   Future<Map<String, dynamic>> getMyResults() async {
     try {
       final response = await _apiClient.dio.get(ApiEndpoints.academyResults);
@@ -486,6 +485,23 @@ class AcademyRepository {
       'status': 'ĐẠT TIÊU CHUẨN',
       'attendanceRate': 100,
     };
+  }
+
+  Future<List<StudentCertificateModel>> getMyCertificates() async {
+    try {
+      final response = await _apiClient.dio.get(ApiEndpoints.academyCertificates);
+      if (response.statusCode == 200 && response.data != null) {
+        final body = response.data;
+        final list = (body is Map && body.containsKey('data')) ? body['data'] : body;
+        if (list is List) {
+          return list
+              .map((json) => StudentCertificateModel.fromJson(json as Map<String, dynamic>))
+              .toList();
+        }
+      }
+    } catch (_) {}
+
+    return [];
   }
 
   void enrollCourseLocal(CourseModel course) {

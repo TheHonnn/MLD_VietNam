@@ -4,7 +4,6 @@ import '../../../../core/services/auth_service.dart';
 import '../../../../core/utils/validators.dart';
 import '../../membership/data/repositories/membership_repository.dart';
 
-/// Modal Bottom Sheet cho phép khách hàng cập nhật số điện thoại
 class UpdatePhoneModal extends StatefulWidget {
   final bool isDismissible;
   final String? reason;
@@ -15,7 +14,6 @@ class UpdatePhoneModal extends StatefulWidget {
     this.reason,
   });
 
-  /// Phương thức tĩnh để mở Modal tiện lợi từ bất cứ đâu trong App
   static Future<bool?> show(
     BuildContext context, {
     bool isDismissible = true,
@@ -64,10 +62,8 @@ class _UpdatePhoneModalState extends State<UpdatePhoneModal> {
     final phone = _phoneController.text.trim().replaceAll(' ', '');
 
     try {
-      // 1. Lưu vào AuthService và đồng bộ Backend
       await AuthService.instance.updatePhone(phone);
 
-      // 2. Cập nhật hồ sơ thành viên cục bộ
       final repo = MembershipRepository.instance;
       repo.updateProfile(repo.profile.copyWith(
         phone: phone,
@@ -106,7 +102,7 @@ class _UpdatePhoneModalState extends State<UpdatePhoneModal> {
         bottom: bottomInset > 0 ? bottomInset + 16 : 32,
       ),
       decoration: const BoxDecoration(
-        color: AppColors.surface, // White
+        color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Form(
@@ -116,7 +112,6 @@ class _UpdatePhoneModalState extends State<UpdatePhoneModal> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Thanh kéo nhỏ (indicator)
               Center(
                 child: Container(
                   width: 44,
@@ -128,8 +123,6 @@ class _UpdatePhoneModalState extends State<UpdatePhoneModal> {
                   ),
                 ),
               ),
-
-              // Icon huy hiệu điện thoại
               Center(
                 child: Container(
                   width: 56,
@@ -148,10 +141,7 @@ class _UpdatePhoneModalState extends State<UpdatePhoneModal> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
-
-              // Tiêu đề
               const Text(
                 'Cập nhật số điện thoại',
                 textAlign: TextAlign.center,
@@ -161,10 +151,7 @@ class _UpdatePhoneModalState extends State<UpdatePhoneModal> {
                   color: AppColors.textHeading,
                 ),
               ),
-
               const SizedBox(height: 8),
-
-              // Mô tả lý do
               Text(
                 widget.reason ??
                     'Tài khoản đăng nhập bằng Email cần bổ sung số điện thoại để nhận thông báo xác nhận lịch hẹn, tư vấn và chăm sóc dịch vụ tại MLD.',
@@ -176,10 +163,7 @@ class _UpdatePhoneModalState extends State<UpdatePhoneModal> {
                   height: 1.4,
                 ),
               ),
-
               const SizedBox(height: 24),
-
-              // Ô nhập số điện thoại
               TextFormField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
@@ -221,7 +205,6 @@ class _UpdatePhoneModalState extends State<UpdatePhoneModal> {
                 ),
                 validator: AppValidators.phone,
               ),
-
               if (_errorMessage != null) ...[
                 const SizedBox(height: 12),
                 Text(
@@ -234,10 +217,7 @@ class _UpdatePhoneModalState extends State<UpdatePhoneModal> {
                   textAlign: TextAlign.center,
                 ),
               ],
-
               const SizedBox(height: 20),
-
-              // Nút Lưu số điện thoại
               SizedBox(
                 height: 50,
                 child: ElevatedButton(
@@ -268,8 +248,6 @@ class _UpdatePhoneModalState extends State<UpdatePhoneModal> {
                         ),
                 ),
               ),
-
-              // Nút Để sau (nếu cho phép đóng)
               if (widget.isDismissible) ...[
                 const SizedBox(height: 8),
                 TextButton(

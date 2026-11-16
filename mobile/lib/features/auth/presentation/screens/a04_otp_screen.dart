@@ -485,12 +485,12 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
           }
         }
         if (mounted) {
-          final isZalo = widget.purpose == 'LOGIN_PHONE_ZALO';
+          final isZalo = !_isEmail;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(isZalo
                   ? 'Đã gửi lại mã xác thực OTP qua Zalo OA MLD Việt Nam.'
-                  : 'Đã gửi lại mã xác thực OTP qua SMS'),
+                  : 'Đã gửi lại mã xác thực OTP mới qua email.'),
               backgroundColor: AppColors.primary,
             ),
           );
@@ -510,15 +510,13 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isZalo = widget.purpose == 'LOGIN_PHONE_ZALO';
+    final isZalo = !_isEmail;
     final titleText = isZalo
         ? 'Xác thực qua Zalo'
-        : (_isEmail ? 'Xác thực địa chỉ Email' : 'Xác thực số điện thoại');
+        : 'Xác thực địa chỉ Email';
     final descText = isZalo
         ? 'Nhập mã OTP gồm 6 chữ số đã được gửi từ Zalo OA MLD Việt Nam tới số điện thoại của bạn.'
-        : (_isEmail
-            ? 'Nhập mã OTP gồm 6 chữ số đã được gửi đến email của bạn.'
-            : 'Nhập mã OTP đã được gửi đến số điện thoại của bạn.');
+        : 'Nhập mã OTP gồm 6 chữ số đã được gửi đến email của bạn.';
     final iconData = _isEmail ? Icons.mail_outline_rounded : Icons.smartphone_rounded;
 
     return Scaffold(

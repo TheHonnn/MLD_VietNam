@@ -159,7 +159,7 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Mã xác thực OTP đã được gửi qua tin nhắn SMS tới số điện thoại của bạn.'),
+            content: Text('Mã xác thực OTP đã được gửi qua Zalo OA MLD Việt Nam tới số điện thoại của bạn.'),
             backgroundColor: Color(0xFF003876),
             duration: Duration(seconds: 5),
           ),

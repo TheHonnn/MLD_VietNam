@@ -455,6 +455,9 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       expect(Number((await pg.query<any>('SELECT percentage FROM staff_commissions WHERE booking_id=$1',[booking.id])).rows[0].percentage)).toBe(12);
       expect((await pg.query<any>('SELECT count(*)::int n FROM home_care_deliveries WHERE booking_id=$1 AND guideline_id=$2',[booking.id,guideline.id])).rows[0].n).toBe(1);
       expect((await pg.query<any>("SELECT count(*)::int n FROM notifications WHERE user_id=$1 AND data->>'guideline_id'=$2",[customerOneId,guideline.id])).rows[0].n).toBe(1);
+      await pg.query("DELETE FROM treatment_stock_movements WHERE stock_id IN (SELECT id FROM branch_material_stock WHERE material_name='DIRECT-BOM')");
+      await pg.query("DELETE FROM treatment_inventory_outbox WHERE booking_id=$1",[booking.id]);
+      await pg.query("DELETE FROM branch_material_stock WHERE branch_id=$1 AND material_name='DIRECT-BOM'",[branchId]);
       await pg.query("DELETE FROM service_materials WHERE service_id=$1 AND material_name='DIRECT-BOM'",[serviceId]);
       await pg.query("DELETE FROM staff_profiles WHERE employee_code='DIRECT-COMMISSION'");
     });

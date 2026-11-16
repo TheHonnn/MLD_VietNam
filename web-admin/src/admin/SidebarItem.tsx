@@ -19,7 +19,7 @@ export const menuResources: Record<string, string[]> = {
   '/academy-enrollment': ['course_enrollments', 'tuition_transactions'],
   '/instructors': ['instructors'],
   '/attendance': ['student_attendance', 'student_academic_records'],
-  '/manage/courses': ['courses','course_chapters','course_lessons','course_quizzes','quiz_questions','quiz_submissions'],
+  '/manage/courses': ['courses', 'course_chapters', 'course_lessons', 'course_quizzes', 'quiz_questions', 'quiz_submissions'],
   '/manage/course_categories': ['course_categories'],
   '/curriculum': ['course_categories', 'courses', 'course_batches', 'batch_schedules', 'course_chapters', 'course_lessons', 'course_quizzes', 'quiz_questions', 'quiz_submissions'],
   '/manage/services': ['service_categories', 'services', 'service_materials'],
@@ -164,18 +164,15 @@ export function SidebarItem({
           to={path}
           end={path === '/'}
           onClick={handleParentClick}
-          className={`flex items-center gap-2.5 px-3 py-2 ${
-            children.length ? 'pr-10' : ''
-          } rounded-xl text-xs font-semibold transition-all duration-150 ${
-            isParentActive || childActive
+          className={`flex items-center gap-2.5 px-3 py-2 ${children.length ? 'pr-10' : ''
+            } rounded-xl text-xs font-semibold transition-all duration-150 ${isParentActive || childActive
               ? 'bg-[#EBF3FC] text-[#0F172A] font-bold shadow-xs'
               : 'text-[#334155] hover:bg-[#F1F5F9] hover:text-[#0F172A]'
-          }`}
+            }`}
         >
           <Icon
-            className={`w-4 h-4 shrink-0 stroke-[1.8] ${
-              childActive || isParentActive ? 'text-[#004890]' : 'text-[#64748B]'
-            }`}
+            className={`w-4 h-4 shrink-0 stroke-[1.8] ${childActive || isParentActive ? 'text-[#004890]' : 'text-[#64748B]'
+              }`}
           />
           <span className="truncate">{name}</span>
         </NavLink>
@@ -202,16 +199,14 @@ export function SidebarItem({
                 key={sub.path}
                 to={sub.path}
                 onClick={onNavigate}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-medium leading-normal transition-all ${
-                  active
-                    ? 'bg-[#EBF3FC] text-[#0F172A] font-bold shadow-2xs'
-                    : 'text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]'
-                }`}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-medium leading-normal transition-all ${active
+                  ? 'bg-[#EBF3FC] text-[#0F172A] font-bold shadow-2xs'
+                  : 'text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]'
+                  }`}
               >
                 <span
-                  className={`w-1.5 h-1.5 rounded-full transition-colors shrink-0 ${
-                    active ? 'bg-[#004890]' : 'bg-[#CBD5E1]'
-                  }`}
+                  className={`w-1.5 h-1.5 rounded-full transition-colors shrink-0 ${active ? 'bg-[#004890]' : 'bg-[#CBD5E1]'
+                    }`}
                 />
                 <span className="truncate">{sub.name}</span>
               </NavLink>

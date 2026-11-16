@@ -974,6 +974,58 @@ export class AcademyService {
     return { success: true, data: [] };
   }
 
+  async getMyCertificates(userId: string) {
+    try {
+      if (userId) {
+        const { data: enrollments } = await this.supabaseService.adminClient
+          .from('course_enrollments')
+          .select('id')
+          .eq('student_id', userId);
+
+        const enrollmentIds = (enrollments || []).map((e: any) => e.id).filter(Boolean);
+
+        let query = this.supabaseService.adminClient
+          .from('student_certificates')
+          .select('*')
+          .eq('status', 'ISSUED');
+
+        if (enrollmentIds.length > 0) {
+          query = query.or(`student_id.eq.${userId},enrollment_id.in.(${enrollmentIds.join(',')})`);
+        } else {
+          query = query.eq('student_id', userId);
+        }
+
+        const { data, error } = await query.order('issue_date', { ascending: false });
+
+        if (error) throw error;
+
+        return {
+          success: true,
+          data: (data || []).map((c: any) => ({
+            id: c.id,
+            certificateCode: c.certificate_code,
+            studentName: c.student_name,
+            courseTitle: c.course_title,
+            issueDate: c.issue_date,
+            theoryScore: c.theory_score,
+            practicalScore: c.practical_score,
+            finalGrade: c.final_grade,
+            status: c.status,
+            signerName: c.signer_name || 'Học viện MLD Việt Nam',
+            signerTitle: c.signer_title || 'GIÁM ĐỐC HỌC VIỆN MLD VIỆT NAM',
+            qrVerificationCode: c.qr_verification_code,
+            certificatePdfUrl: c.certificate_pdf_url,
+          })),
+        };
+      }
+    } catch (error) {
+      this.logger.error('Failed to load student certificates', error);
+      throw new InternalServerErrorException('Không thể tải danh sách chứng chỉ');
+    }
+
+    return { success: true, data: [] };
+  }
+
   private formatCourse(item: any) {
     return {
       id: item.id,

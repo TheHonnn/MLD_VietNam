@@ -11,7 +11,6 @@ import '../../../membership/presentation/screens/legal_document_screen.dart';
 import '../../widgets/primary_button.dart';
 import 'a03_email_register_screen.dart';
 import 'a03_forgot_password_screen.dart';
-import 'a04_otp_screen.dart';
 
 class A03LoginScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -142,128 +141,6 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
         msg = 'Tài khoản tạm thời bị khóa do nhập sai nhiều lần. Vui lòng thử lại sau 15 phút.';
       } else if (errStr.contains('INVALID_CREDENTIALS')) {
         msg = 'Số điện thoại hoặc mật khẩu không chính xác.';
-      } else {
-        final cleanMsg = errStr.replaceAll(RegExp(r'^(ApiException\s*(\[\d+\])?:\s*|Exception:\s*)'), '').trim();
-        if (cleanMsg.isNotEmpty && !cleanMsg.contains('DioException')) {
-          msg = cleanMsg;
-        }
-      }
-      if (mounted) {
-        setState(() {
-          _errorMessage = msg;
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _handleSendZaloOtp() async {
-    final raw = _phoneController.text.trim().replaceAll(' ', '');
-    final phone = raw.startsWith('0') ? raw : '0$raw';
-    final validation = AppValidators.phone(phone);
-    if (validation != null) {
-      setState(() {
-        _errorMessage = validation;
-      });
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      try {
-        await ApiClient.instance.post(
-          ApiEndpoints.authRequestPhoneOtp,
-          data: {
-            'phone': phone,
-            'channel': 'ZALO',
-          },
-        );
-      } catch (_) {
-        try {
-          await ApiClient.instance.post(
-            ApiEndpoints.sendOtp,
-            data: {
-              'phone': phone,
-              'channel': 'ZALO',
-            },
-          );
-        } catch (_) {}
-      }
-
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => A04OtpScreen(
-              phoneNumber: phone,
-              purpose: 'LOGIN_PHONE_ZALO',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Không thể gửi mã xác nhận qua Zalo. Vui lòng kiểm tra lại số điện thoại.';
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _handleSendEmailOtp() async {
-    final email = _emailController.text.trim();
-    final validation = AppValidators.email(email);
-    if (validation != null) {
-      setState(() {
-        _errorMessage = validation;
-      });
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await ApiClient.instance.post(
-        ApiEndpoints.authRequestLoginOtp,
-        data: {'email': email},
-      );
-
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => A04OtpScreen(
-              email: email,
-              purpose: 'LOGIN_EMAIL',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      String msg = 'Không thể gửi mã xác nhận qua Email. Vui lòng kiểm tra lại địa chỉ email.';
-      final errStr = e.toString();
-      if (errStr.contains('Không tìm thấy tài khoản') || errStr.contains('NotFoundException')) {
-        msg = 'Email này chưa được đăng ký tài khoản. Vui lòng kiểm tra lại hoặc bấm Đăng ký bên dưới.';
-      } else if (errStr.contains('khóa')) {
-        msg = 'Tài khoản này đã bị tạm khóa. Vui lòng liên hệ ban quản trị.';
       } else {
         final cleanMsg = errStr.replaceAll(RegExp(r'^(ApiException\s*(\[\d+\])?:\s*|Exception:\s*)'), '').trim();
         if (cleanMsg.isNotEmpty && !cleanMsg.contains('DioException')) {
@@ -643,65 +520,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                SizedBox(
-                                  width: double.infinity,
-                                  height: 52,
-                                  child: ElevatedButton(
-                                    onPressed: _isLoading ? null : _handleSendEmailOtp,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: primaryNavy,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(Icons.mark_email_read_outlined, color: Colors.white, size: 22),
-                                        const SizedBox(width: 10),
-                                        Text(
-                                          'Gửi mã xác nhận qua Email',
-                                          style: GoogleFonts.beVietnamPro(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Mã OTP gồm 6 chữ số sẽ được gửi tới hòm thư Gmail của bạn.',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.beVietnamPro(
-                                    fontSize: 12,
-                                    color: textMuted,
-                                    height: 1.4,
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  child: Row(
-                                    children: [
-                                      const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                                        child: Text(
-                                          'hoặc đăng nhập bằng mật khẩu',
-                                          style: GoogleFonts.beVietnamPro(
-                                            fontSize: 12.5,
-                                            color: textMuted,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-                                    ],
-                                  ),
-                                ),
+
                                 Text(
                                   'Mật khẩu',
                                   style: GoogleFonts.beVietnamPro(
@@ -873,74 +692,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                InkWell(
-                                  onTap: _isLoading ? null : _handleSendZaloOtp,
-                                  borderRadius: BorderRadius.circular(14),
-                                  child: Container(
-                                    height: 52,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF0068FF),
-                                      borderRadius: BorderRadius.circular(14),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF0068FF).withValues(alpha: 0.25),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Image.asset(
-                                          'assets/icons/logo-zalo-vector-03.webp',
-                                          width: 24,
-                                          height: 24,
-                                          errorBuilder: (_, __, ___) => const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Text(
-                                          'Gửi mã xác nhận qua Zalo',
-                                          style: GoogleFonts.beVietnamPro(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Mã OTP gồm 6 chữ số sẽ được gửi trực tiếp tới Zalo của bạn từ Zalo OA MLD Việt Nam.',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.beVietnamPro(
-                                    fontSize: 12,
-                                    color: textMuted,
-                                    height: 1.4,
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  child: Row(
-                                    children: [
-                                      const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                                        child: Text(
-                                          'hoặc đăng nhập bằng mật khẩu',
-                                          style: GoogleFonts.beVietnamPro(
-                                            fontSize: 12.5,
-                                            color: textMuted,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-                                    ],
-                                  ),
-                                ),
+
                                 Text(
                                   'Mật khẩu',
                                   style: GoogleFonts.beVietnamPro(
