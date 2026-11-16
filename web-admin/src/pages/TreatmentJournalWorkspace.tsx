@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   FileText,
@@ -19,6 +19,10 @@ import { useAdmin } from '../admin/Auth';
 import { AdminTabs } from '../components/common';
 import { TreatmentConfirmationPreview } from './TreatmentConfirmationPreview';
 import { AssignHomeCare } from './HomeCareWorkspace';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { RealtimeTable } from '../services/realtime.service';
+
+const REALTIME_JOURNAL_TABLES: RealtimeTable[] = ['treatment_journal', 'bookings', 'user_packages'];
 
 const statusLabels: Record<string, string> = { DRAFT: 'Bản nháp', SUBMITTED: 'Chờ xác nhận', REVIEW_REQUIRED: 'Chờ duyệt chuyên môn', CONFIRMED: 'Đã xác nhận', REVERSED: 'Đã hoàn tác', PENDING: 'Cần ghi nhận' };
 const journalBadgeClass = (value: string) => {
@@ -62,13 +66,20 @@ export function TreatmentJournalWorkspace() {
   const [command, setCommand] = useState('');
   const [reason, setReason] = useState('');
   const [notice, setNotice] = useState('');
+  const hasLoadedOnceRef = useRef(false);
   useEffect(() => {
     let active = true;
-    setLoading(true); setError('');
-    readAll('treatment_journal').then(data => { if (active) setRows(data); })
+    if (!hasLoadedOnceRef.current) setLoading(true);
+    setError('');
+    readAll('treatment_journal').then(data => { if (active) { hasLoadedOnceRef.current = true; setRows(data); } })
       .catch(e => { if (active) setError(e.message); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [revision]);
+  useRealtimeSync({
+    tables: REALTIME_JOURNAL_TABLES,
+    debounceMs: 250,
+    onDataChange: () => setRevision(v => v + 1),
+  });
   useEffect(() => {
     if (!selected) return;
     const previous = document.activeElement as HTMLElement;

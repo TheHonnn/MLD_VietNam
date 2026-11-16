@@ -200,4 +200,15 @@ describe('Treatment Lifecycle & Reversal State Machine Tests (Web-Admin)', () =>
     assert.match(w06, /setBookingBranchId\(\(prev\)\s*=>\s*prev\s*\|\|\s*brRes\.data\[0\]\.id\)/);
     assert.match(treatmentSvc, /complete-session/);
   });
+
+  test('treatment workspace invalidates caches and subscribes to realtime updates after booking', () => {
+    const w06 = readFileSync(new URL('../src/pages/W06_TreatmentManagement.tsx', import.meta.url), 'utf8');
+    const treatmentSvc = readFileSync(new URL('../src/services/treatment.service.ts', import.meta.url), 'utf8');
+    const realtimeSvc = readFileSync(new URL('../src/services/realtime.service.ts', import.meta.url), 'utf8');
+    assert.match(treatmentSvc, /invalidateCache\?\.\('bookings'\)/);
+    assert.match(treatmentSvc, /invalidateCache\?\.\('user_packages'\)/);
+    assert.match(w06, /useRealtimeSync\(/);
+    assert.match(w06, /fetchTreatmentData\(false,\s*true\)/);
+    assert.match(realtimeSvc, /'treatment_journal'/);
+  });
 });

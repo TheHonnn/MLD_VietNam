@@ -22,6 +22,10 @@ import { adminCommand, Listing, Row } from '../admin/api';
 import { useAdmin } from '../admin/Auth';
 import { AdminTabs } from '../components/common';
 import { TreatmentPackageHistory } from './TreatmentPackageHistory';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { RealtimeTable } from '../services/realtime.service';
+
+const REALTIME_PACKAGE_TABLES: RealtimeTable[] = ['bookings', 'user_packages', 'treatment_journal'];
 
 const labels: Record<string, string> = { ACTIVE: 'Đang sử dụng', PAUSED: 'Tạm dừng', COMPLETED: 'Hoàn thành', EXPIRED: 'Hết hạn', CANCELLED: 'Đã hủy', REFUNDED: 'Đã hoàn tiền', TRANSFERRED: 'Đã chuyển nhượng' };
 const actionLabels: Record<string, string> = { pause: 'Tạm dừng', resume: 'Tiếp tục', extend: 'Gia hạn', cancel: 'Hủy gói', refund: 'Hoàn tiền', transfer: 'Chuyển nhượng' };
@@ -66,10 +70,12 @@ export function TreatmentPackagesWorkspace() {
   const [actionError, setActionError] = useState('');
   const [notice, setNotice] = useState('');
   const detailRef = useRef<HTMLDivElement>(null);
+  const hasLoadedOnceRef = useRef(false);
   const selected = rows.find(row => row.id === params.get('userPackageId') && (!branch || (row.package_branches || []).some((b: Row) => b.id === branch)));
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true); setError('');
+    if (!hasLoadedOnceRef.current) setLoading(true);
+    setError('');
     (async () => {
       const collected: Row[] = [];
       let page = 1;
@@ -80,11 +86,17 @@ export function TreatmentPackagesWorkspace() {
         if (!result.rows.length && collected.length < result.total) throw new Error('Danh sách thay đổi khi đang tải. Vui lòng thử lại.');
         collected.push(...result.rows); total = result.total; page++;
       } while (collected.length < total);
+      hasLoadedOnceRef.current = true;
       setRows(collected);
     })().catch(e => { if (!controller.signal.aborted) setError(e.message); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [revision]);
+  useRealtimeSync({
+    tables: REALTIME_PACKAGE_TABLES,
+    debounceMs: 250,
+    onDataChange: () => setRevision(value => value + 1),
+  });
   useEffect(() => {
     if (action !== 'transfer') return;
     let active = true;

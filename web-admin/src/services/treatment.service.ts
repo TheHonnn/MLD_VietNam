@@ -10,6 +10,12 @@ import { legacyWrite } from './adminAdapter';
 import { adminApi, adminCommand } from '../admin/api';
 import { supabase } from './supabaseClient';
 
+function invalidateTreatmentCaches() {
+  supabaseService?.invalidateCache?.('bookings');
+  supabaseService?.invalidateCache?.('user_packages');
+  supabaseService?.invalidateCache?.('treatment_journal');
+}
+
 export const treatmentService = {
   // --- Danh mục dịch vụ ---
   async getServices(params?: {
@@ -201,6 +207,7 @@ export const treatmentService = {
     try {
       const values = Object.fromEntries(Object.entries(journal).map(([key, value]) => [key.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase()), value]));
       const saved = await adminCommand<any>('treatment_journal/create', { values: { ...values, confirmation_status: 'DRAFT' } });
+      invalidateTreatmentCaches();
       const res = { success: true, statusCode: 200, message: 'Đã lưu bản nháp. Chưa trừ buổi.', data: saved };
       if (!res.success || !res.data?.id) {
         return {
@@ -225,6 +232,7 @@ export const treatmentService = {
   async bookPackageSession(userPackageId: string, input: { branchId: string; technicianId?: string | null; bookingDate: string; startTime: string; notes?: string; requestId: string }): Promise<ApiResponse<any>> {
     try {
       const row = await adminCommand<any>(`treatment/packages/${encodeURIComponent(userPackageId)}/book-session`, input);
+      invalidateTreatmentCaches();
       return { success: true,statusCode:201,message:'Đã lưu lịch và dịch vụ.',data:{ ...row,bookingCode:row.booking_code } };
     } catch (error: any) {
       return { success:false,statusCode:error?.statusCode || 400,message:error?.message || 'Chưa xác minh được kết quả đặt lịch.',data:null };
@@ -259,6 +267,7 @@ export const treatmentService = {
         `treatment/packages/${encodeURIComponent(userPackageId)}/complete-session`,
         journalData
       );
+      invalidateTreatmentCaches();
       return {
         success: true,
         statusCode: 200,
@@ -310,12 +319,14 @@ export const treatmentService = {
   async _executePackageAction(userPackageId: string, payload: Record<string, unknown>): Promise<void> {
     try {
       await adminCommand(`treatment/packages/${encodeURIComponent(userPackageId)}/action`, payload);
+      invalidateTreatmentCaches();
     } catch (err: any) {
       if (err?.statusCode === 404 || err?.message?.includes('Cannot POST') || String(err?.message || '').includes('404')) {
         await adminCommand('user_packages/action', {
           ...payload,
           key: { id: userPackageId },
         });
+        invalidateTreatmentCaches();
         return;
       }
       throw err;
@@ -489,6 +500,7 @@ export const treatmentService = {
         reason,
         idempotencyKey,
       });
+      invalidateTreatmentCaches();
       return {
         success: true,
         statusCode: 200,
@@ -512,6 +524,7 @@ export const treatmentService = {
         key: { id: journalId },
         action: 'approve-clinical',
       });
+      invalidateTreatmentCaches();
       return {
         success: true,
         statusCode: 200,
@@ -539,6 +552,7 @@ export const treatmentService = {
         action: 'update-post-care',
         instructions,
       });
+      invalidateTreatmentCaches();
       return {
         success: true,
         statusCode: 200,
@@ -632,6 +646,7 @@ export const treatmentService = {
         action: 'save-draft',
         values: data,
       });
+      invalidateTreatmentCaches();
       return {
         success: true,
         statusCode: 200,
@@ -659,6 +674,7 @@ export const treatmentService = {
         action: 'submit-session',
         values: data,
       });
+      invalidateTreatmentCaches();
       return {
         success: true,
         statusCode: 200,
@@ -686,6 +702,7 @@ export const treatmentService = {
         action: 'confirm-session',
         idempotencyKey,
       });
+      invalidateTreatmentCaches();
       return {
         success: true,
         statusCode: 200,

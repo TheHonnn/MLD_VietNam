@@ -11,6 +11,7 @@ export type RealtimeTable =
   | 'tuition_transactions'
   | 'course_enrollments'
   | 'user_packages'
+  | 'treatment_journal'
   | 'users'
   | 'notifications';
 
@@ -83,6 +84,7 @@ class RealtimeSyncService {
         'tuition_transactions',
         'course_enrollments',
         'user_packages',
+        'treatment_journal',
         'users',
         'notifications',
       ];
@@ -223,6 +225,8 @@ class RealtimeSyncService {
         return `Học phí ${record.transaction_code || ''}: ${Number(record.amount || 0).toLocaleString('vi-VN')}đ`;
       case 'course_enrollments':
         return `Hồ sơ tuyển sinh khóa học (${record.status || 'ENROLLED'})`;
+      case 'treatment_journal':
+        return `Nhật ký điều trị buổi ${record.session_number || ''} (${record.confirmation_status || 'UPDATED'})`;
       case 'users':
         return `Khách hàng / Người dùng: ${record.full_name || record.phone || ''} (${record.role || 'CUSTOMER'})`;
       default:
