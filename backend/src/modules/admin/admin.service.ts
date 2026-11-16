@@ -1956,16 +1956,21 @@ export class AdminService {
             )).rows[0];
             if (!entitlement)
               throw new ConflictException('Gói liệu trình không thuộc khách, đã hết buổi hoặc hết hạn.');
-            const serviceMatches = (await client.query(
-              'SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id=$2 LIMIT 1',
-              [row.id, entitlement.service_id],
-            )).rowCount;
-            if (!serviceMatches)
-              throw new ConflictException('Dịch vụ đặt lịch không khớp gói liệu trình.');
+            if (entitlement.service_id) {
+              const serviceMatches = (await client.query(
+                'SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id=$2 LIMIT 1',
+                [row.id, entitlement.service_id],
+              )).rowCount;
+              if (!serviceMatches)
+                throw new ConflictException('Dịch vụ đặt lịch không khớp gói liệu trình.');
+            }
             const linkedPackage = String(row.special_notes || '').match(/user_package_id=([0-9a-f-]{36})/i)?.[1];
             if (linkedPackage && linkedPackage !== userPackageId)
               throw new ConflictException('Gói check-in không khớp gói đã liên kết trong lịch hẹn.');
-            if (Number(row.final_price) !== 0 || (await client.query('SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id<>$2 LIMIT 1',[row.id,entitlement.service_id])).rowCount)
+            const hasUncoveredItem = entitlement.service_id
+              ? (await client.query('SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id<>$2 LIMIT 1', [row.id, entitlement.service_id])).rowCount
+              : 0;
+            if (Number(row.final_price) !== 0 || hasUncoveredItem)
               throw new ConflictException('Lịch dùng gói phải có giá phải thu bằng 0 và chỉ chứa dịch vụ được gói chi trả.');
             await client.query(
               "UPDATE bookings SET payment_status='PAID',status='CHECKED_IN',checked_in_at=now(),checked_in_by_id=$2,special_notes=CASE WHEN special_notes LIKE ('%user_package_id=' || $3::text || ']%') THEN special_notes ELSE COALESCE(special_notes,'') || ' [user_package_id=' || $3::text || ']' END WHERE id=$1",
@@ -2010,15 +2015,19 @@ export class AdminService {
                 || (pkg.expires_at && new Date(pkg.expires_at).getTime() <= Date.now())
                 || Number(pkg.completed_sessions) >= Number(pkg.total_sessions))
                 throw new ConflictException('Gói không hợp lệ, hết hạn hoặc không còn buổi.');
-              const matches = await client.query(
-                'SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id=$2 LIMIT 1',
-                [row.id, pkg.service_id],
-              );
-              const uncovered = await client.query(
-                'SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id<>$2 LIMIT 1',
-                [row.id, pkg.service_id],
-              );
-              if (!matches.rowCount || uncovered.rowCount || Number(row.final_price) !== 0)
+              if (pkg.service_id) {
+                const matches = await client.query(
+                  'SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id=$2 LIMIT 1',
+                  [row.id, pkg.service_id],
+                );
+                const uncovered = await client.query(
+                  'SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id<>$2 LIMIT 1',
+                  [row.id, pkg.service_id],
+                );
+                if (!matches.rowCount || uncovered.rowCount)
+                  throw new ConflictException('Dịch vụ hoặc giá lịch hẹn không khớp gói.');
+              }
+              if (Number(row.final_price) !== 0)
                 throw new ConflictException('Dịch vụ hoặc giá lịch hẹn không khớp gói.');
               const existing = journals.rows.find((journal: any) => journal.user_package_id === packageId);
               const sessionNumber = existing?.session_number || (await client.query(
@@ -2692,17 +2701,23 @@ export class AdminService {
           }
 
           if (row.booking_id) {
-            await client.query(
+            const confirmedBookingRow = (await client.query(
               `UPDATE bookings SET session_status='COMPLETED',
                payment_status=CASE WHEN final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
                  AND special_notes LIKE ('%user_package_id=' || $2::text || ']%') THEN 'PAID'::payment_status ELSE payment_status END,
-               status=CASE WHEN final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
-                 AND special_notes LIKE ('%user_package_id=' || $2::text || ']%') THEN 'COMPLETED'::booking_status ELSE status END,
-               checked_out_at=CASE WHEN final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
-                 AND special_notes LIKE ('%user_package_id=' || $2::text || ']%') THEN now() ELSE checked_out_at END
-               WHERE id=$1`,
-              [row.booking_id, targetPackage.id],
-            );
+               status=CASE WHEN payment_status='PAID' OR (final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
+                 AND special_notes LIKE ('%user_package_id=' || $2::text || ']%')) THEN 'COMPLETED'::booking_status ELSE status END,
+               checked_out_at=CASE WHEN payment_status='PAID' OR (final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
+                 AND special_notes LIKE ('%user_package_id=' || $2::text || ']%')) THEN COALESCE(checked_out_at, now()) ELSE checked_out_at END,
+               checked_out_by_id=CASE WHEN payment_status='PAID' OR (final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
+                 AND special_notes LIKE ('%user_package_id=' || $2::text || ']%')) THEN COALESCE(checked_out_by_id, $3) ELSE checked_out_by_id END,
+               actual_duration_minutes=CASE WHEN service_started_at IS NOT NULL THEN GREATEST(0,floor(extract(epoch from (now()-service_started_at))/60))::int ELSE actual_duration_minutes END
+               WHERE id=$1 RETURNING *`,
+              [row.booking_id, targetPackage.id, actor.id],
+            )).rows[0];
+            if (confirmedBookingRow) {
+              await this.recordBookingCompletionArtifacts(client, confirmedBookingRow, actor);
+            }
           }
 
           await this.audit(client, actor, 'treatment_journal', 'CONFIRM_SESSION', row.id);
@@ -2974,10 +2989,22 @@ export class AdminService {
       if (existing.user_package_id !== packageId) throw new ConflictException('Lịch hẹn đã được ghi nhận bằng gói khác.');
       return existing;
     }
+    const pkgSummary = (await this.db.connection.query('SELECT total_sessions FROM user_packages WHERE id=$1',[packageId])).rows[0];
+    const maxSessions = Math.max(1, Number(pkgSummary?.total_sessions || 1));
+    const nextRow = (await this.db.connection.query(
+      `SELECT COALESCE(
+        (SELECT n FROM generate_series(1,$2::int) n WHERE NOT EXISTS(
+          SELECT 1 FROM treatment_journal j WHERE j.user_package_id=$1 AND j.session_number=n AND j.is_reversed IS NOT TRUE
+        ) ORDER BY n LIMIT 1),
+        (SELECT COALESCE(MAX(session_number),0)+1 FROM treatment_journal WHERE user_package_id=$1 AND is_reversed IS NOT TRUE)
+      )::int AS n`,
+      [packageId, maxSessions],
+    )).rows[0];
+    const nextSessionNumber = Number(nextRow?.n || 1);
     try { return await this.mutate('treatment_journal',actor,'create',{ values: {
       user_package_id:packageId,booking_id:bookingId,customer_id:booking.customer_id,
       technician_id:booking.technician_id,assigned_room_id:booking.assigned_room_id,
-      session_date: booking.booking_date instanceof Date ? booking.booking_date.toISOString().slice(0,10) : String(booking.booking_date).slice(0,10),session_number:1,confirmation_status:'DRAFT',
+      session_date: booking.booking_date instanceof Date ? booking.booking_date.toISOString().slice(0,10) : String(booking.booking_date).slice(0,10),session_number:nextSessionNumber,confirmation_status:'DRAFT',
     } }, true); } catch (error) {
       const saved = (await this.db.connection.query('SELECT * FROM treatment_journal WHERE booking_id=$1 AND user_package_id=$2',[bookingId,packageId])).rows[0];
       if (!saved) throw error;
@@ -3414,32 +3441,52 @@ export class AdminService {
         if (total <= 0) throw new BadRequestException('Tổng thanh toán phải lớn hơn 0.');
         if (body.expectedTotal !== undefined && Number(body.expectedTotal) !== total)
           throw new ConflictException('Số tiền trên màn hình đã thay đổi. Tải lại lịch hẹn trước khi thu.');
+        const catalogPackageId = String(booking.special_notes || '').match(/package_id=([0-9a-f-]{36})/i)?.[1];
+        const hasLinkedUserPackage = /user_package_id=([0-9a-f-]{36})/i.test(String(booking.special_notes || ''));
+        let activatedPackage: any = null;
+        if (catalogPackageId && !hasLinkedUserPackage) {
+          if (booking.customer_id === SYSTEM_GUEST_CUSTOMER_ID)
+            throw new BadRequestException('Không cho phép khách vãng lai kích hoạt gói liệu trình.');
+          const pkgDef = (await client.query(
+            'SELECT * FROM treatment_packages WHERE id=$1 AND is_active=true FOR UPDATE',
+            [catalogPackageId],
+          )).rows[0];
+          if (pkgDef) {
+            activatedPackage = (await client.query(
+              `INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,purchased_at,expires_at)
+               VALUES($1,$2,$3,0,'ACTIVE',now(),now()+($4::int * interval '1 month')) RETURNING *`,
+              [booking.customer_id, pkgDef.id, pkgDef.total_sessions, pkgDef.validity_months || 6],
+            )).rows[0];
+          }
+        }
         const invoiceCode = `POS-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
         const invoice = (await client.query(
-          `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,shift_id,booking_id,subtotal,discount_amount,points_redeemed_amount,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status,paid_at)
-           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'PENDING',now()) RETURNING *`,
-          [invoiceCode,booking.branch_id,booking.customer_id,actor.id,shiftId,booking.id,subtotal,discount,points,preTax,vatRate,vatAmount,total,paymentMethod],
+          `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,shift_id,booking_id,user_package_id,subtotal,discount_amount,points_redeemed_amount,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status,paid_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'PENDING',now()) RETURNING *`,
+          [invoiceCode,booking.branch_id,booking.customer_id,actor.id,shiftId,booking.id,activatedPackage?.id || null,subtotal,discount,points,preTax,vatRate,vatAmount,total,paymentMethod],
         )).rows[0];
         for (const item of items.rows) {
           await client.query(
             `INSERT INTO invoice_items(invoice_id,item_name,item_type,quantity,unit_price,amount)
-             VALUES($1,$2,'SERVICE',1,$3,$3)`, [invoice.id,item.name,item.price],
+             VALUES($1,$2,$3,1,$4,$4)`, [invoice.id,item.name,activatedPackage ? 'PACKAGE' : 'SERVICE',item.price],
           );
         }
         await client.query(
           `UPDATE bookings SET payment_status='PAID',payment_method=$2,updated_at=now(),
+           special_notes=CASE WHEN $4::text IS NOT NULL AND COALESCE(special_notes,'') NOT ILIKE ('%user_package_id=' || $4::text || '%')
+             THEN TRIM(COALESCE(special_notes,'') || ' [user_package_id=' || $4::text || ']') ELSE special_notes END,
            status=CASE WHEN session_status='COMPLETED' THEN 'COMPLETED'::booking_status ELSE status END,
            checked_out_at=CASE WHEN session_status='COMPLETED' THEN now() ELSE checked_out_at END,
            checked_out_by_id=CASE WHEN session_status='COMPLETED' THEN $3 ELSE checked_out_by_id END
            WHERE id=$1`,
-          [booking.id,paymentMethod,actor.id],
+          [booking.id,paymentMethod,actor.id,activatedPackage?.id || null],
         );
         const paidInvoice = (await client.query(
           "UPDATE invoices SET payment_status='PAID',paid_at=now() WHERE id=$1 RETURNING *", [invoice.id],
         )).rows[0];
         await this.updateCashierShiftTotals(client, shiftId, paymentMethod, total);
         await this.audit(client, actor, 'invoices', 'COLLECT', invoice.id);
-        return await this.finishCollection(client, actor, body, { kind, amount: total, invoice: paidInvoice, paymentStatus: 'PAID' });
+        return await this.finishCollection(client, actor, body, { kind, amount: total, invoice: paidInvoice, ...(activatedPackage ? { userPackage: activatedPackage } : {}), paymentStatus: 'PAID' });
       }
 
       if (kind === 'CART') {

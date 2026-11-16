@@ -1154,7 +1154,7 @@ export const W05_StaffSchedule: React.FC = () => {
 
       let sessionNum = 1;
       let chosenPkg = clinicalCustomerPackages.find((p) => p.id === selectedUserPackageId);
-      const linkedPackageId = targetBooking?.specialNotes?.match(/\[user_package_id=([0-9a-f-]{36})\]/i)?.[1];
+      const linkedPackageId = targetBooking?.specialNotes?.match(/(?:\[|\|\s*)user_package_id=([0-9a-f-]{36})\]/i)?.[1];
       if (linkedPackageId && chosenPkg?.id !== linkedPackageId) {
         toast.error('Không khớp liệu trình', 'Lịch đã gắn với một gói cụ thể. Hãy kiểm tra trạng thái gói trước khi ghi nhận.');
         return;

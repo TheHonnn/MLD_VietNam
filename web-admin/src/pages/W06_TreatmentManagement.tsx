@@ -32,6 +32,7 @@ import {
   ShieldAlert,
   Award,
   AlertTriangle,
+  Edit3,
 } from 'lucide-react';
 import {
   treatmentService,
@@ -359,11 +360,17 @@ export const W06_TreatmentManagement: React.FC = () => {
       const rawPrice = discount > 0 && discount < basePrice ? discount : basePrice;
       const priceText = `${rawPrice.toLocaleString('vi-VN')}đ`;
 
-      const completedBookingIds = new Set(journals.map((journal) => journal.bookingId).filter(Boolean));
+      const completedBookingIds = new Set(
+        journals
+          .filter((journal) => !journal.isReversed)
+          .map((journal) => journal.bookingId)
+          .filter(Boolean)
+      );
       const relatedBookings = liveBookings
         .filter((booking) => {
           if (booking.customerId !== up.customerId || completedBookingIds.has(booking.id)) return false;
           if (['CANCELLED', 'NO_SHOW'].includes(String(booking.status))) return false;
+          if (String(booking.status) === 'COMPLETED' && ['COMPLETED', 'REVERSED'].includes(String(booking.sessionStatus || ''))) return false;
           return belongsToPackage(booking, up.customerId, up.id);
         })
         .sort((a, b) => {
@@ -373,7 +380,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         });
 
       const openBooking = relatedBookings.find((b) =>
-        ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS', 'COMPLETED'].includes(String(b.status))
+        ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(b.status))
       );
       const pendingJrn = journals.find(
         (j) => !j.isReversed && ['DRAFT', 'PENDING', 'SUBMITTED', 'REVIEW_REQUIRED'].includes(String(j.confirmationStatus || 'DRAFT'))
@@ -612,11 +619,17 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   const selectedCustomer = custMap.get(selectedPkg.customerId);
   const selectedPackageBookings = useMemo(() => {
-    const journalBookingIds = new Set(liveJournals.map((journal) => journal.bookingId).filter(Boolean));
+    const confirmedBookingIds = new Set(
+      liveJournals
+        .filter((journal) => !journal.isReversed && journal.confirmationStatus === 'CONFIRMED')
+        .map((journal) => journal.bookingId)
+        .filter(Boolean)
+    );
     return liveBookings
       .filter((booking) => {
         if (['CANCELLED', 'NO_SHOW'].includes(String(booking.status))) return false;
-        return !journalBookingIds.has(booking.id) && belongsToPackage(booking, selectedPkg.customerId, selectedPkg.id);
+        if (String(booking.status) === 'COMPLETED' && ['COMPLETED', 'REVERSED'].includes(String(booking.sessionStatus || ''))) return false;
+        return !confirmedBookingIds.has(booking.id) && belongsToPackage(booking, selectedPkg.customerId, selectedPkg.id);
       })
       .sort((a, b) => {
         const aTime = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
@@ -626,7 +639,7 @@ export const W06_TreatmentManagement: React.FC = () => {
   }, [liveBookings, liveJournals, selectedPkg.customerId, selectedPkg.id]);
 
   const openPackageBooking = selectedPackageBookings.find((booking) =>
-    ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS', 'COMPLETED'].includes(String(booking.status))
+    ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(booking.status))
   );
 
   const openTreatmentBooking = (id: string, date: string, branchId?: string) => {
@@ -657,28 +670,58 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   const handleQuickStartService = async (bookingId: string, pkgId?: string) => {
     if (pkgId) setSelectedPkgId(pkgId);
+    const effectivePkgId = pkgId || selectedPkg.id;
+    const targetBooking = bookingMap.get(bookingId);
+    let currentStatus = String(targetBooking?.status || 'CONFIRMED');
     try {
-      const res = await bookingService.updateBookingStatus(bookingId, BookingStatus.IN_SERVICE);
-      if (res.success) {
-        toast.success('Đã bắt đầu phục vụ', 'Lịch hẹn đã chuyển sang Đang phục vụ. Bạn có thể bấm Ghi nhật ký để hoàn tất và trừ buổi ngay.');
-        await fetchTreatmentData();
-      } else {
-        toast.error('Không thể bắt đầu ca', res.message || 'Vui lòng thử lại.');
+      if (currentStatus === 'PENDING') {
+        const confirmRes = await bookingService.runWorkflowAction(bookingId, 'confirm');
+        if (!confirmRes.success) {
+          toast.error('Không thể xác nhận lịch hẹn', confirmRes.message || 'Vui lòng thử lại.');
+          return;
+        }
+        currentStatus = 'CONFIRMED';
       }
+      if (currentStatus === 'CONFIRMED') {
+        const checkinPayload =
+          !targetBooking?.paymentMethod || targetBooking.paymentMethod === 'MEMBERSHIP_WALLET'
+            ? { userPackageId: effectivePkgId }
+            : {};
+        const checkinRes = await bookingService.runWorkflowAction(bookingId, 'checkin', checkinPayload);
+        if (!checkinRes.success) {
+          toast.error('Không thể Check-in', checkinRes.message || 'Vui lòng thử lại.');
+          return;
+        }
+        currentStatus = 'CHECKED_IN';
+      }
+      if (currentStatus === 'CHECKED_IN') {
+        const startRes = await bookingService.runWorkflowAction(bookingId, 'start');
+        if (!startRes.success) {
+          toast.error('Không thể bắt đầu ca', startRes.message || 'Vui lòng thử lại.');
+          return;
+        }
+      }
+      toast.success('Đã bắt đầu phục vụ', 'Lịch hẹn đã chuyển sang Đang phục vụ. Bạn có thể bấm Ghi nhật ký để hoàn tất và trừ buổi ngay.');
+      await fetchTreatmentData();
     } catch (err: any) {
       toast.error('Lỗi hệ thống', err.message || 'Không thể kết nối máy chủ.');
     }
   };
 
   const handleCancelLeftoverBooking = async (bookingId: string) => {
-    try {
-      const res = await bookingService.updateBookingStatus(
-        bookingId,
-        BookingStatus.CANCELLED,
-        undefined,
-        undefined,
-        'Hủy lịch hẹn tồn đọng từ trang Quản lý liệu trình'
+    const targetBooking = bookingMap.get(bookingId);
+    const currentStatus = String(targetBooking?.status || '');
+    if (['CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(currentStatus)) {
+      toast.warning(
+        'Khách đã check-in hoặc đang phục vụ',
+        'Vui lòng mở trang Điều phối lịch KTV để kết thúc ca hoặc xử lý trạng thái lịch hẹn.'
       );
+      return;
+    }
+    try {
+      const res = await bookingService.runWorkflowAction(bookingId, 'cancel', {
+        reason: 'Hủy lịch hẹn tồn đọng từ trang Quản lý liệu trình',
+      });
       if (res.success) {
         toast.success('Đã hủy lịch hẹn tồn đọng', 'Cảnh báo lịch hẹn chưa xử lý đã được dọn sạch.');
         await fetchTreatmentData();
@@ -723,8 +766,8 @@ export const W06_TreatmentManagement: React.FC = () => {
       toast.warning('Gói đã hoàn tất', 'Gói liệu trình này đã hoàn thành đầy đủ các buổi.');
       return;
     }
-    const tomorrow = new Date(Date.now() + 86400000);
-    setBookingDate(tomorrow.toISOString().split('T')[0]);
+    const todayVn = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+    setBookingDate(todayVn);
     setBookingTime('09:00');
     const targetBranchId = bookingBranchId || branches[0]?.id || '';
     const branchTechs = technicians.filter((t) => !targetBranchId || t.branchId === targetBranchId);
@@ -798,9 +841,14 @@ export const W06_TreatmentManagement: React.FC = () => {
       );
       return;
     }
-    const journalBookingIds = new Set(liveJournals.map((journal) => journal.bookingId).filter(Boolean));
+    const confirmedJournalBookingIds = new Set(
+      liveJournals
+        .filter((journal) => !journal.isReversed && journal.confirmationStatus === 'CONFIRMED')
+        .map((journal) => journal.bookingId)
+        .filter(Boolean)
+    );
     const pkgBookings = liveBookings.filter(
-      (b) => !journalBookingIds.has(b.id) && !['CANCELLED', 'NO_SHOW'].includes(String(b.status)) && belongsToPackage(b, targetPkg.customerId, targetPkg.id)
+      (b) => !confirmedJournalBookingIds.has(b.id) && !['CANCELLED', 'NO_SHOW'].includes(String(b.status)) && belongsToPackage(b, targetPkg.customerId, targetPkg.id)
     );
     const inServiceBooking = pkgBookings.find(
       (booking) => ['IN_SERVICE', 'IN_PROGRESS'].includes(String(booking.status)) && booking.sessionStatus !== 'COMPLETED'
@@ -823,29 +871,33 @@ export const W06_TreatmentManagement: React.FC = () => {
       }
       return;
     }
+    const existingDraft = liveJournals.find(
+      (j) => !j.isReversed && j.bookingId === inServiceBooking.id && ['DRAFT', 'PENDING'].includes(String(j.confirmationStatus || 'DRAFT'))
+    );
     setSelectedSessionBookingId(inServiceBooking.id);
     setSessionDate(inServiceBooking.bookingDate);
-    setSessionNumberInput(targetPkg.usedSessions + 1);
-    setTreatmentNotes('');
+    setSessionNumberInput(existingDraft?.sessionNumber || targetPkg.usedSessions + 1);
+    setTreatmentNotes(existingDraft?.treatmentNotes || '');
     setTreatmentStartTime(
-      inServiceBooking.serviceStartedAt
+      existingDraft?.treatmentStartTime ||
+      (inServiceBooking.serviceStartedAt
         ? new Date(inServiceBooking.serviceStartedAt).toLocaleTimeString('vi-VN', {
             hour: '2-digit',
             minute: '2-digit',
             hour12: false,
           })
-        : (inServiceBooking.startTime || '').slice(0, 5)
+        : (inServiceBooking.startTime || '').slice(0, 5))
     );
-    setTreatmentEndTime('');
-    setConditionBefore('');
-    setConditionAfter('');
-    setSpecialistAdvice('');
-    setTreatmentAreas('');
-    setTreatmentProtocol('');
-    setHasAbnormalReaction(false);
-    setAdverseReactions('');
+    setTreatmentEndTime(existingDraft?.treatmentEndTime || '');
+    setConditionBefore(existingDraft?.conditionBefore || '');
+    setConditionAfter(existingDraft?.conditionAfter || '');
+    setSpecialistAdvice(existingDraft?.specialistAdvice || '');
+    setTreatmentAreas(Array.isArray(existingDraft?.treatmentAreas) ? existingDraft.treatmentAreas.join(', ') : '');
+    setTreatmentProtocol(existingDraft?.treatmentProtocol || '');
+    setHasAbnormalReaction(Boolean(existingDraft?.hasAbnormalReaction));
+    setAdverseReactions(existingDraft?.adverseReactions || '');
     setPhotoConsentGranted(true);
-    setConsumablesList([]);
+    setConsumablesList(Array.isArray(existingDraft?.consumablesUsed) ? existingDraft.consumablesUsed : []);
     setEvidenceFiles([]);
     setIsLogSessionModalOpen(true);
   };
@@ -991,13 +1043,47 @@ export const W06_TreatmentManagement: React.FC = () => {
     e.preventDefault();
     if (!selectedPkg.id || !actionModalType) return;
 
-    if (['pause', 'extend', 'cancel', 'transfer', 'refund'].includes(actionModalType) && (!actionReason.trim() || actionReason.trim().length < 3)) {
-      toast.error('Thiếu lý do', 'Vui lòng nhập lý do thực hiện thao tác.');
+    const minReasonLen = ['cancel', 'transfer', 'refund'].includes(actionModalType) ? 5 : 3;
+    if (['pause', 'extend', 'cancel', 'transfer', 'refund'].includes(actionModalType) && actionReason.trim().length < minReasonLen) {
+      toast.error('Thiếu lý do', `Vui lòng nhập lý do thực hiện thao tác (tối thiểu ${minReasonLen} ký tự).`);
       return;
     }
 
     setIsSubmittingAction(true);
     try {
+      if (actionModalType === 'cancel' || actionModalType === 'refund') {
+        const blockingBookings = liveBookings.filter(
+          (b) =>
+            ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(b.status)) &&
+            belongsToPackage(b, selectedPkg.customerId, selectedPkg.id)
+        );
+        const activeInRoom = blockingBookings.find((b) =>
+          ['CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(b.status))
+        );
+        if (activeInRoom) {
+          toast.error(
+            'Còn lịch đang phục vụ',
+            `Lịch hẹn ${activeInRoom.bookingCode || ''} đang ở trạng thái check-in/phục vụ. Hãy hoàn tất hoặc đóng ca tại Điều phối lịch KTV trước.`
+          );
+          setIsSubmittingAction(false);
+          return;
+        }
+        const cancelNote = `Tự động hủy lịch khi ${actionModalType === 'cancel' ? 'hủy' : 'hoàn tiền'} gói liệu trình: ${actionReason.trim()}`;
+        for (const openBk of blockingBookings) {
+          const cancelRes = await bookingService.runWorkflowAction(openBk.id, 'cancel', {
+            reason: cancelNote,
+          });
+          if (!cancelRes.success) {
+            toast.error(
+              'Không thể hủy lịch hẹn đang mở',
+              cancelRes.message || `Không hủy được lịch ${openBk.bookingCode || openBk.id}.`
+            );
+            setIsSubmittingAction(false);
+            return;
+          }
+        }
+      }
+
       let res: any;
       if (actionModalType === 'pause') {
         res = await treatmentService.pausePackage(selectedPkg.id, actionReason.trim());
@@ -1024,19 +1110,6 @@ export const W06_TreatmentManagement: React.FC = () => {
       }
 
       if (res?.success) {
-        if ((actionModalType === 'cancel' || actionModalType === 'refund') && selectedPackageBookings.length > 0) {
-          await Promise.all(
-            selectedPackageBookings.map((b) =>
-              bookingService.updateBookingStatus(
-                b.id,
-                BookingStatus.CANCELLED,
-                undefined,
-                undefined,
-                `Tự động hủy lịch khi ${actionModalType === 'cancel' ? 'hủy' : 'hoàn tiền'} gói liệu trình`
-              ).catch(() => null)
-            )
-          );
-        }
         toast.success('Thao tác thành công', res.message || 'Cập nhật vòng đời gói thành công.');
         setActionModalType(null);
         setActionReason('');
@@ -1802,6 +1875,16 @@ export const W06_TreatmentManagement: React.FC = () => {
                         )}
                         {s.id && !s.isReversed && !s.isUpcoming && (
                           <>
+                            {['DRAFT', 'PENDING'].includes(String(s.rawConfirmationStatus || 'DRAFT')) && selectedPkg.rawStatus === 'ACTIVE' && hasInServiceBooking && (
+                              <button
+                                type="button"
+                                onClick={handleOpenLogSessionModal}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-[#8A4F23] bg-[#FAF0E4] hover:bg-[#EFE4D9] border border-[#D7BBA6] rounded-lg transition-all cursor-pointer"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                                <span>Sửa nháp</span>
+                              </button>
+                            )}
                             {isUnconfirmedJournal && selectedPkg.rawStatus === 'ACTIVE' && (
                               <button
                                 type="button"
