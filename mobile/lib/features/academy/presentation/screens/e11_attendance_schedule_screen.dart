@@ -75,19 +75,23 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    item.batchCode.isNotEmpty ? item.batchCode : 'LỚP HỌC MLD',
-                    style: GoogleFonts.beVietnamPro(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      item.batchCode.isNotEmpty ? item.batchCode : 'LỚP HỌC MLD',
+                      style: GoogleFonts.beVietnamPro(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
@@ -109,6 +113,7 @@ class _E11AttendanceScheduleScreenState extends State<E11AttendanceScheduleScree
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 const Spacer(),
                 const Icon(Icons.event_available, color: AppColors.primary, size: 20),
               ],

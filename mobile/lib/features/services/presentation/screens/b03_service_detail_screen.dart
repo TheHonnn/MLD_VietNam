@@ -628,43 +628,44 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
               ),
               child: Row(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (widget.originalPrice != null && widget.originalPrice!.isNotEmpty) ...[
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          children: [
+                            if (widget.originalPrice != null && widget.originalPrice!.isNotEmpty)
+                              Text(
+                                widget.originalPrice!,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.textSecondary,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
                             Text(
-                              widget.originalPrice!,
+                              widget.price,
                               style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
-                                color: AppColors.textSecondary,
-                                decoration: TextDecoration.lineThrough,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.servicePrice,
                               ),
                             ),
-                            const SizedBox(width: 6),
                           ],
-                          Text(
-                            widget.price,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.servicePrice,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        widget.duration,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
                         ),
-                      ),
-                    ],
+                        Text(
+                          widget.duration,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 20),
                   Expanded(

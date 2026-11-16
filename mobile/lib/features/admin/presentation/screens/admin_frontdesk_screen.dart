@@ -816,8 +816,11 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                 const SizedBox(height: 6),
 
                 // Dòng 2: ĐÚNG 2 NÚT LỌC (Ngày & Trạng thái). Xổ menu từ chính nút ra (PopupMenuButton)
-                Row(
-                  children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
                     // NÚT 1: CHỌN NGÀY (Mặc định hôm nay thời gian thực, xổ menu từ nút)
                     PopupMenuButton<String>(
                       offset: const Offset(0, 32),
@@ -1133,6 +1136,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                     ],
                   ],
                 ),
+              ),
               ],
             ),
           ),

@@ -547,18 +547,19 @@ return {
       start_time: newStartTime,
       end_time: calculatedEndTime,
       technician_id: assignedTechnicianId,
-      special_notes: reason ? `[Đổi lịch: ${reason}]` : undefined,
+      ...(reason ? { special_notes: [currentBooking.special_notes, `[Đổi lịch: ${reason}]`].filter(Boolean).join(' | ') } : {}),
       updated_at: new Date().toISOString(),
     };
 
-    try {
-      await this.supabaseService.adminClient
-        .from('bookings')
-        .update(updatePayload)
-        .eq('id', bookingId);
-    } catch (err: any) {
-      this.logger.warn(`Lỗi cập nhật reschedule DB: ${err.message}`);
-    }
+    const { data: savedBooking, error: updateError } = await this.supabaseService.adminClient
+      .from('bookings')
+      .update(updatePayload)
+      .eq('id', bookingId)
+      .eq('status', currentBooking.status)
+      .select('id,status')
+      .maybeSingle();
+    if (updateError || !savedBooking)
+      throw new ConflictException('Không thể lưu thay đổi lịch hẹn. Vui lòng tải lại và thử lại.');
 
     // 4. Giải phóng slot cũ và cập nhật slot mới trong technician_slots
     try {
@@ -591,7 +592,7 @@ return {
         endTime: calculatedEndTime,
         technicianId: assignedTechnicianId,
         isAutoAssign: !!isAutoAssign,
-        status: 'CONFIRMED',
+        status: savedBooking.status,
       },
     };
   }

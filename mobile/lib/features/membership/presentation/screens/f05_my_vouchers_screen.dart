@@ -324,14 +324,18 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
             // ==========================================
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Row(
-                children: [
-                  _buildTabChip(0, 'Tất cả (${_allVouchers.length})'),
-                  const SizedBox(width: 8),
-                  _buildTabChip(1, 'Khả dụng ($_availableCount)'),
-                  const SizedBox(width: 8),
-                  _buildTabChip(2, 'Đã dùng / Hết hạn'),
-                ],
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    _buildTabChip(0, 'Tất cả (${_allVouchers.length})'),
+                    const SizedBox(width: 8),
+                    _buildTabChip(1, 'Khả dụng ($_availableCount)'),
+                    const SizedBox(width: 8),
+                    _buildTabChip(2, 'Đã dùng / Hết hạn'),
+                  ],
+                ),
               ),
             ),
 
