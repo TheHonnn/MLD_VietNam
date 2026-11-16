@@ -19,18 +19,24 @@ class D08NotificationsScreen extends StatefulWidget {
 class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
   final TreatmentRepository _repo = TreatmentRepository.instance;
 
-  int _selectedTabIndex = 0; // 0: Tất cả, 1: Lịch hẹn, 2: Liệu trình, 3: Đào tạo
+  int _selectedTabIndex = 0;
   final List<String> _tabs = ['Tất cả', 'Lịch hẹn', 'Liệu trình', 'Đào tạo'];
-  late List<TreatmentNotificationModel> _notifications;
+  List<TreatmentNotificationModel> _notifications = [];
 
   @override
   void initState() {
     super.initState();
+    _notifications = List.from(_repo.getTreatmentNotifications());
     _loadNotifications();
   }
 
-  void _loadNotifications() {
-    _notifications = List.from(_repo.getTreatmentNotifications());
+  Future<void> _loadNotifications() async {
+    final list = await _repo.fetchNotifications();
+    if (mounted) {
+      setState(() {
+        _notifications = List.from(list);
+      });
+    }
   }
 
   void _markAllAsRead() {
@@ -128,8 +134,12 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background, // #F8F1E8
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+        child: RefreshIndicator(
+          onRefresh: _loadNotifications,
+          color: AppColors.primary,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -399,6 +409,7 @@ class _D08NotificationsScreenState extends State<D08NotificationsScreen> {
                 }),
             ],
           ),
+        ),
         ),
       ),
     );

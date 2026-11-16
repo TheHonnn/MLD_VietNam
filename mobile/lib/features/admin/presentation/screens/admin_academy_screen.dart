@@ -339,26 +339,25 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
     String selectedStatus = initialStatus;
     bool isSubmitting = false;
 
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.82),
+            child: StatefulBuilder(
+              builder: (context, setModalState) => Padding(
+                padding: const EdgeInsets.all(20),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -553,14 +552,22 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00693F),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      backgroundColor: const Color(0xFFE8F6ED),
+                      foregroundColor: const Color(0xFF00693F),
+                      side: const BorderSide(color: Color(0xFF00693F), width: 1.2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       elevation: 0,
                     ),
                     child: isSubmitting
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text('Tạo thẻ học viên', style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w700)),
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Color(0xFF00693F), strokeWidth: 2))
+                        : Text(
+                            'Xác nhận tạo thẻ HV',
+                            style: AppTypography.zaloFont(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF00693F),
+                            ),
+                          ),
                   ),
                 ),
               ],
@@ -568,6 +575,9 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
           ),
         ),
       ),
+    ),
+  ),
+),
     );
   }
 

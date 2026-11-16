@@ -29,6 +29,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
   late final TextEditingController _unitController;
   late final TextEditingController _imageUrlController;
   late final TextEditingController _detailsController;
+  late bool _isActive;
 
   bool _isSaving = false;
 
@@ -63,6 +64,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
     _unitController = TextEditingController(text: p?.unit ?? 'Cuộn');
     _imageUrlController = TextEditingController(text: p?.imageUrl ?? '');
     _detailsController = TextEditingController(text: p?.details.join('\n') ?? '');
+    _isActive = p?.isActive ?? true;
   }
 
   @override
@@ -141,15 +143,31 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
 
     bool success = false;
     if (isEdit) {
+      final updatedDetails = List<String>.from(details)..remove('STATUS:INACTIVE');
+      if (!_isActive) {
+        updatedDetails.add('STATUS:INACTIVE');
+      }
       success = await ProductRepository.instance.updateProduct(widget.product!.id, {
         'name': name,
         'category': category,
         'price_min': price,
         'price_max': price,
         'unit': unit,
-        'details': details,
+        'details': updatedDetails,
+        'is_active': _isActive,
         if (imageUrl != null) 'image_url': imageUrl,
       });
+      if (!success) {
+        success = await ProductRepository.instance.updateProduct(widget.product!.id, {
+          'name': name,
+          'category': category,
+          'price_min': price,
+          'price_max': price,
+          'unit': unit,
+          'details': updatedDetails,
+          if (imageUrl != null) 'image_url': imageUrl,
+        });
+      }
     } else {
       success = await ProductRepository.instance.createProduct(
         name: name,
@@ -159,6 +177,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
         unit: unit,
         details: details,
         imageUrl: imageUrl,
+        isActive: _isActive,
       );
     }
 
@@ -179,36 +198,25 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
   Widget build(BuildContext context) {
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
+        maxHeight: MediaQuery.of(context).size.height * 0.82,
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE5E7EB),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -228,7 +236,9 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                const Divider(color: Color(0xFFE5E7EB)),
+                const SizedBox(height: 12),
 
                 // 1. Tên sản phẩm
                 Text(
@@ -408,6 +418,27 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: _suggestedUnits.take(4).map((u) {
+                              return InkWell(
+                                onTap: () => setState(() => _unitController.text = u),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    u,
+                                    style: AppTypography.zaloFont(fontSize: 10, color: AppColors.textSecondary),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
                         ],
                       ),
                     ),
@@ -480,25 +511,66 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
                     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Trạng thái kinh doanh',
+                            style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _isActive ? 'Đang mở bán sản phẩm' : 'Tạm dừng kinh doanh',
+                            style: AppTypography.zaloFont(
+                              fontSize: 11,
+                              color: _isActive ? const Color(0xFF00693F) : const Color(0xFFDC2626),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Switch(
+                        value: _isActive,
+                        activeThumbColor: const Color(0xFF00693F),
+                        onChanged: (val) => setState(() => _isActive = val),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 20),
 
-                // Nút Submit
                 SizedBox(
                   width: double.infinity,
-                  height: 48,
+                  height: 46,
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _submit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00693F),
-                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFFE8F6ED),
+                      foregroundColor: const Color(0xFF00693F),
                       elevation: 0,
+                      side: const BorderSide(color: Color(0xFF00693F), width: 1.2),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     child: _isSaving
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00693F)))
                         : Text(
-                            isEdit ? 'Lưu thay đổi sản phẩm' : 'Tạo mới sản phẩm',
-                            style: AppTypography.zaloFont(fontSize: 14.5, fontWeight: FontWeight.w700),
+                            isEdit ? 'Lưu thay đổi sản phẩm' : 'Xác nhận tạo mới sản phẩm',
+                            style: AppTypography.zaloFont(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF00693F),
+                            ),
                           ),
                   ),
                 ),

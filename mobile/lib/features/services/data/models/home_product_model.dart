@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 class HomeProductModel {
   final String id;
   final String name;
-  final String category; // 'Dụng cụ tập luyện', 'Băng ép', 'Chăm sóc da', 'Tài liệu'
+  final String category;
   final double priceMin;
   final double priceMax;
   final String unit;
@@ -14,6 +14,7 @@ class HomeProductModel {
   final int sortOrder;
   final String? imageUrl;
   final DateTime? createdAt;
+  final bool isActive;
 
   const HomeProductModel({
     required this.id,
@@ -26,7 +27,36 @@ class HomeProductModel {
     this.sortOrder = 0,
     this.imageUrl,
     this.createdAt,
+    this.isActive = true,
   });
+
+  HomeProductModel copyWith({
+    String? id,
+    String? name,
+    String? category,
+    double? priceMin,
+    double? priceMax,
+    String? unit,
+    List<String>? details,
+    int? sortOrder,
+    String? imageUrl,
+    DateTime? createdAt,
+    bool? isActive,
+  }) {
+    return HomeProductModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      category: category ?? this.category,
+      priceMin: priceMin ?? this.priceMin,
+      priceMax: priceMax ?? this.priceMax,
+      unit: unit ?? this.unit,
+      details: details ?? this.details,
+      sortOrder: sortOrder ?? this.sortOrder,
+      imageUrl: imageUrl ?? this.imageUrl,
+      createdAt: createdAt ?? this.createdAt,
+      isActive: isActive ?? this.isActive,
+    );
+  }
 
   /// Định dạng khoảng giá chuẩn VNĐ
   String get formattedPrice {
@@ -60,6 +90,11 @@ class HomeProductModel {
       }
     }
 
+    final rawActive = json['is_active'];
+    final bool isActive = rawActive != null
+        ? (rawActive == true || rawActive == 1 || rawActive.toString().toLowerCase() == 'true')
+        : !detailsList.contains('STATUS:INACTIVE');
+
     return HomeProductModel(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Sản phẩm MLD',
@@ -71,6 +106,7 @@ class HomeProductModel {
       sortOrder: int.tryParse(json['sort_order']?.toString() ?? '0') ?? 0,
       imageUrl: json['image_url']?.toString(),
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+      isActive: isActive,
     );
   }
 
@@ -85,6 +121,7 @@ class HomeProductModel {
       'details': details,
       'sort_order': sortOrder,
       'image_url': imageUrl,
+      'is_active': isActive,
     };
   }
 }

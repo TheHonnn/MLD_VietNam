@@ -207,17 +207,17 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
   Widget build(BuildContext context) {
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
+        maxHeight: MediaQuery.of(context).size.height * 0.82,
       ),
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
         top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Form(
         key: _formKey,
@@ -226,18 +226,6 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE5E7EB),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -542,27 +530,31 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
               ),
               const SizedBox(height: 20),
 
-              // Nút bấm Lưu
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _submit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE11D48),
-                    foregroundColor: Colors.white,
+                    backgroundColor: const Color(0xFFE8F6ED),
+                    foregroundColor: const Color(0xFF00693F),
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    side: const BorderSide(color: Color(0xFF00693F), width: 1.2),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   child: _isSaving
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00693F)),
                         )
                       : Text(
-                          isEdit ? 'Lưu thay đổi' : 'Tạo mới Dịch vụ',
-                          style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w700),
+                          isEdit ? 'Lưu thay đổi dịch vụ' : 'Xác nhận tạo mới dịch vụ',
+                          style: AppTypography.zaloFont(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF00693F),
+                          ),
                         ),
                 ),
               ),

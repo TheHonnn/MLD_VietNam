@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Calendar, CheckCircle2, Clock, CreditCard, MapPin, Pencil, Phone, UserCheck, Users, X } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, CreditCard, Mail, MapPin, Pencil, Phone, UserCheck, Users, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { bookingService } from "../services";
 import { Row } from "./api";
@@ -49,6 +49,9 @@ export function BookingDetailDialog({ row, onClose, onEdit }: { row: Row; onClos
   const paymentStatus = String(pick(booking.paymentStatus, booking.payment_status, row.payment_status, "UNPAID"));
   const customerName = pick(booking.customer?.fullName, booking.customer?.full_name, row.customer?.full_name, row.customer_name, booking.bookedForName, row.booked_for_name, "Khách hàng");
   const customerPhone = pick(booking.customer?.phone, row.customer?.phone, row.customer_phone, booking.bookedForPhone, row.booked_for_phone, "Chưa có số điện thoại");
+  const rawNotes = String(pick(booking.specialNotes, booking.special_notes, row.special_notes, row.notes, ""));
+  const emailMatch = rawNotes.match(/Email:\s*([^\s|]+)/);
+  const customerEmail = pick(booking.customer?.email, row.customer?.email, row.customer_email, booking.customerEmail, emailMatch ? emailMatch[1] : undefined);
   const branchName = pick(booking.branch?.name, row.branches?.name, row.branch?.name, row.branch_name, "Chưa xác định cơ sở");
   const technicianName = pick(booking.technician?.fullName, booking.technician?.full_name, row.technicians?.full_name, row.technician_name, "Chưa phân công");
   const roomName = pick(booking.room?.name, row.room?.name, row.branch_rooms?.name, row.room_name, "Hệ thống tự xếp phòng");
@@ -107,6 +110,7 @@ export function BookingDetailDialog({ row, onClose, onEdit }: { row: Row; onClos
             <h3 className="flex items-center gap-2 text-xs font-extrabold text-[#2C241E]"><Users size={15} className="text-[#985018]" />Khách hàng</h3>
             <p className="mt-3 text-sm font-black text-[#2C241E]">{customerName}</p>
             <p className="mt-1 flex items-center gap-1.5 text-xs text-[#73675F]"><Phone size={13} />{customerPhone}</p>
+            {customerEmail && <p className="mt-1 flex items-center gap-1.5 text-xs text-[#73675F]"><Mail size={13} />{customerEmail}</p>}
           </section>
 
           <section className="rounded-xl border border-[#E2D6CA] bg-white p-4">

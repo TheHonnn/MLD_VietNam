@@ -3,7 +3,6 @@ import '../../../../core/localization/app_translation.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/services/auth_service.dart';
-import '../../../../core/services/portal_settings_service.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/academy_models.dart';
@@ -14,11 +13,6 @@ import '../../../home/data/repositories/mock_home_repository.dart';
 import '../widgets/academy_widgets.dart';
 import 'e07_my_courses_screen.dart';
 
-/// Screen E05: Đăng ký khóa học
-/// Thiết kế tinh gọn theo yêu cầu:
-/// - Chỉ hiện: Thông tin cá nhân, Cơ sở đào tạo, Lựa chọn đối tượng (Người mới bắt đầu / Đang làm nghề), và Giá tiền.
-/// - Loại bỏ hoàn toàn 100% thanh toán.
-/// - Đẩy hồ sơ lên hệ thống với trạng thái Chờ duyệt thủ công bởi nhân viên.
 class E05EnrollmentFormScreen extends StatefulWidget {
   final CourseModel course;
 
@@ -38,14 +32,12 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _addressController;
 
-  // 1. Cơ sở đào tạo từ database
   List<BranchModel> _branches = [];
   BranchModel? _selectedBranchModel;
   String _selectedBranch = '';
 
-  // 2. Lựa chọn đối tượng học viên: 0: Người mới bắt đầu, 1: Đang làm nghề
   int _selectedTargetGroup = 0;
-
+  bool _isTargetGroupExpanded = true;
   bool _isSubmitting = false;
 
   String _formatBranchDisplay(BranchModel b) {
@@ -83,14 +75,12 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
       _loadBranches();
     }
 
-    // Không điền sẵn thông tin khách hàng, để khách tự nhập
     final isTest = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding');
     _nameController = TextEditingController(text: isTest ? 'Học viên MLD' : '');
     _phoneController = TextEditingController(text: isTest ? '0901234567' : '');
     _emailController = TextEditingController(text: isTest ? 'hocvien@mldvietnam.vn' : '');
     _addressController = TextEditingController(text: isTest ? 'Hà Nội, Việt Nam' : '');
 
-    // Mặc định phân nhóm đối tượng theo dữ liệu khóa học nếu có
     if (widget.course.targetAudience.toLowerCase().contains('nghề') ||
         widget.course.courseGroup.toLowerCase().contains('làm nghề')) {
       _selectedTargetGroup = 1;
@@ -130,7 +120,6 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
 
     try {
       final isTest = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding');
-      // 1. TUYỆT ĐỐI KHÔNG cập nhật đè email tài khoản đăng nhập khi nộp hồ sơ khóa học
       if (!isTest) {
         final repo = MembershipRepository.instance;
         if (address.isNotEmpty && repo.profile.address.isEmpty) {
@@ -140,7 +129,6 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
         }
       }
 
-      // 2. Gửi đăng ký lên Supabase Cloud với trạng thái CHỜ DUYỆT THỦ CÔNG
       final enrollResult = await AcademyRepository.instance.enrollCourse(
         course: widget.course,
         studentName: name,
@@ -151,13 +139,11 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
         studentType: studentType,
       );
 
-      final customerCode = enrollResult['customerCode']?.toString() ??
-          '—';
+      final customerCode = enrollResult['customerCode']?.toString() ?? '—';
 
       if (!mounted) return;
       setState(() => _isSubmitting = false);
 
-      // 3. Hiển thị thông báo xác nhận trạng thái Chờ duyệt kèm mã KH
       _showPendingApprovalDialog(name, phone, customerCode);
     } catch (e) {
       if (mounted) {
@@ -200,7 +186,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Đăng ký thành công',
+                'Đăng ký thành công!',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -402,8 +388,8 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                 children: [
                   const Expanded(
                     child: Text(
-                      'Học phí niêm yết:',
-                      style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary, fontWeight: FontWeight.w500),
+                      'Học phí trọn gói:',
+                      style: TextStyle(fontSize: 13.5, color: AcademyColors.textSecondary, fontWeight: FontWeight.w600),
                     ),
                   ),
                   Text(
@@ -448,35 +434,34 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
         key: _formKey,
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Tiêu đề
               const Text(
                 'Đăng ký khóa học',
                 style: TextStyle(
-                  fontSize: 26,
+                  fontSize: 24,
                   fontWeight: FontWeight.w800,
                   color: AcademyColors.heading,
                   height: 1.25,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               const Text(
                 'Điền thông tin học viên để gửi hồ sơ xét duyệt nhập học.',
                 style: TextStyle(
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w400,
                   color: AcademyColors.textSecondary,
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
 
               if (isAlreadyEnrolled) ...[
                 Container(
-                  margin: const EdgeInsets.only(bottom: 16),
+                  margin: const EdgeInsets.only(bottom: 14),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFEF3C7),
@@ -503,14 +488,20 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                 ),
               ],
 
-              // 2. Thẻ khóa học & Giá tiền (Học phí)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AcademyColors.cardWarm,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AcademyColors.cardBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -522,15 +513,15 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                           borderRadius: BorderRadius.circular(12),
                           child: Image.asset(
                             course.image,
-                            width: 76,
-                            height: 76,
+                            width: 72,
+                            height: 72,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Container(
-                              width: 76,
-                              height: 76,
-                              color: Colors.white,
+                              width: 72,
+                              height: 72,
+                              color: const Color(0xFFF1F5F9),
                               child: const Center(
-                                child: Icon(Icons.school, size: 32, color: AcademyColors.primary),
+                                child: Icon(Icons.school, size: 30, color: AppColors.primary),
                               ),
                             ),
                           ),
@@ -545,9 +536,9 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  fontSize: 15,
+                                  fontSize: 14.5,
                                   fontWeight: FontWeight.w700,
-                                  color: AcademyColors.textPrimary,
+                                  color: AcademyColors.heading,
                                   height: 1.3,
                                 ),
                               ),
@@ -572,9 +563,9 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
-                    const Divider(height: 1, color: AcademyColors.cardBorder),
                     const SizedBox(height: 12),
+                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                    const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -583,7 +574,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                           child: Text(
                             'Học phí trọn gói:',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w600,
                               color: AcademyColors.textPrimary,
                             ),
@@ -592,7 +583,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                         Text(
                           '${formatCurrency(course.tuitionFee)}đ',
                           style: const TextStyle(
-                            fontSize: 19,
+                            fontSize: 18,
                             fontWeight: FontWeight.w800,
                             color: AcademyColors.price,
                           ),
@@ -602,140 +593,234 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 16),
 
-              // 3. Thông tin cá nhân
-              _buildSectionHeader(context.tr('1. Thông tin cá nhân học viên', '1. Student Personal Information')),
-              const SizedBox(height: 12),
-              _buildInputField(
-                label: context.tr('Họ và tên *', 'Full Name *'),
-                controller: _nameController,
-                hint: context.tr('Nhập họ và tên đầy đủ', 'Enter full name'),
-                prefixIcon: Icons.person_outline_rounded,
-                validator: AppValidators.fullName,
-              ),
-              const SizedBox(height: 12),
-              _buildInputField(
-                label: context.tr('Số điện thoại *', 'Phone Number *'),
-                controller: _phoneController,
-                hint: context.tr('Nhập số điện thoại liên hệ', 'Enter contact phone number'),
-                keyboardType: TextInputType.phone,
-                prefixIcon: Icons.phone_outlined,
-                validator: AppValidators.phone,
-              ),
-              const SizedBox(height: 12),
-              _buildInputField(
-                label: context.tr('Địa chỉ Email *', 'Email Address *'),
-                controller: _emailController,
-                hint: context.tr('Nhập địa chỉ email', 'Enter email address'),
-                keyboardType: TextInputType.emailAddress,
-                prefixIcon: Icons.mail_outline_rounded,
-                validator: AppValidators.email,
-              ),
-              const SizedBox(height: 12),
-              _buildInputField(
-                label: context.tr('Địa chỉ liên hệ', 'Address'),
-                controller: _addressController,
-                hint: context.tr('Nhập địa chỉ thường trú / tạm trú của bạn (không bắt buộc)', 'Enter your address (optional)'),
-                prefixIcon: Icons.home_outlined,
-                validator: null,
-              ),
-              const SizedBox(height: 22),
-
-              // 4. Cơ sở đào tạo lấy trực tiếp từ database
-              _buildSectionHeader(context.tr('2. Cơ sở đào tạo', '2. Training Branch')),
-              const SizedBox(height: 10),
-              Column(
-                children: _branches.map((branch) {
-                  final isSelected = _selectedBranchModel?.id == branch.id ||
-                      _selectedBranch == _formatBranchDisplay(branch);
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected ? AppColors.primary : AcademyColors.cardBorder,
-                        width: isSelected ? 1.5 : 1.0,
-                      ),
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.08),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ]
-                          : null,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AcademyColors.cardBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(
+                      context.tr('1. Thông tin cá nhân học viên', '1. Student Personal Information'),
+                      icon: Icons.person_outline_rounded,
                     ),
-                    child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          _selectedBranchModel = branch;
-                          _selectedBranch = _formatBranchDisplay(branch);
-                        });
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Icon(
-                                isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                                color: isSelected ? AppColors.primary : Colors.grey[400],
-                                size: 20,
+                    const SizedBox(height: 14),
+                    _buildInputField(
+                      label: context.tr('Họ và tên *', 'Full Name *'),
+                      controller: _nameController,
+                      hint: context.tr('Nhập họ và tên đầy đủ', 'Enter full name'),
+                      prefixIcon: Icons.person_outline_rounded,
+                      validator: AppValidators.fullName,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildInputField(
+                      label: context.tr('Số điện thoại *', 'Phone Number *'),
+                      controller: _phoneController,
+                      hint: context.tr('Nhập số điện thoại liên hệ', 'Enter contact phone number'),
+                      keyboardType: TextInputType.phone,
+                      prefixIcon: Icons.phone_outlined,
+                      validator: AppValidators.phone,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildInputField(
+                      label: context.tr('Địa chỉ Email *', 'Email Address *'),
+                      controller: _emailController,
+                      hint: context.tr('Nhập địa chỉ email', 'Enter email address'),
+                      keyboardType: TextInputType.emailAddress,
+                      prefixIcon: Icons.mail_outline_rounded,
+                      validator: AppValidators.email,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildInputField(
+                      label: context.tr('Địa chỉ liên hệ', 'Address'),
+                      controller: _addressController,
+                      hint: context.tr('Nhập địa chỉ nơi ở hiện tại (không bắt buộc)', 'Enter your address (optional)'),
+                      prefixIcon: Icons.home_outlined,
+                      validator: null,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AcademyColors.cardBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(
+                      context.tr('2. Cơ sở đào tạo', '2. Training Branch'),
+                      icon: Icons.apartment_rounded,
+                    ),
+                    const SizedBox(height: 12),
+                    ..._branches.map((branch) {
+                      final isSelected = _selectedBranchModel?.id == branch.id ||
+                          _selectedBranch == _formatBranchDisplay(branch);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedBranchModel = branch;
+                              _selectedBranch = _formatBranchDisplay(branch);
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFFF0F7FF) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected ? AppColors.primary : AcademyColors.cardBorder,
+                                width: isSelected ? 1.5 : 1.0,
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    branch.name,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                                      color: isSelected ? AcademyColors.heading : AcademyColors.textPrimary,
-                                    ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Icon(
+                                    isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                                    color: isSelected ? AppColors.primary : const Color(0xFF94A3B8),
+                                    size: 19,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Row(
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Icon(Icons.location_on_outlined, size: 14, color: AppColors.primary),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          branch.address,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: AcademyColors.textSecondary,
-                                            height: 1.35,
-                                          ),
+                                      Text(
+                                        branch.name,
+                                        style: TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                          color: isSelected ? AppColors.primary : AcademyColors.textPrimary,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  if (branch.phone.isNotEmpty) ...[
-                                    const SizedBox(height: 3),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.phone_outlined, size: 13, color: AcademyColors.textSecondary),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Hotline: ${branch.phone}',
-                                          style: const TextStyle(
-                                            fontSize: 11.5,
-                                            color: AcademyColors.textSecondary,
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Icon(Icons.location_on_outlined, size: 13.5, color: AppColors.primary),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              branch.address,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AcademyColors.textSecondary,
+                                                height: 1.35,
+                                              ),
+                                            ),
                                           ),
+                                        ],
+                                      ),
+                                      if (branch.phone.isNotEmpty) ...[
+                                        const SizedBox(height: 3),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.phone_outlined, size: 12.5, color: AcademyColors.textSecondary),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Hotline: ${branch.phone}',
+                                              style: const TextStyle(
+                                                fontSize: 11.5,
+                                                color: AcademyColors.textSecondary,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AcademyColors.cardBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _isTargetGroupExpanded = !_isTargetGroupExpanded;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.groups_outlined, size: 20, color: AppColors.primary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                context.tr('3. Bạn thuộc nhóm đối tượng nào?', '3. Which target group do you belong to?'),
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AcademyColors.heading,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _isTargetGroupExpanded
+                                        ? context.tr('Thu gọn', 'Collapse')
+                                        : context.tr('Mở rộng', 'Expand'),
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: AcademyColors.textSecondary,
                                     ),
-                                  ],
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Icon(
+                                    _isTargetGroupExpanded
+                                        ? Icons.keyboard_arrow_up_rounded
+                                        : Icons.keyboard_arrow_down_rounded,
+                                    size: 16,
+                                    color: AcademyColors.textSecondary,
+                                  ),
                                 ],
                               ),
                             ),
@@ -743,38 +828,76 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
+                    const SizedBox(height: 12),
+                    if (_isTargetGroupExpanded) ...[
+                      _buildTargetGroupOption(
+                        index: 0,
+                        title: context.tr('Người mới bắt đầu', 'Beginner'),
+                        subtitle: context.tr(
+                          'Chưa có kinh nghiệm, bắt đầu học kỹ thuật dẫn lưu bạch huyết Vodder chuẩn quốc tế',
+                          'No prior experience, starting international standard Vodder lymphatic drainage',
+                        ),
+                        icon: Icons.school_outlined,
+                      ),
+                      const SizedBox(height: 10),
+                      _buildTargetGroupOption(
+                        index: 1,
+                        title: context.tr('Đang làm nghề', 'Professional / Practitioner'),
+                        subtitle: context.tr(
+                          'Kỹ thuật viên Spa, trị liệu viên y tế muốn chuẩn hóa và nâng cao tay nghề',
+                          'Spa technicians, clinical therapists seeking standard certification',
+                        ),
+                        icon: Icons.work_outline_rounded,
+                      ),
+                    ] else ...[
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _isTargetGroupExpanded = true;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFBBF7D0)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle_rounded, size: 18, color: AppColors.accent),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _selectedTargetGroup == 0
+                                      ? context.tr('Người mới bắt đầu', 'Beginner')
+                                      : context.tr('Đang làm nghề', 'Professional / Practitioner'),
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: AcademyColors.heading,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                context.tr('Chạm để đổi', 'Tap to change'),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 22),
-
-              // 5. Lựa chọn đối tượng học viên (Đồng bộ động từ portal_taxonomies)
-              _buildSectionHeader(context.tr('3. Bạn thuộc nhóm đối tượng nào?', '3. Which target group do you belong to?')),
-              const SizedBox(height: 10),
-              ...PortalSettingsService.instance.audienceCardsForEnrollment.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final data = entry.value;
-                final title = data['name'] as String? ?? '';
-                final subtitle = data['description'] as String? ?? '';
-                IconData ic = Icons.person_add_alt_1_rounded;
-                final iconName = data['icon_name'] as String? ?? '';
-                if (iconName == 'spa') ic = Icons.spa_outlined;
-                if (iconName == 'medical_services') ic = Icons.medical_services_outlined;
-                if (iconName == 'favorite') ic = Icons.favorite_border_rounded;
-                if (iconName == 'briefcase') ic = Icons.work_outline_rounded;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _buildTargetGroupCard(
-                    index: idx,
-                    title: title,
-                    subtitle: subtitle,
-                    icon: ic,
-                  ),
-                );
-              }),
-              const SizedBox(height: 10),
-
-
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -782,14 +905,25 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: AcademyColors.heading,
-      ),
+  Widget _buildSectionHeader(String title, {IconData? icon, Widget? trailing}) {
+    return Row(
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 18, color: AppColors.primary),
+          const SizedBox(width: 8),
+        ],
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AcademyColors.heading,
+            ),
+          ),
+        ),
+        if (trailing != null) trailing,
+      ],
     );
   }
 
@@ -812,28 +946,40 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
             color: AcademyColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
+        const SizedBox(height: 5),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          validator: validator,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: AcademyColors.textPrimary,
           ),
-          child: TextFormField(
-            controller: controller,
-            keyboardType: keyboardType,
-            validator: validator,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AcademyColors.textPrimary,
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: hint,
+            hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+            prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 18, color: const Color(0xFF64748B)) : null,
+            prefixIconConstraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
             ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: const TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
-              prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 18, color: Colors.grey[500]) : null,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              border: InputBorder.none,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red),
             ),
           ),
         ),
@@ -841,7 +987,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     );
   }
 
-  Widget _buildTargetGroupCard({
+  Widget _buildTargetGroupOption({
     required int index,
     required String title,
     required String subtitle,
@@ -851,14 +997,14 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
 
     return InkWell(
       onTap: () => setState(() => _selectedTargetGroup = index),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFFFBEB) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AcademyColors.cardBorder,
+            color: isSelected ? AppColors.accent : const Color(0xFFE2E8F0),
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
@@ -866,15 +1012,15 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary.withValues(alpha: 0.15) : const Color(0xFFF3F4F6),
+                color: isSelected ? AppColors.accent.withValues(alpha: 0.15) : const Color(0xFFE2E8F0),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 icon,
-                size: 20,
-                color: isSelected ? AppColors.primary : const Color(0xFF6B7280),
+                size: 18,
+                color: isSelected ? AppColors.accent : const Color(0xFF64748B),
               ),
             ),
             const SizedBox(width: 12),
@@ -885,12 +1031,12 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w700,
-                      color: isSelected ? AppColors.primary : AcademyColors.textPrimary,
+                      color: isSelected ? AppColors.accent : AcademyColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     subtitle,
                     style: const TextStyle(
@@ -905,7 +1051,7 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
             const SizedBox(width: 8),
             Icon(
               isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
-              color: isSelected ? AppColors.primary : Colors.grey[400],
+              color: isSelected ? AppColors.accent : const Color(0xFFCBD5E1),
               size: 20,
             ),
           ],

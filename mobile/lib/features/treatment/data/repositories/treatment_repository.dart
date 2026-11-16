@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/network/api_client.dart';
@@ -701,4 +700,105 @@ class TreatmentRepository {
   List<HomeCareArticleModel> getGuidelineArticles() => guidelineArticles;
   List<ChatMessageModel> getChatMessages() => chatMessages;
   List<TreatmentNotificationModel> getTreatmentNotifications() => notifications;
+
+  List<TreatmentNotificationModel> _buildDefaultNotifications() {
+    return [
+      TreatmentNotificationModel(
+        id: 'notif-default-01',
+        title: 'Chào mừng bạn đến với MLD Việt Nam! Hãy khám phá các liệu trình và khóa học chuyên sâu chuẩn Vodder quốc tế.',
+        timestamp: 'Vừa xong',
+        category: NotificationCategory.treatments,
+        iconType: 'leaf',
+        isRead: false,
+        dateGroup: 'Hôm nay',
+      ),
+      TreatmentNotificationModel(
+        id: 'notif-default-02',
+        title: 'Thông báo đào tạo: Khóa học Dẫn lưu bạch huyết Vodder chuẩn y khoa chuẩn bị mở lớp tại cơ sở đào tạo.',
+        timestamp: 'Hôm nay',
+        category: NotificationCategory.academy,
+        iconType: 'graduation',
+        isRead: false,
+        dateGroup: 'Hôm nay',
+      ),
+    ];
+  }
+
+  Future<List<TreatmentNotificationModel>> fetchNotifications() async {
+    final userId = AuthService.instance.currentUserId ?? MembershipRepository.instance.profile.id;
+    if (userId.isNotEmpty) {
+      try {
+        final res = await _apiClient.dio.get(
+          ApiEndpoints.notifications,
+          queryParameters: {
+            'user_id': 'eq.$userId',
+            'select': '*',
+            'order': 'created_at.desc',
+            'limit': 50,
+          },
+        );
+        if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
+          final list = (res.data as List).map((row) {
+            final type = (row['type']?.toString() ?? 'SYSTEM').toUpperCase();
+            NotificationCategory category = NotificationCategory.treatments;
+            String iconType = 'leaf';
+
+            if (type == 'APPOINTMENT' || type == 'BOOKING') {
+              category = NotificationCategory.appointments;
+              iconType = 'calendar';
+            } else if (type == 'ACADEMY' || type == 'COURSE' || type == 'SCHEDULE') {
+              category = NotificationCategory.academy;
+              iconType = 'graduation';
+            } else if (type == 'PROMOTION' || type == 'PROMO') {
+              category = NotificationCategory.treatments;
+              iconType = 'gift';
+            } else if (type == 'HOME_CARE_GUIDE' || type == 'TREATMENT') {
+              category = NotificationCategory.treatments;
+              iconType = 'leaf';
+            }
+
+            final rawCreated = row['created_at']?.toString() ?? '';
+            DateTime parsedDate = DateTime.now();
+            try {
+              parsedDate = DateTime.parse(rawCreated);
+            } catch (_) {}
+
+            final timeStr = '${parsedDate.hour.toString().padLeft(2, '0')}:${parsedDate.minute.toString().padLeft(2, '0')}';
+            final dateStr = '${parsedDate.day.toString().padLeft(2, '0')}/${parsedDate.month.toString().padLeft(2, '0')}/${parsedDate.year}';
+            final now = DateTime.now();
+            final isToday = parsedDate.year == now.year && parsedDate.month == now.month && parsedDate.day == now.day;
+            final isYesterday = parsedDate.year == now.year && parsedDate.month == now.month && parsedDate.day == now.day - 1;
+            final dateGroup = isToday
+                ? 'Hôm nay · $dateStr'
+                : (isYesterday ? 'Hôm qua · $dateStr' : 'Ngày $dateStr');
+
+            final title = row['title']?.toString() ?? 'Thông báo';
+            final msg = row['message']?.toString() ?? '';
+            final fullText = msg.isNotEmpty ? '$title: $msg' : title;
+
+            return TreatmentNotificationModel(
+              id: row['id']?.toString() ?? 'notif-${DateTime.now().millisecondsSinceEpoch}',
+              title: fullText,
+              timestamp: timeStr,
+              category: category,
+              iconType: iconType,
+              isRead: row['is_read'] == true,
+              dateGroup: dateGroup,
+            );
+          }).toList();
+
+          _notifications.clear();
+          _notifications.addAll(list);
+          return notifications;
+        }
+      } catch (e) {
+        debugPrint('>>> [TreatmentRepository] Error loading notifications: $e');
+      }
+    }
+
+    if (_notifications.isEmpty) {
+      _notifications.addAll(_buildDefaultNotifications());
+    }
+    return notifications;
+  }
 }
