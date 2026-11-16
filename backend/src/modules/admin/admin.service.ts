@@ -1278,6 +1278,7 @@ export class AdminService {
         data.student_name = enrollment.student_name;
         data.course_title = enrollment.course_title;
         data.status = 'DRAFT';
+        data.final_grade = 'CHƯA XẾP LOẠI';
         data.qr_verification_code = randomUUID();
       }
     }
@@ -2270,20 +2271,33 @@ export class AdminService {
             [row.enrollment_id],
           )
         ).rows[0];
-        const theoryScore = Number(record?.theory_score ?? row.theory_score ?? 10);
-        const practicalScore = Number(record?.practical_score ?? row.practical_score ?? 10);
-        const average = (theoryScore + practicalScore) / 2;
-        const grade = average >= 9 ? 'XUẤT SẮC' : average >= 8 ? 'GIỎI' : average >= 7 ? 'KHÁ' : 'ĐẠT';
+        const enrollment = (
+          await client.query(
+            'SELECT * FROM course_enrollments WHERE id=$1 FOR UPDATE',
+            [row.enrollment_id],
+          )
+        ).rows[0];
+        if (
+          !enrollment ||
+          enrollment.student_id !== row.student_id ||
+          enrollment.course_id !== row.course_id
+        )
+          throw new ConflictException(
+            'Học viên và khóa đào tạo phải khớp với hồ sơ ghi danh.',
+          );
+        const theory = record?.theory_score ?? null;
+        const practical = record?.practical_score ?? null;
+        const average = (Number(theory) + Number(practical)) / 2;
+        const grade = Number(theory) < 5 || Number(practical) < 5 ? 'CHƯA XẾP LOẠI'
+          : average >= 9 ? 'XUẤT SẮC' : average >= 8 ? 'GIỎI' : average >= 7 ? 'KHÁ' : 'ĐẠT';
         await client.query(
           "UPDATE student_certificates SET status='ISSUED',issue_date=(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,theory_score=$2,practical_score=$3,final_grade=$4 WHERE id=$1",
-          [row.id, theoryScore, practicalScore, grade],
+          [row.id, theory, practical, grade],
         );
-        if (record) {
-          await client.query(
-            'UPDATE student_academic_records SET certificate_id=$2, is_graduated=true WHERE enrollment_id=$1',
-            [row.enrollment_id, row.id],
-          );
-        }
+        await client.query(
+          'UPDATE student_academic_records SET certificate_id=$2 WHERE enrollment_id=$1',
+          [row.enrollment_id, row.id],
+        );
       } else if (table === 'student_certificates' && body.action === 'revoke') {
         if (row.status !== 'ISSUED' || !body.reason?.trim())
           throw new BadRequestException(
