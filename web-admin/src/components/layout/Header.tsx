@@ -22,7 +22,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useAdmin } from '../../admin/Auth';
-import { notificationService, branchService, AdminNotification } from '../../services';
+import { notificationService, branchService, AdminNotification, getNotificationDestination } from '../../services';
 import { Branch } from '../../types/shared_types';
 
 export interface HeaderProps {
@@ -201,63 +201,24 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
 
   const handleItemClick = (item: AdminNotification) => {
     notificationService.markAsRead(item.id);
+    setShowNotifications(false);
+    setSelectedNotifDetail(null);
 
-    // Xử lý thông báo thanh toán POS hoặc Hóa đơn
-    if (
-      item.type === 'PAYMENT' ||
-      item.link?.includes('/cashier-pos') ||
-      item.title?.toLowerCase().includes('thanh toán') ||
-      item.title?.toLowerCase().includes('hóa đơn')
-    ) {
-      const hdMatch = item.message.match(/HD-[\w\d-]+/i) || item.title?.match(/HD-[\w\d-]+/i);
-      const bkMatch = item.message.match(/BK-[\w\d-]+/i) || item.title?.match(/BK-[\w\d-]+/i);
-      const invoiceCode = hdMatch ? hdMatch[0] : '';
-      const bookingCode = bkMatch ? bkMatch[0] : '';
-
-      if (invoiceCode || bookingCode) {
-        window.dispatchEvent(
-          new CustomEvent('mld_open_pos_receipt', { detail: { invoiceCode, bookingCode } })
-        );
-        const query = invoiceCode ? `invoice=${invoiceCode}&receipt=true` : `booking=${bookingCode}&receipt=true`;
-        navigate(`/cashier-pos?${query}`);
-      } else {
-        navigate('/cashier-pos');
+    const destination = getNotificationDestination(item);
+    if (destination) {
+      if (destination.includes('/cashier-pos') && destination.includes('receipt=true')) {
+        const invoiceMatch = destination.match(/invoice=([^&]+)/);
+        const bookingMatch = destination.match(/booking=([^&]+)/);
+        const invoiceCode = invoiceMatch ? decodeURIComponent(invoiceMatch[1]) : '';
+        const bookingCode = bookingMatch ? decodeURIComponent(bookingMatch[1]) : '';
+        if (invoiceCode || bookingCode) {
+          window.dispatchEvent(
+            new CustomEvent('mld_open_pos_receipt', { detail: { invoiceCode, bookingCode } })
+          );
+        }
       }
-      setShowNotifications(false);
-      setSelectedNotifDetail(null);
-      return;
+      navigate(destination);
     }
-
-    // Xử lý thông báo lịch hẹn KTV
-    if (
-      item.type === 'BOOKING' ||
-      item.link?.includes('/staff-schedule') ||
-      item.title?.toLowerCase().includes('lịch')
-    ) {
-      const bkMatch = item.message.match(/BK-[\w\d-]+/i);
-      const bookingCode = bkMatch ? bkMatch[0] : '';
-      navigate(`/staff-schedule?booking=${bookingCode}`);
-      setShowNotifications(false);
-      setSelectedNotifDetail(null);
-      return;
-    }
-
-    // Nếu có link thông thường
-    if (item.link) {
-      navigate(item.link);
-      setShowNotifications(false);
-      setSelectedNotifDetail(null);
-      return;
-    }
-
-    // Mặc định: mở modal xem chi tiết thông báo
-    setSelectedNotifDetail(item);
-  };
-
-  const handleOpenDetailModal = (e: React.MouseEvent, item: AdminNotification) => {
-    e.stopPropagation();
-    notificationService.markAsRead(item.id);
-    setSelectedNotifDetail(item);
   };
 
   const handleMarkAllRead = () => {
