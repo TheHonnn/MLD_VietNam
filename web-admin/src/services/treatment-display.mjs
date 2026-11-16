@@ -10,3 +10,9 @@ export function belongsToPackage(booking, customerId, packageId) {
   )?.[1];
   return Boolean(linked) && linked.toLowerCase() === packageId.toLowerCase();
 }
+
+export function availableTreatmentSessions(status, total, completed, expired) {
+  return status === 'ACTIVE' && !expired
+    ? Math.max(0, consumedSessions(total) - consumedSessions(completed))
+    : 0;
+}

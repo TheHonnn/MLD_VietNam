@@ -453,6 +453,26 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       expect(new Date(dbRow.expires_at).getTime()).toBeGreaterThan(new Date('2026-06-01').getTime());
     });
 
+    it('requires resolving only the linked open booking before cancelling a package', async () => {
+      const pkg = (await pg.query<any>(
+        "INSERT INTO user_packages(customer_id,package_id,total_sessions,status,expires_at) VALUES($1,$2,3,'ACTIVE',now()+interval '3 months') RETURNING id",
+        [customerOneId, packageDefId],
+      )).rows[0];
+      const booking = (await pg.query<any>(
+        `INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,base_total,final_price,qr_code_hash,status,special_notes)
+         VALUES('CANCEL-LINKED',$1,$2,CURRENT_DATE+1,'10:00','11:00',0,0,'cancel-linked-qr','CONFIRMED',$3) RETURNING id`,
+        [customerOneId, branchId, `[user_package_id=${pkg.id}]`],
+      )).rows[0];
+      const cancel = () => service.action('user_packages', superAdminActor, {
+        key: { id: pkg.id }, action: 'cancel', reason: 'Hủy theo yêu cầu khách hàng',
+      });
+      await expect(cancel()).rejects.toThrow('Gói còn lịch chưa xử lý');
+      await pg.query("UPDATE bookings SET status='CANCELLED' WHERE id=$1", [booking.id]);
+      await cancel();
+      const saved = await pg.query<any>('SELECT status FROM user_packages WHERE id=$1', [pkg.id]);
+      expect(saved.rows[0].status).toBe('CANCELLED');
+    });
+
     it('cancels a package with mandatory reason', async () => {
       const upkg = (await pg.query<any>(
         "INSERT INTO user_packages(customer_id, package_id, total_sessions, completed_sessions, status, expires_at) VALUES($1, $2, 5, 1, 'ACTIVE', NOW() + INTERVAL '3 months') RETURNING id",

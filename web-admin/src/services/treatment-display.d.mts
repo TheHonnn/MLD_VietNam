@@ -4,3 +4,10 @@ export function belongsToPackage(
   customerId: string,
   packageId: string,
 ): boolean;
+
+export function availableTreatmentSessions(
+  status: string,
+  total: unknown,
+  completed: unknown,
+  expired: boolean,
+): number;

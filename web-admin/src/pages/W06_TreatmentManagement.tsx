@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { consumedSessions, belongsToPackage } from '../services/treatment-display.mjs';
+import { consumedSessions, belongsToPackage, availableTreatmentSessions } from '../services/treatment-display.mjs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Leaf,
@@ -304,7 +304,6 @@ export const W06_TreatmentManagement: React.FC = () => {
       // Only the backend confirmed ledger determines consumed entitlements.
       const used = consumedSessions(up.completedSessions);
       const total = up.totalSessions || pkgDef?.totalSessions || 0;
-      const remaining = Math.max(0, total - used);
       const progressPercent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
       const expired = Boolean(up.expiresAt && new Date(up.expiresAt).getTime() <= Date.now());
       const effectiveStatus = up.status === 'PAUSED'
@@ -322,6 +321,8 @@ export const W06_TreatmentManagement: React.FC = () => {
         : total > 0 && used >= total
         ? 'COMPLETED'
         : up.status;
+
+      const remaining = availableTreatmentSessions(effectiveStatus, total, used, expired);
 
       const purchaseFormatted = up.purchasedAt
         ? new Intl.DateTimeFormat('vi-VN').format(new Date(up.purchasedAt))
@@ -453,7 +454,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         status: statusLabels[effectiveStatus] || '—',
         rawStatus: effectiveStatus || '',
         historySubtitle: `Hồ sơ liệu trình thực tế của ${cust?.fullName || 'khách hàng'}, đồng bộ trực tiếp từ Supabase Cloud.`,
-        historyNote: `Đã hoàn thành ${used}/${total} buổi. Còn lại ${remaining} buổi hợp lệ đến ${expiryFormatted}.`,
+        historyNote: `Đã hoàn thành ${used}/${total} buổi. ${remaining > 0 ? `Còn ${remaining} buổi có thể sử dụng đến ${expiryFormatted}.` : `Hiện không có buổi có thể sử dụng.`}`,
         sessionsHistory,
       };
     });
@@ -576,17 +577,21 @@ export const W06_TreatmentManagement: React.FC = () => {
     const journalBookingIds = new Set(liveJournals.map((journal) => journal.bookingId).filter(Boolean));
     return liveBookings
       .filter((booking) => {
-        if (booking.customerId !== selectedPkg.customerId || journalBookingIds.has(booking.id)) return false;
-        if (!selectedPkg.serviceId) return true;
-        return (booking.items || []).some((item) => item.serviceId === selectedPkg.serviceId);
+        return !journalBookingIds.has(booking.id) && belongsToPackage(booking, selectedPkg.customerId, selectedPkg.id);
       })
       .sort((a, b) => {
         const aTime = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
         const bTime = new Date(`${b.bookingDate}T${b.startTime || '00:00:00'}`).getTime();
         return bTime - aTime;
       });
-  }, [liveBookings, liveJournals, selectedPkg.customerId, selectedPkg.serviceId]);
+  }, [liveBookings, liveJournals, selectedPkg.customerId, selectedPkg.id]);
 
+  const openPackageBooking = selectedPackageBookings.find(booking =>
+    ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(booking.status))
+  );
+  const hasInServiceBooking = selectedPackageBookings.some(booking =>
+    String(booking.status) === 'IN_SERVICE' && booking.sessionStatus !== 'COMPLETED'
+  );
   const selectedSessionBooking = selectedPackageBookings.find((booking) => booking.id === selectedSessionBookingId);
 
   const totalActivePackages = packages.filter((p) => p.rawStatus === 'ACTIVE').length;
@@ -993,17 +998,10 @@ export const W06_TreatmentManagement: React.FC = () => {
             className="flex items-center gap-1.5 px-4 py-2.5 bg-white hover:bg-[#FAF8F5] text-[#8A4F23] border border-[#D7BBA6] text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>+ Đăng ký gói mới</span>
+            <span>Đăng ký gói mới</span>
           </button>
 
-          <button
-            type="button"
-            onClick={handleOpenBookModal}
-            className="flex items-center gap-1.5 px-5 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer whitespace-nowrap"
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Đặt buổi tiếp theo</span>
-          </button>
+
         </div>
       </div>
 
@@ -1038,7 +1036,7 @@ export const W06_TreatmentManagement: React.FC = () => {
             </span>
           </div>
           <div className="text-[11px] text-[#73675F] mt-2">
-            Tổng phác đồ: {(dashboardStats?.remainingSessions ?? totalRemainingSessions) + (dashboardStats?.usedSessions ?? totalUsedSessions)} buổi
+            Buổi khả dụng được tính từ các gói đang sử dụng.
           </div>
         </div>
 
@@ -1049,7 +1047,7 @@ export const W06_TreatmentManagement: React.FC = () => {
             <SlidersHorizontal className="w-4 h-4 text-[#8A4F23] stroke-[2]" />
           </div>
           <div className="text-[28px] font-extrabold text-[#2C241E] leading-none mt-2">
-            {dashboardStats?.upcomingBookings ?? 0}
+            {dashboardStats?.upcomingBookingsCount ?? 0}
             <span className="text-xs font-normal text-[#73675F] ml-1.5">lịch sắp tới</span>
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-[#73675F] mt-2">
@@ -1180,7 +1178,7 @@ export const W06_TreatmentManagement: React.FC = () => {
             {isLoading && <LoaderCircle className="w-4 h-4 text-[#985018] animate-spin" />}
           </div>
           <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-[#F5E9DB] text-[#8A4F23] whitespace-nowrap shrink-0">
-            {filteredPackages.length} gói hoạt động
+            {filteredPackages.length} gói
           </span>
         </div>
 
@@ -1354,17 +1352,17 @@ export const W06_TreatmentManagement: React.FC = () => {
                 {selectedPkg.historySubtitle}
               </p>
             </div>
-            {selectedPkg.remainingSessions > 0 && (
-              <button
-                type="button"
-                onClick={handleOpenBookModal}
-                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 bg-[#FAF0E4] hover:bg-[#F3E2CE] text-[#8A4F23] text-xs font-bold rounded-xl transition-colors cursor-pointer"
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>Xếp lịch buổi {selectedPkg.usedSessions + 1}</span>
-              </button>
-            )}
+
           </div>
+
+          {openPackageBooking && selectedPkg.rawStatus !== 'ACTIVE' && (
+            <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              Gói hiện không sử dụng được nhưng vẫn còn lịch chưa xử lý.
+              <button type="button" className="ml-2 underline" onClick={() => navigate(
+                `/staff-schedule?booking=${encodeURIComponent(openPackageBooking.bookingCode || openPackageBooking.id)}`
+              )}>Mở lịch hẹn</button>
+            </div>
+          )}
 
           {/* Session Cards List */}
           <div className="space-y-2.5 pt-1">
@@ -1426,7 +1424,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                             </button>
                           </>
                         )}
-                        {s.id && (
+                        {s.id && !s.isUpcoming && !s.isReversed && (
                           <button
                             type="button"
                             onClick={() => setShareModalJournal({
@@ -1573,7 +1571,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Còn sử dụng</span>
+                <span>Buổi có thể sử dụng</span>
                 <span className="font-semibold text-[#2C241E]">
                   {selectedPkg.remainingSessions} buổi
                 </span>
@@ -1647,7 +1645,8 @@ export const W06_TreatmentManagement: React.FC = () => {
 
             {selectedPkg.rawStatus === 'ACTIVE' && selectedPkg.remainingSessions > 0 && (
               <div className="space-y-2 pt-1">
-                <button
+                {!hasInServiceBooking ? (
+                  <button
                   type="button"
                   onClick={handleOpenBookModal}
                   className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
@@ -1655,6 +1654,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                   <Calendar className="w-4 h-4" />
                   <span>Đặt buổi tiếp theo ({selectedPkg.usedSessions + 1}/{selectedPkg.sessionsTotal})</span>
                 </button>
+                ) : (
                 <button
                   type="button"
                   onClick={handleOpenLogSessionModal}
@@ -1663,6 +1663,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                   <FileText className="w-4 h-4" />
                   <span>Ghi nhận ca đang phục vụ</span>
                 </button>
+                )}
               </div>
             )}
 
