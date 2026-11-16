@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 
 export class RequestPhoneOtpDto {
   @ApiProperty({
@@ -11,5 +11,12 @@ export class RequestPhoneOtpDto {
     message: 'Số điện thoại không đúng định dạng',
   })
   phone: string;
-}
 
+  @ApiPropertyOptional({
+    example: 'ZALO',
+    description: 'Kênh gửi mã OTP (SMS hoặc ZALO)',
+  })
+  @IsOptional()
+  @IsString()
+  channel?: string;
+}

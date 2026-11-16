@@ -168,8 +168,8 @@ export function SidebarItem({
             children.length ? 'pr-10' : ''
           } rounded-xl text-xs font-semibold transition-all duration-150 ${
             isParentActive || childActive
-              ? 'bg-[#EBF3FC] text-[#004890] shadow-xs'
-              : 'text-[#475569] hover:bg-[#F1F5F9] hover:text-[#004890]'
+              ? 'bg-[#EBF3FC] text-[#0F172A] font-bold shadow-xs'
+              : 'text-[#334155] hover:bg-[#F1F5F9] hover:text-[#0F172A]'
           }`}
         >
           <Icon
@@ -204,8 +204,8 @@ export function SidebarItem({
                 onClick={onNavigate}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-medium leading-normal transition-all ${
                   active
-                    ? 'bg-[#EBF3FC] text-[#004890] font-semibold shadow-2xs'
-                    : 'text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#004890]'
+                    ? 'bg-[#EBF3FC] text-[#0F172A] font-bold shadow-2xs'
+                    : 'text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]'
                 }`}
               >
                 <span

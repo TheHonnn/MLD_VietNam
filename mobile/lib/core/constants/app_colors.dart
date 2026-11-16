@@ -58,12 +58,11 @@ class AppColors {
     end: Alignment.bottomRight,
   );
 
-  // Text & Typography
-  static const Color textHeading = Color(0xFF004890); // Medical Navy Heading #004890
-  static const Color textPrimary = Color(0xFF344454); // Slate Charcoal Body #344454 (Chống mỏi mắt)
-  static const Color textSecondary = Color(0xFF607080); // Muted Steel Gray #607080
-  static const Color textPlaceholder = Color(0xFF94A3B8); // Slate Placeholder #94A3B8
-  static const Color textInverse = Color(0xFFFFFFFF); // White text
+  static const Color textHeading = Color(0xFF111827);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF4B5563);
+  static const Color textPlaceholder = Color(0xFF9CA3AF);
+  static const Color textInverse = Color(0xFFFFFFFF);
 
   // Status & Utility Accents
   static const Color success = Color(0xFF208C58);

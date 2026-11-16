@@ -572,7 +572,9 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                             width: 64,
                             height: 64,
                             decoration: BoxDecoration(
-                              color: isZalo ? const Color(0xFFEBF3FF) : AppColors.surfaceSecondary,
+                              color: isZalo
+                                  ? const Color(0xFFEBF3FF)
+                                  : (_isEmail ? const Color(0xFFFEF2F2) : AppColors.surfaceSecondary),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Center(
@@ -590,7 +592,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                                   : Icon(
                                       iconData,
                                       size: 28,
-                                      color: AppColors.primary,
+                                      color: _isEmail ? const Color(0xFFDC2626) : AppColors.primary,
                                     ),
                             ),
                           ),
@@ -666,6 +668,36 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                           ],
 
                           if (_isEmail) ...[
+                            const SizedBox(height: 12),
+                            InkWell(
+                              onTap: () => AppLauncherHelper.openWebUrl(context, 'https://mail.google.com'),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFFECACA)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.mail_outline_rounded, size: 18, color: Color(0xFFDC2626)),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Mở Gmail để xem mã',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFFDC2626),
+                                      ),
+                                    ),
+                                    SizedBox(width: 6),
+                                    Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFFDC2626)),
+                                  ],
+                                ),
+                              ),
+                            ),
                             const SizedBox(height: 8),
                             const Text(
                               '💡 Lưu ý: Vui lòng kiểm tra cả mục Thư rác (Spam) hoặc Quảng cáo nếu không thấy thư trong Hộp thư đến.',
