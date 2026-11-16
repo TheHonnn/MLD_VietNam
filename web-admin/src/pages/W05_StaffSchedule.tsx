@@ -1,4 +1,4 @@
-import { adminApi } from '../admin/api';
+import { adminApi, adminCommand } from '../admin/api';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -847,6 +847,53 @@ export const W05_StaffSchedule: React.FC = () => {
     app: ScheduleAppointment;
     checkResult: ScheduleValidationResult;
   } | null>(null);
+  const [earlierOptions, setEarlierOptions] = useState<{
+    date: string;
+    originalSlot: string;
+    slots: (Slot & { roomId: string })[];
+  } | null>(null);
+  const [earlierIndex, setEarlierIndex] = useState('');
+  const [earlierBusy, setEarlierBusy] = useState(false);
+  const [earlierError, setEarlierError] = useState('');
+
+  const findEarlierSlots = async (app: ScheduleAppointment) => {
+    setEarlierBusy(true);
+    setEarlierError('');
+    setEarlierOptions(null);
+    setEarlierIndex('');
+    try {
+      setEarlierOptions(await adminCommand<NonNullable<typeof earlierOptions>>(
+        `staff-schedule/${encodeURIComponent(app.id)}/earlier`,
+      ));
+    } catch (error) {
+      setEarlierError(error instanceof Error ? error.message : 'Không tải được khung giờ trống.');
+    } finally {
+      setEarlierBusy(false);
+    }
+  };
+
+  const saveEarlierSlot = async (app: ScheduleAppointment) => {
+    const slot = earlierIndex === '' ? undefined : earlierOptions?.slots[Number(earlierIndex)];
+    if (!slot || !earlierOptions || earlierBusy) return;
+    setEarlierBusy(true);
+    setEarlierError('');
+    try {
+      const booking = await adminCommand<{ date: string; start: string; end: string }>(
+        `staff-schedule/${encodeURIComponent(app.id)}/earlier`,
+        { start: slot.start, technicianId: slot.technicianId, roomId: slot.roomId, bed: slot.bed, originalSlot: earlierOptions.originalSlot },
+      );
+      setValidationModalApp(null);
+      await fetchScheduleData();
+      setSearchParams({ appId: app.id, date: booking.date, ...(app.branchId ? { branchId: app.branchId } : {}) }, { replace: true });
+      toast.success('Đã chuyển lịch sớm', `Giờ mới ${booking.start}–${booking.end} hôm nay. Check-in khi khách đến và bắt đầu đúng giờ mới.`);
+    } catch (error) {
+      setEarlierOptions(null);
+      setEarlierIndex('');
+      setEarlierError(error instanceof Error ? error.message : 'Chưa xác nhận được thay đổi. Kiểm tra lại lịch.');
+    } finally {
+      setEarlierBusy(false);
+    }
+  };
 
   // Reception check-in is deliberately separate from starting the service.
   const handleCheckIn = (app: ScheduleAppointment) => {
@@ -855,7 +902,10 @@ export const W05_StaffSchedule: React.FC = () => {
       setValidationModalApp({ app, checkResult });
       return;
     }
-    if (checkResult.isEarlyDate) {
+    if (checkResult.isEarlyDate || checkResult.isEarlyTime) {
+      setEarlierOptions(null);
+      setEarlierIndex('');
+      setEarlierError('');
       setValidationModalApp({ app, checkResult });
       return;
     }
@@ -2647,6 +2697,7 @@ export const W05_StaffSchedule: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setValidationModalApp(null)}
+                disabled={earlierBusy}
                 className="p-1.5 rounded-full text-[#8C7A6B] hover:text-[#2C241E] hover:bg-[#F4ECE3] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -2752,15 +2803,41 @@ export const W05_StaffSchedule: React.FC = () => {
                     <span>Đặt lịch hẹn mới hôm nay cho khách</span>
                   </button>
                 </>
-              ) : validationModalApp.checkResult.isEarlyDate ? (
+              ) : (validationModalApp.checkResult.isEarlyDate || validationModalApp.checkResult.isEarlyTime) ? (
                 <>
+                  {earlierError && <p role="alert" className="text-xs text-red-700">{earlierError}</p>}
+                  {earlierOptions && (
+                    earlierOptions.slots.length ? (
+                      <label className="space-y-1.5 text-xs font-semibold text-[#2C241E]">
+                        Chọn giờ phục vụ hôm nay
+                        <select
+                          value={earlierIndex}
+                          onChange={event => setEarlierIndex(event.target.value)}
+                          disabled={earlierBusy}
+                          className="block w-full rounded-xl border border-[#E8DFD8] bg-white p-2.5"
+                        >
+                          <option value="">Chọn giờ, kỹ thuật viên và giường</option>
+                          {earlierOptions.slots.map((slot, index) => (
+                            <option key={`${slot.start}-${slot.technicianId}`} value={index}>
+                              {slot.start}–{slot.end} · {slot.technicianName} · {slot.roomName} / {slot.bed}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : <p role="status" className="text-xs text-[#73675F]">Hôm nay chưa có giờ trống sớm hơn lịch đã đặt.</p>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setValidationModalApp(null)}
+                    disabled={earlierBusy || (!!earlierOptions?.slots.length && earlierIndex === '')}
+                    onClick={() => earlierOptions?.slots.length ? void saveEarlierSlot(validationModalApp.app) : void findEarlierSlots(validationModalApp.app)}
                     className="w-full py-2.5 bg-[#8A4F23] hover:bg-[#723F1A] text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                   >
                     <Calendar className="w-4 h-4" />
-                    <span>Đóng và giữ nguyên ngày hẹn</span>
+                    <span>{earlierBusy ? 'Đang xử lý…' : earlierOptions?.slots.length ? 'Xác nhận chuyển lịch' : 'Tìm giờ trống hôm nay'}</span>
+                  </button>
+                  <button type="button" disabled={earlierBusy} onClick={() => setValidationModalApp(null)}
+                    className="rounded-xl border border-[#E8DFD8] py-2 text-xs font-semibold">
+                    Giữ nguyên lịch hẹn
                   </button>
 
                 </>
