@@ -153,7 +153,10 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 );
               }
             },
-            child: Text(context.tr('Đăng xuất', 'Sign Out')),
+            child: Text(
+              context.tr('Đăng xuất', 'Sign Out'),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),

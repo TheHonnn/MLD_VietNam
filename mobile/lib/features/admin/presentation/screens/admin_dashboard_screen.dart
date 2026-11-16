@@ -231,20 +231,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           if (widget.onLogout != null) ...[
             const SizedBox(width: 4),
-            IconButton(
-              tooltip: 'Đăng xuất quản trị',
-              onPressed: widget.onLogout,
-              icon: Container(
-                width: 38,
-                height: 38,
+            InkWell(
+              onTap: widget.onLogout,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF1F2),
-                  borderRadius: BorderRadius.circular(10),
+                  color: const Color(0xFFE11D48),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.logout_rounded,
-                  color: Color(0xFFE11D48),
-                  size: 20,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.logout_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Đăng xuất',
+                      style: AppTypography.zaloFont(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
