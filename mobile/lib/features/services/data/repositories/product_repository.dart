@@ -112,20 +112,26 @@ class ProductRepository {
     List<String> details = const [],
     int sortOrder = 100,
     String? imageUrl,
+    bool isActive = true,
   }) async {
     try {
+      final cleanDetails = List<String>.from(details)..remove('STATUS:INACTIVE');
+      if (!isActive) {
+        cleanDetails.add('STATUS:INACTIVE');
+      }
+      final payload = <String, dynamic>{
+        'name': name,
+        'category': category,
+        'price_min': priceMin,
+        'price_max': priceMax,
+        'unit': unit,
+        'details': cleanDetails,
+        'sort_order': sortOrder,
+        if (imageUrl != null && imageUrl.isNotEmpty) 'image_url': imageUrl,
+      };
       final res = await _apiClient.dio.post(
         '/rest/v1/home_products',
-        data: {
-          'name': name,
-          'category': category,
-          'price_min': priceMin,
-          'price_max': priceMax,
-          'unit': unit,
-          'details': details,
-          'sort_order': sortOrder,
-          if (imageUrl != null && imageUrl.isNotEmpty) 'image_url': imageUrl,
-        },
+        data: payload,
       );
       if (res.statusCode == 201 || res.statusCode == 200) {
         await getProducts(forceRefresh: true);
@@ -138,7 +144,6 @@ class ProductRepository {
     }
   }
 
-  /// Admin: Cập nhật sản phẩm
   Future<bool> updateProduct(String id, Map<String, dynamic> data) async {
     try {
       final res = await _apiClient.dio.patch(
@@ -154,6 +159,41 @@ class ProductRepository {
       debugPrint('[ProductRepository] updateProduct error: $e');
       return false;
     }
+  }
+
+  Future<bool> toggleProductActive(HomeProductModel product, bool isActive) async {
+    final updatedDetails = List<String>.from(product.details)..remove('STATUS:INACTIVE');
+    if (!isActive) {
+      updatedDetails.add('STATUS:INACTIVE');
+    }
+
+    try {
+      final res = await _apiClient.dio.patch(
+        '/rest/v1/home_products?id=eq.${product.id}',
+        data: {
+          'is_active': isActive,
+          'details': updatedDetails,
+        },
+      );
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        await getProducts(forceRefresh: true);
+        return true;
+      }
+    } catch (_) {
+      try {
+        final res = await _apiClient.dio.patch(
+          '/rest/v1/home_products?id=eq.${product.id}',
+          data: {
+            'details': updatedDetails,
+          },
+        );
+        if (res.statusCode == 200 || res.statusCode == 204) {
+          await getProducts(forceRefresh: true);
+          return true;
+        }
+      } catch (_) {}
+    }
+    return false;
   }
 
   /// Admin: Xóa sản phẩm

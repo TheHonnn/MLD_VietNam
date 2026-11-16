@@ -116,7 +116,6 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       _isLoadingBranches = false;
       _nameController.text = 'Khách hàng MLD';
       _phoneController.text = '0967786399';
-      _emailController.text = 'khachhang@mldvietnam.vn';
       _addressController.text = '123 Nguyễn Thị Minh Khai, Q.3, TP.HCM';
     } else {
       _loadBranchesAndUser();
@@ -198,7 +197,6 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
               ? userName
               : (profile.fullName.isNotEmpty ? profile.fullName : '');
           if (profile.phone.isNotEmpty) _phoneController.text = profile.phone;
-          if (profile.email.isNotEmpty) _emailController.text = profile.email;
           if (profile.address.isNotEmpty) _addressController.text = profile.address;
         }
       });
@@ -224,9 +222,8 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
         _nameController.text = (profile.fullName.isNotEmpty && profile.fullName != 'Khách hàng' && profile.fullName != 'Khách hàng MLD')
             ? profile.fullName
             : '';
-        _phoneController.clear();
-        _emailController.clear();
-        _addressController.clear();
+        if (profile.phone.isNotEmpty) _phoneController.text = profile.phone;
+        if (profile.address.isNotEmpty) _addressController.text = profile.address;
       } else {
         _nameController.clear();
         _phoneController.clear();
@@ -1403,6 +1400,31 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       children: [
                         Expanded(
                           child: TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            style: const TextStyle(fontSize: 14.5),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              labelText: context.tr('Email', 'Email'),
+                              labelStyle: const TextStyle(fontSize: 13.5),
+                              prefixIcon: const Icon(Icons.email_outlined, size: 19),
+                              prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            validator: (val) {
+                              if (val != null && val.trim().isNotEmpty) {
+                                if (!val.contains('@') || !val.contains('.')) {
+                                  return context.tr('Email sai', 'Invalid email');
+                                }
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
                             controller: _addressController,
                             style: const TextStyle(fontSize: 14.5),
                             decoration: InputDecoration(
@@ -1416,23 +1438,21 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _noteController,
-                            style: const TextStyle(fontSize: 14.5),
-                            decoration: InputDecoration(
-                              isDense: true,
-                              labelText: context.tr('Ghi chú', 'Notes'),
-                              labelStyle: const TextStyle(fontSize: 13.5),
-                              prefixIcon: const Icon(Icons.note_alt_outlined, size: 19),
-                              prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _noteController,
+                      style: const TextStyle(fontSize: 14.5),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        labelText: context.tr('Ghi chú / Yêu cầu đặc biệt', 'Notes / Special Requests'),
+                        labelStyle: const TextStyle(fontSize: 13.5),
+                        prefixIcon: const Icon(Icons.note_alt_outlined, size: 19),
+                        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
                   ],
                 ),

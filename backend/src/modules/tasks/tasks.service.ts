@@ -566,4 +566,110 @@ export class TasksService {
     }
   }
 
+  @Cron('0 8 * * *')
+  async handleClassScheduleReminders(): Promise<void> {
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      const { data: schedules, error: schErr } = await this.supabaseService.adminClient
+        .from('batch_schedules')
+        .select(`
+          id,
+          batch_id,
+          session_date,
+          start_time,
+          end_time,
+          topic,
+          is_practice_lab,
+          course_batches (
+            id,
+            batch_code,
+            name,
+            branches (name, address)
+          ),
+          branch_rooms (name)
+        `)
+        .eq('session_date', tomorrowStr);
+
+      if (schErr || !schedules || schedules.length === 0) return;
+
+      for (const sch of schedules) {
+        const batch = (sch as any).course_batches;
+        if (!batch) continue;
+
+        const { data: enrollments } = await this.supabaseService.adminClient
+          .from('course_enrollments')
+          .select('id, student_id, student_name, student_email, users:student_id(email, full_name)')
+          .eq('batch_id', sch.batch_id)
+          .in('student_status', ['APPROVED', 'ENROLLED']);
+
+        if (!enrollments || enrollments.length === 0) continue;
+
+        const roomName = (sch as any).branch_rooms?.name || 'Phòng thực hành Vodder';
+        const branchAddress = batch.branches?.address || 'Trụ sở đào tạo MLD Việt Nam';
+        const batchCode = batch.batch_code || 'MLD-BATCH';
+        const timeRange = `${String(sch.start_time).slice(0, 5)} - ${String(sch.end_time).slice(0, 5)}`;
+
+        for (const enr of enrollments) {
+          const studentId = enr.student_id;
+          if (studentId) {
+            const { data: existingNotif } = await this.supabaseService.adminClient
+              .from('notifications')
+              .select('id')
+              .eq('user_id', studentId)
+              .contains('data', { schedule_id: sch.id })
+              .limit(1)
+              .maybeSingle();
+
+            if (!existingNotif) {
+              await this.supabaseService.adminClient.from('notifications').insert({
+                user_id: studentId,
+                title: `Nhắc lịch học ngày mai: ${sch.topic}`,
+                message: `Lớp ${batchCode} có lịch học vào ngày mai lúc ${timeRange} tại ${roomName}. Quý học viên vui lòng có mặt đúng giờ!`,
+                type: 'ACADEMY',
+                data: {
+                  schedule_id: sch.id,
+                  batch_id: sch.batch_id,
+                  date: sch.session_date,
+                  time: timeRange,
+                  topic: sch.topic,
+                },
+              });
+            }
+          }
+
+          const studentEmail = enr.student_email || (enr as any).users?.email;
+          const studentName = enr.student_name || (enr as any).users?.full_name || 'Học viên';
+          if (studentEmail && studentEmail.includes('@')) {
+            const { data: existingLog } = await this.supabaseService.adminClient
+              .from('email_logs')
+              .select('id')
+              .eq('recipient_email', studentEmail)
+              .contains('metadata', { schedule_id: sch.id })
+              .eq('status', 'SENT')
+              .limit(1)
+              .maybeSingle();
+
+            if (!existingLog) {
+              await this.emailService.sendPracticeScheduleEmail({
+                to: studentEmail,
+                studentName,
+                batchCode,
+                sessionTopic: sch.topic,
+                sessionDate: sch.session_date,
+                sessionTime: timeRange,
+                roomName,
+                instructorName: 'Giảng viên Vodder MLD',
+                branchAddress,
+              });
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Lỗi trong cron nhắc lịch học: ${err.message}`);
+    }
+  }
 }

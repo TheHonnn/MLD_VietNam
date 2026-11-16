@@ -181,37 +181,26 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.82,
+      ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Thanh kéo
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE5E7EB),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Tiêu đề
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -231,7 +220,9 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                const Divider(color: Color(0xFFE5E7EB)),
+                const SizedBox(height: 12),
 
                 // 1. Tên gói
                 Text(
@@ -659,30 +650,30 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                 ),
                 const SizedBox(height: 20),
 
-                // Nút Lưu
                 SizedBox(
                   width: double.infinity,
-                  height: 44,
+                  height: 46,
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _submit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00693F),
-                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFFE8F6ED),
+                      foregroundColor: const Color(0xFF00693F),
                       elevation: 0,
+                      side: const BorderSide(color: Color(0xFF00693F), width: 1.2),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     child: _isSaving
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            child: CircularProgressIndicator(color: Color(0xFF00693F), strokeWidth: 2),
                           )
                         : Text(
-                            isEdit ? 'Lưu thay đổi gói bổ trợ' : 'Tạo mới gói bổ trợ',
+                            isEdit ? 'Lưu thay đổi gói bổ trợ' : 'Xác nhận tạo mới gói',
                             style: AppTypography.zaloFont(
-                              fontSize: 13.5,
+                              fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                              color: const Color(0xFF00693F),
                             ),
                           ),
                   ),

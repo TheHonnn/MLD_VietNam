@@ -8,7 +8,6 @@ import '../../../services/data/repositories/product_repository.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../widgets/service_form_sheet.dart';
-import '../widgets/course_form_sheet.dart';
 import '../widgets/package_form_sheet.dart';
 import '../widgets/product_form_sheet.dart';
 import '../../../../core/services/top_notification_service.dart';
@@ -188,74 +187,95 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
     }
   }
 
+  Future<void> _handleToggleProduct(HomeProductModel p) async {
+    final nextStatus = !p.isActive;
+    setState(() => _togglingId = p.id);
+
+    final success = await ProductRepository.instance.toggleProductActive(p, nextStatus);
+    if (mounted) {
+      setState(() => _togglingId = null);
+      if (success) {
+        TopNotificationService.showSuccess(
+          title: 'Cập nhật sản phẩm',
+          message: nextStatus
+              ? 'Đã mở bán sản phẩm "${p.name}"'
+              : 'Đã tạm dừng bán sản phẩm "${p.name}"',
+        );
+        _fetchData();
+      } else {
+        TopNotificationService.showError(
+          message: 'Lỗi cập nhật trạng thái sản phẩm. Vui lòng thử lại.',
+        );
+      }
+    }
+  }
+
   void _openServiceForm([AdminServiceModel? service]) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => ServiceFormSheet(
-        service: service,
-        onSaved: () {
-          TopNotificationService.showSuccess(
-            title: 'Thành công',
-            message: service != null ? 'Đã lưu thay đổi dịch vụ!' : 'Đã tạo mới dịch vụ thành công!',
-          );
-          _fetchData();
-        },
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: ServiceFormSheet(
+          service: service,
+          onSaved: () {
+            TopNotificationService.showSuccess(
+              title: 'Thành công',
+              message: service != null ? 'Đã lưu thay đổi dịch vụ!' : 'Đã tạo mới dịch vụ thành công!',
+            );
+            _fetchData();
+          },
+        ),
       ),
     );
   }
 
   void _openCourseForm([AdminCourseModel? course]) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => CourseFormSheet(
-        course: course,
-        onSaved: () {
-          TopNotificationService.showSuccess(
-            title: 'Thành công',
-            message: course != null ? 'Đã lưu thay đổi khóa học!' : 'Đã tạo mới khóa học thành công!',
-          );
-          _fetchData();
-        },
-      ),
+    TopNotificationService.showInfo(
+      title: 'Quản lý khóa học',
+      message: 'Chương trình đào tạo và video bài giảng được quản lý trực tiếp trên Web Admin.',
     );
   }
 
   void _openPackageForm([AdminTreatmentPackageModel? package]) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => PackageFormSheet(
-        package: package,
-        onSaved: () {
-          TopNotificationService.showSuccess(
-            title: 'Thành công',
-            message: package != null ? 'Đã lưu thay đổi gói bổ trợ!' : 'Đã tạo mới gói bổ trợ thành công!',
-          );
-          _fetchData();
-        },
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: PackageFormSheet(
+          package: package,
+          onSaved: () {
+            TopNotificationService.showSuccess(
+              title: 'Thành công',
+              message: package != null ? 'Đã lưu thay đổi gói bổ trợ!' : 'Đã tạo mới gói bổ trợ thành công!',
+            );
+            _fetchData();
+          },
+        ),
       ),
     );
   }
 
   void _openProductForm([HomeProductModel? product]) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => ProductFormSheet(
-        product: product,
-        onSaved: () {
-          TopNotificationService.showSuccess(
-            title: 'Thành công',
-            message: product != null ? 'Đã lưu thay đổi sản phẩm!' : 'Đã tạo mới sản phẩm thành công!',
-          );
-          _fetchData();
-        },
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: ProductFormSheet(
+          product: product,
+          onSaved: () {
+            TopNotificationService.showSuccess(
+              title: 'Thành công',
+              message: product != null ? 'Đã lưu thay đổi sản phẩm!' : 'Đã tạo mới sản phẩm thành công!',
+            );
+            _fetchData();
+          },
+        ),
       ),
     );
   }
@@ -405,42 +425,52 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           ],
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                if (_selectedSegment == 0) {
-                  _openServiceForm();
-                } else if (_selectedSegment == 1) {
-                  _openPackageForm();
-                } else if (_selectedSegment == 2) {
-                  _openCourseForm();
-                } else {
-                  _openProductForm();
-                }
-              },
-              icon: const Icon(Icons.add_rounded, size: 16),
-              label: Text(
-                _selectedSegment == 0
-                    ? 'Thêm DV'
-                    : _selectedSegment == 1
-                        ? 'Thêm gói'
-                        : _selectedSegment == 2
-                            ? 'Thêm khóa'
-                            : 'Thêm SP',
-                style: AppTypography.zaloFont(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00693F),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  minimumSize: const Size(0, 34),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          if (_selectedSegment != 2)
+            Padding(
+              padding: const EdgeInsets.only(right: 14),
+              child: GestureDetector(
+                onTap: () {
+                  if (_selectedSegment == 0) {
+                    _openServiceForm();
+                  } else if (_selectedSegment == 1) {
+                    _openPackageForm();
+                  } else if (_selectedSegment == 3) {
+                    _openProductForm();
+                  }
+                },
+                child: Container(
+                  height: 30,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F6ED),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFF00693F).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.add_rounded,
+                        color: Color(0xFF00693F),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _selectedSegment == 0
+                            ? 'Thêm DV'
+                            : _selectedSegment == 1
+                                ? 'Thêm gói'
+                                : 'Thêm SP',
+                        style: const TextStyle(
+                          color: Color(0xFF00693F),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1050,6 +1080,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
       itemCount: _filteredProducts.length,
       itemBuilder: (ctx, index) {
         final p = _filteredProducts[index];
+        final isToggling = _togglingId == p.id;
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
@@ -1088,21 +1119,43 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            p.category,
-                            style: AppTypography.zaloFont(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary),
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                p.category,
+                                style: AppTypography.zaloFont(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary),
+                              ),
+                            ),
+                            if (!p.isActive) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEE2E2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Tạm dừng',
+                                  style: AppTypography.zaloFont(fontSize: 9.5, fontWeight: FontWeight.w600, color: const Color(0xFFDC2626)),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Text(
                           p.name,
-                          style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                          style: AppTypography.zaloFont(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: p.isActive ? AppColors.textHeading : AppColors.textSecondary,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -1112,6 +1165,18 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                       ],
                     ),
                   ),
+                  if (isToggling)
+                    const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00693F)),
+                    )
+                  else
+                    Switch(
+                      value: p.isActive,
+                      activeThumbColor: const Color(0xFF00693F),
+                      onChanged: (_) => _handleToggleProduct(p),
+                    ),
                 ],
               ),
             ),

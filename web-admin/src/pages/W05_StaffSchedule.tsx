@@ -67,6 +67,7 @@ interface ScheduleAppointment {
   subtitle: string;
   customer: string;
   customerPhone?: string;
+  customerEmail?: string;
   customerCode: string;
   avatar?: string;
   service: string;
@@ -448,6 +449,9 @@ export const W05_StaffSchedule: React.FC = () => {
 
       const customerName = cust?.fullName || b.bookedForName || 'Khách hàng';
       const customerPhone = cust?.phone || b.bookedForPhone || '';
+      const rawNotes = String(b.specialNotes || '');
+      const emailMatch = rawNotes.match(/Email:\s*([^\s|]+)/);
+      const customerEmail = cust?.email || (emailMatch ? emailMatch[1] : undefined);
       const techName = tech?.name || b.technician?.fullName || (b.technicianId ? 'Kỹ thuật viên' : 'Chưa phân công');
       const isPackageBooking = Boolean(b.specialNotes?.includes('[Gói liệu trình:'));
       const clinicalCompleted = b.sessionStatus === 'COMPLETED';
@@ -507,6 +511,7 @@ export const W05_StaffSchedule: React.FC = () => {
         subtitle: `${timeRange} · ${statusLabel}`,
         customer: customerName,
         customerPhone,
+        customerEmail,
         customerCode: `${cust?.referralCode || 'KH'} · ${b.bookingCode}`,
         avatar: cust?.avatarUrl || tech?.avatar || undefined,
         service: srvName,
@@ -1887,6 +1892,7 @@ export const W05_StaffSchedule: React.FC = () => {
                   </div>
                   <div className="text-[11px] text-[#73675F] truncate mt-0.5">
                     {selectedApp.customerPhone ? `SĐT: ${selectedApp.customerPhone} · ` : ''}
+                    {selectedApp.customerEmail ? `Email: ${selectedApp.customerEmail} · ` : ''}
                     {selectedApp.customerCode}
                   </div>
                 </div>
