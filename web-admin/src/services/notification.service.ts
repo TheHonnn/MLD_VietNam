@@ -10,10 +10,15 @@ export interface AdminNotification {
   createdAt: string;
   isRead: boolean;
   link?: string;
+  data?: Record<string, unknown>;
 }
 
 const STORAGE_KEY = 'mld_admin_notifications';
 const ZNS_STORAGE_KEY = 'mld_zalo_zns_logs';
+const destinationFields = [
+  'link', 'route', 'booking_id', 'booking_code', 'booking_date',
+  'branch_id', 'invoice_id', 'invoice_code', 'enrollment_id', 'enrollmentId',
+];
 
 class NotificationService {
   private listeners: Array<(items: AdminNotification[]) => void> = [];
@@ -150,16 +155,27 @@ class NotificationService {
             createdAt: d.created_at,
             isRead: !!d.is_read,
             link: d.data?.link,
+            data: Object.fromEntries(destinationFields.filter(key => typeof d.data?.[key] === 'string')
+              .map(key => [key, d.data[key]])),
           }))
           .filter((i) => !this.isTestNotification(i));
 
         // Merge without duplicating IDs
         const existingIds = new Set(this.items.map((i) => i.id));
         const newOnes = remoteItems.filter((i) => !existingIds.has(i.id));
-        if (newOnes.length > 0) {
-          this.items = [...newOnes, ...this.items];
+        const remoteById = new Map(remoteItems.map(item => [item.id, item]));
+        let linksUpdated = false;
+        const existing = this.items.map(item => {
+          const remote = remoteById.get(item.id);
+          if (!remote || (item.link === remote.link && JSON.stringify(item.data) === JSON.stringify(remote.data))) return item;
+          linksUpdated = true;
+          return { ...item, link: remote.link, data: remote.data };
+        });
+        if (newOnes.length || linksUpdated) {
+          this.items = [...newOnes, ...existing];
           this.saveToStorage();
-
+        }
+        if (newOnes.length > 0) {
           if (notifyNew) {
             const top = newOnes[0];
             this.playNotificationSound();

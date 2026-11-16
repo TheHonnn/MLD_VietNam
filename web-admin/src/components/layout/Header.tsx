@@ -1,3 +1,4 @@
+import { notificationDestination } from '../../services/notification-destination.mjs';
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -200,64 +201,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
     : notifications;
 
   const handleItemClick = (item: AdminNotification) => {
-    notificationService.markAsRead(item.id);
-
-    // Xử lý thông báo thanh toán POS hoặc Hóa đơn
-    if (
-      item.type === 'PAYMENT' ||
-      item.link?.includes('/cashier-pos') ||
-      item.title?.toLowerCase().includes('thanh toán') ||
-      item.title?.toLowerCase().includes('hóa đơn')
-    ) {
-      const hdMatch = item.message.match(/HD-[\w\d-]+/i) || item.title?.match(/HD-[\w\d-]+/i);
-      const bkMatch = item.message.match(/BK-[\w\d-]+/i) || item.title?.match(/BK-[\w\d-]+/i);
-      const invoiceCode = hdMatch ? hdMatch[0] : '';
-      const bookingCode = bkMatch ? bkMatch[0] : '';
-
-      if (invoiceCode || bookingCode) {
-        window.dispatchEvent(
-          new CustomEvent('mld_open_pos_receipt', { detail: { invoiceCode, bookingCode } })
-        );
-        const query = invoiceCode ? `invoice=${invoiceCode}&receipt=true` : `booking=${bookingCode}&receipt=true`;
-        navigate(`/cashier-pos?${query}`);
-      } else {
-        navigate('/cashier-pos');
-      }
-      setShowNotifications(false);
-      setSelectedNotifDetail(null);
-      return;
-    }
-
-    // Xử lý thông báo lịch hẹn KTV
-    if (
-      item.type === 'BOOKING' ||
-      item.link?.includes('/staff-schedule') ||
-      item.title?.toLowerCase().includes('lịch')
-    ) {
-      const bkMatch = item.message.match(/BK-[\w\d-]+/i);
-      const bookingCode = bkMatch ? bkMatch[0] : '';
-      navigate(`/staff-schedule?booking=${bookingCode}`);
-      setShowNotifications(false);
-      setSelectedNotifDetail(null);
-      return;
-    }
-
-    // Nếu có link thông thường
-    if (item.link) {
-      navigate(item.link);
-      setShowNotifications(false);
-      setSelectedNotifDetail(null);
-      return;
-    }
-
-    // Mặc định: mở modal xem chi tiết thông báo
-    setSelectedNotifDetail(item);
-  };
-
-  const handleOpenDetailModal = (e: React.MouseEvent, item: AdminNotification) => {
-    e.stopPropagation();
-    notificationService.markAsRead(item.id);
-    setSelectedNotifDetail(item);
+    void notificationService.markAsRead(item.id);
+    setShowNotifications(false);
+    const destination = notificationDestination(item);
+    setSelectedNotifDetail(destination ? null : item);
+    if (destination) navigate(destination);
   };
 
   const handleMarkAllRead = () => {
@@ -784,24 +732,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
               >
                 Đóng
               </button>
-              {(selectedNotifDetail.link || selectedNotifDetail.type === 'PAYMENT' || selectedNotifDetail.type === 'BOOKING') && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleItemClick(selectedNotifDetail);
-                  }}
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>
-                    {selectedNotifDetail.type === 'PAYMENT'
-                      ? 'Xem biên lai POS'
-                      : selectedNotifDetail.type === 'BOOKING'
-                      ? 'Xem lịch hẹn'
-                      : 'Mở trang liên quan'}
-                  </span>
-                </button>
-              )}
+
             </div>
           </div>
         </div>

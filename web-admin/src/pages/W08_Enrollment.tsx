@@ -470,16 +470,26 @@ export const W08_Enrollment: React.FC = () => {
     });
   }, [candidatesData, searchTerm, programFilter, branchFilter, activeWorkflowTab]);
 
+  const requestedEnrollmentId = searchParams.get('enrollmentId');
   // Auto-select candidate when filteredCandidates or active tab changes
   useEffect(() => {
     if (filteredCandidates.length > 0) {
       if (!selectedCandidateId || !filteredCandidates.some((c) => c.id === selectedCandidateId)) {
-        setSelectedCandidateId(filteredCandidates.find(c => c.id === searchParams.get("enrollmentId"))?.id || filteredCandidates[0].id);
+        setSelectedCandidateId(filteredCandidates.find(c => c.id === requestedEnrollmentId)?.id || filteredCandidates[0].id);
       }
     } else {
       setSelectedCandidateId('');
     }
-  }, [filteredCandidates, selectedCandidateId]);
+  }, [filteredCandidates, selectedCandidateId, requestedEnrollmentId]);
+
+  useEffect(() => {
+    if (!requestedEnrollmentId) return;
+    setSearchTerm('');
+    setProgramFilter('all');
+    setBranchFilter('all');
+    setActiveWorkflowTab('ALL');
+    setSelectedCandidateId(requestedEnrollmentId);
+  }, [requestedEnrollmentId]);
 
   useEffect(() => {
     if (!tuitionFocusId || selectedCandidateId !== tuitionFocusId) return;

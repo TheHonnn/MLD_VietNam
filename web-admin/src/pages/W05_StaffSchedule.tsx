@@ -713,12 +713,15 @@ export const W05_StaffSchedule: React.FC = () => {
       );
       if (found) {
         setSelectedAppId(found.id);
+        if (found.branchId && found.branchId !== selectedBranchId) {
+          setSelectedBranchId(found.branchId);
+        }
         if (found.dateRaw && found.dateRaw !== selectedDate) {
           setSelectedDate(found.dateRaw);
         }
       }
     }
-  }, [searchParams, allAppointments, selectedDate, liveBookings]);
+  }, [searchParams, allAppointments, selectedDate, selectedBranchId, liveBookings]);
 
   // Date Navigator Helpers
   const handleSelectDate = (newDate: string) => {

@@ -241,7 +241,7 @@ class RealtimeSyncService {
         title: `⚡ Khách đặt lịch mới: ${record.booking_code || ''}`,
         message: `${custInfo} vừa đặt lịch hẹn ngày ${record.booking_date || ''} lúc ${record.start_time?.slice(0, 5) || ''}.`,
         type: 'BOOKING',
-        link: `/staff-schedule?booking=${record.booking_code || ''}`,
+        data: { booking_id: record.id, booking_code: record.booking_code, branch_id: record.branch_id, booking_date: record.booking_date },
       });
     } else if (table === 'bookings' && eventType === 'UPDATE') {
       if (record.status === 'CANCELLED' && oldRecord?.status !== 'CANCELLED') {
@@ -249,7 +249,7 @@ class RealtimeSyncService {
           title: `⚠️ Hủy lịch hẹn: #${record.booking_code || ''}`,
           message: `Lịch hẹn #${record.booking_code || ''} ngày ${record.booking_date || ''} đã bị hủy.${record.cancellation_reason ? ' Lý do: ' + record.cancellation_reason : ''}`,
           type: 'BOOKING',
-          link: `/staff-schedule?booking=${record.booking_code || ''}`,
+          data: { booking_id: record.id, booking_code: record.booking_code, branch_id: record.branch_id, booking_date: record.booking_date },
         });
       }
     } else if (table === 'invoices' && (eventType === 'INSERT' || record.payment_status === 'PAID')) {
@@ -258,7 +258,7 @@ class RealtimeSyncService {
         title: '💰 Giao dịch thanh toán thành công',
         message: `Hóa đơn #${record.invoice_code || ''} trị giá ${amount}đ đã thanh toán qua ${record.payment_method || 'quầy'}.`,
         type: 'PAYMENT',
-        link: `/cashier-pos?booking=${record.booking_code || record.invoice_code || ''}&receipt=true`,
+        data: { invoice_id: record.id, invoice_code: record.invoice_code, booking_id: record.booking_id, branch_id: record.branch_id },
       });
     } else if (table === 'tuition_transactions' && eventType === 'INSERT') {
       const amount = Number(record.amount || 0).toLocaleString('vi-VN');
@@ -267,23 +267,19 @@ class RealtimeSyncService {
         message: `Giao dịch học phí #${record.transaction_code || ''} trị giá ${amount}đ đã được ghi nhận.`,
         type: 'ACADEMY',
         link: '/academy-enrollment',
+        data: { enrollment_id: record.enrollment_id },
       });
     } else if (table === 'users' && eventType === 'INSERT' && (record.role === 'CUSTOMER' || !record.role)) {
       notificationService.addNotification({
         title: '👤 Khách hàng mới gia nhập',
         message: `Khách hàng ${record.full_name || record.phone || 'mới'} vừa tạo tài khoản trên hệ thống.`,
         type: 'SYSTEM',
-        link: `/customers?search=${encodeURIComponent(record.phone || record.full_name || '')}`,
+        link: record.id ? `/customer-detail?id=${encodeURIComponent(record.id)}` : '/customers',
       });
     } else if (table === 'notifications' && eventType === 'INSERT') {
       // Nhận broadcast notification hoặc booking/payment notification
       if (!record.user_id || record.type === 'BOOKING' || record.type === 'PAYMENT' || record.type === 'ACADEMY') {
-        notificationService.addNotification({
-          title: record.title || '⚡ Thông báo mới từ hệ thống',
-          message: record.message || '',
-          type: (record.type || 'SYSTEM').toUpperCase() as any,
-          link: record.data?.link,
-        });
+        void notificationService.fetchRemote(true);
       }
     }
   }
