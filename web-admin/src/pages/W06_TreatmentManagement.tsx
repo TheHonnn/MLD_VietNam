@@ -46,6 +46,8 @@ import { toast, AdminTabs } from '../components/common';
 import { ShareJournalModal, ShareJournalItem } from '../components/treatment/ShareJournalModal';
 import { matchSearch } from '../utils/searchUtils';
 import { supabaseService } from '../services/supabaseService';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { RealtimeTable } from '../services/realtime.service';
 import {
   TreatmentPackage as SharedTreatmentPackage,
   UserPackage,
@@ -141,6 +143,8 @@ interface TreatmentPackageUI {
   historySubtitle: string;
   historyNote: string;
 }
+
+const REALTIME_TREATMENT_TABLES: RealtimeTable[] = ['bookings', 'user_packages', 'treatment_journal'];
 
 export const W06_TreatmentManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -252,8 +256,15 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [timelineLogs, setTimelineLogs] = useState<any[]>([]);
   const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
 
-  const fetchTreatmentData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchTreatmentData = useCallback(async (showSpinner = true, forceRefresh = false) => {
+    if (showSpinner) {
+      setIsLoading(true);
+    }
+    if (forceRefresh) {
+      supabaseService?.invalidateCache?.('bookings');
+      supabaseService?.invalidateCache?.('user_packages');
+      supabaseService?.invalidateCache?.('treatment_journal');
+    }
     try {
       const [pkgRes, upkgRes, srvRes, jrnRes, custRes, brRes, techList, bookings, statsRes] = await Promise.all([
         treatmentService.getTreatmentPackages(),
@@ -286,13 +297,23 @@ export const W06_TreatmentManagement: React.FC = () => {
       console.error('Failed to load treatment data:', err);
       toast.error('Lỗi nạp dữ liệu', 'Không thể kết nối đến máy chủ Supabase.');
     } finally {
-      setIsLoading(false);
+      if (showSpinner) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    fetchTreatmentData();
+    fetchTreatmentData(true, false);
   }, [fetchTreatmentData]);
+
+  useRealtimeSync({
+    tables: REALTIME_TREATMENT_TABLES,
+    debounceMs: 250,
+    onDataChange: () => {
+      fetchTreatmentData(false, true);
+    },
+  });
 
   const custMap = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
   const branchMap = useMemo(() => new Map(branches.map((b) => [b.id, b])), [branches]);
@@ -684,7 +705,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         return;
       }
       toast.success('Đã bắt đầu phục vụ', 'Lịch hẹn đã chuyển sang Đang phục vụ. Bạn có thể bấm Ghi nhật ký để hoàn tất và trừ buổi ngay.');
-      await fetchTreatmentData();
+      await fetchTreatmentData(false, true);
     } catch (err: any) {
       toast.error('Lỗi hệ thống', err.message || 'Không thể kết nối máy chủ.');
     }
@@ -706,7 +727,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       });
       if (res.success) {
         toast.success('Đã hủy lịch hẹn tồn đọng', 'Cảnh báo lịch hẹn chưa xử lý đã được dọn sạch.');
-        await fetchTreatmentData();
+        await fetchTreatmentData(false, true);
       } else {
         toast.error('Không thể hủy lịch hẹn', res.message || 'Vui lòng thử lại.');
       }
@@ -724,7 +745,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       });
       if (res.success) {
         toast.success('Đã xác nhận & trừ 1 buổi', 'Buổi điều trị đã được xác nhận hoàn thành và trừ 1 lượt trong gói.');
-        await fetchTreatmentData();
+        await fetchTreatmentData(false, true);
       } else {
         toast.error('Không thể xác nhận buổi', res.message || 'Vui lòng kiểm tra đủ nội dung nhật ký trước khi xác nhận.');
       }
@@ -804,12 +825,45 @@ export const W06_TreatmentManagement: React.FC = () => {
       });
 
       if (res.success) {
+        const created = res.data;
+        if (created?.id) {
+          const createdBooking: Booking = {
+            id: created.id,
+            bookingCode: created.bookingCode || created.booking_code || '',
+            customerId: created.customer_id || selectedPkg.customerId,
+            branchId: created.branch_id || selectedBranch?.id || '',
+            assignedRoomId: created.assigned_room_id || null,
+            assignedBedNumber: created.assigned_bed_number || null,
+            technicianId: created.technician_id || selectedTech?.id || null,
+            bookingDate: String(created.day || created.booking_date || bookingDate).slice(0, 10),
+            startTime: String(created.start_time || selectedSlotObj.startTime),
+            endTime: String(created.end_time || ''),
+            status: (created.status || BookingStatus.CONFIRMED) as BookingStatus,
+            paymentStatus: (created.payment_status || PaymentStatus.UNPAID) as PaymentStatus,
+            paymentMethod: (created.payment_method || PaymentMethod.MEMBERSHIP_WALLET) as PaymentMethod,
+            baseTotal: Number(created.base_total || 0),
+            discountAmount: 0,
+            pointsUsed: 0,
+            pointsDiscount: 0,
+            finalPrice: Number(created.final_price || 0),
+            bookedForName: created.booked_for_name || selectedCustomer.fullName,
+            bookedForPhone: created.booked_for_phone || selectedCustomer.phone,
+            specialNotes: created.special_notes || `[user_package_id=${selectedPkg.id}] ${bookingNotes}`.trim(),
+            qrCodeHash: created.qr_code_hash || '',
+            hasMedicalAlert: Boolean(created.has_medical_alert),
+            sessionStatus: 'NOT_STARTED',
+            customer: selectedCustomer,
+            branch: selectedBranch,
+            technician: technicians.find((t) => t.id === (created.technician_id || selectedTech?.id)),
+          };
+          setLiveBookings((prev) => [createdBooking, ...prev.filter((b) => b.id !== createdBooking.id)]);
+        }
         toast.success(
           'Đặt lịch thành công',
           `Đã tạo lịch hẹn ${res.data?.bookingCode || ''} cho khách ${selectedCustomer.fullName}. Bạn có thể bấm "Bắt đầu phục vụ" ngay trên dòng gói khi khách đến.`
         );
         setIsBookNextModalOpen(false);
-        await fetchTreatmentData();
+        await fetchTreatmentData(false, true);
       } else {
         toast.error('Lỗi tạo lịch hẹn', res.message || 'Không thể tạo lịch hẹn.');
       }
@@ -957,7 +1011,7 @@ export const W06_TreatmentManagement: React.FC = () => {
           toast.success('Đã lưu bản nháp', 'Hồ sơ đã lưu nháp (chưa trừ buổi). Bạn có thể bấm "Xác nhận & Trừ buổi" bất cứ lúc nào.');
         }
         setIsLogSessionModalOpen(false);
-        await fetchTreatmentData();
+        await fetchTreatmentData(false, true);
       } else {
         toast.error('Không thể ghi nhận', res.message || 'Lỗi khi cập nhật buổi.');
       }
@@ -1002,7 +1056,7 @@ export const W06_TreatmentManagement: React.FC = () => {
           `Đã hoàn lại 1 buổi cho gói liệu trình, ghi sổ cái hoàn tác và điều chỉnh đối soát.`
         );
         setReversalTargetJournal(null);
-        await fetchTreatmentData();
+        await fetchTreatmentData(false, true);
       } else {
         toast.error('Lỗi hoàn tác buổi', res.message || 'Không thể hoàn tác buổi điều trị.');
       }
@@ -1019,7 +1073,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       const res = await treatmentService.approveClinicalSession(journalId);
       if (res.success) {
         toast.success('Duyệt chuyên môn thành công', 'Buổi điều trị đã được ghi nhận phê duyệt chuyên môn.');
-        await fetchTreatmentData();
+        await fetchTreatmentData(false, true);
       } else {
         toast.error('Lỗi duyệt chuyên môn', res.message || 'Không thể duyệt buổi điều trị.');
       }
@@ -1105,7 +1159,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         setActionReason('');
         setActionTransferCustomerId('');
         setActionRefundAmount(0);
-        await fetchTreatmentData();
+        await fetchTreatmentData(false, true);
       } else {
         toast.error('Lỗi thực hiện', res?.message || 'Không thể thực hiện thao tác.');
       }
