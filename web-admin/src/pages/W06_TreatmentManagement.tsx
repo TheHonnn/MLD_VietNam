@@ -33,6 +33,7 @@ import {
   Award,
   AlertTriangle,
   Edit3,
+  Upload,
 } from 'lucide-react';
 import {
   treatmentService,
@@ -2357,15 +2358,14 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* ======================================================== */}
       {isBookNextModalOpen && (
         <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5] shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] flex items-center justify-center shrink-0">
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#3E200C]">Đặt lịch buổi chăm sóc tiếp theo</h3>
+                  <h3 className="text-base font-extrabold text-[#3E200C]">Đặt lịch buổi chăm sóc tiếp theo</h3>
                   <p className="text-[11px] text-[#73675F]">Lên kế hoạch hẹn buổi {selectedPkg.usedSessions + 1} cho khách</p>
                 </div>
               </div>
@@ -2378,9 +2378,9 @@ export const W06_TreatmentManagement: React.FC = () => {
               </button>
             </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleSubmitBooking} className="p-5 space-y-4">
-              <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] text-xs space-y-1">
+            <form onSubmit={handleSubmitBooking} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              <div className="p-3.5 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] text-xs space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Khách hàng:</span>
                   <span className="font-bold text-[#2C241E]">{selectedCustomer?.fullName} ({selectedCustomer?.phone})</span>
@@ -2489,14 +2489,14 @@ export const W06_TreatmentManagement: React.FC = () => {
                   className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                 />
               </div>
+              </div>
 
-              {/* Modal Footer */}
-              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2.5">
+              <div className="px-6 py-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsBookNextModalOpen(false)}
                   disabled={isSubmittingBooking}
-                  className="px-4 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF0E4] transition-colors cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
@@ -2528,16 +2528,20 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* ======================================================== */}
       {isLogSessionModalOpen && (
         <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5] shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] flex items-center justify-center shrink-0">
                   <FileText className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#3E200C]">Cập nhật thông tin điều trị</h3>
-                  <p className="text-[11px] text-[#73675F]">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-extrabold text-[#3E200C]">Cập nhật thông tin điều trị</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+                      Buổi {sessionNumberInput}/{selectedPkg.sessionsTotal}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#73675F] mt-0.5">
                     {selectedPkg.name} · {selectedCustomer?.fullName}
                   </p>
                 </div>
@@ -2545,267 +2549,321 @@ export const W06_TreatmentManagement: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsLogSessionModalOpen(false)}
+                aria-label="Đóng hộp thoại"
                 className="p-1.5 text-[#8C7A6B] hover:text-[#2C241E] rounded-lg hover:bg-[#EFE4D9] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleSubmitLogSession} className="p-5 space-y-3.5 overflow-y-auto">
-              <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] text-xs space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[#73675F]">Khách hàng:</span>
-                  <span className="font-bold text-[#2C241E]">{selectedCustomer?.fullName}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#73675F]">Liệu trình:</span>
-                  <span className="font-semibold text-[#8A4F23]">{selectedPkg.name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#73675F]">Ca phục vụ:</span>
-                  <span className="font-semibold text-[#2C241E]">
-                    {selectedSessionBooking?.bookingCode} · {selectedSessionBooking?.startTime?.slice(0, 5)}–{selectedSessionBooking?.endTime?.slice(0, 5)}
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Buổi điều trị <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  required
-                  readOnly
-                  min={1}
-                  max={selectedPkg.sessionsTotal}
-                  value={sessionNumberInput}
-                  className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Ngày điều trị <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  readOnly
-                  value={sessionDate}
-                  className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E]"
-                />
-                <p className="mt-1 text-[10px] text-[#8C7A6B]">Ngày được khóa theo lịch hẹn đang phục vụ.</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Giờ bắt đầu điều trị</label>
-                  <input type="time" value={treatmentStartTime} onChange={(e) => setTreatmentStartTime(e.target.value)} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]" />
-                  <p className="mt-1 text-[10px] text-[#8C7A6B]">Lấy từ thời điểm bắt đầu phục vụ; có thể hiệu chỉnh theo thực tế.</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Giờ kết thúc điều trị</label>
-                  <input type="time" value={treatmentEndTime} onChange={(e) => setTreatmentEndTime(e.target.value)} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Tình trạng trước buổi <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={conditionBefore}
-                    onChange={(e) => setConditionBefore(e.target.value)}
-                    placeholder="Ghi nhận tình trạng, vùng cần can thiệp, chống chỉ định..."
-                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Tình trạng sau buổi <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={conditionAfter}
-                    onChange={(e) => setConditionAfter(e.target.value)}
-                    placeholder="Phản ứng sau chăm sóc, mức cải thiện và lưu ý theo dõi..."
-                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Vùng điều trị / Mục tiêu
-                  </label>
-                  <input
-                    type="text"
-                    value={treatmentAreas}
-                    onChange={(e) => setTreatmentAreas(e.target.value)}
-                    placeholder="Ví dụ: Vùng mặt, cổ, vai gáy..."
-                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Phác đồ / Protocol áp dụng
-                  </label>
-                  <input
-                    type="text"
-                    value={treatmentProtocol}
-                    onChange={(e) => setTreatmentProtocol(e.target.value)}
-                    placeholder="Ví dụ: MLD-FACIAL-STANDARD-01..."
-                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                  />
-                </div>
-              </div>
-
-              {/* Vật tư tiêu hao trong buổi */}
-              <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] space-y-2">
-                <label className="block text-xs font-bold text-[#2C241E]">
-                  Khai báo vật tư tiêu hao (Kho tự động đồng bộ)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Tên vật tư (vd: Tinh chất B5)"
-                    value={consumableNameInput}
-                    onChange={(e) => setConsumableNameInput(e.target.value)}
-                    className="flex-1 px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs"
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    value={consumableQtyInput}
-                    onChange={(e) => setConsumableQtyInput(Number(e.target.value) || 1)}
-                    className="w-16 px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs text-center"
-                  />
-                  <input
-                    type="text"
-                    placeholder="ĐVT"
-                    value={consumableUnitInput}
-                    onChange={(e) => setConsumableUnitInput(e.target.value)}
-                    className="w-16 px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!consumableNameInput.trim()) return;
-                      setConsumablesList((prev) => [
-                        ...prev,
-                        { name: consumableNameInput.trim(), quantity: consumableQtyInput, unit: consumableUnitInput.trim() || 'ống' },
-                      ]);
-                      setConsumableNameInput('');
-                      setConsumableQtyInput(1);
-                    }}
-                    className="px-3 py-1.5 bg-[#8A4F23] hover:bg-[#6D3D1A] text-white rounded-lg text-xs font-semibold cursor-pointer shrink-0"
-                  >
-                    + Thêm
-                  </button>
-                </div>
-                {consumablesList.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {consumablesList.map((item, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs bg-white border border-[#E8DFD8] text-[#554A41]"
-                      >
-                        <span>{item.name}: <strong>{item.quantity} {item.unit}</strong></span>
-                        <button
-                          type="button"
-                          onClick={() => setConsumablesList((prev) => prev.filter((_, i) => i !== idx))}
-                          className="text-[#991B1B] hover:text-red-700 font-bold ml-1 cursor-pointer"
-                        >
-                          ×
-                        </button>
+            <form onSubmit={handleSubmitLogSession} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 overflow-y-auto flex-1 space-y-5">
+                <div className="rounded-2xl bg-[#FAF8F5] border border-[#EFE4D9] p-4 space-y-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#EFE4D9] text-xs">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                      <span>
+                        <span className="text-[#73675F]">Khách hàng: </span>
+                        <strong className="text-[#2C241E]">{selectedCustomer?.fullName}</strong>
                       </span>
-                    ))}
+                      <span>
+                        <span className="text-[#73675F]">Liệu trình: </span>
+                        <strong className="text-[#8A4F23]">{selectedPkg.name}</strong>
+                      </span>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-lg bg-white border border-[#E8DFD8] font-mono text-[11px] font-semibold text-[#2C241E]">
+                      {selectedSessionBooking?.bookingCode} · {selectedSessionBooking?.startTime?.slice(0, 5)}–{selectedSessionBooking?.endTime?.slice(0, 5)}
+                    </span>
                   </div>
-                )}
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#2C241E] mb-1">
+                        Buổi điều trị <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        readOnly
+                        min={1}
+                        max={selectedPkg.sessionsTotal}
+                        value={sessionNumberInput}
+                        className="w-full px-3 py-2 bg-white/80 border border-[#E8DFD8] rounded-xl text-xs font-bold text-[#3E200C] cursor-default"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#2C241E] mb-1">
+                        Ngày điều trị <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        readOnly
+                        value={sessionDate}
+                        className="w-full px-3 py-2 bg-white/80 border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] cursor-default"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#2C241E] mb-1">Giờ bắt đầu</label>
+                      <input
+                        type="time"
+                        value={treatmentStartTime}
+                        onChange={(e) => setTreatmentStartTime(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#2C241E] mb-1">Giờ kết thúc</label>
+                      <input
+                        type="time"
+                        value={treatmentEndTime}
+                        onChange={(e) => setTreatmentEndTime(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10.5px] text-[#8C7A6B]">
+                    Ngày được khóa theo lịch hẹn đang phục vụ; giờ bắt đầu có thể hiệu chỉnh theo thực tế.
+                  </p>
+                </div>
+
+                <div className="space-y-3.5">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#8A4F23]">
+                    Đánh giá lâm sàng & Phác đồ
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                        Tình trạng trước buổi <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={conditionBefore}
+                        onChange={(e) => setConditionBefore(e.target.value)}
+                        placeholder="Ghi nhận tình trạng, vùng cần can thiệp, chống chỉ định..."
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                        Tình trạng sau buổi <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={conditionAfter}
+                        onChange={(e) => setConditionAfter(e.target.value)}
+                        placeholder="Phản ứng sau chăm sóc, mức cải thiện và lưu ý theo dõi..."
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                        Vùng điều trị / Mục tiêu
+                      </label>
+                      <input
+                        type="text"
+                        value={treatmentAreas}
+                        onChange={(e) => setTreatmentAreas(e.target.value)}
+                        placeholder="Ví dụ: Vùng mặt, cổ, vai gáy..."
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                        Phác đồ / Protocol áp dụng
+                      </label>
+                      <input
+                        type="text"
+                        value={treatmentProtocol}
+                        onChange={(e) => setTreatmentProtocol(e.target.value)}
+                        placeholder="Ví dụ: MLD-FACIAL-STANDARD-01..."
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start">
+                  <div className="md:col-span-7 p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] space-y-2.5">
+                    <label className="block text-xs font-bold text-[#2C241E]">
+                      Khai báo vật tư tiêu hao (Kho tự động đồng bộ)
+                    </label>
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Tên vật tư (vd: Tinh chất B5)"
+                        value={consumableNameInput}
+                        onChange={(e) => setConsumableNameInput(e.target.value)}
+                        className="flex-1 min-w-[130px] px-2.5 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        value={consumableQtyInput}
+                        onChange={(e) => setConsumableQtyInput(Number(e.target.value) || 1)}
+                        className="w-16 px-2 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-center focus:outline-none focus:border-[#985018]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="ĐVT"
+                        value={consumableUnitInput}
+                        onChange={(e) => setConsumableUnitInput(e.target.value)}
+                        className="w-16 px-2 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-center focus:outline-none focus:border-[#985018]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!consumableNameInput.trim()) return;
+                          setConsumablesList((prev) => [
+                            ...prev,
+                            { name: consumableNameInput.trim(), quantity: consumableQtyInput, unit: consumableUnitInput.trim() || 'ống' },
+                          ]);
+                          setConsumableNameInput('');
+                          setConsumableQtyInput(1);
+                        }}
+                        className="px-3.5 py-2 bg-[#8A4F23] hover:bg-[#6D3D1A] text-white rounded-xl text-xs font-bold cursor-pointer shrink-0 transition-colors"
+                      >
+                        + Thêm
+                      </button>
+                    </div>
+                    {consumablesList.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {consumablesList.map((item, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-white border border-[#E8DFD8] text-[#554A41]"
+                          >
+                            <span>{item.name}: <strong>{item.quantity} {item.unit}</strong></span>
+                            <button
+                              type="button"
+                              onClick={() => setConsumablesList((prev) => prev.filter((_, i) => i !== idx))}
+                              className="text-[#991B1B] hover:text-red-700 font-bold ml-1 cursor-pointer"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={`md:col-span-5 p-3.5 rounded-2xl border transition-colors space-y-2.5 ${hasAbnormalReaction ? 'bg-[#FEF2F2] border-[#FECACA]' : 'bg-[#FAF8F5] border-[#EFE4D9]'}`}>
+                    <label className="flex items-start gap-2.5 cursor-pointer text-xs font-bold text-[#2C241E]">
+                      <input
+                        type="checkbox"
+                        checked={hasAbnormalReaction}
+                        onChange={(e) => setHasAbnormalReaction(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 rounded accent-[#DC2626] shrink-0"
+                      />
+                      <span className={hasAbnormalReaction ? 'text-[#991B1B]' : 'text-[#2C241E]'}>
+                        Ghi nhận phản ứng bất thường / Chống chỉ định lâm sàng
+                      </span>
+                    </label>
+                    {hasAbnormalReaction && (
+                      <textarea
+                        rows={2}
+                        value={adverseReactions}
+                        onChange={(e) => setAdverseReactions(e.target.value)}
+                        placeholder="Mô tả cụ thể phản ứng (vd: đỏ rát kéo dài, ngứa vùng má)..."
+                        className="w-full px-3 py-2 bg-white border border-red-300 rounded-xl text-xs text-red-900 focus:outline-none focus:border-red-500"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Thông tin điều trị trong ngày <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      required
+                      rows={3}
+                      value={treatmentNotes}
+                      onChange={(e) => setTreatmentNotes(e.target.value)}
+                      placeholder="Nhập dịch vụ đã thực hiện và kết quả điều trị trong ngày..."
+                      className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Lời dặn chăm sóc sau buổi <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      required
+                      rows={3}
+                      value={specialistAdvice}
+                      onChange={(e) => setSpecialistAdvice(e.target.value)}
+                      placeholder="Hướng dẫn tại nhà, điều cần tránh và thời điểm nên đặt buổi tiếp theo..."
+                      className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <span className="block text-xs font-bold text-[#2C241E]">Hình ảnh minh chứng</span>
+                      <p className="text-[10.5px] text-[#73675F] mt-0.5">
+                        Ảnh được tải trực tiếp và lưu vào nhật ký điều trị (storage reference).
+                      </p>
+                    </div>
+                    <label className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#D7BBA6] text-xs font-bold cursor-pointer transition-colors shrink-0">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{evidenceFiles.length > 0 ? `Chọn lại ảnh (${evidenceFiles.length})` : 'Tải ảnh minh chứng'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => setEvidenceFiles(Array.from(e.target.files || []))}
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
+
+                  {evidenceFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {evidenceFiles.map((file, idx) => (
+                        <span
+                          key={`${file.name}-${idx}`}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#E8F5E9] border border-[#C8E6C9] text-[11px] font-medium text-[#2E7D32]"
+                        >
+                          <span className="max-w-[180px] truncate">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setEvidenceFiles((prev) => prev.filter((_, i) => i !== idx))}
+                            className="font-bold text-[#1B5E20] hover:text-red-700 cursor-pointer"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <label className="flex items-center gap-2.5 pt-2 border-t border-[#EFE4D9] cursor-pointer text-xs text-[#554A41]">
+                    <input
+                      type="checkbox"
+                      checked={photoConsentGranted}
+                      onChange={(e) => setPhotoConsentGranted(e.target.checked)}
+                      className="w-4 h-4 rounded accent-[#985018] shrink-0"
+                    />
+                    <span>Khách hàng đã ký cam kết đồng ý lưu trữ / theo dõi hình ảnh chuyên môn</span>
+                  </label>
+                </div>
               </div>
 
-              {/* Phản ứng bất thường */}
-              <div className="space-y-2 p-3 rounded-xl border border-[#E8DFD8]">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#2C241E]">
-                  <input
-                    type="checkbox"
-                    checked={hasAbnormalReaction}
-                    onChange={(e) => setHasAbnormalReaction(e.target.checked)}
-                    className="w-4 h-4 rounded text-[#985018] focus:ring-[#985018]"
-                  />
-                  <span>Ghi nhận phản ứng bất thường / Chống chỉ định lâm sàng</span>
-                </label>
-                {hasAbnormalReaction && (
-                  <textarea
-                    rows={2}
-                    value={adverseReactions}
-                    onChange={(e) => setAdverseReactions(e.target.value)}
-                    placeholder="Mô tả cụ thể phản ứng (ví dụ: đỏ rát kéo dài, ngứa, kích ứng nhẹ vùng má)..."
-                    className="w-full px-3 py-2 bg-white border border-red-300 rounded-xl text-xs text-red-900 focus:outline-none focus:border-red-500"
-                  />
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Thông tin điều trị trong ngày <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  required
-                  rows={4}
-                  value={treatmentNotes}
-                  onChange={(e) => setTreatmentNotes(e.target.value)}
-                  placeholder="Nhập dịch vụ đã thực hiện và kết quả điều trị trong ngày..."
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Lời dặn chăm sóc sau buổi <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  required
-                  rows={3}
-                  value={specialistAdvice}
-                  onChange={(e) => setSpecialistAdvice(e.target.value)}
-                  placeholder="Hướng dẫn tại nhà, điều cần tránh và thời điểm nên đặt buổi tiếp theo..."
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Hình ảnh minh chứng</label>
-                <input type="file" accept="image/*" multiple onChange={(e) => setEvidenceFiles(Array.from(e.target.files || []))} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E]" />
-                <p className="mt-1 text-[10px] text-[#8C7A6B]">Admin tự tải ảnh lên; ảnh sẽ lưu vào nhật ký điều trị (storage reference).</p>
-                {evidenceFiles.length > 0 && <p className="mt-1 text-[10px] text-[#2E7D32]">Đã chọn {evidenceFiles.length} ảnh.</p>}
-              </div>
-
-              <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9]">
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-[#554A41]">
-                  <input
-                    type="checkbox"
-                    checked={photoConsentGranted}
-                    onChange={(e) => setPhotoConsentGranted(e.target.checked)}
-                    className="w-4 h-4 rounded text-[#985018] focus:ring-[#985018]"
-                  />
-                  <span>Khách hàng đã ký cam kết đồng ý lưu trữ / theo dõi hình ảnh chuyên môn</span>
-                </label>
-              </div>
-
-              <div className="pt-3 border-t border-[#EFE4D9] flex flex-wrap items-center justify-end gap-2">
+              <div className="px-6 py-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex flex-wrap items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsLogSessionModalOpen(false)}
                   disabled={isSubmittingSession}
-                  className="px-3.5 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF0E4] transition-colors cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
@@ -2820,7 +2878,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmittingSession}
-                  className="px-4 py-2 bg-[#2E7D32] hover:bg-[#1B5E20] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-[#2E7D32] hover:bg-[#1B5E20] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   {isSubmittingSession || isUploadingEvidence ? (
                     <>
@@ -3060,8 +3118,8 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* ======================================================== */}
       {reversalTargetJournal && (
         <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
-            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FEF2F2]">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FEF2F2] shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-red-100 text-red-700 flex items-center justify-center">
                   <RotateCcw className="w-5 h-5" />
@@ -3080,7 +3138,8 @@ export const W06_TreatmentManagement: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleConfirmReversal} className="p-5 space-y-4">
+            <form onSubmit={handleConfirmReversal} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 overflow-y-auto flex-1 space-y-4">
               <div className="p-3 bg-[#FEF2F2] rounded-xl border border-[#FECACA] text-xs text-red-900 space-y-2">
                 <div className="flex items-center gap-1.5 font-bold text-[#991B1B]">
                   <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
@@ -3123,8 +3182,9 @@ export const W06_TreatmentManagement: React.FC = () => {
                 />
                 <p className="mt-1 text-[10px] text-[#8C7A6B]">Lý do sẽ được ghi vào sổ cái hoàn tác và không thể chỉnh sửa sau khi lưu.</p>
               </div>
+              </div>
 
-              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2.5">
+              <div className="px-6 py-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setReversalTargetJournal(null)}
@@ -3161,8 +3221,8 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* ======================================================== */}
       {actionModalType && (
         <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
-            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5]">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5] shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
                   {actionModalType === 'pause' && <Pause className="w-5 h-5 text-[#D97706]" />}
@@ -3193,7 +3253,8 @@ export const W06_TreatmentManagement: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleExecutePackageAction} className="p-5 space-y-4">
+            <form onSubmit={handleExecutePackageAction} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 overflow-y-auto flex-1 space-y-4">
               {actionModalType === 'extend' && (
                 <div>
                   <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
@@ -3297,8 +3358,9 @@ export const W06_TreatmentManagement: React.FC = () => {
                   <strong>CẢNH BÁO:</strong> Hủy gói sẽ vô hiệu hóa tất cả các buổi còn lại. Hành động này không thể hoàn tác.
                 </div>
               )}
+              </div>
 
-              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2.5">
+              <div className="px-6 py-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setActionModalType(null)}
