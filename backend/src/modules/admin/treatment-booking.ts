@@ -154,6 +154,12 @@ export async function createTreatmentBooking(
       throw new ConflictException(
         'Buổi hẹn phải kết thúc trước khi gói hết hạn.',
       );
+    const branchHours = await client.query(
+      'SELECT 1 FROM branches WHERE id=$1 AND is_active AND opening_time <= $2::time AND closing_time >= $3::time',
+      [branchId, start, times.finish],
+    );
+    if (!branchHours.rowCount)
+      throw new ConflictException('Buổi hẹn phải nằm trong giờ đặt lịch của chi nhánh.');
     const rooms = (
       await client.query(
         'SELECT id,bed_capacity FROM branch_rooms WHERE branch_id=$1 AND is_available=true ORDER BY id FOR UPDATE',

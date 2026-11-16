@@ -1941,6 +1941,12 @@ export class AdminService {
         } else if (action === 'checkin') {
           if (row.status !== 'CONFIRMED')
             throw new ConflictException('Chỉ check-in lịch đã được xác nhận.');
+          const { rows: arrival } = await client.query(
+            "SELECT booking_date > (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS early FROM bookings WHERE id=$1",
+            [row.id],
+          );
+          if (arrival[0]?.early)
+            throw new ConflictException('Chưa đến ngày hẹn. Kiểm tra lại ngày hẹn trước khi check-in.');
           if (row.payment_method === 'MEMBERSHIP_WALLET') {
             const userPackageId = String(body.userPackageId || '');
             if (!this.isUuid(userPackageId))
@@ -2048,6 +2054,7 @@ export class AdminService {
               );
             }
           }
+          await this.recordBookingCompletionArtifacts(client, row, actor);
           await client.query(
             `UPDATE bookings SET session_status='COMPLETED',
              status=CASE WHEN payment_status='PAID' THEN 'COMPLETED'::booking_status ELSE status END,
@@ -3629,6 +3636,52 @@ export class AdminService {
       this.fail(error);
     } finally {
       client.release();
+    }
+  }
+
+  private async recordBookingCompletionArtifacts(client: PoolClient, booking: Record<string, any>, actor: AdminActor) {
+    let journal = (await client.query(
+      'SELECT * FROM treatment_journal WHERE booking_id=$1 AND is_reversed IS NOT TRUE ORDER BY created_at,id LIMIT 1 FOR UPDATE',
+      [booking.id],
+    )).rows[0];
+    if (!journal) {
+      journal = (await client.query(
+        `INSERT INTO treatment_journal(booking_id,customer_id,technician_id,session_date,confirmation_status,technical_parameters)
+         VALUES($1,$2,$3,(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,'CONFIRMED',$4::jsonb) RETURNING *`,
+        [booking.id,booking.customer_id,booking.technician_id,JSON.stringify({source:'BOOKING_COMPLETION',confirmed_by:actor.id})],
+      )).rows[0];
+    }
+    const inventory = await client.query(
+      "SELECT 1 FROM treatment_inventory_outbox WHERE booking_id=$1 AND operation_type='DEDUCT' LIMIT 1",
+      [booking.id],
+    );
+    if (!inventory.rowCount) {
+      const materials = (await client.query(
+        `SELECT m.material_name AS name,m.unit,SUM(m.dosage_per_session) AS quantity
+         FROM booking_items bi JOIN service_materials m ON m.service_id=bi.service_id
+         WHERE bi.booking_id=$1 GROUP BY m.material_name,m.unit`, [booking.id],
+      )).rows.map(material => ({...material,quantity:Number(material.quantity)}));
+      if (materials.length) await client.query(
+        `INSERT INTO treatment_inventory_outbox(branch_id,treatment_journal_id,booking_id,operation_type,items,sync_status,notes)
+         VALUES($1,$2,$3,'DEDUCT',$4::jsonb,'PENDING_SYNC','Tiêu hao theo định mức khi hoàn tất dịch vụ')`,
+        [booking.branch_id,journal.id,booking.id,JSON.stringify(materials)],
+      );
+    }
+    const guidelines = (await client.query(
+      `SELECT DISTINCT g.* FROM home_care_guidelines g JOIN booking_items bi ON bi.service_id=g.service_id
+       WHERE bi.booking_id=$1 AND g.is_published=TRUE`, [booking.id],
+    )).rows;
+    for (const guideline of guidelines) {
+      const delivery = (await client.query(
+        `INSERT INTO home_care_deliveries(treatment_journal_id,customer_id,booking_id,channel,status,guideline_id,guideline_version,content_snapshot,sent_by_id)
+         VALUES($1,$2,$3,'IN_APP','SENT',$4,$5,$6::jsonb,$7)
+         ON CONFLICT(treatment_journal_id,guideline_id,guideline_version) WHERE guideline_version IS NOT NULL DO NOTHING RETURNING id`,
+        [journal.id,booking.customer_id,booking.id,guideline.id,guideline.version,JSON.stringify(guideline),actor.id],
+      )).rows[0];
+      if (delivery) await client.query(
+        `INSERT INTO notifications(user_id,title,message,type,data) VALUES($1,'Hướng dẫn chăm sóc sau dịch vụ',$2,'HOME_CARE_GUIDE',$3::jsonb)`,
+        [booking.customer_id,guideline.title,JSON.stringify({guideline_id:guideline.id,delivery_id:delivery.id,route:'/home-care-guidelines',target:{screen:'treatment',tab:'care_guide',entityId:guideline.id}})],
+      );
     }
   }
 
