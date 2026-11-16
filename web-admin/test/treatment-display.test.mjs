@@ -22,3 +22,10 @@ test('only active unexpired packages have usable sessions', () => {
     assert.equal(availableTreatmentSessions(status, 20, 0, false), 0);
   }
 });
+
+test('app booking notes link to the same package as admin booking notes', () => {
+  const id = '00000000-0000-4000-8000-000000000001';
+  const booking = { customerId: 'a', specialNotes: `[Gói liệu trình: MLD | user_package_id=${id}] | Ghi chú` };
+  assert.equal(belongsToPackage(booking, 'a', id), true);
+  assert.equal(belongsToPackage(booking, 'b', id), false);
+});

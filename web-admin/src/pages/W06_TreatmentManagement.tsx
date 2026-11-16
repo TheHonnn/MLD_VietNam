@@ -405,6 +405,8 @@ export const W06_TreatmentManagement: React.FC = () => {
           IN_SERVICE: 'Đang phục vụ',
           CANCELLED: 'Đã hủy',
           NO_SHOW: 'Không đến',
+          IN_PROGRESS: 'Đang phục vụ',
+          COMPLETED: 'Lịch đã kết thúc · Chưa ghi nhận lượt gói',
         };
         sessionsHistory.push({
           id: booking.id,
@@ -1389,13 +1391,18 @@ export const W06_TreatmentManagement: React.FC = () => {
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-[#E8F5E9] text-[#2E7D32] border border-[#C8E6C9] flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" /> Đã hoàn thành
+                            <CheckCircle2 className="w-3 h-3" /> {s.statusBadge}
                           </span>
                         )}
-                        <span className="text-xs font-bold text-[#2C241E]">Buổi {s.number} · {s.date}</span>
+                        <span className="text-xs font-bold text-[#2C241E]">{s.isUpcoming ? s.bookingCode || 'Lịch hẹn' : `Buổi ${s.number}`} · {s.date}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-[#73675F] font-medium">{s.treatmentNotes || '—'}</span>
+                        {s.id && s.isUpcoming && (
+                          <button type="button" className="text-sm underline" onClick={() => navigate(
+                            `/staff-schedule?booking=${encodeURIComponent(s.bookingCode || s.id!)}`
+                          )}>Mở lịch hẹn</button>
+                        )}
                         {s.id && !s.isReversed && !s.isUpcoming && (
                           <>
                             {s.clinicalApprovedAt ? (
