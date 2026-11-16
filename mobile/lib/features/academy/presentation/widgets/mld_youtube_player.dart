@@ -44,6 +44,8 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
   Timer? _progressTimer;
   int _watermarkPosIndex = 0;
   double _maxWatchedPosition = 0.0;
+  double _lastPosition = 0.0;
+  double _lastDuration = 0.0;
   final List<Alignment> _watermarkAlignments = const [
     Alignment.topRight,
     Alignment.centerLeft,
@@ -87,9 +89,14 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
         .contains('TestWidgetsFlutterBinding');
 
     if (_videoId != null && !isTesting) {
+      if (widget.initialPosition > 0) {
+        _maxWatchedPosition = widget.initialPosition;
+      }
+
       _controller = YoutubePlayerController.fromVideoId(
         videoId: _videoId!,
         autoPlay: true,
+        startSeconds: widget.initialPosition > 0 ? widget.initialPosition : null,
         params: const YoutubePlayerParams(
           showFullscreenButton: true,
           showControls: true,
@@ -97,16 +104,34 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
         ),
       );
 
-      if (widget.initialPosition > 0) {
-        _maxWatchedPosition = widget.initialPosition;
-        _controller!.seekTo(seconds: widget.initialPosition, allowSeekAhead: true);
-      }
-
+      bool initialSeekPerformed = false;
       _controller!.listen((state) async {
+        if (!initialSeekPerformed && widget.initialPosition > 0) {
+          if (state.playerState == PlayerState.playing ||
+              state.playerState == PlayerState.cued) {
+            initialSeekPerformed = true;
+            try {
+              await _controller!.seekTo(
+                seconds: widget.initialPosition,
+                allowSeekAhead: true,
+              );
+            } catch (_) {}
+          }
+        }
+        if (state.playerState == PlayerState.paused) {
+          try {
+            final pos = await _controller!.currentTime;
+            final dur = await _controller!.duration;
+            if (pos > 0) {
+              _lastPosition = pos;
+              _lastDuration = dur;
+              widget.onProgressUpdate?.call(pos, dur);
+            }
+          } catch (_) {}
+        }
         if (state.playerState == PlayerState.ended) {
           try {
             final dur = await _controller!.duration;
-            // Chống gian lận: Chỉ chấp nhận hoàn thành khi đã thực sự xem qua ít nhất 85% clip
             if (dur <= 0 || _maxWatchedPosition >= dur * 0.85) {
               widget.onVideoEnded?.call();
             }
@@ -116,14 +141,14 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
         }
       });
 
-      // Tự động kiểm tra tiến trình xem của học viên và lưu lại
       _progressTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
         if (_controller != null && mounted) {
           try {
             final pos = await _controller!.currentTime;
             final dur = await _controller!.duration;
             if (pos > 0) {
-              // Cập nhật vị trí xem cao nhất hợp lệ (pos không nhảy vọt quá 5s so với vị trí đã xem)
+              _lastPosition = pos;
+              _lastDuration = dur;
               if (pos <= _maxWatchedPosition + 5.0) {
                 if (pos > _maxWatchedPosition) {
                   _maxWatchedPosition = pos;
@@ -131,7 +156,6 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
               }
               widget.onProgressUpdate?.call(pos, dur);
 
-              // Chống gian lận: Chỉ kích hoạt hoàn thành khi đến cuối VÀ đã theo dõi tối thiểu 85% nội dung
               if (dur > 0 && pos >= dur - 1.5) {
                 if (_maxWatchedPosition >= dur * 0.85) {
                   widget.onVideoEnded?.call();
@@ -169,10 +193,12 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
 
   @override
   void dispose() {
-    // Tắt chặn quay chụp màn hình khi thoát khỏi trình phát clip bài giảng
     AppSecurityService.instance.disableSecureScreen();
     _progressTimer?.cancel();
     _watermarkTimer?.cancel();
+    if (_lastPosition > 0) {
+      widget.onProgressUpdate?.call(_lastPosition, _lastDuration);
+    }
     _controller?.close();
     super.dispose();
   }

@@ -630,9 +630,9 @@ class AcademyRepository {
     } catch (_) {}
   }
 
-  /// Tự động lưu vị trí giây đã xem của học viên và đồng bộ lên Supabase user_lesson_progress
   Future<void> saveLessonPosition(String courseId, String lessonId, double positionSeconds) async {
-    _lessonPositions['_'] = positionSeconds;
+    _lessonPositions['${courseId}_$lessonId'] = positionSeconds;
+    _lessonPositions[lessonId] = positionSeconds;
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_lessonPositionsKey, jsonEncode(_lessonPositions));
@@ -640,7 +640,7 @@ class AcademyRepository {
 
     try {
       await SupabaseDataService.instance.upsertLessonProgress(
-        enrollmentId: 'enroll_',
+        enrollmentId: 'enroll_$courseId',
         lessonId: lessonId,
         watchedSeconds: positionSeconds.toInt(),
         isCompleted: isLessonCompleted(courseId, lessonId),
@@ -648,9 +648,8 @@ class AcademyRepository {
     } catch (_) {}
   }
 
-  /// Lấy vị trí giây học viên đã xem dở
   double getLessonPosition(String courseId, String lessonId) {
-    return _lessonPositions['${courseId}_$lessonId'] ?? 0.0;
+    return _lessonPositions['${courseId}_$lessonId'] ?? _lessonPositions[lessonId] ?? 0.0;
   }
 
   Future<void> markLessonCompleted(String courseId, String lessonId) async {

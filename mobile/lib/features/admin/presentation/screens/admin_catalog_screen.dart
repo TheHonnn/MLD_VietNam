@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../services/data/models/home_product_model.dart';
 import '../../../services/data/repositories/product_repository.dart';
 import '../../data/models/admin_models.dart';
@@ -425,7 +426,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           ],
         ),
         actions: [
-          if (_selectedSegment != 2)
+          if (AuthService.instance.isAdmin && _selectedSegment != 2)
             Padding(
               padding: const EdgeInsets.only(right: 14),
               child: GestureDetector(

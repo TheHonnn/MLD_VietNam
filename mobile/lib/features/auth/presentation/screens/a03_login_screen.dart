@@ -119,7 +119,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
         );
 
         if (mounted) {
-          final targetScreen = AuthService.instance.isAdmin
+          final targetScreen = AuthService.instance.isStaff
               ? const AdminMainLayoutScreen()
               : const MainLayoutScreen();
 
@@ -219,7 +219,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
         );
 
         if (mounted) {
-          final targetScreen = AuthService.instance.isAdmin
+          final targetScreen = AuthService.instance.isStaff
               ? const AdminMainLayoutScreen()
               : const MainLayoutScreen();
 

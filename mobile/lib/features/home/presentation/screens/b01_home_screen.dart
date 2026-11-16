@@ -74,8 +74,28 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   SpaServiceModel? _coreService;
   SpaServiceModel? get coreService => _coreService;
 
-  // Cache bộ nhớ lưu các banner do Admin đẩy lên từ Supabase/Web Admin.
-  static List<Map<String, dynamic>> _cachedAdminBanners = [];
+  static List<Map<String, dynamic>> _cachedAdminBanners = [
+    {
+      'id': 'hero_default',
+      'title': 'Chăm sóc đúng cách,\nsống khỏe mỗi ngày',
+      'summary': 'Đặt lịch trị liệu và tìm khóa học phù hợp với bạn.',
+      'image_url': 'assets/images/therapy_hero_banner.jpg',
+    }
+  ];
+
+  static bool _areBannersEqual(List<Map<String, dynamic>> a, List<Map<String, dynamic>> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i]['id'] != b[i]['id'] ||
+          a[i]['image_url'] != b[i]['image_url'] ||
+          a[i]['title'] != b[i]['title'] ||
+          a[i]['summary'] != b[i]['summary']) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   List<Map<String, dynamic>> _banners = List.from(_cachedAdminBanners);
   int _currentBannerIndex = 0;
@@ -163,16 +183,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
 
 
-  /// Nạp banner Admin đã lưu trong SharedPreferences để hiển thị tức thì khi mở app
   Future<void> _initBannersFromLocalCache() async {
-    if (_cachedAdminBanners.isNotEmpty) {
-      if (mounted && _banners.isEmpty) {
-        setState(() {
-          _banners = List.from(_cachedAdminBanners);
-        });
-      }
-      return;
-    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('cached_admin_banners');
@@ -182,11 +193,14 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
           final list = List<Map<String, dynamic>>.from(
             decoded.map((e) => Map<String, dynamic>.from(e as Map)),
           );
-          if (list.isNotEmpty) {
+          if (list.isNotEmpty && !_areBannersEqual(_banners, list)) {
             _cachedAdminBanners = list;
-            if (mounted && _banners.isEmpty) {
+            if (mounted) {
               setState(() {
                 _banners = list;
+                if (_currentBannerIndex >= _banners.length) {
+                  _currentBannerIndex = 0;
+                }
               });
               _startBannerAutoScroll();
             }
@@ -196,33 +210,33 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     } catch (_) {}
   }
 
-  /// Lấy danh sách banner thực tế do Admin tải lên từ Supabase
   Future<void> _loadBanners() async {
     if (!mounted) return;
     try {
       final data = await SupabaseDataService().fetchBanners();
       if (!mounted) return;
-      // Nhận tất cả các banner có tiêu đề hoặc ảnh hợp lệ từ Supabase
       final adminBanners = data.where((b) {
         final title = (b['title'] as String?)?.trim() ?? '';
         final img = (b['image_url'] as String?)?.trim() ?? '';
         return title.isNotEmpty || img.isNotEmpty;
       }).toList();
 
-      _cachedAdminBanners = List.from(adminBanners);
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('cached_admin_banners', jsonEncode(adminBanners));
-      } catch (_) {}
+      if (adminBanners.isNotEmpty) {
+        _cachedAdminBanners = List.from(adminBanners);
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('cached_admin_banners', jsonEncode(adminBanners));
+        } catch (_) {}
 
-      if (mounted) {
-        setState(() {
-          _banners = List.from(adminBanners);
-          if (_currentBannerIndex >= _banners.length) {
-            _currentBannerIndex = 0;
-          }
-        });
-        _startBannerAutoScroll();
+        if (mounted && !_areBannersEqual(_banners, adminBanners)) {
+          setState(() {
+            _banners = List.from(adminBanners);
+            if (_currentBannerIndex >= _banners.length) {
+              _currentBannerIndex = 0;
+            }
+          });
+          _startBannerAutoScroll();
+        }
       }
     } catch (_) {}
   }
@@ -1117,8 +1131,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      // 1.1 Ảnh Banner tràn viền toàn màn hình - Giữ 100% màu sắc ảnh gốc sắc nét, không phủ lớp trắng mờ
+                      _buildFallbackHeroImage(),
                       SmartImage(
+                        key: ValueKey(imageUrl.isNotEmpty ? imageUrl : 'banner_$index'),
                         imageUrl: imageUrl.isNotEmpty ? imageUrl : 'assets/images/therapy_hero_banner.jpg',
                         fit: BoxFit.cover,
                         placeholder: _buildFallbackHeroImage(),

@@ -25,15 +25,19 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
   late int _currentIndex;
   String? _subTab;
 
+  bool get _isFullAdmin => AuthService.instance.isAdmin;
+
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialTab;
+    final maxIndex = _isFullAdmin ? 3 : 1;
+    _currentIndex = widget.initialTab.clamp(0, maxIndex);
   }
 
   void _onNavigateTab(int index, {String? subTab}) {
+    final maxIndex = _isFullAdmin ? 3 : 1;
     setState(() {
-      _currentIndex = index;
+      _currentIndex = index.clamp(0, maxIndex);
       _subTab = subTab;
     });
   }
@@ -43,9 +47,8 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
       context: context,
       builder: (_) => AdminQrScannerModal(
         onCodeScanned: (code) {
-          // Chuyển sang Tab 1 (Tiếp đón) để xử lý mã đã quét
           setState(() {
-            _currentIndex = 1;
+            _currentIndex = _isFullAdmin ? 1 : 0;
           });
         },
       ),
@@ -62,13 +65,15 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
             const Icon(Icons.logout_rounded, color: Color(0xFFE11D48), size: 24),
             const SizedBox(width: 8),
             Text(
-              'Đăng xuất quản trị',
+              'Đăng xuất',
               style: AppTypography.zaloFont(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ],
         ),
         content: Text(
-          'Bạn có chắc chắn muốn đăng xuất khỏi giao diện quản trị viên?',
+          _isFullAdmin
+              ? 'Bạn có chắc chắn muốn đăng xuất khỏi giao diện quản trị viên?'
+              : 'Bạn có chắc chắn muốn đăng xuất khỏi giao diện nhân viên?',
           style: AppTypography.zaloFont(fontSize: 13, color: AppColors.textSecondary),
         ),
         actions: [
@@ -109,29 +114,42 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> screens = [
-      AdminDashboardScreen(
-        onNavigateTab: _onNavigateTab,
-        onOpenQrScanner: _openQrScanner,
-        onLogout: _handleLogout,
-      ),
-      AdminFrontdeskScreen(
-        key: ValueKey('frontdesk_$_subTab'),
-        initialStatus: _subTab,
-      ),
-      AdminAcademyScreen(
-        key: ValueKey('academy_$_subTab'),
-        initialWorkflowTab: _subTab,
-      ),
-      AdminCatalogScreen(
-        key: ValueKey('catalog_$_subTab'),
-        initialTab: _subTab,
-      ),
-    ];
+    final List<Widget> screens = _isFullAdmin
+        ? [
+            AdminDashboardScreen(
+              onNavigateTab: _onNavigateTab,
+              onOpenQrScanner: _openQrScanner,
+              onLogout: _handleLogout,
+            ),
+            AdminFrontdeskScreen(
+              key: ValueKey('frontdesk_$_subTab'),
+              initialStatus: _subTab,
+            ),
+            AdminAcademyScreen(
+              key: ValueKey('academy_$_subTab'),
+              initialWorkflowTab: _subTab,
+            ),
+            AdminCatalogScreen(
+              key: ValueKey('catalog_$_subTab'),
+              initialTab: _subTab,
+            ),
+          ]
+        : [
+            AdminFrontdeskScreen(
+              key: ValueKey('frontdesk_$_subTab'),
+              initialStatus: _subTab,
+            ),
+            AdminCatalogScreen(
+              key: ValueKey('catalog_$_subTab'),
+              initialTab: _subTab,
+            ),
+          ];
+
+    final int safeIndex = _currentIndex.clamp(0, screens.length - 1);
 
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex,
+        index: safeIndex,
         children: screens,
       ),
       bottomNavigationBar: Container(
@@ -153,13 +171,19 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
             height: 64,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, 'Tổng quan', Icons.grid_view_rounded),
-                _buildNavItem(1, 'Tiếp đón', Icons.calendar_month_rounded),
-                _buildNavItem(2, 'Tuyển sinh', Icons.view_kanban_rounded),
-                _buildNavItem(3, 'Danh mục & SP', Icons.storefront_rounded),
-                _buildLogoutItem(),
-              ],
+              children: _isFullAdmin
+                  ? [
+                      _buildNavItem(0, 'Tổng quan', Icons.grid_view_rounded),
+                      _buildNavItem(1, 'Tiếp đón', Icons.calendar_month_rounded),
+                      _buildNavItem(2, 'Tuyển sinh', Icons.view_kanban_rounded),
+                      _buildNavItem(3, 'Danh mục & SP', Icons.storefront_rounded),
+                      _buildLogoutItem(),
+                    ]
+                  : [
+                      _buildNavItem(0, 'Tiếp đón', Icons.calendar_month_rounded),
+                      _buildNavItem(1, 'Danh mục & SP', Icons.storefront_rounded),
+                      _buildLogoutItem(),
+                    ],
             ),
           ),
         ),

@@ -167,7 +167,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
               backgroundColor: AppColors.primary,
             ),
           );
-          final targetScreen = AuthService.instance.isAdmin
+          final targetScreen = AuthService.instance.isStaff
               ? const AdminMainLayoutScreen()
               : const MainLayoutScreen();
           Navigator.pushAndRemoveUntil(
@@ -228,7 +228,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
               backgroundColor: AppColors.primary,
             ),
           );
-          final targetScreen = AuthService.instance.isAdmin
+          final targetScreen = AuthService.instance.isStaff
               ? const AdminMainLayoutScreen()
               : const MainLayoutScreen();
           Navigator.pushAndRemoveUntil(
@@ -296,7 +296,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
               backgroundColor: AppColors.primary,
             ),
           );
-          final targetScreen = AuthService.instance.isAdmin
+          final targetScreen = AuthService.instance.isStaff
               ? const AdminMainLayoutScreen()
               : const MainLayoutScreen();
           Navigator.pushAndRemoveUntil(
@@ -390,7 +390,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
               backgroundColor: AppColors.primary,
             ),
           );
-          final targetScreen = AuthService.instance.isAdmin
+          final targetScreen = AuthService.instance.isStaff
               ? const AdminMainLayoutScreen()
               : const MainLayoutScreen();
           Navigator.pushAndRemoveUntil(

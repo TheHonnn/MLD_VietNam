@@ -38,6 +38,7 @@ class SmartImage extends StatelessWidget {
           fit: fit,
           width: width,
           height: height,
+          gaplessPlayback: true,
           errorBuilder: (_, __, ___) => _buildFallback(),
         );
       } catch (_) {
@@ -49,6 +50,7 @@ class SmartImage extends StatelessWidget {
         fit: fit,
         width: width,
         height: height,
+        gaplessPlayback: true,
         errorBuilder: (_, __, ___) => _buildFallback(),
       );
     } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
@@ -57,6 +59,13 @@ class SmartImage extends StatelessWidget {
         fit: fit,
         width: width,
         height: height,
+        gaplessPlayback: true,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded || frame != null) {
+            return child;
+          }
+          return placeholder ?? _buildFallback();
+        },
         errorBuilder: (_, __, ___) => _buildFallback(),
       );
     } else {
@@ -68,6 +77,7 @@ class SmartImage extends StatelessWidget {
             fit: fit,
             width: width,
             height: height,
+            gaplessPlayback: true,
             errorBuilder: (_, __, ___) => _buildFallback(),
           );
         } else {

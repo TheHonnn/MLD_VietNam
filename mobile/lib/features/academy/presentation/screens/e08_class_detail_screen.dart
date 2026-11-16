@@ -9,7 +9,6 @@ import '../../../admin/data/models/admin_models.dart';
 import '../../../admin/data/repositories/admin_repository.dart';
 import '../widgets/academy_widgets.dart';
 import 'e09_lesson_screen.dart';
-import 'e11_attendance_schedule_screen.dart';
 
 /// Screen E08: Chi tiết lớp học [8116:25997]
 /// Chuẩn 100% theo bản thiết kế gốc Figma từ khách hàng
@@ -1009,32 +1008,6 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
               );
             },
           ),
-
-        const SizedBox(height: 8),
-
-        // 3. Nút Điều hướng sang Màn hình Điểm danh tổng thể E11
-        SizedBox(
-          width: double.infinity,
-          height: 46,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const E11AttendanceScheduleScreen()),
-              );
-            },
-            icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-            label: Text(
-              context.tr('Mở cổng điểm danh QR & toàn bộ lớp học', 'Open QR Attendance & All Classes'),
-              style: GoogleFonts.beVietnamPro(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              side: const BorderSide(color: AppColors.primary, width: 1.2),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-        ),
       ],
     );
   }
