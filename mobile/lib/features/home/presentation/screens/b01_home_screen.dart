@@ -105,42 +105,22 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
   // Tab tìm kiếm (0: Khóa học, 1: Dịch vụ & cơ sở)
   int _searchTabIndex = 0;
 
-  // Controller & Dropdown cho Tab Khóa học
   final TextEditingController _courseSearchController = TextEditingController();
-  List<String> get _audienceCategories {
-    final list = <String>[];
-    for (final aud in PortalSettingsService.instance.audienceFilterList) {
-      if (!list.contains(aud)) list.add(aud);
-    }
-    for (final c in AcademyRepository.instance.cachedCourses) {
-      final aud = c.targetAudience.trim();
-      if (aud.isNotEmpty && aud != 'Tất cả đối tượng' && !list.contains(aud)) {
-        list.add(aud);
-      }
-    }
-    if (!list.contains('Khóa học đã đăng ký')) {
-      list.add('Khóa học đã đăng ký');
-    }
-    return list;
-  }
+  List<String> get _audienceCategories => PortalSettingsService.instance.audienceFilterList;
   String _selectedAudience = 'Tất cả đối tượng';
 
   List<String> get _needCategories => PortalSettingsService.instance.needFilterList;
   String _selectedNeed = 'Tất cả nhu cầu';
 
-  // Controller & Dropdown cho Tab Dịch vụ & Cơ sở
   final TextEditingController _serviceSearchController = TextEditingController();
   String _selectedBranchFilter = 'Tất cả cơ sở';
 
   List<String> get _serviceCategories {
-    final list = <String>['Tất cả dịch vụ', 'Dịch vụ lẻ', 'Gói liệu trình'];
-    for (final s in ServiceRepository.instance.cachedServices) {
-      final name = s.categoryName.trim();
-      if (name.isNotEmpty && !list.contains(name)) list.add(name);
-    }
-    for (final p in ServiceRepository.instance.cachedPackages) {
-      final cat = p.category.trim();
-      if (cat.isNotEmpty && !list.contains(cat)) list.add(cat);
+    final list = <String>['Tất cả dịch vụ'];
+    for (final c in ServiceRepository.instance.cachedCategories) {
+      if (c != 'Tất cả' && c != 'Tất cả dịch vụ' && !list.contains(c)) {
+        list.add(c);
+      }
     }
     return list;
   }
@@ -174,6 +154,9 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     _loadBanners();
     _startBannerAutoScroll();
     AcademyRepository.instance.getCourses().then((_) {
+      if (mounted) setState(() {});
+    });
+    ServiceRepository.instance.getCategories().then((_) {
       if (mounted) setState(() {});
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {

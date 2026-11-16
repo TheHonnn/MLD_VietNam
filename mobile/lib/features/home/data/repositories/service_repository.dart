@@ -137,7 +137,9 @@ class ServiceRepository {
     return MockHomeRepository.getFeaturedServices();
   }
 
-  /// Lấy danh mục dịch vụ từ Supabase
+  List<String> _cachedCategories = ['Tất cả', '3 Chương Trình Chăm Sóc Hệ Bạch Huyết'];
+  List<String> get cachedCategories => _cachedCategories;
+
   Future<List<String>> getCategories() async {
     try {
       const path = '${ApiEndpoints.serviceCategories}?is_active=eq.true&order=display_order.asc';
@@ -150,20 +152,15 @@ class ServiceRepository {
             .toList();
 
         if (categories.isNotEmpty) {
-          return ['Tất cả', ...categories];
+          final res = ['Tất cả', ...categories];
+          _cachedCategories = res;
+          return res;
         }
       }
     } catch (e) {
       debugPrint('>>> [ServiceRepository] Error fetching categories: $e');
     }
 
-    return [
-      'Tất cả',
-      'Massage thư giãn',
-      'Chăm sóc da',
-      'Chăm sóc cơ thể',
-      'Chăm sóc sức khỏe',
-      'Gói liệu trình',
-    ];
+    return _cachedCategories;
   }
 }
