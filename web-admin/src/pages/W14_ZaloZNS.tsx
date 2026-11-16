@@ -12,7 +12,8 @@ import {
   User,
   Sliders,
   Check,
-  X,
+  KeyRound,
+  Server,
   FileText,
   Search,
   Filter,
@@ -23,24 +24,45 @@ import { znsService } from '../services';
 import { ZNSTemplate, ZaloZnsLog } from '../types/shared_types';
 import { toast, AdminTabs } from '../components/common';
 
+const gatewaySettings = [
+  { key: 'tokenConfigured', label: 'OA Access Token', variable: 'ZALO_OA_ACCESS_TOKEN', icon: KeyRound },
+  { key: 'templateConfigured', label: 'Mẫu xác nhận lịch đã duyệt', variable: 'ZALO_BOOKING_CONFIRMATION_TEMPLATE_ID', icon: FileText },
+  { key: 'testPhoneConfigured', label: 'Số điện thoại nhận thử', variable: 'ZALO_TEST_PHONE', icon: Phone },
+] as const;
+
+const testTemplateCode = 'BOOKING_CONFIRMATION';
+const fallbackTestParameters = {
+  customer_name: 'Khách kiểm thử',
+  service_name: 'Chăm sóc mở rộng',
+  booking_time: '14:30',
+  branch_name: 'MLD Việt Nam',
+};
+
 export const W14_ZaloZNS: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'templates' | 'logs' | 'config'>('templates');
+  const [activeTab, setActiveTab] = useState<'templates' | 'logs' | 'config'>('config');
   const [templates, setTemplates] = useState<ZNSTemplate[]>([]);
   const [logs, setLogs] = useState<ZaloZnsLog[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Zalo Cloud Config State
   const [gateway, setGateway] = useState<Awaited<ReturnType<typeof znsService.getGatewayStatus>> | null>(null);
+  const [isCheckingGateway, setIsCheckingGateway] = useState(true);
   const [gatewayError, setGatewayError] = useState('');
   const [lastReceipt, setLastReceipt] = useState<string | null>(null);
+  const [testError, setTestError] = useState('');
+  const configuredCount = gatewaySettings.filter(({ key }) => gateway?.[key]).length;
+  const canSendTest = !isCheckingGateway && configuredCount === gatewaySettings.length;
 
   const loadGateway = async () => {
+    setIsCheckingGateway(true);
     setGatewayError('');
     try {
       setGateway(await znsService.getGatewayStatus());
     } catch (error) {
       setGateway(null);
       setGatewayError(error instanceof Error ? error.message : 'Không tải được trạng thái máy chủ.');
+    } finally {
+      setIsCheckingGateway(false);
     }
   };
 
@@ -49,11 +71,8 @@ export const W14_ZaloZNS: React.FC = () => {
   const [filterTemplate, setFilterTemplate] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  // Test Modal State
-  const [isTestModalOpen, setIsTestModalOpen] = useState<boolean>(false);
   const [testPhone, setTestPhone] = useState<string>('');
-  const testTemplateCode = 'BOOKING_CONFIRMATION';
-  const [testParameters, setTestParameters] = useState('');
+  const [testParameters, setTestParameters] = useState<string | null>(null);
   const [isSendingTest, setIsSendingTest] = useState<boolean>(false);
 
   useEffect(() => {
@@ -104,47 +123,46 @@ export const W14_ZaloZNS: React.FC = () => {
     }
   };
 
+  const sampleParameters = templates.find((template) => template.templateCode === testTemplateCode)?.sampleParams;
+  const defaultTestParameters = JSON.stringify(
+    sampleParameters && Object.keys(sampleParameters).length ? sampleParameters : fallbackTestParameters,
+    null,
+    2,
+  );
+
   const handleSendTestZns = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!testPhone.trim()) {
-      toast.error('Lỗi', 'Vui lòng nhập số điện thoại người nhận.');
+    if (!canSendTest || isSendingTest) return;
+    setLastReceipt(null);
+    setTestError('');
+
+    let payload: Record<string, string>;
+    try {
+      const parsed = JSON.parse(testParameters ?? defaultTestParameters);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) ||
+        !Object.keys(parsed).length || Object.values(parsed).some((value) => typeof value !== 'string')) {
+        throw new Error('Invalid template parameters');
+      }
+      payload = parsed;
+    } catch {
+      setTestError('Nhập tham số dưới dạng JSON. Mỗi tên tham số cần có một giá trị văn bản.');
       return;
     }
 
     setIsSendingTest(true);
     try {
-      const template = templates.find((t) => t.templateCode === testTemplateCode);
-      const params = template?.sampleParams || {
-        customer_name: 'Khách kiểm thử',
-        service_name: 'Dẫn lưu bạch huyết vùng bụng',
-        booking_time: '14:30',
-        branch_name: 'MLD Nam Kỳ Khởi Nghĩa',
-      };
-
-      let payload = params;
-      if (testParameters.trim()) {
-        try {
-          payload = JSON.parse(testParameters);
-        } catch {
-          toast.error('JSON không hợp lệ', 'Kiểm tra lại tham số của mẫu tin.');
-          return;
-        }
-      }
-      setLastReceipt(null);
-      const res = await znsService.sendTest({
-        recipientPhone: testPhone,
+      const result = await znsService.sendTest({
+        recipientPhone: testPhone.trim(),
         templateCode: testTemplateCode,
         paramsSent: payload,
       });
-
-      if (res.success && res.data) {
-        setLastReceipt(res.data.messageId);
-        toast.success('Zalo đã tiếp nhận', 'Mở Zalo trên điện thoại để xác nhận đã nhận tin.');
+      if (result.success && result.data) {
+        setLastReceipt(result.data.messageId);
       } else {
-        toast.error('Gửi thất bại', res.message);
+        setTestError(result.message);
       }
     } catch {
-      toast.error('Lỗi', 'Có lỗi khi kết nối cổng Zalo ZNS.');
+      setTestError('Chưa xác minh được kết quả gửi. Kiểm tra Zalo trước khi thử lại.');
     } finally {
       setIsSendingTest(false);
     }
@@ -176,31 +194,17 @@ export const W14_ZaloZNS: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {activeTab !== 'config' && (
           <button
-            onClick={() => {
-              if (gateway?.tokenConfigured && gateway.templateConfigured && gateway.testPhoneConfigured) {
-                setLastReceipt(null);
-                setIsTestModalOpen(true);
-              } else {
-                setActiveTab('config');
-              }
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#8A4F23] hover:bg-[#72401C] text-white rounded-xl text-xs font-semibold transition-colors shadow-xs cursor-pointer"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>Gửi tin kiểm thử</span>
-          </button>
-
-          <button
+            type="button"
             onClick={loadData}
             disabled={isLoading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#FAF8F5] hover:bg-[#F3E5D4] text-[#2C241E] border border-[#E8DFD8] rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 self-start rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] px-3.5 py-2 text-xs font-semibold text-[#2C241E] hover:bg-[#F3E5D4] disabled:opacity-60 sm:self-auto"
           >
-            <RotateCcw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Làm mới</span>
+            <RotateCcw className={`h-3.5 w-3.5 ${isLoading ? 'motion-safe:animate-spin' : ''}`} />
+            Làm mới
           </button>
-        </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -210,13 +214,9 @@ export const W14_ZaloZNS: React.FC = () => {
         activeTab={activeTab}
         onChange={(tabId) => setActiveTab(tabId as any)}
         tabs={[
+          { id: 'config', label: 'Kết nối Zalo OA', icon: Settings },
           { id: 'templates', label: `Mẫu tin (${templates.length})`, icon: Sliders },
           { id: 'logs', label: `Nhật ký gửi tin (${logs.length})`, icon: Clock },
-          {
-            id: 'config',
-            label: 'Kết nối Zalo OA',
-            icon: Settings,
-          },
         ]}
       />
 
@@ -413,82 +413,116 @@ export const W14_ZaloZNS: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 3: Zalo Cloud API Configuration */}
       {activeTab === 'config' && (
-        <section className="rounded-2xl border border-[#EFE4D9] bg-white p-5 space-y-4">
-          <h2 className="text-lg font-bold">Kết nối Zalo OA</h2>
-          <p className="text-sm">Gửi thử mẫu xác nhận lịch hẹn qua backend. Gửi tự động đang tắt.</p>
-          {gatewayError && <p role="alert" className="text-sm text-red-700">{gatewayError}</p>}
-          <dl className="space-y-2 text-sm">
-            <div><dt>OA Access Token</dt><dd>{gateway ? gateway.tokenConfigured ? 'Đã cấu hình' : 'Chưa cấu hình' : 'Chưa kiểm tra'}</dd></div>
-            <div><dt>Template ID xác nhận lịch</dt><dd>{gateway ? gateway.templateConfigured ? 'Đã cấu hình' : 'Chưa cấu hình' : 'Chưa kiểm tra'}</dd></div>
-            <div><dt>Số điện thoại thử</dt><dd>{gateway ? gateway.testPhoneConfigured ? 'Đã cấu hình' : 'Chưa cấu hình' : 'Chưa kiểm tra'}</dd></div>
-          </dl>
-          <p className="text-sm">Thêm ZALO_OA_ACCESS_TOKEN, ZALO_BOOKING_CONFIRMATION_TEMPLATE_ID và ZALO_TEST_PHONE vào Environment của backend trên Render.</p>
-          <button type="button" className="rounded-lg border px-3 py-2 text-sm" onClick={() => void loadGateway()}>Kiểm tra lại cấu hình</button>
-        </section>
-      )}
-
-      {/* Test Modal */}
-      {isTestModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#EFE4D9] space-y-4">
-            <div className="flex items-center justify-between border-b border-[#EFE4D9] pb-3">
-              <div className="flex items-center gap-2 text-[#8A4F23] font-bold text-sm">
-                <Send className="w-4 h-4" />
-                <span>Gửi thử nghiệm tin nhắn Zalo ZNS</span>
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+          <section aria-labelledby="zalo-config-title" className="min-w-0 overflow-hidden rounded-2xl border border-[#E8DFD8] bg-white">
+            <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[#EFE4D9] px-5 py-4 sm:px-6">
+              <div>
+                <h2 id="zalo-config-title" className="text-base font-bold text-[#2C241E]">Cấu hình máy chủ</h2>
+                <p role="status" className="mt-1 text-sm text-[#73675F]">
+                  {isCheckingGateway ? 'Đang kiểm tra cấu hình…' : gateway ? `${configuredCount}/${gatewaySettings.length} mục đã cấu hình` : 'Chưa xác minh được cấu hình'}
+                </p>
               </div>
               <button
-                onClick={() => setIsTestModalOpen(false)}
-                className="text-[#8C7A6B] hover:text-[#2C241E] p-1 rounded-lg"
+                type="button"
+                onClick={() => void loadGateway()}
+                disabled={isCheckingGateway}
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#E8DFD8] px-3 text-sm font-semibold text-[#2C241E] hover:bg-[#FAF8F5] disabled:opacity-60"
               >
-                <X className="w-4 h-4" />
+                <RotateCcw aria-hidden="true" className={`h-4 w-4 ${isCheckingGateway ? 'motion-safe:animate-spin' : ''}`} />
+                Kiểm tra lại
               </button>
-            </div>
+            </header>
+            {gatewayError && (
+              <p role="alert" className="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 sm:mx-6">
+                {gatewayError}
+              </p>
+            )}
+            <dl className="divide-y divide-[#EFE4D9] px-5 sm:px-6">
+              {gatewaySettings.map(({ key, label, variable, icon: Icon }) => {
+                const configured = !isCheckingGateway && gateway?.[key];
+                const status = isCheckingGateway ? 'Đang kiểm tra' : gateway ? configured ? 'Đã cấu hình' : 'Còn thiếu' : 'Chưa xác minh';
+                return (
+                  <div key={key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-3.5">
+                    <dt className="flex min-w-0 items-center gap-3">
+                      <span className="shrink-0 rounded-lg bg-[#FAF0E4] p-2 text-[#8A4F23]">
+                        <Icon aria-hidden="true" className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-[#2C241E]">{label}</span>
+                        <code className="block break-all text-xs text-[#73675F]">{variable}</code>
+                      </span>
+                    </dt>
+                    <dd className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${configured ? 'bg-emerald-50 text-emerald-800' : !isCheckingGateway && gateway ? 'bg-amber-50 text-amber-900' : 'bg-[#F4F0EC] text-[#73675F]'}`}>
+                      {configured && <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />}
+                      {status}
+                    </dd>
+                  </div>
+                );
+              })}
+            </dl>
+            <footer className="flex items-start gap-3 border-t border-[#EFE4D9] bg-[#FAF8F5] px-5 py-4 text-sm text-[#73675F] sm:px-6">
+              <Server aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-[#8A4F23]" />
+              <p>Thêm các biến trên tại <strong className="text-[#2C241E]">Render → MLD_VietNam → Environment</strong>. Sau khi Render cập nhật, bấm <strong className="text-[#2C241E]">Kiểm tra lại</strong>.</p>
+            </footer>
+          </section>
 
-            <p className="text-sm">Tin thử gửi đến số đã cấu hình trên Render. Dùng tên tham số đúng với mẫu Zalo đã duyệt.</p>
-            {lastReceipt && <p role="status" className="text-sm text-green-800">Mã tin Zalo: {lastReceipt}. Hãy kiểm tra trên điện thoại.</p>}
-
-            <form onSubmit={handleSendTestZns} className="space-y-3.5 text-xs">
-              <label className="block">
-                Tham số mẫu (JSON)
-                <textarea className="mt-1 w-full rounded-lg border p-2" rows={4}
-                  value={testParameters} onChange={(e) => setTestParameters(e.target.value)}
-                  placeholder="Để trống để dùng tham số mẫu xác nhận lịch trong MLD" />
-              </label>
-
+          <section aria-labelledby="zalo-test-title" className="min-w-0 overflow-hidden rounded-2xl border border-[#E8DFD8] bg-white">
+            <header className="border-b border-[#EFE4D9] px-5 py-4 sm:px-6">
+              <h2 id="zalo-test-title" className="text-base font-bold text-[#2C241E]">Gửi tin thử</h2>
+              <p className="mt-1 text-sm text-[#73675F]">Mẫu tin xác nhận lịch hẹn</p>
+            </header>
+            <form onSubmit={handleSendTestZns} className="space-y-4 px-5 py-4 sm:px-6">
               <div>
-                <label htmlFor="zalo-test-phone" className="block text-[#73675F] font-semibold mb-1">Số điện thoại nhận tin ZNS</label>
+                <label htmlFor="zalo-test-phone" className="block text-sm font-semibold text-[#2C241E]">Số điện thoại nhận thử</label>
                 <input
                   id="zalo-test-phone"
                   type="tel"
+                  autoComplete="off"
                   value={testPhone}
-                  onChange={(e) => setTestPhone(e.target.value)}
+                  onChange={(event) => setTestPhone(event.target.value)}
                   placeholder="09xxxxxxxx"
+                  aria-describedby="zalo-test-phone-hint"
                   required
-                  className="w-full p-2.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#8A4F23]"
+                  className="mt-2 min-h-10 w-full rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] px-3 py-2 text-sm text-[#2C241E] focus-visible:outline-2 focus-visible:outline-[#8A4F23]"
                 />
+                <p id="zalo-test-phone-hint" className="mt-1.5 text-xs text-[#73675F]">Nhập số đã lưu trong ZALO_TEST_PHONE trên Render.</p>
               </div>
-
-              <div className="pt-3 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsTestModalOpen(false)}
-                  className="px-4 py-2 bg-[#FAF8F5] border border-[#E8DFD8] hover:bg-[#F3E5D4] text-[#2C241E] rounded-xl font-semibold transition-colors cursor-pointer"
-                >
-                  Hủy
-                </button>
+              <details className="rounded-lg border border-[#E8DFD8] bg-[#FAF8F5]">
+                <summary className="cursor-pointer px-3 py-2.5 text-sm font-semibold text-[#2C241E]">Tham số mẫu tin</summary>
+                <div className="space-y-2 border-t border-[#E8DFD8] p-3">
+                  <label htmlFor="zalo-test-parameters" className="block text-xs text-[#73675F]">Dùng đúng tên trường trong mẫu Zalo đã duyệt.</label>
+                  <textarea
+                    id="zalo-test-parameters"
+                    rows={6}
+                    spellCheck={false}
+                    value={testParameters ?? defaultTestParameters}
+                    onChange={(event) => setTestParameters(event.target.value)}
+                    className="w-full rounded-lg border border-[#E8DFD8] bg-white p-2 font-mono text-xs leading-relaxed text-[#2C241E] focus-visible:outline-2 focus-visible:outline-[#8A4F23]"
+                  />
+                  <button type="button" onClick={() => setTestParameters(null)} className="text-xs font-semibold text-[#8A4F23] hover:underline">Dùng lại dữ liệu mẫu</button>
+                </div>
+              </details>
+              {testError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{testError}</p>}
+              {lastReceipt && (
+                <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                  <p className="font-semibold">Zalo đã tiếp nhận</p>
+                  <p className="mt-1">Mã tin <code className="break-all">{lastReceipt}</code>. Kiểm tra tin trên điện thoại đã khai báo.</p>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-3 border-t border-[#EFE4D9] pt-4">
                 <button
                   type="submit"
-                  disabled={isSendingTest}
-                  className="px-4 py-2 bg-[#8A4F23] hover:bg-[#72401C] text-white rounded-xl font-semibold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  disabled={!canSendTest || isSendingTest}
+                  className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#8A4F23] px-4 text-sm font-semibold text-white hover:bg-[#72401C] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{isSendingTest ? 'Đang gửi...' : 'Gửi tin ngay'}</span>
+                  <Send aria-hidden="true" className="h-4 w-4" />
+                  {isSendingTest ? 'Đang gửi…' : 'Gửi tin thử'}
                 </button>
+                {!canSendTest && !isCheckingGateway && <p className="text-xs text-[#73675F]">Cần xác minh đủ ba mục cấu hình để gửi thử.</p>}
               </div>
             </form>
-          </div>
+          </section>
         </div>
       )}
     </div>
