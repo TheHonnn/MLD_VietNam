@@ -322,11 +322,11 @@ class SupabaseService {
       if (updates.amenities !== undefined) payload.amenities = updates.amenities;
       if (updates.isActive !== undefined) payload.is_active = updates.isActive;
 
-      const res = await this.query<any>(`branches?id=eq.${branchId}`, {
+      const res = await this.query<{ id: string }[]>(`branches?id=eq.${encodeURIComponent(branchId)}&select=id`, {
         method: 'PATCH',
         body: JSON.stringify(payload),
       });
-      return res !== null;
+      return Array.isArray(res) && res.some((branch) => branch.id === branchId);
     } catch (err) {
       console.warn('[SupabaseService] updateBranch error:', err);
       return false;

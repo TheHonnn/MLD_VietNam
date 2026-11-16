@@ -1220,6 +1220,11 @@ export const W02_Branches: React.FC = () => {
   ) => {
     e.stopPropagation();
     const nextActive = !branch.isActive;
+    const result = await branchService.updateBranch(branch.id, { isActive: nextActive });
+    if (!result.success) {
+      toast.error('Không lưu được trạng thái', result.message);
+      return;
+    }
     const updated = branches.map((b) =>
       b.id === branch.id ? { ...b, isActive: nextActive } : b
     );
@@ -1242,7 +1247,6 @@ export const W02_Branches: React.FC = () => {
     );
 
     window.dispatchEvent(new CustomEvent('mld_branches_updated'));
-    await branchService.updateBranch(branch.id, { isActive: nextActive });
   };
 
   // Open Delete Branch confirmation modal
@@ -1927,7 +1931,11 @@ export const W02_Branches: React.FC = () => {
         amenities: editForm.amenities,
       };
 
-      await branchService.updateBranch(managingBranch.id, updates);
+      const result = await branchService.updateBranch(managingBranch.id, updates);
+      if (!result.success) {
+        toast.error('Không lưu được chi nhánh', result.message);
+        return;
+      }
 
       // Update state
       const updatedList = branches.map((b) =>
@@ -3629,29 +3637,39 @@ export const W02_Branches: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                      Giờ mở cửa
-                    </label>
-                    <input
-                      type="time"
-                      value={editForm.openingTime}
-                      onChange={(e) => setEditForm({ ...editForm, openingTime: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                    />
-                  </div>
+                  <fieldset className="sm:col-span-2 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] p-3.5">
+                    <legend className="px-1 text-sm font-bold text-[#2C241E]">Giờ đặt lịch</legend>
+                    <p className="mb-3 text-xs text-[#73675F]">Đây là giờ hoạt động của chi nhánh, dùng để tính khung giờ còn trống khi đặt lịch mới.</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="branch-booking-start" className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                          Bắt đầu nhận lịch
+                        </label>
+                        <input
+                          id="branch-booking-start"
+                          required
+                          type="time"
+                          value={editForm.openingTime}
+                          onChange={(e) => setEditForm({ ...editForm, openingTime: e.target.value })}
+                          className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                        />
+                      </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                      Giờ đóng cửa
-                    </label>
-                    <input
-                      type="time"
-                      value={editForm.closingTime}
-                      onChange={(e) => setEditForm({ ...editForm, closingTime: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                    />
-                  </div>
+                      <div>
+                        <label htmlFor="branch-booking-end" className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                          Kết thúc khung đặt lịch
+                        </label>
+                        <input
+                          id="branch-booking-end"
+                          required
+                          type="time"
+                          value={editForm.closingTime}
+                          onChange={(e) => setEditForm({ ...editForm, closingTime: e.target.value })}
+                          className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                        />
+                      </div>
+                    </div>
+                  </fieldset>
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
@@ -4226,7 +4244,11 @@ export const W02_Branches: React.FC = () => {
                     onClick={async () => {
                       const nextStatus = !managingBranch.isActive;
                       try {
-                        await branchService.updateBranch(managingBranch.id, { isActive: nextStatus });
+                        const result = await branchService.updateBranch(managingBranch.id, { isActive: nextStatus });
+                        if (!result.success) {
+                          toast.error('Không lưu được trạng thái', result.message);
+                          return;
+                        }
                         setManagingBranch({ ...managingBranch, isActive: nextStatus });
                         setBranches((prev) =>
                           prev.map((b) => (b.id === managingBranch.id ? { ...b, isActive: nextStatus } : b))
