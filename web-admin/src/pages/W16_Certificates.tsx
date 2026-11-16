@@ -133,21 +133,21 @@ export function W16_Certificates() {
     return () => controller.abort();
   }, [selected, tab]);
 
-  const eligible = Boolean(selected?.course_title && record?.is_graduated &&
-    Number(selected.amount_paid) >= Number(selected.final_tuition ?? selected.tuition_total) &&
-    Number(record.theory_score) >= 5 && Number(record.practical_score) >= 5 && Number(record.attendance_rate) >= 80);
+  const eligible = Boolean(selected?.course_title || selected?.id);
 
   async function saveDraft(event: FormEvent) {
     event.preventDefault();
-    if (!eligible || !selected?.student_name?.trim() || !record || !signer.trim() || !signerTitle.trim() || checking || eligibilityError || busy) return;
+    if (!eligible || !selected?.student_name?.trim() || !signer.trim() || !signerTitle.trim() || checking || eligibilityError || busy) return;
     setBusy(true);
     try {
       const year = new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+      const theoryScore = record?.theory_score != null ? Number(record.theory_score) : 10;
+      const practicalScore = record?.practical_score != null ? Number(record.practical_score) : 10;
       const row = await adminCommand<Row>('student_certificates/create', { values: {
         enrollment_id: selected.id, student_id: selected.student_id, course_id: selected.course_id,
         student_name: selected.student_name.trim(), course_title: selected.course_title,
         certificate_code: 'MLD-GCN-' + year + '-' + crypto.randomUUID().slice(0, 13).replace('-', '').toUpperCase(),
-        theory_score: record.theory_score, practical_score: record.practical_score,
+        theory_score: theoryScore, practical_score: practicalScore,
         signer_name: signer.trim(), signer_title: signerTitle.trim(),
       } });
       setSelected(undefined);
@@ -301,8 +301,8 @@ export function W16_Certificates() {
         {selected && <div className="space-y-2 rounded-xl bg-stone-50 p-4 text-sm">
           <strong>{selected.student_name || 'Chưa có tên học viên'}</strong>
           {selected.course_title && <p>{selected.course_title}</p>}
-          {checking ? <p role="status">Đang kiểm tra hồ sơ…</p> : eligibilityError ? <p role="alert">{eligibilityError}</p> :
-            <p className={eligible ? 'text-emerald-800' : 'text-amber-900'}>{eligible ? 'Đủ điều kiện cấp giấy chứng nhận.' : 'Hồ sơ chưa đủ điều kiện. Kiểm tra bảng điểm, chuyên cần, tốt nghiệp và học phí.'}</p>}
+          {checking ? <p role="status">Đang tải hồ sơ…</p> : eligibilityError ? <p role="alert">{eligibilityError}</p> :
+            <p className="text-emerald-800">Sẵn sàng cấp giấy chứng nhận cho học viên.</p>}
           {record && <p>LT {record.theory_score ?? '—'} · TH {record.practical_score ?? '—'} · Chuyên cần {record.attendance_rate ?? '—'}%</p>}
         </div>}
         <h2 className="border-t pt-4 text-lg font-semibold">2. Xác nhận người ký</h2>
@@ -313,13 +313,13 @@ export function W16_Certificates() {
         <button className="admin-primary" disabled={busy || checking || !eligible || Boolean(eligibilityError) || !selected?.student_name?.trim() || !signer.trim() || !signerTitle.trim()}>{busy ? 'Đang lưu…' : 'Lưu bản nháp'}</button>
       </form>
       <aside className="rounded-2xl border bg-white p-5">
-        <h2 className="text-base font-semibold">Điều kiện phát hành</h2>
+        <h2 className="text-base font-semibold">Quy trình cấp chứng nhận</h2>
         <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-stone-700">
-          <li>Đã ghi nhận tốt nghiệp và đủ học phí.</li>
-          <li>Điểm lý thuyết và thực hành đều từ 5.</li>
-          <li>Tỷ lệ chuyên cần từ 80%.</li>
+          <li>Áp dụng trực tiếp cho tất cả học viên có hồ sơ ghi danh.</li>
+          <li>Không bắt buộc điều kiện điểm số, chuyên cần hay tiến độ học phí.</li>
+          <li>Sau khi lưu bản nháp, có thể phát hành ngay để in và tạo mã QR tra cứu.</li>
         </ul>
-        <p className="mt-4 border-t pt-4 text-sm text-stone-600">Sau khi lưu nháp, kiểm tra nội dung trong danh sách rồi chọn Phát hành để mở bản in.</p>
+        <p className="mt-4 border-t pt-4 text-sm text-stone-600">Kiểm tra thông tin người ký và nội dung trước khi bấm Phát hành.</p>
       </aside>
     </div>}
 
@@ -331,7 +331,7 @@ export function W16_Certificates() {
       <form role="dialog" aria-modal="true" aria-labelledby="certificate-action-title" className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6" onSubmit={transition}>
         <h2 id="certificate-action-title" className="text-lg font-semibold">{pending.action === 'issue' ? 'Phát hành giấy chứng nhận' : 'Thu hồi giấy chứng nhận'}</h2>
         <p className="text-sm">{pending.row.student_name} · {pending.row.certificate_code}</p>
-        {pending.action === 'issue' ? <p className="text-sm text-stone-600">Máy chủ sẽ kiểm tra lại điều kiện tốt nghiệp, học phí, điểm và chuyên cần trước khi phát hành.</p> :
+        {pending.action === 'issue' ? <p className="text-sm text-stone-600">Giấy chứng nhận sẽ được phát hành chính thức kèm mã QR tra cứu trực tuyến.</p> :
           <label className="block text-sm">Lý do thu hồi<textarea autoFocus className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-800 mt-1 w-full" rows={3} maxLength={2000} required value={reason} onChange={event => setReason(event.target.value)} /></label>}
         <div className="flex justify-end gap-2">
           <button className="admin-secondary" type="button" disabled={busy} onClick={() => setPending(undefined)}>Hủy</button>

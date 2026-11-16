@@ -25,15 +25,27 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
   late int _currentIndex;
   String? _subTab;
 
+  bool get _isFullAdmin => AuthService.instance.isAdmin;
+
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialTab;
+    final maxIndex = _isFullAdmin ? 3 : 2;
+    _currentIndex = widget.initialTab.clamp(0, maxIndex);
   }
 
   void _onNavigateTab(int index, {String? subTab}) {
+    int targetIndex = index;
+    if (!_isFullAdmin) {
+      if (index == 3) {
+        targetIndex = 2;
+      } else if (index == 2) {
+        targetIndex = 1;
+      }
+    }
+    final maxIndex = _isFullAdmin ? 3 : 2;
     setState(() {
-      _currentIndex = index;
+      _currentIndex = targetIndex.clamp(0, maxIndex);
       _subTab = subTab;
     });
   }
@@ -43,7 +55,6 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
       context: context,
       builder: (_) => AdminQrScannerModal(
         onCodeScanned: (code) {
-          // Chuyển sang Tab 1 (Tiếp đón) để xử lý mã đã quét
           setState(() {
             _currentIndex = 1;
           });
@@ -62,13 +73,15 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
             const Icon(Icons.logout_rounded, color: Color(0xFFE11D48), size: 24),
             const SizedBox(width: 8),
             Text(
-              'Đăng xuất quản trị',
+              'Đăng xuất',
               style: AppTypography.zaloFont(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ],
         ),
         content: Text(
-          'Bạn có chắc chắn muốn đăng xuất khỏi giao diện quản trị viên?',
+          _isFullAdmin
+              ? 'Bạn có chắc chắn muốn đăng xuất khỏi giao diện quản trị viên?'
+              : 'Bạn có chắc chắn muốn đăng xuất khỏi giao diện nhân viên?',
           style: AppTypography.zaloFont(fontSize: 13, color: AppColors.textSecondary),
         ),
         actions: [
@@ -89,7 +102,13 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: Text('Đăng xuất', style: AppTypography.zaloFont(fontWeight: FontWeight.w700)),
+            child: Text(
+              'Đăng xuất',
+              style: AppTypography.zaloFont(
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
           ),
         ],
       ),
@@ -109,29 +128,47 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> screens = [
-      AdminDashboardScreen(
-        onNavigateTab: _onNavigateTab,
-        onOpenQrScanner: _openQrScanner,
-        onLogout: _handleLogout,
-      ),
-      AdminFrontdeskScreen(
-        key: ValueKey('frontdesk_$_subTab'),
-        initialStatus: _subTab,
-      ),
-      AdminAcademyScreen(
-        key: ValueKey('academy_$_subTab'),
-        initialWorkflowTab: _subTab,
-      ),
-      AdminCatalogScreen(
-        key: ValueKey('catalog_$_subTab'),
-        initialTab: _subTab,
-      ),
-    ];
+    final List<Widget> screens = _isFullAdmin
+        ? [
+            AdminDashboardScreen(
+              onNavigateTab: _onNavigateTab,
+              onOpenQrScanner: _openQrScanner,
+              onLogout: _handleLogout,
+            ),
+            AdminFrontdeskScreen(
+              key: ValueKey('frontdesk_$_subTab'),
+              initialStatus: _subTab,
+            ),
+            AdminAcademyScreen(
+              key: ValueKey('academy_$_subTab'),
+              initialWorkflowTab: _subTab,
+            ),
+            AdminCatalogScreen(
+              key: ValueKey('catalog_$_subTab'),
+              initialTab: _subTab,
+            ),
+          ]
+        : [
+            AdminDashboardScreen(
+              onNavigateTab: _onNavigateTab,
+              onOpenQrScanner: _openQrScanner,
+              onLogout: _handleLogout,
+            ),
+            AdminFrontdeskScreen(
+              key: ValueKey('frontdesk_$_subTab'),
+              initialStatus: _subTab,
+            ),
+            AdminCatalogScreen(
+              key: ValueKey('catalog_$_subTab'),
+              initialTab: _subTab,
+            ),
+          ];
+
+    final int safeIndex = _currentIndex.clamp(0, screens.length - 1);
 
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex,
+        index: safeIndex,
         children: screens,
       ),
       bottomNavigationBar: Container(
@@ -153,13 +190,20 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
             height: 64,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, 'Tổng quan', Icons.grid_view_rounded),
-                _buildNavItem(1, 'Tiếp đón', Icons.calendar_month_rounded),
-                _buildNavItem(2, 'Tuyển sinh', Icons.view_kanban_rounded),
-                _buildNavItem(3, 'Danh mục & SP', Icons.storefront_rounded),
-                _buildLogoutItem(),
-              ],
+              children: _isFullAdmin
+                  ? [
+                      _buildNavItem(0, 'Tổng quan', Icons.grid_view_rounded),
+                      _buildNavItem(1, 'Tiếp đón', Icons.calendar_month_rounded),
+                      _buildNavItem(2, 'Tuyển sinh', Icons.view_kanban_rounded),
+                      _buildNavItem(3, 'Danh mục & SP', Icons.storefront_rounded),
+                      _buildLogoutItem(),
+                    ]
+                  : [
+                      _buildNavItem(0, 'Tổng quan', Icons.grid_view_rounded),
+                      _buildNavItem(1, 'Tiếp đón', Icons.calendar_month_rounded),
+                      _buildNavItem(2, 'Danh mục & SP', Icons.storefront_rounded),
+                      _buildLogoutItem(),
+                    ],
             ),
           ),
         ),
@@ -219,30 +263,29 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: _handleLogout,
+        borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          margin: const EdgeInsets.only(right: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE11D48),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF1F2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.logout_rounded,
-                  size: 18,
-                  color: Color(0xFFE11D48),
-                ),
+              const Icon(
+                Icons.logout_rounded,
+                size: 15,
+                color: Colors.white,
               ),
-              const SizedBox(height: 2),
+              const SizedBox(width: 4),
               Text(
                 'Đăng xuất',
                 style: AppTypography.zaloFont(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFE11D48),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
               ),
             ],

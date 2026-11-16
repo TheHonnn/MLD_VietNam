@@ -94,7 +94,7 @@ class _A01SplashScreenState extends State<A01SplashScreen>
     _timeoutTimer?.cancel();
 
     final Widget destination = isAutoLogin
-        ? (AuthService.instance.isAdmin
+        ? (AuthService.instance.isStaff
             ? const AdminMainLayoutScreen()
             : const MainLayoutScreen())
         : const A02WelcomeScreen();

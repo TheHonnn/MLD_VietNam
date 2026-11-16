@@ -16,6 +16,7 @@ class E12LearningResultsScreen extends StatefulWidget {
 
 class _E12LearningResultsScreenState extends State<E12LearningResultsScreen> {
   bool _isLoading = true;
+  int _selectedCertIndex = 0;
   List<StudentCertificateModel> _certificates = [];
 
   @override
@@ -31,6 +32,9 @@ class _E12LearningResultsScreenState extends State<E12LearningResultsScreen> {
       if (mounted) {
         setState(() {
           _certificates = certs;
+          if (_selectedCertIndex >= certs.length) {
+            _selectedCertIndex = 0;
+          }
           _isLoading = false;
         });
       }
@@ -54,7 +58,9 @@ class _E12LearningResultsScreenState extends State<E12LearningResultsScreen> {
     }
 
     final hasRealDbCertificate = _certificates.isNotEmpty;
-    final StudentCertificateModel? activeCert = hasRealDbCertificate ? _certificates.first : null;
+    final StudentCertificateModel? activeCert = hasRealDbCertificate
+        ? (_selectedCertIndex < _certificates.length ? _certificates[_selectedCertIndex] : _certificates.first)
+        : null;
 
     final enrolledCourses = AcademyRepository.instance.enrolledCourses;
     final completedCourse = enrolledCourses
@@ -195,6 +201,41 @@ class _E12LearningResultsScreenState extends State<E12LearningResultsScreen> {
               if (!hasDisplayableCertificate) ...[
                 _buildEmptyResultState(context),
               ] else ...[
+                if (_certificates.length > 1) ...[
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: List.generate(_certificates.length, (index) {
+                        final cert = _certificates[index];
+                        final isSelected = _selectedCertIndex == index;
+                        final label = cert.courseTitle.isNotEmpty ? cert.courseTitle : 'Chứng chỉ ${index + 1}';
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            selected: isSelected,
+                            label: Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: isSelected ? Colors.white : AcademyColors.textPrimary,
+                              ),
+                            ),
+                            selectedColor: AcademyColors.primary,
+                            backgroundColor: Colors.white,
+                            side: BorderSide(
+                              color: isSelected ? AcademyColors.primary : AcademyColors.cardBorder,
+                            ),
+                            onSelected: (val) {
+                              if (val) setState(() => _selectedCertIndex = index);
+                            },
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 Row(
                   children: [
                     Container(
@@ -628,6 +669,7 @@ class _E12LearningResultsScreenState extends State<E12LearningResultsScreen> {
   ) {
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (ctx) => Dialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

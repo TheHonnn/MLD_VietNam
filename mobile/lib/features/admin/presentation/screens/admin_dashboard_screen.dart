@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
@@ -91,6 +92,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           }
         }
       } else if (item.type == AdminActionType.waitingBatch) {
+        if (!AuthService.instance.isAdmin) {
+          TopNotificationService.showInfo(
+            title: 'Phân quyền học viện',
+            message: 'Chức năng xếp lớp học viên chỉ dành cho Quản trị viên.',
+          );
+          return;
+        }
         final candidate = AdminCandidateModel.fromJson(item.rawData);
         showModalBottomSheet(
           context: context,
@@ -108,6 +116,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         );
       } else if (item.type == AdminActionType.newQuizSubmission) {
+        if (!AuthService.instance.isAdmin) {
+          TopNotificationService.showInfo(
+            title: 'Phân quyền học viện',
+            message: 'Chức năng chấm bài thi học viên chỉ dành cho Quản trị viên.',
+          );
+          return;
+        }
         final sub = AdminQuizSubmissionModel.fromJson(item.rawData);
         showModalBottomSheet(
           context: context,
@@ -216,20 +231,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           if (widget.onLogout != null) ...[
             const SizedBox(width: 4),
-            IconButton(
-              tooltip: 'Đăng xuất quản trị',
-              onPressed: widget.onLogout,
-              icon: Container(
-                width: 38,
-                height: 38,
+            InkWell(
+              onTap: widget.onLogout,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF1F2),
-                  borderRadius: BorderRadius.circular(10),
+                  color: const Color(0xFFE11D48),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.logout_rounded,
-                  color: Color(0xFFE11D48),
-                  size: 20,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.logout_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Đăng xuất',
+                      style: AppTypography.zaloFont(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -40,6 +40,32 @@ void main() {
     expect(model.signerTitle, equals('GIÁM ĐỐC HỌC VIỆN MLD VIỆT NAM'));
   });
 
+  test('StudentCertificateModel parses camelCase JSON correctly', () {
+    final json = {
+      'id': 'fad2fdfa-1b21-4763-80c8-d42267cd4269',
+      'certificateCode': 'MLD-GCN-2026-4BD6C9F15003',
+      'studentName': 'The Hoang',
+      'courseTitle': 'Lymphatic Wellness Signature Program',
+      'issueDate': '2026-11-16',
+      'theoryScore': 10.0,
+      'practicalScore': 10.0,
+      'finalGrade': 'XUẤT SẮC',
+      'status': 'ISSUED',
+      'signerName': 'Xuan Truong',
+      'signerTitle': 'Giám đốc',
+      'qrVerificationCode': '09ef843f-42d5-45a0-92df-5f9949596586',
+    };
+
+    final model = StudentCertificateModel.fromJson(json);
+
+    expect(model.id, equals('fad2fdfa-1b21-4763-80c8-d42267cd4269'));
+    expect(model.certificateCode, equals('MLD-GCN-2026-4BD6C9F15003'));
+    expect(model.studentName, equals('The Hoang'));
+    expect(model.courseTitle, equals('Lymphatic Wellness Signature Program'));
+    expect(model.theoryScore, equals(10.0));
+    expect(model.practicalScore, equals(10.0));
+  });
+
   testWidgets('E12LearningResultsScreen loads and renders empty state cleanly when no certificate', (WidgetTester tester) async {
     await tester.pumpWidget(
       const MaterialApp(

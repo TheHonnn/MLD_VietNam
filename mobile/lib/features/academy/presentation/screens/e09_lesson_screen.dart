@@ -248,18 +248,6 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Nhãn Video bài với thời lượng hiển thị chính xác theo độ dài clip
-            Text(
-              '${context.tr("Video Bài", "Lesson")} ${widget.lesson?.lessonOrder ?? 1} · ${widget.lesson?.formattedDuration ?? "94:48"}',
-              style: const TextStyle(
-                
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 6),
-
             // Tên bài học
             Text(
               widget.lesson?.title.tr(context) ?? 'Bài 1: Nhận biết sớm dấu hiệu phù - chủ động giảm nguy cơ phù tay sau phẫu thuật',
@@ -282,32 +270,29 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
                 color: AcademyColors.textSecondary,
               ),
             ),
-            const SizedBox(height: 14),
-
-            // Thông báo trạng thái học tập (tối giản, không icon rườm rà)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: _isCompleted ? const Color(0xFFDCFCE7) : const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: _isCompleted ? const Color(0xFF86EFAC) : const Color(0xFFBFDBFE),
+            if (_isCompleted) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFF86EFAC),
+                  ),
+                ),
+                child: Text(
+                  context.tr('Bạn đã hoàn thành bài học này. Bài học kế tiếp đã được mở khóa.', 'You have completed this lesson. The next lesson has been unlocked.'),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF15803D),
+                    height: 1.4,
+                  ),
                 ),
               ),
-              child: Text(
-                _isCompleted
-                    ? context.tr('Bạn đã hoàn thành bài học này. Bài học kế tiếp đã được mở khóa.', 'You have completed this lesson. The next lesson has been unlocked.')
-                    : context.tr('Hệ thống tự động ghi nhớ vị trí xem. Bạn cần xem hết video để mở khóa bài tiếp theo.', 'The system automatically remembers playback progress. Complete the full video to unlock the next lesson.'),
-                style: TextStyle(
-                  
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: _isCompleted ? const Color(0xFF15803D) : const Color(0xFF1E40AF),
-                  height: 1.4,
-                ),
-              ),
-            ),
+            ],
           ],
         ),
       ),

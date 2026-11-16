@@ -759,7 +759,10 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                           child: Text(isEn ? 'Cancel' : 'Hủy', style: const TextStyle(color: AppColors.textSecondary)),
                         ),
                         ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE11D48),
+                            foregroundColor: Colors.white,
+                          ),
                           onPressed: () async {
                             Navigator.pop(ctx);
                             await AuthService.instance.logout();
@@ -784,18 +787,22 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                 child: Container(
                   width: double.infinity,
                   height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE11D48),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   alignment: Alignment.center,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.logout_rounded, size: 20, color: AppColors.primary),
+                      const Icon(Icons.logout_rounded, size: 20, color: Colors.white),
                       const SizedBox(width: 8),
                       Text(
                         isEn ? 'Sign Out' : 'Đăng xuất',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.primary, // #985018
+                          color: Colors.white,
                         ),
                       ),
                     ],

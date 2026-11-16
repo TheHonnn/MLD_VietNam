@@ -123,9 +123,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Hệ thống tự động theo dõi tiến độ xem video, không có nút thủ công "Đánh dấu đã xem hết"
       expect(find.text('Đánh dấu đã xem hết'), findsNothing);
-      expect(find.textContaining('Hệ thống tự động ghi nhớ vị trí xem'), findsOneWidget);
+      expect(find.textContaining('Hệ thống tự động ghi nhớ vị trí xem'), findsNothing);
 
       // Tự động ghi nhận hoàn thành khi học viên xem xong video
       await AcademyRepository.instance.markLessonCompleted('test_course_fresh_sim', testLesson.id);

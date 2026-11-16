@@ -723,6 +723,40 @@ class AdminRepository {
     }
   }
 
+  Future<bool> updateBatchSchedule({
+    required String scheduleId,
+    required String topic,
+    required String sessionDate,
+    required String startTime,
+    required String endTime,
+    required bool isPracticeLab,
+    String? assignedRoomId,
+  }) async {
+    try {
+      final res = await _apiClient.dio.patch(
+        '/rest/v1/batch_schedules?id=eq.$scheduleId',
+        data: {
+          'topic': topic,
+          'session_date': sessionDate,
+          'start_time': startTime,
+          'end_time': endTime,
+          'is_practice_lab': isPracticeLab,
+          if (assignedRoomId != null && assignedRoomId.isNotEmpty) 'assigned_room_id': assignedRoomId,
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          },
+        ),
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      debugPrint('[AdminRepository] updateBatchSchedule error: $e');
+      return false;
+    }
+  }
+
   /// 5.3.3. Lấy dữ liệu điểm danh theo Buổi học (Session Attendance)
   Future<Map<String, String>> fetchSessionAttendance(String scheduleId) async {
     try {

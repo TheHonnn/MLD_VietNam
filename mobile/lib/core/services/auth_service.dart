@@ -76,6 +76,8 @@ class AuthService {
   String? get currentUserId => _cachedUserId;
   String? get currentRole => _cachedRole;
   bool get isAdmin => _cachedRole == 'ADMIN' || _cachedRole == 'SUPER_ADMIN';
+  bool get isReceptionist => _cachedRole == 'RECEPTIONIST';
+  bool get isStaff => isAdmin || isReceptionist || _cachedRole == 'BRANCH_MANAGER' || _cachedRole == 'CASHIER';
   String? get lastLoginPhone => _prefs?.getString(_keyLastLoginPhone);
   String? get lastLoginEmail => _prefs?.getString(_keyLastLoginEmail);
   String? get lastLoginMethod => _prefs?.getString(_keyLastLoginMethod);

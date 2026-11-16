@@ -802,7 +802,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                             ),
                             alignment: Alignment.center,
                             child: Text(
-                              '📖 Lý thuyết chuyên sâu',
+                              'Lý thuyết chuyên sâu',
                               style: AppTypography.zaloFont(
                                 fontSize: 11.5,
                                 fontWeight: !isLab ? FontWeight.w700 : FontWeight.w500,
@@ -825,7 +825,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                             ),
                             alignment: Alignment.center,
                             child: Text(
-                              '🔬 Thực hành Lab Lâm sàng',
+                              'Thực hành Lab Lâm sàng',
                               style: AppTypography.zaloFont(
                                 fontSize: 11.5,
                                 fontWeight: isLab ? FontWeight.w700 : FontWeight.w500,
@@ -886,24 +886,94 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                           children: [
                             Text('Khung giờ:', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
                             const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF9FAFB),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFE5E7EB)),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF0284C7)),
-                                  const SizedBox(width: 6),
-                                  Text('$sTimeStr – $eTimeStr', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
-                                ],
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final picked = await showTimePicker(
+                                        context: context,
+                                        initialTime: startTime,
+                                      );
+                                      if (picked != null) {
+                                        setSheetState(() => startTime = picked);
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF9FAFB),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        sTimeStr,
+                                        style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7)),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                                  child: Text('–', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                                ),
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final picked = await showTimePicker(
+                                        context: context,
+                                        initialTime: endTime,
+                                      );
+                                      if (picked != null) {
+                                        setSheetState(() => endTime = picked);
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF9FAFB),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        eTimeStr,
+                                        style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7)),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      _buildQuickTimeChip('Sáng 08:00 - 11:30', const TimeOfDay(hour: 8, minute: 0), const TimeOfDay(hour: 11, minute: 30), startTime, endTime, (s, e) {
+                        setSheetState(() {
+                          startTime = s;
+                          endTime = e;
+                        });
+                      }),
+                      _buildQuickTimeChip('Chiều 13:30 - 17:00', const TimeOfDay(hour: 13, minute: 30), const TimeOfDay(hour: 17, minute: 0), startTime, endTime, (s, e) {
+                        setSheetState(() {
+                          startTime = s;
+                          endTime = e;
+                        });
+                      }),
+                      _buildQuickTimeChip('Tối 18:00 - 21:00', const TimeOfDay(hour: 18, minute: 0), const TimeOfDay(hour: 21, minute: 0), startTime, endTime, (s, e) {
+                        setSheetState(() {
+                          startTime = s;
+                          endTime = e;
+                        });
+                      }),
                     ],
                   ),
                   const SizedBox(height: 18),
@@ -947,6 +1017,355 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
           },
         );
       },
+    );
+  }
+
+  void _openEditScheduleSheet(AdminBatchScheduleModel s) {
+    final topicCtrl = TextEditingController(text: s.topic);
+    bool isLab = s.isPracticeLab;
+    DateTime selectedDate = DateTime.tryParse(s.sessionDate) ?? DateTime.now();
+
+    TimeOfDay startTime = const TimeOfDay(hour: 13, minute: 0);
+    try {
+      final parts = s.startTime.split(':');
+      if (parts.length >= 2) {
+        startTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      }
+    } catch (_) {}
+
+    TimeOfDay endTime = const TimeOfDay(hour: 17, minute: 0);
+    try {
+      final parts = s.endTime.split(':');
+      if (parts.length >= 2) {
+        endTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      }
+    } catch (_) {}
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final dateStr = DateFormat('dd/MM/yyyy').format(selectedDate);
+            final sTimeStr = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
+            final eTimeStr = '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}';
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                left: 16,
+                right: 16,
+                top: 14,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD1D5DB),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Đổi lịch & Cập nhật buổi học',
+                    style: AppTypography.zaloFont(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                  ),
+                  Text(
+                    'Buổi ${s.sessionIndex} · Lớp: ${_batch.batchCode}',
+                    style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+
+                  Text('Chủ đề bài giảng / Nội dung:', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: topicCtrl,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: true,
+                      fillColor: const Color(0xFFF9FAFB),
+                    ),
+                    style: AppTypography.zaloFont(fontSize: 12.5),
+                  ),
+                  const SizedBox(height: 12),
+
+                  Text('Hình thức đào tạo:', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setSheetState(() => isLab = false),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: !isLab ? const Color(0xFFE0F2FE) : const Color(0xFFF3F4F6),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: !isLab ? const Color(0xFF0284C7) : const Color(0xFFE5E7EB)),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Lý thuyết chuyên sâu',
+                              style: AppTypography.zaloFont(
+                                fontSize: 11.5,
+                                fontWeight: !isLab ? FontWeight.w700 : FontWeight.w500,
+                                color: !isLab ? const Color(0xFF0284C7) : const Color(0xFF6B7280),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setSheetState(() => isLab = true),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isLab ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: isLab ? const Color(0xFF00693F) : const Color(0xFFE5E7EB)),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Thực hành Lab Lâm sàng',
+                              style: AppTypography.zaloFont(
+                                fontSize: 11.5,
+                                fontWeight: isLab ? FontWeight.w700 : FontWeight.w500,
+                                color: isLab ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Ngày học:', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            InkWell(
+                              onTap: () async {
+                                final d = await showDatePicker(
+                                  context: context,
+                                  initialDate: selectedDate,
+                                  firstDate: DateTime.now().subtract(const Duration(days: 90)),
+                                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                                );
+                                if (d != null) {
+                                  setSheetState(() => selectedDate = d);
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF9FAFB),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today_rounded, size: 14, color: Color(0xFF00693F)),
+                                    const SizedBox(width: 6),
+                                    Text(dateStr, style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Khung giờ:', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final picked = await showTimePicker(
+                                        context: context,
+                                        initialTime: startTime,
+                                      );
+                                      if (picked != null) {
+                                        setSheetState(() => startTime = picked);
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF9FAFB),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        sTimeStr,
+                                        style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7)),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                                  child: Text('–', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                                ),
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final picked = await showTimePicker(
+                                        context: context,
+                                        initialTime: endTime,
+                                      );
+                                      if (picked != null) {
+                                        setSheetState(() => endTime = picked);
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF9FAFB),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        eTimeStr,
+                                        style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7)),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      _buildQuickTimeChip('Sáng 08:00 - 11:30', const TimeOfDay(hour: 8, minute: 0), const TimeOfDay(hour: 11, minute: 30), startTime, endTime, (sTime, eTime) {
+                        setSheetState(() {
+                          startTime = sTime;
+                          endTime = eTime;
+                        });
+                      }),
+                      _buildQuickTimeChip('Chiều 13:30 - 17:00', const TimeOfDay(hour: 13, minute: 30), const TimeOfDay(hour: 17, minute: 0), startTime, endTime, (sTime, eTime) {
+                        setSheetState(() {
+                          startTime = sTime;
+                          endTime = eTime;
+                        });
+                      }),
+                      _buildQuickTimeChip('Tối 18:00 - 21:00', const TimeOfDay(hour: 18, minute: 0), const TimeOfDay(hour: 21, minute: 0), startTime, endTime, (sTime, eTime) {
+                        setSheetState(() {
+                          startTime = sTime;
+                          endTime = eTime;
+                        });
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final topic = topicCtrl.text.trim();
+                        if (topic.isEmpty) return;
+                        Navigator.pop(ctx);
+                        final dateParam = DateFormat('yyyy-MM-dd').format(selectedDate);
+                        final ok = await _repository.updateBatchSchedule(
+                          scheduleId: s.id,
+                          topic: topic,
+                          sessionDate: dateParam,
+                          startTime: '$sTimeStr:00',
+                          endTime: '$eTimeStr:00',
+                          isPracticeLab: isLab,
+                        );
+                        if (ok) {
+                          _loadSchedules();
+                          TopNotificationService.showSuccess(
+                            title: 'Cập nhật thành công',
+                            message: 'Đã đổi lịch buổi ${s.sessionIndex} lớp ${_batch.batchCode}!',
+                          );
+                        } else {
+                          TopNotificationService.showError(
+                            title: 'Cập nhật thất bại',
+                            message: 'Không thể lưu thay đổi buổi học. Vui lòng thử lại!',
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF004890),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: Text('Lưu thay đổi lịch học', style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildQuickTimeChip(
+    String label,
+    TimeOfDay s,
+    TimeOfDay e,
+    TimeOfDay currentS,
+    TimeOfDay currentE,
+    Function(TimeOfDay, TimeOfDay) onSelect,
+  ) {
+    final isSelected = currentS.hour == s.hour && currentS.minute == s.minute && currentE.hour == e.hour && currentE.minute == e.minute;
+    return InkWell(
+      onTap: () => onSelect(s, e),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFE0F2FE) : const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: isSelected ? const Color(0xFF0284C7) : Colors.transparent),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.zaloFont(
+            fontSize: 10,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? const Color(0xFF0284C7) : const Color(0xFF4B5563),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1328,13 +1747,13 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                       children: [
                         _buildFilterChip('Tất cả (${_schedules.length})', 'ALL'),
                         const SizedBox(width: 5),
-                        _buildFilterChip('🔬 Thực hành ($_labCount)', 'LAB'),
+                        _buildFilterChip('Thực hành ($_labCount)', 'LAB'),
                         const SizedBox(width: 5),
-                        _buildFilterChip('📖 Lý thuyết ($_theoryCount)', 'THEORY'),
+                        _buildFilterChip('Lý thuyết ($_theoryCount)', 'THEORY'),
                         const SizedBox(width: 5),
-                        _buildFilterChip('⏳ Sắp tới ($_upcomingSessionsCount)', 'TODAY_UPCOMING'),
+                        _buildFilterChip('Sắp tới ($_upcomingSessionsCount)', 'TODAY_UPCOMING'),
                         const SizedBox(width: 5),
-                        _buildFilterChip('✅ Đã học ($_completedSessionsCount)', 'COMPLETED'),
+                        _buildFilterChip('Đã học ($_completedSessionsCount)', 'COMPLETED'),
                       ],
                     ),
                   ),
@@ -1439,7 +1858,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
 
     final typeColor = s.isPracticeLab ? const Color(0xFF059669) : const Color(0xFF0284C7);
     final typeBg = s.isPracticeLab ? const Color(0xFFE8F6ED) : const Color(0xFFE0F2FE);
-    final typeLabel = s.isPracticeLab ? '🔬 Thực hành Lab' : '📖 Lý thuyết';
+    final typeLabel = s.isPracticeLab ? 'Thực hành Lab' : 'Lý thuyết';
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1647,20 +2066,51 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                         'Lớp ${_studentsInBatch.length} học viên',
                         style: AppTypography.zaloFont(fontSize: 10, color: const Color(0xFF6B7280)),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () => _openAttendanceSheet(s),
-                        icon: const Icon(Icons.checklist_rounded, size: 13),
-                        label: Text(
-                          'Điểm danh buổi này',
-                          style: AppTypography.zaloFont(fontSize: 10.5, fontWeight: FontWeight.w700),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00693F),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () => _openEditScheduleSheet(s),
+                            icon: const Icon(Icons.edit_calendar_rounded, size: 11, color: Color(0xFF004890)),
+                            label: Text(
+                              'Đổi lịch',
+                              style: AppTypography.zaloFont(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF004890),
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              side: const BorderSide(color: Color(0xFF004890), width: 0.8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          ElevatedButton.icon(
+                            onPressed: () => _openAttendanceSheet(s),
+                            icon: const Icon(Icons.checklist_rounded, size: 11, color: Colors.white),
+                            label: Text(
+                              'Điểm danh',
+                              style: AppTypography.zaloFont(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00693F),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

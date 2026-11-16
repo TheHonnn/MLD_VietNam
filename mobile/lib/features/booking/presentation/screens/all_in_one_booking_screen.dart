@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
@@ -970,7 +971,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                         )
                       : Text(
                           context.tr('Xác nhận đặt lịch', 'Confirm Booking'),
-                          style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700),
+                          style: AppTypography.zaloFont(fontSize: 15.5, fontWeight: FontWeight.w700, color: Colors.white),
                         ),
                 ),
               ),

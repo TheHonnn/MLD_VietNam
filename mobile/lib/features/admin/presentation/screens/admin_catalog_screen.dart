@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../services/data/models/home_product_model.dart';
 import '../../../services/data/repositories/product_repository.dart';
 import '../../data/models/admin_models.dart';
@@ -119,6 +120,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   }
 
   Future<void> _handleToggleService(AdminServiceModel s) async {
+    if (!AuthService.instance.isAdmin) return;
     final nextStatus = !s.isActive;
     setState(() => _togglingId = s.id);
 
@@ -142,6 +144,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   }
 
   Future<void> _handleTogglePackage(AdminTreatmentPackageModel p) async {
+    if (!AuthService.instance.isAdmin) return;
     final nextStatus = !p.isActive;
     setState(() => _togglingId = p.id);
 
@@ -165,6 +168,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   }
 
   Future<void> _handleToggleCourse(AdminCourseModel c) async {
+    if (!AuthService.instance.isAdmin) return;
     final nextStatus = !c.isActive;
     setState(() => _togglingId = c.id);
 
@@ -188,6 +192,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   }
 
   Future<void> _handleToggleProduct(HomeProductModel p) async {
+    if (!AuthService.instance.isAdmin) return;
     final nextStatus = !p.isActive;
     setState(() => _togglingId = p.id);
 
@@ -211,6 +216,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   }
 
   void _openServiceForm([AdminServiceModel? service]) {
+    if (!AuthService.instance.isAdmin) return;
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -239,6 +245,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   }
 
   void _openPackageForm([AdminTreatmentPackageModel? package]) {
+    if (!AuthService.instance.isAdmin) return;
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -260,6 +267,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   }
 
   void _openProductForm([HomeProductModel? product]) {
+    if (!AuthService.instance.isAdmin) return;
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -425,7 +433,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           ],
         ),
         actions: [
-          if (_selectedSegment != 2)
+          if (AuthService.instance.isAdmin && _selectedSegment != 2)
             Padding(
               padding: const EdgeInsets.only(right: 14),
               child: GestureDetector(
@@ -610,18 +618,16 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
             ],
           ),
           child: InkWell(
-            onTap: () => _openServiceForm(s),
+            onTap: AuthService.instance.isAdmin ? () => _openServiceForm(s) : null,
             borderRadius: BorderRadius.circular(14),
             child: Row(
               children: [
-                // Thumbnail Ảnh thật dịch vụ (Fallback Icon nếu không có ảnh)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: _buildThumbnail(s.imageUrl, isCourse: false, title: s.name),
                 ),
                 const SizedBox(width: 12),
 
-                // Thông tin
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -665,8 +671,23 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                   ),
                 ),
 
-                // Switch 1 chạm Duyệt kinh doanh
-                if (isToggling)
+                if (!AuthService.instance.isAdmin)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: s.isActive ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      s.isActive ? 'Đang mở' : 'Tạm dừng',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: s.isActive ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                      ),
+                    ),
+                  )
+                else if (isToggling)
                   const SizedBox(
                     width: 24,
                     height: 24,
@@ -730,18 +751,16 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
             ],
           ),
           child: InkWell(
-            onTap: () => _openCourseForm(c),
+            onTap: AuthService.instance.isAdmin ? () => _openCourseForm(c) : null,
             borderRadius: BorderRadius.circular(14),
             child: Row(
               children: [
-                // Thumbnail Ảnh thật khóa học (Fallback Icon nếu không có ảnh)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: _buildThumbnail(c.imageUrl, isCourse: true, title: c.title),
                 ),
                 const SizedBox(width: 12),
 
-                // Thông tin
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -796,8 +815,23 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                   ),
                 ),
 
-                // Switch 1 chạm Duyệt tuyển sinh
-                if (isToggling)
+                if (!AuthService.instance.isAdmin)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: c.isActive ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      c.isActive ? 'Mở sinh' : 'Tạm dừng',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: c.isActive ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                      ),
+                    ),
+                  )
+                else if (isToggling)
                   const SizedBox(
                     width: 24,
                     height: 24,
@@ -902,7 +936,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
             ],
           ),
           child: InkWell(
-            onTap: () => _openPackageForm(p),
+            onTap: AuthService.instance.isAdmin ? () => _openPackageForm(p) : null,
             borderRadius: BorderRadius.circular(14),
             child: Row(
               children: [
@@ -991,7 +1025,23 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                     ],
                   ),
                 ),
-                if (isToggling)
+                if (!AuthService.instance.isAdmin)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: p.isActive ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      p.isActive ? 'Đang mở' : 'Tạm dừng',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: p.isActive ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                      ),
+                    ),
+                  )
+                else if (isToggling)
                   const SizedBox(
                     width: 24,
                     height: 24,
@@ -1096,7 +1146,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
             ],
           ),
           child: InkWell(
-            onTap: () => _openProductForm(p),
+            onTap: AuthService.instance.isAdmin ? () => _openProductForm(p) : null,
             borderRadius: BorderRadius.circular(14),
             child: Padding(
               padding: const EdgeInsets.all(10),
@@ -1165,7 +1215,23 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                       ],
                     ),
                   ),
-                  if (isToggling)
+                  if (!AuthService.instance.isAdmin)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: p.isActive ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        p.isActive ? 'Đang bán' : 'Tạm dừng',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: p.isActive ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                        ),
+                      ),
+                    )
+                  else if (isToggling)
                     const SizedBox(
                       width: 24,
                       height: 24,
