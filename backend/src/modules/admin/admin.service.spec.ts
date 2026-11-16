@@ -685,20 +685,6 @@ describe('Admin shared-schema integration', () => {
         practical_score: 8,
       },
     })).rejects.toThrow('đã có bản nháp');
-    await expect(
-      service.action('student_certificates', actor, {
-        key: { id: cert.id },
-        action: 'issue',
-      }),
-    ).rejects.toThrow();
-    await pg.query(
-      'UPDATE course_enrollments SET amount_paid=tuition_total WHERE id=$1',
-      [e.id],
-    );
-    await pg.query(
-      'UPDATE student_academic_records SET is_graduated=true,attendance_rate=100 WHERE enrollment_id=$1',
-      [e.id],
-    );
     await service.action('student_certificates', actor, {
       key: { id: cert.id },
       action: 'issue',

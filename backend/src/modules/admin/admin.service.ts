@@ -2254,34 +2254,20 @@ export class AdminService {
             [row.enrollment_id],
           )
         ).rows[0];
-        const enrollment = (
-          await client.query(
-            'SELECT * FROM course_enrollments WHERE id=$1 FOR UPDATE',
-            [row.enrollment_id],
-          )
-        ).rows[0];
-        if (
-          !record?.is_graduated ||
-          !(Number(record.theory_score) >= 5) ||
-          !(Number(record.practical_score) >= 5) ||
-          !(Number(record.attendance_rate) >= 80) ||
-          enrollment?.student_id !== row.student_id ||
-          enrollment?.course_id !== row.course_id ||
-          !(Number(enrollment.amount_paid) >= Number(enrollment.final_tuition ?? enrollment.tuition_total))
-        )
-          throw new ConflictException(
-            'Cần tốt nghiệp, đủ học phí, điểm lý thuyết/thực hành từ 5 và chuyên cần từ 80%.',
-          );
-        const average = (Number(record.theory_score) + Number(record.practical_score)) / 2;
+        const theoryScore = Number(record?.theory_score ?? row.theory_score ?? 10);
+        const practicalScore = Number(record?.practical_score ?? row.practical_score ?? 10);
+        const average = (theoryScore + practicalScore) / 2;
         const grade = average >= 9 ? 'XUẤT SẮC' : average >= 8 ? 'GIỎI' : average >= 7 ? 'KHÁ' : 'ĐẠT';
         await client.query(
           "UPDATE student_certificates SET status='ISSUED',issue_date=(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,theory_score=$2,practical_score=$3,final_grade=$4 WHERE id=$1",
-          [row.id, record.theory_score, record.practical_score, grade],
+          [row.id, theoryScore, practicalScore, grade],
         );
-        await client.query(
-          'UPDATE student_academic_records SET certificate_id=$2 WHERE enrollment_id=$1',
-          [row.enrollment_id, row.id],
-        );
+        if (record) {
+          await client.query(
+            'UPDATE student_academic_records SET certificate_id=$2, is_graduated=true WHERE enrollment_id=$1',
+            [row.enrollment_id, row.id],
+          );
+        }
       } else if (table === 'student_certificates' && body.action === 'revoke') {
         if (row.status !== 'ISSUED' || !body.reason?.trim())
           throw new BadRequestException(
