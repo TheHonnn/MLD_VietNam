@@ -322,24 +322,24 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
         'Tất cả chi nhánh';
 
   return (
-    <header className="h-[68px] bg-white border-b border-[#EFE4D9] px-3 sm:px-6 flex items-center justify-between relative z-30 font-['Plus_Jakarta_Sans',sans-serif]">
+    <header className="h-[68px] bg-white border-b border-[#E2E8F0] px-3 sm:px-6 flex items-center justify-between relative z-30 font-['Be_Vietnam_Pro','Roboto',sans-serif]">
       {/* Left: Hamburger Button (on mobile/tablet) + Vertically Stacked Breadcrumb + Badge */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           type="button"
           onClick={onToggleMobileNav}
-          className="lg:hidden p-2 -ml-1 rounded-xl text-[#7A6D61] hover:text-[#2C241E] hover:bg-[#FAF8F5] transition-colors cursor-pointer shrink-0"
+          className="lg:hidden p-2 -ml-1 rounded-xl text-[#64748B] hover:text-[#004890] hover:bg-[#F1F5F9] transition-colors cursor-pointer shrink-0"
           title="Mở danh mục điều hướng"
         >
           <Menu className="w-5 h-5" />
         </button>
 
         <div className="flex flex-col justify-center min-w-0">
-          <div className="text-[12px] sm:text-[12.5px] text-[#7A6D61] font-normal leading-tight truncate">
+          <div className="text-[12px] sm:text-[12.5px] text-[#64748B] font-normal leading-tight truncate">
             <span className="hidden sm:inline">
-              Quản trị <span className="mx-1 text-[#C4B7AA]">/</span>{' '}
+              Quản trị <span className="mx-1 text-[#CBD5E1]">/</span>{' '}
             </span>
-            <span className="text-[#2C241E] font-bold sm:font-medium">{currentTitle}</span>
+            <span className="text-[#0F172A] font-bold sm:font-medium">{currentTitle}</span>
           </div>
           <div className="mt-1 flex items-center gap-1.5">
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#E6F4EA] text-[#137333] leading-tight shrink-0">
@@ -359,22 +359,22 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
             onClick={() => setShowBranchMenu(!showBranchMenu)}
             className={`flex items-center justify-between gap-1.5 sm:gap-3 px-2.5 sm:px-3.5 py-2 rounded-xl border bg-white text-xs font-medium transition-all cursor-pointer ${
               showBranchMenu
-                ? 'border-[#985018] ring-2 ring-[#985018]/10 text-[#2C241E]'
-                : 'border-[#E0D7CC] text-[#4A3E34] hover:bg-[#FAF8F5]'
+                ? 'border-[#004890] ring-2 ring-[#004890]/10 text-[#0F172A]'
+                : 'border-[#CBD5E1] text-[#334155] hover:bg-[#F8FAFC]'
             }`}
           >
             <span className="truncate max-w-[90px] xs:max-w-[120px] sm:max-w-[150px]">{branchLabel}</span>
             <ChevronDown
-              className={`w-3.5 h-3.5 text-[#8C7A6B] transition-transform duration-200 shrink-0 ${
+              className={`w-3.5 h-3.5 text-[#64748B] transition-transform duration-200 shrink-0 ${
                 showBranchMenu ? 'rotate-180' : ''
               }`}
             />
           </button>
 
           {showBranchMenu && (
-            <div className="absolute right-0 top-full mt-1.5 w-64 bg-white rounded-2xl border border-[#EFE4D9] shadow-xl z-50 p-2 space-y-1 animate-in fade-in-50 zoom-in-95">
-              <div className="px-3 py-1.5 border-b border-[#EFE4D9] text-xs font-bold text-[#3E200C] flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-[#985018]" />
+            <div className="absolute right-0 top-full mt-1.5 w-64 bg-white rounded-2xl border border-[#E2E8F0] shadow-xl z-50 p-2 space-y-1 animate-in fade-in-50 zoom-in-95">
+              <div className="px-3 py-1.5 border-b border-[#E2E8F0] text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-[#004890]" />
                 Chọn chi nhánh làm việc
               </div>
               <button
@@ -382,12 +382,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                 onClick={() => handleSelectBranch('ALL')}
                 className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors ${
                   selectedBranchId === 'ALL'
-                    ? 'bg-[#F5EBE1] text-[#985018] font-bold'
-                    : 'text-[#4A3E34] hover:bg-[#FAF8F5]'
+                    ? 'bg-[#EBF3FC] text-[#004890] font-bold'
+                    : 'text-[#334155] hover:bg-[#F8FAFC]'
                 }`}
               >
                 <span>Tất cả chi nhánh ({branches.length || 2})</span>
-                {selectedBranchId === 'ALL' && <Check className="w-4 h-4 text-[#985018] stroke-[2.5]" />}
+                {selectedBranchId === 'ALL' && <Check className="w-4 h-4 text-[#004890] stroke-[2.5]" />}
               </button>
 
               {branches.map((b) => {
@@ -399,12 +399,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                     onClick={() => handleSelectBranch(b.id)}
                     className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors ${
                       isSelected
-                        ? 'bg-[#F5EBE1] text-[#985018] font-bold'
-                        : 'text-[#4A3E34] hover:bg-[#FAF8F5]'
+                        ? 'bg-[#EBF3FC] text-[#004890] font-bold'
+                        : 'text-[#334155] hover:bg-[#F8FAFC]'
                     }`}
                   >
                     <span className="truncate mr-2">{b.name}</span>
-                    {isSelected && <Check className="w-4 h-4 text-[#985018] shrink-0 stroke-[2.5]" />}
+                    {isSelected && <Check className="w-4 h-4 text-[#004890] shrink-0 stroke-[2.5]" />}
                   </button>
                 );
               })}
@@ -422,24 +422,24 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
               onFocus={() => setShowHeaderSearchPopup(true)}
               onKeyDown={handleHeaderSearchKeyDown}
               placeholder="Tìm kiếm..."
-              className="w-full pl-2.5 sm:pl-3 pr-7 py-2 bg-white border border-[#E0D7CC] rounded-xl text-xs text-[#2C241E] placeholder-[#A69788] focus:outline-none focus:border-[#985018] transition-colors"
+              className="w-full pl-2.5 sm:pl-3 pr-7 py-2 bg-white border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#004890] transition-colors"
             />
             {headerSearch ? (
               <button
                 type="button"
                 onClick={() => setHeaderSearch('')}
-                className="absolute right-2 text-[#A69788] hover:text-[#5C5046]"
+                className="absolute right-2 text-[#94A3B8] hover:text-[#0F172A]"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             ) : (
-              <Search className="w-3.5 h-3.5 text-[#A69788] absolute right-2.5 pointer-events-none" />
+              <Search className="w-3.5 h-3.5 text-[#94A3B8] absolute right-2.5 pointer-events-none" />
             )}
           </div>
 
           {showHeaderSearchPopup && headerSearch.trim().length > 0 && (
-            <div className="absolute right-0 top-full mt-1.5 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-2xl border border-[#EFE4D9] shadow-xl z-50 p-2 space-y-1.5 text-xs animate-in fade-in-50 zoom-in-95">
-              <div className="text-[10.5px] font-bold text-[#8C7E72] px-2 py-1">
+            <div className="absolute right-0 top-full mt-1.5 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-2xl border border-[#E2E8F0] shadow-xl z-50 p-2 space-y-1.5 text-xs animate-in fade-in-50 zoom-in-95">
+              <div className="text-[10.5px] font-bold text-[#64748B] px-2 py-1">
                 Tìm kiếm nhanh: "{headerSearch}"
               </div>
               <button
@@ -448,10 +448,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                   setShowHeaderSearchPopup(false);
                   navigate(`/customers?search=${encodeURIComponent(headerSearch)}`);
                 }}
-                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-[#FAF8F5] flex items-center justify-between text-[#2C241E]"
+                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-[#F1F5F9] flex items-center justify-between text-[#0F172A]"
               >
                 <span>🔍 Tìm khách hàng "{headerSearch}"</span>
-                <span className="text-[10px] text-[#985018] font-bold">Khách hàng</span>
+                <span className="text-[10px] text-[#004890] font-bold">Khách hàng</span>
               </button>
               <button
                 type="button"
@@ -459,10 +459,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                   setShowHeaderSearchPopup(false);
                   navigate('/');
                 }}
-                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-[#FAF8F5] flex items-center justify-between text-[#2C241E]"
+                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-[#F1F5F9] flex items-center justify-between text-[#0F172A]"
               >
                 <span>📅 Tìm lịch hẹn tại Dashboard</span>
-                <span className="text-[10px] text-[#985018] font-bold">Lịch hẹn</span>
+                <span className="text-[10px] text-[#004890] font-bold">Lịch hẹn</span>
               </button>
               <button
                 type="button"
@@ -470,10 +470,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                   setShowHeaderSearchPopup(false);
                   navigate('/cashier-pos');
                 }}
-                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-[#FAF8F5] flex items-center justify-between text-[#2C241E]"
+                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-[#F1F5F9] flex items-center justify-between text-[#0F172A]"
               >
                 <span>🧾 Tìm hóa đơn tại Thu ngân</span>
-                <span className="text-[10px] text-[#985018] font-bold">Thu ngân</span>
+                <span className="text-[10px] text-[#004890] font-bold">Thu ngân</span>
               </button>
             </div>
           )}
@@ -487,13 +487,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
             title="Thông báo hệ thống"
             className={`relative p-2 rounded-xl transition-all cursor-pointer ${
               showNotifications
-                ? 'bg-[#F3E2CE] text-[#8A4F23]'
-                : 'text-[#7A6D61] hover:bg-[#FAF8F5] hover:text-[#2C241E]'
+                ? 'bg-[#EBF3FC] text-[#004890]'
+                : 'text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#004890]'
             }`}
           >
             <Bell className="w-4 h-4 stroke-[2]" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#C65420] text-white text-[10px] font-extrabold rounded-full flex items-center justify-center ring-2 ring-white shadow-xs animate-in zoom-in-50">
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#208C58] text-white text-[10px] font-extrabold rounded-full flex items-center justify-center ring-2 ring-white shadow-xs animate-in zoom-in-50">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -501,13 +501,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
 
           {/* Notification Center Popover */}
           {showNotifications && (
-            <div className="absolute right-[-45px] sm:right-0 mt-2.5 w-[calc(100vw-1.5rem)] sm:w-[420px] max-w-[420px] bg-white rounded-2xl shadow-xl border border-[#EFE4D9] overflow-hidden z-50 animate-in fade-in-50 zoom-in-95 duration-150">
+            <div className="absolute right-[-45px] sm:right-0 mt-2.5 w-[calc(100vw-1.5rem)] sm:w-[420px] max-w-[420px] bg-white rounded-2xl shadow-xl border border-[#E2E8F0] overflow-hidden z-50 animate-in fade-in-50 zoom-in-95 duration-150">
               {/* Header */}
-              <div className="px-4 py-3.5 border-b border-[#EFE4D9] bg-gradient-to-r from-[#FAF6F0] to-white flex items-center justify-between">
+              <div className="px-4 py-3.5 border-b border-[#E2E8F0] bg-gradient-to-r from-[#F0F6FC] to-white flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-[#2C241E]">Thông báo</span>
+                  <span className="font-bold text-sm text-[#0F172A]">Thông báo</span>
                   {unreadCount > 0 && (
-                    <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-[#C65420] text-white">
+                    <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-[#208C58] text-white">
                       {unreadCount} mới
                     </span>
                   )}
@@ -517,7 +517,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                     <button
                       type="button"
                       onClick={handleMarkAllRead}
-                      className="text-[11px] font-semibold text-[#8A4F23] hover:text-[#5B3314] px-2 py-1 rounded-lg hover:bg-white/60 transition-colors flex items-center gap-1"
+                      className="text-[11px] font-semibold text-[#004890] hover:text-[#003770] px-2 py-1 rounded-lg hover:bg-white/60 transition-colors flex items-center gap-1"
                     >
                       <CheckCheck className="w-3.5 h-3.5" />
                       <span>Đọc tất cả</span>
@@ -526,7 +526,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                   <button
                     type="button"
                     onClick={() => setShowNotifications(false)}
-                    className="p-1 rounded-lg text-[#8C7A6B] hover:text-[#2C241E] hover:bg-white/60 transition-colors"
+                    className="p-1 rounded-lg text-[#64748B] hover:text-[#0F172A] hover:bg-white/60 transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -534,14 +534,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
               </div>
 
               {/* Filter Tabs */}
-              <div className="flex border-b border-[#EFE4D9] bg-[#FAF8F5] text-xs">
+              <div className="flex border-b border-[#E2E8F0] bg-[#F8FAFC] text-xs">
                 <button
                   type="button"
                   onClick={() => setFilter('all')}
                   className={`flex-1 py-2 font-bold text-center border-b-2 transition-all ${
                     filter === 'all'
-                      ? 'border-[#985018] text-[#985018] bg-white'
-                      : 'border-transparent text-[#7A6D61] hover:text-[#2C241E]'
+                      ? 'border-[#004890] text-[#004890] bg-white'
+                      : 'border-transparent text-[#64748B] hover:text-[#0F172A]'
                   }`}
                 >
                   Tất cả ({notifications.length})
@@ -551,8 +551,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                   onClick={() => setFilter('unread')}
                   className={`flex-1 py-2 font-bold text-center border-b-2 transition-all ${
                     filter === 'unread'
-                      ? 'border-[#985018] text-[#985018] bg-white'
-                      : 'border-transparent text-[#7A6D61] hover:text-[#2C241E]'
+                      ? 'border-[#004890] text-[#004890] bg-white'
+                      : 'border-transparent text-[#64748B] hover:text-[#0F172A]'
                   }`}
                 >
                   Chưa đọc ({unreadCount})
@@ -560,12 +560,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
               </div>
 
               {/* List */}
-              <div className="max-h-[380px] overflow-y-auto divide-y divide-[#F2EAE1]">
+              <div className="max-h-[380px] overflow-y-auto divide-y divide-[#E2E8F0]">
                 {visibleNotifications.length === 0 ? (
-                  <div className="py-12 text-center text-[#998A7D]">
-                    <BellOff className="w-10 h-10 mx-auto text-[#D4C3B3] stroke-1 mb-2" />
+                  <div className="py-12 text-center text-[#64748B]">
+                    <BellOff className="w-10 h-10 mx-auto text-[#94A3B8] stroke-1 mb-2" />
                     <p className="text-xs font-semibold">Không có thông báo nào</p>
-                    <p className="text-[11px] text-[#B0A294] mt-0.5">
+                    <p className="text-[11px] text-[#94A3B8] mt-0.5">
                       {filter === 'unread' ? 'Bạn đã đọc hết mọi thông báo' : 'Hệ thống chưa có tin mới'}
                     </p>
                   </div>
@@ -579,12 +579,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                         onClick={() => handleItemClick(item)}
                         className={`p-3.5 transition-colors cursor-pointer flex gap-3 relative ${
                           item.isRead
-                            ? 'bg-white hover:bg-[#FAF8F5]'
-                            : 'bg-[#FDF9F5] hover:bg-[#FAF3EB]'
+                            ? 'bg-white hover:bg-[#F8FAFC]'
+                            : 'bg-[#F0F6FC] hover:bg-[#EBF3FC]'
                         }`}
                       >
                         {!item.isRead && (
-                          <span className="absolute top-4 left-1.5 w-1.5 h-1.5 rounded-full bg-[#C65420]"></span>
+                          <span className="absolute top-4 left-1.5 w-1.5 h-1.5 rounded-full bg-[#0EA5E9]"></span>
                         )}
 
                         <div
@@ -597,20 +597,20 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                           <div className="flex items-start justify-between gap-1 mb-0.5">
                             <span
                               className={`text-xs ${
-                                item.isRead ? 'font-medium text-[#4A3E34]' : 'font-bold text-[#2C241E]'
+                                item.isRead ? 'font-medium text-[#334155]' : 'font-bold text-[#0F172A]'
                               }`}
                             >
                               {item.title}
                             </span>
-                            <span className="text-[10px] text-[#A69788] whitespace-nowrap shrink-0">
+                            <span className="text-[10px] text-[#94A3B8] whitespace-nowrap shrink-0">
                               {formatTimeAgo(item.createdAt)}
                             </span>
                           </div>
-                          <p className="text-[11px] text-[#695A4E] leading-relaxed line-clamp-2">
+                          <p className="text-[11px] text-[#64748B] leading-relaxed line-clamp-2">
                             {item.message}
                           </p>
                           <div className="mt-2 flex items-center justify-between">
-                            <span className="text-[10px] font-semibold text-[#8A4F23] bg-[#F5EBE1] px-2 py-0.5 rounded-md">
+                            <span className="text-[10px] font-semibold text-[#004890] bg-[#EBF3FC] px-2 py-0.5 rounded-md">
                               {item.type === 'BOOKING'
                                 ? 'Lịch hẹn'
                                 : item.type === 'PAYMENT'
@@ -626,7 +626,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                                   e.stopPropagation();
                                   handleItemClick(item);
                                 }}
-                                className="text-[11px] text-[#985018] hover:text-[#5B3314] font-bold hover:underline flex items-center gap-1 cursor-pointer py-0.5 px-1.5 rounded hover:bg-[#F3E2CE]/60 transition-colors"
+                                className="text-[11px] text-[#004890] hover:text-[#003770] font-bold hover:underline flex items-center gap-1 cursor-pointer py-0.5 px-1.5 rounded hover:bg-[#DEEAF6]/60 transition-colors"
                                 title="Xem chi tiết"
                               >
                                 <span>Xem chi tiết</span>
@@ -636,7 +636,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                                 type="button"
                                 onClick={(e) => handleDelete(e, item.id)}
                                 title="Xóa thông báo"
-                                className="p-1 text-[#B0A294] hover:text-[#B83E3E] rounded transition-colors cursor-pointer"
+                                className="p-1 text-[#94A3B8] hover:text-[#B83E3E] rounded transition-colors cursor-pointer"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -649,39 +649,37 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                 )}
               </div>
 
-              {/* Popover Footer */}
-              <div className="px-4 py-2.5 bg-[#FAF6F0] border-t border-[#EFE4D9] flex items-center justify-between text-[11px] text-[#8C7A6B]">
+              <div className="px-4 py-2.5 bg-[#F4F8FD] border-t border-[#E2E8F0] flex items-center justify-between text-[11px] text-[#64748B]">
                 <span>Tự động cập nhật thời gian thực</span>
-                <span className="font-semibold text-[#8A4F23]">MLD Healthcare</span>
+                <span className="font-semibold text-[#004890]">MLD Healthcare</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* User profile & Logout */}
-        <div className="flex items-center gap-2.5 pl-2 border-l border-[#EFE4D9]">
+        <div className="flex items-center gap-2.5 pl-2 border-l border-[#E2E8F0]">
           {user?.avatar_url ? (
             <img
               src={user.avatar_url}
               alt={user?.full_name || 'Avatar'}
-              className="w-8 h-8 rounded-full object-cover border border-[#EFE4D9] shrink-0 bg-[#FAF8F5]"
+              className="w-8 h-8 rounded-full object-cover border border-[#E2E8F0] shrink-0 bg-[#F8FAFC]"
               onError={(e) => {
                 (e.target as HTMLElement).style.display = 'none';
               }}
             />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-[#F0E5D8] text-[#8C4C22] font-bold text-xs flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#EBF3FC] text-[#004890] font-bold text-xs flex items-center justify-center shrink-0">
               {userInitials || 'QT'}
             </div>
           )}
           <div className="hidden sm:block text-left">
             <div
-              className="text-xs font-bold text-[#2C241E] leading-tight max-w-[140px] truncate"
+              className="text-xs font-bold text-[#0F172A] leading-tight max-w-[140px] truncate"
               title={user?.full_name}
             >
               {user?.full_name || 'Quản lý hệ thống'}
             </div>
-            <div className="text-[10px] text-[#8A4F23] font-medium leading-tight mt-0.5">
+            <div className="text-[10px] text-[#004890] font-medium leading-tight mt-0.5">
               {roleLabels[user?.role || ''] || user?.role || 'Admin'}
             </div>
           </div>
@@ -689,14 +687,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
           <button
             onClick={logout}
             title="Đăng xuất khỏi hệ thống"
-            className="p-2 ml-1 rounded-xl text-[#7A6D61] hover:text-[#9B1C1C] hover:bg-[#FDF2F2] transition-colors cursor-pointer"
+            className="p-2 ml-1 rounded-xl text-[#64748B] hover:text-[#9B1C1C] hover:bg-[#FDF2F2] transition-colors cursor-pointer"
           >
             <LogOut className="w-4 h-4 stroke-[1.8]" />
           </button>
         </div>
       </div>
 
-      {/* Modal Xem Chi Tiết Thông Báo */}
       {selectedNotifDetail && (
         <div
           role="dialog"
@@ -705,11 +702,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
           onClick={() => setSelectedNotifDetail(null)}
         >
           <div
-            className="bg-white rounded-3xl max-w-md w-full border border-[#EFE4D9] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-[#2C241E]"
+            className="bg-white rounded-3xl max-w-md w-full border border-[#E2E8F0] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-[#0F172A]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
-            <div className="px-6 pt-5 pb-4 border-b border-[#F4ECE3] bg-gradient-to-r from-[#FAF6F0] to-white flex items-center justify-between">
+            <div className="px-6 pt-5 pb-4 border-b border-[#E2E8F0] bg-gradient-to-r from-[#F4F8FD] to-white flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
@@ -723,10 +719,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                   })}
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#2C241E]">
+                  <h3 className="text-sm font-bold text-[#0F172A]">
                     Chi tiết thông báo
                   </h3>
-                  <span className="text-[10px] text-[#A69788]">
+                  <span className="text-[10px] text-[#94A3B8]">
                     {formatTimeAgo(selectedNotifDetail.createdAt)}
                   </span>
                 </div>
@@ -734,36 +730,35 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
               <button
                 type="button"
                 onClick={() => setSelectedNotifDetail(null)}
-                className="p-1.5 text-[#A69788] hover:text-[#2C241E] rounded-xl hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                className="p-1.5 text-[#94A3B8] hover:text-[#0F172A] rounded-xl hover:bg-[#DEEAF6] transition-colors cursor-pointer"
                 title="Đóng"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="px-6 py-5 space-y-4 text-xs">
               <div>
-                <div className="text-[11px] text-[#8C7A6B] font-semibold mb-1">
+                <div className="text-[11px] text-[#64748B] font-semibold mb-1">
                   TIÊU ĐỀ
                 </div>
-                <div className="text-sm font-bold text-[#2C241E]">
+                <div className="text-sm font-bold text-[#0F172A]">
                   {selectedNotifDetail.title}
                 </div>
               </div>
 
-              <div className="p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] space-y-2">
-                <div className="text-[11px] text-[#8C7A6B] font-semibold">
+              <div className="p-3.5 bg-[#F8FAFC] rounded-2xl border border-[#E2E8F0] space-y-2">
+                <div className="text-[11px] text-[#64748B] font-semibold">
                   NỘI DUNG CHI TIẾT
                 </div>
-                <p className="text-xs text-[#4A3E34] leading-relaxed">
+                <p className="text-xs text-[#334155] leading-relaxed">
                   {selectedNotifDetail.message}
                 </p>
               </div>
 
               <div className="flex items-center justify-between text-xs pt-1">
-                <span className="text-[#8C7A6B]">Phân loại:</span>
-                <span className="font-semibold px-2 py-0.5 rounded-md bg-[#F5EBE1] text-[#8A4F23]">
+                <span className="text-[#64748B]">Phân loại:</span>
+                <span className="font-semibold px-2 py-0.5 rounded-md bg-[#EBF3FC] text-[#004890]">
                   {selectedNotifDetail.type === 'BOOKING'
                     ? 'Lịch hẹn dịch vụ'
                     : selectedNotifDetail.type === 'PAYMENT'
@@ -775,12 +770,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
               </div>
             </div>
 
-            {/* Modal Footer Actions */}
             <div className="px-6 pb-5 pt-2 flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => setSelectedNotifDetail(null)}
-                className="flex-1 py-2.5 px-4 rounded-xl border border-[#D7BBA6] hover:bg-[#FAF8F5] text-[#8A4F23] text-xs font-bold transition-colors text-center cursor-pointer"
+                className="flex-1 py-2.5 px-4 rounded-xl border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#004890] text-xs font-bold transition-colors text-center cursor-pointer"
               >
                 Đóng
               </button>
@@ -790,7 +784,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                   onClick={() => {
                     handleItemClick(selectedNotifDetail);
                   }}
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#004890] hover:bg-[#003770] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>

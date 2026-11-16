@@ -5,7 +5,7 @@
   flex-wrap: wrap;
   padding: 14px;
   background: white;
-  border: 1px solid #eaded1;
+  border: 1px solid #E2E8F0;
   border-radius: 12px;
 }
 .hp-search {
@@ -14,21 +14,21 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  border: 1px solid #ddccbc;
+  border: 1px solid #CBD5E1;
   border-radius: 8px;
   padding: 0 12px;
-  color: #8b7562;
+  color: #64748B;
 }
 .hp-search input {
   width: 100%;
   min-height: 40px;
   outline: none;
   font-size: 13px;
-  color: #35291f;
+  color: #0F172A;
   background: transparent;
 }
 .hp-search:focus-within {
-  outline: 2px solid #985018;
+  outline: 2px solid #004890;
   outline-offset: 2px;
 }
 .hp-category {
@@ -36,21 +36,21 @@
   flex-direction: column;
   gap: 5px;
   font-size: 11px;
-  color: #786b60;
+  color: #64748B;
 }
 .hp-category select {
   min-width: 170px;
   min-height: 40px;
   padding: 0 10px;
-  border: 1px solid #ddccbc;
+  border: 1px solid #CBD5E1;
   border-radius: 8px;
   font-size: 13px;
   background: white;
-  color: #35291f;
+  color: #0F172A;
 }
 .hp-views {
   display: flex;
-  border: 1px solid #eaded1;
+  border: 1px solid #E2E8F0;
   border-radius: 8px;
   padding: 3px;
   gap: 3px;
@@ -63,32 +63,32 @@
   padding: 5px 9px;
   font-size: 12px;
   border-radius: 5px;
-  color: #786b60;
+  color: #64748B;
   cursor: pointer;
 }
 .hp-views [aria-pressed='true'] {
-  color: #854412;
-  background: #f6eadc;
+  color: #004890;
+  background: #EBF3FC;
   font-weight: 600;
 }
 .hp-refresh,
 .hp-message button {
-  border: 1px solid #ddccbc;
+  border: 1px solid #CBD5E1;
   background: white;
   min-height: 40px;
   padding: 8px 14px;
   border-radius: 8px;
   font-size: 12px;
-  color: #854412;
+  color: #004890;
   cursor: pointer;
 }
 .hp-result {
   font-size: 12px;
-  color: #786b60;
+  color: #64748B;
 }
 .hp-message {
   background: white;
-  border: 1px solid #eaded1;
+  border: 1px solid #E2E8F0;
   border-radius: 12px;
   padding: 28px;
   font-size: 13px;
@@ -107,7 +107,7 @@
 }
 .home-products button:focus-visible,
 .home-products select:focus-visible {
-  outline: 2px solid #985018;
+  outline: 2px solid #004890;
   outline-offset: 3px;
 }
 .home-products button:disabled {

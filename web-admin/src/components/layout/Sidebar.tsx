@@ -305,7 +305,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] h-full min-h-0 overflow-y-auto overscroll-contain bg-white border-r border-[#EFE4D9] flex flex-col shrink-0 select-none font-['Plus_Jakarta_Sans',sans-serif] transition-transform duration-300 ease-in-out lg:static lg:w-60 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] h-full min-h-0 overflow-y-auto overscroll-contain bg-white border-r border-[#E2E8F0] flex flex-col shrink-0 select-none font-['Be_Vietnam_Pro','Roboto',sans-serif] transition-transform duration-300 ease-in-out lg:static lg:w-60 lg:translate-x-0 ${
           isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -315,7 +315,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             to="/"
             onClick={onCloseMobile}
             title="MLD Vietnam - Tổng quan vận hành"
-            className="border border-[#D8C4B2] rounded-2xl px-3 py-2 bg-white flex items-center justify-center h-[56px] flex-1 shadow-xs hover:border-[#BA7E4C] transition-colors"
+            className="border border-[#CBD5E1] rounded-2xl px-3 py-2 bg-white flex items-center justify-center h-[56px] flex-1 shadow-xs hover:border-[#004890] transition-colors"
           >
             <img
               src="/logo_mld.png"
@@ -326,7 +326,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           <button
             type="button"
             onClick={onCloseMobile}
-            className="lg:hidden p-2 rounded-xl text-[#7A6D61] hover:text-[#2C241E] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+            className="lg:hidden p-2 rounded-xl text-[#64748B] hover:text-[#004890] hover:bg-[#F1F5F9] transition-colors cursor-pointer"
             title="Đóng danh mục"
           >
             <X className="w-5 h-5" />
@@ -335,12 +335,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
 
         {/* Workspace Section Header */}
         <div className="px-4 pt-2 pb-1.5">
-          <span className="text-[10px] font-bold text-[#A69788] uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider">
             KHÔNG GIAN QUẢN TRỊ
           </span>
         </div>
 
-        {resourceStatus && <p className="px-4 py-2 text-xs text-[#73675F]" role="status">{resourceStatus}</p>}
+        {resourceStatus && <p className="px-4 py-2 text-xs text-[#64748B]" role="status">{resourceStatus}</p>}
         {resourceError && !resourceStatus && <div className="px-4 py-2 text-xs text-red-700" role="alert">
           <p>{resourceCode === 401 ? 'Phiên đăng nhập cần được xác thực lại.' : resourceCode === 403 ? 'Máy chủ từ chối quyền truy cập của tài khoản.' : 'Chưa xác nhận được quyền truy cập.'}</p>
           <p className="mt-1 break-words">{resourceError}</p>
@@ -357,7 +357,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             .filter((section) => section.items.some((item) => isItemAllowed(item)))
             .map((section, idx) => (
               <div key={idx}>
-                <div className="px-2 mb-1 text-[9.5px] font-bold text-[#A69788] uppercase tracking-wider">
+                <div className="px-2 mb-1 text-[9.5px] font-bold text-[#64748B] uppercase tracking-wider">
                   {section.title}
                 </div>
                 <div className="space-y-0.5">
@@ -377,20 +377,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
         </nav>
 
         {/* Footer Support & Settings */}
-        <div className="p-3 border-t border-[#EFE4D9] space-y-0.5 mt-auto">
+        <div className="p-3 border-t border-[#E2E8F0] space-y-0.5 mt-auto">
           <NavLink
             to="/help"
             onClick={onCloseMobile}
             className={({ isActive }) =>
               `w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                 isActive
-                  ? 'bg-[#FAF0E4] text-[#985018] font-bold shadow-2xs'
-                  : 'text-[#7A6D61] hover:bg-[#FAF7F2]'
+                  ? 'bg-[#EBF3FC] text-[#004890] font-bold shadow-2xs'
+                  : 'text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#004890]'
               }`
             }
             title="Trung tâm Trợ giúp & Hỗ trợ Kỹ thuật"
           >
-            <HelpCircle className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
+            <HelpCircle className="w-4 h-4 text-[#004890] stroke-[1.8]" />
             <span>Cần hỗ trợ?</span>
           </NavLink>
           <NavLink
@@ -399,17 +399,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             className={({ isActive }) =>
               `w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 isActive
-                  ? 'bg-[#FAF0E4] text-[#985018] font-bold shadow-2xs'
-                  : 'text-[#7A6D61] hover:bg-[#FAF7F2]'
+                  ? 'bg-[#EBF3FC] text-[#004890] font-bold shadow-2xs'
+                  : 'text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#004890]'
               }`
             }
             title="Cài đặt hệ thống quản trị"
           >
-            <Settings className="w-4 h-4 text-[#8C7A6B] stroke-[1.8]" />
+            <Settings className="w-4 h-4 text-[#004890] stroke-[1.8]" />
             <span>Cài đặt</span>
           </NavLink>
           <div className="pt-2 px-3">
-            <p className="text-[10px] text-[#A69788]">Hệ thống Quản trị MLD v1.0</p>
+            <p className="text-[10px] text-[#64748B]">Hệ thống Quản trị MLD v1.0</p>
           </div>
         </div>
       </aside>

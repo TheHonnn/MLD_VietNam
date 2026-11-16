@@ -1,7 +1,7 @@
 .services-catalog {
-  --catalog-ink: #35291f;
-  --catalog-muted: #786b60;
-  --catalog-line: #ece4db;
+  --catalog-ink: #0F172A;
+  --catalog-muted: #64748B;
+  --catalog-line: #E2E8F0;
 }
 
 .catalog-workspace {
@@ -19,14 +19,14 @@
   color: var(--catalog-ink);
 }
 .catalog-warning {
-  color: #965114;
+  color: #004890;
 }
 .catalog-help {
   margin-left: auto;
 }
 .catalog-help summary {
   cursor: pointer;
-  color: #874817;
+  color: #004890;
   padding: 6px 0;
   font-weight: 600;
 }
@@ -80,7 +80,7 @@
 }
 .catalog-comparison-table thead th {
   padding: 13px 18px;
-  background: #faf7f2;
+  background: #F8FAFC;
   font-size: 12px;
   font-weight: 600;
   color: var(--catalog-muted);
@@ -106,7 +106,7 @@
   font-weight: 400;
 }
 .catalog-comparison-table tbody tr:hover {
-  background: #fdfbf8;
+  background: #F0F6FC;
 }
 .catalog-price-edit {
   display: inline-flex;
@@ -114,14 +114,14 @@
   gap: 8px;
   font-size: 15px;
   font-weight: 700;
-  color: #49301e;
+  color: #0F172A;
   cursor: pointer;
   border-radius: 5px;
   text-align: left;
   white-space: nowrap;
 }
 .catalog-price-edit:hover {
-  color: #985018;
+  color: #004890;
   text-decoration: underline;
 }
 .catalog-price-edit svg {
@@ -138,19 +138,19 @@
   gap: 5px;
   margin-top: 10px;
   padding: 5px 9px;
-  border: 1px solid #e5cdb5;
+  border: 1px solid #CBD5E1;
   border-radius: 6px;
-  background: #fffaf4;
-  color: #854412;
+  background: #F8FAFC;
+  color: #004890;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
 }
 .catalog-sell:hover {
-  background: #f5e6d4;
+  background: #EBF3FC;
 }
 .catalog-secondary {
-  border: 1px solid #e5d6c6;
+  border: 1px solid #CBD5E1;
   border-radius: 7px;
   padding: 7px 12px;
   font-size: 12px;
@@ -158,7 +158,7 @@
   background: white;
 }
 .catalog-secondary:hover {
-  background: #faf3e9;
+  background: #F8FAFC;
 }
 .catalog-unavailable,
 .catalog-empty {
@@ -197,7 +197,7 @@
 .services-catalog input:focus-visible,
 .services-catalog select:focus-visible,
 .catalog-table-scroll:focus-visible {
-  outline: 2px solid #985018;
+  outline: 2px solid #004890;
   outline-offset: 3px;
 }
 
@@ -215,15 +215,15 @@
 }
 
 .catalog-metrics > div > div:first-child > div {
-  background: #f8f1e9;
-  color: #985018;
+  background: #EBF3FC;
+  color: #004890;
   border-radius: 10px;
 }
 
 .catalog-tabs {
   gap: 6px;
   padding-bottom: 0;
-  border-color: #e4d8cb;
+  border-color: #E2E8F0;
 }
 
 .catalog-tabs > button {
@@ -239,21 +239,21 @@
 }
 
 .catalog-tabs > button[aria-pressed="true"] {
-  background: #fbf6ef;
-  border-bottom-color: #985018;
-  color: #8a4f23;
+  background: #EBF3FC;
+  border-bottom-color: #004890;
+  color: #004890;
 }
 
 .catalog-tabs > button:hover {
-  background: #f7eee3;
-  color: #8a4f23;
+  background: #F0F6FC;
+  color: #004890;
 }
 
 .catalog-notice {
   border-radius: 12px;
   box-shadow: none;
   padding: 14px 18px;
-  background: #fcfaf7;
+  background: #F8FAFC;
   line-height: 1.65;
 }
 
@@ -264,12 +264,12 @@
   gap: 20px;
   padding: 24px 28px;
   border-bottom: 1px solid var(--catalog-line);
-  background: #fffdfa;
+  background: #F8FAFC;
 }
 
 .catalog-board-header .catalog-eyebrow {
   margin: 0 0 6px;
-  color: #985018;
+  color: #004890;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -295,7 +295,7 @@
   align-items: center;
   gap: 7px;
   flex-shrink: 0;
-  color: #78634d;
+  color: #64748B;
   font-size: 12px;
 }
 
@@ -336,7 +336,7 @@
   top: -13px;
   padding: 3px 9px;
   border: 2px solid white;
-  background: #f2e4d2;
+  background: #EBF3FC;
   font-size: 9px;
   line-height: 1.2;
   box-shadow: none;
@@ -350,10 +350,10 @@
   padding-left: 10px;
 }
 .catalog-price-table tbody tr:nth-child(even) {
-  background: #fcfaf7;
+  background: #F8FAFC;
 }
 .catalog-price-table tbody tr:hover {
-  background: #f8f2ea;
+  background: #EBF3FC;
 }
 .catalog-price-table tbody td > div:first-child > span:first-child {
   font-weight: 700;

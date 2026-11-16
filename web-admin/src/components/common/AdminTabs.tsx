@@ -102,8 +102,8 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
               isActive
                 ? variant === 'pill'
                   ? 'text-white'
-                  : 'text-[#985018]'
-                : 'text-[#8C7E72] group-hover:text-[#2C241E]'
+                  : 'text-[#004890]'
+                : 'text-[#64748B] group-hover:text-[#0F172A]'
             }`}
           />
         )}
@@ -114,8 +114,8 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
               isActive
                 ? variant === 'pill'
                   ? 'bg-white/20 text-white'
-                  : 'bg-[#FAF0E4] text-[#8A4F23] border border-[#EAD8C7]'
-                : 'bg-[#F4ECE3] text-[#73675F] group-hover:bg-[#EFE4D9]'
+                  : 'bg-[#EBF3FC] text-[#004890] border border-[#BAE6FD]'
+                : 'bg-[#F1F5F9] text-[#64748B] group-hover:bg-[#E2E8F0]'
             }`}
           >
             {tab.count}
@@ -128,8 +128,8 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
 
   const containerClasses =
     variant === 'line'
-      ? 'admin-page-tabs w-full h-12 min-h-[48px] border-b border-[#E8DFD8] mb-5 box-border'
-      : 'admin-page-tabs w-full border-b border-[#EFE4D9] pb-2.5 mb-5 box-border';
+      ? 'admin-page-tabs w-full h-12 min-h-[48px] border-b border-[#E2E8F0] mb-5 box-border'
+      : 'admin-page-tabs w-full border-b border-[#E2E8F0] pb-2.5 mb-5 box-border';
 
   const listClasses =
     variant === 'line'
@@ -158,18 +158,16 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
           const isActive = tab.id === activeTab;
           const tabRef = isActive ? (activeTabRef as React.RefObject<any>) : undefined;
 
-          // Line tab item: height 48px (full height of container), zero horizontal padding,
-          // so the active underline is exactly beneath the tab label and active indicator is bottom-0
-          const lineClasses = `group relative inline-flex shrink-0 items-center gap-2 h-12 min-h-[44px] px-0 text-xs font-semibold tracking-wide transition-colors duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#985018]/50 focus-visible:ring-offset-2 ${
+          const lineClasses = `group relative inline-flex shrink-0 items-center gap-2 h-12 min-h-[44px] px-0 text-xs font-semibold tracking-wide transition-colors duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004890]/50 focus-visible:ring-offset-2 ${
             isActive
-              ? 'text-[#985018] font-bold'
-              : 'text-[#73675F] hover:text-[#2C241E]'
+              ? 'text-[#004890] font-bold'
+              : 'text-[#64748B] hover:text-[#0F172A]'
           } ${tab.disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`;
 
-          const pillClasses = `group inline-flex shrink-0 items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer select-none border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#985018]/50 focus-visible:ring-offset-2 ${
+          const pillClasses = `group inline-flex shrink-0 items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer select-none border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004890]/50 focus-visible:ring-offset-2 ${
             isActive
-              ? 'bg-[#985018] text-white border-[#985018] shadow-xs'
-              : 'bg-white text-slate-600 hover:bg-[#FAF6F0] hover:text-[#985018] border-slate-200'
+              ? 'bg-[#004890] text-white border-[#004890] shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-[#F8FAFC] hover:text-[#004890] border-slate-200'
           } ${tab.disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`;
 
           const itemClass = variant === 'line' ? lineClasses : pillClasses;
@@ -192,7 +190,7 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
                 {renderTabContent(tab, isActive)}
                 {variant === 'line' && isActive && (
                   <span
-                    className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#985018] rounded-t-full transition-all"
+                    className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#004890] rounded-t-full transition-all"
                     aria-hidden="true"
                   />
                 )}
@@ -224,7 +222,7 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
               {renderTabContent(tab, isActive)}
               {variant === 'line' && isActive && (
                 <span
-                  className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#985018] rounded-t-full transition-all"
+                  className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#004890] rounded-t-full transition-all"
                   aria-hidden="true"
                 />
               )}
