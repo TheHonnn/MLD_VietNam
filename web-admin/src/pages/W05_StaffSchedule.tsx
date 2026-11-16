@@ -692,7 +692,6 @@ export const W05_StaffSchedule: React.FC = () => {
     );
   }, [consultationSurveys, selectedApp, customers]);
 
-  // Handle URL navigation with booking code or id
   useEffect(() => {
     const bookingParam = searchParams.get('booking') || searchParams.get('appId');
     if (bookingParam && allAppointments.length > 0) {
@@ -709,17 +708,42 @@ export const W05_StaffSchedule: React.FC = () => {
         if (found.dateRaw && found.dateRaw !== selectedDate) {
           setSelectedDate(found.dateRaw);
         }
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          if (found.dateRaw) {
+            next.set('date', found.dateRaw);
+          }
+          next.delete('booking');
+          next.delete('appId');
+          return next;
+        }, { replace: true });
       }
     }
-  }, [searchParams, allAppointments, selectedDate, liveBookings]);
+  }, [searchParams, allAppointments, liveBookings]);
 
-  // Date Navigator Helpers
-  const handleSelectDate = (newDate: string) => {
+  const handleCloseDrawer = () => {
+    setSelectedAppId('');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('booking');
+      next.delete('appId');
+      return next;
+    }, { replace: true });
+  };
+
+  const handleSelectDate = (newDate: string, preserveAppId = false) => {
     setSelectedDate(newDate);
+    if (!preserveAppId) {
+      setSelectedAppId('');
+    }
     localStorage.setItem('mld_schedule_date', newDate);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set('date', newDate);
+      if (!preserveAppId) {
+        next.delete('booking');
+        next.delete('appId');
+      }
       return next;
     });
   };
@@ -805,7 +829,7 @@ export const W05_StaffSchedule: React.FC = () => {
       setLiveBookings((prev) =>
         prev.filter((b) => b.id !== id && b.bookingCode !== id && (!bCode || b.bookingCode !== bCode))
       );
-      setSelectedAppId('');
+      handleCloseDrawer();
       toast.success('Đã xóa lịch hẹn', 'Lịch hẹn đã được xóa hoàn toàn khỏi bảng phân công.');
     } catch (err) {
       console.error('Delete booking error:', err);
@@ -1464,7 +1488,7 @@ export const W05_StaffSchedule: React.FC = () => {
                 if (targetApp) {
                   setSelectedAppId(targetApp.id);
                   if (targetApp.dateRaw && targetApp.dateRaw !== selectedDate) {
-                    handleSelectDate(targetApp.dateRaw);
+                    handleSelectDate(targetApp.dateRaw, true);
                   }
                 }
               }}
@@ -1792,12 +1816,12 @@ export const W05_StaffSchedule: React.FC = () => {
 
         {/* Right Column (Sidebar Cards) */}
         {selectedApp && (
-          <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setSelectedAppId('')}>
+          <div className="fixed inset-0 z-50 bg-black/30" onClick={handleCloseDrawer}>
             <aside role="dialog" aria-modal="true" aria-label="Chi tiết lịch hẹn" className="ml-auto h-full w-full max-w-lg space-y-4 overflow-y-auto bg-[#FAF8F5] p-4 shadow-xl" onClick={event => event.stopPropagation()}
-              onKeyDown={event => { if (event.key === 'Escape') setSelectedAppId(''); }}>
+              onKeyDown={event => { if (event.key === 'Escape') handleCloseDrawer(); }}>
               <div className="flex items-center justify-between">
                 <h2 className="font-bold">Chi tiết lịch hẹn</h2>
-                <button type="button" autoFocus onClick={() => setSelectedAppId('')} aria-label="Đóng chi tiết" className="rounded-lg border bg-white p-2"><X size={16} /></button>
+                <button type="button" autoFocus onClick={handleCloseDrawer} aria-label="Đóng chi tiết" className="rounded-lg border bg-white p-2"><X size={16} /></button>
               </div>
           {selectedApp ? (
             /* Card 1: Selected Appointment Details */
