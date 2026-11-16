@@ -636,8 +636,9 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
 
               const SizedBox(height: 24),
 
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     'Đã có tài khoản? ',

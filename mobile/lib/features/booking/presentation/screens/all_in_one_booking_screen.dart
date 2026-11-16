@@ -978,7 +978,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 80),
         child: Form(
           key: _formKey,
           child: Column(
@@ -1017,15 +1017,22 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                 ),
                               ),
                               const SizedBox(height: 2),
-                              Row(
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 2,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
-                                  const Icon(Icons.access_time_rounded, size: 12, color: AppColors.textSecondary),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    '$_serviceDuration phút',
-                                    style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.access_time_rounded, size: 12, color: AppColors.textSecondary),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        '$_serviceDuration phút',
+                                        style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 8),
                                   Text(
                                     '${_formatCurrency(_pricePerPerson)}đ',
                                     style: const TextStyle(
@@ -1086,6 +1093,11 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       padding: EdgeInsets.symmetric(vertical: 8),
                       child: Divider(height: 1, color: AppColors.border),
                     ),
+                    Text(
+                      context.tr('Chi nhánh thực hiện', 'Selected Branch'),
+                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    ),
+                    const SizedBox(height: 6),
                     InkWell(
                       onTap: _showBranchSelector,
                       borderRadius: BorderRadius.circular(8),
@@ -1136,10 +1148,14 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          context.tr('Thời gian hẹn', 'Appointment Time'),
-                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                        Expanded(
+                          child: Text(
+                            context.tr('Thời gian hẹn', 'Appointment Time'),
+                            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         InkWell(
                           onTap: _pickDate,
                           borderRadius: BorderRadius.circular(6),
@@ -1413,17 +1429,24 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.confirmation_num_outlined, color: AppColors.primary, size: 16),
-                              const SizedBox(width: 6),
-                              Text(
-                                context.tr('Mã ưu đãi / Voucher', 'Voucher & Discount'),
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                              ),
-                            ],
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(Icons.confirmation_num_outlined, color: AppColors.primary, size: 16),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    context.tr('Mã ưu đãi / Voucher', 'Voucher & Discount'),
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          if (_availableVouchers.isNotEmpty)
+                          if (_availableVouchers.isNotEmpty) ...[
+                            const SizedBox(width: 8),
                             InkWell(
                               onTap: _openVoucherSelectorModal,
                               borderRadius: BorderRadius.circular(6),
@@ -1439,6 +1462,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                 ),
                               ),
                             ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 8),

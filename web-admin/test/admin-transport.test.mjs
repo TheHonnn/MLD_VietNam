@@ -10,9 +10,10 @@ test('backend errors never change data source or replay a write', async t => {
       builder.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:"export const SUPABASE_URL='https://fixture.invalid'; export const getSupabaseHeaders=()=>({});",loader:'js'}));
     },
   }] });
-  const original = { fetch: globalThis.fetch, window: globalThis.window, sessionStorage: globalThis.sessionStorage };
+  const original = { fetch: globalThis.fetch, window: globalThis.window, sessionStorage: globalThis.sessionStorage, localStorage: globalThis.localStorage };
   globalThis.window = { location: { protocol: 'http:', hostname: '127.0.0.1', origin: 'http://127.0.0.1:5173' }, setTimeout, clearTimeout };
   globalThis.sessionStorage = { getItem: () => null };
+  globalThis.localStorage = { getItem: () => null };
   const { adminApi, adminCommand } = await import('data:text/javascript;base64,' + Buffer.from(bundle.outputFiles[0].text).toString('base64'));
   try {
     await t.test('403/409/503 responses remain errors and the next read uses the backend', async () => {

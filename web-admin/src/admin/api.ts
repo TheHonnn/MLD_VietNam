@@ -66,6 +66,22 @@ function resolveApiBase(): string {
 
 const base = resolveApiBase();
 
+function getStorageItem(key: string): string | null {
+  try {
+    if (typeof sessionStorage !== "undefined" && typeof sessionStorage?.getItem === "function") {
+      const v = sessionStorage.getItem(key);
+      if (v) return v;
+    }
+  } catch {}
+  try {
+    if (typeof localStorage !== "undefined" && typeof localStorage?.getItem === "function") {
+      const v = localStorage.getItem(key);
+      if (v) return v;
+    }
+  } catch {}
+  return null;
+}
+
 import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
 
 
@@ -1381,7 +1397,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
     if (table === "course_batch_assistants") {
       if (!payload.values.assigned_by_id) {
         try {
-          const profile = JSON.parse(sessionStorage.getItem("mld_admin_profile") || localStorage.getItem("mld_admin_profile") || "{}");
+          const profile = JSON.parse(getStorageItem("mld_admin_profile") || "{}");
           if (profile?.id) payload.values.assigned_by_id = profile.id;
         } catch {}
       }
@@ -1662,8 +1678,7 @@ async function requestBackend<T>(path: string, body?: unknown, signal?: AbortSig
   signal?.addEventListener("abort", abort, { once: true });
   const timeout = window.setTimeout(abort, body === undefined ? 75000 : 30000);
   try {
-    const token = sessionStorage.getItem("mld_admin_token") ||
-      (typeof localStorage !== "undefined" ? localStorage.getItem("mld_admin_token") : null);
+    const token = getStorageItem("mld_admin_token");
     let response: Response;
     try {
       response = await fetch(base + '/admin/' + path.replace(/^\/+/, ""), {

@@ -5,6 +5,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/utils/launcher_helper.dart';
 import '../../../admin/presentation/screens/admin_main_layout_screen.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
@@ -338,7 +339,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
             );
             await AuthService.instance.saveLastLogin(
               phone: userPhone,
-              method: 'phone',
+              method: widget.purpose == 'LOGIN_PHONE_ZALO' ? 'zalo' : 'phone',
             );
             MembershipRepository.instance.syncUserSession(
               fullName: userName,
@@ -464,22 +465,32 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
             },
           );
         } else {
+          final isZalo = widget.purpose == 'LOGIN_PHONE_ZALO';
           try {
             await ApiClient.instance.post(
               ApiEndpoints.authRequestPhoneOtp,
-              data: {'phone': widget.phoneNumber},
+              data: {
+                'phone': widget.phoneNumber,
+                if (isZalo) 'channel': 'ZALO',
+              },
             );
           } catch (_) {
             await ApiClient.instance.post(
               ApiEndpoints.sendOtp,
-              data: {'phone': widget.phoneNumber},
+              data: {
+                'phone': widget.phoneNumber,
+                if (isZalo) 'channel': 'ZALO',
+              },
             );
           }
         }
         if (mounted) {
+          final isZalo = widget.purpose == 'LOGIN_PHONE_ZALO';
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đã gửi lại mã xác thực OTP qua SMS'),
+            SnackBar(
+              content: Text(isZalo
+                  ? 'Đã gửi lại mã xác thực OTP qua Zalo OA MLD Việt Nam.'
+                  : 'Đã gửi lại mã xác thực OTP qua SMS'),
               backgroundColor: AppColors.primary,
             ),
           );
@@ -499,14 +510,19 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final titleText = _isEmail ? 'Xác thực địa chỉ Email' : 'Xác thực số điện thoại';
-    final descText = _isEmail
-        ? 'Nhập mã OTP gồm 6 chữ số đã được gửi đến email của bạn.'
-        : 'Nhập mã OTP đã được gửi đến số điện thoại của bạn.';
+    final isZalo = widget.purpose == 'LOGIN_PHONE_ZALO';
+    final titleText = isZalo
+        ? 'Xác thực qua Zalo'
+        : (_isEmail ? 'Xác thực địa chỉ Email' : 'Xác thực số điện thoại');
+    final descText = isZalo
+        ? 'Nhập mã OTP gồm 6 chữ số đã được gửi từ Zalo OA MLD Việt Nam tới số điện thoại của bạn.'
+        : (_isEmail
+            ? 'Nhập mã OTP gồm 6 chữ số đã được gửi đến email của bạn.'
+            : 'Nhập mã OTP đã được gửi đến số điện thoại của bạn.');
     final iconData = _isEmail ? Icons.mail_outline_rounded : Icons.smartphone_rounded;
 
     return Scaffold(
-      backgroundColor: AppColors.background, // #F8F1E8
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -525,11 +541,9 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // --- PHẦN TRÊN: BackButton, Biểu tượng, Tiêu đề, 6 ô OTP, Nút gửi lại ---
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // 1. BackButton (44x44, r=12, border #E3D1BF, background white)
                           InkWell(
                             onTap: () => Navigator.pop(context),
                             borderRadius: BorderRadius.circular(12),
@@ -537,50 +551,59 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color: AppColors.surface, // white
+                                color: AppColors.surface,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: AppColors.border, // #E3D1BF
+                                  color: AppColors.border,
                                   width: 1.0,
                                 ),
                               ),
                               child: const Icon(
                                 Icons.arrow_back_rounded,
                                 size: 20,
-                                color: AppColors.textPrimary, // #40352F
+                                color: AppColors.textPrimary,
                               ),
                             ),
                           ),
 
                           const SizedBox(height: 24),
 
-                          // 2. Biểu tượng xác thực
                           Container(
                             width: 64,
                             height: 64,
                             decoration: BoxDecoration(
-                              color: AppColors.surfaceSecondary, // #F3E2CE
+                              color: isZalo ? const Color(0xFFEBF3FF) : AppColors.surfaceSecondary,
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Center(
-                              child: Icon(
-                                iconData,
-                                size: 28,
-                                color: AppColors.primary, // #985018
-                              ),
+                              child: isZalo
+                                  ? Image.asset(
+                                      'assets/icons/logo-zalo-vector-03.webp',
+                                      width: 36,
+                                      height: 36,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.send_rounded,
+                                        size: 28,
+                                        color: Color(0xFF0068FF),
+                                      ),
+                                    )
+                                  : Icon(
+                                      iconData,
+                                      size: 28,
+                                      color: AppColors.primary,
+                                    ),
                             ),
                           ),
 
                           const SizedBox(height: 16),
 
-                          // 3. Tiêu đề và Mô tả
                           Text(
                             titleText,
                             style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w600,
                               height: 36.40 / 28,
-                              color: AppColors.textHeading, // #693B20
+                              color: AppColors.textHeading,
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -590,7 +613,7 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                               fontSize: 15,
                               fontWeight: FontWeight.w400,
                               height: 23.25 / 15,
-                              color: AppColors.textSecondary, // #6B6158
+                              color: AppColors.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -600,9 +623,47 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               height: 24.80 / 16,
-                              color: AppColors.textPrimary, // #40352F
+                              color: AppColors.textPrimary,
                             ),
                           ),
+
+                          if (isZalo) ...[
+                            const SizedBox(height: 12),
+                            InkWell(
+                              onTap: () => AppLauncherHelper.openWebUrl(context, 'https://zalo.me'),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEBF3FF),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFB9D7FF)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Image.asset(
+                                      'assets/icons/logo-zalo-vector-03.webp',
+                                      width: 18,
+                                      height: 18,
+                                      errorBuilder: (_, __, ___) => const Icon(Icons.open_in_new_rounded, size: 16, color: Color(0xFF0068FF)),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Mở ứng dụng Zalo để xem mã',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF0068FF),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF0068FF)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
 
                           if (_isEmail) ...[
                             const SizedBox(height: 8),
