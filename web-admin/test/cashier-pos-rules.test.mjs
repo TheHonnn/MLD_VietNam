@@ -41,6 +41,7 @@ test('cashier cannot close from a stale reconciliation snapshot', () => {
 test('cancelled and no-show bookings never appear as money to collect', () => {
   assert.equal(rules.isBookingWaitingPayment({ id: 'cancelled', status: 'CANCELLED', paymentStatus: 'UNPAID' }, new Set()), false);
   assert.equal(rules.isBookingWaitingPayment({ id: 'no-show', status: 'NO_SHOW', paymentStatus: 'UNPAID' }, new Set()), false);
+  assert.equal(rules.isBookingWaitingPayment({ id: 'wallet-pkg', status: 'CONFIRMED', paymentStatus: 'UNPAID', paymentMethod: 'MEMBERSHIP_WALLET', finalPrice: 0 }, new Set()), false);
   assert.equal(rules.isBookingWaitingPayment({ id: 'active', status: 'IN_SERVICE', paymentStatus: 'UNPAID' }, new Set()), true);
 });
 

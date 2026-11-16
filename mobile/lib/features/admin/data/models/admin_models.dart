@@ -266,11 +266,6 @@ class AdminCandidateModel {
       title = courseObj['title']?.toString() ?? '';
     }
 
-    // Determine workflow state (Đồng bộ 100% với Web Admin logic):
-    // 1. ENROLLED_STUDYING: Đã được xếp vào lớp học (batchId != null)
-    // 2. PAID_WAITING_CLASS: Đã thanh toán hoặc duyệt nhập học nhưng chưa vào lớp (amountPaid > 0 hoặc approvalStatus == 'APPROVED')
-    // 3. CONFIRMED_PENDING_PAY: Đã chốt tư vấn nhưng chưa nộp đủ học phí/cọc (consultation_status == 'CONFIRMED')
-    // 4. PENDING_CONSULTATION: Chưa chốt tư vấn (consultation_status == 'PENDING_CONSULTATION' / 'CONSULTING' hoặc mới đăng ký)
     final bId = json['batch_id']?.toString();
     final paid = double.tryParse(json['amount_paid']?.toString() ?? '0') ?? 0.0;
     final total = double.tryParse(json['tuition_total']?.toString() ?? '0') ?? 0.0;
@@ -279,11 +274,13 @@ class AdminCandidateModel {
     final approvalStatus = json['approval_status']?.toString() ?? '';
 
     String workflowStatus;
-    if (bId != null && bId.isNotEmpty) {
+    if (rawStatus == 'GRADUATED' || rawStatus == 'COMPLETED') {
+      workflowStatus = 'COMPLETED';
+    } else if (bId != null && bId.isNotEmpty) {
       workflowStatus = 'ENROLLED_STUDYING';
-    } else if (paid > 0 || approvalStatus == 'APPROVED') {
+    } else if (paid > 0 || approvalStatus == 'APPROVED' || rawStatus == 'PAID' || rawStatus == 'ENROLLED') {
       workflowStatus = 'PAID_WAITING_CLASS';
-    } else if (consultationStatus == 'CONFIRMED' || rawStatus == 'CONFIRMED') {
+    } else if (consultationStatus == 'CONFIRMED' || rawStatus == 'CONFIRMED' || rawStatus == 'DEPOSITED') {
       workflowStatus = 'CONFIRMED_PENDING_PAY';
     } else {
       workflowStatus = 'PENDING_CONSULTATION';

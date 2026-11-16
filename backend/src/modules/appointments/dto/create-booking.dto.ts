@@ -86,5 +86,15 @@ export class CreateBookingDto {
   @IsOptional()
   @IsString()
   assignedBedNumber?: string;
+
+  @ApiProperty({ description: 'ID gói liệu trình đã sở hữu của khách hàng', required: false })
+  @IsOptional()
+  @IsString()
+  userPackageId?: string;
+
+  @ApiProperty({ description: 'ID gói liệu trình danh mục khi đặt mua gói mới', required: false })
+  @IsOptional()
+  @IsString()
+  packageId?: string;
 }
 

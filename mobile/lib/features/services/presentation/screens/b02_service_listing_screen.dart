@@ -103,15 +103,11 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   int _currentTherapyPage = 1;
   int _currentProductPage = 1;
 
-  // Bộ lọc Trị liệu (Theo chuẩn giao diện Đào tạo)
   ServiceFilterExpanded? _expandedFilter;
   List<String> get _therapyCategories {
-    final list = <String>['Tất cả', 'Dịch vụ lẻ', 'Gói liệu trình'];
-    for (final item in _allTherapyItems) {
-      final cat = item.category.trim();
-      if (cat.isNotEmpty && !list.contains(cat)) {
-        list.add(cat);
-      }
+    final list = <String>['Tất cả'];
+    for (final c in ServiceRepository.instance.cachedCategories) {
+      if (c != 'Tất cả' && !list.contains(c)) list.add(c);
     }
     return list;
   }
@@ -164,6 +160,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       final results = await Future.wait([
         ServiceRepository.instance.getServices(),
         ServiceRepository.instance.getTreatmentPackages(),
+        ServiceRepository.instance.getCategories(),
       ]);
 
       final services = results[0] as List<SpaServiceModel>;

@@ -29,6 +29,7 @@ void main() {
           home: Scaffold(
             body: AdminCandidateCard(
               candidate: baseCandidate,
+              isCompact: false,
               onAssignBatch: () => assignFired = true,
             ),
           ),
@@ -54,6 +55,7 @@ void main() {
           home: Scaffold(
             body: AdminCandidateCard(
               candidate: consultingCandidate,
+              isCompact: false,
               onConfirmConsultation: () => consultFired = true,
             ),
           ),

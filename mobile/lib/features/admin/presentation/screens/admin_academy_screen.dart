@@ -39,6 +39,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
   List<AdminCourseBatchModel> _batches = [];
   List<AdminCourseModel> _courses = [];
   List<AdminQuizSubmissionModel> _submissions = [];
+  List<Map<String, dynamic>> _instructors = [];
 
   String _selectedSubmissionBatchId = 'ALL';
   String _selectedSubmissionResult = 'ALL';
@@ -115,12 +116,14 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       final batchesFuture = _repository.fetchAllCourseBatches();
       final coursesFuture = _repository.fetchCourses();
       final submissionsFuture = _repository.fetchQuizSubmissions();
+      final instructorsFuture = _repository.fetchInstructors();
 
       final results = await Future.wait([
         candidatesFuture,
         batchesFuture,
         coursesFuture,
         submissionsFuture,
+        instructorsFuture,
       ]);
 
       if (mounted) {
@@ -129,6 +132,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
           _batches = results[1] as List<AdminCourseBatchModel>;
           _courses = results[2] as List<AdminCourseModel>;
           _submissions = results[3] as List<AdminQuizSubmissionModel>;
+          _instructors = results[4] as List<Map<String, dynamic>>;
           _isLoading = false;
         });
       }
@@ -326,6 +330,430 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
           c.orderCode.toLowerCase().contains(q) ||
           c.courseTitle.toLowerCase().contains(q);
     }).toList();
+  }
+
+  void _showCreateBatchSheet(BuildContext context) {
+    final activeCourses = _courses.where((c) => c.isActive).toList();
+    final availableCourses = activeCourses.isNotEmpty ? activeCourses : _courses;
+    String selectedCourseId = availableCourses.isNotEmpty ? availableCourses.first.id : '';
+
+    String suggestCode(String courseId) {
+      final c = availableCourses.firstWhere((x) => x.id == courseId, orElse: () => availableCourses.first);
+      final num = (_batches.where((b) => b.courseId == courseId).length + 1).toString().padLeft(2, '0');
+      final cCode = c.code.replaceAll('DAO_TAO_', 'K26-');
+      return '$cCode-$num';
+    }
+
+    final batchCodeCtrl = TextEditingController(text: availableCourses.isNotEmpty ? suggestCode(selectedCourseId) : 'K26-MLD-01');
+    final scheduleCtrl = TextEditingController(text: 'T2-T4-T6 (09:00 - 12:00)');
+    final maxStudentsCtrl = TextEditingController(text: '15');
+
+    DateTime startDate = DateTime.now().add(const Duration(days: 3));
+    DateTime endDate = startDate.add(const Duration(days: 30));
+
+    String? selectedInstructorId = _instructors.isNotEmpty ? _instructors.first['id']?.toString() : null;
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+            child: StatefulBuilder(
+              builder: (context, setModalState) {
+                final sDateStr = DateFormat('dd/MM/yyyy').format(startDate);
+                final eDateStr = DateFormat('dd/MM/yyyy').format(endDate);
+
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE8F6ED),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.add_home_work_rounded, color: Color(0xFF00693F), size: 20),
+                                ),
+                                const SizedBox(width: 10),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Mở lớp học đào tạo mới',
+                                      style: AppTypography.zaloFont(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                                    ),
+                                    Text(
+                                      'Tạo lớp học từ các khóa học đang mở bán',
+                                      style: AppTypography.zaloFont(fontSize: 11.5, color: AppColors.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                              onPressed: () => Navigator.pop(ctx),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        Text('Khóa học đào tạo đang bán (*):', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            borderRadius: BorderRadius.circular(8),
+                            color: const Color(0xFFF9FAFB),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedCourseId.isNotEmpty ? selectedCourseId : null,
+                              isExpanded: true,
+                              icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                              items: availableCourses.map((c) {
+                                return DropdownMenuItem<String>(
+                                  value: c.id,
+                                  child: Text(
+                                    '${c.title} (${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0).format(c.tuitionFee)})',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w500),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setModalState(() {
+                                    selectedCourseId = val;
+                                    batchCodeCtrl.text = suggestCode(val);
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Mã lớp học (*):', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 6),
+                                  TextField(
+                                    controller: batchCodeCtrl,
+                                    decoration: InputDecoration(
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                      filled: true,
+                                      fillColor: const Color(0xFFF9FAFB),
+                                    ),
+                                    style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w700),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Sĩ số tối đa:', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 6),
+                                  TextField(
+                                    controller: maxStudentsCtrl,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                      filled: true,
+                                      fillColor: const Color(0xFFF9FAFB),
+                                      suffixText: 'hv',
+                                    ),
+                                    style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        Text('Giảng viên phụ trách (*):', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            borderRadius: BorderRadius.circular(8),
+                            color: const Color(0xFFF9FAFB),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedInstructorId,
+                              isExpanded: true,
+                              hint: Text('Chọn giảng viên', style: AppTypography.zaloFont(fontSize: 12.5, color: const Color(0xFF9CA3AF))),
+                              icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                              items: _instructors.map((inst) {
+                                return DropdownMenuItem<String>(
+                                  value: inst['id']?.toString(),
+                                  child: Text(
+                                    '${inst['full_name']} · ${inst['title'] ?? 'Chuyên gia'}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF00693F)),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setModalState(() => selectedInstructorId = val);
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Khai giảng:', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 4),
+                                  InkWell(
+                                    onTap: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: startDate,
+                                        firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                                      );
+                                      if (picked != null) {
+                                        setModalState(() {
+                                          startDate = picked;
+                                          if (endDate.isBefore(startDate)) {
+                                            endDate = startDate.add(const Duration(days: 30));
+                                          }
+                                        });
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF9FAFB),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.event_available_rounded, size: 14, color: Color(0xFF00693F)),
+                                          const SizedBox(width: 6),
+                                          Text(sDateStr, style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Bế giảng:', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 4),
+                                  InkWell(
+                                    onTap: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: endDate,
+                                        firstDate: startDate,
+                                        lastDate: DateTime.now().add(const Duration(days: 730)),
+                                      );
+                                      if (picked != null) {
+                                        setModalState(() => endDate = picked);
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF9FAFB),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.event_note_rounded, size: 14, color: Color(0xFF0284C7)),
+                                          const SizedBox(width: 6),
+                                          Text(eDateStr, style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        Text('Lịch học trong tuần (*):', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: scheduleCtrl,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            filled: true,
+                            fillColor: const Color(0xFFF9FAFB),
+                            hintText: 'VD: T2-T4-T6 (09:00 - 12:00)',
+                          ),
+                          style: AppTypography.zaloFont(fontSize: 12.5),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            'T2-T4-T6 (09:00 - 12:00)',
+                            'T2-T4-T6 (13:30 - 17:00)',
+                            'T3-T5-T7 (09:00 - 12:00)',
+                            'T7-CN (08:30 - 16:30)',
+                          ].map((t) {
+                            return InkWell(
+                              onTap: () => setModalState(() => scheduleCtrl.text = t),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: scheduleCtrl.text == t ? const Color(0xFFE0F2FE) : const Color(0xFFF3F4F6),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: scheduleCtrl.text == t ? const Color(0xFF0284C7) : const Color(0xFFE5E7EB),
+                                  ),
+                                ),
+                                child: Text(
+                                  t,
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 10,
+                                    fontWeight: scheduleCtrl.text == t ? FontWeight.w700 : FontWeight.w500,
+                                    color: scheduleCtrl.text == t ? const Color(0xFF0284C7) : const Color(0xFF4B5563),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 18),
+
+                        SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: ElevatedButton(
+                            onPressed: isSubmitting
+                                ? null
+                                : () async {
+                                    final bCode = batchCodeCtrl.text.trim();
+                                    final sched = scheduleCtrl.text.trim();
+                                    final maxSt = int.tryParse(maxStudentsCtrl.text.trim()) ?? 15;
+
+                                    if (selectedCourseId.isEmpty) {
+                                      TopNotificationService.showError(title: 'Chưa chọn khóa học', message: 'Vui lòng chọn khóa học để mở lớp.');
+                                      return;
+                                    }
+                                    if (bCode.isEmpty) {
+                                      TopNotificationService.showError(title: 'Mã lớp trống', message: 'Vui lòng nhập mã lớp học.');
+                                      return;
+                                    }
+                                    if (sched.isEmpty) {
+                                      TopNotificationService.showError(title: 'Lịch học trống', message: 'Vui lòng nhập lịch học.');
+                                      return;
+                                    }
+
+                                    setModalState(() => isSubmitting = true);
+
+                                    final sDateParam = DateFormat('yyyy-MM-dd').format(startDate);
+                                    final eDateParam = DateFormat('yyyy-MM-dd').format(endDate);
+
+                                    final ok = await _repository.createCourseBatch(
+                                      courseId: selectedCourseId,
+                                      batchCode: bCode,
+                                      startDate: sDateParam,
+                                      endDate: eDateParam,
+                                      scheduleText: sched,
+                                      instructorId: selectedInstructorId,
+                                      maxStudents: maxSt,
+                                    );
+
+                                    if (!ctx.mounted) return;
+                                    if (ok) {
+                                      Navigator.pop(ctx);
+                                      _fetchData();
+                                      TopNotificationService.showSuccess(
+                                        title: 'Mở lớp thành công',
+                                        message: 'Đã mở lớp $bCode cho khóa học thành công!',
+                                      );
+                                    } else {
+                                      setModalState(() => isSubmitting = false);
+                                      final errMsg = _repository.lastScheduleError ?? 'Không thể tạo lớp học mới. Vui lòng kiểm tra lại!';
+                                      TopNotificationService.showError(
+                                        title: 'Mở lớp thất bại',
+                                        message: errMsg,
+                                      );
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00693F),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: isSubmitting
+                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : Text(
+                                    'Xác nhận mở lớp học',
+                                    style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   // --- CRUD KIỂU TRELLO: CREATE HỌC VIÊN ---
@@ -536,7 +964,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                               notes: notesCtrl.text.trim(),
                             );
 
-                            if (mounted) {
+                            if (ctx.mounted) {
                               Navigator.pop(ctx);
                               if (success) {
                                 TopNotificationService.showSuccess(
@@ -674,10 +1102,10 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _buildMoveChip(ctx, c, 'PENDING', 'Chờ tư vấn', const Color(0xFFD97706)),
-                    _buildMoveChip(ctx, c, 'CONFIRMED', 'Chờ nộp phí', const Color(0xFF0284C7)),
-                    _buildMoveChip(ctx, c, 'PAID', 'Chờ xếp lớp', const Color(0xFF7C3AED)),
-                    _buildMoveChip(ctx, c, 'ENROLLED', 'Đang học', const Color(0xFF00693F)),
+                    _buildMoveChip(ctx, c, 'PENDING_CONSULTATION', 'Chờ tư vấn', const Color(0xFFD97706)),
+                    _buildMoveChip(ctx, c, 'CONFIRMED_PENDING_PAY', 'Chờ nộp phí', const Color(0xFF0284C7)),
+                    _buildMoveChip(ctx, c, 'PAID_WAITING_CLASS', 'Chờ xếp lớp', const Color(0xFF7C3AED)),
+                    _buildMoveChip(ctx, c, 'ENROLLED_STUDYING', 'Đang học', const Color(0xFF00693F)),
                     _buildMoveChip(ctx, c, 'COMPLETED', 'Tốt nghiệp', const Color(0xFF4B5563)),
                   ],
                 ),
@@ -794,7 +1222,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                       ),
                     );
                     if (confirm == true) {
-                      Navigator.pop(ctx);
+                      if (ctx.mounted) Navigator.pop(ctx);
                       final success = await _repository.deleteCandidate(c.id);
                       if (mounted) {
                         if (success) {
@@ -820,7 +1248,12 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
 
   Widget _buildMoveChip(BuildContext ctx, AdminCandidateModel c, String targetStatus, String label, Color color) {
     final isCurrent = c.status.toUpperCase() == targetStatus.toUpperCase();
-    final isInitial = targetStatus == 'PENDING' || targetStatus == 'CONFIRMED' || targetStatus == 'CONSULTING' || targetStatus == 'DEPOSITED';
+    final isInitial = targetStatus == 'PENDING_CONSULTATION' ||
+        targetStatus == 'CONFIRMED_PENDING_PAY' ||
+        targetStatus == 'PENDING' ||
+        targetStatus == 'CONFIRMED' ||
+        targetStatus == 'CONSULTING' ||
+        targetStatus == 'DEPOSITED';
     final isLocked = c.amountPaid > 0 && isInitial;
 
     return Padding(
@@ -961,9 +1394,14 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
           ],
         ),
         actions: [
-          // Nút + Thêm học viên (CRUD Create Compact)
           InkWell(
-            onTap: () => _showCreateCandidateSheet(context),
+            onTap: () {
+              if (_selectedSegment == 1) {
+                _showCreateBatchSheet(context);
+              } else {
+                _showCreateCandidateSheet(context);
+              }
+            },
             borderRadius: BorderRadius.circular(8),
             child: Container(
               height: 30,
@@ -979,7 +1417,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                   const Icon(Icons.add_rounded, color: Color(0xFF00693F), size: 16),
                   const SizedBox(width: 3),
                   Text(
-                    'Thêm HV',
+                    _selectedSegment == 1 ? 'Mở lớp' : 'Thêm HV',
                     style: AppTypography.zaloFont(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -1277,6 +1715,33 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                             _isAllBatchDates = true;
                           });
                         },
+                      ),
+                      const Spacer(),
+                      InkWell(
+                        onTap: () => _showCreateBatchSheet(context),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00693F),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.add_rounded, color: Colors.white, size: 14),
+                              const SizedBox(width: 3),
+                              Text(
+                                'Mở lớp mới',
+                                style: AppTypography.zaloFont(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1971,10 +2436,9 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       message: 'Đã chuyển ${candidate.candidateName} sang "$targetColumnTitle"',
     );
 
-    // 4. Ghi nhận vào Database ngầm
     bool success = false;
     if (targetColumnKey == 'PAID_WAITING_CLASS') {
-      success = await _repository.unassignBatchFromCandidate(candidate.id);
+      success = await _repository.updateCandidateStatus(candidate.id, 'PAID_WAITING_CLASS');
     } else {
       success = await _repository.updateCandidateStatus(candidate.id, newDbStatus);
     }

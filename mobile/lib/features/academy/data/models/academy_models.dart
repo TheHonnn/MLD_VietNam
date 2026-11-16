@@ -444,7 +444,7 @@ class MockAcademyData {
       title: 'DẪN LƯU BẠCH HUYẾT CƠ BẢN CHO NGƯỜI MỚI BẮT ĐẦU - Level 0',
       category: 'Người mới bắt đầu',
       courseGroup: 'Người mới bắt đầu',
-      targetAudience: 'Người mới bắt đầu học nghề',
+      targetAudience: 'Người mới bắt đầu',
       targetNeed: 'Học để có kiến thức nền tảng và tự chăm sóc cơ bản',
       level: 'Cơ bản',
       durationWeeks: 4,
@@ -468,7 +468,7 @@ class MockAcademyData {
       title: 'Workshop: HƯỚNG DẪN PHÒNG NGỪA PHÙ TAY SAU PHẪU THUẬT UNG THƯ VÚ',
       category: 'Người mới bắt đầu',
       courseGroup: 'Người mới bắt đầu',
-      targetAudience: 'Người mới bắt đầu học nghề',
+      targetAudience: 'Người mới bắt đầu',
       targetNeed: 'Học để có kiến thức nền tảng và tự chăm sóc cơ bản',
       level: 'Cơ bản',
       durationWeeks: 1,
@@ -492,7 +492,7 @@ class MockAcademyData {
       title: 'Workshop: HƯỚNG DẪN XÂY DỰNG CHẾ ĐỘ ĂN PHÒNG NGỪA BỆNH LÝ TUYẾN VÚ',
       category: 'Người mới bắt đầu',
       courseGroup: 'Người mới bắt đầu',
-      targetAudience: 'Người mới bắt đầu học nghề',
+      targetAudience: 'Người mới bắt đầu',
       targetNeed: 'Học để có kiến thức nền tảng và tự chăm sóc cơ bản',
       level: 'Cơ bản',
       durationWeeks: 1,
@@ -516,7 +516,7 @@ class MockAcademyData {
       title: 'Workshop: HƯỚNG DẪN VẬN ĐỘNG PHÒNG NGỪA PHÙ TAY SAU PHẪU THUẬT TUYẾN VÚ',
       category: 'Người mới bắt đầu',
       courseGroup: 'Người mới bắt đầu',
-      targetAudience: 'Người mới bắt đầu học nghề',
+      targetAudience: 'Người mới bắt đầu',
       targetNeed: 'Học để có kiến thức nền tảng và tự chăm sóc cơ bản',
       level: 'Cơ bản',
       durationWeeks: 1,
@@ -540,9 +540,9 @@ class MockAcademyData {
     CourseModel(
       id: '30303030-0001-0001-0001-000000000009',
       title: 'Khoá học Chuyên đề: CHĂM SÓC MẸ SAU SINH',
-      category: 'Người đang làm nghề',
-      courseGroup: 'Người đang làm nghề',
-      targetAudience: 'Kỹ thuật viên XBBH/PHCN/Mẹ & Bé',
+      category: 'Người làm nghề',
+      courseGroup: 'Người làm nghề',
+      targetAudience: 'Người làm nghề',
       targetNeed: 'Tích hợp dịch vụ mới vào cơ sở đã có sẵn',
       level: 'Chuyên đề',
       durationWeeks: 4,
@@ -564,9 +564,9 @@ class MockAcademyData {
     CourseModel(
       id: '30303030-0001-0001-0001-000000000002',
       title: 'DẪN LƯU BẠCH HUYẾT CƠ BẢN CHO NGƯỜI LÀM NGHỀ - Level 1',
-      category: 'Người đang làm nghề',
-      courseGroup: 'Người đang làm nghề',
-      targetAudience: 'Kỹ thuật viên XBBH/PHCN/VLTL',
+      category: 'Người làm nghề',
+      courseGroup: 'Người làm nghề',
+      targetAudience: 'Người làm nghề',
       targetNeed: 'Tích hợp dịch vụ mới vào cơ sở đã có sẵn',
       level: 'Chuyên nghiệp',
       durationWeeks: 6,
@@ -588,9 +588,9 @@ class MockAcademyData {
     CourseModel(
       id: '30303030-0001-0001-0001-000000000006',
       title: 'DẪN LƯU BẠCH HUYẾT NÂNG CAO CHO NGƯỜI LÀM NGHỀ - Level 2',
-      category: 'Người đang làm nghề',
-      courseGroup: 'Người đang làm nghề',
-      targetAudience: 'Kỹ thuật viên XBBH/PHCN/VLTL',
+      category: 'Người làm nghề',
+      courseGroup: 'Người làm nghề',
+      targetAudience: 'Người làm nghề',
       targetNeed: 'Tích hợp dịch vụ mới vào cơ sở đã có sẵn',
       level: 'Nâng cao',
       durationWeeks: 8,
@@ -612,9 +612,9 @@ class MockAcademyData {
     CourseModel(
       id: '30303030-0001-0001-0001-000000000010',
       title: 'DẪN LƯU BẠCH HUYẾT CHUYÊN SÂU CHO NGƯỜI LÀM NGHỀ - Level 3',
-      category: 'Người đang làm nghề',
-      courseGroup: 'Người đang làm nghề',
-      targetAudience: 'Kỹ thuật viên XBBH/PHCN/VLTL & Y bác sĩ',
+      category: 'Người làm nghề',
+      courseGroup: 'Người làm nghề',
+      targetAudience: 'Người làm nghề',
       targetNeed: 'Tích hợp dịch vụ mới vào cơ sở đã có sẵn',
       level: 'Chuyên sâu',
       durationWeeks: 10,
@@ -636,9 +636,9 @@ class MockAcademyData {
     CourseModel(
       id: '30303030-0001-0001-0001-000000000007',
       title: 'GIẢM PHÙ BẰNG DẪN LƯU BẠCH HUYẾT VÀ BĂNG ÉP CDT',
-      category: 'Người đang làm nghề',
-      courseGroup: 'Người đang làm nghề',
-      targetAudience: 'Nhân viên y tế/bác sĩ',
+      category: 'Người làm nghề',
+      courseGroup: 'Người làm nghề',
+      targetAudience: 'Người làm nghề',
       targetNeed: 'Tích hợp dịch vụ mới vào cơ sở đã có sẵn',
       level: 'Chuyên gia',
       durationWeeks: 10,
@@ -660,9 +660,9 @@ class MockAcademyData {
     CourseModel(
       id: '30303030-0001-0001-0001-000000000011',
       title: 'Chương trình: PHÁT TRIỂN GIẢNG VIÊN VÀ HỌC THUẬT',
-      category: 'Người đang làm nghề',
-      courseGroup: 'Người đang làm nghề',
-      targetAudience: 'Giảng viên & Kỹ thuật viên Trưởng',
+      category: 'Người làm nghề',
+      courseGroup: 'Người làm nghề',
+      targetAudience: 'Người làm nghề',
       targetNeed: 'Tích hợp dịch vụ mới vào cơ sở đã có sẵn',
       level: 'Giảng viên',
       durationWeeks: 12,
@@ -684,9 +684,9 @@ class MockAcademyData {
     CourseModel(
       id: '30303030-0001-0001-0001-000000000008',
       title: 'LYMPHATIC WELLNESS SIGNATURE PROGRAM',
-      category: 'Người đang làm nghề',
-      courseGroup: 'Người đang làm nghề',
-      targetAudience: 'Spa & Wellness',
+      category: 'Người làm nghề',
+      courseGroup: 'Người làm nghề',
+      targetAudience: 'Người làm nghề',
       targetNeed: 'Học nghề để mở cơ sở chăm sóc',
       level: 'Master',
       durationWeeks: 16,
@@ -1520,6 +1520,7 @@ class StudentCertificateModel {
   final String signerTitle;
   final String qrVerificationCode;
   final String? certificatePdfUrl;
+  final String? dateOfBirth;
 
   const StudentCertificateModel({
     required this.id,
@@ -1535,6 +1536,7 @@ class StudentCertificateModel {
     required this.signerTitle,
     required this.qrVerificationCode,
     this.certificatePdfUrl,
+    this.dateOfBirth,
   });
 
   factory StudentCertificateModel.fromJson(Map<String, dynamic> json) {
@@ -1552,6 +1554,7 @@ class StudentCertificateModel {
       signerTitle: json['signerTitle']?.toString() ?? json['signer_title']?.toString() ?? 'GIÁM ĐỐC HỌC VIỆN MLD VIỆT NAM',
       qrVerificationCode: json['qrVerificationCode']?.toString() ?? json['qr_verification_code']?.toString() ?? '',
       certificatePdfUrl: json['certificatePdfUrl']?.toString() ?? json['certificate_pdf_url']?.toString(),
+      dateOfBirth: json['dateOfBirth']?.toString() ?? json['date_of_birth']?.toString(),
     );
   }
 
@@ -1569,5 +1572,6 @@ class StudentCertificateModel {
     'signerTitle': signerTitle,
     'qrVerificationCode': qrVerificationCode,
     'certificatePdfUrl': certificatePdfUrl,
+    'dateOfBirth': dateOfBirth,
   };
 }

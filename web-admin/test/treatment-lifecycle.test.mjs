@@ -181,4 +181,34 @@ describe('Treatment Lifecycle & Reversal State Machine Tests (Web-Admin)', () =>
       assert.equal(typeof label, 'string');
     }
   });
+
+  test('W06 and W05 enforce backend FSM and recognize mobile package note format', () => {
+    const w06 = readFileSync(new URL('../src/pages/W06_TreatmentManagement.tsx', import.meta.url), 'utf8');
+    const w05 = readFileSync(new URL('../src/pages/W05_StaffSchedule.tsx', import.meta.url), 'utf8');
+    assert.doesNotMatch(w06, /updateBookingStatus\(bookingId,\s*BookingStatus\.IN_SERVICE\)/);
+    assert.doesNotMatch(w06, /updateBookingStatus\(\s*bookingId,\s*BookingStatus\.CANCELLED/);
+    assert.match(w06, /runWorkflowAction\(bookingId,\s*'start-service'/);
+    assert.match(w06, /runWorkflowAction\(openBk\.id,\s*'cancel'/);
+    assert.equal(w05.includes('specialNotes?.match(/\\[user_package_id=([0-9a-f-]{36})\\]/i)'), false);
+    assert.equal(w05.includes('specialNotes?.match(/(?:\\[|\\|\\s*)user_package_id=([0-9a-f-]{36})\\]/i)'), true);
+  });
+
+  test('W06 and treatment service use atomic start-service and complete-session endpoints', () => {
+    const w06 = readFileSync(new URL('../src/pages/W06_TreatmentManagement.tsx', import.meta.url), 'utf8');
+    const treatmentSvc = readFileSync(new URL('../src/services/treatment.service.ts', import.meta.url), 'utf8');
+    assert.match(w06, /runWorkflowAction\(bookingId,\s*'start-service'/);
+    assert.match(w06, /setBookingBranchId\(\(prev\)\s*=>\s*prev\s*\|\|\s*brRes\.data\[0\]\.id\)/);
+    assert.match(treatmentSvc, /complete-session/);
+  });
+
+  test('treatment workspace invalidates caches and subscribes to realtime updates after booking', () => {
+    const w06 = readFileSync(new URL('../src/pages/W06_TreatmentManagement.tsx', import.meta.url), 'utf8');
+    const treatmentSvc = readFileSync(new URL('../src/services/treatment.service.ts', import.meta.url), 'utf8');
+    const realtimeSvc = readFileSync(new URL('../src/services/realtime.service.ts', import.meta.url), 'utf8');
+    assert.match(treatmentSvc, /invalidateCache\?\.\('bookings'\)/);
+    assert.match(treatmentSvc, /invalidateCache\?\.\('user_packages'\)/);
+    assert.match(w06, /useRealtimeSync\(/);
+    assert.match(w06, /fetchTreatmentData\(false,\s*true\)/);
+    assert.match(realtimeSvc, /'treatment_journal'/);
+  });
 });

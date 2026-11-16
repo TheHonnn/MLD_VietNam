@@ -62,7 +62,7 @@ void main() {
         'id': '77189c3d-acf3-4d32-82ad-7de146bb5fa2',
         'student_name': 'Bùi Thế Hoàng',
         'student_phone': '0394316963',
-        'status': 'DEPOSITED',
+        'status': 'CONSULTING',
         'consultation_status': 'PENDING_CONSULTATION',
         'approval_status': 'PENDING_APPROVAL',
         'amount_paid': 0,

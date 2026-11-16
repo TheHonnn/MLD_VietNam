@@ -32,6 +32,8 @@ import {
   ShieldAlert,
   Award,
   AlertTriangle,
+  Edit3,
+  Upload,
 } from 'lucide-react';
 import {
   treatmentService,
@@ -40,10 +42,12 @@ import {
   bookingService,
   portalService,
 } from '../services';
-import { toast } from '../components/common';
+import { toast, AdminTabs } from '../components/common';
 import { ShareJournalModal, ShareJournalItem } from '../components/treatment/ShareJournalModal';
 import { matchSearch } from '../utils/searchUtils';
 import { supabaseService } from '../services/supabaseService';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { RealtimeTable } from '../services/realtime.service';
 import {
   TreatmentPackage as SharedTreatmentPackage,
   UserPackage,
@@ -94,6 +98,15 @@ interface TreatmentPackageUI {
   rawStatus: string;
   treatmentName: string;
   serviceName: string;
+  activeBookingId?: string;
+  activeBookingCode?: string;
+  activeBookingStatus?: string;
+  activeBookingDate?: string;
+  activeBookingTime?: string;
+  activeBookingBranchId?: string;
+  pendingJournalId?: string;
+  pendingJournalStatus?: string;
+  pendingJournalAbnormal?: boolean;
   sessionsHistory: {
     id?: string;
     number: string;
@@ -105,10 +118,12 @@ interface TreatmentPackageUI {
     specialistAdvice?: string | null;
     isUpcoming?: boolean;
     bookingCode?: string;
+    bookingStatus?: string;
     time?: string;
     staff?: string;
     room?: string;
     statusBadge?: string;
+    rawConfirmationStatus?: string;
     treatmentStartTime?: string | null;
     treatmentEndTime?: string | null;
     beforePhotos?: string[];
@@ -128,6 +143,8 @@ interface TreatmentPackageUI {
   historySubtitle: string;
   historyNote: string;
 }
+
+const REALTIME_TREATMENT_TABLES: RealtimeTable[] = ['bookings', 'user_packages', 'treatment_journal'];
 
 export const W06_TreatmentManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -239,8 +256,15 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [timelineLogs, setTimelineLogs] = useState<any[]>([]);
   const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
 
-  const fetchTreatmentData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchTreatmentData = useCallback(async (showSpinner = true, forceRefresh = false) => {
+    if (showSpinner) {
+      setIsLoading(true);
+    }
+    if (forceRefresh) {
+      supabaseService?.invalidateCache?.('bookings');
+      supabaseService?.invalidateCache?.('user_packages');
+      supabaseService?.invalidateCache?.('treatment_journal');
+    }
     try {
       const [pkgRes, upkgRes, srvRes, jrnRes, custRes, brRes, techList, bookings, statsRes] = await Promise.all([
         treatmentService.getTreatmentPackages(),
@@ -264,7 +288,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       if (custRes.success) setCustomers(custRes.data);
       if (brRes.success && brRes.data.length > 0) {
         setBranches(brRes.data);
-        setBookingBranchId(brRes.data[0].id);
+        setBookingBranchId((prev) => prev || brRes.data[0].id);
       }
       if (techList && techList.length > 0) {
         setTechnicians(techList);
@@ -273,13 +297,23 @@ export const W06_TreatmentManagement: React.FC = () => {
       console.error('Failed to load treatment data:', err);
       toast.error('Lỗi nạp dữ liệu', 'Không thể kết nối đến máy chủ Supabase.');
     } finally {
-      setIsLoading(false);
+      if (showSpinner) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    fetchTreatmentData();
+    fetchTreatmentData(true, false);
   }, [fetchTreatmentData]);
+
+  useRealtimeSync({
+    tables: REALTIME_TREATMENT_TABLES,
+    debounceMs: 250,
+    onDataChange: () => {
+      fetchTreatmentData(false, true);
+    },
+  });
 
   const custMap = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
   const branchMap = useMemo(() => new Map(branches.map((b) => [b.id, b])), [branches]);
@@ -348,11 +382,18 @@ export const W06_TreatmentManagement: React.FC = () => {
       const rawPrice = discount > 0 && discount < basePrice ? discount : basePrice;
       const priceText = `${rawPrice.toLocaleString('vi-VN')}đ`;
 
-      const completedBookingIds = new Set(journals.map((journal) => journal.bookingId).filter(Boolean));
+      const completedBookingIds = new Set(
+        journals
+          .filter((journal) => !journal.isReversed)
+          .map((journal) => journal.bookingId)
+          .filter(Boolean)
+      );
       const relatedBookings = liveBookings
         .filter((booking) => {
           if (booking.customerId !== up.customerId || completedBookingIds.has(booking.id)) return false;
-          return belongsToPackage(booking,up.customerId,up.id);
+          if (['CANCELLED', 'NO_SHOW'].includes(String(booking.status))) return false;
+          if (String(booking.status) === 'COMPLETED' && ['COMPLETED', 'REVERSED'].includes(String(booking.sessionStatus || ''))) return false;
+          return belongsToPackage(booking, up.customerId, up.id);
         })
         .sort((a, b) => {
           const aTime = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
@@ -360,11 +401,19 @@ export const W06_TreatmentManagement: React.FC = () => {
           return aTime - bTime;
         });
 
+      const openBooking = relatedBookings.find((b) =>
+        ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(b.status))
+      );
+      const pendingJrn = journals.find(
+        (j) => !j.isReversed && ['DRAFT', 'PENDING', 'SUBMITTED', 'REVIEW_REQUIRED'].includes(String(j.confirmationStatus || 'DRAFT'))
+      );
+
       const sessionsHistory: TreatmentPackageUI['sessionsHistory'] = journals.map((j) => {
         const booking = j.bookingId ? bookingMap.get(j.bookingId) : undefined;
         const timeFromBooking = booking?.startTime
           ? `${booking.startTime.slice(0, 5)}${booking.endTime ? `–${booking.endTime.slice(0, 5)}` : ''}`
           : undefined;
+        const rawConf = j.confirmationStatus || 'DRAFT';
         return {
           id: j.id,
           number: String(j.sessionNumber).padStart(2, '0'),
@@ -383,7 +432,14 @@ export const W06_TreatmentManagement: React.FC = () => {
           time: timeFromBooking,
           staff: booking?.technician?.fullName,
           room: booking?.room?.name,
-          statusBadge: j.isReversed ? 'Đã hoàn tác' : j.confirmationStatus === 'CONFIRMED' ? 'Đã xác nhận' : j.confirmationStatus === 'DRAFT' ? 'Bản nháp' : 'Chờ xác nhận',
+          rawConfirmationStatus: rawConf,
+          statusBadge: j.isReversed
+            ? 'Đã hoàn tác'
+            : rawConf === 'CONFIRMED'
+            ? 'Đã xác nhận (Đã trừ buổi)'
+            : rawConf === 'DRAFT' || rawConf === 'PENDING'
+            ? 'Bản nháp (Chưa trừ buổi)'
+            : 'Chờ xác nhận trừ buổi',
           isReversed: Boolean(j.isReversed),
           reversedAt: j.reversedAt,
           reversalReason: j.reversalReason,
@@ -403,6 +459,8 @@ export const W06_TreatmentManagement: React.FC = () => {
           CONFIRMED: 'Đã xếp lịch',
           CHECKED_IN: 'Đã check-in',
           IN_SERVICE: 'Đang phục vụ',
+          IN_PROGRESS: 'Đang phục vụ',
+          COMPLETED: 'Lịch đã kết thúc · Chưa ghi nhận lượt gói',
           CANCELLED: 'Đã hủy',
           NO_SHOW: 'Không đến',
         };
@@ -416,6 +474,7 @@ export const W06_TreatmentManagement: React.FC = () => {
           serviceName,
           isUpcoming: true,
           bookingCode: booking.bookingCode,
+          bookingStatus: String(booking.status),
           time: `${booking.startTime?.slice(0, 5) || '—'}–${booking.endTime?.slice(0, 5) || '—'}`,
           staff: booking.technician?.fullName,
           room: booking.room?.name || booking.assignedBedNumber || undefined,
@@ -423,7 +482,6 @@ export const W06_TreatmentManagement: React.FC = () => {
         });
       });
 
-      // Branch determination
       const latestRelatedBooking = [...relatedBookings].sort((a, b) =>
         new Date(`${b.bookingDate}T${b.startTime || '00:00:00'}`).getTime() -
         new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime()
@@ -453,6 +511,15 @@ export const W06_TreatmentManagement: React.FC = () => {
         branch: branchName,
         status: statusLabels[effectiveStatus] || '—',
         rawStatus: effectiveStatus || '',
+        activeBookingId: openBooking?.id,
+        activeBookingCode: openBooking?.bookingCode,
+        activeBookingStatus: openBooking ? String(openBooking.status) : undefined,
+        activeBookingDate: openBooking?.bookingDate,
+        activeBookingTime: openBooking?.startTime?.slice(0, 5),
+        activeBookingBranchId: openBooking?.branchId,
+        pendingJournalId: pendingJrn?.id,
+        pendingJournalStatus: pendingJrn?.confirmationStatus || undefined,
+        pendingJournalAbnormal: Boolean(pendingJrn?.hasAbnormalReaction),
         historySubtitle: `Hồ sơ liệu trình thực tế của ${cust?.fullName || 'khách hàng'}, đồng bộ trực tiếp từ Supabase Cloud.`,
         historyNote: `Đã hoàn thành ${used}/${total} buổi. ${remaining > 0 ? `Còn ${remaining} buổi có thể sử dụng đến ${expiryFormatted}.` : `Hiện không có buổi có thể sử dụng.`}`,
         sessionsHistory,
@@ -574,10 +641,17 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   const selectedCustomer = custMap.get(selectedPkg.customerId);
   const selectedPackageBookings = useMemo(() => {
-    const journalBookingIds = new Set(liveJournals.map((journal) => journal.bookingId).filter(Boolean));
+    const confirmedBookingIds = new Set(
+      liveJournals
+        .filter((journal) => !journal.isReversed && journal.confirmationStatus === 'CONFIRMED')
+        .map((journal) => journal.bookingId)
+        .filter(Boolean)
+    );
     return liveBookings
       .filter((booking) => {
-        return !journalBookingIds.has(booking.id) && belongsToPackage(booking, selectedPkg.customerId, selectedPkg.id);
+        if (['CANCELLED', 'NO_SHOW'].includes(String(booking.status))) return false;
+        if (String(booking.status) === 'COMPLETED' && ['COMPLETED', 'REVERSED'].includes(String(booking.sessionStatus || ''))) return false;
+        return !confirmedBookingIds.has(booking.id) && belongsToPackage(booking, selectedPkg.customerId, selectedPkg.id);
       })
       .sort((a, b) => {
         const aTime = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
@@ -586,11 +660,18 @@ export const W06_TreatmentManagement: React.FC = () => {
       });
   }, [liveBookings, liveJournals, selectedPkg.customerId, selectedPkg.id]);
 
-  const openPackageBooking = selectedPackageBookings.find(booking =>
+  const openPackageBooking = selectedPackageBookings.find((booking) =>
     ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(booking.status))
   );
-  const hasInServiceBooking = selectedPackageBookings.some(booking =>
-    String(booking.status) === 'IN_SERVICE' && booking.sessionStatus !== 'COMPLETED'
+
+  const openTreatmentBooking = (id: string, date: string, branchId?: string) => {
+    const params = new URLSearchParams({ appId: id, date: date.slice(0, 10) });
+    if (branchId) params.set('branchId', branchId);
+    navigate(`/staff-schedule?${params}`);
+  };
+
+  const hasInServiceBooking = selectedPackageBookings.some(
+    (booking) => ['IN_SERVICE', 'IN_PROGRESS'].includes(String(booking.status)) && booking.sessionStatus !== 'COMPLETED'
   );
   const selectedSessionBooking = selectedPackageBookings.find((booking) => booking.id === selectedSessionBookingId);
 
@@ -609,29 +690,105 @@ export const W06_TreatmentManagement: React.FC = () => {
     setFilterExpiry('');
   };
 
-  // --- ACTION: Đặt lịch hẹn buổi tiếp theo ---
-  const handleOpenBookModal = () => {
-    if (selectedPkg.rawStatus !== 'ACTIVE') {
+  const handleQuickStartService = async (bookingId: string, pkgId?: string) => {
+    if (pkgId) setSelectedPkgId(pkgId);
+    const effectivePkgId = pkgId || selectedPkg.id;
+    const targetBooking = bookingMap.get(bookingId);
+    try {
+      const payload =
+        !targetBooking?.paymentMethod || targetBooking.paymentMethod === 'MEMBERSHIP_WALLET'
+          ? { userPackageId: effectivePkgId }
+          : {};
+      const res = await bookingService.runWorkflowAction(bookingId, 'start-service', payload);
+      if (!res.success) {
+        toast.error('Không thể bắt đầu ca', res.message || 'Vui lòng thử lại.');
+        return;
+      }
+      toast.success('Đã bắt đầu phục vụ', 'Lịch hẹn đã chuyển sang Đang phục vụ. Bạn có thể bấm Ghi nhật ký để hoàn tất và trừ buổi ngay.');
+      await fetchTreatmentData(false, true);
+    } catch (err: any) {
+      toast.error('Lỗi hệ thống', err.message || 'Không thể kết nối máy chủ.');
+    }
+  };
+
+  const handleCancelLeftoverBooking = async (bookingId: string) => {
+    const targetBooking = bookingMap.get(bookingId);
+    const currentStatus = String(targetBooking?.status || '');
+    if (['CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(currentStatus)) {
+      toast.warning(
+        'Khách đã check-in hoặc đang phục vụ',
+        'Vui lòng mở trang Điều phối lịch KTV để kết thúc ca hoặc xử lý trạng thái lịch hẹn.'
+      );
+      return;
+    }
+    try {
+      const res = await bookingService.runWorkflowAction(bookingId, 'cancel', {
+        reason: 'Hủy lịch hẹn tồn đọng từ trang Quản lý liệu trình',
+      });
+      if (res.success) {
+        toast.success('Đã hủy lịch hẹn tồn đọng', 'Cảnh báo lịch hẹn chưa xử lý đã được dọn sạch.');
+        await fetchTreatmentData(false, true);
+      } else {
+        toast.error('Không thể hủy lịch hẹn', res.message || 'Vui lòng thử lại.');
+      }
+    } catch (err: any) {
+      toast.error('Lỗi hệ thống', err.message || 'Không thể kết nối máy chủ.');
+    }
+  };
+
+  const handleQuickConfirmJournal = async (journalId: string, rawStatus?: string, hasAbnormal?: boolean) => {
+    try {
+      const isDraft = !rawStatus || rawStatus === 'DRAFT' || rawStatus === 'PENDING';
+      const res = await treatmentService.finalizeExistingJournalSession(journalId, {
+        isDraft,
+        hasAbnormalReaction: Boolean(hasAbnormal),
+      });
+      if (res.success) {
+        toast.success('Đã xác nhận & trừ 1 buổi', 'Buổi điều trị đã được xác nhận hoàn thành và trừ 1 lượt trong gói.');
+        await fetchTreatmentData(false, true);
+      } else {
+        toast.error('Không thể xác nhận buổi', res.message || 'Vui lòng kiểm tra đủ nội dung nhật ký trước khi xác nhận.');
+      }
+    } catch (err: any) {
+      toast.error('Lỗi hệ thống', err.message || 'Không thể kết nối máy chủ.');
+    }
+  };
+
+  const openBookModalForTarget = (targetPkg: TreatmentPackageUI) => {
+    setSelectedPkgId(targetPkg.id);
+    if (targetPkg.rawStatus !== 'ACTIVE') {
       toast.warning(
         'Gói không thể đặt lịch',
-        selectedPkg.rawStatus === 'EXPIRED'
+        targetPkg.rawStatus === 'EXPIRED'
           ? 'Gói đã hết hạn. Hãy gia hạn hoặc đăng ký gói mới trước khi xếp lịch.'
           : 'Chỉ gói đang hoạt động mới được sử dụng để đặt buổi.'
       );
       return;
     }
-    if (!selectedPkg.id || selectedPkg.remainingSessions <= 0) {
+    if (!targetPkg.id || targetPkg.remainingSessions <= 0) {
       toast.warning('Gói đã hoàn tất', 'Gói liệu trình này đã hoàn thành đầy đủ các buổi.');
       return;
     }
-    const tomorrow = new Date(Date.now() + 86400000);
-    setBookingDate(tomorrow.toISOString().split('T')[0]);
-    setBookingTime('09:00');
+    const nowVnHm = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date());
+    const todayVn = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+    const tomorrowVn = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(Date.now() + 86400000));
+    const futureTodaySlot = STANDARD_SPA_SLOTS.find((s) => s.startHour > nowVnHm);
+    setBookingDate(futureTodaySlot ? todayVn : tomorrowVn);
+    setBookingTime(futureTodaySlot ? futureTodaySlot.startHour : STANDARD_SPA_SLOTS[0].startHour);
     const targetBranchId = bookingBranchId || branches[0]?.id || '';
     const branchTechs = technicians.filter((t) => !targetBranchId || t.branchId === targetBranchId);
     setBookingTechnicianId(branchTechs[0]?.id || technicians[0]?.id || '');
-    setBookingNotes(`Buổi ${selectedPkg.usedSessions + 1}/${selectedPkg.sessionsTotal} - ${selectedPkg.name}`);
+    setBookingNotes(`Buổi ${targetPkg.usedSessions + 1}/${targetPkg.sessionsTotal} - ${targetPkg.name}`);
     setIsBookNextModalOpen(true);
+  };
+
+  const handleOpenBookModal = () => {
+    openBookModalForTarget(selectedPkg);
   };
 
   useEffect(() => {
@@ -668,11 +825,45 @@ export const W06_TreatmentManagement: React.FC = () => {
       });
 
       if (res.success) {
+        const created = res.data;
+        if (created?.id) {
+          const createdBooking: Booking = {
+            id: created.id,
+            bookingCode: created.bookingCode || created.booking_code || '',
+            customerId: created.customer_id || selectedPkg.customerId,
+            branchId: created.branch_id || selectedBranch?.id || '',
+            assignedRoomId: created.assigned_room_id || null,
+            assignedBedNumber: created.assigned_bed_number || null,
+            technicianId: created.technician_id || selectedTech?.id || null,
+            bookingDate: String(created.day || created.booking_date || bookingDate).slice(0, 10),
+            startTime: String(created.start_time || selectedSlotObj.startTime),
+            endTime: String(created.end_time || ''),
+            status: (created.status || BookingStatus.CONFIRMED) as BookingStatus,
+            paymentStatus: (created.payment_status || PaymentStatus.UNPAID) as PaymentStatus,
+            paymentMethod: (created.payment_method || PaymentMethod.MEMBERSHIP_WALLET) as PaymentMethod,
+            baseTotal: Number(created.base_total || 0),
+            discountAmount: 0,
+            pointsUsed: 0,
+            pointsDiscount: 0,
+            finalPrice: Number(created.final_price || 0),
+            bookedForName: created.booked_for_name || selectedCustomer.fullName,
+            bookedForPhone: created.booked_for_phone || selectedCustomer.phone,
+            specialNotes: created.special_notes || `[user_package_id=${selectedPkg.id}] ${bookingNotes}`.trim(),
+            qrCodeHash: created.qr_code_hash || '',
+            hasMedicalAlert: Boolean(created.has_medical_alert),
+            sessionStatus: 'NOT_STARTED',
+            customer: selectedCustomer,
+            branch: selectedBranch,
+            technician: technicians.find((t) => t.id === (created.technician_id || selectedTech?.id)),
+          };
+          setLiveBookings((prev) => [createdBooking, ...prev.filter((b) => b.id !== createdBooking.id)]);
+        }
         toast.success(
           'Đặt lịch thành công',
-          `Đã tạo lịch hẹn ${res.data.bookingCode} cho khách hàng ${selectedCustomer.fullName} vào ngày ${bookingDate} (KTV: ${selectedTech?.fullName || 'MLD Clinic'}).`
+          `Đã tạo lịch hẹn ${res.data?.bookingCode || ''} cho khách ${selectedCustomer.fullName}. Bạn có thể bấm "Bắt đầu phục vụ" ngay trên dòng gói khi khách đến.`
         );
         setIsBookNextModalOpen(false);
+        await fetchTreatmentData(false, true);
       } else {
         toast.error('Lỗi tạo lịch hẹn', res.message || 'Không thể tạo lịch hẹn.');
       }
@@ -684,72 +875,87 @@ export const W06_TreatmentManagement: React.FC = () => {
     }
   };
 
-  // --- ACTION: Ghi nhận buổi chăm sóc lâm sàng ---
-  const handleOpenLogSessionModal = () => {
-    if (!selectedPkg.id) return;
-    if (selectedPkg.remainingSessions <= 0) {
+  const openLogSessionModalForTarget = (targetPkg: TreatmentPackageUI) => {
+    setSelectedPkgId(targetPkg.id);
+    if (!targetPkg.id) return;
+    if (targetPkg.remainingSessions <= 0) {
       toast.warning(
         'Đã hoàn tất phác đồ',
         'Gói này đã hoàn thành đủ số buổi ban đầu. Bạn có thể đăng ký gói mới cho khách.'
       );
       return;
     }
-    const inServiceBooking = selectedPackageBookings.find(
-      (booking) => String(booking.status) === 'IN_SERVICE' && booking.sessionStatus !== 'COMPLETED'
+    const confirmedJournalBookingIds = new Set(
+      liveJournals
+        .filter((journal) => !journal.isReversed && journal.confirmationStatus === 'CONFIRMED')
+        .map((journal) => journal.bookingId)
+        .filter(Boolean)
+    );
+    const pkgBookings = liveBookings.filter(
+      (b) => !confirmedJournalBookingIds.has(b.id) && !['CANCELLED', 'NO_SHOW'].includes(String(b.status)) && belongsToPackage(b, targetPkg.customerId, targetPkg.id)
+    );
+    const inServiceBooking = pkgBookings.find(
+      (booking) => ['IN_SERVICE', 'IN_PROGRESS'].includes(String(booking.status)) && booking.sessionStatus !== 'COMPLETED'
     );
     if (!inServiceBooking) {
-      const pendingWorkflowBooking = selectedPackageBookings.find((booking) =>
+      const pendingWorkflowBooking = pkgBookings.find((booking) =>
         ['PENDING', 'CONFIRMED', 'CHECKED_IN'].includes(String(booking.status))
       );
       if (pendingWorkflowBooking) {
         toast.warning(
-          'Chưa thể ghi nhật ký',
-          'Lịch phải được check-in và bắt đầu phục vụ trước khi ghi nhận buổi chăm sóc.'
+          'Chưa bắt đầu ca phục vụ',
+          'Hãy bấm nút "Bắt đầu phục vụ" trên lịch hẹn của gói trước khi ghi nhận nhật ký.'
         );
-        navigate(`/staff-schedule?booking=${encodeURIComponent(pendingWorkflowBooking.bookingCode || pendingWorkflowBooking.id)}`);
       } else {
         toast.warning(
-          'Chưa có ca đang phục vụ',
-          'Hãy đặt lịch, check-in và bắt đầu phục vụ trước. Hệ thống không trừ buổi bằng ghi nhận thủ công.'
+          'Chưa có lịch hẹn cho buổi này',
+          'Vui lòng đặt lịch hẹn cho buổi điều trị trước.'
         );
-        handleOpenBookModal();
+        openBookModalForTarget(targetPkg);
       }
       return;
     }
+    const existingDraft = liveJournals.find(
+      (j) => !j.isReversed && j.bookingId === inServiceBooking.id && ['DRAFT', 'PENDING'].includes(String(j.confirmationStatus || 'DRAFT'))
+    );
     setSelectedSessionBookingId(inServiceBooking.id);
     setSessionDate(inServiceBooking.bookingDate);
-    setSessionNumberInput(selectedPkg.usedSessions + 1);
-    setTreatmentNotes('');
+    setSessionNumberInput(existingDraft?.sessionNumber || targetPkg.usedSessions + 1);
+    setTreatmentNotes(existingDraft?.treatmentNotes || '');
     setTreatmentStartTime(
-      inServiceBooking.serviceStartedAt
+      existingDraft?.treatmentStartTime ||
+      (inServiceBooking.serviceStartedAt
         ? new Date(inServiceBooking.serviceStartedAt).toLocaleTimeString('vi-VN', {
             hour: '2-digit',
             minute: '2-digit',
             hour12: false,
           })
-        : (inServiceBooking.startTime || '').slice(0, 5)
+        : (inServiceBooking.startTime || '').slice(0, 5))
     );
-    setTreatmentEndTime('');
-    setConditionBefore('');
-    setConditionAfter('');
-    setSpecialistAdvice('');
-    setTreatmentAreas('');
-    setTreatmentProtocol('');
-    setHasAbnormalReaction(false);
-    setAdverseReactions('');
+    setTreatmentEndTime(existingDraft?.treatmentEndTime || '');
+    setConditionBefore(existingDraft?.conditionBefore || '');
+    setConditionAfter(existingDraft?.conditionAfter || '');
+    setSpecialistAdvice(existingDraft?.specialistAdvice || '');
+    setTreatmentAreas(Array.isArray(existingDraft?.treatmentAreas) ? existingDraft.treatmentAreas.join(', ') : '');
+    setTreatmentProtocol(existingDraft?.treatmentProtocol || '');
+    setHasAbnormalReaction(Boolean(existingDraft?.hasAbnormalReaction));
+    setAdverseReactions(existingDraft?.adverseReactions || '');
     setPhotoConsentGranted(true);
-    setConsumablesList([]);
+    setConsumablesList(Array.isArray(existingDraft?.consumablesUsed) ? existingDraft.consumablesUsed : []);
     setEvidenceFiles([]);
     setIsLogSessionModalOpen(true);
   };
 
-  const handleSubmitLogSession = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOpenLogSessionModal = () => {
+    openLogSessionModalForTarget(selectedPkg);
+  };
+
+  const submitSessionWithMode = async (confirmImmediately: boolean) => {
     if (!selectedPkg.id || !selectedSessionBooking) {
       toast.error('Thiếu ca phục vụ', 'Không tìm thấy lịch đang thực hiện để liên kết nhật ký.');
       return;
     }
-    if (String(selectedSessionBooking.status) !== 'IN_SERVICE' || selectedSessionBooking.sessionStatus === 'COMPLETED') {
+    if (!['IN_SERVICE', 'IN_PROGRESS'].includes(String(selectedSessionBooking.status)) || selectedSessionBooking.sessionStatus === 'COMPLETED') {
       toast.error('Ca không hợp lệ', 'Chỉ ca đang phục vụ mới được ghi nhật ký và trừ buổi.');
       return;
     }
@@ -764,44 +970,48 @@ export const W06_TreatmentManagement: React.FC = () => {
       const uploadedEvidence = await Promise.all(
         evidenceFiles.map((file) => portalService.uploadFileToStorage(file, file.name))
       );
-      const res = await treatmentService.saveSessionDraftFromBooking(
-        selectedPkg.id,
-        {
-          customerId: selectedPkg.customerId,
-          bookingId: selectedSessionBooking.id,
-          technicianId: selectedSessionBooking.technicianId || null,
-          assignedRoomId: selectedSessionBooking.assignedRoomId || null,
-          sessionNumber: sessionNumberInput,
-          sessionDate: selectedSessionBooking.bookingDate,
-          conditionBefore: conditionBefore.trim(),
-          conditionAfter: conditionAfter.trim(),
-          treatmentNotes,
-          specialistAdvice: specialistAdvice.trim(),
-          treatmentStartTime: treatmentStartTime || null,
-          treatmentEndTime: treatmentEndTime || null,
-          afterPhotos: uploadedEvidence,
-          treatmentAreas: treatmentAreas
-            .split(',')
-            .map((area) => area.trim())
-            .filter(Boolean),
-          treatmentProtocol: treatmentProtocol.trim() || null,
-          hasAbnormalReaction,
-          adverseReactions: hasAbnormalReaction ? adverseReactions.trim() : null,
-          consumablesUsed: consumablesList.length > 0 ? consumablesList : null,
-          photosMetadata: {
-            consentGranted: photoConsentGranted,
-            uploadedCount: uploadedEvidence.length,
-            photoType: 'AFTER',
-            capturedAt: new Date().toISOString(),
-          },
-        }
-      );
+      const payload = {
+        customerId: selectedPkg.customerId,
+        bookingId: selectedSessionBooking.id,
+        technicianId: selectedSessionBooking.technicianId || null,
+        assignedRoomId: selectedSessionBooking.assignedRoomId || null,
+        sessionNumber: sessionNumberInput,
+        sessionDate: selectedSessionBooking.bookingDate,
+        conditionBefore: conditionBefore.trim(),
+        conditionAfter: conditionAfter.trim(),
+        treatmentNotes,
+        specialistAdvice: specialistAdvice.trim(),
+        treatmentStartTime: treatmentStartTime || null,
+        treatmentEndTime: treatmentEndTime || null,
+        afterPhotos: uploadedEvidence,
+        treatmentAreas: treatmentAreas
+          .split(',')
+          .map((area) => area.trim())
+          .filter(Boolean),
+        treatmentProtocol: treatmentProtocol.trim() || null,
+        hasAbnormalReaction,
+        adverseReactions: hasAbnormalReaction ? adverseReactions.trim() : null,
+        consumablesUsed: consumablesList.length > 0 ? consumablesList : null,
+        photosMetadata: {
+          consentGranted: photoConsentGranted,
+          uploadedCount: uploadedEvidence.length,
+          photoType: 'AFTER',
+          capturedAt: new Date().toISOString(),
+        },
+      };
+
+      const res = confirmImmediately
+        ? await treatmentService.completeAndConfirmSessionFromBooking(selectedPkg.id, payload)
+        : await treatmentService.saveSessionDraftFromBooking(selectedPkg.id, payload);
 
       if (res.success) {
-        toast.success('Đã lưu hồ sơ nháp', 'Số buổi chưa thay đổi. Gửi hồ sơ và xác nhận buổi tại Nhật ký điều trị.');
+        if (confirmImmediately) {
+          toast.success('Đã hoàn tất & trừ 1 buổi', 'Hồ sơ điều trị đã được xác nhận và trừ 1 buổi trong gói liệu trình.');
+        } else {
+          toast.success('Đã lưu bản nháp', 'Hồ sơ đã lưu nháp (chưa trừ buổi). Bạn có thể bấm "Xác nhận & Trừ buổi" bất cứ lúc nào.');
+        }
         setIsLogSessionModalOpen(false);
-        await fetchTreatmentData();
-        navigate('/manage/treatment_journal');
+        await fetchTreatmentData(false, true);
       } else {
         toast.error('Không thể ghi nhận', res.message || 'Lỗi khi cập nhật buổi.');
       }
@@ -812,6 +1022,11 @@ export const W06_TreatmentManagement: React.FC = () => {
       setIsUploadingEvidence(false);
       setIsSubmittingSession(false);
     }
+  };
+
+  const handleSubmitLogSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitSessionWithMode(true);
   };
 
   // --- ACTION: Hoàn tác buổi điều trị an toàn ---
@@ -841,7 +1056,7 @@ export const W06_TreatmentManagement: React.FC = () => {
           `Đã hoàn lại 1 buổi cho gói liệu trình, ghi sổ cái hoàn tác và điều chỉnh đối soát.`
         );
         setReversalTargetJournal(null);
-        await fetchTreatmentData();
+        await fetchTreatmentData(false, true);
       } else {
         toast.error('Lỗi hoàn tác buổi', res.message || 'Không thể hoàn tác buổi điều trị.');
       }
@@ -858,7 +1073,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       const res = await treatmentService.approveClinicalSession(journalId);
       if (res.success) {
         toast.success('Duyệt chuyên môn thành công', 'Buổi điều trị đã được ghi nhận phê duyệt chuyên môn.');
-        await fetchTreatmentData();
+        await fetchTreatmentData(false, true);
       } else {
         toast.error('Lỗi duyệt chuyên môn', res.message || 'Không thể duyệt buổi điều trị.');
       }
@@ -872,13 +1087,47 @@ export const W06_TreatmentManagement: React.FC = () => {
     e.preventDefault();
     if (!selectedPkg.id || !actionModalType) return;
 
-    if (['pause', 'extend', 'cancel', 'transfer', 'refund'].includes(actionModalType) && (!actionReason.trim() || actionReason.trim().length < 3)) {
-      toast.error('Thiếu lý do', 'Vui lòng nhập lý do thực hiện thao tác.');
+    const minReasonLen = ['cancel', 'transfer', 'refund'].includes(actionModalType) ? 5 : 3;
+    if (['pause', 'extend', 'cancel', 'transfer', 'refund'].includes(actionModalType) && actionReason.trim().length < minReasonLen) {
+      toast.error('Thiếu lý do', `Vui lòng nhập lý do thực hiện thao tác (tối thiểu ${minReasonLen} ký tự).`);
       return;
     }
 
     setIsSubmittingAction(true);
     try {
+      if (actionModalType === 'cancel' || actionModalType === 'refund') {
+        const blockingBookings = liveBookings.filter(
+          (b) =>
+            ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(b.status)) &&
+            belongsToPackage(b, selectedPkg.customerId, selectedPkg.id)
+        );
+        const activeInRoom = blockingBookings.find((b) =>
+          ['CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(b.status))
+        );
+        if (activeInRoom) {
+          toast.error(
+            'Còn lịch đang phục vụ',
+            `Lịch hẹn ${activeInRoom.bookingCode || ''} đang ở trạng thái check-in/phục vụ. Hãy hoàn tất hoặc đóng ca tại Điều phối lịch KTV trước.`
+          );
+          setIsSubmittingAction(false);
+          return;
+        }
+        const cancelNote = `Tự động hủy lịch khi ${actionModalType === 'cancel' ? 'hủy' : 'hoàn tiền'} gói liệu trình: ${actionReason.trim()}`;
+        for (const openBk of blockingBookings) {
+          const cancelRes = await bookingService.runWorkflowAction(openBk.id, 'cancel', {
+            reason: cancelNote,
+          });
+          if (!cancelRes.success) {
+            toast.error(
+              'Không thể hủy lịch hẹn đang mở',
+              cancelRes.message || `Không hủy được lịch ${openBk.bookingCode || openBk.id}.`
+            );
+            setIsSubmittingAction(false);
+            return;
+          }
+        }
+      }
+
       let res: any;
       if (actionModalType === 'pause') {
         res = await treatmentService.pausePackage(selectedPkg.id, actionReason.trim());
@@ -910,7 +1159,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         setActionReason('');
         setActionTransferCustomerId('');
         setActionRefundAmount(0);
-        await fetchTreatmentData();
+        await fetchTreatmentData(false, true);
       } else {
         toast.error('Lỗi thực hiện', res?.message || 'Không thể thực hiện thao tác.');
       }
@@ -974,7 +1223,6 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
-      {/* 1. Page Header Title & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
           <div className="flex items-center gap-2">
@@ -987,7 +1235,7 @@ export const W06_TreatmentManagement: React.FC = () => {
             </span>
           </div>
           <p className="text-[12px] text-[#73675F] mt-1 font-medium">
-            Hồ sơ liệu trình spa & phân bổ buổi chăm sóc chuyên sâu thời gian thực
+            Trung tâm điều phối gói liệu trình, đặt lịch buổi chăm sóc, ghi nhận nhật ký lâm sàng và trừ buổi khép kín
           </p>
         </div>
 
@@ -995,19 +1243,73 @@ export const W06_TreatmentManagement: React.FC = () => {
           <button
             type="button"
             onClick={handleOpenAssignPackageModal}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-white hover:bg-[#FAF8F5] text-[#8A4F23] border border-[#D7BBA6] text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Đăng ký gói mới</span>
           </button>
-
-
         </div>
       </div>
 
-      {/* 2. Operational KPI Summary Dashboard */}
+      <AdminTabs
+        variant="line"
+        ariaLabel="Điều hướng phân hệ Quản lý Liệu trình"
+        activeTab="medical-records"
+        onChange={(id) => {
+          if (id === 'medical-records') navigate('/medical-records');
+          else if (id === 'user_packages') navigate('/manage/user_packages');
+          else if (id === 'treatment_journal') navigate('/manage/treatment_journal');
+          else if (id === 'home_care_guidelines') navigate('/manage/home_care_guidelines');
+        }}
+        tabs={[
+          { id: 'medical-records', label: '1. Hồ sơ & Phác đồ MLD', count: packages.length },
+          { id: 'user_packages', label: '2. Sổ cái Liệu trình khách hàng' },
+          { id: 'treatment_journal', label: '3. Nhật ký điều trị & Duyệt buổi', count: liveJournals.length },
+          { id: 'home_care_guidelines', label: '4. Hướng dẫn chăm sóc tại nhà' },
+        ]}
+      />
+
+      <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3.5 shadow-xs">
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#8A4F23] flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" />
+            Quy trình vận hành chuẩn 4 bước cho Admin & Lễ tân
+          </span>
+          <span className="text-[11px] text-[#73675F]">Thực hiện trực tiếp ngay trên bảng hoặc khung chi tiết bên dưới</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+          <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#EFE4D9] flex items-start gap-2.5">
+            <span className="w-5 h-5 rounded-full bg-[#985018] text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+            <div>
+              <div className="font-bold text-[#2C241E]">Đăng ký & Kích hoạt gói</div>
+              <div className="text-[11px] text-[#73675F] mt-0.5">Bấm &ldquo;+ Đăng ký gói mới&rdquo; và thu tiền tại POS để mở số buổi khả dụng.</div>
+            </div>
+          </div>
+          <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#EFE4D9] flex items-start gap-2.5">
+            <span className="w-5 h-5 rounded-full bg-[#985018] text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+            <div>
+              <div className="font-bold text-[#2C241E]">Đặt lịch buổi tiếp theo</div>
+              <div className="text-[11px] text-[#73675F] mt-0.5">Bấm &ldquo;+ Đặt lịch buổi X&rdquo; ngay trên dòng gói để chọn ngày, giờ & KTV.</div>
+            </div>
+          </div>
+          <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#EFE4D9] flex items-start gap-2.5">
+            <span className="w-5 h-5 rounded-full bg-[#985018] text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+            <div>
+              <div className="font-bold text-[#2C241E]">Bắt đầu phục vụ & Ghi nhật ký</div>
+              <div className="text-[11px] text-[#73675F] mt-0.5">Khi khách đến, bấm &ldquo;Bắt đầu phục vụ&rdquo; rồi bấm &ldquo;Ghi nhật ký buổi X&rdquo;.</div>
+            </div>
+          </div>
+          <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#EFE4D9] flex items-start gap-2.5">
+            <span className="w-5 h-5 rounded-full bg-[#2E7D32] text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">4</span>
+            <div>
+              <div className="font-bold text-[#2C241E]">Xác nhận trừ buổi & Dặn dò</div>
+              <div className="text-[11px] text-[#73675F] mt-0.5">Bấm &ldquo;Hoàn tất & Xác nhận trừ 1 buổi&rdquo; để trừ lượt và xuất PDF/lời dặn.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* KPI 1: Vòng đời gói */}
         <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs">
           <div className="flex items-center justify-between text-xs text-[#73675F]">
             <span>Gói đang lưu hành</span>
@@ -1023,7 +1325,6 @@ export const W06_TreatmentManagement: React.FC = () => {
           </div>
         </div>
 
-        {/* KPI 2: Buổi liệu trình & Sổ cái */}
         <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs">
           <div className="flex items-center justify-between text-xs text-[#73675F]">
             <span>Buổi khả dụng / Đã dùng</span>
@@ -1040,7 +1341,6 @@ export const W06_TreatmentManagement: React.FC = () => {
           </div>
         </div>
 
-        {/* KPI 3: Vận hành & Hoàn tác */}
         <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs">
           <div className="flex items-center justify-between text-xs text-[#73675F]">
             <span>Lịch hẹn & Đối soát</span>
@@ -1056,7 +1356,6 @@ export const W06_TreatmentManagement: React.FC = () => {
           </div>
         </div>
 
-        {/* KPI 4: Lâm sàng & Đồng bộ Outbox */}
         <div className="bg-white rounded-2xl border border-[#EFE4D9] p-4 shadow-xs">
           <div className="flex items-center justify-between text-xs text-[#73675F]">
             <span>Giám sát chuyên môn</span>
@@ -1074,9 +1373,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Filter Toolbar (Active Dropdowns & Search) */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] p-3 shadow-xs flex flex-wrap items-center gap-2.5">
-        {/* Search input */}
         <div className="relative flex-1 min-w-[220px] w-full sm:w-auto">
           <Search className="w-4 h-4 text-[#8C7A6B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
@@ -1098,7 +1395,6 @@ export const W06_TreatmentManagement: React.FC = () => {
           )}
         </div>
 
-        {/* Dropdown 1: Loại gói */}
         <div className="relative min-w-[170px] flex-1 sm:flex-none">
           <select
             value={filterPackageType}
@@ -1117,7 +1413,6 @@ export const W06_TreatmentManagement: React.FC = () => {
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* Dropdown 2: Trạng thái */}
         <div className="relative min-w-[160px] flex-1 sm:flex-none">
           <select
             value={filterStatus}
@@ -1138,7 +1433,6 @@ export const W06_TreatmentManagement: React.FC = () => {
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* Dropdown 3: Hạn sử dụng */}
         <div className="relative min-w-[155px] flex-1 sm:flex-none">
           <select
             value={filterExpiry}
@@ -1153,7 +1447,6 @@ export const W06_TreatmentManagement: React.FC = () => {
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* Reset filter button */}
         {hasActiveFilters && (
           <button
             type="button"
@@ -1167,9 +1460,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         )}
       </div>
 
-      {/* 4. Packages Table Card */}
       <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-hidden shadow-xs">
-        {/* Table Header Row */}
         <div className="px-5 py-4 flex items-center justify-between border-b border-[#EFE4D9] whitespace-nowrap">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold text-[#2C241E] whitespace-nowrap">
@@ -1182,24 +1473,22 @@ export const W06_TreatmentManagement: React.FC = () => {
           </span>
         </div>
 
-        {/* Table Body */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
             <thead>
               <tr className="bg-[#F3E2CE] text-[#73675F] text-[11px] font-semibold whitespace-nowrap">
-                <th className="py-3 px-5 whitespace-nowrap">Mã liệu trình</th>
-                <th className="py-3 px-5 whitespace-nowrap">Tên liệu trình</th>
-                <th className="py-3 px-5 whitespace-nowrap">Tên dịch vụ</th>
-                <th className="py-3 px-5 whitespace-nowrap">Tên khách hàng</th>
-                <th className="py-3 px-5 whitespace-nowrap">Số buổi</th>
-                <th className="py-3 px-5 whitespace-nowrap">Tổng số buổi cần điều trị</th>
-                <th className="py-3 px-5 whitespace-nowrap">Trạng thái</th>
+                <th className="py-3 px-4 whitespace-nowrap">Mã liệu trình</th>
+                <th className="py-3 px-4 whitespace-nowrap">Gói liệu trình & Dịch vụ</th>
+                <th className="py-3 px-4 whitespace-nowrap">Khách hàng</th>
+                <th className="py-3 px-4 whitespace-nowrap">Tiến độ & Buổi khả dụng</th>
+                <th className="py-3 px-4 whitespace-nowrap">Trạng thái gói</th>
+                <th className="py-3 px-4 whitespace-nowrap text-right">Bước tiếp theo (Thao tác nhanh)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F0E6DC] whitespace-nowrap">
               {filteredPackages.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#73675F] whitespace-normal">
+                  <td colSpan={6} className="py-12 text-center text-[#73675F] whitespace-normal">
                     <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                       <div className="w-10 h-10 rounded-full bg-[#FAF0E4] flex items-center justify-center text-[#985018]">
                         <Search className="w-5 h-5" />
@@ -1235,15 +1524,21 @@ export const W06_TreatmentManagement: React.FC = () => {
                         isSelected ? 'bg-[#F8F1E8] border-l-4 border-[#985018]' : 'hover:bg-[#FAF8F5]'
                       }`}
                     >
-      <td className="py-4 px-5 font-mono text-[11px] text-[#73675F]" title={pkg.id}>LT-{pkg.id.slice(0, 8).toUpperCase()}</td>
-                      <td className="py-4 px-5 font-semibold text-[#2C241E]">{pkg.treatmentName}</td>
-                      <td className="py-4 px-5 text-[#554A41]">{pkg.serviceName}</td>
-                      <td className="py-4 px-5 whitespace-nowrap">
+                      <td className="py-3.5 px-4 font-mono text-[11px] text-[#73675F]" title={pkg.id}>
+                        LT-{pkg.id.slice(0, 8).toUpperCase()}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-[#2C241E]">{pkg.treatmentName}</div>
+                        <div className="text-[11px] text-[#73675F] mt-0.5">
+                          {pkg.serviceName} · Hạn: {pkg.expiryDate}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <img
                             src={cust?.avatarUrl || '/avatar_minh_anh.png'}
                             alt={cust?.fullName || 'Khách'}
-                            className="w-6 h-6 rounded-full object-cover border border-[#EFE4D9]"
+                            className="w-7 h-7 rounded-full object-cover border border-[#EFE4D9]"
                           />
                           <div>
                             <div className="text-xs font-bold text-[#2C241E]">
@@ -1256,30 +1551,156 @@ export const W06_TreatmentManagement: React.FC = () => {
                         </div>
                       </td>
 
-                      <td className="py-4 px-5 whitespace-nowrap">
-                        <span className="font-semibold">{pkg.usedSessions}</span> buổi
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-[#2C241E]">
+                            Đã dùng {pkg.usedSessions} / {pkg.sessionsTotal} buổi
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10.5px] font-bold ${
+                              pkg.remainingSessions > 0
+                                ? 'bg-[#E8F5E9] text-[#2E7D32] border border-[#C8E6C9]'
+                                : 'bg-[#F3F4F6] text-[#6B7280] border border-[#E5E7EB]'
+                            }`}
+                          >
+                            Còn {pkg.remainingSessions} buổi
+                          </span>
+                        </div>
+                        <div className="w-36 bg-[#EFE4D9] h-1.5 rounded-full overflow-hidden mt-1.5">
+                          <div
+                            style={{ width: `${pkg.progressPercent}%` }}
+                            className={`h-full rounded-full ${
+                              pkg.rawStatus === 'COMPLETED' ? 'bg-[#059669]' : 'bg-[#985018]'
+                            }`}
+                          />
+                        </div>
                       </td>
-                      <td className="py-4 px-5 whitespace-nowrap">
-                        {pkg.sessionsTotal} buổi
+
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex flex-col items-start gap-1">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded-md text-[10.5px] font-semibold whitespace-nowrap ${
+                              pkg.rawStatus === 'COMPLETED'
+                                ? 'bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]'
+                                : pkg.rawStatus === 'PAUSED'
+                                ? 'bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]'
+                                : pkg.rawStatus === 'EXPIRED'
+                                ? 'bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA]'
+                                : pkg.rawStatus === 'CANCELLED' || pkg.rawStatus === 'REFUNDED'
+                                ? 'bg-[#F3F4F6] text-[#6B7280] border border-[#E5E7EB]'
+                                : pkg.rawStatus === 'TRANSFERRED'
+                                ? 'bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE]'
+                                : 'bg-[#F5E9DB] text-[#8A4F23] border border-[#E8DFD8]'
+                            }`}
+                          >
+                            {pkg.status}
+                          </span>
+                          {pkg.activeBookingId && pkg.rawStatus === 'ACTIVE' && (
+                            <span className="text-[10px] font-semibold text-[#8A4F23] flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {['IN_SERVICE', 'IN_PROGRESS'].includes(String(pkg.activeBookingStatus))
+                                ? 'Đang trong ca phục vụ'
+                                : `Có lịch hẹn: ${pkg.activeBookingDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(pkg.activeBookingDate)) : ''}`}
+                            </span>
+                          )}
+                          {pkg.activeBookingId && pkg.rawStatus !== 'ACTIVE' && (
+                            <span className="text-[10px] font-semibold text-[#D97706] flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              Còn lịch hẹn tồn đọng
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="py-4 px-5 whitespace-nowrap">
-                        <span
-                          className={`inline-block mt-1 px-2.5 py-0.5 rounded-md text-[10.5px] font-semibold whitespace-nowrap ${
-                            pkg.rawStatus === 'COMPLETED'
-                              ? 'bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]'
-                              : pkg.rawStatus === 'PAUSED'
-                              ? 'bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]'
-                              : pkg.rawStatus === 'EXPIRED'
-                              ? 'bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA]'
-                              : pkg.rawStatus === 'CANCELLED' || pkg.rawStatus === 'REFUNDED'
-                              ? 'bg-[#F3F4F6] text-[#6B7280] border border-[#E5E7EB]'
-                              : pkg.rawStatus === 'TRANSFERRED'
-                              ? 'bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE]'
-                              : 'bg-[#F5E9DB] text-[#8A4F23] border border-[#E8DFD8]'
-                          }`}
-                        >
-                          {pkg.status}
-                        </span>
+
+                      <td className="py-3.5 px-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          {pkg.rawStatus === 'ACTIVE' && pkg.pendingJournalId ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPkgId(pkg.id);
+                                handleQuickConfirmJournal(pkg.pendingJournalId!, pkg.pendingJournalStatus, pkg.pendingJournalAbnormal);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Xác nhận & Trừ buổi</span>
+                            </button>
+                          ) : pkg.rawStatus === 'ACTIVE' && ['IN_SERVICE', 'IN_PROGRESS'].includes(String(pkg.activeBookingStatus)) ? (
+                            <button
+                              type="button"
+                              onClick={() => openLogSessionModalForTarget(pkg)}
+                              className="px-3 py-1.5 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>Ghi nhật ký buổi {pkg.usedSessions + 1}</span>
+                            </button>
+                          ) : pkg.rawStatus === 'ACTIVE' && pkg.activeBookingId && ['PENDING', 'CONFIRMED', 'CHECKED_IN'].includes(String(pkg.activeBookingStatus)) ? (
+                            <button
+                              type="button"
+                              onClick={() => handleQuickStartService(pkg.activeBookingId!, pkg.id)}
+                              className="px-3 py-1.5 rounded-xl bg-[#004890] hover:bg-[#003770] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              <Play className="w-3.5 h-3.5" />
+                              <span>Bắt đầu phục vụ</span>
+                            </button>
+                          ) : pkg.rawStatus === 'ACTIVE' && pkg.remainingSessions > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => openBookModalForTarget(pkg)}
+                              className="px-3 py-1.5 rounded-xl bg-[#FAF0E4] hover:bg-[#985018] text-[#8A4F23] hover:text-white border border-[#D7BBA6] text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <Calendar className="w-3.5 h-3.5" />
+                              <span>+ Đặt lịch buổi {pkg.usedSessions + 1}</span>
+                            </button>
+                          ) : pkg.rawStatus !== 'ACTIVE' && pkg.activeBookingId ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPkgId(pkg.id);
+                                handleCancelLeftoverBooking(pkg.activeBookingId!);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#92400E] border border-[#F59E0B] text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                            >
+                              <Ban className="w-3.5 h-3.5" />
+                              <span>Hủy lịch tồn đọng</span>
+                            </button>
+                          ) : pkg.rawStatus === 'PAUSED' ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPkgId(pkg.id);
+                                setActionModalType('resume');
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-[#FEF3C7] hover:bg-[#D97706] text-[#92400E] hover:text-white border border-[#FDE68A] text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                            >
+                              <Play className="w-3.5 h-3.5" />
+                              <span>Mở lại gói</span>
+                            </button>
+                          ) : pkg.rawStatus === 'EXPIRED' ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPkgId(pkg.id);
+                                setActionModalType('extend');
+                                setActionReason('');
+                                setActionExtensionMonths(3);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-[#FEE2E2] hover:bg-[#DC2626] text-[#991B1B] hover:text-white border border-[#FECACA] text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                            >
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>Gia hạn gói</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPkgId(pkg.id)}
+                              className="px-2.5 py-1 rounded-lg bg-[#FAF8F5] hover:bg-[#EFE4D9] text-[#73675F] text-[11px] font-semibold border border-[#E8DFD8] cursor-pointer"
+                            >
+                              Xem chi tiết
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1289,7 +1710,6 @@ export const W06_TreatmentManagement: React.FC = () => {
           </table>
         </div>
 
-        {/* Table Pagination Footer */}
         <div className="px-5 py-3 border-t border-[#EFE4D9] flex items-center justify-between text-xs text-[#73675F] whitespace-nowrap">
           <span className="whitespace-nowrap">
             Hiển thị {filteredPackages.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} -{' '}
@@ -1339,11 +1759,9 @@ export const W06_TreatmentManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* 5. Bottom Two Columns: Sessions History (Left) + Detail & Policy (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Left Column: Sessions History */}
         <div className="lg:col-span-8 bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-base font-bold text-[#2C241E]">
                 Lịch sử buổi chăm sóc · {selectedPkg.name}
@@ -1352,52 +1770,175 @@ export const W06_TreatmentManagement: React.FC = () => {
                 {selectedPkg.historySubtitle}
               </p>
             </div>
-
+            {selectedPkg.rawStatus === 'ACTIVE' && selectedPkg.remainingSessions > 0 && (
+              <div className="flex items-center gap-2">
+                {hasInServiceBooking ? (
+                  <button
+                    type="button"
+                    onClick={handleOpenLogSessionModal}
+                    className="px-3.5 py-2 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Ghi nhật ký & Trừ buổi ({selectedPkg.usedSessions + 1}/{selectedPkg.sessionsTotal})</span>
+                  </button>
+                ) : !openPackageBooking ? (
+                  <button
+                    type="button"
+                    onClick={handleOpenBookModal}
+                    className="px-3.5 py-2 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>+ Đặt lịch buổi {selectedPkg.usedSessions + 1}</span>
+                  </button>
+                ) : null}
+              </div>
+            )}
           </div>
 
           {openPackageBooking && selectedPkg.rawStatus !== 'ACTIVE' && (
-            <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              Gói hiện không sử dụng được nhưng vẫn còn lịch chưa xử lý.
-              <button type="button" className="ml-2 underline" onClick={() => navigate(
-                `/staff-schedule?booking=${encodeURIComponent(openPackageBooking.bookingCode || openPackageBooking.id)}`
-              )}>Mở lịch hẹn</button>
+            <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-950 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>
+                  Gói hiện ở trạng thái <strong>{selectedPkg.status}</strong> nhưng vẫn còn lịch hẹn <strong>{openPackageBooking.bookingCode || ''}</strong> chưa đóng.
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCancelLeftoverBooking(openPackageBooking.id)}
+                  className="px-3 py-1.5 rounded-lg bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs cursor-pointer"
+                >
+                  Hủy lịch tồn đọng ngay
+                </button>
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 font-semibold text-xs hover:bg-amber-100 cursor-pointer"
+                  onClick={() =>
+                    openTreatmentBooking(openPackageBooking.id, openPackageBooking.bookingDate, openPackageBooking.branchId)
+                  }
+                >
+                  Mở lịch hẹn
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Session Cards List */}
           <div className="space-y-2.5 pt-1">
             {selectedPkg.sessionsHistory.length === 0 ? (
-              <div className="p-8 text-center text-[#8C7A6B] bg-[#FAF8F5] rounded-xl border border-dashed border-[#E8DFD8]">
-                Chưa có buổi chăm sóc nào được ghi chép cho gói này.
+              <div className="p-8 text-center text-[#8C7A6B] bg-[#FAF8F5] rounded-xl border border-dashed border-[#E8DFD8] space-y-2">
+                <p className="text-xs font-semibold text-[#554A41]">Chưa có buổi chăm sóc hoặc lịch hẹn nào cho gói này.</p>
+                {selectedPkg.rawStatus === 'ACTIVE' && selectedPkg.remainingSessions > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleOpenBookModal}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold cursor-pointer"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Đặt lịch buổi đầu tiên (1/{selectedPkg.sessionsTotal})</span>
+                  </button>
+                )}
               </div>
             ) : (
               selectedPkg.sessionsHistory.map((s, idx) => {
+                const isUnconfirmedJournal = !s.isUpcoming && !s.isReversed && s.rawConfirmationStatus !== 'CONFIRMED';
                 return (
                   <div
                     key={idx}
                     className="bg-[#F8F5F0] border border-[#EFE4D9] rounded-xl p-3.5 space-y-2"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         {s.isReversed ? (
                           <span className="px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA] flex items-center gap-1">
                             <RotateCcw className="w-3 h-3" /> Đã hoàn tác
                           </span>
                         ) : s.isUpcoming ? (
-                          <span className="px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> {s.statusBadge}
+                          </span>
+                        ) : isUnconfirmedJournal ? (
+                          <span className="px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A] flex items-center gap-1">
                             <Clock className="w-3 h-3" /> {s.statusBadge}
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-[#E8F5E9] text-[#2E7D32] border border-[#C8E6C9] flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" /> Đã hoàn thành
+                          <span className="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#E8F5E9] text-[#2E7D32] border border-[#C8E6C9] flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> {s.statusBadge}
                           </span>
                         )}
-                        <span className="text-xs font-bold text-[#2C241E]">Buổi {s.number} · {s.date}</span>
+                        <span className="text-xs font-bold text-[#2C241E]">
+                          {s.isUpcoming ? s.bookingCode || `Buổi dự kiến ${s.number}` : `Buổi ${s.number}`} · {s.date}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-[#73675F] font-medium">{s.treatmentNotes || '—'}</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {s.id && s.isUpcoming && (
+                          <>
+                            {selectedPkg.rawStatus === 'ACTIVE' && ['PENDING', 'CONFIRMED', 'CHECKED_IN'].includes(String(s.bookingStatus)) && (
+                              <button
+                                type="button"
+                                onClick={() => handleQuickStartService(s.id!, selectedPkg.id)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-[#004890] hover:bg-[#003770] rounded-lg shadow-xs cursor-pointer"
+                              >
+                                <Play className="w-3 h-3" />
+                                <span>Bắt đầu phục vụ</span>
+                              </button>
+                            )}
+                            {selectedPkg.rawStatus === 'ACTIVE' && ['IN_SERVICE', 'IN_PROGRESS'].includes(String(s.bookingStatus)) && (
+                              <button
+                                type="button"
+                                onClick={handleOpenLogSessionModal}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-[#985018] hover:bg-[#854412] rounded-lg shadow-xs cursor-pointer"
+                              >
+                                <FileText className="w-3 h-3" />
+                                <span>Ghi nhật ký & Trừ buổi</span>
+                              </button>
+                            )}
+                            {selectedPkg.rawStatus !== 'ACTIVE' && (
+                              <button
+                                type="button"
+                                onClick={() => handleCancelLeftoverBooking(s.id!)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-[#991B1B] bg-[#FEE2E2] hover:bg-[#FECACA] border border-[#FCA5A5] rounded-lg cursor-pointer"
+                              >
+                                <Ban className="w-3 h-3" />
+                                <span>Hủy lịch hẹn này</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[#8A4F23] bg-white hover:bg-[#FAF0E4] border border-[#D7BBA6] rounded-lg cursor-pointer"
+                              onClick={() => {
+                                const booking = bookingMap.get(s.id!);
+                                if (booking) openTreatmentBooking(booking.id, booking.bookingDate, booking.branchId);
+                                else navigate(`/staff-schedule?booking=${encodeURIComponent(s.bookingCode || s.id!)}`);
+                              }}
+                            >
+                              <Calendar className="w-3 h-3" />
+                              <span>Mở lịch hẹn</span>
+                            </button>
+                          </>
+                        )}
                         {s.id && !s.isReversed && !s.isUpcoming && (
                           <>
+                            {['DRAFT', 'PENDING'].includes(String(s.rawConfirmationStatus || 'DRAFT')) && selectedPkg.rawStatus === 'ACTIVE' && hasInServiceBooking && (
+                              <button
+                                type="button"
+                                onClick={handleOpenLogSessionModal}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-[#8A4F23] bg-[#FAF0E4] hover:bg-[#EFE4D9] border border-[#D7BBA6] rounded-lg transition-all cursor-pointer"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                                <span>Sửa nháp</span>
+                              </button>
+                            )}
+                            {isUnconfirmedJournal && selectedPkg.rawStatus === 'ACTIVE' && (
+                              <button
+                                type="button"
+                                onClick={() => handleQuickConfirmJournal(s.id!, s.rawConfirmationStatus, s.hasAbnormalReaction)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-[#2E7D32] hover:bg-[#1B5E20] rounded-lg transition-all shadow-xs cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Xác nhận & Trừ 1 buổi</span>
+                              </button>
+                            )}
                             {s.clinicalApprovedAt ? (
                               <span className="inline-flex items-center gap-1 px-2 py-1 text-[10.5px] font-semibold text-[#1E40AF] bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg">
                                 <Award className="w-3 h-3" /> Đã duyệt
@@ -1413,15 +1954,17 @@ export const W06_TreatmentManagement: React.FC = () => {
                                 <span>Duyệt</span>
                               </button>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => handleOpenReversalModal(s)}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-[#DC2626] bg-white hover:bg-[#FEF2F2] border border-[#FECACA] rounded-lg transition-all shadow-xs cursor-pointer"
-                              title="Hoàn tác buổi này và hoàn trả lại 1 buổi vào gói liệu trình"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                              <span>Hoàn tác</span>
-                            </button>
+                            {s.rawConfirmationStatus === 'CONFIRMED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReversalModal(s)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-[#DC2626] bg-white hover:bg-[#FEF2F2] border border-[#FECACA] rounded-lg transition-all shadow-xs cursor-pointer"
+                                title="Hoàn tác buổi này và hoàn trả lại 1 buổi vào gói liệu trình"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>Hoàn tác</span>
+                              </button>
+                            )}
                           </>
                         )}
                         {s.id && !s.isUpcoming && !s.isReversed && (
@@ -1478,7 +2021,10 @@ export const W06_TreatmentManagement: React.FC = () => {
                     )}
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-[#554A41]">
-                      <div><span className="font-semibold text-[#8A4F23]">Giờ điều trị:</span> {s.treatmentStartTime?.slice(0, 5) || '—'}{s.treatmentEndTime ? `–${s.treatmentEndTime.slice(0, 5)}` : ''}</div>
+                      <div>
+                        <span className="font-semibold text-[#8A4F23]">{s.isUpcoming ? 'Giờ hẹn:' : 'Giờ điều trị:'}</span>{' '}
+                        {s.isUpcoming ? s.time || '—' : `${s.treatmentStartTime?.slice(0, 5) || '—'}${s.treatmentEndTime ? `–${s.treatmentEndTime.slice(0, 5)}` : ''}`}
+                      </div>
                       <div><span className="font-semibold text-[#8A4F23]">Số buổi:</span> {s.number}/{s.totalSessions || '—'}</div>
                       <div><span className="font-semibold text-[#8A4F23]">Dịch vụ:</span> {selectedPkg.serviceName}</div>
                       <div><span className="font-semibold text-[#8A4F23]">Trạng thái:</span> {s.statusBadge || 'Đã hoàn thành'}</div>
@@ -1507,39 +2053,37 @@ export const W06_TreatmentManagement: React.FC = () => {
                       </div>
                     )}
 
-                    <div className="text-[11px] text-[#554A41]">
-                      <span className="font-semibold text-[#8A4F23]">Nội dung:</span> {s.treatmentNotes || s.conditionAfter || s.conditionBefore || '—'}
-                    </div>
+                    {!s.isUpcoming && (
+                      <div className="text-[11px] text-[#554A41]">
+                        <span className="font-semibold text-[#8A4F23]">Nội dung:</span> {s.treatmentNotes || s.conditionAfter || s.conditionBefore || '—'}
+                      </div>
+                    )}
                     {(s.beforePhotos?.length || s.afterPhotos?.length) ? (
                       <div className="flex flex-wrap gap-2">
                         {[...(s.beforePhotos || []), ...(s.afterPhotos || [])].map((photo, photoIndex) => (
                           <img key={`${photo}-${photoIndex}`} src={photo} alt={`Minh chứng ${photoIndex + 1}`} className="w-16 h-16 rounded-lg object-cover border border-[#E8DFD8]" />
                         ))}
                       </div>
-                    ) : (
+                    ) : !s.isUpcoming ? (
                       <div className="text-[11px] text-[#8C7A6B]">Hình ảnh minh chứng: Chưa có</div>
-                    )}
+                    ) : null}
                   </div>
                 );
               })
             )}
           </div>
 
-          {/* Footnote below sessions */}
           <div className="text-xs text-[#73675F] pt-1">
             {selectedPkg.historyNote}
           </div>
         </div>
 
-        {/* Right Column: Active Package Summary & Policy */}
         <div className="lg:col-span-4 space-y-4">
-          {/* Card 1: Selected Package Details */}
           <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3.5">
             <h2 className="text-base font-bold text-[#2C241E]">
               Chi tiết gói liệu trình đang chọn
             </h2>
 
-            {/* Customer Profile Snippet */}
             <div className="flex items-center gap-3 pt-0.5">
               <img
                 src={selectedCustomer?.avatarUrl || '/avatar_minh_anh.png'}
@@ -1556,33 +2100,31 @@ export const W06_TreatmentManagement: React.FC = () => {
               </div>
             </div>
 
-            {/* Specs Breakdown */}
             <div className="space-y-2 text-xs text-[#73675F] pt-1">
               <div className="flex items-center justify-between">
-                <span>Số buổi ban đầu</span>
+                <span>Tổng số buổi của gói</span>
                 <span className="font-semibold text-[#2C241E]">
                   {selectedPkg.sessionsTotal} buổi
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Đã hoàn thành</span>
+                <span>Đã thực hiện (Đã xác nhận)</span>
                 <span className="font-semibold text-[#2C241E]">
                   {selectedPkg.usedSessions} buổi
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Buổi có thể sử dụng</span>
-                <span className="font-semibold text-[#2C241E]">
+                <span>Số buổi còn lại (Khả dụng)</span>
+                <span className="font-bold text-[#2E7D32]">
                   {selectedPkg.remainingSessions} buổi
                 </span>
               </div>
             </div>
 
-            {/* Progress Section */}
             <div className="pt-1">
               <div className="text-xs font-semibold text-[#2C241E] mb-1.5 flex items-center justify-between">
                 <span>Tiến độ thực hiện</span>
-                <span>{selectedPkg.progressPercent}%</span>
+                <span>{selectedPkg.usedSessions}/{selectedPkg.sessionsTotal} buổi ({selectedPkg.progressPercent}%)</span>
               </div>
               <div className="w-full bg-[#EFE4D9] h-2 rounded-full overflow-hidden">
                 <div
@@ -1594,7 +2136,6 @@ export const W06_TreatmentManagement: React.FC = () => {
               </div>
             </div>
 
-            {/* Expiry */}
             <div className="flex items-center justify-between text-xs text-[#73675F] pt-1">
               <span>Ngày hết hạn</span>
               <span className="font-semibold text-[#2C241E]">
@@ -1602,7 +2143,6 @@ export const W06_TreatmentManagement: React.FC = () => {
               </span>
             </div>
 
-            {/* Contextual Status Banner & Việc tiếp theo */}
             {selectedPkg.rawStatus === 'PAUSED' && (
               <div className="p-3 rounded-xl bg-[#FEF3C7] border border-[#FDE68A] text-xs text-[#92400E] space-y-2">
                 <div className="flex items-center gap-1.5 font-bold">
@@ -1645,24 +2185,62 @@ export const W06_TreatmentManagement: React.FC = () => {
 
             {selectedPkg.rawStatus === 'ACTIVE' && selectedPkg.remainingSessions > 0 && (
               <div className="space-y-2 pt-1">
-                {!hasInServiceBooking ? (
+                {openPackageBooking && (
+                  <div className="rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] p-3 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[#2C241E]">{openPackageBooking.bookingCode || 'Lịch hẹn đang mở'}</span>
+                      <span className="text-[11px] font-semibold text-[#8A4F23]">
+                        {new Intl.DateTimeFormat('vi-VN').format(new Date(openPackageBooking.bookingDate))}
+                        {openPackageBooking.startTime ? ` · ${openPackageBooking.startTime.slice(0, 5)}` : ''}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-[#73675F]">
+                      {['IN_SERVICE', 'IN_PROGRESS'].includes(String(openPackageBooking.status))
+                        ? 'Trạng thái: Khách đang trong phòng phục vụ. Hãy bấm Ghi nhật ký để hoàn tất và trừ 1 buổi.'
+                        : 'Trạng thái: Đã đặt lịch hẹn. Khi khách đến, hãy bấm Bắt đầu phục vụ.'}
+                    </div>
+                    {['PENDING', 'CONFIRMED', 'CHECKED_IN'].includes(String(openPackageBooking.status)) && (
+                      <button
+                        type="button"
+                        onClick={() => handleQuickStartService(openPackageBooking.id, selectedPkg.id)}
+                        className="w-full py-2 bg-[#004890] hover:bg-[#003770] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                        <span>Bắt đầu phục vụ ngay (Check-in)</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {hasInServiceBooking ? (
                   <button
-                  type="button"
-                  onClick={handleOpenBookModal}
-                  className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Calendar className="w-4 h-4" />
-                  <span>Đặt buổi tiếp theo ({selectedPkg.usedSessions + 1}/{selectedPkg.sessionsTotal})</span>
-                </button>
+                    type="button"
+                    onClick={handleOpenLogSessionModal}
+                    className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>Ghi nhật ký & Trừ buổi ({selectedPkg.usedSessions + 1}/{selectedPkg.sessionsTotal})</span>
+                  </button>
+                ) : !openPackageBooking ? (
+                  <button
+                    type="button"
+                    onClick={handleOpenBookModal}
+                    className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>+ Đặt lịch buổi tiếp theo ({selectedPkg.usedSessions + 1}/{selectedPkg.sessionsTotal})</span>
+                  </button>
                 ) : (
-                <button
-                  type="button"
-                  onClick={handleOpenLogSessionModal}
-                  className="w-full py-2 bg-white border border-[#D7BBA6] text-[#8A4F23] hover:bg-[#FAF8F5] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>Ghi nhận ca đang phục vụ</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openTreatmentBooking(openPackageBooking.id, openPackageBooking.bookingDate, openPackageBooking.branchId)
+                    }
+                    className="w-full py-2 bg-white border border-[#D7BBA6] text-[#8A4F23] hover:bg-[#FAF8F5] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>Xem trên bảng Điều phối lịch KTV</span>
+                  </button>
                 )}
               </div>
             )}
@@ -1686,9 +2264,19 @@ export const W06_TreatmentManagement: React.FC = () => {
             )}
 
             {['CANCELLED', 'REFUNDED', 'TRANSFERRED'].includes(selectedPkg.rawStatus) && (
-              <div className="p-3 rounded-xl bg-[#F3F4F6] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-1">
+              <div className="p-3 rounded-xl bg-[#F3F4F6] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-2">
                 <div className="font-bold">Gói ở trạng thái: {selectedPkg.status}</div>
                 <p className="text-[11px]">Hồ sơ lưu trữ bất biến. Không thể thực hiện đặt buổi mới.</p>
+                {openPackageBooking && (
+                  <button
+                    type="button"
+                    onClick={() => handleCancelLeftoverBooking(openPackageBooking.id)}
+                    className="w-full py-2 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>Hủy lịch hẹn tồn đọng</span>
+                  </button>
+                )}
               </div>
             )}
 
@@ -1824,15 +2412,14 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* ======================================================== */}
       {isBookNextModalOpen && (
         <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5] shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] flex items-center justify-center shrink-0">
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#3E200C]">Đặt lịch buổi chăm sóc tiếp theo</h3>
+                  <h3 className="text-base font-extrabold text-[#3E200C]">Đặt lịch buổi chăm sóc tiếp theo</h3>
                   <p className="text-[11px] text-[#73675F]">Lên kế hoạch hẹn buổi {selectedPkg.usedSessions + 1} cho khách</p>
                 </div>
               </div>
@@ -1845,9 +2432,9 @@ export const W06_TreatmentManagement: React.FC = () => {
               </button>
             </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleSubmitBooking} className="p-5 space-y-4">
-              <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] text-xs space-y-1">
+            <form onSubmit={handleSubmitBooking} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              <div className="p-3.5 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] text-xs space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[#73675F]">Khách hàng:</span>
                   <span className="font-bold text-[#2C241E]">{selectedCustomer?.fullName} ({selectedCustomer?.phone})</span>
@@ -1956,14 +2543,14 @@ export const W06_TreatmentManagement: React.FC = () => {
                   className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
                 />
               </div>
+              </div>
 
-              {/* Modal Footer */}
-              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2.5">
+              <div className="px-6 py-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsBookNextModalOpen(false)}
                   disabled={isSubmittingBooking}
-                  className="px-4 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF0E4] transition-colors cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
@@ -1995,16 +2582,20 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* ======================================================== */}
       {isLogSessionModalOpen && (
         <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5] shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8] flex items-center justify-center shrink-0">
                   <FileText className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#3E200C]">Cập nhật thông tin điều trị</h3>
-                  <p className="text-[11px] text-[#73675F]">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-extrabold text-[#3E200C]">Cập nhật thông tin điều trị</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
+                      Buổi {sessionNumberInput}/{selectedPkg.sessionsTotal}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#73675F] mt-0.5">
                     {selectedPkg.name} · {selectedCustomer?.fullName}
                   </p>
                 </div>
@@ -2012,285 +2603,346 @@ export const W06_TreatmentManagement: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsLogSessionModalOpen(false)}
+                aria-label="Đóng hộp thoại"
                 className="p-1.5 text-[#8C7A6B] hover:text-[#2C241E] rounded-lg hover:bg-[#EFE4D9] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleSubmitLogSession} className="p-5 space-y-3.5 overflow-y-auto">
-              <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] text-xs space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[#73675F]">Khách hàng:</span>
-                  <span className="font-bold text-[#2C241E]">{selectedCustomer?.fullName}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#73675F]">Liệu trình:</span>
-                  <span className="font-semibold text-[#8A4F23]">{selectedPkg.name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#73675F]">Ca phục vụ:</span>
-                  <span className="font-semibold text-[#2C241E]">
-                    {selectedSessionBooking?.bookingCode} · {selectedSessionBooking?.startTime?.slice(0, 5)}–{selectedSessionBooking?.endTime?.slice(0, 5)}
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Buổi điều trị <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  required
-                  readOnly
-                  min={1}
-                  max={selectedPkg.sessionsTotal}
-                  value={sessionNumberInput}
-                  className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Ngày điều trị <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  readOnly
-                  value={sessionDate}
-                  className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E]"
-                />
-                <p className="mt-1 text-[10px] text-[#8C7A6B]">Ngày được khóa theo lịch hẹn đang phục vụ.</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Giờ bắt đầu điều trị</label>
-                  <input type="time" value={treatmentStartTime} onChange={(e) => setTreatmentStartTime(e.target.value)} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]" />
-                  <p className="mt-1 text-[10px] text-[#8C7A6B]">Lấy từ thời điểm bắt đầu phục vụ; có thể hiệu chỉnh theo thực tế.</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Giờ kết thúc điều trị</label>
-                  <input type="time" value={treatmentEndTime} onChange={(e) => setTreatmentEndTime(e.target.value)} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Tình trạng trước buổi <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={conditionBefore}
-                    onChange={(e) => setConditionBefore(e.target.value)}
-                    placeholder="Ghi nhận tình trạng, vùng cần can thiệp, chống chỉ định..."
-                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Tình trạng sau buổi <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={conditionAfter}
-                    onChange={(e) => setConditionAfter(e.target.value)}
-                    placeholder="Phản ứng sau chăm sóc, mức cải thiện và lưu ý theo dõi..."
-                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Vùng điều trị / Mục tiêu
-                  </label>
-                  <input
-                    type="text"
-                    value={treatmentAreas}
-                    onChange={(e) => setTreatmentAreas(e.target.value)}
-                    placeholder="Ví dụ: Vùng mặt, cổ, vai gáy..."
-                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Phác đồ / Protocol áp dụng
-                  </label>
-                  <input
-                    type="text"
-                    value={treatmentProtocol}
-                    onChange={(e) => setTreatmentProtocol(e.target.value)}
-                    placeholder="Ví dụ: MLD-FACIAL-STANDARD-01..."
-                    className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                  />
-                </div>
-              </div>
-
-              {/* Vật tư tiêu hao trong buổi */}
-              <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9] space-y-2">
-                <label className="block text-xs font-bold text-[#2C241E]">
-                  Khai báo vật tư tiêu hao (Kho tự động đồng bộ)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Tên vật tư (vd: Tinh chất B5)"
-                    value={consumableNameInput}
-                    onChange={(e) => setConsumableNameInput(e.target.value)}
-                    className="flex-1 px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs"
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    value={consumableQtyInput}
-                    onChange={(e) => setConsumableQtyInput(Number(e.target.value) || 1)}
-                    className="w-16 px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs text-center"
-                  />
-                  <input
-                    type="text"
-                    placeholder="ĐVT"
-                    value={consumableUnitInput}
-                    onChange={(e) => setConsumableUnitInput(e.target.value)}
-                    className="w-16 px-2.5 py-1.5 bg-white border border-[#E8DFD8] rounded-lg text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!consumableNameInput.trim()) return;
-                      setConsumablesList((prev) => [
-                        ...prev,
-                        { name: consumableNameInput.trim(), quantity: consumableQtyInput, unit: consumableUnitInput.trim() || 'ống' },
-                      ]);
-                      setConsumableNameInput('');
-                      setConsumableQtyInput(1);
-                    }}
-                    className="px-3 py-1.5 bg-[#8A4F23] hover:bg-[#6D3D1A] text-white rounded-lg text-xs font-semibold cursor-pointer shrink-0"
-                  >
-                    + Thêm
-                  </button>
-                </div>
-                {consumablesList.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {consumablesList.map((item, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs bg-white border border-[#E8DFD8] text-[#554A41]"
-                      >
-                        <span>{item.name}: <strong>{item.quantity} {item.unit}</strong></span>
-                        <button
-                          type="button"
-                          onClick={() => setConsumablesList((prev) => prev.filter((_, i) => i !== idx))}
-                          className="text-[#991B1B] hover:text-red-700 font-bold ml-1 cursor-pointer"
-                        >
-                          ×
-                        </button>
+            <form onSubmit={handleSubmitLogSession} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 overflow-y-auto flex-1 space-y-5">
+                <div className="rounded-2xl bg-[#FAF8F5] border border-[#EFE4D9] p-4 space-y-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#EFE4D9] text-xs">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                      <span>
+                        <span className="text-[#73675F]">Khách hàng: </span>
+                        <strong className="text-[#2C241E]">{selectedCustomer?.fullName}</strong>
                       </span>
-                    ))}
+                      <span>
+                        <span className="text-[#73675F]">Liệu trình: </span>
+                        <strong className="text-[#8A4F23]">{selectedPkg.name}</strong>
+                      </span>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-lg bg-white border border-[#E8DFD8] font-mono text-[11px] font-semibold text-[#2C241E]">
+                      {selectedSessionBooking?.bookingCode} · {selectedSessionBooking?.startTime?.slice(0, 5)}–{selectedSessionBooking?.endTime?.slice(0, 5)}
+                    </span>
                   </div>
-                )}
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#2C241E] mb-1">
+                        Buổi điều trị <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        readOnly
+                        min={1}
+                        max={selectedPkg.sessionsTotal}
+                        value={sessionNumberInput}
+                        className="w-full px-3 py-2 bg-white/80 border border-[#E8DFD8] rounded-xl text-xs font-bold text-[#3E200C] cursor-default"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#2C241E] mb-1">
+                        Ngày điều trị <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        readOnly
+                        value={sessionDate}
+                        className="w-full px-3 py-2 bg-white/80 border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] cursor-default"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#2C241E] mb-1">Giờ bắt đầu</label>
+                      <input
+                        type="time"
+                        value={treatmentStartTime}
+                        onChange={(e) => setTreatmentStartTime(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#2C241E] mb-1">Giờ kết thúc</label>
+                      <input
+                        type="time"
+                        value={treatmentEndTime}
+                        onChange={(e) => setTreatmentEndTime(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10.5px] text-[#8C7A6B]">
+                    Ngày được khóa theo lịch hẹn đang phục vụ; giờ bắt đầu có thể hiệu chỉnh theo thực tế.
+                  </p>
+                </div>
+
+                <div className="space-y-3.5">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#8A4F23]">
+                    Đánh giá lâm sàng & Phác đồ
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                        Tình trạng trước buổi <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={conditionBefore}
+                        onChange={(e) => setConditionBefore(e.target.value)}
+                        placeholder="Ghi nhận tình trạng, vùng cần can thiệp, chống chỉ định..."
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                        Tình trạng sau buổi <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={conditionAfter}
+                        onChange={(e) => setConditionAfter(e.target.value)}
+                        placeholder="Phản ứng sau chăm sóc, mức cải thiện và lưu ý theo dõi..."
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                        Vùng điều trị / Mục tiêu
+                      </label>
+                      <input
+                        type="text"
+                        value={treatmentAreas}
+                        onChange={(e) => setTreatmentAreas(e.target.value)}
+                        placeholder="Ví dụ: Vùng mặt, cổ, vai gáy..."
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                        Phác đồ / Protocol áp dụng
+                      </label>
+                      <input
+                        type="text"
+                        value={treatmentProtocol}
+                        onChange={(e) => setTreatmentProtocol(e.target.value)}
+                        placeholder="Ví dụ: MLD-FACIAL-STANDARD-01..."
+                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start">
+                  <div className="md:col-span-7 p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] space-y-2.5">
+                    <label className="block text-xs font-bold text-[#2C241E]">
+                      Khai báo vật tư tiêu hao (Kho tự động đồng bộ)
+                    </label>
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Tên vật tư (vd: Tinh chất B5)"
+                        value={consumableNameInput}
+                        onChange={(e) => setConsumableNameInput(e.target.value)}
+                        className="flex-1 min-w-[130px] px-2.5 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        value={consumableQtyInput}
+                        onChange={(e) => setConsumableQtyInput(Number(e.target.value) || 1)}
+                        className="w-16 px-2 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-center focus:outline-none focus:border-[#985018]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="ĐVT"
+                        value={consumableUnitInput}
+                        onChange={(e) => setConsumableUnitInput(e.target.value)}
+                        className="w-16 px-2 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-center focus:outline-none focus:border-[#985018]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!consumableNameInput.trim()) return;
+                          setConsumablesList((prev) => [
+                            ...prev,
+                            { name: consumableNameInput.trim(), quantity: consumableQtyInput, unit: consumableUnitInput.trim() || 'ống' },
+                          ]);
+                          setConsumableNameInput('');
+                          setConsumableQtyInput(1);
+                        }}
+                        className="px-3.5 py-2 bg-[#8A4F23] hover:bg-[#6D3D1A] text-white rounded-xl text-xs font-bold cursor-pointer shrink-0 transition-colors"
+                      >
+                        + Thêm
+                      </button>
+                    </div>
+                    {consumablesList.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {consumablesList.map((item, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-white border border-[#E8DFD8] text-[#554A41]"
+                          >
+                            <span>{item.name}: <strong>{item.quantity} {item.unit}</strong></span>
+                            <button
+                              type="button"
+                              onClick={() => setConsumablesList((prev) => prev.filter((_, i) => i !== idx))}
+                              className="text-[#991B1B] hover:text-red-700 font-bold ml-1 cursor-pointer"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={`md:col-span-5 p-3.5 rounded-2xl border transition-colors space-y-2.5 ${hasAbnormalReaction ? 'bg-[#FEF2F2] border-[#FECACA]' : 'bg-[#FAF8F5] border-[#EFE4D9]'}`}>
+                    <label className="flex items-start gap-2.5 cursor-pointer text-xs font-bold text-[#2C241E]">
+                      <input
+                        type="checkbox"
+                        checked={hasAbnormalReaction}
+                        onChange={(e) => setHasAbnormalReaction(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 rounded accent-[#DC2626] shrink-0"
+                      />
+                      <span className={hasAbnormalReaction ? 'text-[#991B1B]' : 'text-[#2C241E]'}>
+                        Ghi nhận phản ứng bất thường / Chống chỉ định lâm sàng
+                      </span>
+                    </label>
+                    {hasAbnormalReaction && (
+                      <textarea
+                        rows={2}
+                        value={adverseReactions}
+                        onChange={(e) => setAdverseReactions(e.target.value)}
+                        placeholder="Mô tả cụ thể phản ứng (vd: đỏ rát kéo dài, ngứa vùng má)..."
+                        className="w-full px-3 py-2 bg-white border border-red-300 rounded-xl text-xs text-red-900 focus:outline-none focus:border-red-500"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Thông tin điều trị trong ngày <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      required
+                      rows={3}
+                      value={treatmentNotes}
+                      onChange={(e) => setTreatmentNotes(e.target.value)}
+                      placeholder="Nhập dịch vụ đã thực hiện và kết quả điều trị trong ngày..."
+                      className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
+                      Lời dặn chăm sóc sau buổi <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      required
+                      rows={3}
+                      value={specialistAdvice}
+                      onChange={(e) => setSpecialistAdvice(e.target.value)}
+                      placeholder="Hướng dẫn tại nhà, điều cần tránh và thời điểm nên đặt buổi tiếp theo..."
+                      className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-[#FAF8F5] rounded-2xl border border-[#EFE4D9] space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <span className="block text-xs font-bold text-[#2C241E]">Hình ảnh minh chứng</span>
+                      <p className="text-[10.5px] text-[#73675F] mt-0.5">
+                        Ảnh được tải trực tiếp và lưu vào nhật ký điều trị (storage reference).
+                      </p>
+                    </div>
+                    <label className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#D7BBA6] text-xs font-bold cursor-pointer transition-colors shrink-0">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{evidenceFiles.length > 0 ? `Chọn lại ảnh (${evidenceFiles.length})` : 'Tải ảnh minh chứng'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => setEvidenceFiles(Array.from(e.target.files || []))}
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
+
+                  {evidenceFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {evidenceFiles.map((file, idx) => (
+                        <span
+                          key={`${file.name}-${idx}`}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#E8F5E9] border border-[#C8E6C9] text-[11px] font-medium text-[#2E7D32]"
+                        >
+                          <span className="max-w-[180px] truncate">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setEvidenceFiles((prev) => prev.filter((_, i) => i !== idx))}
+                            className="font-bold text-[#1B5E20] hover:text-red-700 cursor-pointer"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <label className="flex items-center gap-2.5 pt-2 border-t border-[#EFE4D9] cursor-pointer text-xs text-[#554A41]">
+                    <input
+                      type="checkbox"
+                      checked={photoConsentGranted}
+                      onChange={(e) => setPhotoConsentGranted(e.target.checked)}
+                      className="w-4 h-4 rounded accent-[#985018] shrink-0"
+                    />
+                    <span>Khách hàng đã ký cam kết đồng ý lưu trữ / theo dõi hình ảnh chuyên môn</span>
+                  </label>
+                </div>
               </div>
 
-              {/* Phản ứng bất thường */}
-              <div className="space-y-2 p-3 rounded-xl border border-[#E8DFD8]">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#2C241E]">
-                  <input
-                    type="checkbox"
-                    checked={hasAbnormalReaction}
-                    onChange={(e) => setHasAbnormalReaction(e.target.checked)}
-                    className="w-4 h-4 rounded text-[#985018] focus:ring-[#985018]"
-                  />
-                  <span>Ghi nhận phản ứng bất thường / Chống chỉ định lâm sàng</span>
-                </label>
-                {hasAbnormalReaction && (
-                  <textarea
-                    rows={2}
-                    value={adverseReactions}
-                    onChange={(e) => setAdverseReactions(e.target.value)}
-                    placeholder="Mô tả cụ thể phản ứng (ví dụ: đỏ rát kéo dài, ngứa, kích ứng nhẹ vùng má)..."
-                    className="w-full px-3 py-2 bg-white border border-red-300 rounded-xl text-xs text-red-900 focus:outline-none focus:border-red-500"
-                  />
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Thông tin điều trị trong ngày <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  required
-                  rows={4}
-                  value={treatmentNotes}
-                  onChange={(e) => setTreatmentNotes(e.target.value)}
-                  placeholder="Nhập dịch vụ đã thực hiện và kết quả điều trị trong ngày..."
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                  Lời dặn chăm sóc sau buổi <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  required
-                  rows={3}
-                  value={specialistAdvice}
-                  onChange={(e) => setSpecialistAdvice(e.target.value)}
-                  placeholder="Hướng dẫn tại nhà, điều cần tránh và thời điểm nên đặt buổi tiếp theo..."
-                  className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs focus:outline-none focus:border-[#985018]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Hình ảnh minh chứng</label>
-                <input type="file" accept="image/*" multiple onChange={(e) => setEvidenceFiles(Array.from(e.target.files || []))} className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E]" />
-                <p className="mt-1 text-[10px] text-[#8C7A6B]">Admin tự tải ảnh lên; ảnh sẽ lưu vào nhật ký điều trị (storage reference).</p>
-                {evidenceFiles.length > 0 && <p className="mt-1 text-[10px] text-[#2E7D32]">Đã chọn {evidenceFiles.length} ảnh.</p>}
-              </div>
-
-              <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EFE4D9]">
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-[#554A41]">
-                  <input
-                    type="checkbox"
-                    checked={photoConsentGranted}
-                    onChange={(e) => setPhotoConsentGranted(e.target.checked)}
-                    className="w-4 h-4 rounded text-[#985018] focus:ring-[#985018]"
-                  />
-                  <span>Khách hàng đã ký cam kết đồng ý lưu trữ / theo dõi hình ảnh chuyên môn</span>
-                </label>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2.5">
+              <div className="px-6 py-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex flex-wrap items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsLogSessionModalOpen(false)}
                   disabled={isSubmittingSession}
-                  className="px-4 py-2 border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs font-semibold text-[#73675F] hover:bg-[#FAF0E4] transition-colors cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
                 <button
+                  type="button"
+                  disabled={isSubmittingSession}
+                  onClick={() => submitSessionWithMode(false)}
+                  className="px-4 py-2 bg-white border border-[#D7BBA6] text-[#8A4F23] hover:bg-[#FAF0E4] disabled:opacity-50 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  Lưu bản nháp (Chưa trừ buổi)
+                </button>
+                <button
                   type="submit"
                   disabled={isSubmittingSession}
-                  className="px-5 py-2 bg-[#985018] hover:bg-[#854412] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-[#2E7D32] hover:bg-[#1B5E20] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   {isSubmittingSession || isUploadingEvidence ? (
                     <>
                       <LoaderCircle className="w-3.5 h-3.5 animate-spin" />
-                      <span>Đang lưu Supabase...</span>
+                      <span>Đang xử lý...</span>
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Cập nhật</span>
+                      <span>Hoàn tất & Xác nhận trừ 1 buổi</span>
                     </>
                   )}
                 </button>
@@ -2520,8 +3172,8 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* ======================================================== */}
       {reversalTargetJournal && (
         <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
-            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FEF2F2]">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FEF2F2] shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-red-100 text-red-700 flex items-center justify-center">
                   <RotateCcw className="w-5 h-5" />
@@ -2540,7 +3192,8 @@ export const W06_TreatmentManagement: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleConfirmReversal} className="p-5 space-y-4">
+            <form onSubmit={handleConfirmReversal} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 overflow-y-auto flex-1 space-y-4">
               <div className="p-3 bg-[#FEF2F2] rounded-xl border border-[#FECACA] text-xs text-red-900 space-y-2">
                 <div className="flex items-center gap-1.5 font-bold text-[#991B1B]">
                   <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
@@ -2583,8 +3236,9 @@ export const W06_TreatmentManagement: React.FC = () => {
                 />
                 <p className="mt-1 text-[10px] text-[#8C7A6B]">Lý do sẽ được ghi vào sổ cái hoàn tác và không thể chỉnh sửa sau khi lưu.</p>
               </div>
+              </div>
 
-              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2.5">
+              <div className="px-6 py-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setReversalTargetJournal(null)}
@@ -2621,8 +3275,8 @@ export const W06_TreatmentManagement: React.FC = () => {
       {/* ======================================================== */}
       {actionModalType && (
         <div className="fixed inset-0 bg-[#2D2825]/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
-            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5]">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] border border-[#EFE4D9] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-[#EFE4D9] flex items-center justify-between bg-[#FAF8F5] shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-[#FAF0E4] text-[#8A4F23] flex items-center justify-center">
                   {actionModalType === 'pause' && <Pause className="w-5 h-5 text-[#D97706]" />}
@@ -2653,7 +3307,8 @@ export const W06_TreatmentManagement: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleExecutePackageAction} className="p-5 space-y-4">
+            <form onSubmit={handleExecutePackageAction} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 overflow-y-auto flex-1 space-y-4">
               {actionModalType === 'extend' && (
                 <div>
                   <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
@@ -2757,8 +3412,9 @@ export const W06_TreatmentManagement: React.FC = () => {
                   <strong>CẢNH BÁO:</strong> Hủy gói sẽ vô hiệu hóa tất cả các buổi còn lại. Hành động này không thể hoàn tác.
                 </div>
               )}
+              </div>
 
-              <div className="pt-3 border-t border-[#EFE4D9] flex items-center justify-end gap-2.5">
+              <div className="px-6 py-4 border-t border-[#EFE4D9] bg-[#FAF8F5] flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setActionModalType(null)}

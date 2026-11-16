@@ -72,6 +72,11 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
     setState(() => _isLoadingSchedules = true);
     try {
       final list = await _repository.fetchBatchSchedules(_batch.id);
+      list.sort((a, b) {
+        final dComp = a.sessionDate.compareTo(b.sessionDate);
+        if (dComp != 0) return dComp;
+        return a.startTime.compareTo(b.startTime);
+      });
       if (mounted) {
         setState(() {
           _schedules = list;
@@ -81,6 +86,21 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
     } catch (_) {
       if (mounted) setState(() => _isLoadingSchedules = false);
     }
+  }
+
+  int _getSessionNumber(AdminBatchScheduleModel s) {
+    final idx = _schedules.indexWhere((item) => item.id == s.id);
+    if (idx != -1) {
+      return idx + 1;
+    }
+    final match = RegExp(r'Buổi\s*(\d+)', caseSensitive: false).firstMatch(s.topic);
+    if (match != null) {
+      final parsed = int.tryParse(match.group(1) ?? '');
+      if (parsed != null && parsed > 0 && parsed <= 100) {
+        return parsed;
+      }
+    }
+    return 1;
   }
 
   List<AdminBatchScheduleModel> get _filteredSchedules {
@@ -452,7 +472,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          'BUỔI ${schedule.sessionIndex}',
+                          'BUỔI ${_getSessionNumber(schedule)}',
                           style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
                         ),
                       ),
@@ -649,7 +669,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                         }
                         TopNotificationService.showSuccess(
                           title: 'Điểm danh thành công',
-                          message: 'Đã lưu điểm danh Buổi ${schedule.sessionIndex} ($presentCount/${students.length} có mặt)!',
+                          message: 'Đã lưu điểm danh Buổi ${_getSessionNumber(schedule)} ($presentCount/${students.length} có mặt)!',
                         );
                       },
                       style: ElevatedButton.styleFrom(
@@ -715,14 +735,66 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
     );
   }
 
-  // Mở Form Thêm Buổi học Mới
   void _openAddScheduleSheet() {
     final nextIndex = _schedules.length + 1;
     final topicCtrl = TextEditingController(text: 'Buổi $nextIndex: Thực hành kỹ năng lâm sàng nâng cao');
     bool isLab = true;
-    DateTime selectedDate = DateTime.now().add(const Duration(days: 3));
-    TimeOfDay startTime = const TimeOfDay(hour: 13, minute: 0);
-    TimeOfDay endTime = const TimeOfDay(hour: 17, minute: 0);
+
+    DateTime? batchStart;
+    DateTime? batchEnd;
+    if (_batch.startDate.isNotEmpty) batchStart = DateTime.tryParse(_batch.startDate);
+    if (_batch.endDate.isNotEmpty) batchEnd = DateTime.tryParse(_batch.endDate);
+
+    DateTime selectedDate;
+    if (_schedules.isNotEmpty) {
+      final sorted = List<AdminBatchScheduleModel>.from(_schedules)
+        ..sort((a, b) => a.sessionDate.compareTo(b.sessionDate));
+      final lastD = DateTime.tryParse(sorted.last.sessionDate) ?? DateTime.now();
+      final cand = lastD.add(const Duration(days: 2));
+      if (batchEnd != null && cand.isAfter(batchEnd)) {
+        selectedDate = batchEnd;
+      } else if (batchStart != null && cand.isBefore(batchStart)) {
+        selectedDate = batchStart;
+      } else {
+        selectedDate = cand;
+      }
+    } else {
+      final now = DateTime.now();
+      if (batchStart != null && now.isBefore(batchStart)) {
+        selectedDate = batchStart;
+      } else if (batchEnd != null && now.isAfter(batchEnd)) {
+        selectedDate = batchEnd;
+      } else {
+        selectedDate = now;
+      }
+    }
+
+    bool isSlotBusy(DateTime d, int sH, int sM, int eH, int eM) {
+      final dStr = DateFormat('yyyy-MM-dd').format(d);
+      final sMin = sH * 60 + sM;
+      final eMin = eH * 60 + eM;
+      return _schedules.any((s) {
+        if (s.sessionDate != dStr) return false;
+        final sp = s.startTime.split(':');
+        final ep = s.endTime.split(':');
+        if (sp.length < 2 || ep.length < 2) return false;
+        final exS = (int.tryParse(sp[0]) ?? 0) * 60 + (int.tryParse(sp[1]) ?? 0);
+        final exE = (int.tryParse(ep[0]) ?? 0) * 60 + (int.tryParse(ep[1]) ?? 0);
+        return sMin < exE && exS < eMin;
+      });
+    }
+
+    TimeOfDay startTime = const TimeOfDay(hour: 8, minute: 30);
+    TimeOfDay endTime = const TimeOfDay(hour: 11, minute: 30);
+    if (isSlotBusy(selectedDate, 8, 30, 11, 30)) {
+      if (!isSlotBusy(selectedDate, 13, 30, 17, 0)) {
+        startTime = const TimeOfDay(hour: 13, minute: 30);
+        endTime = const TimeOfDay(hour: 17, minute: 0);
+      } else if (!isSlotBusy(selectedDate, 18, 0, 21, 0)) {
+        startTime = const TimeOfDay(hour: 18, minute: 0);
+        endTime = const TimeOfDay(hour: 21, minute: 0);
+      }
+    }
 
     showModalBottomSheet(
       context: context,
@@ -737,6 +809,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
             final dateStr = DateFormat('dd/MM/yyyy').format(selectedDate);
             final sTimeStr = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
             final eTimeStr = '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}';
+            final hasConflict = isSlotBusy(selectedDate, startTime.hour, startTime.minute, endTime.hour, endTime.minute);
 
             return Padding(
               padding: EdgeInsets.only(
@@ -770,7 +843,30 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Tên chủ đề bài giảng
+                  if (hasConflict) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline_rounded, size: 15, color: Color(0xFFDC2626)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Lưu ý: Lớp đã có buổi học trong khung giờ này ngày $dateStr!',
+                              style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFDC2626)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   Text('Chủ đề bài giảng / Nội dung:', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
                   TextField(
@@ -785,7 +881,6 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Hình thức học: Lý thuyết / Thực hành Lab
                   Text('Hình thức đào tạo:', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
                   Row(
@@ -839,7 +934,6 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Ngày học & Khung giờ
                   Row(
                     children: [
                       Expanded(
@@ -850,14 +944,33 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                             const SizedBox(height: 4),
                             InkWell(
                               onTap: () async {
+                                final firstD = batchStart ?? DateTime.now().subtract(const Duration(days: 30));
+                                final lastD = batchEnd ?? DateTime.now().add(const Duration(days: 365));
+                                final initD = selectedDate.isBefore(firstD)
+                                    ? firstD
+                                    : (selectedDate.isAfter(lastD) ? lastD : selectedDate);
                                 final d = await showDatePicker(
                                   context: context,
-                                  initialDate: selectedDate,
-                                  firstDate: DateTime.now().subtract(const Duration(days: 30)),
-                                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  initialDate: initD,
+                                  firstDate: firstD,
+                                  lastDate: lastD,
                                 );
                                 if (d != null) {
-                                  setSheetState(() => selectedDate = d);
+                                  setSheetState(() {
+                                    selectedDate = d;
+                                    if (isSlotBusy(selectedDate, startTime.hour, startTime.minute, endTime.hour, endTime.minute)) {
+                                      if (!isSlotBusy(selectedDate, 8, 30, 11, 30)) {
+                                        startTime = const TimeOfDay(hour: 8, minute: 30);
+                                        endTime = const TimeOfDay(hour: 11, minute: 30);
+                                      } else if (!isSlotBusy(selectedDate, 13, 30, 17, 0)) {
+                                        startTime = const TimeOfDay(hour: 13, minute: 30);
+                                        endTime = const TimeOfDay(hour: 17, minute: 0);
+                                      } else if (!isSlotBusy(selectedDate, 18, 0, 21, 0)) {
+                                        startTime = const TimeOfDay(hour: 18, minute: 0);
+                                        endTime = const TimeOfDay(hour: 21, minute: 0);
+                                      }
+                                    }
+                                  });
                                 }
                               },
                               child: Container(
@@ -956,7 +1069,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                     spacing: 6,
                     runSpacing: 4,
                     children: [
-                      _buildQuickTimeChip('Sáng 08:00 - 11:30', const TimeOfDay(hour: 8, minute: 0), const TimeOfDay(hour: 11, minute: 30), startTime, endTime, (s, e) {
+                      _buildQuickTimeChip('Sáng 08:30 - 11:30', const TimeOfDay(hour: 8, minute: 30), const TimeOfDay(hour: 11, minute: 30), startTime, endTime, (s, e) {
                         setSheetState(() {
                           startTime = s;
                           endTime = e;
@@ -985,7 +1098,13 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                       onPressed: () async {
                         final topic = topicCtrl.text.trim();
                         if (topic.isEmpty) return;
-                        Navigator.pop(ctx);
+                        if (hasConflict) {
+                          TopNotificationService.showWarning(
+                            title: 'Trùng lịch học',
+                            message: 'Lớp đã có buổi học trong khung giờ này ngày $dateStr. Vui lòng chọn giờ khác.',
+                          );
+                          return;
+                        }
                         final dateParam = DateFormat('yyyy-MM-dd').format(selectedDate);
                         final ok = await _repository.createBatchSchedule(
                           batchId: _batch.id,
@@ -996,10 +1115,18 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                           isPracticeLab: isLab,
                         );
                         if (ok) {
-                          _loadSchedules();
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          await _loadSchedules();
+                          widget.onDataChanged?.call();
                           TopNotificationService.showSuccess(
                             title: 'Tạo buổi học thành công',
                             message: 'Đã thêm buổi học mới vào lớp ${_batch.batchCode}!',
+                          );
+                        } else {
+                          final errMsg = _repository.lastScheduleError ?? 'Không thể thêm buổi học. Vui lòng kiểm tra lại ngày học hoặc phân phòng.';
+                          TopNotificationService.showError(
+                            title: 'Không thể thêm buổi học',
+                            message: errMsg,
                           );
                         }
                       },
@@ -1082,7 +1209,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                     style: AppTypography.zaloFont(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textHeading),
                   ),
                   Text(
-                    'Buổi ${s.sessionIndex} · Lớp: ${_batch.batchCode}',
+                    'Buổi ${_getSessionNumber(s)} · Lớp: ${_batch.batchCode}',
                     style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 14),
@@ -1292,43 +1419,67 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                   ),
                   const SizedBox(height: 18),
 
-                  SizedBox(
-                    width: double.infinity,
-                    height: 44,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final topic = topicCtrl.text.trim();
-                        if (topic.isEmpty) return;
-                        Navigator.pop(ctx);
-                        final dateParam = DateFormat('yyyy-MM-dd').format(selectedDate);
-                        final ok = await _repository.updateBatchSchedule(
-                          scheduleId: s.id,
-                          topic: topic,
-                          sessionDate: dateParam,
-                          startTime: '$sTimeStr:00',
-                          endTime: '$eTimeStr:00',
-                          isPracticeLab: isLab,
-                        );
-                        if (ok) {
-                          _loadSchedules();
-                          TopNotificationService.showSuccess(
-                            title: 'Cập nhật thành công',
-                            message: 'Đã đổi lịch buổi ${s.sessionIndex} lớp ${_batch.batchCode}!',
-                          );
-                        } else {
-                          TopNotificationService.showError(
-                            title: 'Cập nhật thất bại',
-                            message: 'Không thể lưu thay đổi buổi học. Vui lòng thử lại!',
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF004890),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _confirmDeleteSchedule(s);
+                        },
+                        icon: const Icon(Icons.delete_outline_rounded, size: 15, color: Color(0xFFDC2626)),
+                        label: Text(
+                          'Xóa buổi',
+                          style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFFDC2626)),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                          side: const BorderSide(color: Color(0xFFDC2626), width: 1),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
                       ),
-                      child: Text('Lưu thay đổi lịch học', style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700)),
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SizedBox(
+                          height: 44,
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              final topic = topicCtrl.text.trim();
+                              if (topic.isEmpty) return;
+                              Navigator.pop(ctx);
+                              final dateParam = DateFormat('yyyy-MM-dd').format(selectedDate);
+                              final ok = await _repository.updateBatchSchedule(
+                                scheduleId: s.id,
+                                topic: topic,
+                                sessionDate: dateParam,
+                                startTime: '$sTimeStr:00',
+                                endTime: '$eTimeStr:00',
+                                isPracticeLab: isLab,
+                              );
+                              if (ok) {
+                                _loadSchedules();
+                                widget.onDataChanged?.call();
+                                TopNotificationService.showSuccess(
+                                  title: 'Cập nhật thành công',
+                                  message: 'Đã đổi lịch buổi ${_getSessionNumber(s)} lớp ${_batch.batchCode}!',
+                                );
+                              } else {
+                                final errMsg = _repository.lastScheduleError ?? 'Không thể lưu thay đổi buổi học. Vui lòng kiểm tra lại!';
+                                TopNotificationService.showError(
+                                  title: 'Cập nhật thất bại',
+                                  message: errMsg,
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF004890),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: Text('Lưu thay đổi lịch học', style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1336,6 +1487,78 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
           },
         );
       },
+    );
+  }
+
+  void _confirmDeleteSchedule(AdminBatchScheduleModel s) {
+    final sessionNum = _getSessionNumber(s);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626), size: 22),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Xóa Buổi $sessionNum?',
+                style: AppTypography.zaloFont(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Bạn có chắc chắn muốn xóa "${s.topic}" (${s.formattedDate} · ${s.timeSlotDisplay}) khỏi lớp ${_batch.batchCode} không?\nHành động này không thể hoàn tác.',
+          style: AppTypography.zaloFont(fontSize: 13, color: const Color(0xFF4B5563), height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Hủy',
+              style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF6B7280)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final ok = await _repository.deleteBatchSchedule(s.id);
+              if (!mounted) return;
+              if (ok) {
+                _loadSchedules();
+                widget.onDataChanged?.call();
+                TopNotificationService.showSuccess(
+                  title: 'Đã xóa buổi học',
+                  message: 'Đã xóa Buổi $sessionNum khỏi lớp ${_batch.batchCode} thành công.',
+                );
+              } else {
+                final errMsg = _repository.lastScheduleError ?? 'Không thể xóa buổi học. Vui lòng thử lại sau!';
+                TopNotificationService.showError(
+                  title: 'Xóa thất bại',
+                  message: errMsg,
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(
+              'Xóa vĩnh viễn',
+              style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1786,7 +2009,21 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
 
           const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
-          // Danh sách Buổi học Dạng Timeline Khoa học
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            color: const Color(0xFFF9FAFB),
+            child: Row(
+              children: [
+                const Icon(Icons.swipe_left_rounded, size: 14, color: Color(0xFF6B7280)),
+                const SizedBox(width: 4),
+                Text(
+                  'Vuốt thẻ sang trái để Sửa hoặc Xóa buổi học',
+                  style: AppTypography.zaloFont(fontSize: 10, color: const Color(0xFF6B7280), fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+
           Expanded(
             child: schedules.isEmpty
                 ? Center(
@@ -1863,7 +2100,6 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Cột Timeline Trái
         Column(
           children: [
             Container(
@@ -1880,7 +2116,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                   : (isToday
                       ? const Icon(Icons.play_arrow_rounded, size: 15, color: Color(0xFFD97706))
                       : Text(
-                          '${s.sessionIndex}',
+                          '${_getSessionNumber(s)}',
                           style: AppTypography.zaloFont(fontSize: 10.5, fontWeight: FontWeight.w700, color: const Color(0xFF6B7280)),
                         )),
             ),
@@ -1895,227 +2131,238 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
 
         const SizedBox(width: 8),
 
-        // Thẻ Chi tiết Buổi học (Khoa học)
         Expanded(
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isToday ? const Color(0xFFD97706) : const Color(0xFFE5E7EB),
-                width: isToday ? 1.5 : 1.0,
+          child: _SwipeableScheduleCard(
+            key: ValueKey('swipe_${s.id}'),
+            onEdit: () => _openEditScheduleSheet(s),
+            onDelete: () => _confirmDeleteSchedule(s),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isToday ? const Color(0xFFD97706) : const Color(0xFFE5E7EB),
+                  width: isToday ? 1.5 : 1.0,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isToday
+                        ? const Color(0xFFD97706).withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.015),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: isToday
-                      ? const Color(0xFFD97706).withValues(alpha: 0.08)
-                      : Colors.black.withValues(alpha: 0.015),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header buổi học
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: isToday ? const Color(0xFFFFFBEB) : const Color(0xFFF9FAFB),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-                    border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 0.5)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF00693F),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'BUỔI ${s.sessionIndex}',
-                          style: AppTypography.zaloFont(fontSize: 9.5, fontWeight: FontWeight.w700, color: Colors.white),
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: typeBg,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          typeLabel,
-                          style: AppTypography.zaloFont(fontSize: 9.5, fontWeight: FontWeight.w700, color: typeColor),
-                        ),
-                      ),
-                      const Spacer(),
-                      if (isToday)
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: isToday ? const Color(0xFFFFFBEB) : const Color(0xFFF9FAFB),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+                      border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 0.5)),
+                    ),
+                    child: Row(
+                      children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFDC2626),
+                            color: const Color(0xFF00693F),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            'HÔM NAY',
-                            style: AppTypography.zaloFont(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white),
+                            'BUỔI ${_getSessionNumber(s)}',
+                            style: AppTypography.zaloFont(fontSize: 9.5, fontWeight: FontWeight.w700, color: Colors.white),
                           ),
-                        )
-                      else if (isCompleted)
+                        ),
+                        const SizedBox(width: 5),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE5E7EB),
+                            color: typeBg,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            'Đã diễn ra',
-                            style: AppTypography.zaloFont(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF6B7280)),
-                          ),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE0F2FE),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Sắp tới',
-                            style: AppTypography.zaloFont(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7)),
+                            typeLabel,
+                            style: AppTypography.zaloFont(fontSize: 9.5, fontWeight: FontWeight.w700, color: typeColor),
                           ),
                         ),
-                    ],
-                  ),
-                ),
-
-                // Nội dung chủ đề bài giảng
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 5),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        s.topic,
-                        style: AppTypography.zaloFont(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textHeading,
-                          height: 1.25,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      // Hàng ngày & giờ
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_month_outlined, size: 12, color: Color(0xFFD97706)),
-                          const SizedBox(width: 3),
-                          Text(
-                            s.formattedDate,
-                            style: AppTypography.zaloFont(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF374151)),
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF0284C7)),
-                          const SizedBox(width: 3),
-                          Text(
-                            s.timeSlotDisplay,
-                            style: AppTypography.zaloFont(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      // Hàng phòng & giảng viên
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFFDC2626)),
-                          const SizedBox(width: 3),
-                          Expanded(
+                        const Spacer(),
+                        if (isToday)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDC2626),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                             child: Text(
-                              s.roomName ?? _batch.roomName ?? 'Phòng Lab MLD',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.zaloFont(fontSize: 10, color: AppColors.textSecondary),
+                              'HÔM NAY',
+                              style: AppTypography.zaloFont(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white),
+                            ),
+                          )
+                        else if (isCompleted)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE5E7EB),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Đã diễn ra',
+                              style: AppTypography.zaloFont(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF6B7280)),
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE0F2FE),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Sắp tới',
+                              style: AppTypography.zaloFont(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7)),
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.badge_outlined, size: 12, color: Color(0xFF00693F)),
-                          const SizedBox(width: 3),
-                          Text(
-                            s.instructorName ?? _batch.instructorName ?? 'Lâm Xuân Trường',
-                            style: AppTypography.zaloFont(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF00693F)),
-                          ),
-                        ],
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-                // Footer: Nút điểm danh buổi học
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Lớp ${_studentsInBatch.length} học viên',
-                        style: AppTypography.zaloFont(fontSize: 10, color: const Color(0xFF6B7280)),
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          OutlinedButton.icon(
-                            onPressed: () => _openEditScheduleSheet(s),
-                            icon: const Icon(Icons.edit_calendar_rounded, size: 11, color: Color(0xFF004890)),
-                            label: Text(
-                              'Đổi lịch',
-                              style: AppTypography.zaloFont(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF004890),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 5),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          s.topic,
+                          style: AppTypography.zaloFont(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textHeading,
+                            height: 1.25,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_month_outlined, size: 12, color: Color(0xFFD97706)),
+                            const SizedBox(width: 3),
+                            Text(
+                              s.formattedDate,
+                              style: AppTypography.zaloFont(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF374151)),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF0284C7)),
+                            const SizedBox(width: 3),
+                            Text(
+                              s.timeSlotDisplay,
+                              style: AppTypography.zaloFont(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFFDC2626)),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                s.roomName ?? _batch.roomName ?? 'Phòng Lab MLD',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.zaloFont(fontSize: 10, color: AppColors.textSecondary),
                               ),
                             ),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              side: const BorderSide(color: Color(0xFF004890), width: 0.8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.badge_outlined, size: 12, color: Color(0xFF00693F)),
+                            const SizedBox(width: 3),
+                            Text(
+                              s.instructorName ?? _batch.instructorName ?? 'Lâm Xuân Trường',
+                              style: AppTypography.zaloFont(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF00693F)),
                             ),
-                          ),
-                          const SizedBox(width: 5),
-                          ElevatedButton.icon(
-                            onPressed: () => _openAttendanceSheet(s),
-                            icon: const Icon(Icons.checklist_rounded, size: 11, color: Colors.white),
-                            label: Text(
-                              'Điểm danh',
-                              style: AppTypography.zaloFont(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Lớp ${_studentsInBatch.length} học viên',
+                          style: AppTypography.zaloFont(fontSize: 10, color: const Color(0xFF6B7280)),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            InkWell(
+                              onTap: () => _confirmDeleteSchedule(s),
+                              borderRadius: BorderRadius.circular(5),
+                              child: Container(
+                                padding: const EdgeInsets.all(5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEE2E2),
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                                child: const Icon(Icons.delete_outline_rounded, size: 13, color: Color(0xFFDC2626)),
                               ),
                             ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF00693F),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                            const SizedBox(width: 5),
+                            OutlinedButton.icon(
+                              onPressed: () => _openEditScheduleSheet(s),
+                              icon: const Icon(Icons.edit_calendar_rounded, size: 11, color: Color(0xFF004890)),
+                              label: Text(
+                                'Đổi lịch',
+                                style: AppTypography.zaloFont(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF004890),
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                side: const BorderSide(color: Color(0xFF004890), width: 0.8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                            const SizedBox(width: 5),
+                            ElevatedButton.icon(
+                              onPressed: () => _openAttendanceSheet(s),
+                              icon: const Icon(Icons.checklist_rounded, size: 11, color: Colors.white),
+                              label: Text(
+                                'Điểm danh',
+                                style: AppTypography.zaloFont(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF00693F),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -2439,6 +2686,165 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w700, color: color),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SwipeableScheduleCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _SwipeableScheduleCard({
+    required this.child,
+    required this.onEdit,
+    required this.onDelete,
+    super.key,
+  });
+
+  @override
+  State<_SwipeableScheduleCard> createState() => _SwipeableScheduleCardState();
+}
+
+class _SwipeableScheduleCardState extends State<_SwipeableScheduleCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  double _dragExtent = 0;
+  static const double _actionWidth = 140.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _animation = Tween<double>(begin: 0, end: 0).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _animateTo(double target) {
+    _animation = Tween<double>(begin: _dragExtent, end: target).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    )..addListener(() {
+        setState(() {
+          _dragExtent = _animation.value;
+        });
+      });
+    _controller.forward(from: 0.0);
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    setState(() {
+      _dragExtent = (_dragExtent + (details.primaryDelta ?? 0.0)).clamp(-_actionWidth, 0.0);
+    });
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0.0;
+    if (_dragExtent < -_actionWidth / 2 || velocity < -300) {
+      _animateTo(-_actionWidth);
+    } else {
+      _animateTo(0.0);
+    }
+  }
+
+  void _close() {
+    if (_dragExtent != 0) {
+      _animateTo(0.0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Container(
+                color: const Color(0xFFF3F4F6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        _close();
+                        widget.onEdit();
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: 70,
+                        height: double.infinity,
+                        color: const Color(0xFF004890),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.edit_calendar_rounded, color: Colors.white, size: 20),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Sửa',
+                              style: AppTypography.zaloFont(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        _close();
+                        widget.onDelete();
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: 70,
+                        height: double.infinity,
+                        color: const Color(0xFFDC2626),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.delete_forever_rounded, color: Colors.white, size: 20),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Xóa',
+                              style: AppTypography.zaloFont(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            GestureDetector(
+              onHorizontalDragUpdate: _handleDragUpdate,
+              onHorizontalDragEnd: _handleDragEnd,
+              onTap: _dragExtent < 0 ? _close : null,
+              child: Transform.translate(
+                offset: Offset(_dragExtent, 0),
+                child: widget.child,
+              ),
             ),
           ],
         ),

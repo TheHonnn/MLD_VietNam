@@ -1291,6 +1291,332 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
         }),
       ).rejects.toThrow(/chỉ được cập nhật bởi hệ thống/i);
     });
+
+    it('runs full customer-admin package purchase and sequential 3-session lifecycle to COMPLETED, then safe reversal and re-completion', async () => {
+      const custRes = (await pg.query<any>(
+        "INSERT INTO users(phone, full_name, role, referral_code, is_active) VALUES('0944556677', 'Khach Hang E2E', 'CUSTOMER', 'CUSTE2E', true) RETURNING id",
+      )).rows[0];
+      const e2eCustomerId = custRes.id;
+
+      const e2ePkgDef = (await pg.query<any>(
+        `INSERT INTO treatment_packages(name, service_id, total_sessions, price, discount_price, validity_months, description, image_url, is_active)
+         VALUES('Goi Lieu Trinh E2E 3 Buoi', $1, 3, 2700000, 2400000, 6, 'E2E Test Package', 'https://example.com/e2e.png', true) RETURNING id`,
+        [serviceId],
+      )).rows[0];
+
+      await pg.query(
+        "INSERT INTO service_materials(service_id, material_name, dosage_per_session, unit) VALUES($1, 'E2E-SERUM', 5, 'ml')",
+        [serviceId],
+      );
+      await pg.query(
+        "INSERT INTO branch_material_stock(branch_id, material_name, unit, quantity) VALUES($1, 'E2E-SERUM', 'ml', 50)",
+        [branchId],
+      );
+      const e2eGuideline = (await pg.query<any>(
+        "INSERT INTO home_care_guidelines(service_id, title, category, summary, content, image_url, is_published) VALUES($1, 'Cham soc sau buoi E2E', 'MLD', 'Tom tat', 'Uong du nuoc va van dong nhe', 'https://example.com/guide.png', true) RETURNING id",
+        [serviceId],
+      )).rows[0];
+
+      const shift = await service.openCashierShift(superAdminActor, { branchId, openingCash: 0 });
+      const pkgPurchaseBooking = (await pg.query<any>(
+        `INSERT INTO bookings(booking_code, customer_id, branch_id, technician_id, booking_date, start_time, end_time, status, payment_status, payment_method, base_total, final_price, special_notes, qr_code_hash)
+         VALUES('E2E-BUY-PKG', $1, $2, $3, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, '08:00', '09:00', 'CONFIRMED', 'UNPAID', 'CASH_AT_SPA', 2400000, 2400000, $4, 'e2e-buy-qr') RETURNING id`,
+        [e2eCustomerId, branchId, technicianId, `Dat mua goi [package_id=${e2ePkgDef.id}]`],
+      )).rows[0];
+      await pg.query(
+        'INSERT INTO booking_items(booking_id, service_id, technician_id, duration_minutes, price) VALUES($1, $2, $3, 60, 2400000)',
+        [pkgPurchaseBooking.id, serviceId, technicianId],
+      );
+
+      const posResult = await service.collectCashierPayment(superAdminActor, {
+        kind: 'BOOKING',
+        bookingId: pkgPurchaseBooking.id,
+        shiftId: shift.id,
+        paymentMethod: 'CASH_AT_SPA',
+        vatRate: 0,
+        expectedTotal: 2400000,
+        requestId: randomUUID(),
+      });
+      await service.closeCashierShift(superAdminActor, shift.id, { closingCash: 2400000 });
+
+      expect(posResult.userPackage).toBeTruthy();
+      expect(posResult.userPackage.status).toBe('ACTIVE');
+      expect(posResult.userPackage.total_sessions).toBe(3);
+      expect(posResult.userPackage.completed_sessions).toBe(0);
+      const userPkgId = posResult.userPackage.id;
+
+      await service.action('bookings', superAdminActor, { key: { id: pkgPurchaseBooking.id }, action: 'checkin', userPackageId: userPkgId });
+      await service.action('bookings', superAdminActor, { key: { id: pkgPurchaseBooking.id }, action: 'start' });
+      const draft1 = await service.startTreatmentDraft(superAdminActor, userPkgId, pkgPurchaseBooking.id);
+      expect(draft1.session_number).toBe(1);
+      await service.action('treatment_journal', superAdminActor, {
+        key: { id: draft1.id },
+        action: 'save-draft',
+        values: {
+          condition_before: 'Sưng phù nhẹ vùng cổ vai gáy',
+          condition_after: 'Giảm căng tức rõ rệt',
+          treatment_notes: 'Thực hiện dẫn lưu Vodder buổi 1',
+          specialist_advice: 'Uống 2 lít nước ấm',
+        },
+      });
+      await service.action('treatment_journal', superAdminActor, { key: { id: draft1.id }, action: 'submit-session' });
+      await service.action('treatment_journal', superAdminActor, { key: { id: draft1.id }, action: 'confirm-session' });
+
+      expect((await pg.query<any>('SELECT status, completed_sessions FROM user_packages WHERE id=$1', [userPkgId])).rows[0]).toEqual({ status: 'ACTIVE', completed_sessions: 1 });
+      expect((await pg.query<any>('SELECT status, session_status FROM bookings WHERE id=$1', [pkgPurchaseBooking.id])).rows[0]).toEqual({ status: 'COMPLETED', session_status: 'COMPLETED' });
+      expect((await pg.query<any>('SELECT count(*)::int n FROM home_care_deliveries WHERE booking_id=$1 AND guideline_id=$2', [pkgPurchaseBooking.id, e2eGuideline.id])).rows[0].n).toBe(1);
+
+      const booking2 = (await pg.query<any>(
+        `INSERT INTO bookings(booking_code, customer_id, branch_id, technician_id, booking_date, start_time, end_time, status, payment_status, payment_method, base_total, final_price, special_notes, qr_code_hash)
+         VALUES('E2E-MOB-S2', $1, $2, $3, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, '10:00', '11:00', 'CONFIRMED', 'PAID', 'MEMBERSHIP_WALLET', 0, 0, $4, 'e2e-s2-qr') RETURNING id`,
+        [e2eCustomerId, branchId, technicianId, `[Gói liệu trình: Goi 3 buoi | user_package_id=${userPkgId}]`],
+      )).rows[0];
+      await pg.query('INSERT INTO booking_items(booking_id, service_id, technician_id, duration_minutes, price) VALUES($1, $2, $3, 60, 0)', [booking2.id, serviceId, technicianId]);
+
+      await service.action('bookings', superAdminActor, { key: { id: booking2.id }, action: 'checkin', userPackageId: userPkgId });
+      await service.action('bookings', superAdminActor, { key: { id: booking2.id }, action: 'start' });
+      const draft2 = await service.startTreatmentDraft(superAdminActor, userPkgId, booking2.id);
+      expect(draft2.session_number).toBe(2);
+      await service.action('treatment_journal', superAdminActor, {
+        key: { id: draft2.id },
+        action: 'save-draft',
+        values: {
+          condition_before: 'Đỏ nhẹ vùng cánh tay',
+          condition_after: 'Ổn định sau chườm mát',
+          treatment_notes: 'Dẫn lưu hạch nách buổi 2',
+          specialist_advice: 'Theo dõi thêm 24h',
+          has_abnormal_reaction: true,
+          adverse_reactions: 'Hơi ửng đỏ nhẹ 15 phút đầu',
+        },
+      });
+      await service.action('treatment_journal', superAdminActor, { key: { id: draft2.id }, action: 'submit-session' });
+      await expect(service.action('treatment_journal', superAdminActor, { key: { id: draft2.id }, action: 'confirm-session' })).rejects.toThrow(/duyệt chuyên môn/i);
+      await service.action('treatment_journal', superAdminActor, { key: { id: draft2.id }, action: 'approve-clinical' });
+      await service.action('treatment_journal', superAdminActor, { key: { id: draft2.id }, action: 'confirm-session' });
+
+      expect((await pg.query<any>('SELECT status, completed_sessions FROM user_packages WHERE id=$1', [userPkgId])).rows[0]).toEqual({ status: 'ACTIVE', completed_sessions: 2 });
+
+      const booking3 = (await pg.query<any>(
+        `INSERT INTO bookings(booking_code, customer_id, branch_id, technician_id, booking_date, start_time, end_time, status, payment_status, payment_method, base_total, final_price, special_notes, qr_code_hash)
+         VALUES('E2E-MOB-S3', $1, $2, $3, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, '13:00', '14:00', 'CONFIRMED', 'PAID', 'MEMBERSHIP_WALLET', 0, 0, $4, 'e2e-s3-qr') RETURNING id`,
+        [e2eCustomerId, branchId, technicianId, `[Gói liệu trình: Goi 3 buoi | user_package_id=${userPkgId}]`],
+      )).rows[0];
+      await pg.query('INSERT INTO booking_items(booking_id, service_id, technician_id, duration_minutes, price) VALUES($1, $2, $3, 60, 0)', [booking3.id, serviceId, technicianId]);
+
+      await service.action('bookings', superAdminActor, { key: { id: booking3.id }, action: 'checkin', userPackageId: userPkgId });
+      await service.action('bookings', superAdminActor, { key: { id: booking3.id }, action: 'start' });
+      const draft3 = await service.startTreatmentDraft(superAdminActor, userPkgId, booking3.id);
+      expect(draft3.session_number).toBe(3);
+      await service.action('treatment_journal', superAdminActor, {
+        key: { id: draft3.id },
+        action: 'save-draft',
+        values: {
+          condition_before: 'Cơ thể nhẹ nhàng',
+          condition_after: 'Phục hồi toàn diện',
+          treatment_notes: 'Dẫn lưu tổng thể buổi 3 hoàn tất',
+          specialist_advice: 'Duy trì bài tập thở bụng tại nhà',
+        },
+      });
+      await service.action('treatment_journal', superAdminActor, { key: { id: draft3.id }, action: 'submit-session' });
+      await service.action('treatment_journal', superAdminActor, { key: { id: draft3.id }, action: 'confirm-session' });
+
+      expect((await pg.query<any>('SELECT status, completed_sessions FROM user_packages WHERE id=$1', [userPkgId])).rows[0]).toEqual({ status: 'COMPLETED', completed_sessions: 3 });
+
+      const extraBooking = (await pg.query<any>(
+        `INSERT INTO bookings(booking_code, customer_id, branch_id, technician_id, booking_date, start_time, end_time, status, payment_status, payment_method, base_total, final_price, special_notes, qr_code_hash)
+         VALUES('E2E-OVER', $1, $2, $3, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, '15:00', '16:00', 'CONFIRMED', 'PAID', 'MEMBERSHIP_WALLET', 0, 0, $4, 'e2e-over-qr') RETURNING id`,
+        [e2eCustomerId, branchId, technicianId, `[user_package_id=${userPkgId}]`],
+      )).rows[0];
+      await pg.query('INSERT INTO booking_items(booking_id, service_id, technician_id, duration_minutes, price) VALUES($1, $2, $3, 60, 0)', [extraBooking.id, serviceId, technicianId]);
+      await expect(
+        service.action('bookings', superAdminActor, { key: { id: extraBooking.id }, action: 'checkin', userPackageId: userPkgId }),
+      ).rejects.toThrow(/hết buổi/i);
+
+      await service.action('treatment_journal', superAdminActor, {
+        key: { id: draft3.id },
+        action: 'reverse',
+        reason: 'Khách yêu cầu bù lại buổi 3 do máy nén khí gặp sự cố',
+      });
+      expect((await pg.query<any>('SELECT status, completed_sessions FROM user_packages WHERE id=$1', [userPkgId])).rows[0]).toEqual({ status: 'ACTIVE', completed_sessions: 2 });
+
+      await service.action('bookings', superAdminActor, { key: { id: extraBooking.id }, action: 'checkin', userPackageId: userPkgId });
+      await service.action('bookings', superAdminActor, { key: { id: extraBooking.id }, action: 'start' });
+      const replacementDraft = await service.startTreatmentDraft(superAdminActor, userPkgId, extraBooking.id);
+      expect(replacementDraft.session_number).toBe(3);
+      await service.action('treatment_journal', superAdminActor, {
+        key: { id: replacementDraft.id },
+        action: 'save-draft',
+        values: {
+          condition_before: 'Sẵn sàng thực hiện buổi bù',
+          condition_after: 'Hoàn tất liệu trình 3 buổi',
+          treatment_notes: 'Buổi 3 thay thế thực hiện đầy đủ quy trình',
+          specialist_advice: 'Tái khám định kỳ sau 1 tháng',
+        },
+      });
+      await service.action('treatment_journal', superAdminActor, { key: { id: replacementDraft.id }, action: 'submit-session' });
+      await service.action('treatment_journal', superAdminActor, { key: { id: replacementDraft.id }, action: 'confirm-session' });
+
+      expect((await pg.query<any>('SELECT status, completed_sessions FROM user_packages WHERE id=$1', [userPkgId])).rows[0]).toEqual({ status: 'COMPLETED', completed_sessions: 3 });
+
+      await pg.query("DELETE FROM treatment_stock_movements WHERE stock_id IN (SELECT id FROM branch_material_stock WHERE material_name='E2E-SERUM')");
+      await pg.query("DELETE FROM treatment_inventory_outbox WHERE branch_id=$1 AND booking_id IN ($2,$3,$4,$5)", [branchId, pkgPurchaseBooking.id, booking2.id, booking3.id, extraBooking.id]);
+      await pg.query("DELETE FROM branch_material_stock WHERE branch_id=$1 AND material_name='E2E-SERUM'", [branchId]);
+      await pg.query("DELETE FROM service_materials WHERE service_id=$1 AND material_name='E2E-SERUM'", [serviceId]);
+    });
+
+    it('runs atomic start-service and single-transaction completePackageSession with full rollback on error', async () => {
+      const custRes = (await pg.query<any>(
+        "INSERT INTO users(phone, full_name, role, referral_code, is_active) VALUES('0955667788', 'Khach Hang Atomic', 'CUSTOMER', 'ATOMIC01', true) RETURNING id",
+      )).rows[0];
+      const atomicCustomerId = custRes.id;
+
+      const pkg = (await pg.query<any>(
+        "INSERT INTO user_packages(customer_id, package_id, total_sessions, completed_sessions, status, expires_at) VALUES($1, $2, 2, 0, 'ACTIVE', now() + interval '6 months') RETURNING id",
+        [atomicCustomerId, packageDefId],
+      )).rows[0];
+
+      const futurePendingBooking = (await pg.query<any>(
+        `INSERT INTO bookings(booking_code, customer_id, branch_id, technician_id, booking_date, start_time, end_time, status, payment_status, payment_method, base_total, final_price, special_notes, qr_code_hash)
+         VALUES('ATOMIC-PEND', $1, $2, $3, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + 1, '09:00', '10:00', 'PENDING', 'PAID', 'MEMBERSHIP_WALLET', 0, 0, $4, 'atomic-pend-qr') RETURNING id`,
+        [atomicCustomerId, branchId, technicianId, `[Gói liệu trình: Test | user_package_id=${pkg.id}]`],
+      )).rows[0];
+      await pg.query('INSERT INTO booking_items(booking_id, service_id, technician_id, duration_minutes, price) VALUES($1, $2, $3, 60, 0)', [futurePendingBooking.id, serviceId, technicianId]);
+
+      await expect(
+        service.action('bookings', superAdminActor, { key: { id: futurePendingBooking.id }, action: 'start-service' }),
+      ).rejects.toThrow(/Chưa đến ngày hẹn/i);
+      expect((await pg.query<any>('SELECT status FROM bookings WHERE id=$1', [futurePendingBooking.id])).rows[0].status).toBe('PENDING');
+
+      await pg.query("UPDATE bookings SET booking_date=(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date WHERE id=$1", [futurePendingBooking.id]);
+      const started = await service.action('bookings', superAdminActor, { key: { id: futurePendingBooking.id }, action: 'start-service' });
+      expect(started.status).toBe('IN_SERVICE');
+      expect(started.session_status).toBe('IN_SERVICE');
+      expect(started.checked_in_at).toBeTruthy();
+      expect(started.service_started_at).toBeTruthy();
+
+      const branchOperator = {
+        id: staffActor.id,
+        role: 'TECHNICIAN',
+        scopes: [
+          { permission: 'user_packages.read', branchId: null },
+          { permission: 'bookings.read', branchId: null },
+          { permission: 'treatment_journal.read', branchId: null },
+          { permission: 'treatment_journal.create', branchId: null },
+          { permission: 'treatment_journal.action', branchId: null },
+        ],
+      };
+
+      await expect(
+        service.completePackageSession(branchOperator, pkg.id, {
+          bookingId: futurePendingBooking.id,
+          conditionBefore: 'Da nhay cam',
+          conditionAfter: 'Do nhe',
+          treatmentNotes: 'Buoi 1 phan ung nhe',
+          specialistAdvice: 'Theo doi',
+          hasAbnormalReaction: true,
+          adverseReactions: 'Do nhe 5 phut',
+        }),
+      ).rejects.toThrow(/Chỉ bác sĩ/i);
+      expect((await pg.query<any>('SELECT count(*)::int n FROM treatment_journal WHERE booking_id=$1', [futurePendingBooking.id])).rows[0].n).toBe(0);
+
+      const completedSession1 = await service.completePackageSession(superAdminActor, pkg.id, {
+        bookingId: futurePendingBooking.id,
+        conditionBefore: 'Da nhay cam',
+        conditionAfter: 'On dinh tot',
+        treatmentNotes: 'Da hoan tat buoi 1',
+        specialistAdvice: 'Uong nuoc am',
+        homeCareInstructions: 'Tranh gio lanh trong 12h',
+        consumablesUsed: [{ name: 'Gel Vodder', quantity: 1, unit: 'tuyp' }],
+      });
+      expect(completedSession1.session_number).toBe(1);
+      expect(completedSession1.confirmation_status).toBe('CONFIRMED');
+      expect((await pg.query<any>('SELECT completed_sessions, status FROM user_packages WHERE id=$1', [pkg.id])).rows[0]).toEqual({ completed_sessions: 1, status: 'ACTIVE' });
+      expect((await pg.query<any>('SELECT status, session_status FROM bookings WHERE id=$1', [futurePendingBooking.id])).rows[0]).toEqual({ status: 'COMPLETED', session_status: 'COMPLETED' });
+      expect((await pg.query<any>('SELECT count(*)::int n FROM post_care_outbox WHERE treatment_journal_id=$1', [completedSession1.id])).rows[0].n).toBe(1);
+
+      const branchRoom = await pg.query<any>("SELECT id FROM branch_rooms WHERE branch_id=$1 LIMIT 1", [branchId]);
+      if (!branchRoom.rowCount) {
+        await pg.query("INSERT INTO branch_rooms(branch_id, name, room_code, bed_capacity, is_available) VALUES($1, 'Phong Test 1', 'PT-01', 4, true)", [branchId]);
+      }
+      await pg.query("UPDATE branches SET opening_time='00:00:00', closing_time='23:59:59' WHERE id=$1", [branchId]);
+      const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
+      const session2Booked = await service.bookTreatmentSession(superAdminActor, pkg.id, {
+        branchId,
+        technicianId,
+        bookingDate: tomorrowStr,
+        startTime: '10:00',
+        notes: 'Buoi 2',
+        requestId: randomUUID(),
+      });
+      expect(session2Booked.booking_code).toMatch(/^LT-/);
+
+      await expect(
+        service.bookTreatmentSession(superAdminActor, pkg.id, {
+          branchId,
+          bookingDate: tomorrowStr,
+          startTime: '10:00',
+          notes: 'Overbook qua luot',
+          requestId: randomUUID(),
+        }),
+      ).rejects.toThrow(/đặt lịch/i);
+
+      await expect(
+        service.action('user_packages', superAdminActor, {
+          key: { id: pkg.id },
+          action: 'pause',
+          reason: 'Khach xin tam dung du lich',
+        }),
+      ).rejects.toThrow(/lịch chưa xử lý/i);
+
+      await service.action('bookings', superAdminActor, {
+        key: { id: session2Booked.id },
+        action: 'cancel',
+        reason: 'Huy lich truoc khi tam dung goi',
+      });
+
+      const paused = await service.action('user_packages', superAdminActor, {
+        key: { id: pkg.id },
+        action: 'pause',
+        reason: 'Khach tam nghi 2 tuan',
+      });
+      expect(paused.status).toBe('PAUSED');
+
+      const resumed = await service.action('user_packages', superAdminActor, {
+        key: { id: pkg.id },
+        action: 'resume',
+        reason: 'Khach quay lai dieu tri',
+      });
+      expect(resumed.status).toBe('ACTIVE');
+
+      await pg.query("UPDATE user_packages SET expires_at = now() - interval '1 day' WHERE id=$1", [pkg.id]);
+      await expect(
+        service.action('user_packages', superAdminActor, {
+          key: { id: pkg.id },
+          action: 'transfer',
+          newCustomerId: customerTwoId,
+          reason: 'Thu chuyen nhuong goi het han',
+        }),
+      ).rejects.toThrow(/hết hạn/i);
+
+      await pg.query("UPDATE user_packages SET expires_at = now() + interval '3 months' WHERE id=$1", [pkg.id]);
+      const finalBooking = (await pg.query<any>(
+        `INSERT INTO bookings(booking_code, customer_id, branch_id, technician_id, booking_date, start_time, end_time, status, payment_status, payment_method, base_total, final_price, special_notes, qr_code_hash)
+         VALUES('ATOMIC-S2', $1, $2, $3, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, '14:00', '15:00', 'CONFIRMED', 'PAID', 'MEMBERSHIP_WALLET', 0, 0, $4, 'atomic-s2-qr') RETURNING id`,
+        [atomicCustomerId, branchId, technicianId, `[user_package_id=${pkg.id}]`],
+      )).rows[0];
+      await pg.query('INSERT INTO booking_items(booking_id, service_id, technician_id, duration_minutes, price) VALUES($1, $2, $3, 60, 0)', [finalBooking.id, serviceId, technicianId]);
+      await service.action('bookings', superAdminActor, { key: { id: finalBooking.id }, action: 'start-service' });
+      const completedSession2 = await service.completePackageSession(superAdminActor, pkg.id, {
+        bookingId: finalBooking.id,
+        conditionBefore: 'Co ban phuc hoi',
+        conditionAfter: 'Hoan tat lieu trinh',
+        treatmentNotes: 'Ket thuc buoi 2',
+        specialistAdvice: 'Duy tri tap tho',
+      });
+      expect(completedSession2.session_number).toBe(2);
+      expect((await pg.query<any>('SELECT completed_sessions, status FROM user_packages WHERE id=$1', [pkg.id])).rows[0]).toEqual({ completed_sessions: 2, status: 'COMPLETED' });
+    });
   });
 });
 

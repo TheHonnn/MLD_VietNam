@@ -36,6 +36,7 @@ export class TreatmentService {
           .from('user_packages')
           .select(`
             id,
+            package_id,
             total_sessions,
             completed_sessions,
             status,
@@ -48,7 +49,10 @@ export class TreatmentService {
               description,
               image_url,
               total_sessions,
-              price
+              price,
+              discount_price,
+              service_id,
+              services (id, name, duration_minutes, price, image_url)
             )
           `)
           .eq('customer_id', resolvedId)
@@ -56,20 +60,43 @@ export class TreatmentService {
           .order('purchased_at', { ascending: false });
 
         if (!error && data) {
-          return data.map((pkg: any) => ({
-            id: pkg.id,
-            total_sessions: pkg.total_sessions,
-            completed_sessions: pkg.completed_sessions,
-            status: pkg.status,
-            expires_at: pkg.expires_at,
-            treatment_packages: pkg.treatment_packages,
-            sessions: (pkg.treatment_journal || [])
-              .filter(journal => journal.confirmation_status === 'CONFIRMED' && !journal.is_reversed)
-              .sort((a, b) => a.session_number - b.session_number)
-              .map(({ id, session_number, session_date, specialist_advice }) => ({
-                id, session_number, session_date, status: 'COMPLETED', post_care_advice: specialist_advice,
-              })),
-          }));
+          const nowMs = Date.now();
+          return data.map((pkg: any) => {
+            const rawStatus = String(pkg.status || 'ACTIVE').toUpperCase();
+            const isExpired = Boolean(
+              pkg.expires_at && new Date(pkg.expires_at).getTime() <= nowMs,
+            );
+            const normalizedStatus =
+              rawStatus === 'ACTIVE' && isExpired ? 'EXPIRED' : rawStatus;
+            const pkgDef = pkg.treatment_packages || null;
+            const linkedService = Array.isArray(pkgDef?.services)
+              ? pkgDef.services[0]
+              : pkgDef?.services || null;
+            return {
+              id: pkg.id,
+              package_id: pkg.package_id || pkgDef?.id || null,
+              package_code: `LT-${String(pkg.id || '').slice(0, 8).toUpperCase()}`,
+              total_sessions: pkg.total_sessions,
+              completed_sessions: pkg.completed_sessions,
+              status: normalizedStatus,
+              expires_at: pkg.expires_at,
+              purchased_at: pkg.purchased_at,
+              service_id: pkgDef?.service_id || linkedService?.id || null,
+              service_name: linkedService?.name || null,
+              duration_minutes: Number(linkedService?.duration_minutes) || 60,
+              treatment_packages: pkgDef,
+              sessions: (pkg.treatment_journal || [])
+                .filter((journal: any) => journal.confirmation_status === 'CONFIRMED' && !journal.is_reversed)
+                .sort((a: any, b: any) => a.session_number - b.session_number)
+                .map(({ id, session_number, session_date, specialist_advice }: any) => ({
+                  id,
+                  session_number,
+                  session_date,
+                  status: 'COMPLETED',
+                  post_care_advice: specialist_advice,
+                })),
+            };
+          });
         }
       } catch (err) {
         this.logger.warn(`Error fetching user packages: ${err}`);
@@ -89,7 +116,7 @@ export class TreatmentService {
 
     const { data: pkg, error } = await this.supabaseService.adminClient
       .from('user_packages')
-      .select('id,total_sessions,completed_sessions,status,expires_at,treatment_packages(name,description)')
+      .select('id,package_id,purchased_at,total_sessions,completed_sessions,status,expires_at,treatment_packages(id,name,description,image_url,price,discount_price,service_id,services(id,name,duration_minutes))')
       .eq('id', packageId)
       .eq('customer_id', customerId)
       .maybeSingle();
@@ -98,7 +125,7 @@ export class TreatmentService {
 
     const { data: journals, error: journalError } = await this.supabaseService.adminClient
       .from('treatment_journal')
-      .select('session_number,session_date,specialist_advice')
+      .select('id,session_number,session_date,specialist_advice,home_care_instructions,condition_after,treatment_notes,photos_metadata')
       .eq('user_package_id', packageId)
       .eq('customer_id', customerId)
       .eq('confirmation_status', 'CONFIRMED')
@@ -106,28 +133,33 @@ export class TreatmentService {
       .order('session_number');
     if (journalError) throw journalError;
 
-    const definition = Array.isArray(pkg.treatment_packages) ? pkg.treatment_packages[0] : pkg.treatment_packages;
+    const definition: any = Array.isArray(pkg.treatment_packages) ? pkg.treatment_packages[0] : pkg.treatment_packages;
+    const linkedService: any = Array.isArray(definition?.services) ? definition.services[0] : definition?.services;
     return {
       id: pkg.id,
+      package_id: pkg.package_id || definition?.id || null,
+      package_code: `LT-${String(pkg.id || '').slice(0, 8).toUpperCase()}`,
       package_name: definition?.name || 'Gói liệu trình',
+      service_id: definition?.service_id || linkedService?.id || null,
+      service_name: linkedService?.name || null,
+      duration_minutes: Number(linkedService?.duration_minutes) || 60,
+      purchased_at: pkg.purchased_at,
       total_sessions: pkg.total_sessions,
       completed_sessions: pkg.completed_sessions ?? 0,
       status: pkg.status === 'ACTIVE' && pkg.expires_at && Date.parse(pkg.expires_at) <= Date.now() ? 'EXPIRED' : pkg.status,
       expires_at: pkg.expires_at,
       goal: definition?.description || '',
-      roadmap: (journals || []).map(journal => ({
+      roadmap: (journals || []).map((journal: any) => ({
+        id: journal.id,
         session: journal.session_number,
         title: `Buổi ${journal.session_number}`,
         status: 'COMPLETED',
         date: journal.session_date,
-        note: journal.specialist_advice || '',
+        note: journal.home_care_instructions || journal.specialist_advice || '',
       })),
     };
   }
 
-  /**
-   * D03: Lấy danh sách nhật ký chăm sóc sức khỏe
-   */
   async getCareJournal(userId: string) {
     const resolvedId = await this.resolveUserId(userId);
 
@@ -137,40 +169,85 @@ export class TreatmentService {
           .from('treatment_journal')
           .select(`
             id,
+            user_package_id,
+            booking_id,
             session_number,
             session_date,
             condition_before,
             condition_after,
             treatment_notes,
             specialist_advice,
+            home_care_instructions,
+            photos_metadata,
             customer_signature_url,
+            confirmation_status,
             technicians (
               id,
+              full_name,
               users (full_name)
+            ),
+            user_packages (
+              id,
+              total_sessions,
+              treatment_packages (
+                name,
+                service_id,
+                services (id, name)
+              )
+            ),
+            bookings (
+              branch_id,
+              branches (name)
             )
           `)
           .eq('customer_id', resolvedId)
-          .order('session_date', { ascending: false });
+          .not('is_reversed', 'is', true)
+          .or('confirmation_status.is.null,confirmation_status.eq.CONFIRMED')
+          .order('session_date', { ascending: false })
+          .order('session_number', { ascending: false });
 
         if (!error && data) {
-          return data.map((j: any) => ({
-            id: j.id,
-            session_number: j.session_number,
-            date: j.session_date,
-            service_name: 'Buổi chăm sóc trị liệu phục hồi',
-            technician_name: j.technicians?.users?.full_name || 'Kỹ thuật viên MLD',
-            specialist_name: j.technicians?.users?.full_name || 'Kỹ thuật viên MLD',
-            branch_name: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-            condition_before: j.condition_before || '',
-            condition_after: j.condition_after || '',
-            recovery_score: 85,
-            rating: 5,
-            doctor_advice: j.specialist_advice || '',
-            home_advice: j.specialist_advice || '',
-            customer_feedback: j.treatment_notes || '',
-            customer_note: j.treatment_notes || '',
-            therapist_note: j.condition_after || '',
-          }));
+          return data.map((j: any) => {
+            const pkg = Array.isArray(j.user_packages) ? j.user_packages[0] : j.user_packages;
+            const pkgDef = Array.isArray(pkg?.treatment_packages) ? pkg.treatment_packages[0] : pkg?.treatment_packages;
+            const srv = Array.isArray(pkgDef?.services) ? pkgDef.services[0] : pkgDef?.services;
+            const booking = Array.isArray(j.bookings) ? j.bookings[0] : j.bookings;
+            const branch = Array.isArray(booking?.branches) ? booking.branches[0] : booking?.branches;
+            const tech = Array.isArray(j.technicians) ? j.technicians[0] : j.technicians;
+            const techUser = Array.isArray(tech?.users) ? tech.users[0] : tech?.users;
+            const specialistName = tech?.full_name || techUser?.full_name || 'Kỹ thuật viên MLD';
+            const evidenceImages = Array.isArray(j.photos_metadata)
+              ? j.photos_metadata
+                  .map((p: any) => (typeof p === 'string' ? p : p?.url || p?.image_url || ''))
+                  .filter((u: string) => Boolean(u))
+              : [];
+            const advice = j.home_care_instructions || j.specialist_advice || '';
+            return {
+              id: j.id,
+              package_code: j.user_package_id ? `LT-${String(j.user_package_id).slice(0, 8).toUpperCase()}` : '',
+              package_name: pkgDef?.name || '',
+              session_number: j.session_number,
+              total_sessions: Number(pkg?.total_sessions) || 1,
+              date: j.session_date,
+              service_name: srv?.name || pkgDef?.name || 'Buổi chăm sóc trị liệu phục hồi',
+              technician_name: specialistName,
+              specialist_name: specialistName,
+              branch_name: branch?.name || 'Hệ thống MLD Việt Nam',
+              condition_before: j.condition_before || '',
+              condition_after: j.condition_after || '',
+              recovery_score: 85,
+              rating: 5,
+              doctor_advice: advice,
+              home_advice: advice,
+              customer_feedback: j.treatment_notes || '',
+              customer_note: j.treatment_notes || '',
+              therapist_note: j.condition_after || '',
+              evidence_images: evidenceImages,
+              booking_id: j.booking_id || null,
+              service_id: pkgDef?.service_id || srv?.id || null,
+              technician_id: tech?.id || null,
+            };
+          });
         }
       } catch (err) {
         this.logger.warn(`Error querying treatment journal: ${err}`);

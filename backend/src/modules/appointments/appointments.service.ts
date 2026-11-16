@@ -114,10 +114,18 @@ export class AppointmentsService {
     const bookingCode = dto.bookingCode || `MLD-BK-${Date.now().toString().slice(-6)}`;
     const effectiveUserId = (userId && userId !== 'default-user' && uuidRegex.test(userId)) ? userId : 'bbbbbbbb-0001-0001-0001-000000000001';
     const targetBranchId = (branchId && uuidRegex.test(branchId)) ? branchId : 'aaaaaaaa-0001-0001-0001-000000000001';
-    const targetServiceId = (serviceId && uuidRegex.test(serviceId)) ? serviceId : '235166f2-66c9-4231-bbe1-af91b48fc67c';
+    let targetServiceId = (serviceId && uuidRegex.test(serviceId)) ? serviceId : '235166f2-66c9-4231-bbe1-af91b48fc67c';
+    let effectiveSpecialNotes = specialNotes || '';
+    const requestedUserPackageId =
+      dto.userPackageId?.trim() ||
+      effectiveSpecialNotes.match(/user_package_id=([0-9a-f-]{36})/i)?.[1] ||
+      '';
+    const requestedCatalogPackageId =
+      dto.packageId?.trim() ||
+      effectiveSpecialNotes.match(/package_id=([0-9a-f-]{36})/i)?.[1] ||
+      '';
 
-    // 1. Lấy thông tin Dịch vụ & Giá từ Supabase
-    const { data: srv, error: serviceError } = await this.supabaseService.adminClient
+    let { data: srv, error: serviceError } = await this.supabaseService.adminClient
       .from('services')
       .select('id, name, price, duration_minutes')
       .eq('id', targetServiceId)
@@ -127,13 +135,108 @@ export class AppointmentsService {
       this.logger.error(`Lỗi tải dịch vụ ${targetServiceId}: ${serviceError.message}`);
       throw new InternalServerErrorException('Không thể xác minh dịch vụ. Vui lòng thử lại.');
     }
+
+    let resolvedPackagePrice: number | null = null;
+    if (!srv) {
+      const lookupPkgId = uuidRegex.test(requestedCatalogPackageId) ? requestedCatalogPackageId : targetServiceId;
+      const { data: catalogPkg } = await this.supabaseService.adminClient
+        .from('treatment_packages')
+        .select('id, name, service_id, price, discount_price, is_active')
+        .eq('id', lookupPkgId)
+        .maybeSingle();
+      if (catalogPkg && catalogPkg.is_active !== false) {
+        if (!catalogPkg.service_id) {
+          throw new BadRequestException('Gói liệu trình chưa được liên kết dịch vụ điều trị.');
+        }
+        const { data: linkedSrv, error: linkedErr } = await this.supabaseService.adminClient
+          .from('services')
+          .select('id, name, price, duration_minutes')
+          .eq('id', catalogPkg.service_id)
+          .maybeSingle();
+        if (linkedErr || !linkedSrv) {
+          throw new NotFoundException('Không tìm thấy dịch vụ liên kết của gói liệu trình.');
+        }
+        srv = { ...linkedSrv, name: catalogPkg.name || linkedSrv.name };
+        targetServiceId = linkedSrv.id;
+        const pkgBase = Number(catalogPkg.price || 0);
+        const pkgDiscount = Number(catalogPkg.discount_price || 0);
+        resolvedPackagePrice = pkgDiscount > 0 && pkgDiscount < pkgBase ? pkgDiscount : pkgBase;
+        if (!/package_id=/i.test(effectiveSpecialNotes)) {
+          effectiveSpecialNotes = [effectiveSpecialNotes.trim(), `[package_id=${catalogPkg.id}]`].filter(Boolean).join(' ');
+        }
+      }
+    }
+
     if (!srv) throw new NotFoundException('Không tìm thấy dịch vụ đã chọn');
 
-    const basePrice = Number(srv.price);
+    const upperMethodPreview = (paymentMethod || '').toUpperCase();
+    const isWalletPackageBooking =
+      upperMethodPreview === 'MEMBERSHIP_WALLET' ||
+      upperMethodPreview === 'PACKAGE' ||
+      upperMethodPreview === 'MEMBERSHIP_CARD';
+
+    if (isWalletPackageBooking && requestedUserPackageId && uuidRegex.test(requestedUserPackageId)) {
+      const { data: userPkg, error: upkgErr } = await this.supabaseService.adminClient
+        .from('user_packages')
+        .select('id, customer_id, status, completed_sessions, total_sessions, expires_at, treatment_packages(id, name, service_id)')
+        .eq('id', requestedUserPackageId)
+        .maybeSingle();
+      if (upkgErr) {
+        throw new InternalServerErrorException('Không thể xác minh gói liệu trình.');
+      }
+      if (!userPkg) {
+        throw new NotFoundException('Không tìm thấy gói liệu trình.');
+      }
+      if (effectiveUserId !== 'bbbbbbbb-0001-0001-0001-000000000001' && userPkg.customer_id !== effectiveUserId) {
+        throw new BadRequestException('Gói liệu trình không thuộc tài khoản khách hàng.');
+      }
+      if (String(userPkg.status).toUpperCase() !== 'ACTIVE') {
+        throw new ConflictException(`Gói liệu trình đang ở trạng thái ${userPkg.status}, không thể đặt buổi.`);
+      }
+      if (userPkg.expires_at && new Date(userPkg.expires_at).getTime() <= Date.now()) {
+        throw new ConflictException('Gói liệu trình đã hết hạn sử dụng.');
+      }
+      const totalSessions = Number(userPkg.total_sessions || 0);
+      const completedSessions = Number(userPkg.completed_sessions || 0);
+      if (completedSessions >= totalSessions) {
+        throw new ConflictException('Gói liệu trình đã hoàn thành đủ tất cả các buổi.');
+      }
+      const { data: openBookings } = await this.supabaseService.adminClient
+        .from('bookings')
+        .select('id, status, session_status, special_notes')
+        .eq('customer_id', userPkg.customer_id)
+        .in('status', ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE']);
+      const reservedCount = (openBookings || []).filter((bk: any) => {
+        const linked = String(bk.special_notes || '').match(/user_package_id=([0-9a-f-]{36})/i)?.[1];
+        return linked?.toLowerCase() === requestedUserPackageId.toLowerCase() && bk.session_status !== 'COMPLETED';
+      }).length;
+      if (completedSessions + reservedCount >= totalSessions) {
+        throw new ConflictException('Gói liệu trình đã đặt đủ số buổi còn lại.');
+      }
+      const pkgDef: any = Array.isArray(userPkg.treatment_packages)
+        ? userPkg.treatment_packages[0]
+        : userPkg.treatment_packages;
+      if (pkgDef?.service_id && pkgDef.service_id !== targetServiceId) {
+        const { data: pkgSrv } = await this.supabaseService.adminClient
+          .from('services')
+          .select('id, name, price, duration_minutes')
+          .eq('id', pkgDef.service_id)
+          .maybeSingle();
+        if (pkgSrv) {
+          srv = pkgSrv;
+          targetServiceId = pkgSrv.id;
+        }
+      }
+      if (!/user_package_id=/i.test(effectiveSpecialNotes)) {
+        effectiveSpecialNotes = [effectiveSpecialNotes.trim(), `[user_package_id=${requestedUserPackageId}]`].filter(Boolean).join(' ');
+      }
+    }
+
+    const basePrice = isWalletPackageBooking ? 0 : (resolvedPackagePrice ?? Number(srv.price));
     const durationMinutes = Number(srv.duration_minutes) || 60;
 
     const calculatedEndTime = endTime || this.calculateEndTime(startTime, durationMinutes);
-    const finalPrice = basePrice;
+    const finalPrice = isWalletPackageBooking ? 0 : basePrice;
     const qrCodeHash = crypto
       .createHash('sha256')
       .update(`${bookingCode}-${effectiveUserId}-${Date.now()}`)
@@ -264,7 +367,7 @@ export class AppointmentsService {
           final_price: finalPrice,
           booked_for_name: bookedForName || 'Khách hàng MLD',
           booked_for_phone: bookedForPhone || '0901234567',
-          special_notes: specialNotes || null,
+          special_notes: effectiveSpecialNotes.trim() || null,
           qr_code_hash: qrCodeHash,
         })
         .select('*')
@@ -860,17 +963,23 @@ return {
       throw new ForbiddenException('Bạn không có quyền thao tác trên lịch hẹn này');
     }
 
-    // 3. Kiểm tra trạng thái booking: Chặn hủy nếu booking đã COMPLETED hoặc CANCELLED
-    if (currentBooking.status === 'COMPLETED' || currentBooking.status === 'CANCELLED') {
+    if (['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(currentBooking.status)) {
       throw new BadRequestException(
         `Không thể hủy lịch hẹn đã ${currentBooking.status === 'COMPLETED' ? 'hoàn thành' : 'bị hủy'}`,
       );
     }
+    if (['CHECKED_IN', 'IN_SERVICE'].includes(currentBooking.status)) {
+      throw new BadRequestException(
+        'Khách đã check-in hoặc đang phục vụ, vui lòng liên hệ nhân viên tại cơ sở để được hỗ trợ.',
+      );
+    }
 
-    // 3.1. Chặn hủy nếu lịch hẹn đã thanh toán và đã được duyệt
     const isPaid = (currentBooking.payment_status || '').toUpperCase() === 'PAID';
+    const isWalletPrepaid =
+      String(currentBooking.payment_method || '').toUpperCase() === 'MEMBERSHIP_WALLET' &&
+      Number(currentBooking.final_price || 0) === 0;
     const isApproved = ['CONFIRMED', 'IN_SERVICE', 'COMPLETED'].includes(currentBooking.status);
-    if (isPaid && isApproved) {
+    if (isPaid && isApproved && !isWalletPrepaid) {
       throw new BadRequestException(
         'Không thể Hủy. Dịch vụ đã thanh toán, vui lòng liên hệ nhân viên để được hỗ trợ.',
       );
