@@ -149,6 +149,68 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
 
   });
 
+  it('moves an early arrival to a free slot on the same booking and rechecks occupancy on save', async () => {
+    const today = '2098-07-15';
+    let clock = "TIMESTAMPTZ '2098-07-15 08:00:00+07'";
+    const fixedClient = {
+      ...client,
+      query: (sql: string, values?: unknown[]) => client.query(
+        sql.replaceAll("now() AT TIME ZONE 'Asia/Ho_Chi_Minh'", `${clock} AT TIME ZONE 'Asia/Ho_Chi_Minh'`), values,
+      ),
+    };
+    const reception = new AdminService({ connection: { ...fixedClient, connect: async () => fixedClient } } as any, new ConfigService(), new JwtService());
+    const room = (await pg.query<{id: string}>(
+      "INSERT INTO branch_rooms(branch_id,name,bed_capacity) VALUES($1,'Phòng đến sớm',1) RETURNING id", [branchId],
+    )).rows[0];
+    await pg.query(
+      "INSERT INTO technician_shifts(branch_id,technician_id,assigned_room_id,shift_date,start_time,end_time) VALUES($1,$2,$3,$4,'09:00','12:00')",
+      [branchId, technicianId, room.id, today],
+    );
+    const pkg = (await pg.query<{id: string}>(
+      "INSERT INTO user_packages(customer_id,package_id,total_sessions,status,expires_at) VALUES($1,$2,2,'ACTIVE','2098-08-01') RETURNING id",
+      [customerOneId, packageDefId],
+    )).rows[0];
+    const notes = `[user_package_id=${pkg.id}]`;
+    const booking = (await pg.query<{id: string}>(
+      `INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,status,payment_status,payment_method,base_total,final_price,qr_code_hash,special_notes)
+       VALUES('EARLY-ARRIVAL',$1,$2,'2098-07-16','15:00','15:30','CONFIRMED','UNPAID','MEMBERSHIP_WALLET',0,0,'early-arrival-qr',$3) RETURNING id`,
+      [customerOneId, branchId, notes],
+    )).rows[0];
+    await pg.query('INSERT INTO booking_items(booking_id,service_id,duration_minutes,price) VALUES($1,$2,30,0)', [booking.id, serviceId]);
+    await expect(reception.moveScheduleBookingEarlier(staffActor, booking.id)).rejects.toThrow(ForbiddenException);
+    const offer = await reception.moveScheduleBookingEarlier(superAdminActor, booking.id);
+    if (!('slots' in offer) || !offer.slots?.length) throw new Error('Missing early-arrival slots');
+    const slot = offer.slots[0];
+    expect(slot).toMatchObject({ start: '09:00', end: '09:30', roomId: room.id });
+    await pg.query(
+      "INSERT INTO technician_slots(technician_id,branch_id,slot_date,start_time,end_time,status) VALUES($1,$2,$3,'09:00','09:15','BLOCKED')",
+      [technicianId, branchId, today],
+    );
+    await expect(reception.moveScheduleBookingEarlier(superAdminActor, booking.id, { ...slot, originalSlot: offer.originalSlot }))
+      .rejects.toThrow('khung giờ đã thay đổi');
+    expect((await pg.query('SELECT booking_date::text AS day FROM bookings WHERE id=$1', [booking.id])).rows[0])
+      .toEqual({ day: '2098-07-16' });
+    const next = offer.slots.find(item => item.start === '09:15')!;
+    await reception.moveScheduleBookingEarlier(superAdminActor, booking.id, { ...next, originalSlot: offer.originalSlot });
+    expect((await pg.query(
+      'SELECT booking_date::text AS day,status,payment_method,special_notes,qr_code_hash FROM bookings WHERE id=$1', [booking.id],
+    )).rows[0]).toEqual({
+      day: today, status: 'CONFIRMED', payment_method: 'MEMBERSHIP_WALLET', special_notes: notes, qr_code_hash: 'early-arrival-qr',
+    });
+    await expect(reception.moveScheduleBookingEarlier(superAdminActor, booking.id, { ...next, originalSlot: offer.originalSlot }))
+      .rejects.toThrow(ConflictException);
+    await reception.action('bookings', superAdminActor, { key: { id: booking.id }, action: 'checkin', userPackageId: pkg.id });
+    await expect(reception.action('bookings', superAdminActor, { key: { id: booking.id }, action: 'start' }))
+      .rejects.toThrow('chờ đến giờ bắt đầu');
+    expect((await pg.query('SELECT completed_sessions FROM user_packages WHERE id=$1', [pkg.id])).rows[0])
+      .toEqual({ completed_sessions: 0 });
+    clock = "TIMESTAMPTZ '2098-07-15 09:15:00+07'";
+    await reception.action('bookings', superAdminActor, { key: { id: booking.id }, action: 'start' });
+    await reception.action('bookings', superAdminActor, { key: { id: booking.id }, action: 'finish-service' });
+    expect((await pg.query('SELECT completed_sessions FROM user_packages WHERE id=$1', [pkg.id])).rows[0])
+      .toEqual({ completed_sessions: 1 });
+  });
+
   it('derives technician identity and records the actual department creator', async () => {
     const department = await service.mutate('departments', superAdminActor, 'create', {
       values: { name: 'Điều phối thử nghiệm', code: 'dieu_phoi_test', created_by_id: staffActor.id },

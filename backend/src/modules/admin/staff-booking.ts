@@ -9,7 +9,7 @@ const minute = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.sli
 const clock = (value: number) => [Math.floor(value / 60), value % 60].map(part => String(part).padStart(2, '0')).join(':');
 const buffer = 15;
 
-export async function scheduleAvailability(client: PoolClient, actor: AdminActor, branchId: string, day: string, serviceId: string, operation: 'read' | 'create' | 'update' = 'read', excludedBookingId?: string) {
+export async function scheduleAvailability(client: PoolClient, actor: AdminActor, branchId: string, day: string, serviceId: string, operation: 'read' | 'create' | 'update' = 'read', excludedBookingId?: string, bookedDuration?: number) {
   if (!uuid.test(branchId) || !uuid.test(serviceId) || !/^\d{4}-\d{2}-\d{2}$/.test(day) ||
     !Number.isFinite(Date.parse(day)) || new Date(day).toISOString().slice(0, 10) !== day)
     throw new BadRequestException('Cần chọn chi nhánh, ngày và dịch vụ hợp lệ.');
@@ -38,7 +38,7 @@ export async function scheduleAvailability(client: PoolClient, actor: AdminActor
     [day, excludedBookingId ?? null, branchId],
   )).rows;
   const now = (await client.query("SELECT to_char(now() AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM-DD HH24:MI') AS local")).rows[0].local as string;
-  const duration = Number(service.duration_minutes);
+  const duration = bookedDuration ?? Number(service.duration_minutes);
   const slots: { technicianId: string; technicianName: string; start: string; end: string; roomId: string; roomName: string; bed: string; bedId?: string }[] = [];
   for (let start = Math.ceil(minute(branch.opening_time) / 15) * 15; start + duration + buffer <= minute(branch.closing_time); start += 15) {
     const end = start + duration;
@@ -83,6 +83,70 @@ export async function scheduleAvailability(client: PoolClient, actor: AdminActor
     }
   }
   return {slots, service, shifts};
+}
+
+export async function moveStaffBookingEarlier(
+  pool: Pool, actor: AdminActor, bookingId: string,
+  selection?: { start: string; technicianId: string; roomId: string; bed: string; originalSlot: string },
+) {
+  if (!uuid.test(bookingId)) throw new BadRequestException('Mã lịch hẹn không hợp lệ.');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    if (selection) {
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('mld-admin-mutation'))");
+      await client.query('LOCK TABLE bookings IN SHARE ROW EXCLUSIVE MODE');
+    }
+    const booking = (await client.query(
+      `SELECT *, booking_date::text AS day,
+       (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date::text AS today
+       FROM bookings WHERE id=$1 ${selection ? 'FOR UPDATE' : ''}`, [bookingId],
+    )).rows[0];
+    if (!booking) throw new ConflictException('Không tìm thấy lịch hẹn.');
+    await assertRowScope(client, 'bookings', booking, Object.keys(booking), actor, 'update');
+    if (booking.status !== 'CONFIRMED' || booking.day < booking.today)
+      throw new ConflictException('Chỉ chuyển sớm lịch đã xác nhận và chưa tiếp đón khách.');
+    const originalSlot = booking.day + ' ' + booking.start_time.slice(0, 5);
+    const items = (await client.query('SELECT service_id FROM booking_items WHERE booking_id=$1', [bookingId])).rows;
+    const duration = minute(booking.end_time) - minute(booking.start_time);
+    if (items.length !== 1 || duration <= 0)
+      throw new ConflictException('Chuyển sớm áp dụng cho lịch có một dịch vụ và giờ hẹn hợp lệ.');
+    const { slots } = await scheduleAvailability(
+      client, actor, booking.branch_id, booking.today, items[0].service_id, 'update', bookingId, duration,
+    );
+    const customerBookings = (await client.query(
+      "SELECT start_time,end_time FROM bookings WHERE customer_id=$1 AND booking_date=$2 AND id<>$3 AND status NOT IN ('CANCELLED','NO_SHOW')",
+      [booking.customer_id, booking.today, bookingId],
+    )).rows;
+    const earlier = slots.filter(slot => booking.today + ' ' + slot.start < originalSlot &&
+      !customerBookings.some(other => minute(other.start_time) < minute(slot.end) && minute(other.end_time) > minute(slot.start)));
+    if (!selection) {
+      await client.query('COMMIT');
+      return { date: booking.today, originalSlot, slots: earlier };
+    }
+    const slot = earlier.find(item => item.start === selection.start && item.technicianId === selection.technicianId &&
+      item.roomId === selection.roomId && item.bed === selection.bed);
+    if (selection.originalSlot !== originalSlot || !slot)
+      throw new ConflictException('Lịch hoặc khung giờ đã thay đổi. Tải lại khung giờ trống.');
+    const values = [bookingId, booking.today, slot.start, slot.end, slot.technicianId, slot.roomId, slot.bed];
+    const hasBedId = 'bed_id' in booking;
+    await client.query(
+      `UPDATE bookings SET booking_date=$2,start_time=$3,end_time=$4,technician_id=$5,
+         assigned_room_id=$6,assigned_bed_number=$7,updated_at=now()${hasBedId ? ',bed_id=$8' : ''} WHERE id=$1`,
+      hasBedId ? [...values, slot.bedId ?? null] : values,
+    );
+    await client.query('UPDATE booking_items SET technician_id=$2 WHERE booking_id=$1', [bookingId, slot.technicianId]);
+    await client.query(
+      "INSERT INTO audit_logs(actor_id,table_name,action,record_id,old_data,new_data) VALUES($1,'bookings','MOVE_BOOKING_EARLIER',$2,$3,$4)",
+      [actor.id, bookingId, JSON.stringify({ date: booking.day, start: booking.start_time, end: booking.end_time }),
+        JSON.stringify({ date: booking.today, start: slot.start, end: slot.end, technicianId: slot.technicianId })],
+    );
+    await client.query('COMMIT');
+    return { id: bookingId, date: booking.today, start: slot.start, end: slot.end };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
 }
 
 export async function createStaffBooking(pool: Pool, actor: AdminActor, body: Record<string, unknown>) {

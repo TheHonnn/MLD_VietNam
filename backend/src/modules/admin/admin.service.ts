@@ -21,7 +21,7 @@ import { inspectAdminSchema } from './admin.schema';
 import { createTreatmentBooking } from './treatment-booking';
 import { validateLoyaltyWrite } from './loyalty-workflow';
 import { validateStaffWorkflow } from './staff-workflow';
-import { assignStaffBooking, createStaffBooking, scheduleAvailability } from './staff-booking';
+import { assignStaffBooking, createStaffBooking, moveStaffBookingEarlier, scheduleAvailability } from './staff-booking';
 import { recordMaterialCount, syncInventoryItem } from './treatment-inventory';
 import { enrichReferenceLabels } from './admin.labels';
 import { allowedBranches, branchPredicate, assertRowScope, assertCashierBranch, packageBranchIdsSql } from './admin.scope';
@@ -1986,6 +1986,15 @@ export class AdminService {
         } else if (action === 'start') {
           if (row.status !== 'CHECKED_IN')
             throw new ConflictException('Cần check-in khách trước khi bắt đầu dịch vụ.');
+          const { rows: timing } = await client.query(
+            `SELECT 1 FROM bookings b
+             WHERE b.id=$1 AND b.booking_date+b.start_time > (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
+               AND EXISTS (SELECT 1 FROM audit_logs a WHERE a.record_id=b.id
+                 AND a.table_name='bookings' AND a.action='MOVE_BOOKING_EARLIER')`,
+            [row.id],
+          );
+          if (timing.length)
+            throw new ConflictException('Khách đã check-in. Hãy chờ đến giờ bắt đầu của lịch mới.');
           await client.query(
             "UPDATE bookings SET status='IN_SERVICE',session_status='IN_SERVICE',service_started_at=now() WHERE id=$1",
             [row.id],
@@ -2974,6 +2983,17 @@ export class AdminService {
     try {
       return await assignStaffBooking(this.db.connection, actor, String(body.bookingId || ''), String(body.technicianId || ''));
     } catch (error) { return this.fail(error); }
+  }
+
+  async moveScheduleBookingEarlier(actor: AdminActor, bookingId: string, body?: Record<string, unknown>) {
+    if (!body) return moveStaffBookingEarlier(this.db.connection, actor, bookingId);
+    return moveStaffBookingEarlier(this.db.connection, actor, bookingId, {
+      start: String(body.start || ''),
+      technicianId: String(body.technicianId || ''),
+      roomId: String(body.roomId || ''),
+      bed: String(body.bed || ''),
+      originalSlot: String(body.originalSlot || ''),
+    });
   }
 
   async startTreatmentDraft(actor: AdminActor, packageId: string, bookingId: string) {
