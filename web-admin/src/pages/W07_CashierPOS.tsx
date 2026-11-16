@@ -3009,7 +3009,7 @@ export const W07_CashierPOS: React.FC = () => {
               {sortedPendingBookings.map((bk) => {
                 const srv = bk.items?.[0]?.service;
                 const effectiveDiscount = getBookingEffectiveDiscount(bk);
-                const srvPrice = Number(bk.finalPrice || (srv?.price ? Math.max(0, srv.price - effectiveDiscount) : undefined) || bk.baseTotal || 500000);
+                const srvPrice = Number(bk.finalPrice ?? (srv?.price !== undefined ? Math.max(0, srv.price - effectiveDiscount) : undefined) ?? bk.baseTotal ?? 500000);
                 const srvName = srv?.name || (bk as any).serviceName || 'Trị liệu Dẫn lưu MLD';
                 const custName = bk.customer?.fullName || bk.bookedForName || 'Khách hàng';
                 const custPhone = bk.customer?.phone || bk.bookedForPhone || '--';
