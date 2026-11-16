@@ -1255,7 +1255,7 @@ export const W05_StaffSchedule: React.FC = () => {
   const lastHour = Math.ceil(Math.max(...(closing.length ? closing : [20]), ...displayedAppointments.map(app => app.startHour + app.durationHours)));
   const hours = Array.from({ length: lastHour - firstHour }, (_, index) => String(firstHour + index).padStart(2, '0') + ':00');
 
-  const ROW_HEIGHT = 58;
+  const ROW_HEIGHT = 80;
 
   return (
     <div className="space-y-4 font-['Plus_Jakarta_Sans',sans-serif] text-[#2C241E]">
@@ -1610,7 +1610,7 @@ export const W05_StaffSchedule: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-auto max-h-[65vh] shadow-xs">
+            <div className="bg-white rounded-2xl border border-[#EFE4D9] overflow-auto max-h-[70vh] shadow-xs">
             <div className="w-max min-w-full inline-block align-top">
               {/* Timetable Header Row */}
               <div className="flex border-b border-[#EFE4D9] bg-[#F3E2CE] w-max min-w-full sticky top-0 z-30">
@@ -1623,7 +1623,7 @@ export const W05_StaffSchedule: React.FC = () => {
                 {timetableColumns.map((col, idx) => (
                   <div
                     key={col.id}
-                    className={`w-[200px] min-w-[200px] shrink-0 px-4 py-3 border-r ${
+                    className={`w-[215px] min-w-[215px] shrink-0 px-3.5 py-3 border-r ${
                       col.isUnassignedColumn
                         ? 'bg-[#FFFBEB] border-[#FDE68A]'
                         : 'border-[#EFE4D9]'
@@ -1659,7 +1659,7 @@ export const W05_StaffSchedule: React.FC = () => {
                       <div
                         key={hour}
                         style={{ height: `${ROW_HEIGHT}px` }}
-                        className="border-b border-[#F0E6DC] text-center pt-1.5 px-1 flex flex-col items-center justify-start text-[11px] sm:text-xs text-[#73675F] font-medium"
+                        className="border-b border-[#F0E6DC] text-center pt-2 px-1 flex flex-col items-center justify-start text-[11px] sm:text-xs text-[#73675F] font-medium"
                       >
                         <span className="font-bold text-[#2C241E]">{hour}</span>
                       </div>
@@ -1676,7 +1676,7 @@ export const W05_StaffSchedule: React.FC = () => {
                   return (
                     <div
                       key={col.id}
-                      className={`w-[200px] min-w-[200px] shrink-0 relative border-r ${
+                      className={`w-[215px] min-w-[215px] shrink-0 relative border-r ${
                         col.isUnassignedColumn ? 'bg-[#FFFDF7] border-[#FDE68A]' : 'border-[#EFE4D9]'
                       } ${colIdx === timetableColumns.length - 1 ? 'border-r-0' : ''}`}
                     >
@@ -1696,7 +1696,7 @@ export const W05_StaffSchedule: React.FC = () => {
                       {/* Dynamic Appointment Cards for this column */}
                       {colAppointments.map((app) => {
                         const topOffset = Math.max(0, (app.startHour - firstHour) * ROW_HEIGHT);
-                        const blockHeight = app.durationHours * ROW_HEIGHT;
+                        const blockHeight = Math.max(54, app.durationHours * ROW_HEIGHT);
                         const isSelected = selectedApp?.id === app.id;
 
                         const isCompleted = app.statusRaw === 'COMPLETED';
@@ -1715,7 +1715,7 @@ export const W05_StaffSchedule: React.FC = () => {
                                 top: `${topOffset}px`,
                                 height: `${blockHeight}px`,
                               }}
-                              className={`absolute inset-x-2 p-2.5 text-left cursor-pointer transition-all duration-150 z-10 flex flex-col justify-between overflow-hidden ${
+                              className={`absolute inset-x-1.5 p-2 text-left cursor-pointer transition-all duration-150 z-10 flex flex-col justify-between overflow-hidden ${
                                 app.hasCleaningBuffer && !isUnassigned ? 'rounded-t-xl' : 'rounded-xl'
                               } ${
                                 isSelected
@@ -1731,18 +1731,18 @@ export const W05_StaffSchedule: React.FC = () => {
                                   : 'bg-[#FDF6EE] border border-[#D7BBA6] hover:border-[#985018]'
                               }`}
                             >
-                              <div>
-                                <div className="text-[11.5px] font-bold text-[#2C241E] truncate leading-tight">
+                              <div className="min-w-0">
+                                <div className="text-[12px] font-bold text-[#2C241E] truncate leading-tight" title={app.title}>
                                   {app.title}
                                 </div>
-                                <div className="text-[10.5px] text-[#73675F] truncate mt-0.5">
+                                <div className="text-[10.5px] text-[#73675F] truncate mt-0.5 font-medium">
                                   {app.timeRange}
                                 </div>
                               </div>
 
-                              <div className="flex items-center justify-between gap-1 mt-1">
+                              <div className="flex items-center justify-between gap-1 mt-1 shrink-0">
                                 <span
-                                  className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold ${
+                                  className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold truncate max-w-full leading-normal ${
                                     isUnassigned
                                       ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]'
                                       : isCompleted
@@ -1757,7 +1757,7 @@ export const W05_StaffSchedule: React.FC = () => {
                                   {isUnassigned ? '⚠️ Chưa gán KTV' : app.status}
                                 </span>
                                 {isUnassigned && (
-                                  <span className="text-[9px] text-[#B45309] font-medium hidden sm:inline">
+                                  <span className="text-[9px] text-[#B45309] font-medium hidden sm:inline shrink-0">
                                     Chọn để gán
                                   </span>
                                 )}
@@ -1769,11 +1769,12 @@ export const W05_StaffSchedule: React.FC = () => {
                               <div
                                 style={{
                                   top: `${topOffset + blockHeight}px`,
-                                  height: ROW_HEIGHT / 4,
+                                  height: `${Math.max(20, Math.round(ROW_HEIGHT / 4))}px`,
                                 }}
-                                className="absolute inset-x-2 rounded-b-md bg-[#DEC6B0] border-x border-b border-[#CDB59E] px-2 flex items-center text-[9.5px] font-medium text-[#4A3E34] truncate z-10"
+                                className="absolute inset-x-1.5 rounded-b-md bg-[#DEC6B0] border-x border-b border-[#CDB59E] px-2 flex items-center text-[9.5px] font-semibold text-[#4A3E34] truncate z-10 leading-none shadow-2xs"
+                                title={app.cleaningText}
                               >
-                                {app.cleaningText}
+                                <span className="truncate">{app.cleaningText}</span>
                               </div>
                             )}
                           </div>
