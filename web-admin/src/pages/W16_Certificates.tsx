@@ -6,6 +6,7 @@ import { useAdmin } from '../admin/Auth';
 import { AdminTabs, toast } from '../components/common';
 import CertificateTemplateEditor, { readCertificateTemplateSettings } from '../components/certificates/CertificateTemplateEditor';
 import CertificateDocumentPreview from '../components/certificates/CertificateDocumentPreview';
+import { useCanvaCertificates } from '../components/certificates/CanvaCertificatePanel';
 import { CertificateStatus, type StudentCertificate } from '../types/shared_types';
 
 const pageSize = 25;
@@ -39,6 +40,8 @@ function dateLabel(value?: string) {
 export function W16_Certificates() {
   const { user } = useAdmin();
   const canManage = ['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(user?.role || '');
+  const canUseCanva = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role || '');
+  const canva = useCanvaCertificates(canUseCanva);
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') === 'template' ? 'template' : params.get('tab') === 'issue' && canManage ? 'issue' : 'list';
   const [rows, setRows] = useState<Row[]>([]);
@@ -217,6 +220,22 @@ export function W16_Certificates() {
       ...(canManage ? [{ id: 'issue', label: 'Tạo bản nháp' }] : []),
     ]} />
 
+    {canUseCanva && (canva.result || canva.error || canva.busy) && (
+      <section aria-label="Kết quả Canva" className="flex flex-wrap items-center gap-3 rounded-xl border bg-white p-4 text-sm">
+        {canva.busy && <p role="status">Đang xử lý trên Canva…</p>}
+        {canva.error && <p role="alert" className="text-rose-800">{canva.error}</p>}
+        {canva.pending && canva.error && !canva.busy && <>
+          <button className="admin-secondary" onClick={() => void canva.generate(canva.pending?.certificateId)}>Kiểm tra lại tiến độ</button>
+          <button className="admin-secondary" onClick={canva.clearPending}>Bỏ theo dõi</button>
+        </>}
+        {canva.result && <>
+          <p role="status">Canva đã tạo PDF. Liên kết tải có hiệu lực 24 giờ.</p>
+          <a className="admin-primary" href={canva.result.pdfUrl} target="_blank" rel="noopener noreferrer">Tải PDF Canva</a>
+          <a className="admin-secondary" href={canva.result.designUrl} target="_blank" rel="noopener noreferrer">Mở bản thiết kế</a>
+        </>}
+      </section>
+    )}
+
     {tab === 'list' && <section className="overflow-hidden rounded-2xl border bg-white" aria-busy={loading}>
       <div className="flex flex-wrap items-center gap-3 border-b p-4">
         <label className="relative min-w-[220px] flex-1">
@@ -246,6 +265,13 @@ export function W16_Certificates() {
                 {row.revocation_reason && <p className="mt-1 max-w-64 break-words text-xs text-stone-600">{row.revocation_reason}</p>}</td>
               <td className="px-4 py-4"><div className="flex flex-wrap gap-2">
                 <button className="admin-secondary inline-flex items-center gap-1.5" onClick={() => setPreview(certificate(row))}><Eye size={15} /> {row.status === 'ISSUED' ? 'Xem & in' : 'Xem'}</button>
+                {canUseCanva && canva.status?.connected && row.status === 'ISSUED' && (
+                  <button className="admin-secondary" disabled={canva.busy || !!canva.pending}
+                    onClick={() => {
+                      if (window.confirm('Tạo PDF Canva từ dữ liệu của chứng nhận này? Thông tin cần điền sẽ được gửi đến tài khoản Canva đã kết nối.'))
+                        void canva.generate(row.id);
+                    }}>Tạo PDF Canva</button>
+                )}
                 {canManage && row.status === 'DRAFT' && <button className="admin-primary" onClick={() => setPending({ row, action: 'issue' })}>Phát hành</button>}
                 {canManage && row.status === 'ISSUED' && <button className="admin-secondary text-rose-800" onClick={() => { setReason(''); setPending({ row, action: 'revoke' }); }}>Thu hồi</button>}
               </div></td>
@@ -268,6 +294,21 @@ export function W16_Certificates() {
         <h2 className="text-lg font-semibold">Phôi chứng nhận A4</h2>
         <p className="my-2 text-sm text-stone-600">Xem trước bố cục và lưu tùy chỉnh mẫu trên trình duyệt này.</p>
         <button className="admin-secondary mt-2" onClick={() => setPreview(sample)}>Mở trình thiết kế</button>
+        {canUseCanva && <div className="mt-6 space-y-3 border-t pt-5">
+          <h3 className="font-semibold">Thiết kế trên Canva</h3>
+          <p className="text-sm text-stone-600">
+            {!canva.status ? 'Đang kiểm tra kết nối…' : canva.status.connected ? 'Đã kết nối tài khoản Canva.' :
+              canva.status.configured ? 'Kết nối Canva để kiểm tra phôi và tạo PDF cho chứng nhận đã phát hành.' :
+                'Chưa cấu hình ứng dụng và ID thiết kế Canva trên máy chủ.'}
+          </p>
+          {canva.status?.configured && <div className="flex flex-wrap gap-2">
+            <button className="admin-secondary" disabled={canva.busy} onClick={() => void canva.connect()}>
+              {canva.status.connected ? 'Kết nối lại Canva' : 'Kết nối Canva'}
+            </button>
+            {canva.status.designId && <a className="admin-secondary" href={`https://www.canva.com/design/${canva.status.designId}/edit`} target="_blank" rel="noopener noreferrer">Chỉnh phôi trên Canva</a>}
+            {canva.status.connected && <button className="admin-primary" disabled={canva.busy || !!canva.pending} onClick={() => void canva.generate()}>Tạo PDF mẫu</button>}
+          </div>}
+        </div>}
       </div>
       <div className="bg-stone-100 p-4 sm:p-6">
         <div className="mx-auto max-w-[420px]">
