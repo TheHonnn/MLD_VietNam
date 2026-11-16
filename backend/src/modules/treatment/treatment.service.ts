@@ -41,6 +41,7 @@ export class TreatmentService {
             status,
             expires_at,
             purchased_at,
+            treatment_journal (id, session_number, session_date, specialist_advice, confirmation_status, is_reversed),
             treatment_packages (
               id,
               name,
@@ -51,6 +52,7 @@ export class TreatmentService {
             )
           `)
           .eq('customer_id', resolvedId)
+          .eq('treatment_journal.customer_id', resolvedId)
           .order('purchased_at', { ascending: false });
 
         if (!error && data) {
@@ -61,9 +63,12 @@ export class TreatmentService {
             status: pkg.status,
             expires_at: pkg.expires_at,
             treatment_packages: pkg.treatment_packages,
-            assigned_specialist: 'Trần Minh Phương',
-            branch_name: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-            next_session_recommended: '',
+            sessions: (pkg.treatment_journal || [])
+              .filter(journal => journal.confirmation_status === 'CONFIRMED' && !journal.is_reversed)
+              .sort((a, b) => a.session_number - b.session_number)
+              .map(({ id, session_number, session_date, specialist_advice }) => ({
+                id, session_number, session_date, status: 'COMPLETED', post_care_advice: specialist_advice,
+              })),
           }));
         }
       } catch (err) {
@@ -78,100 +83,45 @@ export class TreatmentService {
    * D02: Chi tiết gói liệu trình & Phác đồ điều trị từng buổi
    */
   async getPackageDetail(userId: string, packageId: string) {
-    if (this.isValidUuid(packageId)) {
-      try {
-        const { data: userPkg } = await this.supabaseService.adminClient
-          .from('user_packages')
-          .select(`
-            id,
-            total_sessions,
-            completed_sessions,
-            status,
-            expires_at,
-            treatment_packages (
-              id,
-              name,
-              description,
-              image_url,
-              total_sessions,
-              price
-            )
-          `)
-          .eq('id', packageId)
-          .maybeSingle();
+    const customerId = await this.resolveUserId(userId);
+    if (!customerId || !this.isValidUuid(packageId))
+      throw new NotFoundException('Không tìm thấy gói liệu trình.');
 
-        if (userPkg) {
-          const { data: journals } = await this.supabaseService.adminClient
-            .from('treatment_journal')
-            .select('*')
-            .eq('user_package_id', packageId)
-            .order('session_number', { ascending: true });
+    const { data: pkg, error } = await this.supabaseService.adminClient
+      .from('user_packages')
+      .select('id,total_sessions,completed_sessions,status,expires_at,treatment_packages(name,description)')
+      .eq('id', packageId)
+      .eq('customer_id', customerId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!pkg) throw new NotFoundException('Không tìm thấy gói liệu trình.');
 
-          const tp = (userPkg as any).treatment_packages;
-          const roadmap = (journals || []).map((j: any) => ({
-            session: j.session_number,
-            title: `Buổi ${j.session_number}: ${j.treatment_notes || 'Trị liệu phục hồi chuyên sâu'}`,
-            status: 'COMPLETED',
-            date: j.session_date,
-            note: j.condition_after || j.specialist_advice || '',
-          }));
+    const { data: journals, error: journalError } = await this.supabaseService.adminClient
+      .from('treatment_journal')
+      .select('session_number,session_date,specialist_advice')
+      .eq('user_package_id', packageId)
+      .eq('customer_id', customerId)
+      .eq('confirmation_status', 'CONFIRMED')
+      .not('is_reversed', 'is', true)
+      .order('session_number');
+    if (journalError) throw journalError;
 
-          const completedCount = roadmap.length;
-          const totalSessions = userPkg.total_sessions || tp?.total_sessions || 10;
-          for (let i = completedCount + 1; i <= totalSessions; i++) {
-            roadmap.push({
-              session: i,
-              title: `Buổi ${i}: Liệu pháp chuyên sâu theo phác đồ`,
-              status: 'PENDING',
-              date: `Dự kiến sau buổi ${i - 1} 3-5 ngày`,
-              note: 'Theo dõi tiến triển tại buổi trị liệu kế tiếp.',
-            });
-          }
-
-          return {
-            id: userPkg.id,
-            package_name: tp?.name || 'Gói Liệu Trình Trị Liệu MLD',
-            total_sessions: totalSessions,
-            completed_sessions: userPkg.completed_sessions || completedCount,
-            status: userPkg.status || 'ACTIVE',
-            specialist_name: 'Trần Minh Phương',
-            specialist_title: 'Kỹ thuật viên Trị liệu Chuyên sâu MLD',
-            specialist_avatar: 'assets/images/specialist_avatar_1.png',
-            branch_name: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-            branch_address: '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh',
-            goal: tp?.description || 'Giải phóng co thắt cơ, khai thông kinh lạc và phục hồi sức sống tự nhiên.',
-            roadmap,
-          };
-        }
-      } catch (err) {
-        this.logger.warn(`Error getting package detail: ${err}`);
-      }
-    }
-
+    const definition = Array.isArray(pkg.treatment_packages) ? pkg.treatment_packages[0] : pkg.treatment_packages;
     return {
-      id: packageId,
-      package_name: 'Liệu trình Trị liệu Cổ Vai Gáy & Cột sống 10 buổi',
-      total_sessions: 10,
-      completed_sessions: 4,
-      status: 'ACTIVE',
-      specialist_name: 'Trần Minh Phương',
-      specialist_title: 'Kỹ thuật viên Trị liệu Cổ Vai Gáy',
-      specialist_avatar: 'assets/images/specialist_avatar_1.png',
-      branch_name: 'Chi nhánh Quận 3 — TP. Hồ Chí Minh',
-      branch_address: '123 Đường Mẫu, Phường Mẫu, TP. Hồ Chí Minh',
-      goal: 'Giải phóng 100% co thắt cơ nâng vai và thang cơ, phục hồi biên độ cổ xoay 90 độ, dứt điểm đau nhức đầu do chèn ép dây thần kinh.',
-      roadmap: [
-        { session: 1, title: 'Khai thông kinh mạch vùng vai', status: 'COMPLETED', date: '01/10/2026', note: 'Cơ thang bên phải co cứng mạnh, đã tác động giải phóng sơ bộ.' },
-        { session: 2, title: 'Đả thông kinh lạc & bấm huyệt Phong Trì', status: 'COMPLETED', date: '04/10/2026', note: 'Biên độ xoay cổ cải thiện 40%, khách đỡ đau nhức nửa đầu.' },
-        { session: 3, title: 'Liệu pháp nhiệt ấm ngải cứu dưỡng sinh', status: 'COMPLETED', date: '08/10/2026', note: 'Kinh lạc lưu thông tốt, da ấm hồng hào, giấc ngủ sâu hơn.' },
-        { session: 4, title: 'Cân bằng trục cổ và kéo giãn đốt sống', status: 'COMPLETED', date: '11/10/2026', note: 'Độ mềm cơ đạt 75%, khách không còn tê bì cánh tay.' },
-        { session: 5, title: 'Tác động sâu nhóm cơ trám và liên sườn', status: 'PENDING', date: 'Dự kiến 15/10/2026', note: 'Chuẩn bị phác đồ tăng cường biên độ vận động.' },
-        { session: 6, title: 'Phục hồi cân bằng tư thế đốt sống cổ', status: 'PENDING', date: 'Dự kiến 19/10/2026', note: 'Đánh giá khả năng tự giữ thẳng trục cột sống.' },
-        { session: 7, title: 'Bảo dưỡng kinh mạch & bài độc sâu', status: 'PENDING', date: 'Dự kiến 23/10/2026', note: 'Liệu pháp ngâm thảo mộc kết hợp bài độc.' },
-        { session: 8, title: 'Củng cố màng cơ chống tái phát', status: 'PENDING', date: 'Dự kiến 27/10/2026', note: 'Liệu pháp củng cố trương lực cơ ổn định.' },
-        { session: 9, title: 'Điều hòa khí huyết toàn diện', status: 'PENDING', date: 'Dự kiến 31/10/2026', note: 'Khai mở toàn bộ mạch Đốc và Nhâm.' },
-        { session: 10, title: 'Nghiệm thu liệu trình & hướng dẫn dưỡng sinh', status: 'PENDING', date: 'Dự kiến 05/11/2026', note: 'Bàn giao phác đồ bài tập tự luyện tại nhà.' },
-      ],
+      id: pkg.id,
+      package_name: definition?.name || 'Gói liệu trình',
+      total_sessions: pkg.total_sessions,
+      completed_sessions: pkg.completed_sessions ?? 0,
+      status: pkg.status === 'ACTIVE' && pkg.expires_at && Date.parse(pkg.expires_at) <= Date.now() ? 'EXPIRED' : pkg.status,
+      expires_at: pkg.expires_at,
+      goal: definition?.description || '',
+      roadmap: (journals || []).map(journal => ({
+        session: journal.session_number,
+        title: `Buổi ${journal.session_number}`,
+        status: 'COMPLETED',
+        date: journal.session_date,
+        note: journal.specialist_advice || '',
+      })),
     };
   }
 
@@ -395,11 +345,7 @@ export class TreatmentService {
     }
 
     const ratingVal = dto.rating || (dto as any).overallRating || 5;
-    const quickTags: string[] = dto.quickTags && dto.quickTags.length > 0
-      ? [...dto.quickTags]
-      : dto.reviewTags && dto.reviewTags.length > 0
-        ? [...dto.reviewTags]
-        : [];
+    const quickTags: string[] = dto.quickTags && dto.quickTags.length > 0 ? [...dto.quickTags] : [];
     if ((dto as any).serviceQualityRating) quickTags.push(`Chất lượng dịch vụ: ${(dto as any).serviceQualityRating}★`);
     if ((dto as any).staffAttitudeRating) quickTags.push(`Thái độ nhân viên: ${(dto as any).staffAttitudeRating}★`);
     if ((dto as any).spaceAmbianceRating) quickTags.push(`Không gian: ${(dto as any).spaceAmbianceRating}★`);

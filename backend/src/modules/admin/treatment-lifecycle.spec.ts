@@ -461,7 +461,7 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       const booking = (await pg.query<any>(
         `INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,base_total,final_price,qr_code_hash,status,special_notes)
          VALUES('CANCEL-LINKED',$1,$2,CURRENT_DATE+1,'10:00','11:00',0,0,'cancel-linked-qr','CONFIRMED',$3) RETURNING id`,
-        [customerOneId, branchId, `[user_package_id=${pkg.id}]`],
+        [customerOneId, branchId, `[Gói liệu trình: MLD | user_package_id=${pkg.id}]`],
       )).rows[0];
       const cancel = () => service.action('user_packages', superAdminActor, {
         key: { id: pkg.id }, action: 'cancel', reason: 'Hủy theo yêu cầu khách hàng',

@@ -2298,14 +2298,14 @@ export class AdminService {
           const result = await client.query(
             `SELECT 1 FROM bookings b
              WHERE b.customer_id=$1
-               AND position($2 IN COALESCE(b.special_notes, '')) > 0
+               AND b.special_notes LIKE ('%user_package_id=' || $2::uuid::text || ']%')
                AND b.status::text IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS')
                AND NOT EXISTS (
                  SELECT 1 FROM treatment_journal j WHERE j.booking_id=b.id
                    AND j.confirmation_status='CONFIRMED' AND NOT j.is_reversed
                )
              LIMIT 1`,
-            [row.customer_id, `[user_package_id=${row.id}]`],
+            [row.customer_id, row.id],
           );
           if (result.rowCount)
             throw new ConflictException('Gói còn lịch chưa xử lý. Hãy xử lý lịch tại trang Lịch hẹn trước khi tiếp tục.');
@@ -3618,7 +3618,7 @@ export class AdminService {
           (SELECT count(*)::int FROM bookings b WHERE b.booking_date >= (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AND b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE')
             AND EXISTS (SELECT 1 FROM user_packages up WHERE up.customer_id=b.customer_id
               AND up.status='ACTIVE' AND (up.expires_at IS NULL OR up.expires_at > now())
-              AND position(('[user_package_id=' || up.id::text || ']') IN COALESCE(b.special_notes,'')) > 0)
+              AND b.special_notes LIKE ('%user_package_id=' || up.id::text || ']%'))
             AND NOT EXISTS (SELECT 1 FROM treatment_journal j WHERE j.booking_id=b.id
               AND j.confirmation_status='CONFIRMED' AND NOT j.is_reversed)) AS "upcomingBookingsCount"
       `);

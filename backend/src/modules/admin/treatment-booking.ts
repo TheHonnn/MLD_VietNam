@@ -103,10 +103,10 @@ export async function createTreatmentBooking(
     const reserved = (
       await client.query(
         `SELECT count(*)::int AS count FROM bookings b
-      WHERE b.customer_id=$1 AND position($2 IN COALESCE(b.special_notes,''))>0
+      WHERE b.customer_id=$1 AND b.special_notes LIKE ('%user_package_id=' || $2::uuid::text || ']%')
       AND b.status NOT IN ('CANCELLED','NO_SHOW','COMPLETED')
       AND NOT EXISTS(SELECT 1 FROM treatment_journal j WHERE j.booking_id=b.id AND j.confirmation_status='CONFIRMED' AND NOT j.is_reversed)`,
-        [pkg.customer_id, `[user_package_id=${packageId}]`],
+        [pkg.customer_id, packageId],
       )
     ).rows[0];
     if (
