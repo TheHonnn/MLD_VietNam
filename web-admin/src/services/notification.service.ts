@@ -10,15 +10,11 @@ export interface AdminNotification {
   createdAt: string;
   isRead: boolean;
   link?: string;
-  data?: Record<string, unknown>;
+  data?: any;
 }
 
 const STORAGE_KEY = 'mld_admin_notifications';
 const ZNS_STORAGE_KEY = 'mld_zalo_zns_logs';
-const destinationFields = [
-  'link', 'route', 'booking_id', 'booking_code', 'booking_date',
-  'branch_id', 'invoice_id', 'invoice_code', 'enrollment_id', 'enrollmentId',
-];
 
 class NotificationService {
   private listeners: Array<(items: AdminNotification[]) => void> = [];
@@ -155,8 +151,7 @@ class NotificationService {
             createdAt: d.created_at,
             isRead: !!d.is_read,
             link: d.data?.link,
-            data: Object.fromEntries(destinationFields.filter(key => typeof d.data?.[key] === 'string')
-              .map(key => [key, d.data[key]])),
+            data: d.data,
           }))
           .filter((i) => !this.isTestNotification(i));
 
@@ -382,3 +377,144 @@ class NotificationService {
 }
 
 export const notificationService = new NotificationService();
+
+export function getNotificationDestination(item: AdminNotification): string {
+  if (item.link && item.link.startsWith('/')) {
+    return item.link;
+  }
+
+  const data = item.data || {};
+  const target = data.target || {};
+  const title = (item.title || '').toLowerCase();
+  const msg = (item.message || '').toLowerCase();
+  const text = `${title} ${msg}`;
+
+  if (target.screen === 'academy' || data.screen === 'academy') {
+    if (target.tab === 'schedule' || text.includes('lịch học') || text.includes('thời khóa biểu')) {
+      return '/curriculum';
+    }
+    if (target.tab === 'results' || target.tab === 'certificate') {
+      return '/certificates';
+    }
+    if (target.enrollmentId || data.enrollment_id) {
+      return `/academy-enrollment?enrollmentId=${encodeURIComponent(target.enrollmentId || data.enrollment_id)}`;
+    }
+    return '/curriculum';
+  }
+
+  if (target.screen === 'booking' || data.screen === 'booking') {
+    const bookingCode = item.message.match(/BK-[\w\d-]+/i)?.[0] || '';
+    return bookingCode ? `/staff-schedule?booking=${bookingCode}` : '/staff-schedule';
+  }
+
+  if (target.screen === 'treatment' || data.screen === 'treatment') {
+    return '/medical-records';
+  }
+
+  if (
+    text.includes('lịch học') ||
+    text.includes('thời khóa biểu') ||
+    text.includes('buổi học') ||
+    text.includes('lớp học') ||
+    text.includes('khóa đào tạo') ||
+    text.includes('bài học') ||
+    text.includes('giáo trình') ||
+    text.includes('khung chương trình') ||
+    text.includes('kỹ năng lâm sàng')
+  ) {
+    return '/curriculum';
+  }
+
+  if (text.includes('điểm danh') || text.includes('chuyên cần')) {
+    return '/attendance';
+  }
+
+  if (
+    text.includes('ghi danh') ||
+    text.includes('tuyển sinh') ||
+    text.includes('học viên') ||
+    text.includes('học phí')
+  ) {
+    const enrollmentId = data.enrollment_id || data.enrollmentId;
+    return enrollmentId ? `/academy-enrollment?enrollmentId=${encodeURIComponent(enrollmentId)}` : '/academy-enrollment';
+  }
+
+  if (text.includes('chứng chỉ') || text.includes('giấy chứng nhận')) {
+    return '/certificates';
+  }
+
+  if (text.includes('giảng viên')) {
+    return '/instructors';
+  }
+
+  if (
+    item.type === 'PAYMENT' ||
+    text.includes('thanh toán') ||
+    text.includes('hóa đơn') ||
+    text.includes('phiếu thu') ||
+    text.includes('pos-')
+  ) {
+    const hdMatch = item.message.match(/HD-[\w\d-]+/i) || item.title?.match(/HD-[\w\d-]+/i);
+    const bkMatch = item.message.match(/BK-[\w\d-]+/i) || item.title?.match(/BK-[\w\d-]+/i);
+    const invoiceCode = hdMatch ? hdMatch[0] : '';
+    const bookingCode = bkMatch ? bkMatch[0] : '';
+    if (invoiceCode || bookingCode) {
+      return `/cashier-pos?tab=receipts&invoice=${encodeURIComponent(invoiceCode || bookingCode)}&receipt=true`;
+    }
+    return '/cashier-pos';
+  }
+
+  if (
+    item.type === 'BOOKING' ||
+    text.includes('lịch hẹn') ||
+    text.includes('kỹ thuật viên') ||
+    text.includes('đặt lịch') ||
+    text.includes('hủy lịch') ||
+    text.includes('nhận khách') ||
+    text.includes('ca trực') ||
+    text.includes('bk-') ||
+    text.includes('lh-')
+  ) {
+    const bkMatch = item.message.match(/BK-[\w\d-]+/i) || item.title?.match(/BK-[\w\d-]+/i);
+    const bookingCode = bkMatch ? bkMatch[0] : '';
+    return bookingCode ? `/staff-schedule?booking=${bookingCode}` : '/staff-schedule';
+  }
+
+  if (text.includes('khách hàng') || text.includes('tài khoản')) {
+    const phoneMatch = item.message.match(/0\d{9}/);
+    return phoneMatch ? `/customers?search=${phoneMatch[0]}` : '/customers';
+  }
+
+  if (
+    text.includes('liệu trình') ||
+    text.includes('phác đồ') ||
+    text.includes('nhật ký') ||
+    text.includes('chăm sóc sau')
+  ) {
+    return '/medical-records';
+  }
+
+  if (text.includes('vật tư') || text.includes('kho') || text.includes('tiêu hao')) {
+    return '/treatment-inventory';
+  }
+
+  if (text.includes('dịch vụ') || text.includes('bảng giá')) {
+    return '/services-catalog';
+  }
+
+  if (text.includes('sản phẩm')) {
+    return '/home-products';
+  }
+
+  if (text.includes('voucher') || text.includes('ưu đãi') || text.includes('điểm thưởng')) {
+    return '/manage/coupons';
+  }
+
+  if (text.includes('zalo') || text.includes('zns')) {
+    return '/zalo-zns';
+  }
+
+  if (item.type === 'ACADEMY') return '/curriculum';
+
+  return '/';
+}

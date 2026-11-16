@@ -23,7 +23,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useAdmin } from '../../admin/Auth';
-import { notificationService, branchService, AdminNotification } from '../../services';
+import { notificationService, branchService, AdminNotification, getNotificationDestination } from '../../services';
 import { Branch } from '../../types/shared_types';
 
 export interface HeaderProps {
@@ -201,11 +201,25 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
     : notifications;
 
   const handleItemClick = (item: AdminNotification) => {
-    void notificationService.markAsRead(item.id);
+    notificationService.markAsRead(item.id);
     setShowNotifications(false);
-    const destination = notificationDestination(item);
-    setSelectedNotifDetail(destination ? null : item);
-    if (destination) navigate(destination);
+    setSelectedNotifDetail(null);
+
+    const destination = getNotificationDestination(item);
+    if (destination) {
+      if (destination.includes('/cashier-pos') && destination.includes('receipt=true')) {
+        const invoiceMatch = destination.match(/invoice=([^&]+)/);
+        const bookingMatch = destination.match(/booking=([^&]+)/);
+        const invoiceCode = invoiceMatch ? decodeURIComponent(invoiceMatch[1]) : '';
+        const bookingCode = bookingMatch ? decodeURIComponent(bookingMatch[1]) : '';
+        if (invoiceCode || bookingCode) {
+          window.dispatchEvent(
+            new CustomEvent('mld_open_pos_receipt', { detail: { invoiceCode, bookingCode } })
+          );
+        }
+      }
+      navigate(destination);
+    }
   };
 
   const handleMarkAllRead = () => {
