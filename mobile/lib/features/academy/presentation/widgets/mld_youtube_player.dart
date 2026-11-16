@@ -101,6 +101,8 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
           showFullscreenButton: true,
           showControls: true,
           mute: false,
+          showVideoAnnotations: false,
+          strictRelatedVideos: true,
         ),
       );
 
@@ -303,6 +305,54 @@ class _MldYoutubePlayerState extends State<MldYoutubePlayer> {
             YoutubePlayer(
               controller: _controller!,
               aspectRatio: 16 / 9,
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 48,
+              child: AbsorbPointer(
+                absorbing: true,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        const Color(0xFF0F172A),
+                        const Color(0xFF0F172A).withValues(alpha: 0.8),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.6, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 0,
+              right: 0,
+              width: 84,
+              height: 38,
+              child: AbsorbPointer(
+                absorbing: true,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0F172A),
+                    borderRadius: BorderRadius.only(topLeft: Radius.circular(8)),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'MLD VIETNAM',
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white.withValues(alpha: 0.7),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
             ),
 
             // Watermark góc mờ cố định chống crop

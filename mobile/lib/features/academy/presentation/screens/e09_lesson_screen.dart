@@ -248,18 +248,6 @@ class _E09LessonScreenState extends State<E09LessonScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Nhãn Video bài với thời lượng hiển thị chính xác theo độ dài clip
-            Text(
-              '${context.tr("Video Bài", "Lesson")} ${widget.lesson?.lessonOrder ?? 1} · ${widget.lesson?.formattedDuration ?? "94:48"}',
-              style: const TextStyle(
-                
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 6),
-
             // Tên bài học
             Text(
               widget.lesson?.title.tr(context) ?? 'Bài 1: Nhận biết sớm dấu hiệu phù - chủ động giảm nguy cơ phù tay sau phẫu thuật',
