@@ -897,24 +897,27 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                 : null,
                           ),
                           child: Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.spa_rounded,
-                                  size: 18,
-                                  color: _selectedSegment == 0 ? AppColors.primary : const Color(0xFF64748B),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'TRỊ LIỆU (${_allTherapyItems.length})',
-                                  style: AppTypography.zaloFont(
-                                    fontSize: 14.5,
-                                    fontWeight: _selectedSegment == 0 ? FontWeight.w700 : FontWeight.w500,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.spa_rounded,
+                                    size: 18,
                                     color: _selectedSegment == 0 ? AppColors.primary : const Color(0xFF64748B),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'TRỊ LIỆU (${_allTherapyItems.length})',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 14.5,
+                                      fontWeight: _selectedSegment == 0 ? FontWeight.w700 : FontWeight.w500,
+                                      color: _selectedSegment == 0 ? AppColors.primary : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -945,24 +948,27 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                 : null,
                           ),
                           child: Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.shopping_bag_rounded,
-                                  size: 18,
-                                  color: _selectedSegment == 1 ? const Color(0xFF00693F) : const Color(0xFF64748B),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'SẢN PHẨM (${_products.length})',
-                                  style: AppTypography.zaloFont(
-                                    fontSize: 14.5,
-                                    fontWeight: _selectedSegment == 1 ? FontWeight.w700 : FontWeight.w500,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.shopping_bag_rounded,
+                                    size: 18,
                                     color: _selectedSegment == 1 ? const Color(0xFF00693F) : const Color(0xFF64748B),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'SẢN PHẨM (${_products.length})',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 14.5,
+                                      fontWeight: _selectedSegment == 1 ? FontWeight.w700 : FontWeight.w500,
+                                      color: _selectedSegment == 1 ? const Color(0xFF00693F) : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -1221,7 +1227,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                 crossAxisCount: 2,
                                 crossAxisSpacing: 12,
                                 mainAxisSpacing: 14,
-                                childAspectRatio: 0.58,
+                                childAspectRatio: 0.52,
                               ),
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) {
@@ -1286,52 +1292,18 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
             children: [
               Expanded(
                 flex: 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                      child: Container(
-                        color: const Color(0xFFF1F5F9),
-                        width: double.infinity,
-                        height: double.infinity,
-                        child: _buildImageWidget(item.imageUrl),
-                      ),
-                    ),
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: item.isPackage ? AppColors.accent : AppColors.primary,
-                          borderRadius: BorderRadius.circular(6),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          item.isPackage
-                              ? 'GÓI ${item.package?.sessionsCount ?? 10} BUỔI'
-                              : 'DỊCH VỤ LẺ',
-                          style: AppTypography.zaloFont(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  child: Container(
+                    color: const Color(0xFFF1F5F9),
+                    width: double.infinity,
+                    height: double.infinity,
+                    child: _buildImageWidget(item.imageUrl),
+                  ),
                 ),
               ),
               Expanded(
-                flex: 11,
+                flex: 12,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                   child: Column(
@@ -1342,18 +1314,18 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.zaloFont(
-                          fontSize: 15,
+                          fontSize: 14.5,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textHeading,
                           height: 1.25,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Row(
                         children: [
                           Icon(
                             item.isPackage ? Icons.calendar_today_rounded : Icons.access_time_rounded,
-                            size: 14,
+                            size: 13,
                             color: AppColors.textSecondary,
                           ),
                           const SizedBox(width: 4),
@@ -1363,7 +1335,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.zaloFont(
-                                fontSize: 13,
+                                fontSize: 12,
                                 color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -1371,7 +1343,18 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 5),
+                      Text(
+                        item.isPackage
+                            ? 'Gói ${item.package?.sessionsCount ?? 10} buổi'
+                            : 'Dịch vụ lẻ',
+                        style: AppTypography.zaloFont(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: item.isPackage ? const Color(0xFF16A34A) : const Color(0xFF0284C7),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
@@ -1379,7 +1362,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           Text(
                             '${formatter.format(item.price)} ₫',
                             style: AppTypography.zaloFont(
-                              fontSize: 16,
+                              fontSize: 15.5,
                               fontWeight: FontWeight.w800,
                               color: AppColors.servicePrice,
                             ),
@@ -1388,10 +1371,10 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                             const SizedBox(width: 4),
                             Text(
                               '${formatter.format(item.originalPrice)} ₫',
-                              style: const TextStyle(
-                                fontSize: 12,
+                              style: AppTypography.zaloFont(
+                                fontSize: 11.5,
                                 decoration: TextDecoration.lineThrough,
-                                color: Color(0xFF94A3B8),
+                                color: const Color(0xFF94A3B8),
                               ),
                             ),
                           ],
@@ -1404,12 +1387,12 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                         child: ElevatedButton(
                           onPressed: () => _handleBookingItem(item),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accent,
+                            backgroundColor: const Color(0xFF16A34A),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: EdgeInsets.zero,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                           ),
                           child: Row(
@@ -1420,11 +1403,11 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                 size: 16,
                                 color: Colors.white,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 6),
                               Text(
                                 'Đặt lịch',
                                 style: AppTypography.zaloFont(
-                                  fontSize: 14,
+                                  fontSize: 13.5,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
                                 ),

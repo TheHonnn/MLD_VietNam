@@ -472,22 +472,22 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                   title: context.tr('Điểm thưởng & Hạng hội viên', 'Points & Tier'),
                   showChevron: false,
                   trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFFBEB),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.stars_rounded, size: 14, color: Color(0xFFD97706)),
-                        const SizedBox(width: 4),
+                        const Icon(Icons.stars_rounded, size: 12, color: Color(0xFFD97706)),
+                        const SizedBox(width: 3),
                         Text(
                           '$pointsFormatted đ',
                           style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
                             color: Color(0xFFB45309),
                           ),
                         ),
@@ -510,22 +510,22 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                   title: context.tr('Ví Voucher & Ưu đãi', 'My Vouchers & Offers'),
                   showChevron: false,
                   trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8F5E9),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: const Color(0xFF208C58).withValues(alpha: 0.35)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.confirmation_number_outlined, size: 14, color: Color(0xFF007A48)),
-                        const SizedBox(width: 4),
+                        const Icon(Icons.confirmation_number_outlined, size: 12, color: Color(0xFF007A48)),
+                        const SizedBox(width: 3),
                         Text(
                           '$vouchersCount voucher',
                           style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
                             color: Color(0xFF007A48),
                           ),
                         ),
@@ -551,10 +551,10 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     child: Text(
                       myReferralCode,
                       style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.primary,
-                        letterSpacing: 0.5,
+                        letterSpacing: 0.3,
                       ),
                     ),
                   ),
@@ -570,24 +570,24 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                         ),
                       );
                     },
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
                         color: AppColors.secondary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.copy_rounded, size: 14, color: AppColors.secondary),
-                          SizedBox(width: 4),
+                          Icon(Icons.copy_rounded, size: 12, color: AppColors.secondary),
+                          SizedBox(width: 3),
                           Text(
                             'Sao chép',
                             style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.secondary,
                             ),
                           ),
@@ -621,7 +621,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                         child: Text(
                           referrerDisplay,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                             color: hasReferrer ? AppColors.primary : AppColors.textSecondary,
                           ),
@@ -630,22 +630,22 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       showChevron: false,
                       trailing: hasReferrer
                           ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE8F5E9),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(6),
                                 border: Border.all(color: const Color(0xFF208C58).withValues(alpha: 0.35)),
                               ),
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF007A48)),
-                                  SizedBox(width: 4),
+                                  Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF007A48)),
+                                  SizedBox(width: 3),
                                   Text(
                                     'Đã liên kết',
                                     style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
                                       color: Color(0xFF007A48),
                                     ),
                                   ),
@@ -658,24 +658,24 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                                 title: 'Người giới thiệu',
                                 message: 'Vui lòng đăng nhập để nhập mã người giới thiệu.',
                               ),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(6),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFE8F5E9),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(6),
                                   border: Border.all(color: const Color(0xFF208C58).withValues(alpha: 0.4)),
                                 ),
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.edit_note_rounded, size: 14, color: Color(0xFF007A48)),
-                                    SizedBox(width: 4),
+                                    Icon(Icons.edit_note_rounded, size: 12, color: Color(0xFF007A48)),
+                                    SizedBox(width: 3),
                                     Text(
                                       'Nhập mã',
                                       style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w600,
                                         color: Color(0xFF007A48),
                                       ),
                                     ),

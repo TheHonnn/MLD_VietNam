@@ -2,6 +2,7 @@ import '../../../../features/booking/presentation/screens/all_in_one_booking_scr
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
 import '../../../directory/presentation/screens/b07_specialist_listing_screen.dart';
@@ -673,7 +674,7 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                       height: 52,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
+                          backgroundColor: const Color(0xFF16A34A),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -746,12 +747,12 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                             ),
                           );
                         },
-                        child: const Text(
+                        child: Text(
                           'Đặt lịch ngay',
-                          style: TextStyle(
+                          style: AppTypography.zaloFont(
                             fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textInverse,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
                       ),
