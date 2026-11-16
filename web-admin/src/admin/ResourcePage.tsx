@@ -938,7 +938,7 @@ const staffPages: Record<string, { description: string; create: string; next: st
   staff_profiles: { description: "Liên kết tài khoản nhân viên với bộ phận và chi nhánh làm việc.", create: "Thêm hồ sơ nhân viên", next: "/manage/technicians", nextLabel: "Hồ sơ kỹ thuật viên" },
   departments: { description: "Quản lý bộ phận dùng chung khi phân công nhân viên.", create: "Thêm bộ phận", next: "/manage/staff_profiles", nextLabel: "Hồ sơ nhân viên" },
   technicians: { description: "Quản lý chuyên môn và liên kết hồ sơ nhân viên trước khi phân ca trực.", create: "Thêm kỹ thuật viên", next: "/manage/technician_shifts", nextLabel: "Phân ca trực" },
-  technician_shifts: { description: "Phân ca theo chi nhánh, ngày và kỹ thuật viên để Lịch kỹ thuật viên tính giờ có thể đặt.", create: "Tạo ca trực", next: "/manage/technician_slots", nextLabel: "Quản lý giờ khóa" },
+  technician_shifts: { description: "Phân ca theo chi nhánh, ngày và kỹ thuật viên để Lịch kỹ thuật viên tính giờ có thể đặt.", create: "Tạo ca trực", next: "/staff-schedule", nextLabel: "Mở lịch kỹ thuật viên" },
   technician_slots: { description: "Khóa thời gian nghỉ hoặc bận đột xuất. Giờ có thể đặt được tính từ ca trực và lịch hẹn.", create: "Khóa khung giờ", next: "/staff-schedule", nextLabel: "Mở lịch kỹ thuật viên" },
 };
 
