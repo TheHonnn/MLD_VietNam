@@ -37,7 +37,6 @@ import {
   customerService,
   supabaseService,
   inventoryService,
-  znsService,
   treatmentService,
 } from '../services';
 import { toast } from '../components/common';
@@ -1137,24 +1136,6 @@ export const W05_StaffSchedule: React.FC = () => {
       }
 
       if (!(await handleBookingAction(clinicalApp, 'finish-service'))) return;
-
-      // 5. Tự động gửi tin nhắn Zalo ZNS dặn dò sau trị liệu
-      if (clinicalApp.customerPhone) {
-        try {
-          await znsService.sendZns({
-            recipientPhone: clinicalApp.customerPhone,
-            recipientName: clinicalApp.customer,
-            templateCode: 'POST_TREATMENT_CARE',
-            bookingId: clinicalApp.id,
-            paramsSent: {
-              customer_name: clinicalApp.customer,
-              service_name: clinicalApp.service,
-            },
-          });
-        } catch (znsErr) {
-          console.warn('Lỗi gửi ZNS:', znsErr);
-        }
-      }
 
       setShowClinicalModal(false);
       toast.success(
@@ -3139,7 +3120,7 @@ export const W05_StaffSchedule: React.FC = () => {
               {/* 5. Lời dặn dò chuyên khoa */}
               <div>
                 <label className="block font-bold text-[#2C241E] mb-1">
-                  5. Lời dặn dò chuyên gia (Tự động gửi kèm Zalo ZNS)
+                  5. Lời dặn dò chuyên gia
                 </label>
                 <textarea
                   rows={2}
@@ -3156,7 +3137,6 @@ export const W05_StaffSchedule: React.FC = () => {
                   <li>Lưu nhật ký điều trị vào bảng <code>treatment_journals</code> trên Supabase Cloud.</li>
                   <li>Tự động trừ 1 buổi trong gói liệu trình <code>user_packages</code> (nếu áp dụng).</li>
                   <li>Tự động trừ kho vật tư tiêu hao (BOM) & Trích 10% hoa hồng KTV <code>staff_commissions</code>.</li>
-                  <li>Gửi tin nhắn Zalo ZNS dặn dò sau trị liệu cho khách hàng.</li>
                 </ul>
               </div>
             </div>
