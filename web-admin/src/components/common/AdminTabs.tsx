@@ -160,7 +160,7 @@ export const AdminTabs: React.FC<AdminTabsProps> = ({
 
           const lineClasses = `group relative inline-flex shrink-0 items-center gap-2 h-12 min-h-[44px] px-0 text-xs font-semibold tracking-wide transition-colors duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004890]/50 focus-visible:ring-offset-2 ${
             isActive
-              ? 'text-[#004890] font-bold'
+              ? 'text-[#0F172A] font-bold'
               : 'text-[#64748B] hover:text-[#0F172A]'
           } ${tab.disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`;
 

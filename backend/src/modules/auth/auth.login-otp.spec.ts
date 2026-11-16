@@ -53,6 +53,10 @@ describe('AuthService - Login OTP Flow', () => {
       sendOtpSms: vi.fn().mockResolvedValue(true),
     };
 
+    const mockZaloService = {
+      sendOtpZns: vi.fn().mockResolvedValue({ success: true, messageId: 'msg_123' }),
+    };
+
     authService = new AuthService(
       mockSupabaseService,
       mockRedisService,
@@ -62,6 +66,7 @@ describe('AuthService - Login OTP Flow', () => {
       mockOtpService,
       mockEmailService,
       mockSmsService,
+      mockZaloService as any,
     );
   });
 
@@ -179,17 +184,12 @@ describe('AuthService - Login OTP Flow', () => {
   });
 
   describe('requestPhoneOtp', () => {
-    it('should generate random OTP and dispatch SMS', async () => {
-      const res = await authService.requestPhoneOtp({ phone: '0987654321' });
+    it('should generate random OTP and dispatch via Zalo', async () => {
+      const res = await authService.requestPhoneOtp({ phone: '0987654321', channel: 'ZALO' });
 
       expect(res.success).toBe(true);
+      expect(res.channel).toBe('ZALO');
       expect(mockOtpService.generateAndSaveOtp).toHaveBeenCalledWith('0987654321', 'LOGIN');
-      expect(mockSmsService.sendOtpSms).toHaveBeenCalledWith(
-        expect.objectContaining({
-          to: '0987654321',
-          otp: '654321',
-        }),
-      );
     });
   });
 

@@ -277,16 +277,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
       case 'BOOKING':
         return {
           icon: Calendar,
-          bg: 'bg-[#FAF0E6]',
-          textColor: 'text-[#8A4F23]',
-          borderColor: 'border-[#EAD5C3]',
+          bg: 'bg-[#EBF3FC]',
+          textColor: 'text-[#004890]',
+          borderColor: 'border-[#BAE6FD]',
         };
       case 'PAYMENT':
         return {
           icon: CreditCard,
-          bg: 'bg-[#E8F5E9]',
-          textColor: 'text-[#2E7D32]',
-          borderColor: 'border-[#C8E6C9]',
+          bg: 'bg-[#EFF6EE]',
+          textColor: 'text-[#208C58]',
+          borderColor: 'border-[#A7F3D0]',
         };
       case 'ACADEMY':
         return {
@@ -298,9 +298,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
       default:
         return {
           icon: Sparkles,
-          bg: 'bg-[#F5EBE1]',
-          textColor: 'text-[#985018]',
-          borderColor: 'border-[#E8DACB]',
+          bg: 'bg-[#EFF6EE]',
+          textColor: 'text-[#208C58]',
+          borderColor: 'border-[#A7F3D0]',
         };
     }
   };
@@ -562,10 +562,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
               {/* List */}
               <div className="max-h-[380px] overflow-y-auto divide-y divide-[#E2E8F0]">
                 {visibleNotifications.length === 0 ? (
-                  <div className="py-12 text-center text-[#64748B]">
-                    <BellOff className="w-10 h-10 mx-auto text-[#94A3B8] stroke-1 mb-2" />
+                  <div className="py-12 text-center text-[#998A7D]">
+                    <BellOff className="w-10 h-10 mx-auto text-[#D4C3B3] stroke-1 mb-2" />
                     <p className="text-xs font-semibold">Không có thông báo nào</p>
-                    <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                    <p className="text-[11px] text-[#B0A294] mt-0.5">
                       {filter === 'unread' ? 'Bạn đã đọc hết mọi thông báo' : 'Hệ thống chưa có tin mới'}
                     </p>
                   </div>
@@ -579,12 +579,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                         onClick={() => handleItemClick(item)}
                         className={`p-3.5 transition-colors cursor-pointer flex gap-3 relative ${
                           item.isRead
-                            ? 'bg-white hover:bg-[#F8FAFC]'
-                            : 'bg-[#F0F6FC] hover:bg-[#EBF3FC]'
+                            ? 'bg-white hover:bg-[#FAF8F5]'
+                            : 'bg-[#FDF9F5] hover:bg-[#FAF3EB]'
                         }`}
                       >
                         {!item.isRead && (
-                          <span className="absolute top-4 left-1.5 w-1.5 h-1.5 rounded-full bg-[#0EA5E9]"></span>
+                          <span className="absolute top-4 left-1.5 w-1.5 h-1.5 rounded-full bg-[#C65420]"></span>
                         )}
 
                         <div
@@ -597,16 +597,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                           <div className="flex items-start justify-between gap-1 mb-0.5">
                             <span
                               className={`text-xs ${
-                                item.isRead ? 'font-medium text-[#334155]' : 'font-bold text-[#0F172A]'
+                                item.isRead ? 'font-medium text-[#4A3E34]' : 'font-bold text-[#2C241E]'
                               }`}
                             >
                               {item.title}
                             </span>
-                            <span className="text-[10px] text-[#94A3B8] whitespace-nowrap shrink-0">
+                            <span className="text-[10px] text-[#A69788] whitespace-nowrap shrink-0">
                               {formatTimeAgo(item.createdAt)}
                             </span>
                           </div>
-                          <p className="text-[11px] text-[#64748B] leading-relaxed line-clamp-2">
+                          <p className="text-[11px] text-[#695A4E] leading-relaxed line-clamp-2">
                             {item.message}
                           </p>
                           <div className="mt-2 flex items-center justify-between">
@@ -626,7 +626,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                                   e.stopPropagation();
                                   handleItemClick(item);
                                 }}
-                                className="text-[11px] text-[#004890] hover:text-[#003770] font-bold hover:underline flex items-center gap-1 cursor-pointer py-0.5 px-1.5 rounded hover:bg-[#DEEAF6]/60 transition-colors"
+                                className="text-[11px] text-[#0F172A] hover:text-[#004890] font-bold hover:underline flex items-center gap-1 cursor-pointer py-0.5 px-1.5 rounded hover:bg-[#EBF3FC] transition-colors"
                                 title="Xem chi tiết"
                               >
                                 <span>Xem chi tiết</span>
@@ -649,7 +649,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
                 )}
               </div>
 
-              <div className="px-4 py-2.5 bg-[#F4F8FD] border-t border-[#E2E8F0] flex items-center justify-between text-[11px] text-[#64748B]">
+              <div className="px-4 py-2.5 bg-[#F8FAFC] border-t border-[#E2E8F0] flex items-center justify-between text-[11px] text-[#64748B]">
                 <span>Tự động cập nhật thời gian thực</span>
                 <span className="font-semibold text-[#004890]">MLD Healthcare</span>
               </div>
@@ -679,7 +679,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
             >
               {user?.full_name || 'Quản lý hệ thống'}
             </div>
-            <div className="text-[10px] text-[#004890] font-medium leading-tight mt-0.5">
+            <div className="text-[10px] text-[#64748B] font-medium leading-tight mt-0.5">
               {roleLabels[user?.role || ''] || user?.role || 'Admin'}
             </div>
           </div>
@@ -694,6 +694,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
         </div>
       </div>
 
+      {/* Modal Xem Chi Tiết Thông Báo */}
       {selectedNotifDetail && (
         <div
           role="dialog"
@@ -730,13 +731,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
               <button
                 type="button"
                 onClick={() => setSelectedNotifDetail(null)}
-                className="p-1.5 text-[#94A3B8] hover:text-[#0F172A] rounded-xl hover:bg-[#DEEAF6] transition-colors cursor-pointer"
+                className="p-1.5 text-[#94A3B8] hover:text-[#0F172A] rounded-xl hover:bg-[#EBF3FC] transition-colors cursor-pointer"
                 title="Đóng"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
+            {/* Modal Body */}
             <div className="px-6 py-5 space-y-4 text-xs">
               <div>
                 <div className="text-[11px] text-[#64748B] font-semibold mb-1">
@@ -774,7 +776,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
               <button
                 type="button"
                 onClick={() => setSelectedNotifDetail(null)}
-                className="flex-1 py-2.5 px-4 rounded-xl border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#004890] text-xs font-bold transition-colors text-center cursor-pointer"
+                className="flex-1 py-2.5 px-4 rounded-xl border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[#0F172A] text-xs font-bold transition-colors text-center cursor-pointer"
               >
                 Đóng
               </button>

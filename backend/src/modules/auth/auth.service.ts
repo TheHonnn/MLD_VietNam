@@ -16,6 +16,7 @@ import { PasswordHasherService } from './services/password-hasher.service';
 import { OtpService } from './services/otp.service';
 import { EmailService } from './services/email.service';
 import { SmsService } from './services/sms.service';
+import { ZaloService } from './services/zalo.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { EmailRegisterDto } from './dto/email-register.dto';
@@ -49,6 +50,7 @@ export class AuthService {
     private otpService: OtpService,
     private emailService: EmailService,
     @Optional() private smsService?: SmsService,
+    @Optional() private zaloService?: ZaloService,
   ) {}
 
   /**
@@ -528,29 +530,30 @@ export class AuthService {
     const cleanPhone = dto.phone.trim().replace(/\D/g, '');
     const normalizedPhone = cleanPhone.startsWith('84') ? `0${cleanPhone.substring(2)}` : cleanPhone;
 
-    // 1. Sinh mã OTP ngẫu nhiên 6 chữ số an toàn (CSPRNG), mã hóa SHA-256 + secret salt lưu vào Redis & DB
     const rawOtp = await this.otpService.generateAndSaveOtp(normalizedPhone, 'LOGIN');
 
-    // 2. Gửi tin nhắn SMS thật qua SmsService (eSMS) bất đồng bộ (Non-blocking để App phản hồi ngay lập tức)
-    if (this.smsService) {
-      const sent = await this.smsService.sendOtpSms({
-        to: normalizedPhone,
-        otp: rawOtp,
-        purpose: 'LOGIN_PHONE',
-      });
-      if (!sent) {
-        throw new BadRequestException(
-          'Không thể gửi tin nhắn SMS lúc này (cổng eSMS tạm hết số dư hoặc nhà mạng chặn lặp tin trong 5 phút). Quý khách vui lòng thử đăng nhập bằng Email hoặc thử lại sau 5 phút.',
-        );
+    if (this.zaloService) {
+      const zaloRes = await this.zaloService.sendOtpZns(normalizedPhone, rawOtp);
+      if (zaloRes.success) {
+        return {
+          success: true,
+          message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi qua Zalo OA MLD Việt Nam tới số điện thoại của bạn.',
+          phone: normalizedPhone,
+          channel: 'ZALO',
+        };
       }
-    } else {
-      this.logger.log(`📱 [SMS OTP Simulator] ${normalizedPhone}: ${rawOtp}`);
+      this.logger.warn(`ZNS send failed: ${zaloRes.error}`);
+      throw new BadRequestException(
+        zaloRes.error || 'Không thể gửi mã xác nhận qua Zalo lúc này. Vui lòng kiểm tra lại số điện thoại.',
+      );
     }
 
+    this.logger.log(`📱 [Zalo OTP Simulator] ${normalizedPhone}: ${rawOtp}`);
     return {
       success: true,
-      message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi qua tin nhắn SMS tới số điện thoại của bạn.',
+      message: 'Mã xác thực OTP gồm 6 chữ số đã được gửi qua Zalo OA MLD Việt Nam tới số điện thoại của bạn.',
       phone: normalizedPhone,
+      channel: 'ZALO',
     };
   }
 

@@ -10,6 +10,7 @@ import { PasswordHasherService } from './services/password-hasher.service';
 import { OtpService } from './services/otp.service';
 import { EmailService } from './services/email.service';
 import { SmsService } from './services/sms.service';
+import { ZaloService } from './services/zalo.service';
 import { BruteForceGuard } from './guards/brute-force.guard';
 
 @Module({
@@ -37,8 +38,9 @@ import { BruteForceGuard } from './guards/brute-force.guard';
     OtpService,
     EmailService,
     SmsService,
+    ZaloService,
     BruteForceGuard,
   ],
-  exports: [AuthService, JwtModule, PasswordHasherService, OtpService, EmailService, SmsService],
+  exports: [AuthService, JwtModule, PasswordHasherService, OtpService, EmailService, SmsService, ZaloService],
 })
 export class AuthModule {}
