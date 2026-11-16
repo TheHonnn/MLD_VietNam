@@ -25,7 +25,7 @@ import { toast, AdminTabs } from '../components/common';
 
 const gatewaySettings = [
   { key: 'tokenConfigured', label: 'OA Access Token', icon: KeyRound },
-  { key: 'templateConfigured', label: 'Mẫu xác nhận lịch đã duyệt', icon: FileText },
+  { key: 'templateConfigured', label: 'Mã mẫu xác nhận lịch (Template ID)', icon: FileText },
   { key: 'testPhoneConfigured', label: 'Số điện thoại nhận thử', icon: Phone },
 ] as const;
 
@@ -74,6 +74,7 @@ export const W14_ZaloZNS: React.FC = () => {
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [testPhone, setTestPhone] = useState<string | null>(null);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [templateIdError, setTemplateIdError] = useState('');
   const [saveError, setSaveError] = useState('');
   const [savedConfiguration, setSavedConfiguration] = useState(false);
   const configurationEdited = Boolean(accessToken) || templateId !== null || testPhone !== null;
@@ -140,11 +141,18 @@ export const W14_ZaloZNS: React.FC = () => {
     if (isSavingConfig || isCheckingGateway || isSendingTest) return;
     setSaveError('');
     setSavedConfiguration(false);
+    const selectedTemplateId = (templateId ?? gateway?.templateId ?? '').trim();
+    if (!/^\d{1,30}$/.test(selectedTemplateId)) {
+      setTemplateIdError('Nhập Template ID chỉ gồm chữ số. Sao chép mã của mẫu đã duyệt trong ZBS.');
+      event.currentTarget.querySelector<HTMLInputElement>('#templateConfigured')?.focus();
+      return;
+    }
+    setTemplateIdError('');
     setIsSavingConfig(true);
     try {
       const configuration = await znsService.saveGatewayConfiguration({
         accessToken: accessToken.trim() || undefined,
-        templateId: templateId ?? gateway?.templateId ?? '',
+        templateId: selectedTemplateId,
         testPhone: testPhone ?? gateway?.testPhone ?? '',
       });
       setGateway(configuration);
@@ -492,6 +500,8 @@ export const W14_ZaloZNS: React.FC = () => {
                         id={key}
                         type={isToken ? 'password' : isTemplate ? 'text' : 'tel'}
                         inputMode={isTemplate ? 'numeric' : undefined}
+                        aria-invalid={isTemplate && !!templateIdError ? true : undefined}
+                        aria-describedby={isTemplate ? `zalo-template-id-hint${templateIdError ? ' zalo-template-id-error' : ''}` : undefined}
                         autoComplete={isToken ? 'new-password' : 'off'}
                         spellCheck={false}
                         required={!isToken || !gateway?.tokenConfigured}
@@ -501,12 +511,24 @@ export const W14_ZaloZNS: React.FC = () => {
                           setSavedConfiguration(false);
                           const value = event.target.value;
                           if (isToken) setAccessToken(value);
-                          else if (isTemplate) setTemplateId(value);
+                          else if (isTemplate) {
+                            setTemplateId(value);
+                            setTemplateIdError('');
+                          }
                           else setTestPhone(value);
                         }}
-                        placeholder={isToken ? configured ? 'Để trống để giữ token hiện tại' : 'Dán OA Access Token' : isTemplate ? 'Nhập mã mẫu đã duyệt trong ZBS' : '09xxxxxxxx'}
+                        placeholder={isToken ? configured ? 'Để trống để giữ token hiện tại' : 'Dán OA Access Token' : isTemplate ? 'Ví dụ 123456' : '09xxxxxxxx'}
                         className="min-h-10 w-full rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] px-3 py-2 text-sm text-[#2C241E] focus-visible:outline-2 focus-visible:outline-[#8A4F23]"
                       />
+                      {isTemplate && (
+                        <>
+                          <p id="zalo-template-id-hint" className="text-xs text-[#73675F]">
+                            Sao chép mã số của mẫu xác nhận lịch đã duyệt trong{' '}
+                            <a href="https://account.zalo.solutions/" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#8A4F23] underline">ZBS → Quản lý Template</a>.
+                          </p>
+                          {templateIdError && <p id="zalo-template-id-error" role="alert" className="text-xs text-red-800">{templateIdError}</p>}
+                        </>
+                      )}
                     </div>
                   );
                 })}
