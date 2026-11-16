@@ -27,9 +27,7 @@ test('AdminTabs component exists and conforms to MLD architecture guidelines', (
   // Must support auto-scroll into view for active tab
   assert.match(content, /scrollIntoView/);
 
-  // Must use MLD brand color (#985018 / #8A4F23)
-  assert.match(content, /#985018/);
-  assert.match(content, /#8A4F23/);
+  assert.match(content, /#004890/);
 
   // Exported in common index.ts
   const indexPath = new URL('../src/components/common/index.ts', import.meta.url);

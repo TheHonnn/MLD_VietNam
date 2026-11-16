@@ -3,33 +3,34 @@
 @tailwind utilities;
 
 :root {
-  --spa-canvas: #F8F1E8;
+  --spa-canvas: #F4F8FD;
   --spa-card: #FFFFFF;
-  --spa-primary: #985018;
-  --spa-border: #EFE4D9;
+  --spa-primary: #004890;
+  --spa-secondary: #0EA5E9;
+  --spa-accent: #208C58;
+  --spa-border: #E2E8F0;
 }
 
 body {
   margin: 0;
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #F8F1E8;
-  color: #2C241E;
+  background-color: #F4F8FD;
+  color: #0F172A;
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #F8F1E8;
+  background: #F4F8FD;
 }
 ::-webkit-scrollbar-thumb {
-  background: #D8C7B5;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #B8A593;
+  background: #94A3B8;
 }

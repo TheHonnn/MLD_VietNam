@@ -168,13 +168,13 @@ export function SidebarItem({
             children.length ? 'pr-10' : ''
           } rounded-xl text-xs font-semibold transition-all duration-150 ${
             isParentActive || childActive
-              ? 'bg-[#F3E2CE] text-[#8A4F23] shadow-xs'
-              : 'text-[#4A3E34] hover:bg-[#FAF7F2] hover:text-[#2C241E]'
+              ? 'bg-[#EBF3FC] text-[#004890] shadow-xs'
+              : 'text-[#475569] hover:bg-[#F1F5F9] hover:text-[#004890]'
           }`}
         >
           <Icon
             className={`w-4 h-4 shrink-0 stroke-[1.8] ${
-              childActive || isParentActive ? 'text-[#8A4F23]' : 'text-[#8C7A6B]'
+              childActive || isParentActive ? 'text-[#004890]' : 'text-[#64748B]'
             }`}
           />
           <span className="truncate">{name}</span>
@@ -187,14 +187,14 @@ export function SidebarItem({
             aria-expanded={expanded}
             aria-controls={submenuId}
             onClick={() => setOpen((value) => !value)}
-            className="absolute right-1 top-1 w-7 h-7 flex items-center justify-center rounded-lg text-[#8C7A6B] hover:bg-[#F3E2CE] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#985018] cursor-pointer"
+            className="absolute right-1 top-1 w-7 h-7 flex items-center justify-center rounded-lg text-[#64748B] hover:bg-[#EBF3FC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#004890] cursor-pointer"
           >
             <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
           </button>
         )}
       </div>
       {children.length > 0 && (
-        <div id={submenuId} hidden={!expanded} className="ml-5 pl-2.5 mt-1 mb-1.5 border-l border-[#EFE4D9] space-y-0.5">
+        <div id={submenuId} hidden={!expanded} className="ml-5 pl-2.5 mt-1 mb-1.5 border-l border-[#E2E8F0] space-y-0.5">
           {children.map((sub) => {
             const active = isSubActive(sub.path);
             return (
@@ -204,13 +204,13 @@ export function SidebarItem({
                 onClick={onNavigate}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-medium leading-normal transition-all ${
                   active
-                    ? 'bg-[#F2DFCD] text-[#7A3F15] font-semibold shadow-2xs'
-                    : 'text-[#7A6D61] hover:bg-[#FAF7F2] hover:text-[#2C241E]'
+                    ? 'bg-[#EBF3FC] text-[#004890] font-semibold shadow-2xs'
+                    : 'text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#004890]'
                 }`}
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full transition-colors shrink-0 ${
-                    active ? 'bg-[#985018]' : 'bg-[#D8C4B2]/40'
+                    active ? 'bg-[#004890]' : 'bg-[#CBD5E1]'
                   }`}
                 />
                 <span className="truncate">{sub.name}</span>
