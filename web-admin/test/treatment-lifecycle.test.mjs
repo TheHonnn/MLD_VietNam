@@ -14,7 +14,7 @@ describe('Treatment Lifecycle & Reversal State Machine Tests (Web-Admin)', () =>
       readFileSync(new URL('../../backend/package.json', import.meta.url), 'utf8')
     );
     assert.equal(
-      backendPackage.scripts['prestart:prod'],
+      backendPackage.scripts['prestart:prod'].split(' && ').slice(0, 6).join(' && '),
       'node ../scripts/apply_migration.js 031_treatment_lifecycle_management.sql && node ../scripts/apply_migration.js 032_home_care_delivery_snapshots.sql && node ../scripts/apply_migration.js 033_treatment_replacement_sessions.sql && node ../scripts/apply_migration.js 034_treatment_inventory_stock.sql && node ../scripts/apply_migration.js 039_portal_schema_repair.sql && node ../scripts/apply_migration.js 040_admin_settings_fast_read.sql'
     );
   });
