@@ -134,11 +134,10 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         child: SafeArea(
           top: false,
           child: Container(
-            height: 64,
+            height: 68,
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
             child: Row(
               children: [
-                // 1. Tab Trang chủ
                 _buildNavItem(
                   index: 0,
                   safeIndex: safeIndex,
@@ -146,7 +145,6 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                   activeIcon: Icons.home_rounded,
                   inactiveIcon: Icons.home_outlined,
                 ),
-                // 2. Tab Dịch vụ
                 _buildNavItem(
                   index: 1,
                   safeIndex: safeIndex,
@@ -154,7 +152,6 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                   activeIcon: Icons.medical_services_rounded,
                   inactiveIcon: Icons.medical_services_outlined,
                 ),
-                // 3. Tab Đào tạo
                 _buildNavItem(
                   index: 2,
                   safeIndex: safeIndex,
@@ -162,7 +159,6 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                   activeIcon: Icons.school_rounded,
                   inactiveIcon: Icons.school_outlined,
                 ),
-                // 4. Tab Kiến thức (Đổi từ Tài liệu)
                 _buildNavItem(
                   index: 3,
                   safeIndex: safeIndex,
@@ -170,7 +166,6 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                   activeIcon: Icons.menu_book_rounded,
                   inactiveIcon: Icons.menu_book_outlined,
                 ),
-                // 5. Tab Cá nhân
                 _buildNavItem(
                   index: 4,
                   safeIndex: safeIndex,
@@ -217,7 +212,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
               ),
               child: Icon(
                 isSelected ? activeIcon : inactiveIcon,
-                size: 23,
+                size: 24,
                 color: isSelected ? activeColor : inactiveColor,
               ),
             ),
@@ -227,7 +222,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.beVietnamPro(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected ? activeColor : inactiveColor,
               ),

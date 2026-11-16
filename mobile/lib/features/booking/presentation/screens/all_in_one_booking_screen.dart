@@ -54,28 +54,12 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   List<BranchModel> _branches = [];
   BranchModel? _selectedBranch;
 
-  // 3. Số người & Ngày giờ
-  int _guestCount = 1; // 1 - 10 người
+  int _guestCount = 1;
   late DateTime _selectedDate;
   late String _selectedTimeSlot;
   late List<String> _bookingTimeSlots;
-  static const List<String> _defaultTimeSlots = [
-    '08:00 - 09:00',
-    '09:00 - 10:00',
-    '10:00 - 11:00',
-    '11:00 - 12:00',
-    '13:00 - 14:00',
-    '14:00 - 15:00',
-    '15:00 - 16:00',
-    '16:00 - 17:00',
-    '17:00 - 18:00',
-    '18:00 - 19:00',
-    '19:00 - 20:00',
-    '20:00 - 21:00',
-    '21:00 - 22:00',
-  ];
-  
-  // 4. Thông tin người đặt: Bản thân vs Đặt hộ
+  bool _isLoadingBranches = true;
+
   bool _isBookingForSelf = true;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -95,8 +79,14 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   void initState() {
     super.initState();
     _selectedDate = DateTime.now().add(const Duration(days: 1));
-    _bookingTimeSlots = _resolveTimeSlotsForBranch(widget.initialBranch);
-    _selectedTimeSlot = _bookingTimeSlots.isNotEmpty ? _bookingTimeSlots.first : '09:00 - 10:00';
+    final initialBranch = widget.initialBranch ??
+        BranchRepository.instance.activeBranch ??
+        (BranchRepository.instance.cachedBranches.isNotEmpty
+            ? BranchRepository.instance.cachedBranches.first
+            : null);
+    _selectedBranch = initialBranch;
+    _bookingTimeSlots = _resolveTimeSlotsForBranch(initialBranch);
+    _selectedTimeSlot = _bookingTimeSlots.isNotEmpty ? _bookingTimeSlots.first : '';
     if (widget.initialVoucher != null) {
       _selectedVoucher = widget.initialVoucher;
     }
@@ -115,15 +105,15 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     _pricePerPerson = _usesActivePackage ? 0 : activeService.displayPrice;
     _serviceImageUrl = activeService.imageUrl;
 
-    if (widget.initialBranch != null) {
-      _selectedBranch = widget.initialBranch;
-    }
     if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
       final List<BranchModel> mockBranches = BranchRepository.instance.cachedBranches.isNotEmpty
           ? BranchRepository.instance.cachedBranches
           : MockHomeRepository.getBranches();
       _branches = mockBranches;
       _selectedBranch = widget.initialBranch ?? mockBranches.first;
+      _bookingTimeSlots = _resolveTimeSlotsForBranch(_selectedBranch);
+      _selectedTimeSlot = _bookingTimeSlots.isNotEmpty ? _bookingTimeSlots.first : '';
+      _isLoadingBranches = false;
       _nameController.text = 'Khách hàng MLD';
       _phoneController.text = '0967786399';
       _emailController.text = 'khachhang@mldvietnam.vn';
@@ -156,7 +146,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
         }
       }
     }
-    return List<String>.from(_defaultTimeSlots);
+    return [];
   }
 
   Future<void> _loadAvailableVouchers() async {
@@ -191,11 +181,18 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
         _serviceImageUrl = widget.initialService?.imageUrl ?? (coreService.imageUrl.isNotEmpty ? coreService.imageUrl : _serviceImageUrl);
         _pricePerPerson = _usesActivePackage ? 0 : coreService.displayPrice;
         _branches = branches;
-        _selectedBranch = widget.initialBranch ?? BranchRepository.instance.activeBranch ?? (branches.isNotEmpty ? branches.first : (BranchRepository.instance.cachedBranches.isNotEmpty ? BranchRepository.instance.cachedBranches.first : null));
+        _selectedBranch = widget.initialBranch ??
+            BranchRepository.instance.activeBranch ??
+            (branches.isNotEmpty
+                ? branches.first
+                : (BranchRepository.instance.cachedBranches.isNotEmpty
+                    ? BranchRepository.instance.cachedBranches.first
+                    : null));
         _bookingTimeSlots = _resolveTimeSlotsForBranch(_selectedBranch);
-        if (!_bookingTimeSlots.contains(_selectedTimeSlot) && _bookingTimeSlots.isNotEmpty) {
-          _selectedTimeSlot = _bookingTimeSlots.first;
+        if (!_bookingTimeSlots.contains(_selectedTimeSlot)) {
+          _selectedTimeSlot = _bookingTimeSlots.isNotEmpty ? _bookingTimeSlots.first : '';
         }
+        _isLoadingBranches = false;
         if (_isBookingForSelf) {
           _nameController.text = (userName != 'Khách hàng' && userName != 'Khách hàng MLD')
               ? userName
@@ -642,6 +639,16 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.tr('Vui lòng chọn cơ sở/chi nhánh trị liệu', 'Please select a therapy branch / facility')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    if (_selectedTimeSlot.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.tr('Vui lòng chọn khung giờ hẹn', 'Please select an appointment time slot')),
           backgroundColor: AppColors.error,
         ),
       );
@@ -1185,6 +1192,21 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       builder: (context, constraints) {
                         final availableWidth = constraints.maxWidth;
                         final count = _bookingTimeSlots.length;
+                        if (_isLoadingBranches && count == 0) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
                         if (count == 0) {
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1268,9 +1290,12 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          context.tr('Khách hàng', 'Customer'),
-                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                        Flexible(
+                          child: Text(
+                            context.tr('Khách hàng', 'Customer'),
+                            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         Container(
                           height: 28,
@@ -1619,9 +1644,12 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          context.tr('Thành tiền:', 'Total Payment:'),
-                          style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                        Flexible(
+                          child: Text(
+                            context.tr('Thành tiền:', 'Total Payment:'),
+                            style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         Text(
                           '${_formatCurrency(_totalPrice)}đ',

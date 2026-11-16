@@ -42,11 +42,10 @@ void main() {
       await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -350));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Khung giờ trị liệu:'), findsOneWidget);
+      expect(find.textContaining('Thời gian hẹn'), findsOneWidget);
 
-      // Check that time slots include 08:00 - 09:00 and 21:00 - 22:00
       expect(find.text('08:00 - 09:00'), findsWidgets);
-      expect(find.text('21:00 - 22:00'), findsOneWidget);
+      expect(find.text('19:00 - 20:00'), findsOneWidget);
 
       // Check that "Buổi điều trị" counter and chips are NOT present
       expect(find.text('Buổi điều trị'), findsNothing);

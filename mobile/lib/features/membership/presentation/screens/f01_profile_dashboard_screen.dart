@@ -475,7 +475,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                   title: context.tr('Điểm thưởng & Hạng hội viên', 'Points & Tier'),
                   showChevron: false,
                   trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFFBEB),
                       borderRadius: BorderRadius.circular(8),
@@ -484,12 +484,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.stars_rounded, size: 13, color: Color(0xFFD97706)),
+                        const Icon(Icons.stars_rounded, size: 14, color: Color(0xFFD97706)),
                         const SizedBox(width: 4),
                         Text(
                           '$pointsFormatted đ',
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFFB45309),
                           ),
@@ -513,7 +513,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                   title: context.tr('Ví Voucher & Ưu đãi', 'My Vouchers & Offers'),
                   showChevron: false,
                   trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8F5E9),
                       borderRadius: BorderRadius.circular(8),
@@ -522,12 +522,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.confirmation_number_outlined, size: 13, color: Color(0xFF007A48)),
+                        const Icon(Icons.confirmation_number_outlined, size: 14, color: Color(0xFF007A48)),
                         const SizedBox(width: 4),
                         Text(
                           '$vouchersCount voucher',
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF007A48),
                           ),
@@ -556,7 +556,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       Text(
                         myReferralCode,
                         style: const TextStyle(
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: AppColors.primary,
                           letterSpacing: 0.4,
@@ -576,7 +576,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                         },
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: AppColors.secondary.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
@@ -585,12 +585,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.copy_rounded, size: 13, color: AppColors.secondary),
+                              Icon(Icons.copy_rounded, size: 14, color: AppColors.secondary),
                               SizedBox(width: 4),
                               Text(
                                 'Sao chép',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.secondary,
                                 ),
@@ -634,7 +634,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 12.5,
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w600,
                                 color: hasReferrer ? AppColors.primary : AppColors.textSecondary,
                               ),
@@ -643,7 +643,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                           const SizedBox(width: 8),
                           if (hasReferrer)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE8F5E9),
                                 borderRadius: BorderRadius.circular(8),
@@ -652,12 +652,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.check_circle_rounded, size: 13, color: Color(0xFF007A48)),
+                                  Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF007A48)),
                                   SizedBox(width: 4),
                                   Text(
                                     'Đã liên kết',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w700,
                                       color: Color(0xFF007A48),
                                     ),
@@ -674,7 +674,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                               ),
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFE8F5E9),
                                   borderRadius: BorderRadius.circular(8),
@@ -688,7 +688,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                                     Text(
                                       'Nhập mã',
                                       style: TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 13,
                                         fontWeight: FontWeight.w700,
                                         color: Color(0xFF007A48),
                                       ),
@@ -923,7 +923,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     return Text(
       title,
       style: const TextStyle(
-        fontSize: 13,
+        fontSize: 14.5,
         fontWeight: FontWeight.w700,
         color: AppColors.textSecondary,
         letterSpacing: 0.5,
@@ -946,7 +946,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          // BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -958,12 +957,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 22, color: AppColors.primary),
+            Icon(icon, size: 24, color: AppColors.primary),
             const SizedBox(height: 8),
             Text(
               count,
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: FontWeight.w800,
                 color: AppColors.primary,
               ),
@@ -972,7 +971,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             Text(
               label,
               style: const TextStyle(
-                fontSize: 13,
+                fontSize: 14.5,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
               ),
@@ -980,7 +979,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             Text(
               subLabel,
               style: const TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: AppColors.textSecondary,
               ),
             ),

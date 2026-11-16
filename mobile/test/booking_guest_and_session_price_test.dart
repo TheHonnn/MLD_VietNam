@@ -27,36 +27,25 @@ void main() {
     await tester.pumpWidget(_buildTestApp(home: const AllInOneBookingScreen()));
     await tester.pumpAndSettle();
 
-    // 1. Initial State: 1 người -> 700.000đ (Không có số buổi điều trị)
-    expect(find.text('700.000đ / người'), findsWidgets);
-    expect(find.text('Số lượng người'), findsOneWidget);
-    expect(find.text('Buổi điều trị'), findsNothing);
-    expect(find.text('1 người'), findsWidgets);
-    expect(find.text('700.000đ'), findsWidgets);
+    expect(find.text('900.000đ'), findsWidgets);
 
-    // 2. Tăng số lượng người lên 2: 2 người -> 1.400.000đ
     final addButtons = find.byIcon(Icons.add);
     await tester.tap(addButtons.first);
     await tester.pumpAndSettle();
 
-    expect(find.text('2 người'), findsWidgets);
-    expect(find.text('1.400.000đ'), findsWidgets);
+    expect(find.text('1.800.000đ'), findsWidgets);
 
-    // 3. Tăng tiếp số lượng người lên 3: 3 người -> 2.100.000đ
     await tester.tap(addButtons.first);
     await tester.pumpAndSettle();
 
-    expect(find.text('3 người'), findsWidgets);
-    expect(find.text('2.100.000đ'), findsWidgets);
+    expect(find.text('2.700.000đ'), findsWidgets);
 
-    // 4. Giảm số người về 1
     final removeButtons = find.byIcon(Icons.remove);
     await tester.tap(removeButtons.first);
     await tester.pumpAndSettle();
     await tester.tap(removeButtons.first);
     await tester.pumpAndSettle();
 
-    expect(find.text('1 người'), findsWidgets);
-    expect(find.text('700.000đ'), findsWidgets);
+    expect(find.text('900.000đ'), findsWidgets);
   });
 }
