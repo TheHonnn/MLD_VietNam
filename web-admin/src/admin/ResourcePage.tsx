@@ -3608,8 +3608,7 @@ function RecordDialog({
         }
 
         if (!payload.topic) {
-          const nextIndex = (schedulesOfBatch?.length || 0) + 1;
-          payload.topic = `Buổi ${nextIndex}: Thực hành Dẫn lưu Bạch huyết Vodder`;
+          payload.topic = "Buổi học: Thực hành Dẫn lưu Bạch huyết Vodder";
         }
       }
       if (resource.name === "student_academic_records") {

@@ -1,8 +1,9 @@
 import { availableTreatmentSessions } from '../services/treatment-display.mjs';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { adminCommand, Listing, Row } from '../admin/api';
 import { useAdmin } from '../admin/Auth';
+import { AdminTabs } from '../components/common';
 import './TreatmentPackagesWorkspace.css';
 import { TreatmentPackageHistory } from './TreatmentPackageHistory';
 
@@ -14,6 +15,7 @@ const expired = (row: Row) => row.expires_at && new Date(row.expires_at).getTime
 const available = (row: Row) => availableTreatmentSessions(row.status, row.total_sessions, row.completed_sessions, Boolean(expired(row)));
 
 export function TreatmentPackagesWorkspace() {
+  const navigate = useNavigate();
   const { user } = useAdmin();
   const [params, setParams] = useSearchParams();
   const [rows, setRows] = useState<Row[]>([]);
@@ -119,6 +121,23 @@ export function TreatmentPackagesWorkspace() {
   }
   return <main className="treatment-workspace">
     <header><div><p className="tw-eyebrow">QUẢN LÝ LIỆU TRÌNH</p><h1>Liệu trình khách hàng</h1><p>Theo dõi gói đã mua, số buổi còn lại và lịch sử phục vụ.</p></div><Link className="tw-primary" to="/cashier-pos?tab=pos&source=package">Mở thu ngân để bán gói</Link></header>
+    <AdminTabs
+      variant="line"
+      ariaLabel="Điều hướng phân hệ Quản lý Liệu trình"
+      activeTab="user_packages"
+      onChange={(id) => {
+        if (id === 'medical-records') navigate('/medical-records');
+        else if (id === 'user_packages') navigate('/manage/user_packages');
+        else if (id === 'treatment_journal') navigate('/manage/treatment_journal');
+        else if (id === 'home_care_guidelines') navigate('/manage/home_care_guidelines');
+      }}
+      tabs={[
+        { id: 'medical-records', label: '1. Hồ sơ & Phác đồ MLD' },
+        { id: 'user_packages', label: '2. Sổ cái Liệu trình khách hàng', count: rows.length },
+        { id: 'treatment_journal', label: '3. Nhật ký điều trị & Duyệt buổi' },
+        { id: 'home_care_guidelines', label: '4. Hướng dẫn chăm sóc tại nhà' },
+      ]}
+    />
     {notice && <p role="status" className="tw-notice">{notice}</p>}
     {error ? <div role="alert" className="tw-error">Không tải được liệu trình: {error} <button onClick={() => setRevision(value => value + 1)}>Thử lại</button></div> : loading ? <div className="tw-loading" role="status">Đang tải liệu trình và số buổi từ hệ thống…</div> : <>
       <section className="tw-metrics" aria-label="Tổng quan liệu trình">

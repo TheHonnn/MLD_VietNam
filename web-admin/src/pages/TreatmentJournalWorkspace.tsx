@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { adminCommand, Listing, Row } from '../admin/api';
 import { useAdmin } from '../admin/Auth';
+import { AdminTabs } from '../components/common';
 import './TreatmentPackagesWorkspace.css';
 import { TreatmentConfirmationPreview } from './TreatmentConfirmationPreview';
 import { AssignHomeCare } from './HomeCareWorkspace';
@@ -24,6 +25,7 @@ async function readAll(table: string) {
 }
 
 export function TreatmentJournalWorkspace() {
+  const navigate = useNavigate();
   const { user } = useAdmin();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +88,23 @@ export function TreatmentJournalWorkspace() {
     finally { setBusy(false); }
   }
   return <main className="treatment-workspace"><header><div><p className="tw-eyebrow">QUẢN LÝ LIỆU TRÌNH</p><h1>Nhật ký điều trị</h1><p>Lưu nháp → gửi hồ sơ → xác nhận buổi. Chỉ buổi đã xác nhận mới được trừ lượt.</p></div><Link className="tw-primary" to="/medical-records">Chọn ca đang phục vụ để ghi nhận</Link></header>
+    <AdminTabs
+      variant="line"
+      ariaLabel="Điều hướng phân hệ Quản lý Liệu trình"
+      activeTab="treatment_journal"
+      onChange={(id) => {
+        if (id === 'medical-records') navigate('/medical-records');
+        else if (id === 'user_packages') navigate('/manage/user_packages');
+        else if (id === 'treatment_journal') navigate('/manage/treatment_journal');
+        else if (id === 'home_care_guidelines') navigate('/manage/home_care_guidelines');
+      }}
+      tabs={[
+        { id: 'medical-records', label: '1. Hồ sơ & Phác đồ MLD' },
+        { id: 'user_packages', label: '2. Sổ cái Liệu trình khách hàng' },
+        { id: 'treatment_journal', label: '3. Nhật ký điều trị & Duyệt buổi', count: rows.length },
+        { id: 'home_care_guidelines', label: '4. Hướng dẫn chăm sóc tại nhà' },
+      ]}
+    />
     <p><Link to="/treatment-inventory">Đối chiếu vật tư và xử lý hàng đợi kho →</Link></p>
     <nav className="tw-journal-tabs" aria-label="Trạng thái nhật ký">{[['ALL', 'Tất cả'], ...Object.entries(statusLabels)].map(([key, label]) => <button key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label} ({rows.filter(row => key === 'ALL' || state(row) === key).length})</button>)}</nav>
     <section className="tw-filters"><input aria-label="Tìm nhật ký" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tên khách, số điện thoại, mã lịch hoặc chuyên viên…" /><label>Từ ngày <input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label><label><input type="checkbox" checked={abnormal} onChange={e => setAbnormal(e.target.checked)} /> Có phản ứng bất thường</label><button onClick={() => setRevision(v => v + 1)}>Tải lại</button></section>

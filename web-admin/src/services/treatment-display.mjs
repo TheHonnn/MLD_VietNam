@@ -6,7 +6,7 @@ export function consumedSessions(completedSessions) {
 export function belongsToPackage(booking, customerId, packageId) {
   if (booking.customerId !== customerId) return false;
   const linked = String(booking.specialNotes || "").match(
-    /\[user_package_id=([0-9a-f-]{36})\]/i,
+    /(?:\[|\|\s*)user_package_id=([0-9a-f-]{36})\]/i,
   )?.[1];
   return Boolean(linked) && linked.toLowerCase() === packageId.toLowerCase();
 }
