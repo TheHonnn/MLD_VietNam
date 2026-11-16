@@ -2,9 +2,21 @@ import { adminCommand } from '../admin/api';
 import { ZNSTemplate, ZaloZnsLog, ApiResponse } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 
+interface ZaloGatewayStatus {
+  tokenConfigured: boolean;
+  templateConfigured: boolean;
+  testPhoneConfigured: boolean;
+  templateId: string;
+  testPhone: string;
+}
+
 export const znsService = {
   getGatewayStatus() {
-    return adminCommand<{ tokenConfigured: boolean; templateConfigured: boolean; testPhoneConfigured: boolean }>('zalo/status');
+    return adminCommand<ZaloGatewayStatus>('zalo/status');
+  },
+
+  saveGatewayConfiguration(data: { accessToken?: string; templateId: string; testPhone: string }) {
+    return adminCommand<ZaloGatewayStatus>('zalo/configuration', data);
   },
 
   async getTemplates(): Promise<ApiResponse<ZNSTemplate[]>> {

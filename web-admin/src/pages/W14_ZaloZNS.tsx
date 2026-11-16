@@ -13,7 +13,6 @@ import {
   Sliders,
   Check,
   KeyRound,
-  Server,
   FileText,
   Search,
   Filter,
@@ -25,9 +24,9 @@ import { ZNSTemplate, ZaloZnsLog } from '../types/shared_types';
 import { toast, AdminTabs } from '../components/common';
 
 const gatewaySettings = [
-  { key: 'tokenConfigured', label: 'OA Access Token', variable: 'ZALO_OA_ACCESS_TOKEN', icon: KeyRound },
-  { key: 'templateConfigured', label: 'Mẫu xác nhận lịch đã duyệt', variable: 'ZALO_BOOKING_CONFIRMATION_TEMPLATE_ID', icon: FileText },
-  { key: 'testPhoneConfigured', label: 'Số điện thoại nhận thử', variable: 'ZALO_TEST_PHONE', icon: Phone },
+  { key: 'tokenConfigured', label: 'OA Access Token', icon: KeyRound },
+  { key: 'templateConfigured', label: 'Mẫu xác nhận lịch đã duyệt', icon: FileText },
+  { key: 'testPhoneConfigured', label: 'Số điện thoại nhận thử', icon: Phone },
 ] as const;
 
 const testTemplateCode = 'BOOKING_CONFIRMATION';
@@ -71,7 +70,13 @@ export const W14_ZaloZNS: React.FC = () => {
   const [filterTemplate, setFilterTemplate] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  const [testPhone, setTestPhone] = useState<string>('');
+  const [accessToken, setAccessToken] = useState('');
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  const [testPhone, setTestPhone] = useState<string | null>(null);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [savedConfiguration, setSavedConfiguration] = useState(false);
+  const configurationEdited = Boolean(accessToken) || templateId !== null || testPhone !== null;
   const [testParameters, setTestParameters] = useState<string | null>(null);
   const [isSendingTest, setIsSendingTest] = useState<boolean>(false);
 
@@ -130,9 +135,36 @@ export const W14_ZaloZNS: React.FC = () => {
     2,
   );
 
+  const handleSaveConfiguration = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (isSavingConfig || isCheckingGateway || isSendingTest) return;
+    setSaveError('');
+    setSavedConfiguration(false);
+    setIsSavingConfig(true);
+    try {
+      const configuration = await znsService.saveGatewayConfiguration({
+        accessToken: accessToken.trim() || undefined,
+        templateId: templateId ?? gateway?.templateId ?? '',
+        testPhone: testPhone ?? gateway?.testPhone ?? '',
+      });
+      setGateway(configuration);
+      setGatewayError('');
+      setAccessToken('');
+      setTemplateId(null);
+      setTestPhone(null);
+      setLastReceipt(null);
+      setTestError('');
+      setSavedConfiguration(true);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Không thể xác minh kết quả lưu cấu hình.');
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
   const handleSendTestZns = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSendTest || isSendingTest) return;
+    if (!canSendTest || !gateway?.testPhone || isSendingTest || isSavingConfig || configurationEdited) return;
     setLastReceipt(null);
     setTestError('');
 
@@ -152,7 +184,7 @@ export const W14_ZaloZNS: React.FC = () => {
     setIsSendingTest(true);
     try {
       const result = await znsService.sendTest({
-        recipientPhone: testPhone.trim(),
+        recipientPhone: gateway.testPhone,
         templateCode: testTemplateCode,
         paramsSent: payload,
       });
@@ -418,7 +450,7 @@ export const W14_ZaloZNS: React.FC = () => {
           <section aria-labelledby="zalo-config-title" className="min-w-0 overflow-hidden rounded-2xl border border-[#E8DFD8] bg-white">
             <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[#EFE4D9] px-5 py-4 sm:px-6">
               <div>
-                <h2 id="zalo-config-title" className="text-base font-bold text-[#2C241E]">Cấu hình máy chủ</h2>
+                <h2 id="zalo-config-title" className="text-base font-bold text-[#2C241E]">Cấu hình Zalo OA</h2>
                 <p role="status" className="mt-1 text-sm text-[#73675F]">
                   {isCheckingGateway ? 'Đang kiểm tra cấu hình…' : gateway ? `${configuredCount}/${gatewaySettings.length} mục đã cấu hình` : 'Chưa xác minh được cấu hình'}
                 </p>
@@ -426,7 +458,7 @@ export const W14_ZaloZNS: React.FC = () => {
               <button
                 type="button"
                 onClick={() => void loadGateway()}
-                disabled={isCheckingGateway}
+                disabled={isCheckingGateway || isSavingConfig}
                 className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#E8DFD8] px-3 text-sm font-semibold text-[#2C241E] hover:bg-[#FAF8F5] disabled:opacity-60"
               >
                 <RotateCcw aria-hidden="true" className={`h-4 w-4 ${isCheckingGateway ? 'motion-safe:animate-spin' : ''}`} />
@@ -438,33 +470,56 @@ export const W14_ZaloZNS: React.FC = () => {
                 {gatewayError}
               </p>
             )}
-            <dl className="divide-y divide-[#EFE4D9] px-5 sm:px-6">
-              {gatewaySettings.map(({ key, label, variable, icon: Icon }) => {
-                const configured = !isCheckingGateway && gateway?.[key];
-                const status = isCheckingGateway ? 'Đang kiểm tra' : gateway ? configured ? 'Đã cấu hình' : 'Còn thiếu' : 'Chưa xác minh';
-                return (
-                  <div key={key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-3.5">
-                    <dt className="flex min-w-0 items-center gap-3">
-                      <span className="shrink-0 rounded-lg bg-[#FAF0E4] p-2 text-[#8A4F23]">
-                        <Icon aria-hidden="true" className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold text-[#2C241E]">{label}</span>
-                        <code className="block break-all text-xs text-[#73675F]">{variable}</code>
-                      </span>
-                    </dt>
-                    <dd className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${configured ? 'bg-emerald-50 text-emerald-800' : !isCheckingGateway && gateway ? 'bg-amber-50 text-amber-900' : 'bg-[#F4F0EC] text-[#73675F]'}`}>
-                      {configured && <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />}
-                      {status}
-                    </dd>
-                  </div>
-                );
-              })}
-            </dl>
-            <footer className="flex items-start gap-3 border-t border-[#EFE4D9] bg-[#FAF8F5] px-5 py-4 text-sm text-[#73675F] sm:px-6">
-              <Server aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-[#8A4F23]" />
-              <p>Thêm các biến trên tại <strong className="text-[#2C241E]">Render → MLD_VietNam → Environment</strong>. Sau khi Render cập nhật, bấm <strong className="text-[#2C241E]">Kiểm tra lại</strong>.</p>
-            </footer>
+            <form onSubmit={handleSaveConfiguration}>
+              <fieldset disabled={isSavingConfig || isCheckingGateway || !gateway} className="divide-y divide-[#EFE4D9] px-5 sm:px-6">
+                {gatewaySettings.map(({ key, label, icon: Icon }) => {
+                  const configured = gateway?.[key];
+                  const configuredLabel = configured ? 'Đã cấu hình' : gateway ? 'Còn thiếu' : 'Chưa xác minh';
+                  const isToken = key === 'tokenConfigured';
+                  const isTemplate = key === 'templateConfigured';
+                  return (
+                    <div key={key} className="space-y-2 py-3.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <label htmlFor={key} className="inline-flex items-center gap-2 text-sm font-semibold text-[#2C241E]">
+                          <Icon aria-hidden="true" className="h-4 w-4 text-[#8A4F23]" />
+                          {label}
+                        </label>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${configured ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`}>
+                          {configuredLabel}
+                        </span>
+                      </div>
+                      <input
+                        id={key}
+                        type={isToken ? 'password' : isTemplate ? 'text' : 'tel'}
+                        inputMode={isTemplate ? 'numeric' : undefined}
+                        autoComplete={isToken ? 'new-password' : 'off'}
+                        spellCheck={false}
+                        required={!isToken || !gateway?.tokenConfigured}
+                        maxLength={isToken ? 4096 : 30}
+                        value={isToken ? accessToken : isTemplate ? templateId ?? gateway?.templateId ?? '' : testPhone ?? gateway?.testPhone ?? ''}
+                        onChange={(event) => {
+                          setSavedConfiguration(false);
+                          const value = event.target.value;
+                          if (isToken) setAccessToken(value);
+                          else if (isTemplate) setTemplateId(value);
+                          else setTestPhone(value);
+                        }}
+                        placeholder={isToken ? configured ? 'Để trống để giữ token hiện tại' : 'Dán OA Access Token' : isTemplate ? 'Nhập mã mẫu đã duyệt trong ZBS' : '09xxxxxxxx'}
+                        className="min-h-10 w-full rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] px-3 py-2 text-sm text-[#2C241E] focus-visible:outline-2 focus-visible:outline-[#8A4F23]"
+                      />
+                    </div>
+                  );
+                })}
+              </fieldset>
+              <div className="space-y-3 border-t border-[#EFE4D9] bg-[#FAF8F5] px-5 py-4 sm:px-6">
+                {saveError && <p role="alert" className="text-sm text-red-800">{saveError}</p>}
+                {savedConfiguration && <p role="status" className="text-sm font-semibold text-emerald-800">Đã lưu cấu hình. Bạn có thể gửi tin thử.</p>}
+                <button type="submit" disabled={isSavingConfig || isCheckingGateway || isSendingTest || !gateway || !configurationEdited}
+                  className="min-h-10 rounded-lg bg-[#8A4F23] px-4 text-sm font-semibold text-white hover:bg-[#72401C] disabled:cursor-not-allowed disabled:opacity-60">
+                  {isSavingConfig ? 'Đang lưu…' : 'Lưu cấu hình'}
+                </button>
+              </div>
+            </form>
           </section>
 
           <section aria-labelledby="zalo-test-title" className="min-w-0 overflow-hidden rounded-2xl border border-[#E8DFD8] bg-white">
@@ -473,20 +528,9 @@ export const W14_ZaloZNS: React.FC = () => {
               <p className="mt-1 text-sm text-[#73675F]">Mẫu tin xác nhận lịch hẹn</p>
             </header>
             <form onSubmit={handleSendTestZns} className="space-y-4 px-5 py-4 sm:px-6">
-              <div>
-                <label htmlFor="zalo-test-phone" className="block text-sm font-semibold text-[#2C241E]">Số điện thoại nhận thử</label>
-                <input
-                  id="zalo-test-phone"
-                  type="tel"
-                  autoComplete="off"
-                  value={testPhone}
-                  onChange={(event) => setTestPhone(event.target.value)}
-                  placeholder="09xxxxxxxx"
-                  aria-describedby="zalo-test-phone-hint"
-                  required
-                  className="mt-2 min-h-10 w-full rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] px-3 py-2 text-sm text-[#2C241E] focus-visible:outline-2 focus-visible:outline-[#8A4F23]"
-                />
-                <p id="zalo-test-phone-hint" className="mt-1.5 text-xs text-[#73675F]">Nhập số đã lưu trong ZALO_TEST_PHONE trên Render.</p>
+              <div className="rounded-lg border border-[#E8DFD8] bg-[#FAF8F5] px-3 py-2.5 text-sm">
+                <span className="text-[#73675F]">Gửi đến </span>
+                <strong className="text-[#2C241E]">{gateway?.testPhone ? `+${gateway.testPhone}` : 'Số điện thoại đã lưu trong cấu hình'}</strong>
               </div>
               <details className="rounded-lg border border-[#E8DFD8] bg-[#FAF8F5]">
                 <summary className="cursor-pointer px-3 py-2.5 text-sm font-semibold text-[#2C241E]">Tham số mẫu tin</summary>
@@ -513,13 +557,13 @@ export const W14_ZaloZNS: React.FC = () => {
               <div className="flex flex-wrap items-center gap-3 border-t border-[#EFE4D9] pt-4">
                 <button
                   type="submit"
-                  disabled={!canSendTest || isSendingTest}
+                  disabled={!canSendTest || !gateway?.testPhone || isSendingTest || isSavingConfig || configurationEdited}
                   className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#8A4F23] px-4 text-sm font-semibold text-white hover:bg-[#72401C] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   <Send aria-hidden="true" className="h-4 w-4" />
                   {isSendingTest ? 'Đang gửi…' : 'Gửi tin thử'}
                 </button>
-                {!canSendTest && !isCheckingGateway && <p className="text-xs text-[#73675F]">Cần xác minh đủ ba mục cấu hình để gửi thử.</p>}
+                {(!canSendTest || configurationEdited) && !isCheckingGateway && <p className="text-xs text-[#73675F]">Lưu đủ ba mục cấu hình để gửi thử.</p>}
               </div>
             </form>
           </section>
