@@ -2294,6 +2294,22 @@ export class AdminService {
       } else if (table === 'user_packages') {
         const action = body.action || '';
         const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+        const assertNoOpenPackageBookings = async () => {
+          const result = await client.query(
+            `SELECT 1 FROM bookings b
+             WHERE b.customer_id=$1
+               AND position($2 IN COALESCE(b.special_notes, '')) > 0
+               AND b.status::text IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS')
+               AND NOT EXISTS (
+                 SELECT 1 FROM treatment_journal j WHERE j.booking_id=b.id
+                   AND j.confirmation_status='CONFIRMED' AND NOT j.is_reversed
+               )
+             LIMIT 1`,
+            [row.customer_id, `[user_package_id=${row.id}]`],
+          );
+          if (result.rowCount)
+            throw new ConflictException('Gói còn lịch chưa xử lý. Hãy xử lý lịch tại trang Lịch hẹn trước khi tiếp tục.');
+        };
         if (action === 'pause') {
           if (!['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER', 'RECEPTIONIST'].includes(actor.role))
             throw new ForbiddenException('Tài khoản chưa được cấp quyền tạm dừng gói liệu trình.');
@@ -2303,6 +2319,7 @@ export class AdminService {
             throw new ConflictException('Chỉ có thể tạm dừng gói đang ở trạng thái hoạt động.');
           if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now())
             throw new ConflictException('Gói đã hết hạn sử dụng, không thể tạm dừng.');
+          await assertNoOpenPackageBookings();
           await client.query(
             "UPDATE user_packages SET status='PAUSED', paused_at=now() WHERE id=$1",
             [row.id],
@@ -2364,18 +2381,7 @@ export class AdminService {
             throw new BadRequestException('Bắt buộc nhập lý do hủy gói chi tiết (tối thiểu 5 ký tự).');
           if (['CANCELLED', 'REFUNDED', 'TRANSFERRED'].includes(row.status))
             throw new ConflictException('Gói đã ở trạng thái kết thúc, không thể hủy.');
-          const activeBookings = await client.query(
-            `SELECT 1 FROM bookings b
-             WHERE b.customer_id=$1 AND b.status IN ('CHECKED_IN', 'IN_SERVICE')
-               AND EXISTS (
-                 SELECT 1 FROM user_packages up JOIN treatment_packages tp ON tp.id=up.package_id
-                 JOIN booking_items bi ON bi.booking_id=b.id AND bi.service_id=tp.service_id
-                 WHERE up.id=$2
-               ) LIMIT 1`,
-            [row.customer_id, row.id],
-          );
-          if (activeBookings.rowCount)
-            throw new ConflictException('Không thể hủy gói khi đang có ca dịch vụ diễn ra.');
+          await assertNoOpenPackageBookings();
           await client.query(
             "UPDATE user_packages SET status='CANCELLED', cancelled_at=now(), cancelled_reason=$2 WHERE id=$1",
             [row.id, reason.slice(0, 2000)],
@@ -2412,6 +2418,7 @@ export class AdminService {
              WHERE id=$1`,
             [row.id, newCustomerId, reason.slice(0, 2000)],
           );
+          await assertNoOpenPackageBookings();
           const transferredPackage = (await client.query(
             `INSERT INTO user_packages(
                customer_id, package_id, total_sessions, completed_sessions, status,
@@ -2441,6 +2448,7 @@ export class AdminService {
           const refundAmount = Number((body as any).refundAmount ?? 0);
           if (!Number.isFinite(refundAmount) || refundAmount < 0)
             throw new BadRequestException('Số tiền hoàn không hợp lệ.');
+          await assertNoOpenPackageBookings();
           await client.query(
             `UPDATE user_packages
              SET status='REFUNDED', refunded_at=now(), refund_amount=$2, refund_reason=$3
@@ -3602,12 +3610,17 @@ export class AdminService {
           (SELECT count(*)::int FROM user_packages WHERE status='REFUNDED') AS "refundedPackages",
           (SELECT count(*)::int FROM user_packages WHERE status='TRANSFERRED') AS "transferredPackages",
           (SELECT coalesce(sum(completed_sessions), 0)::int FROM user_packages WHERE status IN ('ACTIVE', 'PAUSED', 'COMPLETED')) AS "usedSessions",
-          (SELECT coalesce(sum(GREATEST(0, total_sessions - completed_sessions)), 0)::int FROM user_packages WHERE status IN ('ACTIVE', 'PAUSED')) AS "remainingSessions",
+          (SELECT coalesce(sum(GREATEST(0, total_sessions - completed_sessions)), 0)::int FROM user_packages WHERE status='ACTIVE' AND (expires_at IS NULL OR expires_at > now())) AS "remainingSessions",
           (SELECT count(*)::int FROM treatment_session_reversals) AS "reversalsCount",
           (SELECT count(*)::int FROM treatment_journal WHERE has_abnormal_reaction = TRUE) AS "abnormalReactionsCount",
           (SELECT count(*)::int FROM treatment_inventory_outbox WHERE sync_status = 'PENDING_SYNC') AS "pendingInventorySync",
           (SELECT count(*)::int FROM staff_commissions WHERE status = 'PENDING') AS "pendingCommissionsCount",
-          (SELECT count(*)::int FROM bookings b WHERE b.booking_date >= (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AND b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE')) AS "upcomingBookingsCount"
+          (SELECT count(*)::int FROM bookings b WHERE b.booking_date >= (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AND b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE')
+            AND EXISTS (SELECT 1 FROM user_packages up WHERE up.customer_id=b.customer_id
+              AND up.status='ACTIVE' AND (up.expires_at IS NULL OR up.expires_at > now())
+              AND position(('[user_package_id=' || up.id::text || ']') IN COALESCE(b.special_notes,'')) > 0)
+            AND NOT EXISTS (SELECT 1 FROM treatment_journal j WHERE j.booking_id=b.id
+              AND j.confirmation_status='CONFIRMED' AND NOT j.is_reversed)) AS "upcomingBookingsCount"
       `);
       await client.query('COMMIT');
       return stats.rows[0];
