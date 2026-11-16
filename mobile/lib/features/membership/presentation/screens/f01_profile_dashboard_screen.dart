@@ -227,9 +227,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     final pointsFormatted = isUserLoggedIn
         ? _profile.points.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')
         : '0';
-    final tierDisplay = isUserLoggedIn && _profile.memberTier.isNotEmpty
-        ? _profile.memberTier
-        : 'Tiêu chuẩn';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -549,57 +546,54 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                   icon: Icons.qr_code_2_rounded,
                   iconColor: AppColors.secondary,
                   title: context.tr('Mã giới thiệu của tôi', 'My Referral Code'),
+                  subtitleWidget: Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      myReferralCode,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
                   showChevron: false,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        myReferralCode,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                          letterSpacing: 0.4,
+                  trailing: InkWell(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: myReferralCode));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Đã sao chép mã giới thiệu: $myReferralCode'),
+                          duration: const Duration(seconds: 2),
+                          backgroundColor: AppColors.primary,
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      InkWell(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: myReferralCode));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Đã sao chép mã giới thiệu: $myReferralCode'),
-                              duration: const Duration(seconds: 2),
-                              backgroundColor: AppColors.primary,
-                            ),
-                          );
-                        },
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.secondary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.copy_rounded, size: 14, color: AppColors.secondary),
-                              SizedBox(width: 4),
-                              Text(
-                                'Sao chép',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.secondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
                       ),
-                    ],
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.copy_rounded, size: 14, color: AppColors.secondary),
+                          SizedBox(width: 4),
+                          Text(
+                            'Sao chép',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: myReferralCode));
@@ -614,7 +608,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                 ),
                 const Divider(height: 1, indent: 54, color: AppColors.border),
 
-                // 3. Người giới thiệu (Cố định sau khi nhập, không cho sửa)
                 Builder(
                   builder: (context) {
                     final bool hasReferrer = _profile.referrerName != null && _profile.referrerName!.trim().isNotEmpty;
@@ -623,27 +616,21 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       icon: Icons.handshake_outlined,
                       iconColor: AppColors.primary,
                       title: context.tr('Người giới thiệu', 'Referred By'),
-                      showChevron: false,
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 105),
-                            child: Text(
-                              referrerDisplay,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w600,
-                                color: hasReferrer ? AppColors.primary : AppColors.textSecondary,
-                              ),
-                            ),
+                      subtitleWidget: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          referrerDisplay,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: hasReferrer ? AppColors.primary : AppColors.textSecondary,
                           ),
-                          const SizedBox(width: 8),
-                          if (hasReferrer)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        ),
+                      ),
+                      showChevron: false,
+                      trailing: hasReferrer
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE8F5E9),
                                 borderRadius: BorderRadius.circular(8),
@@ -665,8 +652,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                                 ],
                               ),
                             )
-                          else
-                            InkWell(
+                          : InkWell(
                               onTap: () => _requireLoginAndRun(
                                 _showEnterReferralCodeDialog,
                                 title: 'Người giới thiệu',
@@ -674,7 +660,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                               ),
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFE8F5E9),
                                   borderRadius: BorderRadius.circular(8),
@@ -697,8 +683,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                                 ),
                               ),
                             ),
-                        ],
-                      ),
                       onTap: hasReferrer
                           ? () {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -1023,35 +1007,40 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     return ListTile(
       dense: true,
       visualDensity: const VisualDensity(horizontal: 0, vertical: -0.5),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       minLeadingWidth: 0,
-      horizontalTitleGap: 14,
+      horizontalTitleGap: 12,
       leading: Container(
-        width: 36,
-        height: 36,
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
           color: (iconColor ?? AppColors.primary).withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(9),
         ),
         child: Icon(
           icon,
-          size: 20,
+          size: 22,
           color: iconColor ?? AppColors.primary,
         ),
       ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w600,
-          color: titleColor ?? AppColors.textPrimary,
+      title: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          maxLines: 1,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: titleColor ?? AppColors.textPrimary,
+          ),
         ),
       ),
       subtitle: subtitleWidget ?? (subtitle != null && subtitle.isNotEmpty
           ? Text(
               subtitle,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 12.5,
                 color: AppColors.textSecondary,
               ),
             )
@@ -1064,7 +1053,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
             const SizedBox(width: 4),
             const Icon(
               Icons.chevron_right_rounded,
-              size: 20,
+              size: 21,
               color: AppColors.textPlaceholder,
             ),
           ],
