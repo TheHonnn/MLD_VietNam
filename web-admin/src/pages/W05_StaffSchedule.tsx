@@ -675,6 +675,7 @@ export const W05_StaffSchedule: React.FC = () => {
   };
 
   const selectedApp = allAppointments.find(app => app.id === selectedAppId);
+  const selectedTreatmentPackageId = selectedApp?.specialNotes?.match(/user_package_id=([0-9a-f-]{36})\]/i)?.[1];
   useEffect(() => setQuickAssignTechId(''), [selectedAppId]);
 
   const surveyForSelectedApp = useMemo(() => {
@@ -694,15 +695,17 @@ export const W05_StaffSchedule: React.FC = () => {
 
   // Handle URL navigation with booking code or id
   useEffect(() => {
-    const bookingParam = searchParams.get('booking') || searchParams.get('appId');
+    const exactId = searchParams.get('appId');
+    const bookingParam = exactId || searchParams.get('booking');
     if (bookingParam && allAppointments.length > 0) {
       const kw = bookingParam.toLowerCase().trim();
       const found = allAppointments.find(
         (a) =>
-          a.id.toLowerCase() === kw ||
-          liveBookings.find((booking) => booking.id === a.id)?.bookingCode?.toLowerCase() === kw ||
-          a.customerCode.toLowerCase().includes(kw) ||
-          a.customer.toLowerCase().includes(kw)
+          a.id.toLowerCase() === kw || (!exactId && (
+            liveBookings.find((booking) => booking.id === a.id)?.bookingCode?.toLowerCase() === kw ||
+            a.customerCode.toLowerCase().includes(kw) ||
+            a.customer.toLowerCase().includes(kw)
+          ))
       );
       if (found) {
         setSelectedAppId(found.id);
@@ -1805,6 +1808,11 @@ export const W05_StaffSchedule: React.FC = () => {
                 <div>
                   <div className="text-[17px] font-extrabold text-[#3E200C]">Lịch đang chọn</div>
                   <div className="text-[11px] text-[#73675F]">Mã đơn: {selectedApp.customerCode}</div>
+                  {selectedTreatmentPackageId && (
+                    <button type="button" className="mt-1 text-xs underline" onClick={() => navigate(
+                      `/medical-records?userPackageId=${encodeURIComponent(selectedTreatmentPackageId)}`
+                    )}>Mở hồ sơ liệu trình</button>
+                  )}
                 </div>
 
                 {/* Status Badge */}

@@ -588,9 +588,19 @@ export const W06_TreatmentManagement: React.FC = () => {
       });
   }, [liveBookings, liveJournals, selectedPkg.customerId, selectedPkg.id]);
 
-  const openPackageBooking = selectedPackageBookings.find(booking =>
-    ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(booking.status))
-  );
+  const openPackageBooking = liveBookings
+    .filter(booking =>
+      belongsToPackage(booking, selectedPkg.customerId, selectedPkg.id) &&
+      ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(booking.status))
+    )
+    .sort((a, b) => `${a.bookingDate} ${a.startTime}`.localeCompare(`${b.bookingDate} ${b.startTime}`))[0];
+
+  const openTreatmentBooking = (id: string, date: string, branchId?: string) => {
+    const params = new URLSearchParams({ appId: id, date: date.slice(0, 10) });
+    if (branchId) params.set('branchId', branchId);
+    navigate(`/staff-schedule?${params}`);
+  };
+
   const hasInServiceBooking = selectedPackageBookings.some(booking =>
     String(booking.status) === 'IN_SERVICE' && booking.sessionStatus !== 'COMPLETED'
   );
@@ -613,6 +623,10 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   // --- ACTION: Đặt lịch hẹn buổi tiếp theo ---
   const handleOpenBookModal = () => {
+    if (openPackageBooking) {
+      openTreatmentBooking(openPackageBooking.id, openPackageBooking.bookingDate, openPackageBooking.branchId);
+      return;
+    }
     if (selectedPkg.rawStatus !== 'ACTIVE') {
       toast.warning(
         'Gói không thể đặt lịch',
@@ -669,12 +683,13 @@ export const W06_TreatmentManagement: React.FC = () => {
         requestId: bookingRequestId,
       });
 
-      if (res.success) {
+      if (res.success && res.data?.id) {
         toast.success(
-          'Đặt lịch thành công',
-          `Đã tạo lịch hẹn ${res.data.bookingCode} cho khách hàng ${selectedCustomer.fullName} vào ngày ${bookingDate} (KTV: ${selectedTech?.fullName || 'MLD Clinic'}).`
+          'Đã xếp lịch liệu trình',
+          `Lịch ${res.data.bookingCode} đã được xác nhận. Tiếp đón khi khách đến cơ sở.`
         );
         setIsBookNextModalOpen(false);
+        openTreatmentBooking(res.data.id, res.data.booking_date || bookingDate, res.data.branch_id || selectedBranch?.id);
       } else {
         toast.error('Lỗi tạo lịch hẹn', res.message || 'Không thể tạo lịch hẹn.');
       }
@@ -1399,9 +1414,10 @@ export const W06_TreatmentManagement: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-[#73675F] font-medium">{s.treatmentNotes || '—'}</span>
                         {s.id && s.isUpcoming && (
-                          <button type="button" className="text-sm underline" onClick={() => navigate(
-                            `/staff-schedule?booking=${encodeURIComponent(s.bookingCode || s.id!)}`
-                          )}>Mở lịch hẹn</button>
+                          <button type="button" className="text-sm underline" onClick={() => {
+                            const booking = bookingMap.get(s.id!);
+                            if (booking) openTreatmentBooking(booking.id, booking.bookingDate, booking.branchId);
+                          }}>Mở lịch hẹn</button>
                         )}
                         {s.id && !s.isReversed && !s.isUpcoming && (
                           <>
@@ -1485,7 +1501,11 @@ export const W06_TreatmentManagement: React.FC = () => {
                     )}
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-[#554A41]">
-                      <div><span className="font-semibold text-[#8A4F23]">Giờ điều trị:</span> {s.treatmentStartTime?.slice(0, 5) || '—'}{s.treatmentEndTime ? `–${s.treatmentEndTime.slice(0, 5)}` : ''}</div>
+                      <div>
+                        <span className="font-semibold text-[#8A4F23]">{s.isUpcoming ? 'Giờ hẹn' : 'Giờ điều trị'}</span>
+                        {' '}{s.isUpcoming ? s.time || '—' : s.treatmentStartTime?.slice(0, 5) || '—'}
+                        {!s.isUpcoming && s.treatmentEndTime ? `–${s.treatmentEndTime.slice(0, 5)}` : ''}
+                      </div>
                       <div><span className="font-semibold text-[#8A4F23]">Số buổi:</span> {s.number}/{s.totalSessions || '—'}</div>
                       <div><span className="font-semibold text-[#8A4F23]">Dịch vụ:</span> {selectedPkg.serviceName}</div>
                       <div><span className="font-semibold text-[#8A4F23]">Trạng thái:</span> {s.statusBadge || 'Đã hoàn thành'}</div>
@@ -1650,18 +1670,35 @@ export const W06_TreatmentManagement: React.FC = () => {
               </div>
             )}
 
-            {selectedPkg.rawStatus === 'ACTIVE' && selectedPkg.remainingSessions > 0 && (
+            {(openPackageBooking || (selectedPkg.rawStatus === 'ACTIVE' && selectedPkg.remainingSessions > 0)) && (
               <div className="space-y-2 pt-1">
-                {!hasInServiceBooking ? (
-                  <button
+                {openPackageBooking && (
+                  <div className="rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] p-3 text-xs">
+                    <div className="font-semibold">{openPackageBooking.bookingCode || 'Lịch hẹn đang mở'}</div>
+                    <div>{new Intl.DateTimeFormat('vi-VN').format(new Date(openPackageBooking.bookingDate))}
+                      {openPackageBooking.startTime ? ` · ${openPackageBooking.startTime.slice(0, 5)}` : ''}</div>
+                    <div className="mt-1 text-[#73675F]">
+                      {({
+                        PENDING: 'Việc tiếp theo · Xác nhận lịch',
+                        CONFIRMED: 'Việc tiếp theo · Check-in khi khách đến',
+                        CHECKED_IN: 'Việc tiếp theo · Bắt đầu phục vụ',
+                        IN_SERVICE: openPackageBooking.sessionStatus === 'COMPLETED'
+                          ? 'Việc tiếp theo · Đóng ca'
+                          : 'Việc tiếp theo · Hoàn tất dịch vụ',
+                        IN_PROGRESS: 'Việc tiếp theo · Hoàn tất dịch vụ',
+                      } as Record<string, string>)[String(openPackageBooking.status)]}
+                    </div>
+                  </div>
+                )}
+                <button
                   type="button"
                   onClick={handleOpenBookModal}
                   className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Calendar className="w-4 h-4" />
-                  <span>Đặt buổi tiếp theo ({selectedPkg.usedSessions + 1}/{selectedPkg.sessionsTotal})</span>
+                  <span>{openPackageBooking ? 'Mở lịch để tiếp tục' : `Đặt buổi tiếp theo (${selectedPkg.usedSessions + 1}/${selectedPkg.sessionsTotal})`}</span>
                 </button>
-                ) : (
+                {selectedPkg.rawStatus === 'ACTIVE' && hasInServiceBooking && (
                 <button
                   type="button"
                   onClick={handleOpenLogSessionModal}
