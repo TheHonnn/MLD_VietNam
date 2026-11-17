@@ -4482,7 +4482,9 @@ function availableActions(table: string, row: Row) {
             ? row.payment_status === "PAID"
               ? [{ key: "checkout", title: "Đóng dịch vụ", icon: LogOut }]
               : []
-            : [{ key: "finish-service", title: "Hoàn tất dịch vụ", icon: CheckCheck }]
+            : row.payment_method === "MEMBERSHIP_WALLET" || /user_package_id=/i.test(String(row.special_notes || ""))
+              ? []
+              : [{ key: "finish-service", title: "Hoàn tất dịch vụ", icon: CheckCheck }]
           : [];
   if (
     ["invoices", "tuition_transactions"].includes(table) &&
@@ -4542,7 +4544,10 @@ function BookingOperationsView({
     if (row.status === "CONFIRMED") return { key: "checkin", label: "Tiếp đón khách", icon: UserCheck };
     if (row.status === "CHECKED_IN") return { key: "start", label: "Bắt đầu dịch vụ", icon: Play };
     if (row.status === "IN_SERVICE" && row.session_status === "COMPLETED" && row.payment_status === "PAID") return { key: "checkout", label: "Đóng dịch vụ", icon: LogOut };
-    if (row.status === "IN_SERVICE" && row.session_status !== "COMPLETED") return { key: "finish-service", label: "Hoàn tất dịch vụ", icon: CheckCheck };
+    if (row.status === "IN_SERVICE" && row.session_status !== "COMPLETED") {
+      if (row.payment_method === "MEMBERSHIP_WALLET" || /user_package_id=/i.test(String(row.special_notes || ""))) return null;
+      return { key: "finish-service", label: "Hoàn tất dịch vụ", icon: CheckCheck };
+    }
     return null;
   };
 

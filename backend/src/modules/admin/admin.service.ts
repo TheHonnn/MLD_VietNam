@@ -1952,22 +1952,14 @@ export class AdminService {
             throw new ConflictException('Cần check-in khách trước khi bắt đầu dịch vụ.');
           await this.performBookingStart(client, row);
         } else if (action === 'start-service') {
-          if (row.status !== 'IN_SERVICE') {
-            if (!['PENDING', 'CONFIRMED', 'CHECKED_IN'].includes(row.status))
-              throw new ConflictException('Lịch hẹn không ở trạng thái có thể bắt đầu phục vụ.');
-            let currentRow = row;
-            if (currentRow.status === 'PENDING') {
-              await client.query("UPDATE bookings SET status='CONFIRMED' WHERE id=$1", [currentRow.id]);
-              currentRow = { ...currentRow, status: 'CONFIRMED' };
-            }
-            if (currentRow.status === 'CONFIRMED') {
-              const fallbackPkgId = String(currentRow.special_notes || '').match(/user_package_id=([0-9a-f-]{36})/i)?.[1];
-              await this.performBookingCheckin(client, currentRow, actor, body.userPackageId || fallbackPkgId);
-              currentRow = { ...currentRow, status: 'CHECKED_IN' };
-            }
-            if (currentRow.status === 'CHECKED_IN') {
-              await this.performBookingStart(client, currentRow);
-            }
+          if (row.status === 'PENDING')
+            throw new ConflictException('Cần xác nhận lịch hẹn trước khi check-in và phục vụ.');
+          if (row.status === 'CONFIRMED')
+            throw new ConflictException('Khách chưa check-in tại quầy. Vui lòng thực hiện bước Check-in trước khi bắt đầu phục vụ.');
+          if (row.status === 'CHECKED_IN') {
+            await this.performBookingStart(client, row);
+          } else if (row.status !== 'IN_SERVICE') {
+            throw new ConflictException('Lịch hẹn không ở trạng thái có thể bắt đầu phục vụ.');
           }
         } else if (action === 'finish-service') {
           if (row.status !== 'IN_SERVICE' || row.session_status === 'COMPLETED')
@@ -1981,71 +1973,19 @@ export class AdminService {
             throw new ConflictException('Buổi đã ghi nhận phản ứng bất thường cần được duyệt trước khi hoàn tất.');
 
           const packageId = String(row.special_notes || '').match(/user_package_id=([0-9a-f-]{36})/i)?.[1];
-          if (row.payment_method === 'MEMBERSHIP_WALLET') {
+          if (row.payment_method === 'MEMBERSHIP_WALLET' || packageId) {
             if (!packageId) throw new ConflictException('Lịch dùng gói chưa liên kết liệu trình.');
             const confirmed = journals.rows.find((journal: any) =>
               journal.user_package_id === packageId && journal.confirmation_status === 'CONFIRMED');
-            if (!confirmed) {
-              const pkg = (await client.query(
-                `SELECT up.*,tp.service_id FROM user_packages up
-                 JOIN treatment_packages tp ON tp.id=up.package_id WHERE up.id=$1 FOR UPDATE OF up`,
-                [packageId],
-              )).rows[0];
-              if (!pkg || pkg.customer_id !== row.customer_id || pkg.status !== 'ACTIVE'
-                || (pkg.expires_at && new Date(pkg.expires_at).getTime() <= Date.now())
-                || Number(pkg.completed_sessions) >= Number(pkg.total_sessions))
-                throw new ConflictException('Gói không hợp lệ, hết hạn hoặc không còn buổi.');
-              if (pkg.service_id) {
-                const matches = await client.query(
-                  'SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id=$2 LIMIT 1',
-                  [row.id, pkg.service_id],
-                );
-                const uncovered = await client.query(
-                  'SELECT 1 FROM booking_items WHERE booking_id=$1 AND service_id<>$2 LIMIT 1',
-                  [row.id, pkg.service_id],
-                );
-                if (!matches.rowCount || uncovered.rowCount)
-                  throw new ConflictException('Dịch vụ hoặc giá lịch hẹn không khớp gói.');
-              }
-              if (Number(row.final_price) !== 0)
-                throw new ConflictException('Dịch vụ hoặc giá lịch hẹn không khớp gói.');
-              const existing = journals.rows.find((journal: any) => journal.user_package_id === packageId);
-              const sessionNumber = existing?.session_number || (await client.query(
-                `SELECT n FROM generate_series(1,$2::int) n
-                 WHERE NOT EXISTS(SELECT 1 FROM treatment_journal j WHERE j.user_package_id=$1
-                   AND j.session_number=n AND j.is_reversed IS NOT TRUE
-                   AND j.confirmation_status='CONFIRMED') ORDER BY n LIMIT 1`,
-                [packageId, pkg.total_sessions],
-              )).rows[0]?.n;
-              if (!sessionNumber) throw new ConflictException('Không còn số buổi khả dụng.');
-              const confirmation = JSON.stringify({ confirmed_by: actor.id, confirmed_at: new Date().toISOString(), source: 'BOOKING_COMPLETION' });
-              if (existing) {
-                await client.query(
-                  "UPDATE treatment_journal SET confirmation_status='CONFIRMED',technical_parameters=COALESCE(technical_parameters,'{}'::jsonb)||$2::jsonb WHERE id=$1",
-                  [existing.id, confirmation],
-                );
-              } else {
-                await client.query(
-                  `INSERT INTO treatment_journal(user_package_id,booking_id,customer_id,technician_id,session_number,session_date,confirmation_status,technical_parameters)
-                   VALUES($1,$2,$3,$4,$5,(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,'CONFIRMED',$6::jsonb)`,
-                  [packageId,row.id,row.customer_id,row.technician_id,sessionNumber,confirmation],
-                );
-              }
-              await client.query(
-                "UPDATE user_packages SET completed_sessions=completed_sessions+1,status=CASE WHEN completed_sessions+1>=total_sessions THEN 'COMPLETED' ELSE status END WHERE id=$1",
-                [packageId],
-              );
-            }
+            if (!confirmed)
+              throw new ConflictException('Buổi điều trị thuộc gói liệu trình cần ghi nhận và xác nhận nhật ký chuyên môn trước khi hoàn tất dịch vụ.');
           }
           await this.recordBookingCompletionArtifacts(client, row, actor);
           await client.query(
             `UPDATE bookings SET session_status='COMPLETED',
-             status=CASE WHEN payment_status='PAID' THEN 'COMPLETED'::booking_status ELSE status END,
-             checked_out_at=CASE WHEN payment_status='PAID' THEN now() ELSE checked_out_at END,
-             checked_out_by_id=CASE WHEN payment_status='PAID' THEN $2 ELSE checked_out_by_id END,
              actual_duration_minutes=GREATEST(0,floor(extract(epoch from (now()-service_started_at))/60))::int
              WHERE id=$1`,
-            [row.id, actor.id],
+            [row.id],
           );
         } else if (action === 'checkout') {
           if (body.requireEnded === true && !(await client.query(
@@ -3913,15 +3853,9 @@ export class AdminService {
         `UPDATE bookings SET session_status='COMPLETED',
          payment_status=CASE WHEN final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
            AND special_notes LIKE ('%user_package_id=' || $2::text || ']%') THEN 'PAID'::payment_status ELSE payment_status END,
-         status=CASE WHEN payment_status='PAID' OR (final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
-           AND special_notes LIKE ('%user_package_id=' || $2::text || ']%')) THEN 'COMPLETED'::booking_status ELSE status END,
-         checked_out_at=CASE WHEN payment_status='PAID' OR (final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
-           AND special_notes LIKE ('%user_package_id=' || $2::text || ']%')) THEN COALESCE(checked_out_at, now()) ELSE checked_out_at END,
-         checked_out_by_id=CASE WHEN payment_status='PAID' OR (final_price=0 AND payment_method::text='MEMBERSHIP_WALLET'
-           AND special_notes LIKE ('%user_package_id=' || $2::text || ']%')) THEN COALESCE(checked_out_by_id, $3) ELSE checked_out_by_id END,
          actual_duration_minutes=CASE WHEN service_started_at IS NOT NULL THEN GREATEST(0,floor(extract(epoch from (now()-service_started_at))/60))::int ELSE actual_duration_minutes END
          WHERE id=$1 RETURNING *`,
-        [row.booking_id, targetPackage.id, actor.id],
+        [row.booking_id, targetPackage.id],
       )).rows[0];
       if (confirmedBookingRow) {
         await this.recordBookingCompletionArtifacts(client, confirmedBookingRow, actor);

@@ -101,6 +101,8 @@ interface TreatmentPackageUI {
   activeBookingId?: string;
   activeBookingCode?: string;
   activeBookingStatus?: string;
+  activeBookingSessionStatus?: string;
+  activeBookingPaymentStatus?: string;
   activeBookingDate?: string;
   activeBookingTime?: string;
   activeBookingBranchId?: string;
@@ -109,6 +111,7 @@ interface TreatmentPackageUI {
   pendingJournalAbnormal?: boolean;
   sessionsHistory: {
     id?: string;
+    bookingId?: string;
     number: string;
     totalSessions: number;
     date: string;
@@ -119,6 +122,8 @@ interface TreatmentPackageUI {
     isUpcoming?: boolean;
     bookingCode?: string;
     bookingStatus?: string;
+    bookingSessionStatus?: string;
+    bookingPaymentStatus?: string;
     time?: string;
     staff?: string;
     room?: string;
@@ -388,20 +393,24 @@ export const W06_TreatmentManagement: React.FC = () => {
           .map((journal) => journal.bookingId)
           .filter(Boolean)
       );
-      const relatedBookings = liveBookings
+      const allOpenBookings = liveBookings
         .filter((booking) => {
-          if (booking.customerId !== up.customerId || completedBookingIds.has(booking.id)) return false;
-          if (['CANCELLED', 'NO_SHOW'].includes(String(booking.status))) return false;
-          if (String(booking.status) === 'COMPLETED' && ['COMPLETED', 'REVERSED'].includes(String(booking.sessionStatus || ''))) return false;
+          if (['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(String(booking.status))) return false;
           return belongsToPackage(booking, up.customerId, up.id);
         })
         .sort((a, b) => {
+          const priority = (st: string) =>
+            ['IN_SERVICE', 'IN_PROGRESS'].includes(st) ? 0 : st === 'CHECKED_IN' ? 1 : st === 'CONFIRMED' ? 2 : 3;
+          const pd = priority(String(a.status)) - priority(String(b.status));
+          if (pd !== 0) return pd;
           const aTime = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
           const bTime = new Date(`${b.bookingDate}T${b.startTime || '00:00:00'}`).getTime();
           return aTime - bTime;
         });
 
-      const openBooking = relatedBookings.find((b) =>
+      const relatedBookings = allOpenBookings.filter((booking) => !completedBookingIds.has(booking.id));
+
+      const openBooking = allOpenBookings.find((b) =>
         ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(b.status))
       );
       const pendingJrn = journals.find(
@@ -416,6 +425,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         const rawConf = j.confirmationStatus || 'DRAFT';
         return {
           id: j.id,
+          bookingId: booking?.id,
           number: String(j.sessionNumber).padStart(2, '0'),
           totalSessions: total,
           date: j.sessionDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(j.sessionDate)) : '—',
@@ -429,6 +439,9 @@ export const W06_TreatmentManagement: React.FC = () => {
           beforePhotos: j.beforePhotos || [],
           afterPhotos: j.afterPhotos || [],
           bookingCode: booking?.bookingCode,
+          bookingStatus: booking ? String(booking.status) : undefined,
+          bookingSessionStatus: booking?.sessionStatus,
+          bookingPaymentStatus: booking ? String(booking.paymentStatus) : undefined,
           time: timeFromBooking,
           staff: booking?.technician?.fullName,
           room: booking?.room?.name,
@@ -514,6 +527,8 @@ export const W06_TreatmentManagement: React.FC = () => {
         activeBookingId: openBooking?.id,
         activeBookingCode: openBooking?.bookingCode,
         activeBookingStatus: openBooking ? String(openBooking.status) : undefined,
+        activeBookingSessionStatus: openBooking?.sessionStatus,
+        activeBookingPaymentStatus: openBooking ? String(openBooking.paymentStatus) : undefined,
         activeBookingDate: openBooking?.bookingDate,
         activeBookingTime: openBooking?.startTime?.slice(0, 5),
         activeBookingBranchId: openBooking?.branchId,
@@ -641,24 +656,17 @@ export const W06_TreatmentManagement: React.FC = () => {
 
   const selectedCustomer = custMap.get(selectedPkg.customerId);
   const selectedPackageBookings = useMemo(() => {
-    const confirmedBookingIds = new Set(
-      liveJournals
-        .filter((journal) => !journal.isReversed && journal.confirmationStatus === 'CONFIRMED')
-        .map((journal) => journal.bookingId)
-        .filter(Boolean)
-    );
     return liveBookings
       .filter((booking) => {
-        if (['CANCELLED', 'NO_SHOW'].includes(String(booking.status))) return false;
-        if (String(booking.status) === 'COMPLETED' && ['COMPLETED', 'REVERSED'].includes(String(booking.sessionStatus || ''))) return false;
-        return !confirmedBookingIds.has(booking.id) && belongsToPackage(booking, selectedPkg.customerId, selectedPkg.id);
+        if (['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(String(booking.status))) return false;
+        return belongsToPackage(booking, selectedPkg.customerId, selectedPkg.id);
       })
       .sort((a, b) => {
         const aTime = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
         const bTime = new Date(`${b.bookingDate}T${b.startTime || '00:00:00'}`).getTime();
-        return bTime - aTime;
+        return aTime - bTime;
       });
-  }, [liveBookings, liveJournals, selectedPkg.customerId, selectedPkg.id]);
+  }, [liveBookings, selectedPkg.customerId, selectedPkg.id]);
 
   const openPackageBooking = selectedPackageBookings.find((booking) =>
     ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'IN_PROGRESS'].includes(String(booking.status))
@@ -690,21 +698,73 @@ export const W06_TreatmentManagement: React.FC = () => {
     setFilterExpiry('');
   };
 
-  const handleQuickStartService = async (bookingId: string, pkgId?: string) => {
+  const handleConfirmPackageBooking = async (bookingId: string, pkgId?: string) => {
+    if (pkgId) setSelectedPkgId(pkgId);
+    try {
+      const res = await bookingService.runWorkflowAction(bookingId, 'confirm');
+      if (!res.success) {
+        toast.error('Không thể xác nhận lịch', res.message || 'Vui lòng thử lại.');
+        return;
+      }
+      toast.success('Đã xác nhận lịch hẹn', 'Khi khách hàng đến cơ sở đúng ngày hẹn, hãy bấm "Check-in khách".');
+      await fetchTreatmentData(false, true);
+    } catch (err: any) {
+      toast.error('Lỗi hệ thống', err.message || 'Không thể kết nối máy chủ.');
+    }
+  };
+
+  const handleCheckInPackageBooking = async (bookingId: string, pkgId?: string) => {
     if (pkgId) setSelectedPkgId(pkgId);
     const effectivePkgId = pkgId || selectedPkg.id;
     const targetBooking = bookingMap.get(bookingId);
+    const todayVn = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+    const bookingDay = String(targetBooking?.bookingDate || '').slice(0, 10);
+    if (bookingDay && bookingDay > todayVn) {
+      toast.warning('Chưa đến ngày hẹn', 'Chỉ có thể Check-in khi đến đúng ngày hẹn của khách.');
+      return;
+    }
     try {
-      const payload =
-        !targetBooking?.paymentMethod || targetBooking.paymentMethod === 'MEMBERSHIP_WALLET'
-          ? { userPackageId: effectivePkgId }
-          : {};
-      const res = await bookingService.runWorkflowAction(bookingId, 'start-service', payload);
+      const res = await bookingService.runWorkflowAction(bookingId, 'checkin', {
+        userPackageId: effectivePkgId,
+      });
       if (!res.success) {
-        toast.error('Không thể bắt đầu ca', res.message || 'Vui lòng thử lại.');
+        toast.error('Không thể Check-in', res.message || 'Vui lòng kiểm tra điều kiện lịch hẹn và gói liệu trình.');
         return;
       }
-      toast.success('Đã bắt đầu phục vụ', 'Lịch hẹn đã chuyển sang Đang phục vụ. Bạn có thể bấm Ghi nhật ký để hoàn tất và trừ buổi ngay.');
+      toast.success('Đã tiếp đón Check-in', 'Khách đã sẵn sàng tại cơ sở. Bấm "Bắt đầu phục vụ" khi đưa khách vào phòng.');
+      await fetchTreatmentData(false, true);
+    } catch (err: any) {
+      toast.error('Lỗi hệ thống', err.message || 'Không thể kết nối máy chủ.');
+    }
+  };
+
+  const handleStartPackageBooking = async (bookingId: string, pkgId?: string) => {
+    if (pkgId) setSelectedPkgId(pkgId);
+    const effectivePkgId = pkgId || selectedPkg.id;
+    try {
+      const res = await bookingService.runWorkflowAction(bookingId, 'start', {
+        userPackageId: effectivePkgId,
+      });
+      if (!res.success) {
+        toast.error('Không thể bắt đầu ca', res.message || 'Khách cần hoàn tất Check-in trước khi bắt đầu phục vụ.');
+        return;
+      }
+      toast.success('Đã bắt đầu phục vụ', 'Ca đang thực hiện trong phòng. Bấm "Ghi nhật ký" sau khi hoàn thành chăm sóc.');
+      await fetchTreatmentData(false, true);
+    } catch (err: any) {
+      toast.error('Lỗi hệ thống', err.message || 'Không thể kết nối máy chủ.');
+    }
+  };
+
+  const handleCheckoutPackageBooking = async (bookingId: string, pkgId?: string) => {
+    if (pkgId) setSelectedPkgId(pkgId);
+    try {
+      const res = await bookingService.runWorkflowAction(bookingId, 'checkout');
+      if (!res.success) {
+        toast.error('Chưa thể kết thúc ca', res.message || 'Cần xác nhận nhật ký chuyên môn trước khi kết thúc ca.');
+        return;
+      }
+      toast.success('Đã kết thúc ca & Hoàn tất', 'Lịch hẹn đã hoàn tất đầy đủ quy trình và giải phóng phòng/giường.');
       await fetchTreatmentData(false, true);
     } catch (err: any) {
       toast.error('Lỗi hệ thống', err.message || 'Không thể kết nối máy chủ.');
@@ -739,12 +799,26 @@ export const W06_TreatmentManagement: React.FC = () => {
   const handleQuickConfirmJournal = async (journalId: string, rawStatus?: string, hasAbnormal?: boolean) => {
     try {
       const isDraft = !rawStatus || rawStatus === 'DRAFT' || rawStatus === 'PENDING';
-      const res = await treatmentService.finalizeExistingJournalSession(journalId, {
-        isDraft,
-        hasAbnormalReaction: Boolean(hasAbnormal),
-      });
+      if (isDraft) {
+        const res = await treatmentService.finalizeExistingJournalSession(journalId, {
+          isDraft: true,
+          hasAbnormalReaction: Boolean(hasAbnormal),
+        });
+        if (res.success) {
+          toast.success('Đã gửi hồ sơ chuyên môn', res.message);
+          await fetchTreatmentData(false, true);
+        } else {
+          toast.error('Chưa thể gửi hồ sơ', res.message || 'Vui lòng bổ sung đủ thông tin nhật ký trước khi gửi.');
+        }
+        return;
+      }
+      if (rawStatus === 'REVIEW_REQUIRED') {
+        toast.warning('Cần duyệt chuyên môn trước', 'Buổi có phản ứng bất thường cần bấm "Duyệt chuyên môn" trước khi xác nhận trừ buổi.');
+        return;
+      }
+      const res = await treatmentService.confirmTreatmentSession(journalId, `confirm-session:${journalId}`);
       if (res.success) {
-        toast.success('Đã xác nhận & trừ 1 buổi', 'Buổi điều trị đã được xác nhận hoàn thành và trừ 1 lượt trong gói.');
+        toast.success('Đã xác nhận & trừ 1 buổi', 'Buổi điều trị đã được trừ lượt. Hãy bấm "Kết thúc ca" để đóng lịch hẹn.');
         await fetchTreatmentData(false, true);
       } else {
         toast.error('Không thể xác nhận buổi', res.message || 'Vui lòng kiểm tra đủ nội dung nhật ký trước khi xác nhận.');
@@ -762,6 +836,13 @@ export const W06_TreatmentManagement: React.FC = () => {
         targetPkg.rawStatus === 'EXPIRED'
           ? 'Gói đã hết hạn. Hãy gia hạn hoặc đăng ký gói mới trước khi xếp lịch.'
           : 'Chỉ gói đang hoạt động mới được sử dụng để đặt buổi.'
+      );
+      return;
+    }
+    if (targetPkg.activeBookingId) {
+      toast.warning(
+        'Đang có lịch hẹn chưa hoàn tất',
+        'Vui lòng xử lý tuần tự các bước của lịch hẹn hiện tại đến bước "Kết thúc ca" trước khi đặt buổi tiếp theo.'
       );
       return;
     }
@@ -860,7 +941,7 @@ export const W06_TreatmentManagement: React.FC = () => {
         }
         toast.success(
           'Đặt lịch thành công',
-          `Đã tạo lịch hẹn ${res.data?.bookingCode || ''} cho khách ${selectedCustomer.fullName}. Bạn có thể bấm "Bắt đầu phục vụ" ngay trên dòng gói khi khách đến.`
+          `Đã tạo lịch hẹn ${res.data?.bookingCode || ''} cho khách ${selectedCustomer.fullName}. Khi khách đến cơ sở, hãy thực hiện tuần tự: Check-in -> Bắt đầu phục vụ -> Ghi nhật ký -> Kết thúc ca.`
         );
         setIsBookNextModalOpen(false);
         await fetchTreatmentData(false, true);
@@ -1006,9 +1087,9 @@ export const W06_TreatmentManagement: React.FC = () => {
 
       if (res.success) {
         if (confirmImmediately) {
-          toast.success('Đã hoàn tất & trừ 1 buổi', 'Hồ sơ điều trị đã được xác nhận và trừ 1 buổi trong gói liệu trình.');
+          toast.success('Đã xác nhận buổi & trừ 1 lượt', 'Hồ sơ đã được xác nhận. Bấm "Kết thúc ca" để đóng lịch hẹn và giải phóng phòng/giường.');
         } else {
-          toast.success('Đã lưu bản nháp', 'Hồ sơ đã lưu nháp (chưa trừ buổi). Bạn có thể bấm "Xác nhận & Trừ buổi" bất cứ lúc nào.');
+          toast.success('Đã lưu bản nháp', 'Hồ sơ đã lưu nháp (chưa trừ buổi). Bạn có thể tiếp tục hoàn thiện trước khi xác nhận.');
         }
         setIsLogSessionModalOpen(false);
         await fetchTreatmentData(false, true);
@@ -1599,14 +1680,22 @@ export const W06_TreatmentManagement: React.FC = () => {
                             <span className="text-[10px] font-semibold text-[#8A4F23] flex items-center gap-1">
                               <Clock className="w-3 h-3" />
                               {['IN_SERVICE', 'IN_PROGRESS'].includes(String(pkg.activeBookingStatus))
-                                ? 'Đang trong ca phục vụ'
-                                : `Có lịch hẹn: ${pkg.activeBookingDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(pkg.activeBookingDate)) : ''}`}
+                                ? pkg.activeBookingSessionStatus === 'COMPLETED'
+                                  ? 'Đã xong chuyên môn · Chờ kết thúc ca'
+                                  : 'Đang trong ca phục vụ'
+                                : pkg.activeBookingStatus === 'CHECKED_IN'
+                                ? 'Đã Check-in · Chờ vào phòng'
+                                : pkg.activeBookingStatus === 'PENDING'
+                                ? 'Chờ xác nhận lịch hẹn'
+                                : `Đã xác nhận · ${pkg.activeBookingDate ? new Intl.DateTimeFormat('vi-VN').format(new Date(pkg.activeBookingDate)) : ''}`}
                             </span>
                           )}
                           {pkg.activeBookingId && pkg.rawStatus !== 'ACTIVE' && (
                             <span className="text-[10px] font-semibold text-[#D97706] flex items-center gap-1">
                               <AlertCircle className="w-3 h-3" />
-                              Còn lịch hẹn tồn đọng
+                              {['IN_SERVICE', 'IN_PROGRESS'].includes(String(pkg.activeBookingStatus)) && pkg.activeBookingSessionStatus === 'COMPLETED'
+                                ? 'Chờ bấm Kết thúc ca'
+                                : 'Còn lịch hẹn tồn đọng'}
                             </span>
                           )}
                         </div>
@@ -1614,18 +1703,50 @@ export const W06_TreatmentManagement: React.FC = () => {
 
                       <td className="py-3.5 px-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="inline-flex items-center justify-end gap-1.5">
-                          {pkg.rawStatus === 'ACTIVE' && pkg.pendingJournalId ? (
+                          {pkg.activeBookingId && ['IN_SERVICE', 'IN_PROGRESS'].includes(String(pkg.activeBookingStatus)) && pkg.activeBookingSessionStatus === 'COMPLETED' ? (
                             <button
                               type="button"
-                              onClick={() => {
-                                setSelectedPkgId(pkg.id);
-                                handleQuickConfirmJournal(pkg.pendingJournalId!, pkg.pendingJournalStatus, pkg.pendingJournalAbnormal);
-                              }}
-                              className="px-3 py-1.5 rounded-xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                              onClick={() => handleCheckoutPackageBooking(pkg.activeBookingId!, pkg.id)}
+                              className="px-3 py-1.5 rounded-xl bg-[#0D6832] hover:bg-[#0A5428] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>Xác nhận & Trừ buổi</span>
+                              <span>Kết thúc ca</span>
                             </button>
+                          ) : pkg.rawStatus === 'ACTIVE' && pkg.pendingJournalId ? (
+                            pkg.pendingJournalStatus === 'DRAFT' || pkg.pendingJournalStatus === 'PENDING' ? (
+                              <button
+                                type="button"
+                                onClick={() => openLogSessionModalForTarget(pkg)}
+                                className="px-3 py-1.5 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Sửa & Gửi nhật ký</span>
+                              </button>
+                            ) : pkg.pendingJournalStatus === 'REVIEW_REQUIRED' ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedPkgId(pkg.id);
+                                  handleApproveClinical(pkg.pendingJournalId!);
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-[#1E40AF] hover:bg-[#1E3A8A] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                              >
+                                <Award className="w-3.5 h-3.5" />
+                                <span>Duyệt chuyên môn</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedPkgId(pkg.id);
+                                  handleQuickConfirmJournal(pkg.pendingJournalId!, pkg.pendingJournalStatus, pkg.pendingJournalAbnormal);
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Xác nhận & Trừ buổi</span>
+                              </button>
+                            )
                           ) : pkg.rawStatus === 'ACTIVE' && ['IN_SERVICE', 'IN_PROGRESS'].includes(String(pkg.activeBookingStatus)) ? (
                             <button
                               type="button"
@@ -1635,14 +1756,32 @@ export const W06_TreatmentManagement: React.FC = () => {
                               <FileText className="w-3.5 h-3.5" />
                               <span>Ghi nhật ký buổi {pkg.usedSessions + 1}</span>
                             </button>
-                          ) : pkg.rawStatus === 'ACTIVE' && pkg.activeBookingId && ['PENDING', 'CONFIRMED', 'CHECKED_IN'].includes(String(pkg.activeBookingStatus)) ? (
+                          ) : pkg.rawStatus === 'ACTIVE' && pkg.activeBookingId && pkg.activeBookingStatus === 'CHECKED_IN' ? (
                             <button
                               type="button"
-                              onClick={() => handleQuickStartService(pkg.activeBookingId!, pkg.id)}
+                              onClick={() => handleStartPackageBooking(pkg.activeBookingId!, pkg.id)}
                               className="px-3 py-1.5 rounded-xl bg-[#004890] hover:bg-[#003770] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
                             >
                               <Play className="w-3.5 h-3.5" />
                               <span>Bắt đầu phục vụ</span>
+                            </button>
+                          ) : pkg.rawStatus === 'ACTIVE' && pkg.activeBookingId && pkg.activeBookingStatus === 'CONFIRMED' ? (
+                            <button
+                              type="button"
+                              onClick={() => handleCheckInPackageBooking(pkg.activeBookingId!, pkg.id)}
+                              className="px-3 py-1.5 rounded-xl bg-[#0D6832] hover:bg-[#0A5428] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>Check-in khách</span>
+                            </button>
+                          ) : pkg.rawStatus === 'ACTIVE' && pkg.activeBookingId && pkg.activeBookingStatus === 'PENDING' ? (
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmPackageBooking(pkg.activeBookingId!, pkg.id)}
+                              className="px-3 py-1.5 rounded-xl bg-[#8A4F23] hover:bg-[#723F1A] text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Xác nhận lịch hẹn</span>
                             </button>
                           ) : pkg.rawStatus === 'ACTIVE' && pkg.remainingSessions > 0 ? (
                             <button
@@ -1770,32 +1909,68 @@ export const W06_TreatmentManagement: React.FC = () => {
                 {selectedPkg.historySubtitle}
               </p>
             </div>
-            {selectedPkg.rawStatus === 'ACTIVE' && selectedPkg.remainingSessions > 0 && (
-              <div className="flex items-center gap-2">
-                {hasInServiceBooking ? (
-                  <button
-                    type="button"
-                    onClick={handleOpenLogSessionModal}
-                    className="px-3.5 py-2 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>Ghi nhật ký & Trừ buổi ({selectedPkg.usedSessions + 1}/{selectedPkg.sessionsTotal})</span>
-                  </button>
-                ) : !openPackageBooking ? (
-                  <button
-                    type="button"
-                    onClick={handleOpenBookModal}
-                    className="px-3.5 py-2 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>+ Đặt lịch buổi {selectedPkg.usedSessions + 1}</span>
-                  </button>
-                ) : null}
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {openPackageBooking && ['IN_SERVICE', 'IN_PROGRESS'].includes(String(openPackageBooking.status)) && openPackageBooking.sessionStatus === 'COMPLETED' ? (
+                <button
+                  type="button"
+                  onClick={() => handleCheckoutPackageBooking(openPackageBooking.id, selectedPkg.id)}
+                  className="px-3.5 py-2 rounded-xl bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Kết thúc ca & Hoàn tất</span>
+                </button>
+              ) : selectedPkg.rawStatus === 'ACTIVE' && hasInServiceBooking ? (
+                <button
+                  type="button"
+                  onClick={handleOpenLogSessionModal}
+                  className="px-3.5 py-2 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Ghi nhật ký & Trừ buổi ({selectedPkg.usedSessions + 1}/{selectedPkg.sessionsTotal})</span>
+                </button>
+              ) : selectedPkg.rawStatus === 'ACTIVE' && openPackageBooking?.status === 'CHECKED_IN' ? (
+                <button
+                  type="button"
+                  onClick={() => handleStartPackageBooking(openPackageBooking.id, selectedPkg.id)}
+                  className="px-3.5 py-2 rounded-xl bg-[#004890] hover:bg-[#003770] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>Bắt đầu phục vụ</span>
+                </button>
+              ) : selectedPkg.rawStatus === 'ACTIVE' && openPackageBooking?.status === 'CONFIRMED' ? (
+                <button
+                  type="button"
+                  onClick={() => handleCheckInPackageBooking(openPackageBooking.id, selectedPkg.id)}
+                  className="px-3.5 py-2 rounded-xl bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Check-in khách</span>
+                </button>
+              ) : selectedPkg.rawStatus === 'ACTIVE' && openPackageBooking?.status === 'PENDING' ? (
+                <button
+                  type="button"
+                  onClick={() => handleConfirmPackageBooking(openPackageBooking.id, selectedPkg.id)}
+                  className="px-3.5 py-2 rounded-xl bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Xác nhận lịch hẹn</span>
+                </button>
+              ) : selectedPkg.rawStatus === 'ACTIVE' && selectedPkg.remainingSessions > 0 && !openPackageBooking ? (
+                <button
+                  type="button"
+                  onClick={handleOpenBookModal}
+                  className="px-3.5 py-2 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>+ Đặt lịch buổi {selectedPkg.usedSessions + 1}</span>
+                </button>
+              ) : null}
+            </div>
           </div>
 
-          {openPackageBooking && selectedPkg.rawStatus !== 'ACTIVE' && (
+          {openPackageBooking && selectedPkg.rawStatus !== 'ACTIVE' && !(
+            ['IN_SERVICE', 'IN_PROGRESS'].includes(String(openPackageBooking.status)) && openPackageBooking.sessionStatus === 'COMPLETED'
+          ) && (
             <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-950 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
@@ -1873,17 +2048,37 @@ export const W06_TreatmentManagement: React.FC = () => {
                       <div className="flex flex-wrap items-center gap-2">
                         {s.id && s.isUpcoming && (
                           <>
-                            {selectedPkg.rawStatus === 'ACTIVE' && ['PENDING', 'CONFIRMED', 'CHECKED_IN'].includes(String(s.bookingStatus)) && (
+                            {selectedPkg.rawStatus === 'ACTIVE' && s.bookingStatus === 'PENDING' && (
                               <button
                                 type="button"
-                                onClick={() => handleQuickStartService(s.id!, selectedPkg.id)}
+                                onClick={() => handleConfirmPackageBooking(s.id!, selectedPkg.id)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-[#8A4F23] hover:bg-[#723F1A] rounded-lg shadow-xs cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Xác nhận lịch hẹn</span>
+                              </button>
+                            )}
+                            {selectedPkg.rawStatus === 'ACTIVE' && s.bookingStatus === 'CONFIRMED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleCheckInPackageBooking(s.id!, selectedPkg.id)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-[#0D6832] hover:bg-[#0A5428] rounded-lg shadow-xs cursor-pointer"
+                              >
+                                <Sparkles className="w-3 h-3" />
+                                <span>Check-in khách</span>
+                              </button>
+                            )}
+                            {selectedPkg.rawStatus === 'ACTIVE' && s.bookingStatus === 'CHECKED_IN' && (
+                              <button
+                                type="button"
+                                onClick={() => handleStartPackageBooking(s.id!, selectedPkg.id)}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-[#004890] hover:bg-[#003770] rounded-lg shadow-xs cursor-pointer"
                               >
                                 <Play className="w-3 h-3" />
                                 <span>Bắt đầu phục vụ</span>
                               </button>
                             )}
-                            {selectedPkg.rawStatus === 'ACTIVE' && ['IN_SERVICE', 'IN_PROGRESS'].includes(String(s.bookingStatus)) && (
+                            {selectedPkg.rawStatus === 'ACTIVE' && ['IN_SERVICE', 'IN_PROGRESS'].includes(String(s.bookingStatus)) && s.bookingSessionStatus !== 'COMPLETED' && (
                               <button
                                 type="button"
                                 onClick={handleOpenLogSessionModal}
@@ -1919,6 +2114,16 @@ export const W06_TreatmentManagement: React.FC = () => {
                         )}
                         {s.id && !s.isReversed && !s.isUpcoming && (
                           <>
+                            {s.bookingId && ['IN_SERVICE', 'IN_PROGRESS'].includes(String(s.bookingStatus)) && s.bookingSessionStatus === 'COMPLETED' && s.bookingPaymentStatus === 'PAID' && (
+                              <button
+                                type="button"
+                                onClick={() => handleCheckoutPackageBooking(s.bookingId!, selectedPkg.id)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-[#0D6832] hover:bg-[#0A5428] rounded-lg transition-all shadow-xs cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Kết thúc ca</span>
+                              </button>
+                            )}
                             {['DRAFT', 'PENDING'].includes(String(s.rawConfirmationStatus || 'DRAFT')) && selectedPkg.rawStatus === 'ACTIVE' && hasInServiceBooking && (
                               <button
                                 type="button"
@@ -1929,14 +2134,14 @@ export const W06_TreatmentManagement: React.FC = () => {
                                 <span>Sửa nháp</span>
                               </button>
                             )}
-                            {isUnconfirmedJournal && selectedPkg.rawStatus === 'ACTIVE' && (
+                            {isUnconfirmedJournal && selectedPkg.rawStatus === 'ACTIVE' && s.rawConfirmationStatus !== 'REVIEW_REQUIRED' && (
                               <button
                                 type="button"
                                 onClick={() => handleQuickConfirmJournal(s.id!, s.rawConfirmationStatus, s.hasAbnormalReaction)}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-[#2E7D32] hover:bg-[#1B5E20] rounded-lg transition-all shadow-xs cursor-pointer"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>Xác nhận & Trừ 1 buổi</span>
+                                <span>{['DRAFT', 'PENDING'].includes(String(s.rawConfirmationStatus || 'DRAFT')) ? 'Gửi xác nhận' : 'Xác nhận & Trừ 1 buổi'}</span>
                               </button>
                             )}
                             {s.clinicalApprovedAt ? (
@@ -2183,7 +2388,7 @@ export const W06_TreatmentManagement: React.FC = () => {
               </div>
             )}
 
-            {selectedPkg.rawStatus === 'ACTIVE' && selectedPkg.remainingSessions > 0 && (
+            {(selectedPkg.rawStatus === 'ACTIVE' || (openPackageBooking && ['IN_SERVICE', 'IN_PROGRESS'].includes(String(openPackageBooking.status)) && openPackageBooking.sessionStatus === 'COMPLETED')) && (
               <div className="space-y-2 pt-1">
                 {openPackageBooking && (
                   <div className="rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] p-3 text-xs space-y-2">
@@ -2196,23 +2401,59 @@ export const W06_TreatmentManagement: React.FC = () => {
                     </div>
                     <div className="text-[11px] text-[#73675F]">
                       {['IN_SERVICE', 'IN_PROGRESS'].includes(String(openPackageBooking.status))
-                        ? 'Trạng thái: Khách đang trong phòng phục vụ. Hãy bấm Ghi nhật ký để hoàn tất và trừ 1 buổi.'
-                        : 'Trạng thái: Đã đặt lịch hẹn. Khi khách đến, hãy bấm Bắt đầu phục vụ.'}
+                        ? openPackageBooking.sessionStatus === 'COMPLETED'
+                          ? 'Trạng thái: Đã xác nhận nhật ký buổi. Bấm Kết thúc ca để hoàn tất và đóng lịch.'
+                          : 'Trạng thái: Đang trong phòng phục vụ. Hãy bấm Ghi nhật ký để xác nhận buổi.'
+                        : openPackageBooking.status === 'CHECKED_IN'
+                        ? 'Trạng thái: Khách đã Check-in tại quầy. Bấm Bắt đầu phục vụ khi vào phòng.'
+                        : openPackageBooking.status === 'CONFIRMED'
+                        ? 'Trạng thái: Đã xác nhận lịch hẹn. Khi khách đến đúng ngày hẹn, bấm Check-in khách.'
+                        : 'Trạng thái: Lịch mới tiếp nhận. Cần bấm Xác nhận lịch hẹn trước.'}
                     </div>
-                    {['PENDING', 'CONFIRMED', 'CHECKED_IN'].includes(String(openPackageBooking.status)) && (
+                    {openPackageBooking.status === 'PENDING' && selectedPkg.rawStatus === 'ACTIVE' && (
                       <button
                         type="button"
-                        onClick={() => handleQuickStartService(openPackageBooking.id, selectedPkg.id)}
+                        onClick={() => handleConfirmPackageBooking(openPackageBooking.id, selectedPkg.id)}
+                        className="w-full py-2 bg-[#8A4F23] hover:bg-[#723F1A] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Bước 1: Xác nhận lịch hẹn</span>
+                      </button>
+                    )}
+                    {openPackageBooking.status === 'CONFIRMED' && selectedPkg.rawStatus === 'ACTIVE' && (
+                      <button
+                        type="button"
+                        onClick={() => handleCheckInPackageBooking(openPackageBooking.id, selectedPkg.id)}
+                        className="w-full py-2 bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Bước 2: Check-in khách tại quầy</span>
+                      </button>
+                    )}
+                    {openPackageBooking.status === 'CHECKED_IN' && selectedPkg.rawStatus === 'ACTIVE' && (
+                      <button
+                        type="button"
+                        onClick={() => handleStartPackageBooking(openPackageBooking.id, selectedPkg.id)}
                         className="w-full py-2 bg-[#004890] hover:bg-[#003770] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <Play className="w-3.5 h-3.5" />
-                        <span>Bắt đầu phục vụ ngay (Check-in)</span>
+                        <span>Bước 3: Bắt đầu phục vụ</span>
+                      </button>
+                    )}
+                    {['IN_SERVICE', 'IN_PROGRESS'].includes(String(openPackageBooking.status)) && openPackageBooking.sessionStatus === 'COMPLETED' && (
+                      <button
+                        type="button"
+                        onClick={() => handleCheckoutPackageBooking(openPackageBooking.id, selectedPkg.id)}
+                        className="w-full py-2.5 bg-[#0D6832] hover:bg-[#0A5428] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Bước 5: Kết thúc ca & Hoàn tất</span>
                       </button>
                     )}
                   </div>
                 )}
 
-                {hasInServiceBooking ? (
+                {selectedPkg.rawStatus === 'ACTIVE' && hasInServiceBooking && openPackageBooking?.sessionStatus !== 'COMPLETED' ? (
                   <button
                     type="button"
                     onClick={handleOpenLogSessionModal}
@@ -2221,7 +2462,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                     <FileText className="w-4 h-4" />
                     <span>Ghi nhật ký & Trừ buổi ({selectedPkg.usedSessions + 1}/{selectedPkg.sessionsTotal})</span>
                   </button>
-                ) : !openPackageBooking ? (
+                ) : selectedPkg.rawStatus === 'ACTIVE' && selectedPkg.remainingSessions > 0 && !openPackageBooking ? (
                   <button
                     type="button"
                     onClick={handleOpenBookModal}
@@ -2230,7 +2471,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                     <Calendar className="w-4 h-4" />
                     <span>+ Đặt lịch buổi tiếp theo ({selectedPkg.usedSessions + 1}/{selectedPkg.sessionsTotal})</span>
                   </button>
-                ) : (
+                ) : openPackageBooking ? (
                   <button
                     type="button"
                     onClick={() =>
@@ -2241,7 +2482,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                     <Calendar className="w-4 h-4" />
                     <span>Xem trên bảng Điều phối lịch KTV</span>
                   </button>
-                )}
+                ) : null}
               </div>
             )}
 

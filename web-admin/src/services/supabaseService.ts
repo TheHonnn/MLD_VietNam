@@ -1391,28 +1391,36 @@ class SupabaseService {
         };
       }
 
-      // Fallback update trực tiếp
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
-      const timeStr = now.toTimeString().split(' ')[0];
-      let filter = `booking_date=eq.${todayStr}&end_time=lte.${timeStr}&status=in.(CONFIRMED,IN_SERVICE)`;
+      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(now);
+      const timeStr = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }).format(now);
+      let filter = `status=eq.IN_SERVICE&session_status=eq.COMPLETED&payment_status=eq.PAID`;
       if (branchId && isUuid(branchId)) filter += `&branch_id=eq.${branchId}`;
 
-      const past = await this.query<any[]>(`bookings?${filter}&select=id`);
+      const past = await this.query<any[]>(`bookings?${filter}&select=id,booking_date,end_time`);
+      const eligible = (past || []).filter((item: any) => {
+        const bDate = String(item.booking_date || '').slice(0, 10);
+        const bEnd = String(item.end_time || '').slice(0, 8);
+        return bDate < todayStr || (bDate === todayStr && bEnd <= timeStr);
+      });
       let releasedCount = 0;
-      if (past && past.length > 0) {
-        for (const item of past) {
-          await this.query(`bookings?id=eq.${item.id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ status: 'COMPLETED' }),
-          });
-          releasedCount++;
-        }
+      for (const item of eligible) {
+        await this.query(`bookings?id=eq.${item.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'COMPLETED', checked_out_at: now.toISOString() }),
+        });
+        releasedCount++;
       }
 
       return {
         releasedCount,
-        message: `Đã tự động giải phóng ${releasedCount} ca trị liệu hoàn tất (nhả giường & KTV).`,
+        message: `Đã tự động đóng ca cho ${releasedCount} ca đã đủ chuyên môn và thanh toán.`,
       };
     } catch (err: any) {
       console.warn('[SupabaseService] releaseCompletedBookings error:', err);
