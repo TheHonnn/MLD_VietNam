@@ -53,6 +53,10 @@ import {
   TreatmentJournal,
 } from '../types/shared_types';
 import { matchSearch, isUuid } from '../utils/searchUtils';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import type { RealtimeTable } from '../services/realtime.service';
+
+const REALTIME_SCHEDULE_TABLES: RealtimeTable[] = ['bookings', 'user_packages', 'treatment_journal'];
 
 const SUPABASE_URL =
   (import.meta as any).env?.VITE_SUPABASE_URL || 'https://wstvwushpwcdsmhpunvh.supabase.co';
@@ -339,6 +343,13 @@ export const W05_StaffSchedule: React.FC = () => {
   useEffect(() => {
     fetchScheduleData();
   }, [fetchScheduleData]);
+
+  useRealtimeSync({
+    tables: REALTIME_SCHEDULE_TABLES,
+    onDataChange: () => {
+      void fetchScheduleData();
+    },
+  });
 
 
   // Synchronize with URL searchParams & global branch changes
@@ -944,17 +955,26 @@ export const W05_StaffSchedule: React.FC = () => {
     setIsUpdatingStatus(true);
     try {
       const app = allAppointments.find((item) => item.id === bookingId);
+      const isPending = app?.statusRaw === 'PENDING';
       const success = app
-        ? await handleBookingAction(app, app.statusRaw === 'PENDING' ? 'cancel' : 'no-show', { reason: 'Khách không đến và lịch đã quá thời gian giữ chỗ.' })
+        ? await handleBookingAction(
+            app,
+            isPending ? 'cancel' : 'no-show',
+            {
+              reason: isPending
+                ? 'Khách không xác nhận và lịch đã quá thời gian giữ chỗ.'
+                : 'Khách không đến và lịch đã quá thời gian giữ chỗ.',
+            }
+          )
         : false;
       if (success) {
         toast.success(
-          'Đã ghi nhận không đến',
+          isPending ? 'Đã hủy lịch quá hạn' : 'Đã ghi nhận không đến',
           'Kỹ thuật viên và phòng/giường đã được giải phóng.'
         );
         setValidationModalApp(null);
       } else {
-        toast.error('Lỗi thao tác', 'Không thể ghi nhận khách không đến.');
+        toast.error('Lỗi thao tác', 'Không thể giải phóng lịch hẹn quá hạn.');
       }
     } catch (err) {
       toast.error('Lỗi hệ thống', 'Vui lòng thử lại sau.');
@@ -963,7 +983,6 @@ export const W05_StaffSchedule: React.FC = () => {
     }
   };
 
-  // Drop ALL overdue bookings in bulk
   const handleDropAllOverdueBookings = async () => {
     if (overdueBookings.length === 0) {
       toast.info('Thông báo', 'Không có lịch hẹn nào bị quá hạn.');
@@ -975,9 +994,14 @@ export const W05_StaffSchedule: React.FC = () => {
       let removed = 0;
       for (const booking of overdueBookings) {
         const app = allAppointments.find((item) => item.id === booking.id);
-        if (app && await handleBookingAction(app, app.statusRaw === 'PENDING' ? 'cancel' : 'no-show', {
-          reason: 'Khách không đến và lịch đã quá thời gian giữ chỗ.',
-        })) removed += 1;
+        if (app) {
+          const isPending = app.statusRaw === 'PENDING';
+          if (await handleBookingAction(app, isPending ? 'cancel' : 'no-show', {
+            reason: isPending
+              ? 'Khách không xác nhận và lịch đã quá thời gian giữ chỗ.'
+              : 'Khách không đến và lịch đã quá thời gian giữ chỗ.',
+          })) removed += 1;
+        }
       }
       await fetchScheduleData();
       if (removed === overdueBookings.length) {
@@ -1896,7 +1920,7 @@ export const W05_StaffSchedule: React.FC = () => {
                     </span>
                   ) : selectedApp.statusRaw === 'IN_SERVICE' ? (
                     <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]">
-                      {selectedApp.sessionStatus === 'COMPLETED' ? 'Chờ quyết toán' : 'Đang thực hiện'}
+                      {selectedApp.sessionStatus === 'COMPLETED' ? (selectedApp.paymentStatus === 'PAID' ? 'Sẵn sàng đóng ca' : 'Chờ quyết toán') : 'Đang thực hiện'}
                     </span>
                   ) : selectedApp.statusRaw === 'CHECKED_IN' ? (
                     <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#ECFDF3] text-[#166534] border border-[#BBF7D0]">
@@ -2149,7 +2173,7 @@ export const W05_StaffSchedule: React.FC = () => {
                   </div>
                   {selectedApp.statusRaw === 'IN_SERVICE' && selectedApp.sessionStatus === 'COMPLETED' && (
                     <p className="mt-2.5 text-[11px] font-semibold text-[#8A4F23]">
-                      Hồ sơ chuyên môn đã lưu. {selectedApp.paymentStatus === 'PAID' ? 'Hệ thống đang đóng ca.' : 'Cần quyết toán tại POS để đóng ca.'}
+                      Hồ sơ chuyên môn đã lưu. {selectedApp.paymentStatus === 'PAID' ? 'Bấm "Kết thúc ca" để hoàn tất & trả phòng.' : 'Cần quyết toán tại POS để đóng ca.'}
                     </p>
                   )}
                 </div>
@@ -2205,14 +2229,28 @@ export const W05_StaffSchedule: React.FC = () => {
                         <span>{isUpdatingStatus ? 'Đang giải phóng...' : 'Bỏ lịch hẹn quá hạn ngay'}</span>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleCheckIn(selectedApp)}
-                        className="w-full py-2 bg-[#FAF4EE] hover:bg-[#F3E2CE] text-[#8A4F23] border border-[#E8DFD8] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Khách đã đến, thực hiện check-in</span>
-                      </button>
+                      {selectedApp.statusRaw === 'CONFIRMED' && (
+                        <button
+                          type="button"
+                          onClick={() => handleCheckIn(selectedApp)}
+                          className="w-full py-2 bg-[#FAF4EE] hover:bg-[#F3E2CE] text-[#8A4F23] border border-[#E8DFD8] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Khách đã đến, thực hiện check-in</span>
+                        </button>
+                      )}
+
+                      {selectedApp.statusRaw === 'PENDING' && (
+                        <button
+                          type="button"
+                          disabled={isUpdatingStatus}
+                          onClick={() => handleBookingAction(selectedApp, 'confirm')}
+                          className="w-full py-2 bg-[#FAF4EE] hover:bg-[#F3E2CE] text-[#8A4F23] border border-[#E8DFD8] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{isUpdatingStatus ? 'Đang cập nhật...' : 'Xác nhận lịch hẹn'}</span>
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -2252,17 +2290,33 @@ export const W05_StaffSchedule: React.FC = () => {
                         </button>
                       )}
 
-                      {selectedApp.statusRaw === 'IN_SERVICE' && selectedApp.sessionStatus !== 'COMPLETED' && (
-                        <button
-                          type="button"
-                          disabled={isUpdatingStatus}
-                          onClick={() => { if (window.confirm(selectedTreatmentPackageId ? 'Xác nhận hoàn tất và ghi nhận một buổi đã dùng trong liệu trình?' : 'Xác nhận đã thực hiện xong dịch vụ?')) void handleBookingAction(selectedApp, 'finish-service'); }}
-                          className="w-full py-3 bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                        >
-                          <ClipboardCheck className="w-4 h-4" />
-                          <span>Hoàn tất dịch vụ</span>
-                        </button>
-                      )}
+                      {selectedApp.statusRaw === 'IN_SERVICE' && selectedApp.sessionStatus !== 'COMPLETED' && (() => {
+                        const linkedPkgId = selectedApp.specialNotes?.match(/user_package_id=([0-9a-f-]{36})/i)?.[1] || selectedTreatmentPackageId || '';
+                        const isPackageSession = selectedApp.paymentMethod === 'MEMBERSHIP_WALLET' || Boolean(linkedPkgId);
+                        if (isPackageSession) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => navigate(linkedPkgId ? `/medical-records?userPackageId=${linkedPkgId}` : '/medical-records')}
+                              className="w-full py-3 bg-[#8A4F23] hover:bg-[#723F1A] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                              <ClipboardCheck className="w-4 h-4" />
+                              <span>Mở hồ sơ ghi nhật ký điều trị</span>
+                            </button>
+                          );
+                        }
+                        return (
+                          <button
+                            type="button"
+                            disabled={isUpdatingStatus}
+                            onClick={() => { if (window.confirm('Xác nhận đã thực hiện xong dịch vụ?')) void handleBookingAction(selectedApp, 'finish-service'); }}
+                            className="w-full py-3 bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                          >
+                            <ClipboardCheck className="w-4 h-4" />
+                            <span>Hoàn tất dịch vụ</span>
+                          </button>
+                        );
+                      })()}
 
 
                       {selectedApp.statusRaw === 'IN_SERVICE' && selectedApp.sessionStatus === 'COMPLETED' && selectedApp.paymentStatus !== 'PAID' && (

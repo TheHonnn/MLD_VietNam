@@ -317,14 +317,13 @@ export class AppointmentsService {
     let createdBooking: any = null;
 
     try {
-      // 2. Phân loại payment_status và booking_status theo phương thức thanh toán
       let initialPaymentStatus = 'UNPAID';
       let initialBookingStatus = 'PENDING';
       const upperMethod = (paymentMethod || '').toUpperCase();
       let validPaymentMethod = 'CASH_AT_SPA';
       if (upperMethod === 'MEMBERSHIP_WALLET' || upperMethod === 'PACKAGE' || upperMethod === 'MEMBERSHIP_CARD') {
-        initialPaymentStatus = 'PAID';
-        initialBookingStatus = 'CONFIRMED';
+        initialPaymentStatus = 'UNPAID';
+        initialBookingStatus = 'PENDING';
         validPaymentMethod = 'MEMBERSHIP_WALLET';
       } else if (upperMethod === 'VIETQR' || upperMethod === 'BANK_TRANSFER') {
         initialPaymentStatus = 'UNPAID';
@@ -339,9 +338,8 @@ export class AppointmentsService {
         initialBookingStatus = 'PENDING';
         validPaymentMethod = 'VNPAY';
       } else {
-        // CASH_AT_SPA, AT_BRANCH, CASH
         initialPaymentStatus = 'UNPAID';
-        initialBookingStatus = 'CONFIRMED';
+        initialBookingStatus = 'PENDING';
         validPaymentMethod = 'CASH_AT_SPA';
       }
 
@@ -1128,36 +1126,44 @@ return {
       this.logger.warn(`Lỗi RPC release bookings: ${err.message}`);
     }
 
-    // Fallback trực tiếp DB
     try {
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
-      const currentTimeStr = now.toTimeString().split(' ')[0];
+      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(now);
+      const currentTimeStr = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }).format(now);
 
       let query = this.supabaseService.adminClient
         .from('bookings')
-        .select('id')
-        .eq('booking_date', todayStr)
-        .lte('end_time', currentTimeStr)
-        .in('status', ['IN_SERVICE', 'CONFIRMED']);
+        .select('id, booking_date, end_time')
+        .eq('status', 'IN_SERVICE')
+        .eq('session_status', 'COMPLETED')
+        .eq('payment_status', 'PAID');
 
       if (branchId) query = query.eq('branch_id', branchId);
 
       const { data: pastBookings } = await query;
+      const eligible = (pastBookings || []).filter((b: any) => {
+        const bDate = String(b.booking_date || '').slice(0, 10);
+        const bEnd = String(b.end_time || '').slice(0, 8);
+        return bDate < todayStr || (bDate === todayStr && bEnd <= currentTimeStr);
+      });
       let releasedCount = 0;
-      if (pastBookings && pastBookings.length > 0) {
-        for (const b of pastBookings) {
-          await this.supabaseService.adminClient
-            .from('bookings')
-            .update({ status: 'COMPLETED', updated_at: new Date().toISOString() })
-            .eq('id', b.id);
-          releasedCount++;
-        }
+      for (const b of eligible) {
+        await this.supabaseService.adminClient
+          .from('bookings')
+          .update({ status: 'COMPLETED', checked_out_at: now.toISOString(), updated_at: now.toISOString() })
+          .eq('id', b.id);
+        releasedCount++;
       }
 
       return {
         releasedCount,
-        message: `Đã tự động giải phóng ${releasedCount} ca trị liệu hoàn tất (nhả giường & KTV).`,
+        message: `Đã tự động hoàn tất đóng ca cho ${releasedCount} ca đã xong chuyên môn và thanh toán.`,
       };
     } catch (fallbackErr: any) {
       this.logger.error(`Lỗi fallback auto-release: ${fallbackErr.message}`);

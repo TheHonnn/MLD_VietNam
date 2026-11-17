@@ -289,27 +289,38 @@ export class TasksService {
         return { releasedCount };
       }
 
-      // 2. Fallback trực tiếp bằng Supabase query
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
-      const currentTimeStr = now.toTimeString().split(' ')[0];
+      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(now);
+      const currentTimeStr = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }).format(now);
       const { data: pastBookings } = await this.supabaseService.adminClient
         .from('bookings')
-        .select('id')
-        .eq('booking_date', todayStr)
-        .lte('end_time', currentTimeStr)
-        .in('status', ['IN_SERVICE', 'CONFIRMED']);
+        .select('id, booking_date, end_time')
+        .eq('status', 'IN_SERVICE')
+        .eq('session_status', 'COMPLETED')
+        .eq('payment_status', 'PAID');
+
+      const eligible = (pastBookings || []).filter((b: any) => {
+        const bDate = String(b.booking_date || '').slice(0, 10);
+        const bEnd = String(b.end_time || '').slice(0, 8);
+        return bDate < todayStr || (bDate === todayStr && bEnd <= currentTimeStr);
+      });
 
       let releasedCount = 0;
-      if (pastBookings && pastBookings.length > 0) {
-        for (const b of pastBookings) {
-          await this.supabaseService.adminClient
-            .from('bookings')
-            .update({ status: 'COMPLETED', updated_at: new Date().toISOString() })
-            .eq('id', b.id);
-          releasedCount++;
-        }
-        this.logger.log(`✅ [CRON JOB SPA DRC] Fallback hoàn tất: Đã nhả phòng & KTV cho ${releasedCount} ca.`);
+      for (const b of eligible) {
+        await this.supabaseService.adminClient
+          .from('bookings')
+          .update({ status: 'COMPLETED', checked_out_at: now.toISOString(), updated_at: now.toISOString() })
+          .eq('id', b.id);
+        releasedCount++;
+      }
+      if (releasedCount > 0) {
+        this.logger.log(`✅ [CRON JOB SPA DRC] Fallback hoàn tất: Đã đóng ca cho ${releasedCount} ca đã đủ điều kiện.`);
       }
       return { releasedCount };
     } catch (err: any) {

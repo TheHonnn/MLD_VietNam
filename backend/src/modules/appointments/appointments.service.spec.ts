@@ -140,8 +140,8 @@ describe('AppointmentsService.createBooking', () => {
                 data: {
                   id: '77777777-7777-4777-8777-777777777777',
                   booking_code: 'MLD-PKG-001',
-                  status: 'CONFIRMED',
-                  payment_status: 'PAID',
+                  status: 'PENDING',
+                  payment_status: 'UNPAID',
                   final_price: insertedPayloads[insertedPayloads.length - 1]?.final_price,
                 },
                 error: null,
@@ -188,15 +188,17 @@ describe('AppointmentsService.createBooking', () => {
     };
 
     const res = await service.createBooking(custId, walletDto);
-    expect(res.data.status).toBe('CONFIRMED');
-    expect(res.data.payment_status).toBe('PAID');
+    expect(res.data.status).toBe('PENDING');
+    expect(res.data.payment_status).toBe('UNPAID');
+    expect(insertedPayloads[0].status).toBe('PENDING');
+    expect(insertedPayloads[0].payment_status).toBe('UNPAID');
     expect(insertedPayloads[0].base_total).toBe(0);
     expect(insertedPayloads[0].final_price).toBe(0);
     expect(insertedItems[0].price).toBe(0);
     expect(insertedItems[0].service_id).toBe('22222222-2222-4222-8222-222222222222');
 
     openBookingsData = [
-      { id: 'b-open-1', status: 'CONFIRMED', session_status: 'PENDING', special_notes: `[user_package_id=${pkgId}]` },
+      { id: 'b-open-1', status: 'PENDING', session_status: 'PENDING', special_notes: `[user_package_id=${pkgId}]` },
     ];
     await expect(service.createBooking(custId, walletDto)).rejects.toThrow(/đặt đủ số buổi còn lại/i);
   });

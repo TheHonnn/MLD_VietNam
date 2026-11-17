@@ -291,11 +291,21 @@ export const treatmentService = {
     try {
       if (options?.isDraft) {
         const submitted = await this.submitTreatmentSession(journalId);
-        if (!submitted.success) return { success: false, statusCode: submitted.statusCode, message: submitted.message, data: false };
+        return {
+          success: submitted.success,
+          statusCode: submitted.statusCode,
+          message: submitted.success ? 'Đã gửi hồ sơ chuyên môn chờ duyệt/xác nhận.' : submitted.message,
+          data: submitted.success,
+        };
       }
       if (options?.hasAbnormalReaction) {
         const approved = await this.approveClinicalSession(journalId);
-        if (!approved.success) return { success: false, statusCode: approved.statusCode, message: approved.message, data: false };
+        return {
+          success: approved.success,
+          statusCode: approved.statusCode,
+          message: approved.success ? 'Đã duyệt chuyên môn cho buổi có phản ứng bất thường.' : approved.message,
+          data: approved.success,
+        };
       }
       const confirmed = await this.confirmTreatmentSession(journalId, `confirm-session:${journalId}`);
       return {

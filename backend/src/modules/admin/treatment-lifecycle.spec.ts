@@ -350,26 +350,32 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       await service.action('treatment_journal',superAdminActor,{key:{id:draft.id},action:'submit-session'});
       await service.action('treatment_journal',superAdminActor,{key:{id:draft.id},action:'confirm-session'});
       expect((await pg.query<any>('SELECT status,completed_sessions FROM user_packages WHERE id=$1',[pkg.id])).rows[0]).toEqual({status:'COMPLETED',completed_sessions:2});
+      expect((await pg.query<any>('SELECT status,payment_status,session_status FROM bookings WHERE id=$1',[booking.id])).rows[0]).toEqual({status:'IN_SERVICE',payment_status:'PAID',session_status:'COMPLETED'});
+      await service.action('bookings',superAdminActor,{key:{id:booking.id},action:'checkout'});
       expect((await pg.query<any>('SELECT status,payment_status,session_status FROM bookings WHERE id=$1',[booking.id])).rows[0]).toEqual({status:'COMPLETED',payment_status:'PAID',session_status:'COMPLETED'});
       expect((await pg.query<any>('SELECT count(*)::int n FROM treatment_journal WHERE user_package_id=$1',[pkg.id])).rows[0].n).toBe(3);
       expect((await pg.query<any>('SELECT after_photos FROM treatment_journal WHERE id=$1',[draft.id])).rows[0].after_photos).toEqual(['https://example.com/after.png']);
     });
 
-    it('completes a covered booking without clinical input and consumes exactly one session', async () => {
-      const pkg = (await pg.query<any>("INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,expires_at) VALUES($1,$2,2,0,'ACTIVE',now()+interval '3 months') RETURNING id",[customerOneId,packageDefId])).rows[0];
+    it('rejects blind finish-service without confirmed clinical journal and completes sequentially through journal confirmation and checkout', async () => {
+      const pkg = (await pg.query<any>("INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,expires_at) VALUES($1,$2,1,0,'ACTIVE',now()+interval '3 months') RETURNING id",[customerOneId,packageDefId])).rows[0];
       const booking = (await pg.query<any>(`INSERT INTO bookings(booking_code,customer_id,branch_id,technician_id,booking_date,start_time,end_time,status,payment_status,payment_method,base_total,final_price,qr_code_hash)
         VALUES('DIRECT-COMPLETE',$1,$2,$3,CURRENT_DATE,'15:00','16:00','CONFIRMED','UNPAID','MEMBERSHIP_WALLET',0,0,'direct-complete-qr') RETURNING id`,[customerOneId,branchId,technicianId])).rows[0];
       await pg.query('INSERT INTO booking_items(booking_id,service_id,price) VALUES($1,$2,0)',[booking.id,serviceId]);
       await service.action('bookings',superAdminActor,{key:{id:booking.id},action:'checkin',userPackageId:pkg.id});
       await service.action('bookings',superAdminActor,{key:{id:booking.id},action:'start'});
-      await service.action('bookings',superAdminActor,{key:{id:booking.id},action:'finish-service'});
-      expect((await pg.query<any>('SELECT completed_sessions FROM user_packages WHERE id=$1',[pkg.id])).rows[0].completed_sessions).toBe(1);
+      await expect(service.action('bookings',superAdminActor,{key:{id:booking.id},action:'finish-service'})).rejects.toThrow(/nhật ký chuyên môn|liên kết liệu trình/i);
+      const draft = await service.startTreatmentDraft(superAdminActor,pkg.id,booking.id);
+      await service.action('treatment_journal',superAdminActor,{key:{id:draft.id},action:'save-draft',values:{condition_before:'Tình trạng ban đầu',condition_after:'Đã ổn định',treatment_notes:'Hoàn tất quy trình chuẩn',specialist_advice:'Duy trì uống nước ấm'}});
+      await service.action('treatment_journal',superAdminActor,{key:{id:draft.id},action:'submit-session'});
+      await service.action('treatment_journal',superAdminActor,{key:{id:draft.id},action:'confirm-session'});
+      expect((await pg.query<any>('SELECT status,completed_sessions FROM user_packages WHERE id=$1',[pkg.id])).rows[0]).toEqual({status:'COMPLETED',completed_sessions:1});
+      expect((await pg.query<any>('SELECT status,session_status FROM bookings WHERE id=$1',[booking.id])).rows[0]).toEqual({status:'IN_SERVICE',session_status:'COMPLETED'});
+      await service.action('bookings',superAdminActor,{key:{id:booking.id},action:'checkout'});
       expect((await pg.query<any>('SELECT status,session_status FROM bookings WHERE id=$1',[booking.id])).rows[0]).toEqual({status:'COMPLETED',session_status:'COMPLETED'});
-      const journals = (await pg.query<any>('SELECT condition_before,condition_after,technical_parameters FROM treatment_journal WHERE booking_id=$1',[booking.id])).rows;
-      expect(journals).toHaveLength(1);
-      expect(journals[0].condition_before).toBeNull();
-      expect(journals[0].condition_after).toBeNull();
-      expect(journals[0].technical_parameters.source).toBe('BOOKING_COMPLETION');
+      await expect(service.action('bookings', superAdminActor, {
+        key: { id: booking.id }, action: 'finish-service',
+      })).rejects.toThrow();
     });
 
     it('blocks arbitrary direct mutations to package status', async () => {
@@ -1273,6 +1279,8 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       await service.action('treatment_journal', superAdminActor, { key: { id: draft1.id }, action: 'confirm-session' });
 
       expect((await pg.query<any>('SELECT status, completed_sessions FROM user_packages WHERE id=$1', [userPkgId])).rows[0]).toEqual({ status: 'ACTIVE', completed_sessions: 1 });
+      expect((await pg.query<any>('SELECT status, session_status FROM bookings WHERE id=$1', [pkgPurchaseBooking.id])).rows[0]).toEqual({ status: 'IN_SERVICE', session_status: 'COMPLETED' });
+      await service.action('bookings', superAdminActor, { key: { id: pkgPurchaseBooking.id }, action: 'checkout' });
       expect((await pg.query<any>('SELECT status, session_status FROM bookings WHERE id=$1', [pkgPurchaseBooking.id])).rows[0]).toEqual({ status: 'COMPLETED', session_status: 'COMPLETED' });
       expect((await pg.query<any>('SELECT count(*)::int n FROM home_care_deliveries WHERE booking_id=$1 AND guideline_id=$2', [pkgPurchaseBooking.id, e2eGuideline.id])).rows[0].n).toBe(1);
 
@@ -1303,6 +1311,7 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       await expect(service.action('treatment_journal', superAdminActor, { key: { id: draft2.id }, action: 'confirm-session' })).rejects.toThrow(/duyệt chuyên môn/i);
       await service.action('treatment_journal', superAdminActor, { key: { id: draft2.id }, action: 'approve-clinical' });
       await service.action('treatment_journal', superAdminActor, { key: { id: draft2.id }, action: 'confirm-session' });
+      await service.action('bookings', superAdminActor, { key: { id: booking2.id }, action: 'checkout' });
 
       expect((await pg.query<any>('SELECT status, completed_sessions FROM user_packages WHERE id=$1', [userPkgId])).rows[0]).toEqual({ status: 'ACTIVE', completed_sessions: 2 });
 
@@ -1329,6 +1338,7 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       });
       await service.action('treatment_journal', superAdminActor, { key: { id: draft3.id }, action: 'submit-session' });
       await service.action('treatment_journal', superAdminActor, { key: { id: draft3.id }, action: 'confirm-session' });
+      await service.action('bookings', superAdminActor, { key: { id: booking3.id }, action: 'checkout' });
 
       expect((await pg.query<any>('SELECT status, completed_sessions FROM user_packages WHERE id=$1', [userPkgId])).rows[0]).toEqual({ status: 'COMPLETED', completed_sessions: 3 });
 
@@ -1365,8 +1375,10 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       });
       await service.action('treatment_journal', superAdminActor, { key: { id: replacementDraft.id }, action: 'submit-session' });
       await service.action('treatment_journal', superAdminActor, { key: { id: replacementDraft.id }, action: 'confirm-session' });
+      await service.action('bookings', superAdminActor, { key: { id: extraBooking.id }, action: 'checkout' });
 
       expect((await pg.query<any>('SELECT status, completed_sessions FROM user_packages WHERE id=$1', [userPkgId])).rows[0]).toEqual({ status: 'COMPLETED', completed_sessions: 3 });
+      expect((await pg.query<any>('SELECT status, session_status FROM bookings WHERE id=$1', [extraBooking.id])).rows[0]).toEqual({ status: 'COMPLETED', session_status: 'COMPLETED' });
 
       await pg.query("DELETE FROM treatment_stock_movements WHERE stock_id IN (SELECT id FROM branch_material_stock WHERE material_name='E2E-SERUM')");
       await pg.query("DELETE FROM treatment_inventory_outbox WHERE branch_id=$1 AND booking_id IN ($2,$3,$4,$5)", [branchId, pkgPurchaseBooking.id, booking2.id, booking3.id, extraBooking.id]);
@@ -1374,7 +1386,7 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       await pg.query("DELETE FROM service_materials WHERE service_id=$1 AND material_name='E2E-SERUM'", [serviceId]);
     });
 
-    it('runs atomic start-service and single-transaction completePackageSession with full rollback on error', async () => {
+    it('enforces strict sequential confirm -> checkin -> start -> completePackageSession -> checkout with full rollback on error', async () => {
       const custRes = (await pg.query<any>(
         "INSERT INTO users(phone, full_name, role, referral_code, is_active) VALUES('0955667788', 'Khach Hang Atomic', 'CUSTOMER', 'ATOMIC01', true) RETURNING id",
       )).rows[0];
@@ -1387,17 +1399,28 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
 
       const futurePendingBooking = (await pg.query<any>(
         `INSERT INTO bookings(booking_code, customer_id, branch_id, technician_id, booking_date, start_time, end_time, status, payment_status, payment_method, base_total, final_price, special_notes, qr_code_hash)
-         VALUES('ATOMIC-PEND', $1, $2, $3, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + 1, '09:00', '10:00', 'PENDING', 'PAID', 'MEMBERSHIP_WALLET', 0, 0, $4, 'atomic-pend-qr') RETURNING id`,
+         VALUES('ATOMIC-PEND', $1, $2, $3, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + 1, '09:00', '10:00', 'PENDING', 'UNPAID', 'MEMBERSHIP_WALLET', 0, 0, $4, 'atomic-pend-qr') RETURNING id`,
         [atomicCustomerId, branchId, technicianId, `[Gói liệu trình: Test | user_package_id=${pkg.id}]`],
       )).rows[0];
       await pg.query('INSERT INTO booking_items(booking_id, service_id, technician_id, duration_minutes, price) VALUES($1, $2, $3, 60, 0)', [futurePendingBooking.id, serviceId, technicianId]);
 
       await expect(
         service.action('bookings', superAdminActor, { key: { id: futurePendingBooking.id }, action: 'start-service' }),
+      ).rejects.toThrow(/xác nhận lịch hẹn/i);
+      await expect(
+        service.action('bookings', superAdminActor, { key: { id: futurePendingBooking.id }, action: 'checkin' }),
+      ).rejects.toThrow(/xác nhận/i);
+      await service.action('bookings', superAdminActor, { key: { id: futurePendingBooking.id }, action: 'confirm' });
+      await expect(
+        service.action('bookings', superAdminActor, { key: { id: futurePendingBooking.id }, action: 'start-service' }),
+      ).rejects.toThrow(/Check-in/i);
+      await expect(
+        service.action('bookings', superAdminActor, { key: { id: futurePendingBooking.id }, action: 'checkin', userPackageId: pkg.id }),
       ).rejects.toThrow(/Chưa đến ngày hẹn/i);
-      expect((await pg.query<any>('SELECT status FROM bookings WHERE id=$1', [futurePendingBooking.id])).rows[0].status).toBe('PENDING');
+      expect((await pg.query<any>('SELECT status FROM bookings WHERE id=$1', [futurePendingBooking.id])).rows[0].status).toBe('CONFIRMED');
 
       await pg.query("UPDATE bookings SET booking_date=(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date WHERE id=$1", [futurePendingBooking.id]);
+      await service.action('bookings', superAdminActor, { key: { id: futurePendingBooking.id }, action: 'checkin', userPackageId: pkg.id });
       const started = await service.action('bookings', superAdminActor, { key: { id: futurePendingBooking.id }, action: 'start-service' });
       expect(started.status).toBe('IN_SERVICE');
       expect(started.session_status).toBe('IN_SERVICE');
@@ -1441,6 +1464,8 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
       expect(completedSession1.session_number).toBe(1);
       expect(completedSession1.confirmation_status).toBe('CONFIRMED');
       expect((await pg.query<any>('SELECT completed_sessions, status FROM user_packages WHERE id=$1', [pkg.id])).rows[0]).toEqual({ completed_sessions: 1, status: 'ACTIVE' });
+      expect((await pg.query<any>('SELECT status, session_status FROM bookings WHERE id=$1', [futurePendingBooking.id])).rows[0]).toEqual({ status: 'IN_SERVICE', session_status: 'COMPLETED' });
+      await service.action('bookings', superAdminActor, { key: { id: futurePendingBooking.id }, action: 'checkout' });
       expect((await pg.query<any>('SELECT status, session_status FROM bookings WHERE id=$1', [futurePendingBooking.id])).rows[0]).toEqual({ status: 'COMPLETED', session_status: 'COMPLETED' });
       expect((await pg.query<any>('SELECT count(*)::int n FROM post_care_outbox WHERE treatment_journal_id=$1', [completedSession1.id])).rows[0].n).toBe(1);
 
@@ -1516,7 +1541,8 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
         [atomicCustomerId, branchId, technicianId, `[user_package_id=${pkg.id}]`],
       )).rows[0];
       await pg.query('INSERT INTO booking_items(booking_id, service_id, technician_id, duration_minutes, price) VALUES($1, $2, $3, 60, 0)', [finalBooking.id, serviceId, technicianId]);
-      await service.action('bookings', superAdminActor, { key: { id: finalBooking.id }, action: 'start-service' });
+      await service.action('bookings', superAdminActor, { key: { id: finalBooking.id }, action: 'checkin', userPackageId: pkg.id });
+      await service.action('bookings', superAdminActor, { key: { id: finalBooking.id }, action: 'start' });
       const completedSession2 = await service.completePackageSession(superAdminActor, pkg.id, {
         bookingId: finalBooking.id,
         conditionBefore: 'Co ban phuc hoi',
@@ -1524,8 +1550,10 @@ describe('Treatment Lifecycle & Safe Session Reversal Integration', () => {
         treatmentNotes: 'Ket thuc buoi 2',
         specialistAdvice: 'Duy tri tap tho',
       });
+      await service.action('bookings', superAdminActor, { key: { id: finalBooking.id }, action: 'checkout' });
       expect(completedSession2.session_number).toBe(2);
       expect((await pg.query<any>('SELECT completed_sessions, status FROM user_packages WHERE id=$1', [pkg.id])).rows[0]).toEqual({ completed_sessions: 2, status: 'COMPLETED' });
+      expect((await pg.query<any>('SELECT status, session_status FROM bookings WHERE id=$1', [finalBooking.id])).rows[0]).toEqual({ status: 'COMPLETED', session_status: 'COMPLETED' });
     });
   });
 });

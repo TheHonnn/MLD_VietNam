@@ -182,21 +182,26 @@ describe('Treatment Lifecycle & Reversal State Machine Tests (Web-Admin)', () =>
     }
   });
 
-  test('W06 and W05 enforce backend FSM and recognize mobile package note format', () => {
+  test('W06 and W05 enforce strict sequential backend FSM without skipping steps', () => {
     const w06 = readFileSync(new URL('../src/pages/W06_TreatmentManagement.tsx', import.meta.url), 'utf8');
     const w05 = readFileSync(new URL('../src/pages/W05_StaffSchedule.tsx', import.meta.url), 'utf8');
     assert.doesNotMatch(w06, /updateBookingStatus\(bookingId,\s*BookingStatus\.IN_SERVICE\)/);
     assert.doesNotMatch(w06, /updateBookingStatus\(\s*bookingId,\s*BookingStatus\.CANCELLED/);
-    assert.match(w06, /runWorkflowAction\(bookingId,\s*'start-service'/);
+    assert.doesNotMatch(w06, /runWorkflowAction\([^)]*'start-service'/);
+    assert.match(w06, /runWorkflowAction\([^)]*'confirm'/);
+    assert.match(w06, /runWorkflowAction\([^)]*'checkin'/);
+    assert.match(w06, /runWorkflowAction\([^)]*'start'/);
+    assert.match(w06, /runWorkflowAction\([^)]*'checkout'/);
     assert.match(w06, /runWorkflowAction\(openBk\.id,\s*'cancel'/);
     assert.equal(w05.includes('specialNotes?.match(/\\[user_package_id=([0-9a-f-]{36})\\]/i)'), false);
     assert.equal(w05.includes('specialNotes?.match(/(?:\\[|\\|\\s*)user_package_id=([0-9a-f-]{36})\\]/i)'), true);
+    assert.match(w05, /useRealtimeSync\(/);
+    assert.match(w05, /Mở hồ sơ ghi nhật ký điều trị/);
   });
 
-  test('W06 and treatment service use atomic start-service and complete-session endpoints', () => {
+  test('W06 and treatment service separate sequential booking actions and complete-session endpoint', () => {
     const w06 = readFileSync(new URL('../src/pages/W06_TreatmentManagement.tsx', import.meta.url), 'utf8');
     const treatmentSvc = readFileSync(new URL('../src/services/treatment.service.ts', import.meta.url), 'utf8');
-    assert.match(w06, /runWorkflowAction\(bookingId,\s*'start-service'/);
     assert.match(w06, /setBookingBranchId\(\(prev\)\s*=>\s*prev\s*\|\|\s*brRes\.data\[0\]\.id\)/);
     assert.match(treatmentSvc, /complete-session/);
   });
