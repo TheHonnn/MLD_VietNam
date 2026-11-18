@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 import { PaymentsService } from './payments.service';
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 
@@ -159,5 +160,115 @@ describe('PaymentsService Security & Webhook Hardening Tests', () => {
         payment_status: 'PARTIAL',
       }),
     );
+  });
+
+  it('exposes unconfigured gateway state safely when env credentials are left blank', async () => {
+    const config = new ConfigService({
+      PAYMENT_GATEWAY_PROVIDER: '',
+      PAYMENT_GATEWAY_API_KEY: '',
+      PAYMENT_GATEWAY_SECRET_KEY: '',
+    });
+    const service = new PaymentsService(config, mockSupabase, mockRedis);
+
+    const publicConfig = service.getGatewayPublicConfig();
+    expect(publicConfig.provider).toBe('UNCONFIGURED');
+    expect(publicConfig.configured).toBe(false);
+
+    const intent = await service.createGatewayIntent({
+      amount: 500000,
+      description: 'MLD BK-001',
+      targetType: 'BOOKING',
+      targetId: 'bk-uuid-1',
+      referenceCode: 'BK-001',
+    });
+
+    expect(intent.gatewayConfigured).toBe(false);
+    expect(intent.status).toBe('PENDING');
+    expect(intent.isPaid).toBe(false);
+    expect(intent.orderCode).toBeGreaterThan(0);
+  });
+
+  it('rejects generic gateway webhook when credentials are left blank', async () => {
+    const config = new ConfigService({});
+    const service = new PaymentsService(config, mockSupabase, mockRedis);
+
+    await expect(
+      service.handleGenericGatewayWebhook('custom', { orderCode: 123456, amount: 500000 }, {}),
+    ).rejects.toThrow(ServiceUnavailableException);
+  });
+
+  it('verifies HMAC signature on generic gateway webhook and reconciles intent idempotently', async () => {
+    const secretKey = 'plug-and-play-secret-key';
+    const config = new ConfigService({
+      PAYMENT_GATEWAY_PROVIDER: 'CUSTOM',
+      PAYMENT_GATEWAY_SECRET_KEY: secretKey,
+      PAYMENT_GATEWAY_WEBHOOK_SECRET: 'wh-secret',
+    });
+    const service = new PaymentsService(config, mockSupabase, mockRedis);
+
+    const intentUpdateSpy = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    const bookingUpdateSpy = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    let currentStatus = 'PENDING';
+
+    mockSupabase.adminClient.from = vi.fn().mockImplementation((table: string) => {
+      if (table === 'payment_gateway_intents') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockImplementation(async () => ({
+                data: {
+                  id: 'intent-1',
+                  order_code: 998877,
+                  target_type: 'BOOKING',
+                  target_id: 'bk-99',
+                  reference_code: 'BK-998877',
+                  amount: 750000,
+                  amount_paid: currentStatus === 'PAID' ? 750000 : 0,
+                  status: currentStatus,
+                },
+              })),
+            }),
+          }),
+          update: (payload: any) => {
+            currentStatus = 'PAID';
+            return intentUpdateSpy(payload);
+          },
+        };
+      }
+      if (table === 'bookings') {
+        return { update: bookingUpdateSpy };
+      }
+      return { select: vi.fn(), update: vi.fn() };
+    });
+
+    const payload = {
+      orderCode: 998877,
+      amount: 750000,
+      status: 'PAID',
+      transactionId: 'GW-TX-01',
+    };
+    const signature = crypto
+      .createHmac('sha256', secretKey)
+      .update(JSON.stringify(payload))
+      .digest('hex');
+
+    await expect(
+      service.handleGenericGatewayWebhook('custom', payload, { 'x-signature': 'bad-sig' }),
+    ).rejects.toThrow(BadRequestException);
+
+    const first = await service.handleGenericGatewayWebhook('custom', payload, { 'x-signature': signature });
+    expect(first.reconciled).toBe(true);
+    expect(first.idempotent).toBe(false);
+    expect(intentUpdateSpy).toHaveBeenCalledTimes(1);
+    expect(bookingUpdateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment_status: 'PAID',
+        status: 'CONFIRMED',
+      }),
+    );
+
+    const second = await service.handleGenericGatewayWebhook('custom', payload, { 'x-signature': signature });
+    expect(second.idempotent).toBe(true);
+    expect(intentUpdateSpy).toHaveBeenCalledTimes(1);
   });
 });

@@ -64,7 +64,7 @@ DO $$ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enrollment_status') THEN
         CREATE TYPE enrollment_status AS ENUM (
-            'PENDING_APPROVAL', 'CONSULTING', 'DEPOSITED', 'ENROLLED', 'STUDYING', 'GRADUATED', 'DROPPED'
+            'PENDING_APPROVAL', 'CONSULTING', 'DEPOSITED', 'ENROLLED', 'STUDYING', 'NOT_GRADUATED', 'GRADUATED', 'DROPPED', 'ARCHIVED'
         );
     END IF;
 
@@ -169,6 +169,7 @@ CREATE TABLE IF NOT EXISTS users (
     reward_points INT NOT NULL DEFAULT 0 CHECK (reward_points >= 0),
     total_spent NUMERIC(14, 2) NOT NULL DEFAULT 0.00 CHECK (total_spent >= 0),
     referral_code VARCHAR(20) UNIQUE NOT NULL,
+    student_code VARCHAR(50) UNIQUE,
     referred_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     locked_reason TEXT,
@@ -879,6 +880,8 @@ CREATE TABLE IF NOT EXISTS course_enrollments (
     student_email VARCHAR(150),
     selected_branch VARCHAR(250) DEFAULT 'Chi nhánh Quận 3 - TP.HCM',
     student_type VARCHAR(50) DEFAULT 'BEGINNER',
+    target_audience VARCHAR(150),
+    consultation_history JSONB NOT NULL DEFAULT '[]'::jsonb,
     approval_status VARCHAR(50) NOT NULL DEFAULT 'PENDING_APPROVAL',
     approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
     approved_at TIMESTAMPTZ,
@@ -977,6 +980,7 @@ CREATE TABLE IF NOT EXISTS home_products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL UNIQUE,
     category VARCHAR(100) NOT NULL,
+    treatment_package_group VARCHAR(100),
     price_min NUMERIC(12, 0) NOT NULL CHECK (price_min >= 0),
     price_max NUMERIC(12, 0) NOT NULL CHECK (price_max >= price_min),
     unit VARCHAR(100) NOT NULL,
@@ -1145,6 +1149,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 -- 13. CHỈ MỤC TỐI ƯU HIỆU NĂNG CAO (PERFORMANCE INDEXES)
 -- ==============================================================================
 CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
+CREATE INDEX IF NOT EXISTS idx_users_student_code ON users(student_code);
 CREATE INDEX IF NOT EXISTS idx_users_role_tier ON users(role, membership_tier);
 CREATE INDEX IF NOT EXISTS idx_services_category_active ON services(category_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_services_name_trgm ON services USING GIN (name gin_trgm_ops);
@@ -1273,4 +1278,41 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
 CREATE INDEX IF NOT EXISTS idx_system_settings_updated_at ON public.system_settings(updated_at DESC);
 
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS public.payment_gateway_intents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_code BIGINT UNIQUE NOT NULL,
+    provider VARCHAR(50) NOT NULL DEFAULT 'UNCONFIGURED',
+    target_type VARCHAR(30) NOT NULL DEFAULT 'BOOKING',
+    target_id UUID,
+    reference_code VARCHAR(80),
+    customer_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    amount NUMERIC(14, 2) NOT NULL CHECK (amount >= 0),
+    amount_paid NUMERIC(14, 2) NOT NULL DEFAULT 0 CHECK (amount_paid >= 0),
+    status payment_status NOT NULL DEFAULT 'PENDING',
+    qr_code TEXT,
+    checkout_url TEXT,
+    bank_bin VARCHAR(20),
+    bank_account_no VARCHAR(50),
+    bank_account_name VARCHAR(150),
+    description VARCHAR(255),
+    gateway_transaction_id VARCHAR(150),
+    raw_webhook_payload JSONB,
+    expires_at TIMESTAMPTZ,
+    paid_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_gateway_intents_ref ON public.payment_gateway_intents(reference_code);
+CREATE INDEX IF NOT EXISTS idx_payment_gateway_intents_target ON public.payment_gateway_intents(target_id);
+CREATE INDEX IF NOT EXISTS idx_payment_gateway_intents_status ON public.payment_gateway_intents(status);
+
+ALTER TABLE public.payment_gateway_intents ENABLE ROW LEVEL SECURITY;
+
+DROP TRIGGER IF EXISTS trg_payment_gateway_intents_updated_at ON public.payment_gateway_intents;
+CREATE TRIGGER trg_payment_gateway_intents_updated_at
+BEFORE UPDATE ON public.payment_gateway_intents
+FOR EACH ROW EXECUTE FUNCTION update_timestamp_column();
+
 

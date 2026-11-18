@@ -10,6 +10,7 @@ import {
   Ip,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -43,6 +44,17 @@ export class AdminController {
   @ApiBearerAuth()
   async schedulePlan(@Req() req, @Param('id', ParseUUIDPipe) id: string, @Body() body: SchedulePlanInput) {
     return this.service.generateAcademySchedule(req.admin, id, body);
+  }
+
+  @Patch('students/:userId/student-code')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  async updateStudentCode(
+    @Req() req,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() body: { studentCode?: string | null },
+  ) {
+    return this.service.updateStudentCode(req.admin, userId, body?.studentCode);
   }
 
   @Post('email/test')

@@ -103,7 +103,7 @@ export class MembershipService {
       try {
         const { data: user } = await this.supabaseService.adminClient
           .from('users')
-          .select('id, full_name, phone, email, avatar_url, gender, date_of_birth, address, emergency_contact_name, emergency_contact_phone, membership_tier, reward_points, referral_code')
+          .select('id, full_name, phone, email, avatar_url, gender, date_of_birth, address, emergency_contact_name, emergency_contact_phone, membership_tier, reward_points, referral_code, student_code, role')
           .eq('id', resolvedId)
           .maybeSingle();
 
@@ -146,6 +146,8 @@ export class MembershipService {
               avatarUrl: user.avatar_url || '',
               memberTier: tier,
               memberCode: user.referral_code || (phone ? `MLD-${phone.slice(-6)}` : `MLD-${user.id.substring(0, 6).toUpperCase()}`),
+              studentCode: user.student_code || null,
+              role: user.role || 'CUSTOMER',
               points: points,
               validUntil: 'Đang hoạt động',
             },
@@ -232,7 +234,7 @@ export class MembershipService {
 
         const { data: refreshed } = await this.supabaseService.adminClient
           .from('users')
-          .select('id, full_name, phone, email, avatar_url, gender, date_of_birth, address, emergency_contact_name, emergency_contact_phone, membership_tier, reward_points, referral_code')
+          .select('id, full_name, phone, email, avatar_url, gender, date_of_birth, address, emergency_contact_name, emergency_contact_phone, membership_tier, reward_points, referral_code, student_code, role')
           .eq('id', resolvedId)
           .maybeSingle();
 
@@ -265,6 +267,8 @@ export class MembershipService {
               avatarUrl: refreshed.avatar_url || '',
               memberTier: tier,
               memberCode: refreshed.referral_code || '',
+              studentCode: refreshed.student_code || null,
+              role: refreshed.role || 'CUSTOMER',
               points: typeof refreshed.reward_points === 'number' ? refreshed.reward_points : 0,
               validUntil: 'Đang hoạt động',
             },
