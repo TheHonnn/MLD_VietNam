@@ -291,20 +291,18 @@ export class AcademyService {
         if (cData?.deposit_amount) requiredDeposit = Number(cData.deposit_amount);
       } catch (_) {}
 
-      // Lấy hoặc sinh mã khách hàng chuẩn định danh
-      let customerCode = `HV${Date.now().toString().slice(-5)}`;
+      let studentCode: string | null = null;
       try {
         const { data: uData } = await this.supabaseService.adminClient
           .from('users')
-          .select('referral_code')
+          .select('student_code')
           .eq('id', studentId)
           .maybeSingle();
-        if (uData?.referral_code) {
-          customerCode = uData.referral_code.startsWith('HV') ? uData.referral_code : `HV-${uData.referral_code}`;
+        if (uData?.student_code) {
+          studentCode = String(uData.student_code).trim();
         }
       } catch (_) {}
 
-      // 3. Ghi một hồ sơ duy nhất và chỉ xác nhận sau khi DB trả về ID thật.
       const { data: enrollment, error: enrollmentError } = await this.supabaseService.adminClient
         .from('course_enrollments')
         .insert({
@@ -323,7 +321,7 @@ export class AcademyService {
           payment_status: 'UNPAID',
           student_status: 'NOT_APPROVED',
           required_deposit: requiredDeposit,
-          approval_notes: `Mã KH: ${customerCode}; Mã hồ sơ: ${enrollmentCode}`,
+          approval_notes: `Mã hồ sơ: ${enrollmentCode}`,
         })
         .select('id, status, approval_status')
         .single();
@@ -339,7 +337,8 @@ export class AcademyService {
       data: {
         id: enrollment.id,
         enrollmentCode,
-        customerCode,
+        studentCode,
+        customerCode: studentCode || '',
         courseId,
         studentName,
         studentPhone,
@@ -359,7 +358,7 @@ export class AcademyService {
     try {
       const connection = this.adminDatabase.connection;
       const { rows: [enr] } = await connection.query(
-        `SELECT e.id, e.approval_status, e.approval_notes, u.referral_code,
+        `SELECT e.id, e.approval_status, e.approval_notes, u.student_code, u.referral_code,
                 COALESCE(e.tuition_total, c.tuition_fee, 0) AS tuition_total,
                 COALESCE(e.required_deposit, c.deposit_amount, 0) AS required_deposit,
                 (SELECT SUM(i.total_amount) FROM invoices i
@@ -381,7 +380,7 @@ export class AcademyService {
       }
 
       const notesCode = enr.approval_notes?.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1];
-      const customerCode = (enr.referral_code || notesCode || `HV-${enr.id.slice(-4)}`).toUpperCase();
+      const customerCode = (enr.student_code || enr.referral_code || notesCode || `HV-${enr.id.slice(-4)}`).toUpperCase();
       // Một khoản POS có thể xuất hiện ở cả hóa đơn và giao dịch học phí.
       const matchedAmount = Math.max(0, Number(enr.invoice_amount), Number(enr.transaction_amount));
       const tuitionFee = Number(enr.tuition_total);
@@ -604,9 +603,22 @@ export class AcademyService {
           .eq('student_id', userId);
 
         if (!error && data && data.length > 0) {
+          let userStudentCode: string | null = null;
+          try {
+            const { data: userRow } = await this.supabaseService.adminClient
+              .from('users')
+              .select('student_code')
+              .eq('id', userId)
+              .maybeSingle();
+            if (userRow?.student_code) {
+              userStudentCode = String(userRow.student_code).trim();
+            }
+          } catch (_) {}
+
           const formatted = data.map((item: any) => {
             const notes = item.approval_notes || '';
-            const customerCode = item.order_code || notes.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1] || `HV-${String(item.id).slice(-4)}`;
+            const notesCode = notes.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1];
+            const customerCode = userStudentCode || item.order_code || notesCode || '';
             const isApproved = item.approval_status === 'APPROVED' ||
               ['ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'].includes(String(item.student_status).toUpperCase()) ||
               ['ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'].includes(String(item.status).toUpperCase());
@@ -637,6 +649,7 @@ export class AcademyService {
               status: item.status,
               approvalStatus: isApproved ? 'APPROVED' : (item.approval_status || item.student_status || 'NOT_APPROVED'),
               studentStatus: item.student_status,
+              studentCode: userStudentCode,
               customerCode,
               validUntil,
               accessStatus: computedAccessStatus,
@@ -999,11 +1012,30 @@ export class AcademyService {
 
         if (error) throw error;
 
+        const studentIds = Array.from(
+          new Set(
+            [userId, ...(data || []).map((c: any) => c.student_id)].filter(Boolean),
+          ),
+        );
+        const studentCodeMap = new Map<string, string>();
+        if (studentIds.length > 0) {
+          const { data: userRows } = await this.supabaseService.adminClient
+            .from('users')
+            .select('id, student_code')
+            .in('id', studentIds);
+          for (const row of userRows || []) {
+            if (row.student_code) {
+              studentCodeMap.set(row.id, String(row.student_code).trim());
+            }
+          }
+        }
+
         return {
           success: true,
           data: (data || []).map((c: any) => ({
             id: c.id,
             certificateCode: c.certificate_code,
+            studentCode: studentCodeMap.get(c.student_id) || studentCodeMap.get(userId) || null,
             studentName: c.student_name,
             courseTitle: c.course_title,
             issueDate: c.issue_date,

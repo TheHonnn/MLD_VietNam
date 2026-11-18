@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentLinkDto } from './dto/create-payment-link.dto';
+import { CreatePaymentGatewayIntentDto } from './dto/create-payment-gateway-intent.dto';
 
 @ApiTags('Payments & VietQR (PayOS)')
 @Controller('payments')
@@ -87,6 +88,49 @@ export class PaymentsController {
   @ApiResponse({ status: 200, description: 'Làm mới token thành công' })
   async refreshZaloToken(@Body() body: any) {
     return this.paymentsService.refreshZaloAccessToken(body);
+  }
+
+  @Get('gateway/config')
+  @ApiOperation({ summary: 'Lấy trạng thái cấu hình cổng thanh toán trung gian hiện tại' })
+  getGatewayConfig() {
+    const data = this.paymentsService.getGatewayPublicConfig();
+    return {
+      statusCode: HttpStatus.OK,
+      data,
+    };
+  }
+
+  @Post('gateway/intent')
+  @ApiOperation({ summary: 'Tạo phiên thanh toán tự động qua Adapter cổng thanh toán trung gian' })
+  async createGatewayIntent(@Body() dto: CreatePaymentGatewayIntentDto) {
+    const data = await this.paymentsService.createGatewayIntent(dto);
+    return {
+      statusCode: HttpStatus.CREATED,
+      message: data.message,
+      data,
+    };
+  }
+
+  @Get('gateway/status/:orderCode')
+  @ApiOperation({ summary: 'Kiểm tra trạng thái thanh toán tự động theo orderCode' })
+  async checkGatewayIntentStatus(@Param('orderCode', ParseIntPipe) orderCode: number) {
+    const data = await this.paymentsService.checkGatewayIntentStatus(orderCode);
+    return {
+      statusCode: HttpStatus.OK,
+      message: data.message,
+      data,
+    };
+  }
+
+  @Post('gateway/webhook/:provider')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Nhận và đối soát webhook tự động từ cổng thanh toán trung gian' })
+  async handleGenericGatewayWebhook(
+    @Param('provider') provider: string,
+    @Body() body: any,
+    @Headers() headers: Record<string, string>,
+  ) {
+    return this.paymentsService.handleGenericGatewayWebhook(provider, body, headers);
   }
 }
 

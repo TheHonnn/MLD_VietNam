@@ -3932,4 +3932,77 @@ export class AdminService {
       'Không truy cập được database chung. Kiểm tra cấu hình và schema backend.',
     );
   }
+
+  async updateStudentCode(actor: AdminActor, userId: string, rawCode?: string | null) {
+    const permissions = actor.permissions || [];
+    const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER', 'RECEPTIONIST'];
+    if (
+      !allowedRoles.includes(actor.role) &&
+      !permissions.some(p => ['users.update', 'course_enrollments.update'].includes(p))
+    ) {
+      throw new ForbiddenException('Tài khoản chưa được cấp quyền cập nhật mã học viên.');
+    }
+
+    if (!this.isUuid(userId)) {
+      throw new BadRequestException('Mã tài khoản học viên không hợp lệ.');
+    }
+
+    const normalized = typeof rawCode === 'string' ? rawCode.trim() : '';
+    if (normalized.length > 0 && !/^[A-Za-z0-9_-]{2,50}$/.test(normalized)) {
+      throw new BadRequestException(
+        'Mã học viên chỉ gồm chữ, số, dấu gạch ngang hoặc gạch dưới (2–50 ký tự).',
+      );
+    }
+    const nextCode = normalized.length > 0 ? normalized : null;
+
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      const existingRes = await client.query(
+        'SELECT id, role, student_code FROM public.users WHERE id = $1 FOR UPDATE',
+        [userId],
+      );
+      const targetUser = existingRes.rows[0];
+      if (!targetUser) {
+        throw new NotFoundException('Không tìm thấy tài khoản học viên.');
+      }
+
+      if (nextCode !== null) {
+        const dupRes = await client.query(
+          'SELECT id FROM public.users WHERE LOWER(student_code) = LOWER($1) AND id <> $2 LIMIT 1',
+          [nextCode, userId],
+        );
+        if (dupRes.rows.length > 0) {
+          throw new ConflictException('Mã học viên đã tồn tại trên hệ thống.');
+        }
+      }
+
+      const nextRole =
+        nextCode !== null && targetUser.role === 'CUSTOMER' ? 'STUDENT' : targetUser.role;
+
+      const updatedRes = await client.query(
+        'UPDATE public.users SET student_code = $1, role = $2, updated_at = now() WHERE id = $3 RETURNING id, student_code, role',
+        [nextCode, nextRole, userId],
+      );
+      await this.audit(client, actor, 'users', 'update_student_code', userId);
+      await client.query('COMMIT');
+
+      return {
+        success: true,
+        message: nextCode
+          ? 'Đã cập nhật mã học viên và kích hoạt tư cách học viên.'
+          : 'Đã xóa mã học viên.',
+        data: {
+          id: updatedRes.rows[0].id,
+          studentCode: updatedRes.rows[0].student_code,
+          role: updatedRes.rows[0].role,
+        },
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.fail(error);
+    } finally {
+      client.release();
+    }
+  }
 }

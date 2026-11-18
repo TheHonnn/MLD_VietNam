@@ -119,8 +119,10 @@ export enum EnrollmentStatus {
   DEPOSITED = 'DEPOSITED',
   ENROLLED = 'ENROLLED',
   STUDYING = 'STUDYING',
+  NOT_GRADUATED = 'NOT_GRADUATED',
   GRADUATED = 'GRADUATED',
   DROPPED = 'DROPPED',
+  ARCHIVED = 'ARCHIVED',
 }
 
 export enum ConsultationStatus {
@@ -128,6 +130,7 @@ export enum ConsultationStatus {
   CONSULTING = 'CONSULTING',
   CONFIRMED = 'CONFIRMED',
   CANCELLED = 'CANCELLED',
+  ARCHIVED = 'ARCHIVED',
 }
 
 export enum PaymentVerificationStatus {
@@ -287,6 +290,7 @@ export interface User {
   rewardPoints: number;
   totalSpent: number;
   referralCode: string;
+  studentCode?: string | null;
   referredById?: string | null;
   isActive: boolean;
   clinicalNotes?: string | null;
@@ -680,6 +684,7 @@ export interface CourseEnrollment {
   studentAdmissionStatus?: StudentAdmissionStatus | string;
   assignedStaffId?: string | null;
   finalTuition?: number;
+  targetAudience?: string | null;
   consultationHistory?: ConsultationNote[];
   qrCreatedAt?: string | null;
   // Hạn định khóa học 1 năm & Quản lý vòng đời
