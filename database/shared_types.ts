@@ -90,8 +90,10 @@ export enum EnrollmentStatus {
   DEPOSITED = 'DEPOSITED',
   ENROLLED = 'ENROLLED',
   STUDYING = 'STUDYING',
+  NOT_GRADUATED = 'NOT_GRADUATED',
   GRADUATED = 'GRADUATED',
   DROPPED = 'DROPPED',
+  ARCHIVED = 'ARCHIVED',
 }
 
 export enum LessonType {
@@ -229,6 +231,7 @@ export interface User {
   rewardPoints: number;
   totalSpent: number;
   referralCode: string;
+  studentCode?: string | null;
   referredById?: string | null;
   isActive: boolean;
   lockedReason?: string | null;
@@ -520,6 +523,8 @@ export interface CourseEnrollment {
   amountPaid: number;
   completedLessonsCount: number;
   progressPercent: number;
+  targetAudience?: string | null;
+  consultationHistory?: Array<{ timestamp: string; author: string; note: string }>;
   enrolledAt: string;
   student?: User;
   course?: Course;

@@ -10,6 +10,8 @@ import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../../database/supabase.service';
 import { RedisService } from '../../database/redis.service';
 import { CreatePaymentLinkDto } from './dto/create-payment-link.dto';
+import { CreatePaymentGatewayIntentDto } from './dto/create-payment-gateway-intent.dto';
+import { PaymentGatewayAdapter } from './payment-gateway.adapter';
 import { EmailService } from '../auth/services/email.service';
 import { AdminDatabase } from '../admin/admin.database';
 import { tuitionBankCode } from '../../common/tuition-bank-reference';
@@ -22,6 +24,7 @@ const { PayOS } = require('@payos/node');
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
   private payos: any;
+  private readonly gatewayAdapter: PaymentGatewayAdapter;
 
   // Cấu hình tài khoản ngân hàng thụ hưởng mặc định MLD
   private readonly bankBin: string;
@@ -48,7 +51,9 @@ export class PaymentsService {
     private redisService: RedisService,
     @Optional() private emailService?: EmailService,
     @Optional() private readonly adminDatabase?: AdminDatabase,
+    @Optional() gatewayAdapter?: PaymentGatewayAdapter,
   ) {
+    this.gatewayAdapter = gatewayAdapter ?? new PaymentGatewayAdapter(configService);
     const clientId = this.configService.get<string>('PAYOS_CLIENT_ID');
     const apiKey = this.configService.get<string>('PAYOS_API_KEY');
     const checksumKey = this.configService.get<string>('PAYOS_CHECKSUM_KEY');
@@ -192,6 +197,15 @@ export class PaymentsService {
       } catch (err) {
         this.logger.warn(`Fallback query booking for orderCode ${orderCode} failed: ${err}`);
       }
+    }
+
+    if (!this.payos) {
+      return {
+        orderCode,
+        isPaid: false,
+        status: mapping?.status || 'PENDING',
+        message: 'Cổng thanh toán PayOS chưa được cấu hình. Đang ở chế độ chờ xác nhận.',
+      };
     }
 
     try {
@@ -1278,5 +1292,327 @@ export class PaymentsService {
         message: `Lỗi kết nối tới máy chủ Zalo OAuth: ${err.message}`,
       };
     }
+  }
+
+  getGatewayPublicConfig() {
+    return this.gatewayAdapter.getPublicConfig();
+  }
+
+  private normalizeGatewayDescription(rawDescription: string, orderCode: number): string {
+    let cleanDesc = String(rawDescription || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9 ]/g, '')
+      .trim();
+    if (cleanDesc.length > 25) {
+      cleanDesc = cleanDesc.substring(0, 25);
+    }
+    return cleanDesc || `MLD ${orderCode}`;
+  }
+
+  async createGatewayIntent(dto: CreatePaymentGatewayIntentDto) {
+    const orderCode =
+      dto.orderCode && dto.orderCode > 0
+        ? dto.orderCode
+        : Number(`${Date.now().toString().slice(-6)}${Math.floor(100 + Math.random() * 900)}`);
+    const cleanDesc = this.normalizeGatewayDescription(dto.description, orderCode);
+
+    const adapterResult = await this.gatewayAdapter.createIntent(
+      {
+        orderCode,
+        amount: dto.amount,
+        description: cleanDesc,
+        referenceCode: dto.referenceCode,
+        providerOverride: dto.provider,
+        customerName: dto.customerName,
+        customerPhone: dto.customerPhone,
+      },
+      this.payos,
+    );
+
+    const mappingData = {
+      bookingId: dto.targetType === 'BOOKING' ? dto.targetId : undefined,
+      bookingCode: dto.targetType === 'BOOKING' ? dto.referenceCode : undefined,
+      enrollmentId: dto.targetType === 'ENROLLMENT' ? dto.targetId : undefined,
+      targetType: dto.targetType || 'BOOKING',
+      targetId: dto.targetId,
+      referenceCode: dto.referenceCode,
+      customerId: dto.customerId,
+      amount: dto.amount,
+      description: cleanDesc,
+      customerName: dto.customerName,
+      customerPhone: dto.customerPhone,
+      status: 'PENDING',
+      provider: adapterResult.provider,
+      createdAt: new Date(),
+    };
+
+    this.orderMappings.set(orderCode, mappingData);
+    try {
+      await this.redisService.set(`payos:order:${orderCode}`, JSON.stringify(mappingData), 86400);
+    } catch (_) {}
+
+    try {
+      await this.supabaseService.adminClient
+        .from('payment_gateway_intents')
+        .upsert(
+          {
+            order_code: orderCode,
+            provider: adapterResult.provider,
+            target_type: dto.targetType || 'BOOKING',
+            target_id: dto.targetId || null,
+            reference_code: dto.referenceCode || null,
+            customer_id: dto.customerId || null,
+            amount: Math.round(dto.amount),
+            status: 'PENDING',
+            qr_code: adapterResult.qrCode || null,
+            checkout_url: adapterResult.checkoutUrl || null,
+            bank_bin: adapterResult.bankBin || null,
+            bank_account_no: adapterResult.accountNumber || null,
+            bank_account_name: adapterResult.accountName || null,
+            description: cleanDesc,
+            gateway_transaction_id: adapterResult.gatewayTransactionId,
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+          },
+          { onConflict: 'order_code' },
+        );
+    } catch (err: any) {
+      this.logger.warn(`[GatewayIntent Persist Warning]: ${err?.message || err}`);
+    }
+
+    return {
+      orderCode,
+      provider: adapterResult.provider,
+      gatewayConfigured: adapterResult.gatewayConfigured,
+      targetType: dto.targetType || 'BOOKING',
+      targetId: dto.targetId || null,
+      referenceCode: dto.referenceCode || null,
+      amount: dto.amount,
+      description: cleanDesc,
+      bankBin: adapterResult.bankBin,
+      accountNumber: adapterResult.accountNumber,
+      accountName: adapterResult.accountName,
+      qrCode: adapterResult.qrCode,
+      checkoutUrl: adapterResult.checkoutUrl,
+      status: 'PENDING',
+      isPaid: false,
+      message: adapterResult.message,
+    };
+  }
+
+  async checkGatewayIntentStatus(orderCode: number) {
+    let dbIntent: any = null;
+    try {
+      const { data } = await this.supabaseService.adminClient
+        .from('payment_gateway_intents')
+        .select('*')
+        .eq('order_code', orderCode)
+        .maybeSingle();
+      dbIntent = data;
+    } catch (_) {}
+
+    if (dbIntent && String(dbIntent.status || '').toUpperCase() === 'PAID') {
+      return {
+        orderCode,
+        provider: dbIntent.provider || this.gatewayAdapter.provider,
+        configured: this.gatewayAdapter.isConfigured,
+        isPaid: true,
+        status: 'PAID',
+        amountPaid: Number(dbIntent.amount_paid || dbIntent.amount || 0),
+        amountRemaining: 0,
+        paidAt: dbIntent.paid_at,
+        message: 'Giao dịch đã được xác nhận thanh toán.',
+      };
+    }
+
+    const remote = await this.gatewayAdapter.queryStatus(
+      orderCode,
+      dbIntent?.gateway_transaction_id,
+      this.payos,
+    );
+
+    if (remote.isPaid) {
+      const reconciled = await this.reconcileGatewayPayment({
+        orderCode,
+        provider: remote.provider,
+        amount: remote.amountPaid || Number(dbIntent?.amount || 0),
+        gatewayTransactionId: remote.gatewayTransactionId || String(orderCode),
+        referenceCode: dbIntent?.reference_code || undefined,
+        rawPayload: remote.rawPayload || {},
+      });
+      return {
+        orderCode,
+        provider: remote.provider,
+        configured: remote.configured,
+        isPaid: true,
+        status: 'PAID',
+        amountPaid: reconciled.amountPaid,
+        amountRemaining: 0,
+        paidAt: reconciled.paidAt,
+        message: 'Thanh toán thành công! Hệ thống đã tự động xác nhận.',
+      };
+    }
+
+    return {
+      orderCode,
+      provider: remote.provider,
+      configured: remote.configured,
+      isPaid: false,
+      status: dbIntent?.status || remote.status || 'PENDING',
+      amountPaid: Number(dbIntent?.amount_paid || remote.amountPaid || 0),
+      amountRemaining: Number(dbIntent?.amount || 0),
+      paidAt: null,
+      message: remote.configured
+        ? 'Chưa ghi nhận thanh toán thành công từ cổng trung gian.'
+        : 'Cổng thanh toán trung gian đang ở chế độ chờ cấu hình.',
+    };
+  }
+
+  async handleGenericGatewayWebhook(
+    provider: string,
+    body: Record<string, any>,
+    headers?: Record<string, string>,
+  ) {
+    const verified = this.gatewayAdapter.verifyWebhookRequest(provider, body, headers);
+    if (verified.status !== 'PAID') {
+      return {
+        success: true,
+        provider: verified.provider,
+        status: verified.status,
+        reconciled: false,
+        message: `Đã nhận webhook trạng thái ${verified.status}`,
+      };
+    }
+
+    const reconciled = await this.reconcileGatewayPayment({
+      orderCode: verified.orderCode,
+      provider: verified.provider,
+      amount: verified.amount,
+      gatewayTransactionId: verified.gatewayTransactionId,
+      referenceCode: verified.referenceCode,
+      rawPayload: verified.rawPayload,
+    });
+
+    return {
+      success: true,
+      provider: verified.provider,
+      status: 'PAID',
+      reconciled: true,
+      ...reconciled,
+    };
+  }
+
+  private async reconcileGatewayPayment(params: {
+    orderCode?: number;
+    provider: string;
+    amount: number;
+    gatewayTransactionId: string;
+    referenceCode?: string;
+    rawPayload: Record<string, any>;
+  }) {
+    const paidAt = new Date().toISOString();
+    let dbIntent: any = null;
+
+    if (params.orderCode) {
+      try {
+        const { data } = await this.supabaseService.adminClient
+          .from('payment_gateway_intents')
+          .select('*')
+          .eq('order_code', params.orderCode)
+          .maybeSingle();
+        dbIntent = data;
+      } catch (_) {}
+    }
+
+    if (!dbIntent && params.referenceCode) {
+      try {
+        const { data } = await this.supabaseService.adminClient
+          .from('payment_gateway_intents')
+          .select('*')
+          .eq('reference_code', params.referenceCode)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        dbIntent = data;
+      } catch (_) {}
+    }
+
+    if (dbIntent && String(dbIntent.status || '').toUpperCase() === 'PAID') {
+      return {
+        idempotent: true,
+        orderCode: dbIntent.order_code,
+        amountPaid: Number(dbIntent.amount_paid || dbIntent.amount || params.amount),
+        paidAt: dbIntent.paid_at || paidAt,
+        targetType: dbIntent.target_type,
+        targetId: dbIntent.target_id,
+      };
+    }
+
+    const effectiveAmount = params.amount > 0 ? params.amount : Number(dbIntent?.amount || 0);
+    const effectiveOrderCode = params.orderCode || Number(dbIntent?.order_code || 0);
+
+    if (dbIntent?.id) {
+      try {
+        await this.supabaseService.adminClient
+          .from('payment_gateway_intents')
+          .update({
+            status: 'PAID',
+            amount_paid: effectiveAmount,
+            gateway_transaction_id: params.gatewayTransactionId,
+            raw_webhook_payload: params.rawPayload,
+            paid_at: paidAt,
+          })
+          .eq('id', dbIntent.id);
+      } catch (_) {}
+    }
+
+    const targetType = String(dbIntent?.target_type || '').toUpperCase();
+    const targetId = dbIntent?.target_id ? String(dbIntent.target_id) : undefined;
+    const referenceCode = params.referenceCode || (dbIntent?.reference_code ? String(dbIntent.reference_code) : undefined);
+
+    if (targetType === 'BOOKING' || (!targetType && referenceCode && referenceCode.toUpperCase().startsWith('BK-'))) {
+      let query = this.supabaseService.adminClient
+        .from('bookings')
+        .update({
+          payment_status: 'PAID',
+          payment_method: 'BANK_TRANSFER',
+          status: 'CONFIRMED',
+        });
+      query = targetId ? query.eq('id', targetId) : query.eq('booking_code', referenceCode || '');
+      try {
+        await query;
+      } catch (_) {}
+    } else if (targetType === 'ENROLLMENT' && targetId) {
+      try {
+        await this.supabaseService.adminClient
+          .from('course_enrollments')
+          .update({
+            payment_status: 'PAID',
+            amount_paid: effectiveAmount,
+            status: 'ENROLLED',
+          })
+          .eq('id', targetId);
+      } catch (_) {}
+    } else if (targetType === 'INVOICE' && targetId) {
+      try {
+        await this.supabaseService.adminClient
+          .from('invoices')
+          .update({
+            payment_status: 'PAID',
+            gateway_transaction_id: params.gatewayTransactionId,
+            paid_at: paidAt,
+          })
+          .eq('id', targetId);
+      } catch (_) {}
+    }
+
+    return {
+      idempotent: false,
+      orderCode: effectiveOrderCode || undefined,
+      amountPaid: effectiveAmount,
+      paidAt,
+      targetType: targetType || 'BOOKING',
+      targetId: targetId || null,
+    };
   }
 }
