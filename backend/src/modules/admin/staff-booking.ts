@@ -22,6 +22,14 @@ export async function scheduleAvailability(client: PoolClient, actor: AdminActor
     'SELECT s.*,t.full_name FROM technician_shifts s JOIN technicians t ON t.id=s.technician_id WHERE s.branch_id=$1 AND s.shift_date=$2 AND NOT s.is_cancelled AND t.is_active AND t.branch_id=s.branch_id AND (t.staff_profile_id IS NULL OR EXISTS (SELECT 1 FROM staff_profiles p WHERE p.id=t.staff_profile_id AND p.is_active AND p.branch_id=s.branch_id)) AND NOT EXISTS (SELECT 1 FROM staff_leaves l WHERE l.staff_id=t.staff_profile_id AND l.status=\'APPROVED\' AND s.shift_date BETWEEN l.start_date AND l.end_date) ORDER BY s.start_time,s.id',
     [branchId, day],
   )).rows;
+  const onLeaveTechnicians = (await client.query(
+    `SELECT DISTINCT t.id AS "technicianId", t.full_name AS "fullName", COALESCE(l.reason, '') AS reason
+     FROM technicians t
+     JOIN staff_leaves l ON l.staff_id=t.staff_profile_id
+     WHERE t.branch_id=$1 AND t.is_active AND l.status='APPROVED' AND $2::date BETWEEN l.start_date AND l.end_date
+     ORDER BY t.full_name`,
+    [branchId, day],
+  )).rows;
   const blocks = (await client.query(
     "SELECT technician_id,start_time,end_time FROM technician_slots WHERE slot_date=$1 AND (status IN ('BLOCKED','BOOKED') OR (status='HOLD' AND hold_expires_at>now()))",
     [day],
@@ -33,6 +41,12 @@ export async function scheduleAvailability(client: PoolClient, actor: AdminActor
   const beds = hasBeds ? (await client.query(
     'SELECT id,room_id,bed_code,name,is_active,status FROM branch_beds WHERE branch_id=$1 ORDER BY bed_code,id', [branchId],
   )).rows : [];
+  const totalBranchBeds = rooms.reduce((sum, room) => {
+    const physicalBeds = beds.filter(bed => bed.room_id === room.id);
+    if (!physicalBeds.length) return sum + Number(room.bed_capacity || 0);
+    const activeCount = physicalBeds.filter(item => item.is_active && item.status !== 'MAINTENANCE').length;
+    return sum + Math.min(Number(room.bed_capacity || 0), activeCount);
+  }, 0);
   const bookings = (await client.query(
     "SELECT technician_id,branch_id,assigned_room_id,assigned_bed_number,start_time,end_time,to_jsonb(bookings)->>'bed_id' AS bed_id FROM bookings WHERE booking_date=$1 AND ($2::uuid IS NULL OR id<>$2) AND (branch_id=$3 OR technician_id IN (SELECT technician_id FROM technician_shifts WHERE branch_id=$3 AND shift_date=$1)) AND status NOT IN ('CANCELLED','NO_SHOW')",
     [day, excludedBookingId ?? null, branchId],
@@ -40,14 +54,33 @@ export async function scheduleAvailability(client: PoolClient, actor: AdminActor
   const now = (await client.query("SELECT to_char(now() AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM-DD HH24:MI') AS local")).rows[0].local as string;
   const duration = bookedDuration ?? Number(service.duration_minutes);
   const slots: { technicianId: string; technicianName: string; start: string; end: string; roomId: string; roomName: string; bed: string; bedId?: string }[] = [];
+  const slotCapacities: { start: string; end: string; totalBeds: number; freeBeds: number; freeStaff: number; remainingCapacity: number; availableTechnicianIds: string[] }[] = [];
   for (let start = Math.ceil(minute(branch.opening_time) / 15) * 15; start + duration + buffer <= minute(branch.closing_time); start += 15) {
     const end = start + duration;
     if (day + ' ' + clock(start) <= now) continue;
     const overlaps = (row: {start_time:string;end_time:string}, extra = 0) =>
       minute(row.start_time) < end + buffer && minute(row.end_time) + extra > start;
     const occupied = bookings.filter(row => overlaps(row, buffer));
-    // Legacy bookings without an identified room consume capacity too. Avoid promising a specific bed in that interval.
     if (occupied.some(row => row.branch_id === branchId && !row.assigned_room_id)) continue;
+    let freeBedsCount = 0;
+    for (const room of rooms) {
+      const used = occupied.filter(row => row.assigned_room_id === room.id);
+      const physicalBeds = beds.filter(bed => bed.room_id === room.id);
+      if (physicalBeds.length) {
+        if (used.length < room.bed_capacity && !used.some(row => !physicalBeds.some(item =>
+          item.id === row.bed_id || item.bed_code === row.assigned_bed_number || item.name === row.assigned_bed_number))) {
+          const roomFree = physicalBeds.filter(item => item.is_active && item.status !== 'MAINTENANCE' &&
+            (day !== now.slice(0, 10) || item.status === 'AVAILABLE') && !used.some(row =>
+              item.id === row.bed_id || item.bed_code === row.assigned_bed_number || item.name === row.assigned_bed_number)).length;
+          freeBedsCount += Math.max(0, Math.min(Number(room.bed_capacity) - used.length, roomFree));
+        }
+      } else {
+        const indexes = used.map(row => Number(String(row.assigned_bed_number || '').match(/^(?:B-)?(\d+)$/i)?.[1]));
+        if (!indexes.some(index => !Number.isInteger(index) || index < 1 || index > room.bed_capacity)) {
+          freeBedsCount += Math.max(0, Number(room.bed_capacity) - used.length);
+        }
+      }
+    }
     const assigned = new Set<string>();
     for (const shift of shifts) {
       const technicianId = shift.technician_id;
@@ -81,8 +114,18 @@ export async function scheduleAvailability(client: PoolClient, actor: AdminActor
         break;
       }
     }
+    const availableTechnicianIds = [...assigned];
+    slotCapacities.push({
+      start: clock(start),
+      end: clock(end),
+      totalBeds: totalBranchBeds,
+      freeBeds: freeBedsCount,
+      freeStaff: availableTechnicianIds.length,
+      remainingCapacity: Math.min(freeBedsCount, availableTechnicianIds.length),
+      availableTechnicianIds,
+    });
   }
-  return {slots, service, shifts};
+  return {slots, service, shifts, slotCapacities, onLeaveTechnicians};
 }
 
 export async function moveStaffBookingEarlier(

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, Printer, Download, CheckCircle2, RefreshCw, QrCode, AlertCircle, Copy, Check } from 'lucide-react';
 import { toast } from '../common';
@@ -8,8 +8,8 @@ import { exportElementToPdf } from '../../utils/pdfExport';
 export interface CandidateBillInfo {
   id: string;
   name: string;
-  code: string; // Mã khách hàng (HV-xxxx)
-  orderCode?: string; // Mã đơn hàng (KH-xxxx)
+  code: string;
+  orderCode?: string;
   phone: string;
   email?: string;
   program: string;
@@ -26,7 +26,7 @@ interface EnrollmentBillModalProps {
   isOpen: boolean;
   onClose: () => void;
   candidate: CandidateBillInfo | null;
-  onCheckPayment: (enrollmentId: string) => Promise<{ isPaid: boolean; message: string }>;
+  onCheckPayment: (enrollmentId: string, silent?: boolean) => Promise<{ isPaid: boolean; message: string; amountPaid?: number }>;
 }
 
 export const EnrollmentBillModal: React.FC<EnrollmentBillModalProps> = ({
@@ -55,13 +55,25 @@ const EnrollmentBillContent: React.FC<Omit<EnrollmentBillModalProps, 'isOpen' | 
   const remaining = Math.max(0, rawTuition - (candidate.amountPaid || 0));
   const amountToPay = remaining;
 
-  // Prioritize unique order code for accurate payment transfer matching (Spec 5.2 & 5.3)
-  const orderRef = candidate.orderCode || candidate.code || `KH-${candidate.id.slice(-6)}`;
+  const orderRef = candidate.orderCode || candidate.code || `HV-${candidate.id.slice(-6).toUpperCase()}`;
   const cleanCode = orderRef.replace(/[^A-Za-z0-9_-]/g, '').toUpperCase();
   const transferContent = `MLD ${cleanCode}`;
 
-  // VietQR Napas 247 generator URL
-  const vietQrUrl = `https://api.vietqr.io/image/970422-0394316963-compact2.jpg?amount=${amountToPay}&addInfo=${encodeURIComponent(transferContent)}&accountName=BUI%20THE%20HOANG`;
+  const vietQrUrl = `https://img.vietqr.io/image/970422-0394316963-compact2.jpg?amount=${amountToPay}&addInfo=${encodeURIComponent(transferContent)}&accountName=BUI%20THE%20HOANG`;
+
+  useEffect(() => {
+    if (remaining <= 0 || showPaidDemo) return;
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      if (!cancelled) {
+        void onCheckPayment(candidate.id, true);
+      }
+    }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [candidate.id, onCheckPayment, remaining, showPaidDemo]);
 
   const handleCopy = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
@@ -114,7 +126,7 @@ const EnrollmentBillContent: React.FC<Omit<EnrollmentBillModalProps, 'isOpen' | 
             </div>
             <div>
               <h2 className="text-base font-bold text-[#2C241E]">
-                Phiếu Nộp Học Phí & Mã Khách Hàng
+                Phiếu Nộp Học Phí & Mã Học Viên
               </h2>
               <p className="text-xs text-[#73675F]">
                 Mã hồ sơ: <span className="font-semibold text-[#8D4B1A]">{candidate.code}</span> • Trạng thái:{' '}
@@ -284,7 +296,7 @@ const EnrollmentBillContent: React.FC<Omit<EnrollmentBillModalProps, 'isOpen' | 
         <div className="no-print p-4 sm:px-6 bg-[#FAF5EF] border-t border-[#EFE4D9] flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 text-xs text-[#73675F]">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>Mã khách hàng: <strong className="text-[#2C241E]">{cleanCode}</strong></span>
+            <span>Mã học viên: <strong className="text-[#2C241E]">{cleanCode}</strong> · Đang tự động theo dõi chuyển khoản</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

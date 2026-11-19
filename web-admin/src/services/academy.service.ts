@@ -239,9 +239,10 @@ export const academyService = {
     status?: EnrollmentStatus;
     batchId?: string;
     search?: string;
+    fresh?: boolean;
   }): Promise<ApiResponse<CourseEnrollment[]>> {
     try {
-      const live = await supabaseService.getEnrollments(params?.batchId);
+      const live = await supabaseService.getEnrollments(params?.batchId, { fresh: params?.fresh });
       let result = live || [];
       if (params?.status) {
         result = result.filter((e) => e.status === params.status);

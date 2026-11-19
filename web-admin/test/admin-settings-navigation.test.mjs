@@ -12,7 +12,7 @@ test('App.tsx registers /settings and /cai-dat routes to W20_Settings workspace'
   assert.match(content, /const W20_Settings = lazy\(\(\) => import\('\.\/pages\/W20_Settings'\)/);
 
   // Verify routes registration
-  assert.match(content, /<Route path="settings" element=\{<W20_Settings \/>\} \/>/);
+  assert.match(content, /<Route[\s\S]*path="settings"[\s\S]*<RoleRoute allowedRoles=\{\['SUPER_ADMIN', 'ADMIN'\]\}>[\s\S]*<W20_Settings \/>/);
   assert.match(content, /<Route path="cai-dat" element=\{<Navigate to="\/settings" replace \/>\} \/>/);
   assert.match(content, /<Route path="manage\/system_settings" element=\{<Navigate to="\/settings" replace \/>\} \/>/);
 });

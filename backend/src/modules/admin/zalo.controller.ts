@@ -132,6 +132,134 @@ export class ZaloController {
     return { messageId: result.data.msg_id, trackingId };
   }
 
+  @Get('cloud-config')
+  @Header('Cache-Control', 'no-store')
+  async getCloudConfig(@Req() request: { admin?: { role?: string } }) {
+    this.assertZnsStaff(request);
+    const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(request.admin?.role || '');
+    try {
+      const { rows } = await this.db.connection.query<any>(
+        "SELECT * FROM public.zns_config WHERE id = 'default' LIMIT 1",
+      );
+      const row = rows[0] || {};
+      const oaSettings = await this.loadSettings().catch(() => ({ access_token: '', template_id: '', test_phone: '' }));
+      return {
+        oaId: row.oa_id || '2849182390192830192',
+        appId: row.app_id || '4928109283019283',
+        appSecret: isAdmin ? (row.app_secret || '') : '',
+        accessToken: isAdmin ? (row.access_token || oaSettings.access_token || '') : '',
+        refreshToken: isAdmin ? (row.refresh_token || '') : '',
+        webhookUrl: row.webhook_url || 'https://wstvwushpwcdsmhpunvh.supabase.co/functions/v1/zalo-webhook',
+        isLiveMode: Boolean(row.access_token || oaSettings.access_token),
+        expiresAt: row.expires_at || null,
+      };
+    } catch {
+      return {
+        oaId: '2849182390192830192',
+        appId: '4928109283019283',
+        appSecret: '',
+        accessToken: '',
+        refreshToken: '',
+        webhookUrl: 'https://wstvwushpwcdsmhpunvh.supabase.co/functions/v1/zalo-webhook',
+        isLiveMode: false,
+      };
+    }
+  }
+
+  @Post('cloud-config')
+  @Header('Cache-Control', 'no-store')
+  async saveCloudConfig(@Req() request: { admin?: { role?: string } }, @Body() body: Record<string, any>) {
+    this.assertAdmin(request);
+    const oaId = String(body?.oaId || '2849182390192830192');
+    const appId = String(body?.appId || '4928109283019283');
+    const appSecret = String(body?.appSecret || '');
+    const accessToken = String(body?.accessToken || '');
+    const refreshToken = String(body?.refreshToken || '');
+    const expiresAt = body?.expiresAt || null;
+    await this.db.connection.query(
+      `INSERT INTO public.zns_config (id, oa_id, app_id, app_secret, access_token, refresh_token, is_live_mode, expires_at, updated_at)
+       VALUES ('default', $1, $2, $3, $4, $5, $6, $7, now())
+       ON CONFLICT (id) DO UPDATE SET
+         oa_id = EXCLUDED.oa_id,
+         app_id = EXCLUDED.app_id,
+         app_secret = EXCLUDED.app_secret,
+         access_token = EXCLUDED.access_token,
+         refresh_token = EXCLUDED.refresh_token,
+         is_live_mode = EXCLUDED.is_live_mode,
+         expires_at = EXCLUDED.expires_at,
+         updated_at = now()`,
+      [oaId, appId, appSecret, accessToken, refreshToken, Boolean(accessToken), expiresAt],
+    ).catch(() => {});
+    return { success: true };
+  }
+
+  @Get('templates')
+  @Header('Cache-Control', 'no-store')
+  async getTemplates(@Req() request: { admin?: { role?: string } }) {
+    this.assertZnsStaff(request);
+    try {
+      const { rows } = await this.db.connection.query<any>(
+        'SELECT * FROM public.zns_templates ORDER BY created_at ASC',
+      );
+      return rows;
+    } catch {
+      return [];
+    }
+  }
+
+  @Post('templates/toggle')
+  @Header('Cache-Control', 'no-store')
+  async toggleTemplate(@Req() request: { admin?: { role?: string } }, @Body() body: { id?: string; isActive?: boolean }) {
+    this.assertZnsStaff(request);
+    if (!body?.id) throw new BadRequestException('Thiếu mã kịch bản ZNS.');
+    await this.db.connection.query(
+      'UPDATE public.zns_templates SET is_active = $2, updated_at = now() WHERE id = $1',
+      [body.id, Boolean(body.isActive)],
+    );
+    return { success: true };
+  }
+
+  @Get('logs')
+  @Header('Cache-Control', 'no-store')
+  async getLogs(@Req() request: { admin?: { role?: string } }) {
+    this.assertZnsStaff(request);
+    try {
+      const { rows } = await this.db.connection.query<any>(
+        'SELECT * FROM public.zns_logs ORDER BY sent_at DESC LIMIT 200',
+      );
+      return rows;
+    } catch {
+      return [];
+    }
+  }
+
+  @Post('logs')
+  @Header('Cache-Control', 'no-store')
+  async createLog(@Req() request: { admin?: { role?: string } }, @Body() body: Record<string, any>) {
+    this.assertZnsStaff(request);
+    const { rows } = await this.db.connection.query<any>(
+      `INSERT INTO public.zns_logs (recipient_phone, recipient_name, template_code, booking_id, params_sent, status, response_code, error_message)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
+       RETURNING *`,
+      [
+        String(body?.recipient_phone || ''),
+        String(body?.recipient_name || 'Khách hàng'),
+        String(body?.template_code || 'BOOKING_CONFIRMATION'),
+        body?.booking_id || null,
+        JSON.stringify(body?.params_sent || {}),
+        String(body?.status || 'SENT'),
+        String(body?.response_code || '0'),
+        body?.error_message || null,
+      ],
+    );
+    return rows;
+  }
+
+  private assertZnsStaff(request: { admin?: { role?: string } }) {
+    if (!['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER', 'RECEPTIONIST'].includes(request.admin?.role || ''))
+      throw new ForbiddenException('Tài khoản không có quyền truy cập phân hệ Zalo ZNS.');
+  }
+
   private assertAdmin(request: { admin?: { role?: string } }) {
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.admin?.role || ''))
       throw new ForbiddenException('Chỉ quản trị viên được kiểm tra cấu hình và gửi thử Zalo.');

@@ -127,7 +127,7 @@ export const AssignBatchModal: React.FC<AssignBatchModalProps> = ({
                 </div>
                 <div>
                   <div className="text-sm font-bold text-[#2C241E]">{candidate.name}</div>
-                  <div className="text-[11px] text-[#73675F]">{candidate.phone} · Mã KH: <strong className="text-[#8D4B1A]">{candidate.code}</strong></div>
+                  <div className="text-[11px] text-[#73675F]">{candidate.phone} · Mã HV: <strong className="text-[#8D4B1A]">{candidate.code}</strong></div>
                 </div>
               </div>
               <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#E8F6ED] text-[#0D6832]">

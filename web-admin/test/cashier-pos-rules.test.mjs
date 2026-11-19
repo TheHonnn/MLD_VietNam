@@ -135,5 +135,17 @@ test('calculatePosTotals computes totals matching backend expectedTotal exactly'
   assert.equal(fullDiscount.preTax, 0);
   assert.equal(fullDiscount.vat, 0);
   assert.equal(fullDiscount.total, 0);
+
+  const withPoints = rules.calculatePosTotals(1000000, 100000, 8, 200000);
+  assert.equal(withPoints.preTax, 700000);
+  assert.equal(withPoints.vat, 56000);
+  assert.equal(withPoints.total, 756000);
+});
+
+test('maxRedeemablePoints caps points by balance, order percentage limit, and minimum payable amount', () => {
+  assert.equal(rules.maxRedeemablePoints(1000000, 5000, 100, 30), 3000);
+  assert.equal(rules.maxRedeemablePoints(1000000, 1200, 100, 30), 1200);
+  assert.equal(rules.maxRedeemablePoints(5000, 500, 100, 100), 40);
+  assert.equal(rules.maxRedeemablePoints(1000, 500, 100, 30), 0);
 });
 

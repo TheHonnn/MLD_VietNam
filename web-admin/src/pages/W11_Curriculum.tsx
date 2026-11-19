@@ -193,6 +193,10 @@ export const W11_Curriculum: React.FC = () => {
       const statusLabel =
         status === 'active' ? 'Đang học' : status === 'upcoming' ? 'Sắp mở' : 'Chờ hồ sơ / cọc';
 
+      const batchSchedules = schedules.filter((s) => s.batchId === bat.id && s.assignedRoomId);
+      const assignedRoomObj = batchSchedules.length > 0 ? rooms.find((r) => r.id === batchSchedules[0].assignedRoomId) : undefined;
+      const resolvedRoomName = assignedRoomObj?.name || (rooms.find((r) => r.branchId === bat.branchId)?.name) || 'Chưa xếp phòng';
+
       return {
         id: bat.id,
         courseTitle: crs?.title || 'Khóa Đào Tạo Kỹ Thuật Viên',
@@ -200,7 +204,7 @@ export const W11_Curriculum: React.FC = () => {
         instructor: inst?.fullName || 'Chưa phân công',
         instructorRole: (inst as any)?.title || 'Giảng viên',
         branch: branchName,
-        room: 'Phòng thực hành',
+        room: resolvedRoomName,
         scheduleDays: bat.scheduleText || 'Chưa xếp lịch',
         timeSlot: 'Đang triển khai',
         startDateStatus: bat.startDate ? `Khai giảng: ${new Date(bat.startDate).toLocaleDateString('vi-VN')}` : 'Đang triển khai',
@@ -209,7 +213,7 @@ export const W11_Curriculum: React.FC = () => {
         statusLabel,
       };
     });
-  }, [liveBatches, liveCourses, instructors, branches]);
+  }, [liveBatches, liveCourses, instructors, branches, schedules, rooms]);
 
   const practiceRooms = useMemo(() => {
     if (!rooms || rooms.length === 0) return [];
@@ -226,19 +230,22 @@ export const W11_Curriculum: React.FC = () => {
   const timetableRooms: TimetableRoom[] = useMemo(() => {
     const mapped = practiceRooms.map((r) => {
       const branchName = branches.find((branch) => branch.id === r.branchId)?.name || 'Chưa xác định cơ sở';
+      const roomSchedule = schedules.find((s) => s.assignedRoomId === r.id);
+      const roomBatch = roomSchedule ? liveBatches.find((b) => b.id === roomSchedule.batchId) : liveBatches.find((b) => b.branchId === r.branchId);
+      const roomInst = roomBatch ? instructors.find((i) => i.id === roomBatch.instructorId) : undefined;
       return {
         id: r.id,
         name: r.name,
-        instructorName: instructors[0]?.fullName || 'Giảng viên chuyên môn',
+        instructorName: roomInst?.fullName || instructors[0]?.fullName || 'Chưa phân công',
         capacity: `${r.bedCapacity || 15} học viên`,
         branch: branchName,
       };
     });
     const hasUnassignedRoom = schedules.some((schedule) => !schedule.assignedRoomId);
     return hasUnassignedRoom
-      ? [...mapped, { id: '__UNASSIGNED__', name: 'Phòng thực hành', instructorName: instructors[0]?.fullName || 'Giảng viên chuyên môn', capacity: 'Chưa xác định sức chứa', branch: 'Chưa xác định cơ sở' }]
+      ? [...mapped, { id: '__UNASSIGNED__', name: 'Chưa xếp phòng', instructorName: instructors[0]?.fullName || 'Chưa phân công', capacity: 'Chưa xác định sức chứa', branch: 'Chưa xác định cơ sở' }]
       : mapped;
-  }, [practiceRooms, instructors, branches, schedules]);
+  }, [practiceRooms, instructors, branches, schedules, liveBatches]);
 
   const practicalSessionsData: PracticalSession[] = useMemo(() => {
     if (!schedules || schedules.length === 0) return [];

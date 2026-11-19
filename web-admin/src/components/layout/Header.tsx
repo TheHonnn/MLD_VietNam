@@ -24,6 +24,7 @@ import {
 import { useAdmin } from '../../admin/Auth';
 import { notificationService, branchService, AdminNotification, getNotificationDestination } from '../../services';
 import { Branch } from '../../types/shared_types';
+import { GlobalCommandPalette } from './GlobalCommandPalette';
 
 export interface HeaderProps {
   onToggleMobileNav?: () => void;
@@ -97,11 +98,18 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
   });
   const [showBranchMenu, setShowBranchMenu] = useState(false);
   const branchMenuRef = useRef<HTMLDivElement>(null);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
-  // Header Search Input State
-  const [headerSearch, setHeaderSearch] = useState('');
-  const [showHeaderSearchPopup, setShowHeaderSearchPopup] = useState(false);
-  const searchInputRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
 
   // Load branches and listen to global branch changes & updates
   useEffect(() => {
@@ -161,15 +169,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
       if (branchMenuRef.current && !branchMenuRef.current.contains(target)) {
         setShowBranchMenu(false);
       }
-      if (searchInputRef.current && !searchInputRef.current.contains(target)) {
-        setShowHeaderSearchPopup(false);
-      }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setShowNotifications(false);
         setShowBranchMenu(false);
-        setShowHeaderSearchPopup(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -179,18 +183,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
-
-  const handleHeaderSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && headerSearch.trim()) {
-      setShowHeaderSearchPopup(false);
-      if (location.pathname === '/') {
-        // If on dashboard, scroll or focus
-        window.dispatchEvent(new CustomEvent('mld_search_query', { detail: { query: headerSearch.trim() } }));
-      } else {
-        navigate(`/customers?search=${encodeURIComponent(headerSearch.trim())}`);
-      }
-    }
-  };
 
   const [selectedNotifDetail, setSelectedNotifDetail] = useState<AdminNotification | null>(null);
 
@@ -373,72 +365,20 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
           )}
         </div>
 
-        {/* Search input */}
-        <div className="relative w-24 xs:w-36 sm:w-48 focus-within:w-36 xs:focus-within:w-44 sm:focus-within:w-48 transition-all" ref={searchInputRef}>
-          <div className="relative flex items-center">
-            <input
-              type="text"
-              value={headerSearch}
-              onChange={(e) => setHeaderSearch(e.target.value)}
-              onFocus={() => setShowHeaderSearchPopup(true)}
-              onKeyDown={handleHeaderSearchKeyDown}
-              placeholder="Tìm kiếm..."
-              className="w-full pl-2.5 sm:pl-3 pr-7 py-2 bg-white border border-[#CBD5E1] rounded-xl text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#004890] transition-colors"
-            />
-            {headerSearch ? (
-              <button
-                type="button"
-                onClick={() => setHeaderSearch('')}
-                className="absolute right-2 text-[#94A3B8] hover:text-[#0F172A]"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <Search className="w-3.5 h-3.5 text-[#94A3B8] absolute right-2.5 pointer-events-none" />
-            )}
-          </div>
-
-          {showHeaderSearchPopup && headerSearch.trim().length > 0 && (
-            <div className="absolute right-0 top-full mt-1.5 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-2xl border border-[#E2E8F0] shadow-xl z-50 p-2 space-y-1.5 text-xs animate-in fade-in-50 zoom-in-95">
-              <div className="text-[10.5px] font-bold text-[#64748B] px-2 py-1">
-                Tìm kiếm nhanh: "{headerSearch}"
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowHeaderSearchPopup(false);
-                  navigate(`/customers?search=${encodeURIComponent(headerSearch)}`);
-                }}
-                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-[#F1F5F9] flex items-center justify-between text-[#0F172A]"
-              >
-                <span>🔍 Tìm khách hàng "{headerSearch}"</span>
-                <span className="text-[10px] text-[#004890] font-bold">Khách hàng</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowHeaderSearchPopup(false);
-                  navigate('/');
-                }}
-                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-[#F1F5F9] flex items-center justify-between text-[#0F172A]"
-              >
-                <span>📅 Tìm lịch hẹn tại Dashboard</span>
-                <span className="text-[10px] text-[#004890] font-bold">Lịch hẹn</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowHeaderSearchPopup(false);
-                  navigate('/cashier-pos');
-                }}
-                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-[#F1F5F9] flex items-center justify-between text-[#0F172A]"
-              >
-                <span>🧾 Tìm hóa đơn tại Thu ngân</span>
-                <span className="text-[10px] text-[#004890] font-bold">Thu ngân</span>
-              </button>
-            </div>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={() => setIsCommandPaletteOpen(true)}
+          aria-label="Tìm kiếm nhanh toàn hệ thống (Ctrl+K)"
+          className="flex items-center justify-between gap-2 w-28 xs:w-40 sm:w-56 px-2.5 sm:px-3 py-1.5 bg-white hover:bg-[#F8FAFC] border border-[#CBD5E1] hover:border-[#004890] rounded-xl text-xs text-[#64748B] transition-colors cursor-pointer"
+        >
+          <span className="flex items-center gap-1.5 truncate">
+            <Search className="w-3.5 h-3.5 text-[#004890] shrink-0" />
+            <span className="truncate">Tìm nhanh...</span>
+          </span>
+          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded bg-[#EFF6EE] border border-[#CBD5E1] text-[10px] font-bold text-[#004890] shrink-0">
+            Ctrl+K
+          </kbd>
+        </button>
 
         {/* Bell notification with Dropdown */}
         <div className="relative" ref={dropdownRef}>
@@ -763,6 +703,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileNav }) => {
           </div>
         </div>
       )}
+      <GlobalCommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+      />
     </header>
   );
 };

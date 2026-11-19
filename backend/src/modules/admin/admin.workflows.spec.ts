@@ -212,4 +212,93 @@ describe('Admin business workflows on the complete migrated schema', () => {
     await expect(service.cashierWorkspace(scoped,otherBranch.id)).rejects.toThrow(/Chi nhánh/);
   });
 
+  it('runs RBAC-scoped commandSearch, computes slotCapacities, and excludes approved-leave technicians from staff and treatment bookings',async()=>{
+    const full = await service.commandSearch(actor, 'Student test');
+    expect(full.customers.some(c => c.id === customer.id)).toBe(true);
+    expect(full.enrollments.some(e => e.studentName === customer.full_name || e.courseTitle === course.title)).toBe(true);
+    const scopedCashier = {
+      ...actor,
+      role: 'CASHIER',
+      scopes: [{ permission: 'invoices.read', branchId: otherBranch.id }],
+    };
+    const scopedRes = await service.commandSearch(scopedCashier, 'Student test');
+    expect(scopedRes.customers).toEqual([]);
+    expect(scopedRes.enrollments).toEqual([]);
+    expect(scopedRes.invoices).toEqual([]);
+
+    const dayRow = (await query("SELECT ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + 2)::text AS d")).rows[0];
+    const targetDay = dayRow.d;
+    const roomCap = (await query("INSERT INTO branch_rooms(branch_id,name,bed_capacity,is_available) VALUES($1,'Cap Room',2,true) RETURNING *",[otherBranch.id])).rows[0];
+    const uTechActive = (await query("INSERT INTO users(phone,full_name,role,referral_code) VALUES('0900100081','Tech San Sang','TECHNICIAN','TECHOK') RETURNING *")).rows[0];
+    const uTechLeave = (await query("INSERT INTO users(phone,full_name,role,referral_code) VALUES('0900100082','Tech Nghi Phep','TECHNICIAN','TECHOFF') RETURNING *")).rows[0];
+    const spActive = (await query("INSERT INTO staff_profiles(user_id,branch_id,employee_code,position) VALUES($1,$2,'EMP-OK','KTV') RETURNING *",[uTechActive.id,otherBranch.id])).rows[0];
+    const spLeave = (await query("INSERT INTO staff_profiles(user_id,branch_id,employee_code,position) VALUES($1,$2,'EMP-OFF','KTV') RETURNING *",[uTechLeave.id,otherBranch.id])).rows[0];
+    const tActive = (await query("INSERT INTO technicians(branch_id,staff_profile_id,full_name,avatar_url,is_active) VALUES($1,$2,'Tech San Sang','https://example.invalid/t1.png',true) RETURNING *",[otherBranch.id,spActive.id])).rows[0];
+    const tLeave = (await query("INSERT INTO technicians(branch_id,staff_profile_id,full_name,avatar_url,is_active) VALUES($1,$2,'Tech Nghi Phep','https://example.invalid/t2.png',true) RETURNING *",[otherBranch.id,spLeave.id])).rows[0];
+    await query("INSERT INTO technician_shifts(technician_id,branch_id,assigned_room_id,shift_date,start_time,end_time) VALUES($1,$2,$3,$4,'08:00','17:00'),($5,$2,$3,$4,'08:00','17:00')",[tActive.id,otherBranch.id,roomCap.id,targetDay,tLeave.id]);
+    await query("INSERT INTO staff_leaves(staff_id,leave_type,start_date,end_date,reason,status) VALUES($1,'ANNUAL',$2,$2,'Nghi phep duyet','APPROVED')",[spLeave.id,targetDay]);
+
+    const slotsRes = await service.staffScheduleSlots(actor, { branchId: otherBranch.id, date: targetDay, serviceId: spaService.id });
+    expect(slotsRes.onLeaveTechnicians.map((x: any) => x.technicianId)).toEqual([tLeave.id]);
+    expect(slotsRes.slots.every((s: any) => s.technicianId === tActive.id)).toBe(true);
+    const cap09 = slotsRes.slotCapacities.find((c: any) => c.start === '09:00');
+    expect(cap09).toMatchObject({ totalBeds: 2, freeBeds: 2, freeStaff: 1, remainingCapacity: 1 });
+    expect(cap09?.availableTechnicianIds).toEqual([tActive.id]);
+
+    const upkg = (await query("INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,expires_at) VALUES($1,$2,3,0,'ACTIVE',now()+interval '30 days') RETURNING *",[customer.id,spaPackage.id])).rows[0];
+    await expect(service.bookTreatmentSession(actor, upkg.id, {
+      branchId: otherBranch.id,
+      technicianId: tLeave.id,
+      bookingDate: targetDay,
+      startTime: '09:00',
+      requestId: randomUUID(),
+    })).rejects.toThrow(/Chuyên viên/);
+  });
+
+  it('aggregates actionCenter pending queues accurately with RBAC branch scoping', async()=>{
+    const acStudent = (await query("INSERT INTO users(phone,full_name,role,referral_code) VALUES('0900100089','HV Action Center','STUDENT','ACSTU1') RETURNING *")).rows[0];
+    const pastDay = (await query("SELECT ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 1)::text AS d")).rows[0].d;
+    await query(
+      "INSERT INTO bookings(booking_code,customer_id,branch_id,booking_date,start_time,end_time,status,payment_status,base_total,final_price,qr_code_hash) VALUES('BK-AC-OVERDUE',$1,$2,$3,'09:00','10:00','CONFIRMED','UNPAID',100000,100000,$4)",
+      [acStudent.id, otherBranch.id, pastDay, randomUUID()],
+    );
+    await query(
+      "INSERT INTO support_tickets(customer_id,subject,message,status) VALUES($1,'Ho tro Action Center','Can xu ly gap','PENDING')",
+      [acStudent.id],
+    );
+    await query(
+      "INSERT INTO treatment_inventory_outbox(branch_id,operation_type,items,sync_status,notes) VALUES($1,'DEDUCT','[]'::jsonb,'FAILED','Thieu ton kho')",
+      [otherBranch.id],
+    );
+    const enrReady = (await query(
+      "INSERT INTO course_enrollments(student_id,course_id,batch_id,order_code,student_name,consultation_status,payment_status,student_status,status,tuition_total,required_deposit,amount_paid) VALUES($1,$2,$3,'HV-AC-01','HV Cho Duyet','CONFIRMED','PARTIALLY_PAID','NOT_APPROVED','STUDYING',5000000,2000000,2000000) RETURNING *",
+      [acStudent.id, course.id, batch.id],
+    )).rows[0];
+    await query(
+      "INSERT INTO student_certificates(enrollment_id,student_id,course_id,certificate_code,qr_verification_code,student_name,course_title,theory_score,practical_score,final_grade,status) VALUES($1,$2,$3,'CERT-AC-DRAFT',$4,'HV Cho Cap','Flow course',9,9,'PASS','DRAFT')",
+      [enrReady.id, acStudent.id, course.id, 'QR-' + randomUUID()],
+    );
+
+    const fullCenter = await service.getActionCenter(actor);
+    expect(fullCenter.counts.overdueBookings).toBeGreaterThanOrEqual(1);
+    expect(fullCenter.counts.pendingTickets).toBeGreaterThanOrEqual(1);
+    expect(fullCenter.counts.failedInventoryOutbox).toBeGreaterThanOrEqual(1);
+    expect(fullCenter.counts.pendingEnrollmentApprovals).toBeGreaterThanOrEqual(1);
+    expect(fullCenter.counts.draftCertificates).toBeGreaterThanOrEqual(1);
+    expect(fullCenter.items.some((it: any) => it.category === 'DRAFT_CERTIFICATE' && it.link === '/certificates?status=DRAFT')).toBe(true);
+
+    const scopedBranchA = {
+      ...actor,
+      role: 'BRANCH_MANAGER',
+      scopes: ['bookings.read', 'treatment_inventory_outbox.read', 'course_enrollments.read'].map(permission => ({
+        permission,
+        branchId: branch.id,
+      })),
+    };
+    const scopedCenter = await service.getActionCenter(scopedBranchA);
+    expect(scopedCenter.counts.failedInventoryOutbox).toBe(0);
+    expect(scopedCenter.counts.draftCertificates).toBe(0);
+    expect(scopedCenter.counts.pendingEnrollmentApprovals).toBeGreaterThanOrEqual(1);
+  });
+
 });

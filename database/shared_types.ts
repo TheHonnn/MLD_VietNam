@@ -310,6 +310,8 @@ export interface StaffProfile {
   employmentType: EmploymentType;
   baseSalary: number;
   commissionRate: number;
+  packageCommissionRate?: number;
+  productCommissionRate?: number;
   hireDate: string;
   resignationDate?: string | null;
   idCardNumber?: string | null;
@@ -576,6 +578,7 @@ export interface Invoice {
   branchId: string;
   customerId: string;
   cashierId?: string | null;
+  commissionStaffId?: string | null;
   bookingId?: string | null;
   userPackageId?: string | null;
   enrollmentId?: string | null;

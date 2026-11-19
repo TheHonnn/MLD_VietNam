@@ -13,6 +13,10 @@ export interface CashierCollection {
   requestId?: string;
   expectedTotal?: number;
   discountAmount?: number;
+  couponCode?: string;
+  userVoucherId?: string;
+  redeemPoints?: number;
+  discountReason?: string;
   items?: Array<{ id: string; type: 'SERVICE' | 'PACKAGE' | 'PRODUCT'; quantity: number; serviceId?: string; packageId?: string }>;
   bookingId?: string;
   enrollmentId?: string;
@@ -22,10 +26,45 @@ export interface CashierCollection {
   branchId?: string;
   amount?: number;
   vatRate?: number;
-  paymentMethod: PaymentMethod.CASH_AT_SPA | PaymentMethod.BANK_TRANSFER;
+  paymentMethod: PaymentMethod.CASH_AT_SPA | PaymentMethod.BANK_TRANSFER | PaymentMethod.VNPAY | PaymentMethod.MOMO;
   shiftId: string;
   notes?: string;
   bankReference?: string;
+}
+
+export interface PosBenefitCoupon {
+  id: string;
+  code: string;
+  title: string;
+  discountPercent: number;
+  discountAmount: number;
+  maxDiscountAmount: number | null;
+  minOrderAmount: number;
+  validTo?: string | null;
+}
+
+export interface PosBenefitUserVoucher {
+  id: string;
+  couponId: string;
+  code: string;
+  title: string;
+  discountPercent: number;
+  discountAmount: number;
+  maxDiscountAmount: number | null;
+  minOrderAmount: number;
+  expiresAt: string;
+}
+
+export interface CashierCustomerBenefits {
+  rewardPoints: number;
+  loyaltySettings: {
+    isActive: boolean;
+    earnAmountPerPoint: number;
+    redeemValuePerPoint: number;
+    maxRedeemPercentPerOrder: number;
+  };
+  publicCoupons: PosBenefitCoupon[];
+  userVouchers: PosBenefitUserVoucher[];
 }
 
 const failed = <T>(error: any, data: T): ApiResponse<T> => ({
@@ -41,7 +80,7 @@ export function effectiveCataloguePrice(item: {price: number; discountPrice?: nu
   return Number.isFinite(discount) && discount > 0 && discount < base ? discount : base;
 }
 
-const numericColumns = new Set(['receipt_net_amount','amount','price','discount_price','base_total','final_price','subtotal','total_amount','amount_paid','tuition_total','duration_minutes','total_sessions','completed_sessions','opening_cash','closing_cash','system_cash','transfer_sales','card_sales','total_sales','discrepancy_amount','vat_rate','vat_amount','pre_tax_amount','discount_amount','points_discount','commission_rate','quantity','max_students','enrolled_count','rating_avg','experience_years','price_min','price_max','reward_points','total_spent','deposit_amount']);
+const numericColumns = new Set(['receipt_net_amount','amount','price','discount_price','base_total','final_price','subtotal','total_amount','amount_paid','tuition_total','duration_minutes','total_sessions','completed_sessions','package_total_sessions','package_completed_sessions','opening_cash','closing_cash','system_cash','transfer_sales','card_sales','total_sales','discrepancy_amount','vat_rate','vat_amount','pre_tax_amount','discount_amount','points_discount','commission_rate','package_commission_rate','product_commission_rate','quantity','max_students','enrolled_count','rating_avg','experience_years','price_min','price_max','reward_points','total_spent','deposit_amount']);
 function fromDatabase(value: any): any {
   if (Array.isArray(value)) return value.map(fromDatabase);
   if (!value || typeof value !== 'object') return value;
@@ -57,6 +96,15 @@ export const posService = {
       const data = await adminCommand<any>('cashier/workspace' + (branchId ? '?branchId=' + encodeURIComponent(branchId) : ''));
       return {success:true,statusCode:200,message:'Đã tải dữ liệu thu ngân.',data:fromDatabase(data)};
     } catch (error) { return failed(error, null); }
+  },
+  async getCustomerBenefits(customerId?: string): Promise<ApiResponse<CashierCustomerBenefits | null>> {
+    try {
+      const query = customerId ? `?customerId=${encodeURIComponent(customerId)}` : '';
+      const data = await adminCommand<CashierCustomerBenefits>(`cashier/customer-benefits${query}`);
+      return { success: true, statusCode: 200, message: 'Đã tải ưu đãi khách hàng.', data };
+    } catch (error) {
+      return failed(error, null);
+    }
   },
   async syncInvoices(): Promise<ApiResponse<InvoiceSyncResult | null>> {
     try {
@@ -126,6 +174,34 @@ export const posService = {
         success: true,
         statusCode: 200,
         message: 'Đã ghi nhận khoản thu.',
+        data: result,
+      };
+    } catch (error) {
+      return failed(error, null);
+    }
+  },
+
+  async createPendingQr(data: Omit<CashierCollection, 'paymentMethod'>): Promise<ApiResponse<any>> {
+    try {
+      const result = await adminCommand<any>('cashier/pending-qr', data);
+      return {
+        success: true,
+        statusCode: 201,
+        message: 'Đã tạo mã QR chờ thanh toán tự động.',
+        data: result,
+      };
+    } catch (error) {
+      return failed(error, null);
+    }
+  },
+
+  async getPendingQrStatus(invoiceId: string): Promise<ApiResponse<any>> {
+    try {
+      const result = await adminCommand<any>(`cashier/pending-qr/${encodeURIComponent(invoiceId)}/status`);
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Đã kiểm tra trạng thái thanh toán.',
         data: result,
       };
     } catch (error) {

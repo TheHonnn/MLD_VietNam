@@ -297,6 +297,7 @@ class SupabaseService {
         image_url: branch.imageUrl || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
         gallery_urls: branch.galleryUrls || [],
         amenities: cleanAmenities,
+        custom_time_slots: branch.customTimeSlots || [],
         is_active: branch.isActive !== undefined ? branch.isActive : true,
       };
 
@@ -319,6 +320,7 @@ class SupabaseService {
           longitude: Number(b.longitude),
           openingTime: b.opening_time,
           closingTime: b.closing_time,
+          customTimeSlots: Array.isArray(b.custom_time_slots) ? b.custom_time_slots : (branch.customTimeSlots || []),
           imageUrl: b.image_url,
           galleryUrls: Array.isArray(b.gallery_urls) ? b.gallery_urls : [],
           amenities: Array.isArray(b.amenities) ? b.amenities : [],
@@ -350,6 +352,9 @@ class SupabaseService {
           clean.push(`SLOTS:${updates.customTimeSlots.join(',')}`);
         }
         payload.amenities = clean;
+      }
+      if (updates.customTimeSlots !== undefined) {
+        payload.custom_time_slots = updates.customTimeSlots;
       }
       if (updates.isActive !== undefined) payload.is_active = updates.isActive;
 
@@ -1503,7 +1508,7 @@ class SupabaseService {
 
   // 11. HÓA ĐƠN THU NGÂN (INVOICES)
   async getInvoices(branchId?: string, customerId?: string): Promise<Invoice[] | null> {
-    let path = `invoices?select=*,customer:customer_id(id,full_name,phone,email,avatar_url,membership_tier),branch:branch_id(id,name,code,address,district,city),items:invoice_items(*)&order=paid_at.desc`;
+    let path = `invoices?select=*,customer:customer_id(id,full_name,phone,email,avatar_url,membership_tier),branch:branch_id(id,name,code,address,district,city),user_package:user_package_id(id,total_sessions,completed_sessions,status,expires_at,package:package_id(name)),items:invoice_items(*)&order=paid_at.desc`;
     if (branchId && branchId !== 'ALL') path += `&branch_id=eq.${branchId}`;
     if (customerId) path += `&customer_id=eq.${customerId}`;
 
@@ -1530,6 +1535,7 @@ class SupabaseService {
         cashierId: inv.cashier_id,
         bookingId: inv.booking_id,
         userPackageId: inv.user_package_id,
+        commissionStaffId: inv.commission_staff_id || null,
         enrollmentId: inv.enrollment_id,
         subtotal: Number(inv.subtotal),
         discountAmount: Number(inv.discount_amount || 0),
@@ -1563,6 +1569,19 @@ class SupabaseService {
           district: inv.branch.district,
           city: inv.branch.city,
         } as any : undefined,
+        userPackage: inv.user_package
+          ? {
+              id: inv.user_package.id,
+              packageName: inv.user_package.package?.name || null,
+              totalSessions: Number(inv.user_package.total_sessions || 0),
+              completedSessions: Number(inv.user_package.completed_sessions || 0),
+              remainingSessions: Math.max(
+                0,
+                Number(inv.user_package.total_sessions || 0) - Number(inv.user_package.completed_sessions || 0),
+              ),
+              expiresAt: inv.user_package.expires_at || null,
+            }
+          : null,
         items: parsedItems,
         serviceTitle: parsedItems.length > 0 ? parsedItems.map((i: { itemName: string }) => i.itemName).join(', ') : undefined,
         serviceCategory: (() => {
@@ -1570,7 +1589,7 @@ class SupabaseService {
           if (inv.enrollment_id || code.startsWith('HD-HP-')) return 'ACADEMY';
           if (inv.user_package_id || code.startsWith('HD-LT-')) return 'PACKAGE';
           if (inv.booking_id || code.startsWith('HD-SPA-') || code.startsWith('HD-DV-')) return 'SERVICE';
-          if (parsedItems.some((it: { itemType?: string }) => it.itemType === 'PRODUCT')) return 'OTHER';
+          if (parsedItems.length > 0 && parsedItems.every((it: { itemType?: string }) => it.itemType === 'PRODUCT')) return 'OTHER';
           return 'SERVICE';
         })(),
       };
@@ -1672,6 +1691,7 @@ class SupabaseService {
         cashierId: inv.cashier_id,
         bookingId: inv.booking_id,
         userPackageId: inv.user_package_id,
+        commissionStaffId: inv.commission_staff_id || null,
         enrollmentId: inv.enrollment_id,
         shiftId: inv.shift_id || payload.shift_id,
         subtotal: Number(inv.subtotal),

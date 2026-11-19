@@ -34,6 +34,7 @@ import {
   AlertTriangle,
   Edit3,
   Upload,
+  Printer,
 } from 'lucide-react';
 import {
   treatmentService,
@@ -42,9 +43,18 @@ import {
   bookingService,
   portalService,
 } from '../services';
+import { settingsService, DEFAULT_SETTINGS_STATE, PosSettings, CompanySettings } from '../services/settings.service';
 import { toast, AdminTabs } from '../components/common';
 import { ShareJournalModal, ShareJournalItem } from '../components/treatment/ShareJournalModal';
+import { MLDInvoiceDocument } from '../components/invoices/MLDInvoiceDocument';
 import { matchSearch } from '../utils/searchUtils';
+import {
+  buildTechnicianBookingOptions,
+  findCustomerConsultationSurvey,
+  type ConsultationSurveyRecord,
+  type OnLeaveTechnician,
+  type StaffScheduleSlotCapacity,
+} from './booking-ux.rules';
 import { supabaseService } from '../services/supabaseService';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { RealtimeTable } from '../services/realtime.service';
@@ -208,6 +218,9 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [bookingNotes, setBookingNotes] = useState('');
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [drcSlots, setDrcSlots] = useState<DualSlotAvailability[]>([]);
+  const [consultationSurveys, setConsultationSurveys] = useState<ConsultationSurveyRecord[]>([]);
+  const [scheduleCapacities, setScheduleCapacities] = useState<StaffScheduleSlotCapacity[]>([]);
+  const [onLeaveTechnicians, setOnLeaveTechnicians] = useState<OnLeaveTechnician[]>([]);
 
   // Clinical Session Form
   const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -260,6 +273,22 @@ export const W06_TreatmentManagement: React.FC = () => {
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [timelineLogs, setTimelineLogs] = useState<any[]>([]);
   const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
+  const [isPackageBillOpen, setIsPackageBillOpen] = useState(false);
+  const [packageBillMode, setPackageBillMode] = useState<'thermal80' | 'a5'>('thermal80');
+  const [posReceiptSettings, setPosReceiptSettings] = useState(DEFAULT_SETTINGS_STATE.pos);
+  const [generalReceiptSettings, setGeneralReceiptSettings] = useState(DEFAULT_SETTINGS_STATE.general);
+
+  useEffect(() => {
+    Promise.all([
+      settingsService.getSettingsByCategory<PosSettings>('pos'),
+      settingsService.getSettingsByCategory<CompanySettings>('general'),
+    ])
+      .then(([posCfg, genCfg]) => {
+        if (posCfg) setPosReceiptSettings({ ...DEFAULT_SETTINGS_STATE.pos, ...posCfg });
+        if (genCfg) setGeneralReceiptSettings({ ...DEFAULT_SETTINGS_STATE.general, ...genCfg });
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchTreatmentData = useCallback(async (showSpinner = true, forceRefresh = false) => {
     if (showSpinner) {
@@ -271,7 +300,7 @@ export const W06_TreatmentManagement: React.FC = () => {
       supabaseService?.invalidateCache?.('treatment_journal');
     }
     try {
-      const [pkgRes, upkgRes, srvRes, jrnRes, custRes, brRes, techList, bookings, statsRes] = await Promise.all([
+      const [pkgRes, upkgRes, srvRes, jrnRes, custRes, brRes, techList, bookings, statsRes, surveysList] = await Promise.all([
         treatmentService.getTreatmentPackages(),
         treatmentService.getUserPackagesByCustomer(),
         treatmentService.getServices(),
@@ -281,9 +310,11 @@ export const W06_TreatmentManagement: React.FC = () => {
         supabaseService.getTechnicians(),
         bookingService.getBookings(),
         treatmentService.getTreatmentDashboardStats(),
+        bookingService.getConsultationSurveys(),
       ]);
 
       if (statsRes.success) setDashboardStats(statsRes.data);
+      if (Array.isArray(surveysList)) setConsultationSurveys(surveysList);
 
       if (pkgRes.success) setLivePackages(pkgRes.data);
       if (upkgRes.success) setLiveUserPackages(upkgRes.data);
@@ -608,18 +639,6 @@ export const W06_TreatmentManagement: React.FC = () => {
     }
   }, [packages, userPackageIdParam]);
 
-  // Fetch DRC slot availability when booking modal is opened
-  useEffect(() => {
-    if (isBookNextModalOpen && bookingDate) {
-      const branchId = bookingBranchId || branches[0]?.id || 'aaaaaaaa-0001-0001-0001-000000000001';
-      bookingService.getDaySlotsDualAvailability(branchId, bookingDate).then((res) => {
-        if (res.success && res.data) {
-          setDrcSlots(res.data);
-        }
-      }).catch(console.error);
-    }
-  }, [isBookNextModalOpen, bookingDate, bookingBranchId, branches]);
-
   // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(filteredPackages.length / pageSize));
   const paginatedPackages = useMemo(() => {
@@ -655,6 +674,75 @@ export const W06_TreatmentManagement: React.FC = () => {
     };
 
   const selectedCustomer = custMap.get(selectedPkg.customerId);
+  const selectedCustomerSurvey = useMemo(
+    () =>
+      findCustomerConsultationSurvey(consultationSurveys, {
+        customerId: selectedPkg.customerId,
+        customerName: selectedCustomer?.fullName,
+        customerPhone: selectedCustomer?.phone,
+      }),
+    [consultationSurveys, selectedPkg.customerId, selectedCustomer?.fullName, selectedCustomer?.phone],
+  );
+
+  const selectedSlotCapacity = useMemo(
+    () => scheduleCapacities.find((c) => c.start === bookingTime) || null,
+    [scheduleCapacities, bookingTime],
+  );
+
+  const technicianBookingOptions = useMemo(
+    () =>
+      buildTechnicianBookingOptions(
+        availableBranchTechnicians,
+        selectedSlotCapacity,
+        onLeaveTechnicians,
+      ),
+    [availableBranchTechnicians, selectedSlotCapacity, onLeaveTechnicians],
+  );
+
+  useEffect(() => {
+    if (!isBookNextModalOpen || !bookingDate) return;
+    let active = true;
+    const branchId = bookingBranchId || branches[0]?.id || '';
+    if (!branchId) return;
+    bookingService.getDaySlotsDualAvailability(branchId, bookingDate).then((res) => {
+      if (active && res.success && res.data) {
+        setDrcSlots(res.data);
+      }
+    }).catch(() => {});
+    if (selectedPkg.serviceId) {
+      bookingService
+        .getStaffScheduleSlots(branchId, bookingDate, selectedPkg.serviceId)
+        .then((res) => {
+          if (active) {
+            setScheduleCapacities(res.slotCapacities || []);
+            setOnLeaveTechnicians(res.onLeaveTechnicians || []);
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setScheduleCapacities([]);
+            setOnLeaveTechnicians([]);
+          }
+        });
+    } else {
+      setScheduleCapacities([]);
+      setOnLeaveTechnicians([]);
+    }
+    return () => {
+      active = false;
+    };
+  }, [isBookNextModalOpen, bookingDate, bookingBranchId, branches, selectedPkg.serviceId]);
+
+  useEffect(() => {
+    if (!isBookNextModalOpen || technicianBookingOptions.length === 0) return;
+    const currentOpt = technicianBookingOptions.find((o) => o.technician.id === bookingTechnicianId);
+    if (!currentOpt || !currentOpt.isAvailable) {
+      const firstAvail = technicianBookingOptions.find((o) => o.isAvailable);
+      if (firstAvail) {
+        setBookingTechnicianId(firstAvail.technician.id);
+      }
+    }
+  }, [isBookNextModalOpen, technicianBookingOptions, bookingTechnicianId]);
   const selectedPackageBookings = useMemo(() => {
     return liveBookings
       .filter((booking) => {
@@ -722,6 +810,18 @@ export const W06_TreatmentManagement: React.FC = () => {
     if (bookingDay && bookingDay > todayVn) {
       toast.warning('Chưa đến ngày hẹn', 'Chỉ có thể Check-in khi đến đúng ngày hẹn của khách.');
       return;
+    }
+    const custSurvey = findCustomerConsultationSurvey(consultationSurveys, {
+      bookingId,
+      customerId: targetBooking?.customerId || selectedPkg.customerId,
+      customerName: selectedCustomer?.fullName,
+      customerPhone: selectedCustomer?.phone,
+    });
+    if (!custSurvey) {
+      toast.warning(
+        'Khách chưa có phiếu khảo sát',
+        'Nhắc khách bổ sung thông tin khảo sát tiền trị liệu trước khi bắt đầu buổi chăm sóc.',
+      );
     }
     try {
       const res = await bookingService.runWorkflowAction(bookingId, 'checkin', {
@@ -2300,7 +2400,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                   {selectedCustomer?.fullName || 'Khách hàng'}
                 </div>
                 <div className="text-[11px] text-[#73675F] truncate mt-0.5">
-                  {selectedCustomer?.phone || ''} · Hội viên {selectedCustomer?.membershipTier || 'Thành viên'}
+                  {selectedCustomer?.phone || 'Chưa có SĐT'}
                 </div>
               </div>
             </div>
@@ -2347,6 +2447,15 @@ export const W06_TreatmentManagement: React.FC = () => {
                 {selectedPkg.expiryDate}
               </span>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setIsPackageBillOpen(true)}
+              className="w-full py-2.5 bg-white hover:bg-[#FAF0E4] text-[#8A4F23] border border-[#D7BBA6] font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>In phiếu số buổi còn lại (80mm / A5)</span>
+            </button>
 
             {selectedPkg.rawStatus === 'PAUSED' && (
               <div className="p-3 rounded-xl bg-[#FEF3C7] border border-[#FDE68A] text-xs text-[#92400E] space-y-2">
@@ -2688,6 +2797,20 @@ export const W06_TreatmentManagement: React.FC = () => {
                   <span className="text-[#73675F]">Số buổi còn lại:</span>
                   <span className="font-bold text-[#2E7D32]">{selectedPkg.remainingSessions} buổi</span>
                 </div>
+                <div className="pt-1.5 border-t border-[#EFE4D9] flex items-center justify-between gap-2">
+                  <span className="text-[#73675F]">Khảo sát tiền dịch vụ:</span>
+                  {selectedCustomerSurvey ? (
+                    <span className="font-bold text-[#208C58]">
+                      ✓ Đã hoàn tất
+                      {selectedCustomerSurvey.has_oil_allergy ? ` · Dị ứng: ${selectedCustomerSurvey.allergy_details || 'Tinh dầu'}` : ''}
+                      {selectedCustomerSurvey.has_sensitive_skin ? ' · Da nhạy cảm' : ''}
+                    </span>
+                  ) : (
+                    <span className="font-bold text-amber-700">
+                      ⚠ Chưa có phiếu khảo sát
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -2714,11 +2837,24 @@ export const W06_TreatmentManagement: React.FC = () => {
                     className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
                   >
                     {STANDARD_SPA_SLOTS.map((slot) => {
+                      const liveCap = scheduleCapacities.find((c) => c.start === slot.startHour);
                       const drc = drcSlots.find((d) => d.slotTime === slot.label || d.startTime?.startsWith(slot.startHour));
-                      const isAvail = drc ? drc.isAvailable : true;
-                      const capText = drc ? (isAvail ? `(Còn ${drc.remainingCapacity} chỗ)` : '(Hết chỗ)') : '';
+                      const isAvail = liveCap
+                        ? liveCap.remainingCapacity > 0
+                        : drc
+                        ? drc.isAvailable
+                        : true;
+                      const capText = liveCap
+                        ? liveCap.remainingCapacity > 0
+                          ? `(Còn ${liveCap.freeBeds} giường · ${liveCap.freeStaff} KTV)`
+                          : '(Hết chỗ)'
+                        : drc
+                        ? isAvail
+                          ? `(Còn ${drc.freeBeds} giường · ${drc.freeStaff} KTV)`
+                          : '(Hết chỗ)'
+                        : '';
                       return (
-                        <option key={slot.startHour} value={slot.startHour} disabled={drc ? !isAvail : false}>
+                        <option key={slot.startHour} value={slot.startHour} disabled={!isAvail}>
                           {slot.label} {capText}
                         </option>
                       );
@@ -2726,6 +2862,24 @@ export const W06_TreatmentManagement: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {(selectedSlotCapacity || onLeaveTechnicians.length > 0) && (
+                <div className="px-3.5 py-2.5 rounded-xl bg-[#DEEAF6]/60 border border-[#0EA5E9]/30 text-[11px] text-[#004890] space-y-1">
+                  {selectedSlotCapacity && (
+                    <div className="flex items-center justify-between font-semibold">
+                      <span>Sức chứa khung giờ {bookingTime}:</span>
+                      <span className={selectedSlotCapacity.remainingCapacity > 0 ? 'text-[#208C58] font-bold' : 'text-rose-700 font-bold'}>
+                        {selectedSlotCapacity.freeBeds}/{selectedSlotCapacity.totalBeds} giường trống · {selectedSlotCapacity.freeStaff} KTV rảnh
+                      </span>
+                    </div>
+                  )}
+                  {onLeaveTechnicians.length > 0 && (
+                    <div className="text-amber-800">
+                      KTV đang nghỉ phép ngày {bookingDate}: <strong>{onLeaveTechnicians.map((t) => t.fullName).join(', ')}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
@@ -2760,12 +2914,18 @@ export const W06_TreatmentManagement: React.FC = () => {
                   onChange={(e) => setBookingTechnicianId(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer"
                 >
-                  {availableBranchTechnicians.length === 0 ? (
+                  {technicianBookingOptions.length === 0 ? (
                     <option value="">-- Kỹ thuật viên mặc định chi nhánh --</option>
                   ) : (
-                    availableBranchTechnicians.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.fullName} {t.title ? `(${t.title})` : ''}
+                    technicianBookingOptions.map(({ technician, isOnLeave, isAvailable }) => (
+                      <option
+                        key={technician.id}
+                        value={technician.id}
+                        disabled={isOnLeave || (selectedSlotCapacity ? !isAvailable : false)}
+                      >
+                        {technician.fullName}
+                        {technician.title ? ` (${technician.title})` : ''}
+                        {isOnLeave ? ' · Đang nghỉ phép' : selectedSlotCapacity && !isAvailable ? ' · Bận / Ngoài ca' : ' · Sẵn sàng'}
                       </option>
                     ))
                   )}
@@ -3274,7 +3434,6 @@ export const W06_TreatmentManagement: React.FC = () => {
                               <span className="block text-xs font-bold text-[#2C241E] truncate">{customer.fullName || 'Chưa có tên'}</span>
                               <span className="block text-[11px] text-[#73675F] mt-0.5 truncate">{customer.phone || 'Chưa có SĐT'}{customer.email ? ` · ${customer.email}` : ''}</span>
                             </span>
-                            <span className="text-[10px] font-semibold text-[#8A4F23]">{customer.membershipTier || 'STANDARD'}</span>
                             {selected && <CheckCircle2 className="w-5 h-5 text-[#985018] shrink-0" />}
                           </button>
                         );
@@ -3781,6 +3940,109 @@ export const W06_TreatmentManagement: React.FC = () => {
         onClose={() => setShareModalJournal(null)}
         journal={shareModalJournal}
       />
+
+      {isPackageBillOpen && selectedPkg && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
+          <div className="bg-white rounded-2xl border border-[#EFE4D9] w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="no-print px-5 py-3.5 bg-[#FAF5EF] border-b border-[#EFE4D9] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Printer className="w-4 h-4 text-[#8A4F23]" />
+                <span className="text-sm font-bold text-[#3E200C]">Phiếu xác nhận số buổi liệu trình</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPackageBillMode('thermal80')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                    packageBillMode === 'thermal80'
+                      ? 'bg-[#985018] text-white border-[#985018]'
+                      : 'bg-white text-[#73675F] border-[#E8DFD8]'
+                  }`}
+                >
+                  Máy in POS 80mm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPackageBillMode('a5')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                    packageBillMode === 'a5'
+                      ? 'bg-[#985018] text-white border-[#985018]'
+                      : 'bg-white text-[#73675F] border-[#E8DFD8]'
+                  }`}
+                >
+                  Khổ A5
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPackageBillOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-white text-[#73675F] cursor-pointer"
+                  aria-label="Đóng"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#FAF8F5]">
+              <MLDInvoiceDocument
+                printId="treatment-package-slip-print"
+                mode={packageBillMode}
+                data={{
+                  id: `LT-${selectedPkg.id.slice(0, 8).toUpperCase()}`,
+                  title: 'PHIẾU LIỆU TRÌNH',
+                  issuedAt: new Date().toLocaleDateString('vi-VN'),
+                  customerName: selectedCustomer?.fullName || 'Khách hàng',
+                  customerPhone: selectedCustomer?.phone || '--',
+                  branchName: branches[0]?.name || 'MLD Healthcare & Spa',
+                  branchAddress: branches[0]?.address,
+                  branchPhone: branches[0]?.phone || generalReceiptSettings.hotline,
+                  headerText: posReceiptSettings.receipt_header_text,
+                  footerNote: posReceiptSettings.receipt_footer_note,
+                  hotline: generalReceiptSettings.hotline,
+                  paymentMethod: 'Gói liệu trình trả trước',
+                  status: selectedPkg.status || 'Đang điều trị',
+                  packageInfo: {
+                    packageName: selectedPkg.name,
+                    totalSessions: selectedPkg.sessionsTotal,
+                    completedSessions: selectedPkg.usedSessions,
+                    remainingSessions: selectedPkg.remainingSessions,
+                    expiresAt: selectedPkg.rawExpiryDate || selectedPkg.expiryDate,
+                  },
+                  lines: [
+                    {
+                      description: `${selectedPkg.name} (${selectedPkg.remainingSessions}/${selectedPkg.sessionsTotal} buổi còn lại)`,
+                      quantity: 1,
+                      unitPrice: Number(selectedPkg.rawPrice || 0),
+                      amount: Number(selectedPkg.rawPrice || 0),
+                    },
+                  ],
+                  subtotal: Number(selectedPkg.rawPrice || 0),
+                  discount: 0,
+                  vatRate: 0,
+                  vatAmount: 0,
+                  total: Number(selectedPkg.rawPrice || 0),
+                }}
+              />
+            </div>
+            <div className="no-print px-5 py-3.5 bg-[#FAF5EF] border-t border-[#EFE4D9] flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPackageBillOpen(false)}
+                className="px-4 py-2 rounded-xl border border-[#E8DFD8] bg-white text-xs font-semibold text-[#73675F] cursor-pointer"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-2 rounded-xl bg-[#985018] hover:bg-[#854412] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>In phiếu ngay</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

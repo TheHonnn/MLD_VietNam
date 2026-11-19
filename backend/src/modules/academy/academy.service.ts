@@ -291,8 +291,8 @@ export class AcademyService {
         if (cData?.deposit_amount) requiredDeposit = Number(cData.deposit_amount);
       } catch (_) {}
 
-      // Lấy hoặc sinh mã khách hàng chuẩn định danh
-      let customerCode = `HV${Date.now().toString().slice(-5)}`;
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      let customerCode = `HV-${dateStr}-${Date.now().toString().slice(-3)}`;
       try {
         const { data: uData } = await this.supabaseService.adminClient
           .from('users')
@@ -300,11 +300,14 @@ export class AcademyService {
           .eq('id', studentId)
           .maybeSingle();
         if (uData?.referral_code) {
-          customerCode = uData.referral_code.startsWith('HV') ? uData.referral_code : `HV-${uData.referral_code}`;
+          customerCode = uData.referral_code.startsWith('HV-')
+            ? uData.referral_code
+            : uData.referral_code.startsWith('HV')
+              ? `HV-${uData.referral_code.slice(2)}`
+              : `HV-${uData.referral_code}`;
         }
       } catch (_) {}
 
-      // 3. Ghi một hồ sơ duy nhất và chỉ xác nhận sau khi DB trả về ID thật.
       const { data: enrollment, error: enrollmentError } = await this.supabaseService.adminClient
         .from('course_enrollments')
         .insert({
@@ -323,7 +326,8 @@ export class AcademyService {
           payment_status: 'UNPAID',
           student_status: 'NOT_APPROVED',
           required_deposit: requiredDeposit,
-          approval_notes: `Mã KH: ${customerCode}; Mã hồ sơ: ${enrollmentCode}`,
+          order_code: customerCode,
+          approval_notes: `Mã HV: ${customerCode}; Mã hồ sơ: ${enrollmentCode}`,
         })
         .select('id, status, approval_status')
         .single();
@@ -380,7 +384,7 @@ export class AcademyService {
         };
       }
 
-      const notesCode = enr.approval_notes?.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1];
+      const notesCode = enr.approval_notes?.match(/Mã (?:HV|KH):\s*([A-Za-z0-9_-]+)/)?.[1];
       const customerCode = (enr.referral_code || notesCode || `HV-${enr.id.slice(-4)}`).toUpperCase();
       // Một khoản POS có thể xuất hiện ở cả hóa đơn và giao dịch học phí.
       const matchedAmount = Math.max(0, Number(enr.invoice_amount), Number(enr.transaction_amount));
@@ -606,7 +610,7 @@ export class AcademyService {
         if (!error && data && data.length > 0) {
           const formatted = data.map((item: any) => {
             const notes = item.approval_notes || '';
-            const customerCode = item.order_code || notes.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1] || `HV-${String(item.id).slice(-4)}`;
+            const customerCode = item.order_code || notes.match(/Mã (?:HV|KH):\s*([A-Za-z0-9_-]+)/)?.[1] || `HV-${String(item.id).slice(-4)}`;
             const isApproved = item.approval_status === 'APPROVED' ||
               ['ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'].includes(String(item.student_status).toUpperCase()) ||
               ['ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'].includes(String(item.status).toUpperCase());
@@ -841,16 +845,21 @@ export class AcademyService {
     }
   }
 
-  /**
-   * E11: Lấy lịch học & điểm danh của học viên (kết nối batch_schedules & student_attendance)
-   */
   async getMySchedule(userId: string) {
+    const now = new Date();
+    const currentMonthLabel = `Tháng ${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
     try {
       if (userId && userId !== 'default-user') {
-        const { data, error } = await this.supabaseService.adminClient
+        const { data: enrollments } = await this.supabaseService.adminClient
+          .from('course_enrollments')
+          .select('id')
+          .eq('student_id', userId);
+        const enrollmentIds = Array.isArray(enrollments) ? enrollments.map((e: any) => e.id).filter(Boolean) : [];
+        let query = this.supabaseService.adminClient
           .from('student_attendance')
           .select(`
             id,
+            enrollment_id,
             status,
             check_in_time,
             batch_schedules (
@@ -862,8 +871,11 @@ export class AcademyService {
               is_practice_lab,
               branch_rooms (name)
             )
-          `)
-          .limit(10);
+          `);
+        if (enrollmentIds.length > 0) {
+          query = query.in('enrollment_id', enrollmentIds);
+        }
+        const { data, error } = await query.limit(20);
 
         if (!error && data && data.length > 0) {
           const sessions = data.map((item: any) => ({
@@ -871,17 +883,19 @@ export class AcademyService {
             date: item.batch_schedules?.session_date,
             time: `${item.batch_schedules?.start_time} – ${item.batch_schedules?.end_time}`,
             topic: item.batch_schedules?.topic,
-            room: item.batch_schedules?.branch_rooms?.name || 'Phòng thực hành 204',
+            room: item.batch_schedules?.branch_rooms?.name || 'Phòng thực hành',
             status: item.status,
           }));
+          const attendedCount = sessions.filter((s: any) => s.status === 'PRESENT' || s.status === 'LATE').length;
+          const computedRate = sessions.length > 0 ? Math.round((attendedCount / sessions.length) * 100) : 100;
 
           return {
             success: true,
             data: {
-              currentMonth: 'Tháng 10/2026',
-              attendanceRate: 100,
+              currentMonth: currentMonthLabel,
+              attendanceRate: computedRate,
               totalSessions: sessions.length,
-              attendedSessions: sessions.filter((s: any) => s.status === 'PRESENT').length,
+              attendedSessions: attendedCount,
               upcomingSessions: sessions,
             },
           };
@@ -892,7 +906,7 @@ export class AcademyService {
     return {
       success: true,
       data: {
-        currentMonth: 'Tháng 10/2026',
+        currentMonth: currentMonthLabel,
         attendanceRate: 100,
         totalSessions: 24,
         attendedSessions: 6,
@@ -903,7 +917,7 @@ export class AcademyService {
             dayOfWeek: 'Thứ Bảy',
             time: '13:00 – 17:00',
             topic: 'Kỹ thuật massage mặt nâng cơ & bấm huyệt đả thông',
-            room: 'Phòng thực hành 204 — Lầu 2',
+            room: 'Phòng thực hành',
             instructor: 'ThS. Nguyễn Thu Hà',
             status: 'UPCOMING',
           },

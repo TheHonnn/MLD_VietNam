@@ -42,6 +42,7 @@ const SUPPORT_TABS = [
   { id: 'contacts', label: 'Kênh Liên hệ Khẩn cấp', icon: PhoneCall },
   { id: 'guides', label: 'Cẩm nang Vận hành SOP', icon: FileText },
   { id: 'tickets', label: 'Phiếu Hỗ trợ & Báo lỗi', icon: AlertTriangle },
+  { id: 'customer-tickets', label: 'Yêu cầu Khách hàng (App)', icon: MessageSquare },
   { id: 'diagnostics', label: 'Chẩn đoán Hệ thống Live', icon: Activity },
 ];
 
@@ -56,7 +57,7 @@ const MODULE_OPTIONS = [
 
 export const W21_HelpSupport: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentTab = (searchParams.get('tab') || 'contacts') as 'contacts' | 'guides' | 'tickets' | 'diagnostics';
+  const currentTab = (searchParams.get('tab') || 'contacts') as 'contacts' | 'guides' | 'tickets' | 'customer-tickets' | 'diagnostics';
   const navigate = useNavigate();
   const { user } = useAdmin();
 
@@ -77,12 +78,15 @@ export const W21_HelpSupport: React.FC = () => {
     ticketsLoading,
     submittingTicket,
     submitTicket,
+    updateTicket,
+
+    customerTickets,
+    customerTicketsLoading,
+    loadCustomerTickets,
+    updateCustomerTicket,
   } = useAdminSupport();
 
-  // State cho Modal Xem chi tiết Cẩm nang SOP
   const [selectedGuide, setSelectedGuide] = useState<any | null>(null);
-
-  // State cho Modal Tạo Ticket mới
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [ticketCategory, setTicketCategory] = useState('SOFTWARE_BUG');
   const [ticketPriority, setTicketPriority] = useState('MEDIUM');
@@ -90,6 +94,20 @@ export const W21_HelpSupport: React.FC = () => {
   const [ticketDescription, setTicketDescription] = useState('');
   const [ticketAttachmentUrl, setTicketAttachmentUrl] = useState('');
   const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [customerStatusFilter, setCustomerStatusFilter] = useState('ALL');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [replyTarget, setReplyTarget] = useState<{
+    kind: 'INTERNAL' | 'CUSTOMER';
+    id: string;
+    code: string;
+    title: string;
+    message: string;
+    status: string;
+    adminReply: string;
+  } | null>(null);
+  const [savingReply, setSavingReply] = useState(false);
+
+  const canManageInternalTickets = ['SUPER_ADMIN', 'ADMIN'].includes(String(user?.role || '').toUpperCase());
 
   const handleTabChange = (tabId: string) => {
     setSearchParams({ tab: tabId });
@@ -511,6 +529,7 @@ export const W21_HelpSupport: React.FC = () => {
                         <th className="px-4 py-3">Trạng thái</th>
                         <th className="px-4 py-3">Phản hồi kỹ thuật</th>
                         <th className="px-4 py-3">Thời gian tạo</th>
+                        {canManageInternalTickets && <th className="px-4 py-3 text-right">Thao tác</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#EFE4D9]">
@@ -551,7 +570,9 @@ export const W21_HelpSupport: React.FC = () => {
                                   : 'bg-amber-100 text-amber-800'
                               }`}
                             >
-                              {t.status === 'RESOLVED'
+                              {t.status === 'CLOSED'
+                                ? 'Đã đóng'
+                                : t.status === 'RESOLVED'
                                 ? 'Đã khắc phục'
                                 : t.status === 'IN_PROGRESS'
                                 ? 'Đang xử lý'
@@ -570,6 +591,179 @@ export const W21_HelpSupport: React.FC = () => {
                               hour: '2-digit',
                               minute: '2-digit',
                             })}
+                          </td>
+                          {canManageInternalTickets && (
+                            <td className="px-4 py-3 text-right whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReplyTarget({
+                                    kind: 'INTERNAL',
+                                    id: t.id,
+                                    code: t.ticket_code,
+                                    title: t.title,
+                                    message: t.description,
+                                    status: t.status,
+                                    adminReply: t.admin_reply || '',
+                                  })
+                                }
+                                className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8D4BE] hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                              >
+                                Xử lý / Phản hồi
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {currentTab === 'customer-tickets' && (
+          <div className="space-y-5">
+            <div className="bg-white rounded-xl border border-[#EFE4D9] p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-[#1F2937]">Phiếu Hỗ trợ Khách hàng từ Mobile App</h4>
+                <p className="text-xs text-[#7A6D61] mt-0.5">Tiếp nhận, phản hồi và cập nhật trạng thái các yêu cầu do khách hàng gửi từ ứng dụng MLD.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-56">
+                  <Search className="w-3.5 h-3.5 text-[#A69788] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        loadCustomerTickets({ status: customerStatusFilter, search: customerSearch });
+                      }
+                    }}
+                    placeholder="Tìm khách hàng, tiêu đề..."
+                    className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs border border-[#EFE4D9] bg-[#FAF7F2] focus:bg-white focus:outline-none focus:border-[#8A4F23]"
+                  />
+                </div>
+                <select
+                  value={customerStatusFilter}
+                  onChange={(e) => {
+                    const nextStatus = e.target.value;
+                    setCustomerStatusFilter(nextStatus);
+                    loadCustomerTickets({ status: nextStatus, search: customerSearch });
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg text-xs border border-[#EFE4D9] bg-[#FAF7F2] focus:bg-white focus:outline-none focus:border-[#8A4F23]"
+                >
+                  <option value="ALL">Tất cả trạng thái</option>
+                  <option value="PENDING">Chờ tiếp nhận</option>
+                  <option value="IN_PROGRESS">Đang xử lý</option>
+                  <option value="RESOLVED">Đã giải quyết</option>
+                  <option value="CLOSED">Đã đóng</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => loadCustomerTickets({ status: customerStatusFilter, search: customerSearch })}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#8A4F23] text-white hover:bg-[#723F1B] transition-colors cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${customerTicketsLoading ? 'animate-spin' : ''}`} />
+                  <span>Tải lại</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-[#EFE4D9] overflow-hidden shadow-2xs">
+              {customerTicketsLoading ? (
+                <div className="p-12 text-center text-xs text-[#7A6D61]">
+                  <RefreshCw className="w-6 h-6 animate-spin text-[#8A4F23] mx-auto mb-2" />
+                  Đang tải yêu cầu hỗ trợ từ khách hàng...
+                </div>
+              ) : customerTickets.length === 0 ? (
+                <div className="p-12 text-center">
+                  <MessageSquare className="w-10 h-10 text-[#C4B5A5] mx-auto mb-2" />
+                  <h4 className="text-sm font-semibold text-[#1F2937]">Chưa có yêu cầu hỗ trợ nào</h4>
+                  <p className="text-xs text-[#7A6D61] mt-1">Hiện tại chưa có phiếu hỗ trợ khách hàng phù hợp với bộ lọc đang chọn.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#FAF7F2] text-[#7A6D61] font-semibold border-b border-[#EFE4D9]">
+                      <tr>
+                        <th className="px-4 py-3">Khách hàng</th>
+                        <th className="px-4 py-3">Chủ đề & Nội dung</th>
+                        <th className="px-4 py-3">Phân loại</th>
+                        <th className="px-4 py-3">Trạng thái</th>
+                        <th className="px-4 py-3">Phản hồi từ Spa</th>
+                        <th className="px-4 py-3">Thời gian gửi</th>
+                        <th className="px-4 py-3 text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#EFE4D9]">
+                      {customerTickets.map((ct) => (
+                        <tr key={ct.id} className="hover:bg-[#FAF7F2]/50 transition-colors">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="font-semibold text-[#1F2937] block">{ct.customer?.full_name || 'Khách hàng MLD'}</span>
+                            <span className="text-[11px] text-[#7A6D61]">{ct.customer?.phone || ct.customer?.email || ct.customer_id}</span>
+                          </td>
+                          <td className="px-4 py-3 max-w-xs">
+                            <span className="font-semibold text-[#1F2937] block truncate">{ct.subject}</span>
+                            <span className="text-[11px] text-[#7A6D61] line-clamp-2 mt-0.5">{ct.message}</span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#FAF0E4] text-[#8A4F23]">
+                              {ct.category || 'GENERAL'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ${
+                                ct.status === 'RESOLVED' || ct.status === 'CLOSED'
+                                  ? 'bg-green-100 text-green-700'
+                                  : ct.status === 'IN_PROGRESS'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {ct.status === 'CLOSED'
+                                ? 'Đã đóng'
+                                : ct.status === 'RESOLVED'
+                                ? 'Đã giải quyết'
+                                : ct.status === 'IN_PROGRESS'
+                                ? 'Đang xử lý'
+                                : 'Chờ tiếp nhận'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 max-w-xs">
+                            {ct.admin_reply ? (
+                              <span className="text-[11px] text-green-700 line-clamp-2">{ct.admin_reply}</span>
+                            ) : (
+                              <span className="text-[11px] text-[#A69788] italic">Chưa phản hồi</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-[#7A6D61] whitespace-nowrap">
+                            {new Date(ct.created_at).toLocaleDateString('vi-VN', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setReplyTarget({
+                                  kind: 'CUSTOMER',
+                                  id: ct.id,
+                                  code: ct.customer?.full_name || 'Khách hàng',
+                                  title: ct.subject,
+                                  message: ct.message,
+                                  status: ct.status,
+                                  adminReply: ct.admin_reply || '',
+                                })
+                              }
+                              className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8D4BE] hover:bg-[#F3E2CE] transition-colors cursor-pointer"
+                            >
+                              Phản hồi / Xử lý
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -909,6 +1103,96 @@ export const W21_HelpSupport: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {replyTarget && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-xl border border-[#EFE4D9] animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-5 border-b border-[#EFE4D9] flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-[#1F2937]">
+                  {replyTarget.kind === 'CUSTOMER' ? 'Phản hồi Khách hàng' : 'Xử lý Phiếu Hỗ trợ Nội bộ'}
+                </h3>
+                <p className="text-xs text-[#7A6D61] mt-0.5">{replyTarget.code} · {replyTarget.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReplyTarget(null)}
+                className="p-1.5 rounded-lg hover:bg-[#FAF7F2] text-[#7A6D61] transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="p-3 rounded-lg bg-[#FAF7F2] border border-[#EFE4D9] text-xs text-[#7A6D61] whitespace-pre-line">
+                {replyTarget.message}
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-[#1F2937] mb-1">Trạng thái xử lý</label>
+                <select
+                  value={replyTarget.status}
+                  onChange={(e) => setReplyTarget({ ...replyTarget, status: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-xs border border-[#EFE4D9] bg-[#FAF7F2] focus:bg-white focus:outline-none focus:border-[#8A4F23]"
+                >
+                  {replyTarget.kind === 'CUSTOMER' ? (
+                    <option value="PENDING">Chờ tiếp nhận</option>
+                  ) : (
+                    <option value="OPEN">Chờ tiếp nhận</option>
+                  )}
+                  <option value="IN_PROGRESS">Đang xử lý</option>
+                  <option value="RESOLVED">Đã giải quyết / Khắc phục</option>
+                  <option value="CLOSED">Đã đóng phiếu</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-[#1F2937] mb-1">Nội dung phản hồi</label>
+                <textarea
+                  rows={4}
+                  value={replyTarget.adminReply}
+                  onChange={(e) => setReplyTarget({ ...replyTarget, adminReply: e.target.value })}
+                  placeholder="Nhập hướng dẫn hoặc câu trả lời..."
+                  className="w-full px-3 py-2 rounded-lg text-xs border border-[#EFE4D9] bg-[#FAF7F2] focus:bg-white focus:outline-none focus:border-[#8A4F23]"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#EFE4D9]">
+                <button
+                  type="button"
+                  onClick={() => setReplyTarget(null)}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-[#7A6D61] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={savingReply}
+                  onClick={async () => {
+                    if (!replyTarget) return;
+                    setSavingReply(true);
+                    try {
+                      const ok =
+                        replyTarget.kind === 'CUSTOMER'
+                          ? await updateCustomerTicket(replyTarget.id, {
+                              status: replyTarget.status as any,
+                              admin_reply: replyTarget.adminReply,
+                            })
+                          : await updateTicket(replyTarget.id, {
+                              status: replyTarget.status as any,
+                              admin_reply: replyTarget.adminReply,
+                            });
+                      if (ok) setReplyTarget(null);
+                    } finally {
+                      setSavingReply(false);
+                    }
+                  }}
+                  className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#8A4F23] text-white hover:bg-[#723F1B] transition-colors shadow-2xs flex items-center gap-1.5 disabled:opacity-60 cursor-pointer"
+                >
+                  {savingReply ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>{savingReply ? 'Đang lưu...' : 'Lưu phản hồi'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

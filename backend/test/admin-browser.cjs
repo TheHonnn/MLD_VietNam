@@ -284,7 +284,6 @@ async function main() {
     const dedicatedPages = {
       branches: '/branches',
       branch_rooms: '/branches?tab=rooms',
-      consultation_surveys: '/customers',
       student_certificates: '/certificates?tab=list',
       certificate_templates: '/certificates?tab=template',
       services: '/services-catalog?tab=services',
@@ -294,7 +293,7 @@ async function main() {
       instructors: '/manage/instructors',
       student_attendance: '/attendance',
       support_faqs: '/portal-content?tab=faqs',
-      support_tickets: '/customers',
+      support_tickets: '/help?tab=customer-tickets',
     };
     const selectedResources = process.env.ADMIN_BROWSER_RESOURCES?.split(',');
     const resourcesToCheck = Object.entries(ADMIN_RESOURCES).filter(([name]) => !selectedResources || selectedResources.includes(name));
@@ -309,7 +308,7 @@ async function main() {
         continue;
       }
       if (['user_packages', 'treatment_journal', 'home_care_guidelines'].includes(name)) {
-        await page.locator('main.treatment-workspace h1').first().waitFor();
+        await page.locator('main.treatment-workspace h1, main h1, h1').first().waitFor();
         checked++;
         continue;
       }

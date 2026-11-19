@@ -33,10 +33,28 @@ export const staffService = {
       const profiles=await legacyRead<StaffProfile>('staff_profiles');
       const result:StaffWithProfile[]=[];
       for(const user of liveUsers||[]){
-        if(!staffRoles.includes(user.role)||params?.role&&user.role!==params.role)continue;
+        if(user.isActive===false||!staffRoles.includes(user.role)||params?.role&&user.role!==params.role)continue;
         const profile=profiles.find(p=>p.userId===user.id);
-        if(!profile||params?.branchId&&profile.branchId!==params.branchId||params?.department&&profile.department!==params.department)continue;
-        result.push({...user,staffProfile:profile});
+        if(params?.branchId&&profile?.branchId!==params.branchId)continue;
+        if(params?.department&&profile?.department!==params.department)continue;
+        result.push({
+          ...user,
+          staffProfile: profile ?? {
+            id: '',
+            userId: user.id,
+            branchId: '',
+            employeeCode: '',
+            department: StaffDepartment.RECEPTION,
+            position: String(user.role || 'Nhân viên'),
+            employmentType: EmploymentType.FULL_TIME,
+            baseSalary: 0,
+            commissionRate: 0,
+            packageCommissionRate: 0,
+            productCommissionRate: 0,
+            hireDate: '',
+            isActive: true,
+          },
+        });
       }
 
       return {

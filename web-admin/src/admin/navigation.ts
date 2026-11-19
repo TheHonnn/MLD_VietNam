@@ -18,19 +18,19 @@ export const ADMIN_NAVIGATION_GROUPS: NavigationGroup[] = [
   group('Thu ngân & Tiếp đón',['bookings','booking_items','invoices','invoice_items'],[
     item('cashier','Thu ngân POS','/cashier-pos'),item('bookings'),item('booking_items'),item('invoices','Hóa đơn & Đối soát','/cashier-pos?tab=receipts'),item('invoice_items'),
   ]),
-  group('Khách hàng (CRM)',['reviews'],[
-    item('customers','Hồ sơ Khách hàng','/customers'),item('reviews'),
+  group('Khách hàng (CRM)',['reviews','consultation_surveys'],[
+    item('customers','Hồ sơ Khách hàng','/customers'),item('consultation_surveys','Khảo sát tiền dịch vụ'),item('support_tickets','Phiếu hỗ trợ khách hàng','/help?tab=customer-tickets'),item('reviews'),
   ]),
   group('Quản lý Liệu trình',['user_packages','treatment_journal','home_care_guidelines'],[
     item('medical-records','Hồ sơ phác đồ MLD','/medical-records'),item('user_packages'),item('treatment_journal'),item('home_care_guidelines'),
   ]),
-  group('Dịch vụ & Định mức',['services','treatment_packages','home_products','service_categories','service_materials','inventory_consumption_logs'],[
-    item('catalog','Bảng giá & Gói liệu trình','/services-catalog'),item('home_products','Sản phẩm mang về','/home-products'),item('service_categories'),item('service_materials'),item('inventory_consumption_logs'),
+  group('Dịch vụ & Định mức',['services','treatment_packages','home_products','service_categories','service_materials'],[
+    item('catalog','Bảng giá & Gói liệu trình','/services-catalog'),item('home_products','Sản phẩm mang về','/home-products'),item('service_categories'),item('service_materials'),item('treatment-inventory','Kho vật tư điều trị','/treatment-inventory'),
   ]),
   group('Nhân sự & Kỹ thuật viên',['staff_profiles','departments','technicians','technician_shifts','staff_commissions'],[
     item('staff-schedule','Lịch trực & Điều phối ca','/staff-schedule'),item('staff_profiles'),item('departments'),item('technicians'),item('technician_shifts'),item('staff_commissions','Hoa hồng KTV & Thưởng','/commissions'),
   ]),
-  group('Voucher & Hội viên',['coupons','user_vouchers','voucher_distribution_rules','membership_tier_rules','loyalty_point_settings','point_transactions']),
+  group('Voucher & Điểm thưởng',['coupons','user_vouchers','voucher_distribution_rules','loyalty_point_settings','point_transactions']),
   group('Tuyển sinh & Ghi danh',['course_enrollments','tuition_transactions','enrollment_change_requests','enrollment_status_history','academy_enrollment_funnel'],[
     item('academy-enrollment','Hồ sơ tư vấn tuyển sinh','/academy-enrollment'),item('course_enrollments'),item('tuition_transactions'),item('enrollment_change_requests','Yêu cầu thay đổi học tập'),item('enrollment_status_history','Lịch sử xử lý tuyển sinh'),item('academy_enrollment_funnel'),
   ]),
@@ -63,4 +63,46 @@ export function getResourceNavigation(table: string, resources: Resource[], role
   const current = resources.find(resource=>resource.name===table);
   if (!current?.group) return [];
   return resources.filter(resource=>resource.group===current.group).map(resource=>item(resource.name,resource.title));
+}
+
+export interface CommandNavigationEntry extends AdminNavigationItem {
+  group: string;
+}
+
+const EXTRA_COMMAND_ROUTES: CommandNavigationEntry[] = [
+  { id: 'dashboard', label: 'Tổng quan', href: '/', group: 'TỔNG QUAN' },
+  { id: 'reports', label: 'Báo cáo doanh thu', href: '/reports', group: 'PHÂN TÍCH' },
+  { id: 'portal-content', label: 'Nội dung Portal & App', href: '/portal-content', group: 'HỆ THỐNG' },
+  { id: 'zalo-zns', label: 'CSKH Zalo ZNS', href: '/zalo-zns', group: 'HỆ THỐNG' },
+  { id: 'help', label: 'Trung tâm trợ giúp & Hỗ trợ', href: '/help', group: 'HỆ THỐNG' },
+  { id: 'settings', label: 'Cài đặt hệ thống', href: '/settings', group: 'HỆ THỐNG' },
+];
+
+export function getCommandNavigationEntries(role: string, resources: Resource[]): CommandNavigationEntry[] {
+  const seen = new Set<string>();
+  const entries: CommandNavigationEntry[] = [];
+  const pushIfAllowed = (entry: CommandNavigationEntry) => {
+    const cleanHref = entry.href;
+    if (seen.has(cleanHref)) return;
+    if (cleanHref !== '/help' && !canAccessAdminPath(cleanHref, role, resources)) return;
+    if (cleanHref.startsWith('/manage/')) {
+      const resourceName = cleanHref.slice('/manage/'.length).split('?')[0];
+      if (!resources.some((resource) => resource.name === resourceName)) return;
+    }
+    seen.add(cleanHref);
+    entries.push(entry);
+  };
+
+  for (const extra of EXTRA_COMMAND_ROUTES.slice(0, 1)) {
+    pushIfAllowed(extra);
+  }
+  for (const groupEntry of ADMIN_NAVIGATION_GROUPS) {
+    for (const navItem of groupEntry.items) {
+      pushIfAllowed({ ...navItem, group: groupEntry.label });
+    }
+  }
+  for (const extra of EXTRA_COMMAND_ROUTES.slice(1)) {
+    pushIfAllowed(extra);
+  }
+  return entries;
 }

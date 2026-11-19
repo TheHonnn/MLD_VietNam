@@ -423,4 +423,68 @@ export class SupportService {
 
     return res.rows[0];
   }
+
+  async getCustomerTickets(actor: any, status?: string, search?: string) {
+    if (!actor || !['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'RECEPTIONIST'].includes(actor.role)) {
+      throw new ForbiddenException('Bạn không có quyền xem phiếu hỗ trợ khách hàng.');
+    }
+
+    let sql = `
+      SELECT st.*,
+        json_build_object('id', u.id, 'full_name', u.full_name, 'phone', u.phone, 'email', u.email) AS customer
+      FROM public.support_tickets st
+      LEFT JOIN public.users u ON u.id = st.customer_id
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+    if (status && status !== 'ALL') {
+      params.push(status);
+      sql += ` AND st.status::text = $${params.length}`;
+    }
+    if (search && search.trim()) {
+      params.push(`%${search.trim()}%`);
+      sql += ` AND (st.subject ILIKE $${params.length} OR st.message ILIKE $${params.length} OR coalesce(u.full_name,'') ILIKE $${params.length} OR coalesce(u.phone,'') ILIKE $${params.length})`;
+    }
+    sql += ' ORDER BY st.created_at DESC LIMIT 200';
+    const res = await this.db.connection.query(sql, params);
+    return res.rows;
+  }
+
+  async updateCustomerTicket(actor: any, id: string, body: { status?: string; admin_reply?: string }) {
+    if (!actor || !['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'RECEPTIONIST'].includes(actor.role)) {
+      throw new ForbiddenException('Bạn không có quyền xử lý phiếu hỗ trợ khách hàng.');
+    }
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      throw new BadRequestException('Mã phiếu hỗ trợ không hợp lệ.');
+    }
+    const updates: string[] = [];
+    const params: any[] = [];
+    if (body?.status) {
+      const normalized = String(body.status).trim().toUpperCase();
+      if (!['PENDING', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].includes(normalized)) {
+        throw new BadRequestException('Trạng thái phiếu không hợp lệ.');
+      }
+      params.push(normalized);
+      updates.push(`status = $${params.length}::ticket_status`);
+      if (['RESOLVED', 'CLOSED'].includes(normalized)) {
+        updates.push(`resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)`);
+      }
+    }
+    if (typeof body?.admin_reply === 'string') {
+      params.push(body.admin_reply.trim().slice(0, 2000));
+      updates.push(`admin_reply = $${params.length}`);
+    }
+    if (!updates.length) {
+      throw new BadRequestException('Không có thông tin cần cập nhật.');
+    }
+    params.push(id);
+    const res = await this.db.connection.query(
+      `UPDATE public.support_tickets SET ${updates.join(', ')} WHERE id = $${params.length} RETURNING *`,
+      params,
+    );
+    if (!res.rows.length) {
+      throw new NotFoundException(`Không tìm thấy phiếu hỗ trợ khách hàng ${id}.`);
+    }
+    return res.rows[0];
+  }
 }

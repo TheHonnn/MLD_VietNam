@@ -27,9 +27,13 @@ import {
   ArrowRight,
   DollarSign,
   UserCheck,
+  Download,
 } from 'lucide-react';
 import { academyService, customerService, staffService, supabaseService, StaffWithProfile } from '../services';
-import { toast, AdminTabs } from '../components/common';
+import { toast, AdminTabs, SavedFilterPresetsBar } from '../components/common';
+import { useAdmin } from '../admin/Auth';
+import { buildPresetStorageKey } from '../utils/savedFilterPresets';
+import { exportCsvWithBom, printStructuredTable } from '../utils/reportExport';
 import {
   CourseEnrollment,
   Course,
@@ -125,6 +129,7 @@ const getShortBranch = (branchStr?: string): string => {
 };
 
 export const W08_Enrollment: React.FC = () => {
+  const { user } = useAdmin();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [selectedCandidateId, setSelectedCandidateId] = useState<string>('');
@@ -132,6 +137,7 @@ export const W08_Enrollment: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>(() => searchParams.get('search') || '');
   const [programFilter, setProgramFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
+  const [debtFilter, setDebtFilter] = useState<'all' | 'has_debt' | 'paid_full'>('all');
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<EnrollmentWorkflowTab>('ALL');
 
   // Modals state
@@ -225,9 +231,11 @@ export const W08_Enrollment: React.FC = () => {
 
       const custName = enr.studentName || cust?.fullName || `Học viên ${idx + 1}`;
       const custPhone = enr.studentPhone || cust?.phone || '—';
-      const notesCode = enr.approvalNotes?.match(/Mã KH:\s*([A-Za-z0-9_-]+)/)?.[1];
-      const custCode = notesCode || `HV26${String(idx + 1).padStart(3, '0')}`;
-      const orderCode = enr.orderCode || `KH-${new Date(enr.enrolledAt || Date.now()).toISOString().slice(0, 10).replace(/-/g, '')}-${String(idx + 1).padStart(3, '0')}`;
+      const notesCode = enr.approvalNotes?.match(/Mã (?:HV|KH):\s*([A-Za-z0-9_-]+)/)?.[1];
+      const fallbackDate = new Date(enr.enrolledAt || Date.now()).toISOString().slice(0, 10).replace(/-/g, '');
+      const defaultHvCode = `HV-${fallbackDate}-${String(idx + 1).padStart(3, '0')}`;
+      const custCode = notesCode || enr.orderCode || defaultHvCode;
+      const orderCode = enr.orderCode || defaultHvCode;
       const programTitle = crs?.title || 'Khóa học MLD';
       const batchCode = bat?.batchCode || (enr.batchId ? `K26-${crs?.code || 'MLD'}` : 'Chưa xếp lớp');
 
@@ -442,6 +450,11 @@ export const W08_Enrollment: React.FC = () => {
       const isSearchMatch = matchSearch([c.name, c.orderCode, c.code, c.phone, c.program, c.branch], searchTerm);
       const matchProgram = programFilter === 'all' || c.program.toLowerCase().includes(programFilter.toLowerCase());
       const matchBranch = branchFilter === 'all' || c.branch.toLowerCase().includes(branchFilter.toLowerCase());
+      const remainingDebt = Math.max(0, Number(c.rawTuitionTotal || 0) - Number(c.rawAmountPaid || 0));
+      const matchDebt =
+        debtFilter === 'all' ||
+        (debtFilter === 'has_debt' && remainingDebt > 0) ||
+        (debtFilter === 'paid_full' && remainingDebt === 0);
 
       let matchTab = true;
       if (activeWorkflowTab === 'PENDING_CONSULTATION') {
@@ -466,9 +479,9 @@ export const W08_Enrollment: React.FC = () => {
           (c.rawStatus as any) === 'GRADUATED';
       }
 
-      return isSearchMatch && matchProgram && matchBranch && matchTab;
+      return isSearchMatch && matchProgram && matchBranch && matchDebt && matchTab;
     });
-  }, [candidatesData, searchTerm, programFilter, branchFilter, activeWorkflowTab]);
+  }, [candidatesData, searchTerm, programFilter, branchFilter, debtFilter, activeWorkflowTab]);
 
   // Auto-select candidate when filteredCandidates or active tab changes
   useEffect(() => {
@@ -594,7 +607,7 @@ export const W08_Enrollment: React.FC = () => {
 
       if (!student?.id) throw new Error('Không xác định được học viên.');
       const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const newOrderCode = `KH-${todayStr}-${String(liveEnrollments.length + 1).padStart(3, '0')}`;
+      const newOrderCode = `HV-${todayStr}-${String(liveEnrollments.length + 1).padStart(3, '0')}`;
 
       const enrRes = await academyService.createEnrollment({
         studentId: student.id,
@@ -785,30 +798,37 @@ export const W08_Enrollment: React.FC = () => {
   };
 
   // Auto reconciliation check via bank API (Section 6.1)
-  const handleCheckPayment = async (enrollmentId: string) => {
-    setCheckingCandidateId(enrollmentId);
+  const handleCheckPayment = async (enrollmentId: string, silent = false) => {
+    if (!silent) setCheckingCandidateId(enrollmentId);
     try {
       const res = await academyService.checkEnrollmentPayment(enrollmentId);
       if (!res.success) throw new Error(res.message);
-      if (res.success && (Number(res.data?.amountPaid || 0) > 0 || res.data?.isPaid)) {
-        const refreshed = await supabaseService.getEnrollments();
+      const amountPaid = Number(res.data?.amountPaid || 0);
+      const prevPaid = Number(billModalCandidate?.id === enrollmentId ? billModalCandidate.amountPaid : 0);
+      if (res.success && (res.data?.isPaid || (silent ? amountPaid > prevPaid : amountPaid > 0))) {
+        supabaseService.invalidateCache('course_enrollments');
+        supabaseService.invalidateCache('tuition_transactions');
+        const refreshed = await supabaseService.getEnrollments(undefined, { fresh: true });
         if (refreshed) setLiveEnrollments(refreshed);
         if (res.data?.amountPaid !== undefined) {
-          const amountPaid = res.data.amountPaid;
           setBillModalCandidate(current => current?.id === enrollmentId ? { ...current, amountPaid } : current);
         }
         toast.success('Đối soát thành công!', res.message || 'Đã cập nhật số tiền thực nhận.');
-        showToast('Đã đối soát tiền. Hồ sơ vẫn cần được admin duyệt nhập học.');
-        return { isPaid: true, message: res.message || 'Thanh toán thành công' };
+        showToast('Đã đối soát tiền tự động. Hồ sơ vẫn cần được admin duyệt nhập học.');
+        return { isPaid: true, amountPaid, message: res.message || 'Thanh toán thành công' };
       } else {
-        toast.info('Chưa có giao dịch', res.message || 'Hệ thống chưa nhận được khoản tiền khớp với mã đơn hàng.');
-        return { isPaid: false, message: res.message || 'Chưa nhận được thanh toán' };
+        if (!silent) {
+          toast.info('Chưa có giao dịch', res.message || 'Hệ thống chưa nhận được khoản tiền khớp với mã đơn hàng.');
+        }
+        return { isPaid: false, amountPaid, message: res.message || 'Chưa nhận được thanh toán' };
       }
     } catch (err: any) {
-      toast.error('Lỗi kiểm tra tiền', err?.message || 'Không thể kiểm tra giao dịch.');
+      if (!silent) {
+        toast.error('Lỗi kiểm tra tiền', err?.message || 'Không thể kiểm tra giao dịch.');
+      }
       return { isPaid: false, message: err?.message || 'Lỗi kết nối' };
     } finally {
-      setCheckingCandidateId(null);
+      if (!silent) setCheckingCandidateId(null);
     }
   };
 
@@ -1137,7 +1157,135 @@ export const W08_Enrollment: React.FC = () => {
     );
   };
 
-  const hasActiveFilter = Boolean(searchTerm.trim() || programFilter !== 'all' || branchFilter !== 'all' || activeWorkflowTab !== 'ALL');
+  const hasActiveFilter = Boolean(
+    searchTerm.trim() ||
+    programFilter !== 'all' ||
+    branchFilter !== 'all' ||
+    debtFilter !== 'all' ||
+    activeWorkflowTab !== 'ALL'
+  );
+  const enrollmentStorageKey = buildPresetStorageKey('w08_enrollment', user?.id);
+  const currentEnrollmentFilters = {
+    searchTerm,
+    programFilter,
+    branchFilter,
+    debtFilter,
+    activeWorkflowTab,
+  };
+  const enrollmentBuiltInPresets = [
+    {
+      id: 'debt',
+      name: 'Còn công nợ học phí',
+      filters: {
+        searchTerm: '',
+        programFilter: 'all',
+        branchFilter: 'all',
+        debtFilter: 'has_debt' as const,
+        activeWorkflowTab: 'ALL' as const,
+      },
+    },
+    {
+      id: 'awaiting-pay',
+      name: 'Chờ thu học phí',
+      filters: {
+        searchTerm: '',
+        programFilter: 'all',
+        branchFilter: 'all',
+        debtFilter: 'all' as const,
+        activeWorkflowTab: 'CONFIRMED_PENDING_PAY' as const,
+      },
+    },
+    {
+      id: 'waiting-class',
+      name: 'Chờ xếp lớp',
+      filters: {
+        searchTerm: '',
+        programFilter: 'all',
+        branchFilter: 'all',
+        debtFilter: 'all' as const,
+        activeWorkflowTab: 'PAID_WAITING_CLASS' as const,
+      },
+    },
+  ];
+  const applyEnrollmentFilters = (next: {
+    searchTerm?: string;
+    programFilter?: string;
+    branchFilter?: string;
+    debtFilter?: 'all' | 'has_debt' | 'paid_full';
+    activeWorkflowTab?: EnrollmentWorkflowTab;
+  }) => {
+    setSearchTerm(String(next.searchTerm || ''));
+    setProgramFilter(String(next.programFilter || 'all'));
+    setBranchFilter(String(next.branchFilter || 'all'));
+    setDebtFilter(next.debtFilter === 'has_debt' || next.debtFilter === 'paid_full' ? next.debtFilter : 'all');
+    setActiveWorkflowTab(next.activeWorkflowTab || 'ALL');
+  };
+  const resetEnrollmentFilters = () => {
+    setSearchTerm('');
+    setProgramFilter('all');
+    setBranchFilter('all');
+    setDebtFilter('all');
+    setActiveWorkflowTab('ALL');
+  };
+  const handleExportEnrollmentCsv = () => {
+    const fileDate = new Date().toISOString().slice(0, 10);
+    const headers = [
+      'STT',
+      'Mã học viên',
+      'Họ và tên',
+      'Số điện thoại',
+      'Khóa học',
+      'Cơ sở',
+      'Lớp học',
+      'Học phí (VNĐ)',
+      'Đã thu (VNĐ)',
+      'Còn nợ (VNĐ)',
+      'Trạng thái',
+    ];
+    const rows = filteredCandidates.map((c, idx) => [
+      idx + 1,
+      c.orderCode || c.code || '',
+      c.name,
+      c.phone,
+      c.program,
+      c.branch,
+      c.classBatch,
+      Number(c.rawTuitionTotal || 0),
+      Number(c.rawAmountPaid || 0),
+      Math.max(0, Number(c.rawTuitionTotal || 0) - Number(c.rawAmountPaid || 0)),
+      c.statusBadge || '',
+    ]);
+    exportCsvWithBom(`Ho_So_Tuyen_Sinh_${fileDate}.csv`, headers, rows);
+    toast.success('Đã xuất CSV', `Đã tải xuống ${rows.length} hồ sơ tuyển sinh (chuẩn UTF-8 BOM).`);
+  };
+  const handlePrintEnrollmentList = () => {
+    const totalFee = filteredCandidates.reduce((s, c) => s + Number(c.rawTuitionTotal || 0), 0);
+    const totalPaid = filteredCandidates.reduce((s, c) => s + Number(c.rawAmountPaid || 0), 0);
+    const totalDebt = filteredCandidates.reduce(
+      (s, c) => s + Math.max(0, Number(c.rawTuitionTotal || 0) - Number(c.rawAmountPaid || 0)),
+      0,
+    );
+    printStructuredTable({
+      title: 'Danh sách Hồ sơ Tuyển sinh & Học viên',
+      subtitle: `Số lượng theo bộ lọc hiện tại: ${filteredCandidates.length} hồ sơ`,
+      summaryItems: [
+        { label: 'Tổng học phí', value: `${totalFee.toLocaleString('vi-VN')}đ` },
+        { label: 'Đã thu', value: `${totalPaid.toLocaleString('vi-VN')}đ` },
+        { label: 'Còn phải thu', value: `${totalDebt.toLocaleString('vi-VN')}đ` },
+      ],
+      headers: ['STT', 'Mã HV', 'Họ và tên', 'SĐT', 'Khóa học', 'Đã thu', 'Còn nợ', 'Trạng thái'],
+      rows: filteredCandidates.map((c, idx) => [
+        idx + 1,
+        c.orderCode || c.code || '',
+        c.name,
+        c.phone,
+        c.program,
+        `${Number(c.rawAmountPaid || 0).toLocaleString('vi-VN')}đ`,
+        `${Math.max(0, Number(c.rawTuitionTotal || 0) - Number(c.rawAmountPaid || 0)).toLocaleString('vi-VN')}đ`,
+        c.statusBadge || '',
+      ]),
+    });
+  };
   const nextStep = !selectedCandidate
     ? null
     : selectedCandidate.batchId
@@ -1181,7 +1329,27 @@ export const W08_Enrollment: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={filteredCandidates.length === 0}
+            onClick={handleExportEnrollmentCsv}
+            className="px-3.5 py-2.5 bg-white border border-[#E5D7C9] text-[#2C241E] hover:bg-[#FAF5EF] text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5 text-[#004890]" />
+            <span>Xuất CSV</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={filteredCandidates.length === 0}
+            onClick={handlePrintEnrollmentList}
+            className="px-3.5 py-2.5 bg-white border border-[#E5D7C9] text-[#2C241E] hover:bg-[#FAF5EF] text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            <Printer className="w-3.5 h-3.5 text-[#208C58]" />
+            <span>In danh sách</span>
+          </button>
+
           <button
             type="button"
             disabled={isSweepingExpiry}
@@ -1269,21 +1437,30 @@ export const W08_Enrollment: React.FC = () => {
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {hasActiveFilter && (
-          <button
-            type="button"
-            onClick={() => {
-              setSearchTerm('');
-              setProgramFilter('all');
-              setBranchFilter('all');
-              setActiveWorkflowTab('ALL');
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5D7C9] bg-[#FAF3EC] text-[#985018] hover:bg-[#F3E5D5] text-xs font-semibold cursor-pointer"
+        <div className="relative shrink-0">
+          <select
+            aria-label="Lọc tình trạng công nợ"
+            value={debtFilter}
+            onChange={(e) => setDebtFilter(e.target.value as 'all' | 'has_debt' | 'paid_full')}
+            className="appearance-none bg-white border border-[#EFE4D9] rounded-xl pl-3.5 pr-8 py-2 text-xs text-[#2C241E] cursor-pointer focus:outline-none focus:border-[#985018]"
           >
-            <X className="w-3.5 h-3.5" />
-            <span>Đặt lại</span>
-          </button>
-        )}
+            <option value="all">Tất cả công nợ</option>
+            <option value="has_debt">Còn công nợ học phí</option>
+            <option value="paid_full">Đã hoàn tất học phí</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+
+        <div className="w-full pt-2 border-t border-[#F4ECE3]">
+          <SavedFilterPresetsBar
+            storageKey={enrollmentStorageKey}
+            builtInPresets={enrollmentBuiltInPresets}
+            currentFilters={currentEnrollmentFilters}
+            hasActiveFilters={hasActiveFilter}
+            onApplyFilters={applyEnrollmentFilters}
+            onResetFilters={resetEnrollmentFilters}
+          />
+        </div>
       </div>
 
       {/* 5. Main 2-Column Grid */}
@@ -1494,7 +1671,7 @@ export const W08_Enrollment: React.FC = () => {
                   <span className="font-mono font-extrabold text-[#8D4B1A] text-sm bg-amber-100/60 px-2 py-0.5 rounded border border-amber-300">
                     {selectedCandidate.orderCode}
                   </span>
-                  <span className="text-[11px] text-[#73675F]">Mã KH: {selectedCandidate.code}</span>
+                  <span className="text-[11px] text-[#73675F]">Mã HV: {selectedCandidate.code}</span>
                 </div>
                 <div className="flex items-center gap-2.5 pt-1">
                   <div className="w-9 h-9 rounded-full bg-[#F3E2CE] text-[#8A4F23] font-bold text-xs flex items-center justify-center shrink-0">

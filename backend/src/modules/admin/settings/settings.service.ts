@@ -14,6 +14,7 @@ export const ALLOWED_SETTINGS_CATEGORIES = [
   'general',
   'booking',
   'pos',
+  'loyalty',
   'academy',
   'integrations',
   'security',
@@ -106,6 +107,32 @@ export class SettingsService {
       throw new BadRequestException('Dữ liệu cài đặt phải là một đối tượng JSON hợp lệ.');
     }
 
+    if (category === 'loyalty') {
+      const earn = Number(payload.earn_amount_per_point);
+      const redeem = Number(payload.redeem_value_per_point);
+      const maxPct = Number(payload.max_redeem_percent_per_order ?? 30);
+      const expiry = Number(payload.point_expiry_months);
+      if (!Number.isFinite(earn) || earn <= 0 || !Number.isFinite(redeem) || redeem <= 0 ||
+        !Number.isFinite(maxPct) || maxPct < 0 || maxPct > 100 || !Number.isInteger(expiry) || expiry < 1) {
+        throw new BadRequestException('Thông số quy đổi điểm thưởng không hợp lệ.');
+      }
+      try {
+        await this.db.connection.query(
+          `INSERT INTO public.loyalty_point_settings(id, earn_amount_per_point, redeem_value_per_point, max_redeem_percent_per_order, point_expiry_months, updated_at)
+           VALUES(1, $1, $2, $3, $4, now())
+           ON CONFLICT (id) DO UPDATE SET
+             earn_amount_per_point = EXCLUDED.earn_amount_per_point,
+             redeem_value_per_point = EXCLUDED.redeem_value_per_point,
+             max_redeem_percent_per_order = EXCLUDED.max_redeem_percent_per_order,
+             point_expiry_months = EXCLUDED.point_expiry_months,
+             updated_at = now()`,
+          [earn, redeem, maxPct, expiry],
+        );
+      } catch (syncErr: any) {
+        this.logger.warn(`Không đồng bộ được bảng loyalty_point_settings: ${syncErr.message}`);
+      }
+    }
+
     // Cập nhật vào Supabase PostgreSQL
     const { data: updated, error } = await this.supabase.adminClient
       .from('system_settings')
@@ -184,9 +211,6 @@ export class SettingsService {
     };
   }
 
-  /**
-   * Đổi mật khẩu tài khoản Admin cá nhân an toàn.
-   */
   async changePassword(adminUser: any, dto: ChangePasswordDto) {
     if (!adminUser?.id) {
       throw new ForbiddenException('Phiên đăng nhập không hợp lệ.');
@@ -196,11 +220,25 @@ export class SettingsService {
       throw new BadRequestException('Vui lòng cung cấp mật khẩu cũ và mật khẩu mới.');
     }
 
-    if (dto.newPassword.length < 8) {
-      throw new BadRequestException('Mật khẩu mới phải có tối thiểu 8 ký tự.');
+    let minLen = 8;
+    let requireSpecialChar = false;
+    try {
+      const secCfg: any = await this.getSettings(adminUser, 'security');
+      const secData = secCfg?.data || secCfg || {};
+      if (Number.isFinite(Number(secData.min_password_length)) && Number(secData.min_password_length) >= 6) {
+        minLen = Number(secData.min_password_length);
+      }
+      requireSpecialChar = Boolean(secData.require_special_char);
+    } catch {}
+
+    if (dto.newPassword.length < minLen) {
+      throw new BadRequestException(`Mật khẩu mới phải có tối thiểu ${minLen} ký tự.`);
     }
 
-    // Truy vấn thông tin người dùng từ bảng users
+    if (requireSpecialChar && !/[\d@#$%!^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(dto.newPassword)) {
+      throw new BadRequestException('Mật khẩu mới phải chứa ít nhất một chữ số hoặc ký tự đặc biệt.');
+    }
+
     const { data: user, error: fetchErr } = await this.supabase.adminClient
       .from('users')
       .select('id, password_hash')

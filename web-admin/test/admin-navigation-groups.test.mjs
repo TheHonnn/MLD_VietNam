@@ -25,11 +25,11 @@ test('attendance and course settings are distinct navigation groups',()=>{
  assert.deepEqual(getResourceNavigation('batch_schedules',all,'SUPER_ADMIN').map(tab=>tab.id),['course_batches','course_batch_assistants','batch_schedules','student_attendance','student_academic_records']);
  assert.ok(!getResourceNavigation('courses',all,'SUPER_ADMIN').some(tab=>tab.id==='course_enrollments'));
 });
-test('support_tickets and support_faqs are removed from CRM navigation',()=>{
+test('CRM navigation exposes customer surveys and customer support tickets while FAQs live in Portal',()=>{
  const crmGroup = ADMIN_NAVIGATION_GROUPS.find(g => g.label === 'Khách hàng (CRM)');
  assert.ok(crmGroup);
- assert.deepEqual(crmGroup.tables, ['reviews']);
- assert.deepEqual(crmGroup.items.map(i => i.id), ['customers', 'reviews']);
+ assert.deepEqual(crmGroup.tables, ['reviews', 'consultation_surveys']);
+ assert.deepEqual(crmGroup.items.map(i => i.id), ['customers', 'consultation_surveys', 'support_tickets', 'reviews']);
 });
 test('training workflow has five canonical tabs and lesson details share the content tab',()=>{
  assert.deepEqual(getResourceNavigation('courses',all,'SUPER_ADMIN').map(tab=>tab.id),['courses','course_chapters','course_quizzes','quiz_questions','quiz_submissions']);

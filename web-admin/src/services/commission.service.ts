@@ -141,9 +141,14 @@ export const commissionService = {
       let percentage = data.percentage;
       if (percentage === undefined) {
         const profile = await supabaseService.query<any[]>(
-          `staff_profiles?select=commission_rate&user_id=eq.${validStaffId}&is_active=eq.true`,
+          `staff_profiles?select=commission_rate,package_commission_rate,product_commission_rate&user_id=eq.${validStaffId}&is_active=eq.true`,
         );
-        percentage = Number(profile?.[0]?.commission_rate || 0);
+        const row = profile?.[0];
+        if (data.commissionType === 'PACKAGE_UPSELL' || data.commissionType === 'TREATMENT_PATHWAY') {
+          percentage = Number(row?.package_commission_rate ?? row?.commission_rate ?? 0);
+        } else {
+          percentage = Number(row?.commission_rate || 0);
+        }
       }
       if (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
         return { success: false, statusCode: 400, message: 'Nhân viên chưa được cấu hình tỷ lệ hoa hồng hợp lệ', data: null };

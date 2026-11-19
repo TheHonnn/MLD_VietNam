@@ -4,7 +4,10 @@ import {
   SystemDiagnosticData,
   AdminSopGuide,
   AdminSupportTicket,
+  CustomerSupportTicket,
   CreateTicketPayload,
+  UpdateTicketPayload,
+  UpdateCustomerTicketPayload,
 } from '../services/support.service';
 import { toast } from '../components/common';
 
@@ -20,6 +23,9 @@ export function useAdminSupport() {
   const [tickets, setTickets] = useState<AdminSupportTicket[]>([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
   const [submittingTicket, setSubmittingTicket] = useState(false);
+
+  const [customerTickets, setCustomerTickets] = useState<CustomerSupportTicket[]>([]);
+  const [customerTicketsLoading, setCustomerTicketsLoading] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -99,11 +105,48 @@ export function useAdminSupport() {
     }
   }, [loadTickets]);
 
+  const loadCustomerTickets = useCallback(async (filters?: { status?: string; search?: string }) => {
+    setCustomerTicketsLoading(true);
+    try {
+      const list = await supportService.getCustomerTickets(filters);
+      setCustomerTickets(list);
+    } catch {
+      toast.error('Lỗi tải phiếu khách hàng', 'Không thể tải danh sách yêu cầu từ ứng dụng khách hàng.');
+    } finally {
+      setCustomerTicketsLoading(false);
+    }
+  }, []);
+
+  const updateTicket = useCallback(async (id: string, data: UpdateTicketPayload) => {
+    try {
+      await supportService.updateTicket(id, data);
+      toast.success('Đã cập nhật phiếu hỗ trợ', 'Phản hồi và trạng thái xử lý đã được lưu.');
+      await loadTickets();
+      return true;
+    } catch (err: any) {
+      toast.error('Cập nhật thất bại', err?.message || 'Không thể cập nhật phiếu hỗ trợ.');
+      return false;
+    }
+  }, [loadTickets]);
+
+  const updateCustomerTicket = useCallback(async (id: string, data: UpdateCustomerTicketPayload) => {
+    try {
+      await supportService.updateCustomerTicket(id, data);
+      toast.success('Đã phản hồi khách hàng', 'Trạng thái yêu cầu hỗ trợ đã được cập nhật.');
+      await loadCustomerTickets();
+      return true;
+    } catch (err: any) {
+      toast.error('Cập nhật thất bại', err?.message || 'Không thể cập nhật yêu cầu khách hàng.');
+      return false;
+    }
+  }, [loadCustomerTickets]);
+
   useEffect(() => {
     loadDiagnostics();
     loadGuides();
     loadTickets();
-  }, [loadDiagnostics, loadGuides, loadTickets]);
+    loadCustomerTickets();
+  }, [loadDiagnostics, loadGuides, loadTickets, loadCustomerTickets]);
 
   return {
     diagnostics,
@@ -123,5 +166,11 @@ export function useAdminSupport() {
     submittingTicket,
     loadTickets,
     submitTicket,
+    updateTicket,
+
+    customerTickets,
+    customerTicketsLoading,
+    loadCustomerTickets,
+    updateCustomerTicket,
   };
 }

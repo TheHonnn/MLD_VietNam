@@ -1,4 +1,3 @@
-// Local PostgreSQL only. Supabase identity is supplied by the test session.
 const { readFileSync } = require('node:fs');
 const { resolve } = require('node:path');
 const ADMIN_MIGRATIONS = [
@@ -17,6 +16,16 @@ const ADMIN_MIGRATIONS = [
   '035_academy_admission_safeguards.sql',
   '036_academy_schedule_and_transfers.sql',
   '037_academy_preserve_suspended_access.sql',
+  '038_system_settings.sql',
+  '041_admin_internal_support.sql',
+  '042_branch_custom_time_slots.sql',
+  '042_zalo_oa_admin_settings.sql',
+  '043_canva_certificate_connections.sql',
+  '044_home_products_is_active.sql',
+  '047_pos_80mm_commissions_hv_autopay.sql',
+  '048_qa_fixes_tuition_qr_settings.sql',
+  '049_system_audit_unification_fixes.sql',
+  '050_edge_audit_complete_fixes.sql',
 ];
 async function loadAdminSchema(database) {
   await database.exec(`
@@ -31,7 +40,6 @@ async function loadAdminSchema(database) {
     .replace(/^CREATE EXTENSION[^\n]*$/gm, '')
     .replace(/^CREATE INDEX[^\n]*gin_trgm_ops[^\n]*$/gm, ''));
   await database.exec(readFileSync(resolve(__dirname, '../enterprise_features.sql'), 'utf8'));
-  // Migration 008 extends a legacy Portal table absent from schema.sql.
   await database.exec(`
     CREATE TABLE public.miniapp_shared_content (
       id UUID PRIMARY KEY,
@@ -49,7 +57,6 @@ async function loadAdminSchema(database) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `);
-  // Run the production DDL and policies, excluding the legacy sample seeds.
   const portalMigration = readFileSync(resolve(__dirname, '../migrations/008_portal_content_and_email.sql'), 'utf8');
   const seedStart = portalMigration.indexOf('-- 5.');
   if (seedStart < 0) throw new Error('Portal migration seed boundary is missing.');

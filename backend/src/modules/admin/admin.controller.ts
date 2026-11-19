@@ -232,6 +232,12 @@ export class AdminController {
     }
     return { data: { signedUrl: data.signedUrl, expiresIn: 3600 } };
   }
+  @Get('cashier/customer-benefits')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  cashierCustomerBenefits(@Query('customerId') customerId: string, @Req() req) {
+    return this.service.getCashierCustomerBenefits(req.admin, customerId);
+  }
   @Get('cashier/workspace')
   @UseGuards(AdminGuard)
   @ApiBearerAuth()
@@ -241,6 +247,18 @@ export class AdminController {
   @ApiBearerAuth()
   collectCashierPayment(@Body() body: Record<string, unknown>, @Req() req) {
     return this.service.collectCashierPayment(req.admin, body);
+  }
+  @Post('cashier/pending-qr')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  createPendingCashierQr(@Body() body: Record<string, unknown>, @Req() req) {
+    return this.service.createPendingCashierQr(req.admin, body);
+  }
+  @Get('cashier/pending-qr/:id/status')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  getPendingCashierQrStatus(@Param('id') id: string, @Req() req) {
+    return this.service.getPendingCashierQrStatus(req.admin, id);
   }
   @Get('cashier/shifts/active')
   @UseGuards(AdminGuard)
@@ -270,6 +288,18 @@ export class AdminController {
   schemaStatus(@Req() req) {
     if (!['ADMIN', 'SUPER_ADMIN'].includes(req.admin.role)) throw new ForbiddenException('Chỉ quản trị viên được kiểm tra cấu hình hệ thống.');
     return this.service.schemaStatus();
+  }
+  @Get('command-search')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  commandSearch(@Query('q') q: string, @Req() req) {
+    return this.service.commandSearch(req.admin, q);
+  }
+  @Get('action-center')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  actionCenter(@Query('branchId') branchId: string, @Req() req) {
+    return this.service.getActionCenter(req.admin, branchId);
   }
   @Get('resources')
   @UseGuards(AdminGuard)

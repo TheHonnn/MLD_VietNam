@@ -129,6 +129,8 @@ export const W04_CustomerDetail: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [tuitionTransactions, setTuitionTransactions] = useState<TuitionTransaction[]>([]);
   const [emailLogs, setEmailLogs] = useState<any[]>([]);
+  const [consultationSurveys, setConsultationSurveys] = useState<any[]>([]);
+  const [customerTickets, setCustomerTickets] = useState<any[]>([]);
   const [availablePackages, setAvailablePackages] = useState<TreatmentPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -176,6 +178,7 @@ export const W04_CustomerDetail: React.FC = () => {
     'Liệu trình',
     'Học tập',
     'Giao dịch',
+    'Khảo sát & Hỗ trợ',
     'Ghi chú',
   ];
 
@@ -258,6 +261,14 @@ export const W04_CustomerDetail: React.FC = () => {
         if (tuitionRes.success && tuitionRes.data && custId) {
           const userTuitions = tuitionRes.data.filter((tt: TuitionTransaction) => tt.studentId === custId);
           setTuitionTransactions(userTuitions);
+        }
+        if (custId) {
+          const [surveysRaw, ticketsRaw] = await Promise.all([
+            supabaseService.query<any[]>(`consultation_surveys?customer_id=eq.${encodeURIComponent(custId)}&order=created_at.desc`).catch(() => []),
+            supabaseService.query<any[]>(`support_tickets?customer_id=eq.${encodeURIComponent(custId)}&order=created_at.desc`).catch(() => []),
+          ]);
+          if (Array.isArray(surveysRaw)) setConsultationSurveys(surveysRaw);
+          if (Array.isArray(ticketsRaw)) setCustomerTickets(ticketsRaw);
         }
 
         if (enrRes.success && enrRes.data && custId) {
@@ -650,10 +661,14 @@ export const W04_CustomerDetail: React.FC = () => {
       };
 
       const res = await customerService.updateCustomer(customer.id, updatedFields);
+      if (!res.success) {
+        toast.error('Cập nhật thất bại', res.message || 'Không thể lưu thay đổi hồ sơ khách hàng.');
+        return;
+      }
       const newCustomerState: User = {
         ...customer,
         ...updatedFields,
-        ...(res.success && res.data ? res.data : {}),
+        ...(res.data ? res.data : {}),
       };
       setCustomer(newCustomerState);
 
@@ -838,9 +853,6 @@ export const W04_CustomerDetail: React.FC = () => {
                   <div className="text-xs text-[#73675F] mt-0.5">
                     {customer?.phone || 'Chưa có số điện thoại'}
                   </div>
-                  <div className="text-xs font-semibold text-[#8A4F23] mt-0.5">
-                    Hội viên {formatTierName(effectiveTier)}
-                  </div>
                 </div>
               </div>
               <button
@@ -859,7 +871,7 @@ export const W04_CustomerDetail: React.FC = () => {
 
               <div className="flex items-center justify-between relative z-10">
                 <span className="text-xs font-semibold text-[#F3E2CE]">
-                  {customer ? `Hội viên ${formatTierName(effectiveTier)}` : 'Chưa phân hạng'}
+                  Điểm tích lũy & Định danh khách hàng
                 </span>
                 <Crown className="w-4 h-4 text-[#F3E2CE] stroke-[2]" />
               </div>
@@ -869,7 +881,7 @@ export const W04_CustomerDetail: React.FC = () => {
                   {(customer?.rewardPoints || 0).toLocaleString('vi-VN')} điểm
                 </div>
                 <div className="text-xs text-[#F3E2CE]/85 mt-1.5 font-medium">
-                  {customer?.referralCode ? `Mã hội viên · ${customer.referralCode}` : 'Chưa có mã hội viên'}
+                  {customer?.referralCode ? `Mã khách hàng · ${customer.referralCode}` : 'Chưa có mã định danh'}
                 </div>
               </div>
 
@@ -881,7 +893,7 @@ export const W04_CustomerDetail: React.FC = () => {
                 >
                   <div className="flex items-center gap-2">
                     <QrCode className="w-4 h-4 text-[#F3E2CE]" />
-                    <span>Xem thẻ hội viên</span>
+                    <span>Xem mã QR khách hàng</span>
                   </div>
                   <ArrowRight className="w-4 h-4 text-white" />
                 </button>
@@ -1606,6 +1618,75 @@ export const W04_CustomerDetail: React.FC = () => {
             </div>
           )}
 
+          {activeTab === 'Khảo sát & Hỗ trợ' && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between border-b border-[#EFE4D9] pb-3">
+                  <h3 className="text-base font-bold text-[#3E200C]">Khảo sát tiền dịch vụ ({consultationSurveys.length})</h3>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/manage/consultation_surveys')}
+                    className="text-xs font-bold text-[#8A4F23] hover:underline cursor-pointer"
+                  >
+                    Mở quản lý khảo sát
+                  </button>
+                </div>
+                {consultationSurveys.length === 0 ? (
+                  <p className="text-xs text-[#73675F]">Khách hàng chưa gửi phiếu khảo sát tiền dịch vụ.</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {consultationSurveys.map((sv) => (
+                      <div key={sv.id} className="p-3.5 rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] text-xs space-y-1">
+                        <div className="flex items-center justify-between font-bold text-[#2C241E]">
+                          <span>Lực bấm: {sv.pressure_pref || 'MEDIUM'}</span>
+                          <span className="text-[#73675F] font-normal">
+                            {sv.created_at ? new Date(sv.created_at).toLocaleString('vi-VN') : '--'}
+                          </span>
+                        </div>
+                        {Array.isArray(sv.focus_areas) && sv.focus_areas.length > 0 && (
+                          <p className="text-[#5C5046]">Vùng trọng tâm: {sv.focus_areas.join(', ')}</p>
+                        )}
+                        <p className="text-[#5C5046]">
+                          Da nhạy cảm: {sv.has_sensitive_skin ? 'Có' : 'Không'} · Dị ứng tinh dầu: {sv.has_oil_allergy ? 'Có' : 'Không'}
+                        </p>
+                        {sv.special_requests && <p className="text-[#8A4F23]">Ghi chú: {sv.special_requests}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between border-b border-[#EFE4D9] pb-3">
+                  <h3 className="text-base font-bold text-[#3E200C]">Phiếu hỗ trợ từ Mobile App ({customerTickets.length})</h3>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/help?tab=customer-tickets')}
+                    className="text-xs font-bold text-[#8A4F23] hover:underline cursor-pointer"
+                  >
+                    Mở hộp thư hỗ trợ khách hàng
+                  </button>
+                </div>
+                {customerTickets.length === 0 ? (
+                  <p className="text-xs text-[#73675F]">Khách hàng chưa có phiếu yêu cầu hỗ trợ nào.</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {customerTickets.map((tk) => (
+                      <div key={tk.id} className="p-3.5 rounded-xl border border-[#EFE4D9] bg-[#FAF8F5] text-xs space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-[#2C241E]">{tk.subject}</span>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#F5ECE3] text-[#985018]">{tk.status}</span>
+                        </div>
+                        <p className="text-[#5C5046]">{tk.message}</p>
+                        {tk.admin_reply && <p className="text-emerald-700 font-medium">Phản hồi: {tk.admin_reply}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* TAB: GHI CHÚ (Clinical Notes & Technician Preferences) */}
           {activeTab === 'Ghi chú' && (
             <div className="bg-white rounded-2xl border border-[#EFE4D9] p-5 shadow-xs space-y-4">
@@ -1651,7 +1732,7 @@ export const W04_CustomerDetail: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2C241E]/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl border border-[#EFE4D9] shadow-2xl w-full max-w-sm p-6 text-center space-y-4 animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center pb-2 border-b border-[#EFE4D9]">
-              <h3 className="text-base font-extrabold text-[#3E200C]">Thẻ Hội Viên VIP MLD</h3>
+              <h3 className="text-base font-extrabold text-[#3E200C]">Mã Định Danh Khách Hàng MLD</h3>
               <button
                 type="button"
                 onClick={() => setIsQrModalOpen(false)}
@@ -1666,10 +1747,10 @@ export const W04_CustomerDetail: React.FC = () => {
             <div>
               <div className="text-base font-bold text-[#2C241E]">{customer?.fullName}</div>
               <div className="text-xs text-[#8A4F23] font-semibold mt-0.5">
-                Hội viên {formatTierName(effectiveTier)} · {(customer?.rewardPoints || 0).toLocaleString('vi-VN')} điểm
+                {(customer?.rewardPoints || 0).toLocaleString('vi-VN')} điểm tích lũy
               </div>
               <div className="text-xs text-[#73675F] mt-1 font-mono tracking-wider">
-                Mã hội viên: {customer?.referralCode || 'Chưa có mã'}
+                Mã định danh: {customer?.referralCode || 'Chưa có mã'}
               </div>
             </div>
             <button
@@ -1809,12 +1890,9 @@ export const W04_CustomerDetail: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-extrabold text-[#3E200C]">Chỉnh sửa hồ sơ khách hàng</h2>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]">
-                      MLD VIP Client
-                    </span>
                   </div>
                   <p className="text-xs text-[#73675F] mt-0.5">
-                    Cập nhật thông tin định danh cá nhân, phân hạng VIP và ghi chú lâm sàng
+                    Cập nhật thông tin định danh cá nhân và ghi chú lâm sàng
                   </p>
                 </div>
               </div>
@@ -1932,30 +2010,12 @@ export const W04_CustomerDetail: React.FC = () => {
                 </div>
               </div>
 
-              {/* PHẦN 2: HỘI VIÊN & GHI CHÚ */}
               <div className="pt-2 border-t border-[#EFE4D9]">
                 <h4 className="text-xs font-bold text-[#8A4F23] uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <Crown className="w-3.5 h-3.5" />
-                  <span>2. Hạng thẻ hội viên VIP & Ghi chú lâm sàng</span>
+                  <span>2. Kỹ thuật viên phụ trách & Ghi chú lâm sàng</span>
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                      Hạng thẻ thành viên
-                    </label>
-                    <select
-                      value={formData.membershipTier}
-                      onChange={(e) => setFormData({ ...formData, membershipTier: e.target.value as any })}
-                      className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                    >
-                      <option value={MemberTier.STANDARD}>Chuẩn (Standard)</option>
-                      <option value={MemberTier.SILVER}>Bạc (Silver)</option>
-                      <option value={MemberTier.GOLD}>Vàng (Gold)</option>
-                      <option value={MemberTier.PLATINUM}>Bạch Kim (Platinum)</option>
-                      <option value={MemberTier.DIAMOND}>Kim Cương (Diamond)</option>
-                    </select>
-                  </div>
-
+                <div className="grid grid-cols-1 gap-3.5">
                   <div>
                     <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                       Kỹ thuật viên phụ trách ưu tiên

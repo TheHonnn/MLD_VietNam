@@ -18,7 +18,8 @@ const stages: { id: Stage; label: string }[] = [
 ];
 const types: Record<string, string> = {
   SERVICE_DIRECT: 'Ca trị liệu', PACKAGE_UPSELL: 'Bán gói', CSAT_BONUS: 'Thưởng hài lòng',
-  COURSE_ENROLLMENT: 'Ghi danh khóa học', TREATMENT_PATHWAY: 'Bán liệu trình', REVERSAL: 'Đảo hoa hồng',
+  COURSE_ENROLLMENT: 'Ghi danh khóa học', TREATMENT_PATHWAY: 'Bán liệu trình', PRODUCT_SALE: 'Bán sản phẩm',
+  TREATMENT_SESSION: 'Thực hiện buổi', REVERSAL: 'Đảo hoa hồng',
 };
 const money = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 const currentMonth = () => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7);
@@ -76,7 +77,7 @@ export function W13_StaffCommissions() {
   const visible = matches.slice(pageIndex * 25, (pageIndex + 1) * 25);
   const canAct = (row: Commission) => workspace?.actionBranches === null || workspace?.actionBranches.includes(row.branch_id);
   const checked = matches.filter(row => selected.includes(row.id) && canAct(row));
-  const selectable = stage === 'pending' ? visible.filter(canAct) : [];
+  const selectable = (stage === 'pending' || stage === 'approved') ? visible.filter(canAct) : [];
   const allChecked = selectable.length > 0 && selectable.every(row => selected.includes(row.id));
   function resetSelection() { setSelected([]); setPage(0); }
   function close() { if (!saving) { setConfirmation(undefined); setDetails(undefined); } }
@@ -141,18 +142,18 @@ export function W13_StaffCommissions() {
         <section className="overflow-hidden rounded-xl border border-[#EFE4D9] bg-white">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#EFE4D9] px-4 py-3">
             <h2 className="text-sm font-semibold">{stages.find(item => item.id === stage)?.label} · {matches.length} khoản</h2>
-            {checked.length > 0 && <button type="button" className="admin-primary" onClick={() => setConfirmation({ action: 'approve', rows: checked })}>Duyệt {checked.length} khoản · {money(sum(checked))}</button>}
+            {checked.length > 0 && (stage === 'pending' || stage === 'approved') && <button type="button" className="admin-primary" onClick={() => setConfirmation({ action: stage === 'pending' ? 'approve' : 'record-payment', rows: checked })}>{stage === 'pending' ? 'Duyệt' : 'Ghi nhận đã chi'} {checked.length} khoản · {money(sum(checked))}</button>}
           </div>
           {!matches.length ? <p className="p-8 text-center text-sm text-[#73675F]">Không có khoản nào trong phạm vi đang xem.</p> :
             <div className="overflow-x-auto">
               <table className="admin-table min-w-[670px]">
                 <thead><tr>
-                  {stage === 'pending' && <th><input type="checkbox" aria-label="Chọn tất cả khoản có thể duyệt trên trang" checked={allChecked} disabled={!selectable.length}
+                  {(stage === 'pending' || stage === 'approved') && <th><input type="checkbox" aria-label="Chọn tất cả khoản trên trang" checked={allChecked} disabled={!selectable.length}
                     onChange={() => setSelected(allChecked ? [] : selectable.map(row => row.id))} /></th>}
                   <th>Người hưởng</th><th>Nguồn hoa hồng</th><th className="text-right">Số tiền</th><th className="text-right">Thao tác</th>
                 </tr></thead>
                 <tbody>{visible.map(row => <tr key={row.id}>
-                  {stage === 'pending' && <td><input type="checkbox" aria-label={`Chọn khoản của ${row.staff_name}`} checked={selected.includes(row.id)} disabled={!canAct(row)}
+                  {(stage === 'pending' || stage === 'approved') && <td><input type="checkbox" aria-label={`Chọn khoản của ${row.staff_name}`} checked={selected.includes(row.id)} disabled={!canAct(row)}
                     onChange={() => setSelected(ids => ids.includes(row.id) ? ids.filter(id => id !== row.id) : [...ids, row.id])} /></td>}
                   <td><button type="button" className="admin-record-link text-left" onClick={() => setDetails(row)}>{row.staff_name}</button><div className="text-xs text-[#73675F]">{row.branch_name}</div></td>
                   <td>{types[row.commission_type] || row.commission_type}<div className="break-all text-xs text-[#73675F]">{row.invoice_code || row.booking_code || '—'}</div></td>

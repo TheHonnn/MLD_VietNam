@@ -59,22 +59,6 @@ const getInitials = (name: string) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
-const getTierLabel = (tier?: MemberTier) => {
-  switch (tier) {
-    case MemberTier.DIAMOND:
-      return 'Kim cương';
-    case MemberTier.PLATINUM:
-      return 'Bạch kim';
-    case MemberTier.GOLD:
-      return 'Vàng';
-    case MemberTier.SILVER:
-      return 'Bạc';
-    case MemberTier.STANDARD:
-    default:
-      return 'Thành viên';
-  }
-};
-
 const getSourceLabel = (c: User) => {
   if (c.referredById) return 'Giới thiệu bạn bè';
   if (c.referralCode) return 'Mã giới thiệu';
@@ -310,7 +294,6 @@ export const W03_Customers: React.FC = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [selectedPackages, setSelectedPackages] = useState<UserPackage[]>([]);
   const [selectedRole, setSelectedRole] = useState<string>('ALL');
-  const [selectedTier, setSelectedTier] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedPurpose, setSelectedPurpose] = useState<string>('ALL');
   const [selectedSort, setSelectedSort] = useState<string>('NEWEST');
@@ -395,12 +378,6 @@ export const W03_Customers: React.FC = () => {
       });
     }
 
-    // 3. Member Tier filter
-    if (selectedTier !== 'ALL') {
-      result = result.filter((c) => c.membershipTier === selectedTier);
-    }
-
-    // 4. Status filter
     if (selectedStatus === 'ACTIVE') {
       result = result.filter((c) => c.isActive !== false);
     } else if (selectedStatus === 'INACTIVE') {
@@ -450,14 +427,13 @@ export const W03_Customers: React.FC = () => {
     }
 
     return result;
-  }, [allCustomers, allEnrollments, allPackages, allBookings, searchTerm, selectedRole, selectedTier, selectedStatus, selectedPurpose, selectedBranch, selectedSort, branches]);
+  }, [allCustomers, allEnrollments, allPackages, allBookings, searchTerm, selectedRole, selectedStatus, selectedPurpose, selectedBranch, selectedSort, branches]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE));
 
-  // Reset page when filter criteria change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedRole, selectedTier, selectedStatus, selectedPurpose, selectedBranch, selectedSort]);
+  }, [searchTerm, selectedRole, selectedStatus, selectedPurpose, selectedBranch, selectedSort]);
 
   // CUST-06: Tự động điều chỉnh lùi trang khi dữ liệu co lại
   useEffect(() => {
@@ -484,7 +460,6 @@ export const W03_Customers: React.FC = () => {
   const hasActiveFilter =
     searchTerm.trim() !== '' ||
     selectedRole !== 'ALL' ||
-    selectedTier !== 'ALL' ||
     selectedStatus !== 'ALL' ||
     selectedPurpose !== 'ALL' ||
     selectedBranch !== 'ALL' ||
@@ -493,7 +468,6 @@ export const W03_Customers: React.FC = () => {
   const handleResetFilters = () => {
     setSearchTerm('');
     setSelectedRole('ALL');
-    setSelectedTier('ALL');
     setSelectedStatus('ALL');
     setSelectedPurpose('ALL');
     setSelectedBranch('ALL');
@@ -517,22 +491,6 @@ export const W03_Customers: React.FC = () => {
       case 'CUSTOMER':
       default:
         return 'Khách hàng';
-    }
-  };
-
-  const getTierExportLabel = (tier?: string) => {
-    switch (tier) {
-      case 'DIAMOND':
-        return 'Kim cương';
-      case 'PLATINUM':
-        return 'Bạch kim';
-      case 'GOLD':
-        return 'Vàng';
-      case 'SILVER':
-        return 'Bạc';
-      case 'STANDARD':
-      default:
-        return 'Tiêu chuẩn';
     }
   };
 
@@ -574,7 +532,6 @@ export const W03_Customers: React.FC = () => {
         const phone = cleanExportPhone(c.phone);
         const email = c.email && c.email !== 'null' ? c.email : '';
         const role = getRoleExportLabel(c.role);
-        const tier = getTierExportLabel(c.membershipTier);
         const purpose = getPurposeExportLabel(c.purpose);
         const address = c.address && c.address !== 'null' ? c.address : '';
         const created = c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : '';
@@ -589,7 +546,6 @@ export const W03_Customers: React.FC = () => {
             <td style="text-align: center; border: 1px solid #E5E7EB; padding: 8px 10px; mso-number-format: '\\@'; color: #374151; white-space: nowrap;">${phone}</td>
             <td style="border: 1px solid #E5E7EB; padding: 8px 10px; color: #374151; white-space: nowrap;">${email}</td>
             <td style="text-align: center; border: 1px solid #E5E7EB; padding: 8px 10px; color: #374151; white-space: nowrap;">${role}</td>
-            <td style="text-align: center; border: 1px solid #E5E7EB; padding: 8px 10px; color: #374151; white-space: nowrap;">${tier}</td>
             <td style="text-align: right; border: 1px solid #E5E7EB; padding: 8px 10px; color: #374151; white-space: nowrap;">${points}</td>
             <td style="text-align: right; border: 1px solid #E5E7EB; padding: 8px 10px; font-weight: 600; color: #111827; white-space: nowrap;">${spent}</td>
             <td style="border: 1px solid #E5E7EB; padding: 8px 10px; color: #374151; white-space: nowrap;">${purpose}</td>
@@ -627,7 +583,7 @@ export const W03_Customers: React.FC = () => {
       <body>
         <table>
           <tr>
-            <td colspan="12" style="font-size: 14pt; font-weight: bold; color: #111827; text-align: center; padding: 14px 8px 4px 8px; white-space: nowrap;">
+            <td colspan="11" style="font-size: 14pt; font-weight: bold; color: #111827; text-align: center; padding: 14px 8px 4px 8px; white-space: nowrap;">
               DANH SÁCH KHÁCH HÀNG - MLD BEAUTY & ACADEMY
             </td>
           </tr>
@@ -635,7 +591,7 @@ export const W03_Customers: React.FC = () => {
             <td colspan="6" style="font-size: 9pt; color: #6B7280; padding: 4px 8px 12px 8px; white-space: nowrap;">
               Thời gian xuất: ${exportDateStr}
             </td>
-            <td colspan="6" style="font-size: 9pt; color: #6B7280; text-align: right; padding: 4px 8px 12px 8px; white-space: nowrap;">
+            <td colspan="5" style="font-size: 9pt; color: #6B7280; text-align: right; padding: 4px 8px 12px 8px; white-space: nowrap;">
               Tổng cộng: <b>${filteredCustomers.length}</b> khách hàng
             </td>
           </tr>
@@ -647,7 +603,6 @@ export const W03_Customers: React.FC = () => {
               <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 120px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Số điện thoại</th>
               <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 250px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Email</th>
               <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 110px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Vai trò</th>
-              <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 110px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Hạng hội viên</th>
               <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 100px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Điểm tích lũy</th>
               <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 130px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Tổng chi tiêu</th>
               <th style="border: 1px solid #D1D5DB; padding: 8px 12px; min-width: 130px; background-color: #F3F4F6; color: #111827; white-space: nowrap;">Nhu cầu quan tâm</th>
@@ -658,7 +613,7 @@ export const W03_Customers: React.FC = () => {
           <tbody>
             ${rowsHtml}
             <tr style="background-color: #F3F4F6; font-weight: bold; border-top: 2px solid #9CA3AF;">
-              <td colspan="7" style="border: 1px solid #D1D5DB; padding: 8px 12px; text-align: center; color: #374151; white-space: nowrap;">
+              <td colspan="6" style="border: 1px solid #D1D5DB; padding: 8px 12px; text-align: center; color: #374151; white-space: nowrap;">
                 TỔNG CỘNG (${filteredCustomers.length} KHÁCH HÀNG)
               </td>
               <td style="border: 1px solid #D1D5DB; padding: 8px 12px; text-align: right; color: #111827; white-space: nowrap;">
@@ -705,7 +660,6 @@ export const W03_Customers: React.FC = () => {
       'Số điện thoại',
       'Email',
       'Vai trò',
-      'Hạng hội viên',
       'Điểm thưởng',
       'Tổng chi tiêu (VNĐ)',
       'Nhu cầu quan tâm',
@@ -718,7 +672,6 @@ export const W03_Customers: React.FC = () => {
       const phone = cleanExportPhone(c.phone);
       const email = c.email && c.email !== 'null' ? c.email : '';
       const role = getRoleExportLabel(c.role);
-      const tier = getTierExportLabel(c.membershipTier);
       const purpose = getPurposeExportLabel(c.purpose);
       const address = c.address && c.address !== 'null' ? c.address.replace(/"/g, '""') : '';
       const created = c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : '';
@@ -730,7 +683,6 @@ export const W03_Customers: React.FC = () => {
         `"'\t${phone}"`,
         `"${email.replace(/"/g, '""')}"`,
         `"${role}"`,
-        `"${tier}"`,
         c.rewardPoints || 0,
         c.totalSpent || 0,
         `"${purpose}"`,
@@ -974,21 +926,6 @@ export const W03_Customers: React.FC = () => {
       toast.error('Có lỗi xảy ra', 'Không thể hoàn tất tiếp nhận khách hàng mới.');
     } finally {
       setIsSubmittingCustomer(false);
-    }
-  };
-
-  const getTierBadgeStyle = (tier?: MemberTier) => {
-    switch (tier) {
-      case MemberTier.DIAMOND:
-        return 'bg-[#E5D8F6] text-[#6A39AF]';
-      case MemberTier.PLATINUM:
-        return 'bg-[#DEEAF6] text-[#2968A8]';
-      case MemberTier.GOLD:
-        return 'bg-[#F9EED4] text-[#A67812]';
-      case MemberTier.SILVER:
-        return 'bg-[#E8EDF2] text-[#4A5E73]';
-      default:
-        return 'bg-[#F4ECE3] text-[#78695E]';
     }
   };
 
@@ -1278,24 +1215,6 @@ export const W03_Customers: React.FC = () => {
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* Membership Tier Dropdown */}
-        <div className="relative shrink-0 whitespace-nowrap">
-          <select
-            value={selectedTier}
-            onChange={(e) => setSelectedTier(e.target.value)}
-            className="h-10 pl-3 pr-8 rounded-xl border border-[#E0D7CC] bg-white text-xs font-medium text-[#4A3E34] hover:bg-[#FAF8F5] transition-colors appearance-none focus:outline-none focus:border-[#985018] cursor-pointer whitespace-nowrap"
-          >
-            <option value="ALL">Hạng hội viên</option>
-            <option value={MemberTier.STANDARD}>Hạng Standard</option>
-            <option value={MemberTier.SILVER}>Hạng Silver (Bạc)</option>
-            <option value={MemberTier.GOLD}>Hạng Gold (Vàng)</option>
-            <option value={MemberTier.PLATINUM}>Hạng Platinum (Bạch Kim)</option>
-            <option value={MemberTier.DIAMOND}>Hạng Diamond (Kim Cương)</option>
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
-
-        {/* Status Dropdown */}
         <div className="relative shrink-0 whitespace-nowrap">
           <select
             value={selectedStatus}
@@ -1369,7 +1288,7 @@ export const W03_Customers: React.FC = () => {
             <thead className="bg-[#F6EEE5] text-[#73675F] text-[11.5px] font-semibold border-b border-[#EFE4D9]">
               <tr>
                 <th className="py-3 px-5 whitespace-nowrap">Khách hàng / liên hệ</th>
-                <th className="py-3 px-4 whitespace-nowrap">Phân loại & hạng</th>
+                <th className="py-3 px-4 whitespace-nowrap">Phân loại khách hàng</th>
                 <th className="py-3 px-4 whitespace-nowrap">Hoạt động gần nhất</th>
                 <th className="py-3 px-4 whitespace-nowrap">Gói / học tập</th>
                 <th className="py-3 px-4 whitespace-nowrap">Chi nhánh ưu tiên</th>
@@ -1453,7 +1372,7 @@ export const W03_Customers: React.FC = () => {
                       {/* 2. Phân loại & hạng */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <div className="text-xs font-medium text-[#2C241E] whitespace-nowrap">
-                          {customerType} · {getTierLabel(c.membershipTier)}
+                          {customerType}
                           {c.rewardPoints > 0 && ` · ${c.rewardPoints.toLocaleString('vi-VN')} điểm`}
                         </div>
                         <div className="text-[11px] text-[#73675F] whitespace-nowrap mt-0.5">
@@ -1677,7 +1596,7 @@ export const W03_Customers: React.FC = () => {
                 <div>
                   <h2 className="text-lg font-extrabold text-[#3E200C]">Tiếp nhận khách hàng mới</h2>
                   <p className="text-xs text-[#73675F] mt-0.5">
-                    Tạo hồ sơ CRM, cấp mã hội viên và phân hạng thành viên ban đầu
+                    Tạo hồ sơ CRM và lưu thông tin liên hệ khách hàng
                   </p>
                 </div>
               </div>
@@ -1740,24 +1659,7 @@ export const W03_Customers: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
-                    Hạng hội viên ban đầu
-                  </label>
-                  <select
-                    value={newCustomerForm.membershipTier}
-                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, membershipTier: e.target.value as MemberTier })}
-                    className="w-full px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-xl text-xs font-bold text-[#8A4F23] focus:outline-none focus:border-[#985018] cursor-pointer"
-                  >
-                    <option value={MemberTier.STANDARD}>STANDARD · Tiêu Chuẩn</option>
-                    <option value={MemberTier.SILVER}>SILVER · Hội viên Bạc</option>
-                    <option value={MemberTier.GOLD}>GOLD · Hội viên Vàng (VIP)</option>
-                    <option value={MemberTier.PLATINUM}>PLATINUM · Bạch Kim</option>
-                    <option value={MemberTier.DIAMOND}>DIAMOND · Kim Cương (VVIP)</option>
-                  </select>
-                </div>
-
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-[#2C241E] mb-1.5">
                     Nhu cầu quan tâm
                   </label>

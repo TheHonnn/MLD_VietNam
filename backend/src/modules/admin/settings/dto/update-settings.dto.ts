@@ -233,14 +233,38 @@ export class UpdateSecuritySettingsDto {
   enable_audit_logging: boolean;
 }
 
+export class UpdateLoyaltySettingsDto {
+  @ApiProperty({ description: 'Số tiền chi tiêu để tích 1 điểm', example: 10000 })
+  @IsInt()
+  @Min(1000)
+  earn_amount_per_point: number;
+
+  @ApiProperty({ description: 'Giá trị quy đổi 1 điểm (VNĐ)', example: 100 })
+  @IsInt()
+  @Min(1)
+  redeem_value_per_point: number;
+
+  @ApiProperty({ description: 'Tỷ lệ thanh toán tối đa bằng điểm (%)', example: 30 })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  max_redeem_percent_per_order: number;
+
+  @ApiProperty({ description: 'Thời hạn hiệu lực của điểm (tháng)', example: 12 })
+  @IsInt()
+  @Min(1)
+  @Max(120)
+  point_expiry_months: number;
+}
+
 export class ChangePasswordDto {
   @ApiProperty({ description: 'Mật khẩu hiện tại', example: 'MatKhauCu123!' })
   @IsString()
   @IsNotEmpty()
   oldPassword: string;
 
-  @ApiProperty({ description: 'Mật khẩu mới (tối thiểu 8 ký tự)', example: 'MatKhauMoi456!' })
+  @ApiProperty({ description: 'Mật khẩu mới (tối thiểu theo cấu hình bảo mật)', example: 'MatKhauMoi456!' })
   @IsString()
-  @MinLength(8, { message: 'Mật khẩu mới phải có tối thiểu 8 ký tự' })
+  @MinLength(6, { message: 'Mật khẩu mới phải có tối thiểu 6 ký tự' })
   newPassword: string;
 }

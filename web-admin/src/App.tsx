@@ -170,7 +170,7 @@ const AppContent: React.FC = () => {
             <Route
               path="cashier-pos"
               element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST']}>
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER']}>
                   <W07_CashierPOS />
                 </RoleRoute>
               }
@@ -186,7 +186,7 @@ const AppContent: React.FC = () => {
             <Route
               path="invoices"
               element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST']}>
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER']}>
                   <InvoicesRedirect />
                 </RoleRoute>
               }
@@ -194,7 +194,7 @@ const AppContent: React.FC = () => {
             <Route
               path="receipts"
               element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST']}>
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER']}>
                   <InvoicesRedirect />
                 </RoleRoute>
               }
@@ -202,7 +202,7 @@ const AppContent: React.FC = () => {
             <Route
               path="hoa-don"
               element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER', 'RECEPTIONIST']}>
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER']}>
                   <InvoicesRedirect />
                 </RoleRoute>
               }
@@ -290,7 +290,7 @@ const AppContent: React.FC = () => {
             <Route
               path="zalo-zns"
               element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'RECEPTIONIST']}>
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
                   <W14_ZaloZNS />
                 </RoleRoute>
               }
@@ -298,7 +298,7 @@ const AppContent: React.FC = () => {
             <Route
               path="crm-zns"
               element={
-                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'RECEPTIONIST']}>
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
                   <W14_ZaloZNS />
                 </RoleRoute>
               }
@@ -342,7 +342,6 @@ const AppContent: React.FC = () => {
             <Route path="portal" element={<Navigate to="/portal-content" replace />} />
             <Route path="manage/branches" element={<Navigate to="/branches" replace />} />
             <Route path="manage/branch_rooms" element={<Navigate to="/branches?tab=rooms" replace />} />
-            <Route path="manage/consultation_surveys" element={<Navigate to="/customers" replace />} />
             <Route path="manage/invoices" element={<Navigate to="/cashier-pos?tab=receipts" replace />} />
             <Route path="manage/student_certificates" element={<Navigate to="/certificates?tab=list" replace />} />
             <Route path="manage/certificate_templates" element={<Navigate to="/certificates?tab=template" replace />} />
@@ -363,14 +362,21 @@ const AppContent: React.FC = () => {
             <Route path="treatment-inventory" element={<TreatmentInventoryWorkspace />} />
             <Route path="manage/home_care_guidelines" element={<HomeCareWorkspace />} />
             <Route path="manage/student_attendance" element={<AttendanceRedirect />} />
-            <Route path="settings" element={<W20_Settings />} />
+            <Route
+              path="settings"
+              element={
+                <RoleRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+                  <W20_Settings />
+                </RoleRoute>
+              }
+            />
             <Route path="cai-dat" element={<Navigate to="/settings" replace />} />
             <Route path="help" element={<W21_HelpSupport />} />
             <Route path="support" element={<Navigate to="/help" replace />} />
             <Route path="tro-giup" element={<Navigate to="/help" replace />} />
             <Route path="manage/system_settings" element={<Navigate to="/settings" replace />} />
             <Route path="manage/support_faqs" element={<Navigate to="/portal-content?tab=faqs" replace />} />
-            <Route path="manage/support_tickets" element={<Navigate to="/customers" replace />} />
+            <Route path="manage/support_tickets" element={<Navigate to="/help?tab=customer-tickets" replace />} />
             <Route path="manage/:table" element={<div className="admin-module"><ResourcePage /></div>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

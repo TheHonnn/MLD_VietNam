@@ -33,6 +33,16 @@ export class CreatePaymentLinkDto {
   @IsString()
   enrollmentId?: string;
 
+  @ApiPropertyOptional({ description: 'ID Hóa đơn POS đang chờ thanh toán' })
+  @IsOptional()
+  @IsString()
+  invoiceId?: string;
+
+  @ApiPropertyOptional({ description: 'Mã hóa đơn POS' })
+  @IsOptional()
+  @IsString()
+  invoiceCode?: string;
+
   @ApiPropertyOptional({ description: 'Tên người thanh toán' })
   @IsOptional()
   @IsString()

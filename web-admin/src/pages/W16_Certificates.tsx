@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Award, Download, Eye, Plus, RotateCcw, Search } from 'lucide-react';
+import { Award, Download, Eye, Plus, Printer, RotateCcw, Search } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { adminCommand, type Listing, type Row } from '../admin/api';
 import { useAdmin } from '../admin/Auth';
-import { AdminTabs, toast } from '../components/common';
+import { AdminTabs, SavedFilterPresetsBar, toast } from '../components/common';
+import { buildPresetStorageKey } from '../utils/savedFilterPresets';
+import { exportCsvWithBom, printStructuredTable } from '../utils/reportExport';
 import CertificateTemplateEditor, { readCertificateTemplateSettings } from '../components/certificates/CertificateTemplateEditor';
 import CertificateDocumentPreview from '../components/certificates/CertificateDocumentPreview';
 import { CertificateStatus, type StudentCertificate } from '../types/shared_types';
@@ -40,12 +42,18 @@ export function W16_Certificates() {
   const { user } = useAdmin();
   const canManage = ['ADMIN', 'SUPER_ADMIN', 'BRANCH_MANAGER'].includes(user?.role || '');
   const [params, setParams] = useSearchParams();
+  const statusParam = params.get('status') || '';
   const tab = params.get('tab') === 'template' ? 'template' : params.get('tab') === 'issue' && canManage ? 'issue' : 'list';
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(() => statusParam);
+
+  useEffect(() => {
+    setStatus(statusParam);
+    setPage(1);
+  }, [statusParam]);
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -120,11 +128,35 @@ export function W16_Certificates() {
     Promise.all([
       adminCommand<Listing>(listPath('student_academic_records', { limit: '1' }, { enrollment_id: selected.id }), undefined, controller.signal),
       adminCommand<Listing>(listPath('student_certificates', { limit: '20' }, { enrollment_id: selected.id }), undefined, controller.signal),
-    ]).then(([records, certificates]) => {
+      selected.course_id ? adminCommand<Listing>(listPath('courses', { limit: '1' }, { id: selected.course_id }), undefined, controller.signal) : Promise.resolve({ rows: [], total: 0 }),
+    ]).then(([records, certificates, courseRes]) => {
       if (controller.signal.aborted) return;
-      setRecord(records.rows[0]);
+      const academicRecord = records.rows[0];
+      const course = courseRes.rows[0];
+      setRecord(academicRecord);
       const existing = certificates.rows.find(row => row.status === 'DRAFT' || row.status === 'ISSUED');
-      if (existing) setEligibilityError('Hồ sơ đã có giấy chứng nhận ' + existing.certificate_code + '. Mở danh sách để tiếp tục.');
+      if (existing) {
+        setEligibilityError('Hồ sơ đã có giấy chứng nhận ' + existing.certificate_code + '. Mở danh sách để tiếp tục.');
+        return;
+      }
+      if (!academicRecord || academicRecord.theory_score == null || academicRecord.practical_score == null) {
+        setEligibilityError('Học viên chưa có bảng điểm lý thuyết và thực hành hợp lệ trong hệ thống.');
+        return;
+      }
+      const minTheory = Number(course?.minimum_theory_score ?? 5);
+      const minPractical = Number(course?.minimum_practical_score ?? 5);
+      if (Number(academicRecord.theory_score) < minTheory || Number(academicRecord.practical_score) < minPractical) {
+        setEligibilityError(`Điểm lý thuyết (${minTheory}) hoặc thực hành (${minPractical}) chưa đạt ngưỡng tốt nghiệp của khóa học.`);
+        return;
+      }
+      const minAttendance = Number(course?.minimum_attendance_rate ?? 0);
+      if (!academicRecord.is_graduated && minAttendance > 0 && Number(academicRecord.attendance_rate ?? 0) < minAttendance) {
+        setEligibilityError(`Tỷ lệ chuyên cần (${academicRecord.attendance_rate ?? 0}%) chưa đạt ngưỡng tối thiểu ${minAttendance}% của khóa học.`);
+        return;
+      }
+      if (course?.require_full_payment_for_graduation !== false && selected.payment_status !== 'PAID') {
+        setEligibilityError('Học viên còn công nợ học phí, chưa đủ điều kiện cấp chứng chỉ.');
+      }
     }).catch(err => {
       if (!controller.signal.aborted) setEligibilityError(err.message);
     }).finally(() => {
@@ -133,20 +165,29 @@ export function W16_Certificates() {
     return () => controller.abort();
   }, [selected, tab]);
 
-  const eligible = Boolean(selected?.course_title || selected?.id);
+  const eligible = Boolean(selected?.course_title || selected?.id) && Boolean(record && record.theory_score != null && record.practical_score != null);
 
   async function saveDraft(event: FormEvent) {
     event.preventDefault();
-    if (!eligible || !selected?.student_name?.trim() || !signer.trim() || !signerTitle.trim() || checking || eligibilityError || busy) return;
+    if (!eligible || !selected?.student_name?.trim() || !signer.trim() || !signerTitle.trim() || checking || eligibilityError || busy || !record) return;
     setBusy(true);
     try {
       const year = new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
-      const theoryScore = record?.theory_score != null ? Number(record.theory_score) : 10;
-      const practicalScore = record?.practical_score != null ? Number(record.practical_score) : 10;
+      const theoryScore = Number(record.theory_score);
+      const practicalScore = Number(record.practical_score);
+      if (!Number.isFinite(theoryScore) || !Number.isFinite(practicalScore)) {
+        throw new Error('Học viên chưa có bảng điểm lý thuyết và thực hành hợp lệ.');
+      }
+      let codePrefix = 'MLD-CERT';
+      try {
+        const acadCfg = await adminCommand<any>('settings/academy');
+        const cfgPrefix = String(acadCfg?.data?.certificate_code_prefix || acadCfg?.certificate_code_prefix || '').trim();
+        if (cfgPrefix) codePrefix = cfgPrefix.replace(/-+$/, '');
+      } catch {}
       const row = await adminCommand<Row>('student_certificates/create', { values: {
         enrollment_id: selected.id, student_id: selected.student_id, course_id: selected.course_id,
         student_name: selected.student_name.trim(), course_title: selected.course_title,
-        certificate_code: 'MLD-GCN-' + year + '-' + crypto.randomUUID().slice(0, 13).replace('-', '').toUpperCase(),
+        certificate_code: codePrefix + '-' + year + '-' + crypto.randomUUID().slice(0, 13).replace('-', '').toUpperCase(),
         theory_score: theoryScore, practical_score: practicalScore,
         signer_name: signer.trim(), signer_title: signerTitle.trim(),
       } });
@@ -186,22 +227,53 @@ export function W16_Certificates() {
     } finally { setBusy(false); }
   }
 
+  const certStorageKey = buildPresetStorageKey('w16_certificates', user?.id);
+  const currentCertFilters = { search, status };
+  const certBuiltInPresets = [
+    { id: 'drafts', name: 'Bản nháp chờ cấp', filters: { search: '', status: 'DRAFT' } },
+    { id: 'issued', name: 'Đã phát hành', filters: { search: '', status: 'ISSUED' } },
+    { id: 'revoked', name: 'Đã thu hồi', filters: { search: '', status: 'REVOKED' } },
+  ];
+
+  function applyCertFilters(next: { search?: string; status?: string }) {
+    setSearch(String(next.search || ''));
+    setStatus(String(next.status || ''));
+    setPage(1);
+    setLoading(true);
+  }
+
   function exportPage() {
-    const escape = (value: unknown) => {
-      const raw = String(value ?? '');
-      const safe = /^[\s]*[=+@-]|^[\t\r]/.test(raw) ? "'" + raw : raw;
-      return '"' + safe.replace(/"/g, '""') + '"';
-    };
-    const csv = [['Số hiệu', 'Học viên', 'Khóa đào tạo', 'Ngày cấp', 'Trạng thái'],
-      ...rows.map(row => [row.certificate_code, row.student_name, row.course_title,
-        row.status === 'DRAFT' ? '' : dateLabel(row.issue_date), statusLabels[row.status as keyof typeof statusLabels] || row.status])]
-      .map(columns => columns.map(escape).join(',')).join('\r\n');
-    const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'giay-chung-nhan-trang-' + page + '.csv';
-    link.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    exportCsvWithBom(
+      'giay-chung-nhan-trang-' + page + '.csv',
+      ['Số hiệu', 'Học viên', 'Khóa đào tạo', 'Ngày cấp', 'Trạng thái'],
+      rows.map(row => [
+        row.certificate_code,
+        row.student_name,
+        row.course_title,
+        row.status === 'DRAFT' ? '' : dateLabel(row.issue_date),
+        statusLabels[row.status as keyof typeof statusLabels] || row.status,
+      ]),
+    );
+  }
+
+  function printCertList() {
+    printStructuredTable({
+      title: 'Danh sách Giấy chứng nhận Đào tạo',
+      subtitle: `Trang ${page} · ${rows.length} / ${total} chứng nhận`,
+      summaryItems: [
+        { label: 'Tổng theo bộ lọc', value: String(total) },
+        { label: 'Hiển thị trang này', value: String(rows.length) },
+        { label: 'Trạng thái lọc', value: status ? (statusLabels[status as keyof typeof statusLabels] || status) : 'Tất cả' },
+      ],
+      headers: ['Số hiệu', 'Học viên', 'Khóa đào tạo', 'Ngày cấp', 'Trạng thái'],
+      rows: rows.map(row => [
+        row.certificate_code,
+        row.student_name,
+        row.course_title,
+        row.status === 'DRAFT' ? '—' : dateLabel(row.issue_date),
+        statusLabels[row.status as keyof typeof statusLabels] || row.status,
+      ]),
+    });
   }
 
   return <div className="mx-auto max-w-[1440px] space-y-5 p-4 sm:p-6">
@@ -229,6 +301,17 @@ export function W16_Certificates() {
         </select>
         <button className="admin-secondary inline-flex items-center gap-2" onClick={() => setRefresh(value => value + 1)} disabled={loading}><RotateCcw size={15} /> Tải lại</button>
         <button className="admin-secondary inline-flex items-center gap-2" disabled={loading || Boolean(error) || !rows.length} onClick={exportPage}><Download size={15} /> Xuất CSV trang này</button>
+        <button className="admin-secondary inline-flex items-center gap-2" disabled={loading || Boolean(error) || !rows.length} onClick={printCertList}><Printer size={15} /> In danh sách</button>
+        <div className="w-full pt-2 border-t border-stone-100">
+          <SavedFilterPresetsBar
+            storageKey={certStorageKey}
+            builtInPresets={certBuiltInPresets}
+            currentFilters={currentCertFilters}
+            hasActiveFilters={Boolean(search || status)}
+            onApplyFilters={applyCertFilters}
+            onResetFilters={() => applyCertFilters({ search: '', status: '' })}
+          />
+        </div>
       </div>
       {loading ? <p role="status" className="p-8 text-center text-stone-600">Đang tải danh sách…</p> : error ?
         <p role="alert" className="bg-rose-50 p-5 text-rose-900">{error}</p> : !rows.length ?
@@ -315,8 +398,8 @@ export function W16_Certificates() {
       <aside className="rounded-2xl border bg-white p-5">
         <h2 className="text-base font-semibold">Quy trình cấp chứng nhận</h2>
         <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-stone-700">
-          <li>Áp dụng trực tiếp cho tất cả học viên có hồ sơ ghi danh.</li>
-          <li>Không bắt buộc điều kiện điểm số, chuyên cần hay tiến độ học phí.</li>
+          <li>Chỉ cấp chứng nhận cho học viên đã có bảng điểm lý thuyết, thực hành và đạt chuẩn chuyên cần của khóa học.</li>
+          <li>Đối chiếu tự động điều kiện hoàn tất học phí trước khi lưu nháp và phát hành.</li>
           <li>Sau khi lưu bản nháp, có thể phát hành ngay để in và tạo mã QR tra cứu.</li>
         </ul>
         <p className="mt-4 border-t pt-4 text-sm text-stone-600">Kiểm tra thông tin người ký và nội dung trước khi bấm Phát hành.</p>

@@ -129,10 +129,26 @@ export function getBookingEffectiveDiscount(booking?: {
   return recorded;
 }
 
-export function calculatePosTotals(subtotal: number, discount: number, vatRate: number) {
-  const preTax = Math.max(0, subtotal - discount);
+export function calculatePosTotals(subtotal: number, discount: number, vatRate: number, pointsDiscount = 0) {
+  const preTax = Math.max(0, subtotal - discount - pointsDiscount);
   const vat = Math.round(preTax * (vatRate / 100));
   const total = preTax + vat;
   return { preTax, vat, total };
+}
+
+export function maxRedeemablePoints(
+  remainingAfterDiscount: number,
+  availablePoints: number,
+  redeemValuePerPoint: number,
+  maxRedeemPercent: number,
+) {
+  if (remainingAfterDiscount <= 1000 || availablePoints <= 0 || redeemValuePerPoint <= 0 || maxRedeemPercent <= 0) {
+    return 0;
+  }
+  const maxByPercent = Math.floor((remainingAfterDiscount * maxRedeemPercent) / 100);
+  const maxBeforeZero = Math.max(0, remainingAfterDiscount - 1000);
+  const maxAllowedValue = Math.min(maxByPercent, maxBeforeZero);
+  const maxByValue = Math.floor(maxAllowedValue / redeemValuePerPoint);
+  return Math.max(0, Math.min(availablePoints, maxByValue));
 }
 
