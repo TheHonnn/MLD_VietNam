@@ -731,6 +731,10 @@ export const apiClient = {
     try{return await responseJson(await fetch(`${API_BASE_URL}/portal/banners`));}
     catch{return {error:'Không thể tải banner trang chủ.'};}
   },
+  async getPortalSettings(){
+    try{return await responseJson(await fetch(`${API_BASE_URL}/portal/settings`));}
+    catch{return {error:'Không thể tải cấu hình cổng thông tin.'};}
+  },
 
   async getTreatmentPlans() {
     try {

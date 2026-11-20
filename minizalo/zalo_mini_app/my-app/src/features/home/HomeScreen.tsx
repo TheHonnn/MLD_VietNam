@@ -30,6 +30,7 @@ export function HomeScreen({
   branches,
   courses,
   banners,
+  portalSettings,
   activeBranchId,
   onNavigate,
   onSearch,
@@ -46,6 +47,7 @@ export function HomeScreen({
   doctors: Doctor[];
   courses: Course[];
   banners: PortalBanner[];
+  portalSettings?: any;
   activeBranchId: string;
   onBranch: (id: string) => void;
   onNavigate: (view: string) => void;
@@ -79,17 +81,38 @@ export function HomeScreen({
   }, []);
   useEffect(() => setBranchId(activeBranchId), [activeBranchId]);
 
-  const audiences = [...new Set(courses.map((c) => trainingMetadata(c).targetAudience).filter(Boolean))];
-  const needs = [...new Set(courses.map((c) => trainingMetadata(c).targetNeed).filter(Boolean))];
-  const callPhone = contactPhone(activeBranch?.phone || '') || '';
+  const audiences = [
+    ...new Set([
+      ...(Array.isArray(portalSettings?.targetAudiences) ? portalSettings.targetAudiences.map((x: any) => String(x?.name || '').trim()) : []),
+      ...courses.map((c) => trainingMetadata(c).targetAudience),
+    ].filter(Boolean)),
+  ];
+  const needs = [
+    ...new Set([
+      ...(Array.isArray(portalSettings?.targetNeeds) ? portalSettings.targetNeeds.map((x: any) => String(x?.name || '').trim()) : []),
+      ...courses.map((c) => trainingMetadata(c).targetNeed),
+    ].filter(Boolean)),
+  ];
+  const callPhone = contactPhone(portalSettings?.contacts?.hotlineSupport || activeBranch?.phone || '') || '';
   const open = branchOpenNow(activeBranch?.openingTime, activeBranch?.closingTime, now);
 
-  const channels = [
-    { title: 'Zalo', subtitle: 'Phản hồi nhanh', url: 'https://zalo.me/1424469774232439257?src=qr', mark: 'Zalo', kind: 'zalo' },
-    { title: 'Facebook', subtitle: 'Theo dõi chúng tôi', url: 'https://www.facebook.com/hebachhuyet.mldvietnam', mark: 'f', kind: 'facebook' },
-    { title: 'TikTok', subtitle: 'Xem video', url: 'https://www.tiktok.com/@trungtamgiamphu', mark: '♪', kind: 'tiktok' },
-    { title: 'Messenger', subtitle: 'Chat tư vấn', url: 'https://m.me/hebachhuyet.mldvietnam', mark: '⚡', kind: 'messenger' },
+  const defaultChannels = [
+    { title: 'Zalo', subtitle: 'Phản hồi nhanh', url: portalSettings?.contacts?.zaloOaUrl || 'https://zalo.me/1424469774232439257?src=qr', mark: 'Zalo', kind: 'zalo' },
+    { title: 'Facebook', subtitle: 'Theo dõi chúng tôi', url: portalSettings?.contacts?.fanpageUrl || 'https://www.facebook.com/hebachhuyet.mldvietnam', mark: 'f', kind: 'facebook' },
+    { title: 'TikTok', subtitle: 'Xem video', url: portalSettings?.contacts?.tiktokUrl || 'https://www.tiktok.com/@trungtamgiamphu', mark: '♪', kind: 'tiktok' },
+    { title: 'Messenger', subtitle: 'Chat tư vấn', url: portalSettings?.contacts?.messengerUrl || 'https://m.me/hebachhuyet.mldvietnam', mark: '⚡', kind: 'messenger' },
   ];
+  const adminChannels = Array.isArray(portalSettings?.contactChannels)
+    ? portalSettings.contactChannels
+        .filter((c: any) => String(c?.code || '').toUpperCase() !== 'HOTLINE' && /^https?:\/\//i.test(String(c?.description || '')))
+        .map((c: any) => {
+          const code = String(c.iconName || c.code || '').toLowerCase();
+          const kind = ['zalo', 'facebook', 'tiktok', 'messenger'].includes(code) ? code : 'zalo';
+          const mark = kind === 'zalo' ? 'Zalo' : kind === 'facebook' ? 'f' : kind === 'tiktok' ? '♪' : kind === 'messenger' ? '⚡' : String(c.name || '?').slice(0, 2).toUpperCase();
+          return { title: String(c.name || 'Kênh liên hệ'), subtitle: '', url: String(c.description), mark, kind };
+        })
+    : [];
+  const channels = adminChannels.length > 0 ? adminChannels.slice(0, 4) : defaultChannels;
 
   const handleSearchSubmit = () => {
     if (quickQuery.trim()) {

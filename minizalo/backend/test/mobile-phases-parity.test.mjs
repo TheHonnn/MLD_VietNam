@@ -105,5 +105,49 @@ test('Phase 5: Staff academy student-code, consultation note auto-archive, and m
     assert.equal(shiftsRes.status, 200, JSON.stringify(shiftsRes));
     assert.equal(shiftsRes.data.month, '2099-05');
     assert.ok(shiftsRes.data.shifts.some(s => s.shiftDate === '2099-05-10' && s.shiftSlot === 'morning'));
+
+    // 4. Portal settings (Admin-configured contacts, taxonomies, FAQs)
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS portal_contacts (
+        id text PRIMARY KEY,
+        hotline_support text,
+        hotline_training text,
+        zalo_oa_url text,
+        messenger_url text,
+        fanpage_url text,
+        tiktok_url text,
+        working_hours text
+      );
+      CREATE TABLE IF NOT EXISTS portal_taxonomies (
+        id uuid PRIMARY KEY,
+        type text NOT NULL,
+        code text,
+        name text NOT NULL,
+        description text,
+        icon_name text,
+        sort_order int DEFAULT 0,
+        is_active boolean DEFAULT true,
+        created_at timestamptz DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS support_faqs (
+        id uuid PRIMARY KEY,
+        category text,
+        question text NOT NULL,
+        answer text NOT NULL,
+        display_order int DEFAULT 0,
+        is_active boolean DEFAULT true,
+        created_at timestamptz DEFAULT now()
+      );
+    `);
+    await db.query(`INSERT INTO portal_contacts(id, hotline_support, working_hours) VALUES('primary_mld_contacts', '096.7786.399', '09:00 - 20:00') ON CONFLICT (id) DO NOTHING`);
+    await db.query(`INSERT INTO portal_taxonomies(id, type, code, name, description, icon_name, sort_order, is_active) VALUES($1, 'CONTACT_CHANNEL', 'ZALO', 'Zalo OA', 'https://zalo.me/mld', 'zalo', 1, true) ON CONFLICT (id) DO NOTHING`, [id(610)]);
+    await db.query(`INSERT INTO portal_taxonomies(id, type, code, name, sort_order, is_active) VALUES($1, 'TARGET_AUDIENCE', 'BEGINNER', 'Người mới bắt đầu', 1, true) ON CONFLICT (id) DO NOTHING`, [id(611)]);
+    await db.query(`INSERT INTO support_faqs(id, category, question, answer, display_order, is_active) VALUES($1, 'DICH_VU', 'MLD là gì?', 'Dẫn lưu bạch huyết chuẩn Vodder.', 1, true) ON CONFLICT (id) DO NOTHING`, [id(612)]);
+    const portalRes = await f.request('/portal/settings', { anonymous: true });
+    assert.equal(portalRes.status, 200, JSON.stringify(portalRes));
+    assert.equal(portalRes.data.contacts.hotlineSupport, '096.7786.399');
+    assert.equal(portalRes.data.contactChannels.length, 1);
+    assert.equal(portalRes.data.targetAudiences[0].name, 'Người mới bắt đầu');
+    assert.equal(portalRes.data.faqs[0].question, 'MLD là gì?');
   } finally { await f.close(); }
 });

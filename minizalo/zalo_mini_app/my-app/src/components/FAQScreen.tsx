@@ -39,27 +39,37 @@ const DEFAULT_FAQS = [
   },
 ];
 
+export type PortalFaqItem = {
+  id: string;
+  category?: string;
+  question: string;
+  answer: string;
+};
+
 export function FAQScreen({
+  faqs,
   onBack,
   onSupport,
   initialCategory = 'ALL',
 }: {
+  faqs?: PortalFaqItem[];
   onBack: () => void;
   onSupport: () => void;
   initialCategory?: string;
 }) {
+  const sourceFaqs = Array.isArray(faqs) && faqs.length > 0 ? faqs : DEFAULT_FAQS;
   const [category, setCategory] = useState(initialCategory);
   const [query, setQuery] = useState('');
-  const [expandedId, setExpandedId] = useState<string | null>(DEFAULT_FAQS[0].id);
+  const [expandedId, setExpandedId] = useState<string | null>(sourceFaqs[0]?.id || null);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return DEFAULT_FAQS.filter((item) => {
-      if (category !== 'ALL' && item.category !== category) return false;
+    return sourceFaqs.filter((item) => {
+      if (category !== 'ALL' && (item.category || '') !== category) return false;
       if (!q) return true;
       return item.question.toLowerCase().includes(q) || item.answer.toLowerCase().includes(q);
     });
-  }, [category, query]);
+  }, [sourceFaqs, category, query]);
 
   return (
     <section className="mobile-body faq-screen">

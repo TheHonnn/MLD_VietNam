@@ -29,7 +29,7 @@ import {staffDashboard,staffCustomerDirectory} from './staff-dashboard.js';
 import {sharedContent,sharedContentDetail,sharedContentEdit,manageSharedContent,saveSharedContent} from './shared-content.js';
 import {accountSession,accountSessions,revokeSession,revokeOtherSessions} from './account-sessions.js';
 import {lessonMedia} from './lesson-media.js';
-import {portalContent,portalContentDetail} from './portal-content.js';
+import {portalContent,portalContentDetail,portalSettings} from './portal-content.js';
 import {createJournalShare,sharedJournal,journalPage,journalPdf} from './journal-sharing.js';
 import {academyCandidates,approveCandidate,updateCandidateStudentCode,addCandidateConsultationNote} from './staff-academy.js';
 import {staffCatalog,saveStaffCatalog} from './staff-catalog.js';
@@ -337,6 +337,7 @@ export function createApp(store: Store, options: AppOptions) {
       AND UPPER(COALESCE(NULLIF(to_jsonb(c)->>'access_level',''),'PUBLIC'))='PUBLIC'
       AND (c.published_at IS NULL OR c.published_at<=CURRENT_TIMESTAMP)
     ORDER BY COALESCE(NULLIF(to_jsonb(c)->>'sort_order','')::int,0),c.created_at DESC,c.id`)})));
+  app.get('/api/portal/settings',route(async(_req,res)=>success(res,await portalSettings(store))));
 
   app.post('/api/auth/zalo', route(async (req, res) => {
     const profile = await authenticateZalo(req.body?.accessToken, req.body?.phoneToken, options);

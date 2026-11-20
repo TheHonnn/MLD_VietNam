@@ -47,3 +47,29 @@ export async function portalContentDetail(store:Store,id:string,actorId?:string)
   const {file_url,...record}=item;
   return {...record,attachments:[...new Map(attachments.map(file=>[file.url,{...file,canDownload:item.can_download}])).values()]};
 }
+
+export async function portalSettings(store:Store){
+  const tableRows=await store.query(Prisma.sql`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('portal_contacts','portal_taxonomies','support_faqs')`);
+  const tables=new Set(tableRows.map(r=>String(r.table_name)));
+  let contacts:Record<string,unknown>|null=null;
+  if(tables.has('portal_contacts')){
+    const [row]=await store.query(Prisma.sql`SELECT * FROM portal_contacts WHERE id='primary_mld_contacts' LIMIT 1`);
+    contacts=row||null;
+  }
+  let taxonomies:Record<string,unknown>[]=[];
+  if(tables.has('portal_taxonomies')){
+    taxonomies=await store.query(Prisma.sql`SELECT id,type,code,name,description,icon_name,sort_order FROM portal_taxonomies WHERE is_active=true ORDER BY sort_order ASC,created_at ASC`);
+  }
+  let faqs:Record<string,unknown>[]=[];
+  if(tables.has('support_faqs')){
+    faqs=await store.query(Prisma.sql`SELECT id,category,question,answer,display_order FROM support_faqs WHERE is_active=true ORDER BY display_order ASC,created_at DESC`);
+  }
+  return {
+    contacts,
+    contactChannels:taxonomies.filter(t=>t.type==='CONTACT_CHANNEL'),
+    targetAudiences:taxonomies.filter(t=>t.type==='TARGET_AUDIENCE'),
+    targetNeeds:taxonomies.filter(t=>t.type==='TARGET_NEED'),
+    bookingTimeSlots:taxonomies.filter(t=>t.type==='BOOKING_TIME_SLOT'),
+    faqs,
+  };
+}
