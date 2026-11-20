@@ -335,9 +335,11 @@ class AuthService {
   }) async {
     final normalizedRole = _normalizeRole(role);
     if (normalizedRole != null) {
-      _cachedRole = normalizedRole;
-      await _prefs?.setString(_keyUserRole, normalizedRole);
-      roleNotifier.value = _cachedRole;
+      if (!isAdmin || normalizedRole == 'ADMIN' || normalizedRole == 'SUPER_ADMIN') {
+        _cachedRole = normalizedRole;
+        await _prefs?.setString(_keyUserRole, normalizedRole);
+        roleNotifier.value = _cachedRole;
+      }
     }
     if (permissions != null) {
       _cachedPermissions = List.unmodifiable(permissions);

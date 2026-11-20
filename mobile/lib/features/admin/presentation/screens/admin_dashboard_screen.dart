@@ -171,39 +171,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         titleSpacing: 16,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    AuthService.instance.isAdmin
-                        ? 'QUẢN TRỊ VIÊN'
-                        : (AuthService.instance.isReceptionist
-                            ? 'LỄ TÂN TIẾP ĐÓN'
-                            : 'NHÂN VIÊN VẬN HÀNH'),
-                    style: AppTypography.zaloFont(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
-                      letterSpacing: 0.5,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      AuthService.instance.isAdmin
+                          ? 'QUẢN TRỊ VIÊN'
+                          : (AuthService.instance.isReceptionist
+                              ? 'LỄ TÂN TIẾP ĐÓN'
+                              : 'NHÂN VIÊN VẬN HÀNH'),
+                      style: AppTypography.zaloFont(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'MLD Việt Nam',
-                  style: AppTypography.zaloFont(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textHeading,
+                  const SizedBox(width: 8),
+                  Text(
+                    'MLD Việt Nam',
+                    style: AppTypography.zaloFont(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHeading,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 2),
             Text(

@@ -277,11 +277,13 @@ class MembershipRepository {
     String? email,
     String? avatarUrl,
     String? memberCode,
+    String? role,
   }) {
     final cleanName = fullName?.trim() ?? '';
     final cleanPhone = phone?.trim() ?? '';
     final cleanEmail = email?.trim() ?? '';
     final cleanAvatar = avatarUrl?.trim() ?? '';
+    final cleanRole = role?.trim().toUpperCase();
 
     String derivedCode = (memberCode != null && memberCode.trim().isNotEmpty)
         ? memberCode.trim()
@@ -300,6 +302,7 @@ class MembershipRepository {
       email: cleanEmail.isNotEmpty ? cleanEmail : _userProfile.email,
       avatarUrl: cleanAvatar.isNotEmpty ? cleanAvatar : _userProfile.avatarUrl,
       memberCode: derivedCode.isNotEmpty ? derivedCode : _userProfile.memberCode,
+      role: (cleanRole != null && cleanRole.isNotEmpty) ? cleanRole : _userProfile.role,
     );
     _persistLocalProfile(_userProfile);
   }
