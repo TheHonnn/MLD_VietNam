@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/services/auth_service.dart';
 import '../models/admin_models.dart';
 
 /// Central Admin & Manager Repository kết nối trực tiếp Supabase Cloud REST
@@ -15,6 +17,78 @@ class AdminRepository {
 
   final ApiClient _apiClient = ApiClient.instance;
   String? lastBookingActionError;
+
+  Future<Map<String, dynamic>?> fetchCurrentAdminSession() async {
+    try {
+      final res = await _apiClient.dio.get('/admin/session');
+      if (res.statusCode == 200 && res.data is Map) {
+        final raw = res.data['data'] ?? res.data;
+        if (raw is Map) {
+          final map = Map<String, dynamic>.from(raw);
+          final role = map['role']?.toString().trim().toUpperCase();
+          final fullName = map['full_name']?.toString();
+          final permsRaw = map['permissions'];
+          final perms = permsRaw is List
+              ? permsRaw.map((e) => e.toString()).toList()
+              : null;
+          await AuthService.instance.updateProfile(
+            displayName: fullName,
+            role: role,
+            permissions: perms,
+          );
+          return map;
+        }
+      }
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (code == 401 || code == 403) {
+        return {'unauthorized': true, 'statusCode': code};
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchCurrentAdminSession error: $e');
+    }
+    return null;
+  }
+
+  Future<bool> _mutateViaBackendTable(
+    String table,
+    String operation, {
+    String? id,
+    Map<String, dynamic>? values,
+  }) async {
+    try {
+      String? expectedUpdatedAt;
+      if (id != null && id.isNotEmpty && (operation == 'update' || operation == 'delete')) {
+        final listRes = await _apiClient.dio.get(
+          '/admin/$table',
+          queryParameters: {
+            'filter': jsonEncode({'id': id}),
+            'limit': '1',
+          },
+        );
+        if (listRes.statusCode == 200 && listRes.data is Map) {
+          final payload = listRes.data['data'] ?? listRes.data;
+          final rows = payload is Map ? (payload['rows'] ?? payload['data']) : payload;
+          if (rows is List && rows.isNotEmpty && rows.first is Map) {
+            expectedUpdatedAt = rows.first['updated_at']?.toString();
+          }
+        }
+      }
+
+      final res = await _apiClient.dio.post(
+        '/admin/$table/$operation',
+        data: {
+          if (id != null && id.isNotEmpty) 'key': {'id': id},
+          if (values != null) 'values': values,
+          if (expectedUpdatedAt != null && expectedUpdatedAt.isNotEmpty)
+            'expectedUpdatedAt': expectedUpdatedAt,
+        },
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
 
   // Cache danh sách chi nhánh
   List<AdminBranchModel> _branches = [];
@@ -53,20 +127,43 @@ class AdminRepository {
         final branchParam = (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
             ? '&branch_id=eq.$branchId'
             : '';
-        // 1. Thu từ hóa đơn POS / Dịch vụ
-        final invRes = await _apiClient.dio.get(
-          '/rest/v1/invoices?select=total_amount,payment_status,paid_at,created_at&payment_status=eq.PAID$branchParam',
-        );
-        if (invRes.data is List) {
-          for (final inv in invRes.data) {
-            final amt = double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
-            final pDate = inv['paid_at']?.toString() ?? inv['created_at']?.toString() ?? '';
-            if (pDate.startsWith(monthPrefix)) {
-              monthRev += amt;
+        List<dynamic> invoiceRows = const [];
+        try {
+          final gwInvRes = await _apiClient.dio.get(
+            '/admin/invoices',
+            queryParameters: {
+              'filter': jsonEncode({
+                'payment_status': 'PAID',
+                if (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
+                  'branch_id': branchId,
+              }),
+              'limit': '500',
+            },
+          );
+          if (gwInvRes.statusCode == 200 && gwInvRes.data is Map) {
+            final payload = gwInvRes.data['data'] ?? gwInvRes.data;
+            final rows = payload is Map ? (payload['rows'] ?? payload['data']) : payload;
+            if (rows is List) {
+              invoiceRows = rows;
             }
-            if (pDate.startsWith(todayStr)) {
-              todayRev += amt;
-            }
+          }
+        } catch (_) {
+          final invRes = await _apiClient.dio.get(
+            '/rest/v1/invoices?select=total_amount,payment_status,paid_at,created_at&payment_status=eq.PAID$branchParam',
+          );
+          if (invRes.data is List) {
+            invoiceRows = invRes.data as List;
+          }
+        }
+        for (final inv in invoiceRows) {
+          if (inv is! Map) continue;
+          final amt = double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
+          final pDate = inv['paid_at']?.toString() ?? inv['created_at']?.toString() ?? '';
+          if (pDate.startsWith(monthPrefix)) {
+            monthRev += amt;
+          }
+          if (pDate.startsWith(todayStr)) {
+            todayRev += amt;
           }
         }
       } catch (_) {}
@@ -845,6 +942,28 @@ class AdminRepository {
     }
     final nextCode = trimmed.isNotEmpty ? trimmed : null;
     try {
+      bool shouldFallback = false;
+      try {
+        final gwRes = await _apiClient.dio.patch(
+          '/admin/students/$studentId/student-code',
+          data: {'studentCode': nextCode},
+        );
+        if (gwRes.statusCode == 200 || gwRes.statusCode == 201) {
+          return null;
+        }
+      } on DioException catch (e) {
+        if (!_shouldFallbackToSupabase(e)) {
+          return _extractDioErrorMessage(e, 'Không thể cập nhật mã học viên.');
+        }
+        shouldFallback = true;
+      } catch (e) {
+        return _extractDioErrorMessage(e, 'Không thể cập nhật mã học viên.');
+      }
+
+      if (!shouldFallback) {
+        return 'Không thể cập nhật mã học viên. Vui lòng thử lại.';
+      }
+
       if (nextCode != null) {
         final dupRes = await _apiClient.dio.get(
           '/rest/v1/users?select=id&student_code=ilike.${Uri.encodeComponent(nextCode)}&id=neq.$studentId&limit=1',
@@ -883,7 +1002,7 @@ class AdminRepository {
       return 'Không thể cập nhật mã học viên. Vui lòng thử lại.';
     } catch (e) {
       debugPrint('[AdminRepository] updateCandidateStudentCode error: $e');
-      return 'Lỗi lưu mã học viên. Vui lòng kiểm tra kết nối hoặc cập nhật CSDL.';
+      return 'Lỗi lưu mã học viên. Vui lòng kiểm tra quyền quản trị hoặc kết nối máy chủ.';
     }
   }
 
@@ -1528,21 +1647,22 @@ class AdminRepository {
     }
   }
 
-  /// 6.1. Bật/Tắt Duyệt kinh doanh dịch vụ 1 chạm (is_active toggle)
   Future<bool> toggleServiceActive(String serviceId, bool nextStatus) async {
     try {
       final res = await _apiClient.dio.patch(
         '/rest/v1/services?id=eq.$serviceId',
         data: {'is_active': nextStatus},
       );
-      return res.statusCode == 200 || res.statusCode == 204;
-    } catch (e) {
-      debugPrint('[AdminRepository] toggleServiceActive error: $e');
-      return false;
-    }
+      if (res.statusCode == 200 || res.statusCode == 204) return true;
+    } catch (_) {}
+    return _mutateViaBackendTable(
+      'services',
+      'update',
+      id: serviceId,
+      values: {'is_active': nextStatus},
+    );
   }
 
-  /// 6.2. Tạo mới hoặc Cập nhật Dịch vụ Spa
   Future<bool> saveService({String? id, required Map<String, dynamic> data}) async {
     try {
       if (id != null && id.isNotEmpty) {
@@ -1550,18 +1670,19 @@ class AdminRepository {
           '/rest/v1/services?id=eq.$id',
           data: data,
         );
-        return res.statusCode == 200 || res.statusCode == 204;
+        if (res.statusCode == 200 || res.statusCode == 204) return true;
       } else {
         final res = await _apiClient.dio.post(
           '/rest/v1/services',
           data: data,
         );
-        return res.statusCode == 200 || res.statusCode == 201;
+        if (res.statusCode == 200 || res.statusCode == 201) return true;
       }
-    } catch (e) {
-      debugPrint('[AdminRepository] saveService error: $e');
-      return false;
+    } catch (_) {}
+    if (id != null && id.isNotEmpty) {
+      return _mutateViaBackendTable('services', 'update', id: id, values: data);
     }
+    return _mutateViaBackendTable('services', 'create', values: data);
   }
 
   /// 6.3. Lấy Danh mục Gói Liệu trình / Gói Trị liệu Bổ trợ (treatment_packages)
@@ -1582,21 +1703,22 @@ class AdminRepository {
     }
   }
 
-  /// 6.4. Bật/Tắt Duyệt kinh doanh Gói liệu trình 1 chạm (is_active toggle)
   Future<bool> toggleTreatmentPackageActive(String packageId, bool nextStatus) async {
     try {
       final res = await _apiClient.dio.patch(
         '/rest/v1/treatment_packages?id=eq.$packageId',
         data: {'is_active': nextStatus},
       );
-      return res.statusCode == 200 || res.statusCode == 204;
-    } catch (e) {
-      debugPrint('[AdminRepository] toggleTreatmentPackageActive error: $e');
-      return false;
-    }
+      if (res.statusCode == 200 || res.statusCode == 204) return true;
+    } catch (_) {}
+    return _mutateViaBackendTable(
+      'treatment_packages',
+      'update',
+      id: packageId,
+      values: {'is_active': nextStatus},
+    );
   }
 
-  /// 6.5. Tạo mới hoặc Cập nhật Gói Bổ trợ / Gói Liệu trình (treatment_packages)
   Future<bool> saveTreatmentPackage({String? id, required Map<String, dynamic> data}) async {
     try {
       if (id != null && id.isNotEmpty) {
@@ -1604,18 +1726,19 @@ class AdminRepository {
           '/rest/v1/treatment_packages?id=eq.$id',
           data: data,
         );
-        return res.statusCode == 200 || res.statusCode == 204;
+        if (res.statusCode == 200 || res.statusCode == 204) return true;
       } else {
         final res = await _apiClient.dio.post(
           '/rest/v1/treatment_packages',
           data: data,
         );
-        return res.statusCode == 200 || res.statusCode == 201;
+        if (res.statusCode == 200 || res.statusCode == 201) return true;
       }
-    } catch (e) {
-      debugPrint('[AdminRepository] saveTreatmentPackage error: $e');
-      return false;
+    } catch (_) {}
+    if (id != null && id.isNotEmpty) {
+      return _mutateViaBackendTable('treatment_packages', 'update', id: id, values: data);
     }
+    return _mutateViaBackendTable('treatment_packages', 'create', values: data);
   }
 
   /// 7. Quản lý & Duyệt Khóa học (Courses)
@@ -1647,21 +1770,22 @@ class AdminRepository {
     }
   }
 
-  /// 7.1. Bật/Tắt Tuyển sinh khóa học 1 chạm (is_active toggle)
   Future<bool> toggleCourseActive(String courseId, bool nextStatus) async {
     try {
       final res = await _apiClient.dio.patch(
         '/rest/v1/courses?id=eq.$courseId',
         data: {'is_active': nextStatus},
       );
-      return res.statusCode == 200 || res.statusCode == 204;
-    } catch (e) {
-      debugPrint('[AdminRepository] toggleCourseActive error: $e');
-      return false;
-    }
+      if (res.statusCode == 200 || res.statusCode == 204) return true;
+    } catch (_) {}
+    return _mutateViaBackendTable(
+      'courses',
+      'update',
+      id: courseId,
+      values: {'is_active': nextStatus},
+    );
   }
 
-  /// 7.2. Tạo mới hoặc Cập nhật Khóa học đào tạo
   Future<bool> saveCourse({String? id, required Map<String, dynamic> data}) async {
     try {
       if (id != null && id.isNotEmpty) {
@@ -1669,18 +1793,19 @@ class AdminRepository {
           '/rest/v1/courses?id=eq.$id',
           data: data,
         );
-        return res.statusCode == 200 || res.statusCode == 204;
+        if (res.statusCode == 200 || res.statusCode == 204) return true;
       } else {
         final res = await _apiClient.dio.post(
           '/rest/v1/courses',
           data: data,
         );
-        return res.statusCode == 200 || res.statusCode == 201;
+        if (res.statusCode == 200 || res.statusCode == 201) return true;
       }
-    } catch (e) {
-      debugPrint('[AdminRepository] saveCourse error: $e');
-      return false;
+    } catch (_) {}
+    if (id != null && id.isNotEmpty) {
+      return _mutateViaBackendTable('courses', 'update', id: id, values: data);
     }
+    return _mutateViaBackendTable('courses', 'create', values: data);
   }
 
   /// 8. Quản lý Bài thi học viên (Quiz Submissions)
@@ -1791,43 +1916,66 @@ class AdminRepository {
         debugPrint('[AdminRepository] fetchRevenueReport enrollments error: $e');
       }
 
-      // 2. Lấy dữ liệu Hóa đơn POS & Dịch vụ Spa
       try {
         final branchParam = (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
             ? '&branch_id=eq.$branchId'
             : '';
-        final invRes = await _apiClient.dio.get(
-          '/rest/v1/invoices?select=id,invoice_code,total_amount,payment_status,paid_at,created_at,branch_id,branches(name)&payment_status=eq.PAID$branchParam&order=paid_at.desc',
-        );
-        if (invRes.data is List) {
-          for (final inv in invRes.data) {
-            final pDateStr = inv['paid_at']?.toString() ?? inv['created_at']?.toString() ?? '';
-            if (pDateStr.isEmpty) continue;
-            final pDate = DateTime.tryParse(pDateStr)?.toLocal() ?? now;
-
-            if (period == 'TODAY') {
-              if (!pDateStr.startsWith(todayStr)) continue;
-            } else {
-              if (pDate.isBefore(startDt)) continue;
+        List<dynamic> invoiceRows = const [];
+        try {
+          final gwInvRes = await _apiClient.dio.get(
+            '/admin/invoices',
+            queryParameters: {
+              'filter': jsonEncode({
+                'payment_status': 'PAID',
+                if (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
+                  'branch_id': branchId,
+              }),
+              'limit': '500',
+            },
+          );
+          if (gwInvRes.statusCode == 200 && gwInvRes.data is Map) {
+            final payload = gwInvRes.data['data'] ?? gwInvRes.data;
+            final rows = payload is Map ? (payload['rows'] ?? payload['data']) : payload;
+            if (rows is List) {
+              invoiceRows = rows;
             }
-
-            final amt = double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
-            serviceRev += amt;
-            final brObj = inv['branches'];
-            final brName = brObj is Map ? brObj['name']?.toString() : null;
-
-            items.add(AdminRevenueItem(
-              id: 'inv_${inv['id']}',
-              code: inv['invoice_code']?.toString() ?? 'HD-${inv['id']?.toString().substring(0, 6)}',
-              title: 'Hóa đơn dịch vụ trị liệu',
-              customerOrStudentName: 'Khách hàng',
-              category: 'SPA_SERVICE',
-              amount: amt,
-              timestamp: pDateStr,
-              status: 'PAID',
-              branchName: brName,
-            ));
           }
+        } catch (_) {
+          final invRes = await _apiClient.dio.get(
+            '/rest/v1/invoices?select=id,invoice_code,total_amount,payment_status,paid_at,created_at,branch_id,branches(name)&payment_status=eq.PAID$branchParam&order=paid_at.desc',
+          );
+          if (invRes.data is List) {
+            invoiceRows = invRes.data as List;
+          }
+        }
+        for (final inv in invoiceRows) {
+          if (inv is! Map) continue;
+          final pDateStr = inv['paid_at']?.toString() ?? inv['created_at']?.toString() ?? '';
+          if (pDateStr.isEmpty) continue;
+          final pDate = DateTime.tryParse(pDateStr)?.toLocal() ?? now;
+
+          if (period == 'TODAY') {
+            if (!pDateStr.startsWith(todayStr)) continue;
+          } else {
+            if (pDate.isBefore(startDt)) continue;
+          }
+
+          final amt = double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
+          serviceRev += amt;
+          final brObj = inv['branches'];
+          final brName = brObj is Map ? brObj['name']?.toString() : inv['branch_name']?.toString();
+
+          items.add(AdminRevenueItem(
+            id: 'inv_${inv['id']}',
+            code: inv['invoice_code']?.toString() ?? 'HD-${inv['id']?.toString().substring(0, 6)}',
+            title: 'Hóa đơn dịch vụ trị liệu',
+            customerOrStudentName: 'Khách hàng',
+            category: 'SPA_SERVICE',
+            amount: amt,
+            timestamp: pDateStr,
+            status: 'PAID',
+            branchName: brName,
+          ));
         }
       } catch (_) {}
 
@@ -2009,75 +2157,76 @@ class AdminRepository {
     }
   }
 
-  /// 15.2. Bật/Tắt hiển thị Banner 1 chạm (PUBLISHED <-> DRAFT)
   Future<bool> toggleBannerStatus(String bannerId, bool isPublished) async {
+    final nextStatus = isPublished ? 'PUBLISHED' : 'DRAFT';
     try {
-      final nextStatus = isPublished ? 'PUBLISHED' : 'DRAFT';
       final res = await _apiClient.dio.patch(
         '/rest/v1/miniapp_shared_content?id=eq.$bannerId',
         data: {'status': nextStatus},
       );
-      return res.statusCode == 200 || res.statusCode == 204;
-    } catch (e) {
-      debugPrint('[AdminRepository] toggleBannerStatus error: $e');
-      return false;
-    }
+      if (res.statusCode == 200 || res.statusCode == 204) return true;
+    } catch (_) {}
+    return _mutateViaBackendTable(
+      'miniapp_shared_content',
+      'update',
+      id: bannerId,
+      values: {'status': nextStatus},
+    );
   }
 
-  /// 15.3. Tạo mới hoặc Cập nhật Banner Trang chủ
   Future<bool> saveBanner({String? id, required Map<String, dynamic> data}) async {
+    final payload = id != null && id.isNotEmpty
+        ? data
+        : {
+            'kind': 'BANNER',
+            'title': data['title'] ?? '',
+            'summary': data['summary'] ?? '',
+            'content_text': data['content_text'] ?? '',
+            'image_url': data['image_url'] ?? '',
+            'target_link': data['target_link'] ?? '/academy',
+            'sort_order': data['sort_order'] ?? 1,
+            'is_featured': data['is_featured'] ?? true,
+            'category': data['category'] ?? 'DAO_TAO',
+            'access_level': 'PUBLIC',
+            'status': data['status'] ?? 'PUBLISHED',
+            'author_name': data['author_name'] ?? 'Ban Quản Trị MLD',
+            'payload_hash': ' ',
+            'file_url': '',
+            'author_avatar': '',
+            'allow_download': false,
+            'require_full_payment': true,
+            'allowed_roles': ['STUDENT', 'INSTRUCTOR', 'ADMIN'],
+            'watermark_text': 'MLD ACADEMY - BẢN QUYỀN ĐÀO TẠO',
+          };
     try {
       if (id != null && id.isNotEmpty) {
         final res = await _apiClient.dio.patch(
           '/rest/v1/miniapp_shared_content?id=eq.$id',
-          data: data,
+          data: payload,
         );
-        return res.statusCode == 200 || res.statusCode == 204;
+        if (res.statusCode == 200 || res.statusCode == 204) return true;
       } else {
-        final payload = {
-          'kind': 'BANNER',
-          'title': data['title'] ?? '',
-          'summary': data['summary'] ?? '',
-          'content_text': data['content_text'] ?? '',
-          'image_url': data['image_url'] ?? '',
-          'target_link': data['target_link'] ?? '/academy',
-          'sort_order': data['sort_order'] ?? 1,
-          'is_featured': data['is_featured'] ?? true,
-          'category': data['category'] ?? 'DAO_TAO',
-          'access_level': 'PUBLIC',
-          'status': data['status'] ?? 'PUBLISHED',
-          'author_name': data['author_name'] ?? 'Ban Quản Trị MLD',
-          'payload_hash': ' ',
-          'file_url': '',
-          'author_avatar': '',
-          'allow_download': false,
-          'require_full_payment': true,
-          'allowed_roles': ['STUDENT', 'INSTRUCTOR', 'ADMIN'],
-          'watermark_text': 'MLD ACADEMY - BẢN QUYỀN ĐÀO TẠO',
-        };
         final res = await _apiClient.dio.post(
           '/rest/v1/miniapp_shared_content',
           data: payload,
         );
-        return res.statusCode == 200 || res.statusCode == 201;
+        if (res.statusCode == 200 || res.statusCode == 201) return true;
       }
-    } catch (e) {
-      debugPrint('[AdminRepository] saveBanner error: $e');
-      return false;
+    } catch (_) {}
+    if (id != null && id.isNotEmpty) {
+      return _mutateViaBackendTable('miniapp_shared_content', 'update', id: id, values: payload);
     }
+    return _mutateViaBackendTable('miniapp_shared_content', 'create', values: payload);
   }
 
-  /// 15.4. Xóa Banner Trang chủ
   Future<bool> deleteBanner(String bannerId) async {
     try {
       final res = await _apiClient.dio.delete(
         '/rest/v1/miniapp_shared_content?id=eq.$bannerId',
       );
-      return res.statusCode == 200 || res.statusCode == 204;
-    } catch (e) {
-      debugPrint('[AdminRepository] deleteBanner error: $e');
-      return false;
-    }
+      if (res.statusCode == 200 || res.statusCode == 204) return true;
+    } catch (_) {}
+    return _mutateViaBackendTable('miniapp_shared_content', 'delete', id: bannerId);
   }
 
   static String? extractUserPackageId(String? specialNotes) {

@@ -12,6 +12,7 @@ import '../widgets/service_form_sheet.dart';
 import '../widgets/package_form_sheet.dart';
 import '../widgets/product_form_sheet.dart';
 import '../../../../core/services/top_notification_service.dart';
+import '../../../../core/widgets/smart_image.dart';
 
 class AdminCatalogScreen extends StatefulWidget {
   final String? initialTab; // 'SERVICES' or 'COURSES'
@@ -64,46 +65,26 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
 
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
-    if (_selectedSegment == 0) {
-      final list = await _repository.fetchServices();
+    try {
+      final results = await Future.wait([
+        _repository.fetchServices(),
+        _repository.fetchTreatmentPackages(),
+        _repository.fetchCourses(),
+        ProductRepository.instance.getProducts(forceRefresh: true),
+        _repository.fetchBanners(),
+      ]);
       if (mounted) {
         setState(() {
-          _services = list;
+          _services = results[0] as List<AdminServiceModel>;
+          _packages = results[1] as List<AdminTreatmentPackageModel>;
+          _courses = results[2] as List<AdminCourseModel>;
+          _products = results[3] as List<HomeProductModel>;
+          _banners = results[4] as List<AdminBannerModel>;
           _isLoading = false;
         });
       }
-    } else if (_selectedSegment == 1) {
-      final list = await _repository.fetchTreatmentPackages();
-      if (mounted) {
-        setState(() {
-          _packages = list;
-          _isLoading = false;
-        });
-      }
-    } else if (_selectedSegment == 2) {
-      final list = await _repository.fetchCourses();
-      if (mounted) {
-        setState(() {
-          _courses = list;
-          _isLoading = false;
-        });
-      }
-    } else if (_selectedSegment == 3) {
-      final list = await ProductRepository.instance.getProducts(forceRefresh: true);
-      if (mounted) {
-        setState(() {
-          _products = list;
-          _isLoading = false;
-        });
-      }
-    } else {
-      final list = await _repository.fetchBanners();
-      if (mounted) {
-        setState(() {
-          _banners = list;
-          _isLoading = false;
-        });
-      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -568,7 +549,9 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                         ? 'Tìm gói liệu trình...'
                         : _selectedSegment == 2
                             ? 'Tìm khóa học...'
-                            : 'Tìm sản phẩm theo liệu trình...',
+                            : _selectedSegment == 3
+                                ? 'Tìm sản phẩm theo liệu trình...'
+                                : 'Tìm banner trang chủ...',
                 hintStyle: AppTypography.zaloFont(fontSize: 12, color: const Color(0xFF9CA3AF)),
                 prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF9CA3AF)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -774,7 +757,6 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                 else
                   Switch(
                     value: s.isActive,
-                    activeThumbColor: const Color(0xFF00693F),
                     onChanged: (_) => _handleToggleService(s),
                   ),
               ],
@@ -918,7 +900,6 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                 else
                   Switch(
                     value: c.isActive,
-                    activeThumbColor: const Color(0xFF00693F),
                     onChanged: (_) => _handleToggleCourse(c),
                   ),
               ],
@@ -1128,7 +1109,6 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                 else
                   Switch(
                     value: p.isActive,
-                    activeThumbColor: const Color(0xFF00693F),
                     onChanged: (_) => _handleTogglePackage(p),
                   ),
               ],
@@ -1318,7 +1298,6 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                   else
                     Switch(
                       value: p.isActive,
-                      activeThumbColor: const Color(0xFF00693F),
                       onChanged: (_) => _handleToggleProduct(p),
                     ),
                 ],
@@ -1504,7 +1483,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
                 TextField(
                   controller: targetLinkCtrl,
                   decoration: const InputDecoration(
@@ -1513,19 +1492,17 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                     isDense: true,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Hiển thị trên Trang chủ', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
                   value: isPublished,
-                  activeThumbColor: const Color(0xFF00693F),
                   onChanged: (val) => setModalState(() => isPublished = val),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Nổi bật (Featured)', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
                   value: isFeatured,
-                  activeThumbColor: const Color(0xFF00693F),
                   onChanged: (val) => setModalState(() => isFeatured = val),
                 ),
                 const SizedBox(height: 12),
@@ -1579,7 +1556,14 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : Text(banner == null ? 'Tạo Banner' : 'Cập nhật Banner'),
+                        : Text(
+                            banner == null ? 'Tạo Banner' : 'Cập nhật Banner',
+                            style: AppTypography.zaloFont(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ],
@@ -1647,21 +1631,22 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                     color: const Color(0xFFF3F4F6),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: ClipRRect(
+                  child: SmartImage(
+                    width: 60,
+                    height: 60,
                     borderRadius: BorderRadius.circular(10),
-                    child: b.imageUrl.startsWith('http')
-                        ? Image.network(
-                            b.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(Icons.image_outlined, color: Color(0xFF9CA3AF)),
-                          )
-                        : b.imageUrl.isNotEmpty
-                            ? Image.asset(
-                                b.imageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.image_outlined, color: Color(0xFF9CA3AF)),
-                              )
-                            : const Icon(Icons.image_outlined, color: Color(0xFF9CA3AF)),
+                    imageUrl: b.imageUrl.trim().startsWith('/assets/')
+                        ? b.imageUrl.trim().substring(1)
+                        : (b.imageUrl.trim().isNotEmpty
+                            ? b.imageUrl.trim()
+                            : 'assets/images/therapy_hero_banner.jpg'),
+                    fit: BoxFit.cover,
+                    placeholder: Image.asset(
+                      'assets/images/therapy_hero_banner.jpg',
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1728,7 +1713,6 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                       scale: 0.85,
                       child: Switch(
                         value: b.isPublished,
-                        activeThumbColor: const Color(0xFF00693F),
                         onChanged: (_) => _handleToggleBanner(b),
                       ),
                     ),

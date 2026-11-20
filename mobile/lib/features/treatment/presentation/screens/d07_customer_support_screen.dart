@@ -5,6 +5,7 @@ import '../../../../core/services/portal_settings_service.dart';
 import '../../../home/data/repositories/branch_repository.dart';
 import '../../data/models/treatment_models.dart';
 import '../../data/repositories/treatment_repository.dart';
+import 'd12_faq_screen.dart';
 
 class D07CustomerSupportScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -141,151 +142,6 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showFaqModal() {
-    final faqs = PortalSettingsService.instance.faqs;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.82,
-            ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE2E8F0),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.help_outline_rounded, color: AppColors.accent, size: 22),
-                        SizedBox(width: 8),
-                        Text(
-                          'Câu hỏi thường gặp FAQs',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1F2937),
-                          ),
-                        ),
-                      ],
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Giải đáp nhanh các thắc mắc về kỹ thuật dẫn lưu MLD, đào tạo và đặt lịch:',
-                  style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 14),
-                Expanded(
-                  child: faqs.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'Chưa có câu hỏi thường gặp nào.',
-                            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                          ),
-                        )
-                      : ListView.separated(
-                          itemCount: faqs.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                            final item = faqs[index];
-                            final q = item['question'] as String? ?? '';
-                            final a = item['answer'] as String? ?? '';
-                            final cat = item['category'] as String? ?? '';
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                              ),
-                              child: Theme(
-                                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                                child: ExpansionTile(
-                                  tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                                  childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                                  title: Text(
-                                    q,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF1F2937),
-                                    ),
-                                  ),
-                                  subtitle: cat.isNotEmpty
-                                      ? Padding(
-                                          padding: const EdgeInsets.only(top: 4),
-                                          child: Text(
-                                            cat == 'DAO_TAO'
-                                                ? 'Đào tạo học viện'
-                                                : (cat == 'DICH_VU' ? 'Dịch vụ trị liệu' : 'Hỗ trợ chung'),
-                                            style: const TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppColors.accent,
-                                            ),
-                                          ),
-                                        )
-                                      : null,
-                                  children: [
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                                      ),
-                                      child: Text(
-                                        a,
-                                        style: const TextStyle(
-                                          fontSize: 12.5,
-                                          color: Color(0xFF475569),
-                                          height: 1.45,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-          );
-        },
       ),
     );
   }
@@ -472,7 +328,12 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                         _buildQuickActionItem(
                           icon: Icons.help_outline_rounded,
                           label: 'Câu hỏi thường gặp FAQs',
-                          onTap: _showFaqModal,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const D12FaqScreen()),
+                            );
+                          },
                         ),
                       ],
                     ),

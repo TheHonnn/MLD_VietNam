@@ -699,10 +699,21 @@ export class AuthService {
         .eq('jti', jti);
     } catch {}
 
-    // 3. Tạo bộ Token mới
-    const tokens = await this.generateTokens(userId, identifier || '', role || 'CUSTOMER');
+    const { data: latestUser } = await this.supabaseService.adminClient
+      .from('users')
+      .select('role, is_active')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (latestUser && latestUser.is_active === false) {
+      throw new UnauthorizedException('Tài khoản này đã bị tạm khóa.');
+    }
+
+    const effectiveRole = String(latestUser?.role || role || 'CUSTOMER').trim().toUpperCase();
+    const tokens = await this.generateTokens(userId, identifier || '', effectiveRole);
     return {
       message: 'Làm mới phiên đăng nhập thành công',
+      role: effectiveRole,
       ...tokens,
     };
   }
@@ -1263,12 +1274,22 @@ export class AuthService {
       this.configService.get<string>('JWT_REFRESH_SECRET') ||
       'super-secret-refresh-token-key-mld-vietnam-2026';
 
-    const accessPayload = { sub: userId, identifier, role };
-    const refreshPayload = { sub: userId, jti, identifier, role };
+    const normalizedRole = String(role || 'CUSTOMER').trim().toUpperCase();
+    const isAdminPortalRole = [
+      'SUPER_ADMIN',
+      'ADMIN',
+      'BRANCH_MANAGER',
+      'CASHIER',
+      'RECEPTIONIST',
+    ].includes(normalizedRole);
+
+    const accessPayload = { sub: userId, identifier, role: normalizedRole };
+    const refreshPayload = { sub: userId, jti, identifier, role: normalizedRole };
 
     const accessToken = this.jwtService.sign(accessPayload, {
       secret: accessSecret,
       expiresIn: '30m',
+      ...(isAdminPortalRole ? { audience: 'mld-admin' } : {}),
     });
 
     const refreshToken = this.jwtService.sign(refreshPayload, {

@@ -299,7 +299,14 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                       ),
-                                      child: Text('Gán vào lớp', style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w700)),
+                                      child: Text(
+                                        'Gán vào lớp',
+                                        style: AppTypography.zaloFont(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -359,7 +366,10 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
               backgroundColor: const Color(0xFFE11D48),
               foregroundColor: Colors.white,
             ),
-            child: Text('Gỡ khỏi lớp', style: AppTypography.zaloFont(fontWeight: FontWeight.w700)),
+            child: Text(
+              'Gỡ khỏi lớp',
+              style: AppTypography.zaloFont(fontWeight: FontWeight.w700, color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -683,7 +693,11 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                       ),
                       child: Text(
                         'Lưu kết quả điểm danh ($presentCount/${students.length} có mặt)',
-                        style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w700),
+                        style: AppTypography.zaloFont(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -1138,7 +1152,14 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: Text('Tạo buổi học & Lưu vào lịch', style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700)),
+                      child: Text(
+                        'Tạo buổi học & Lưu vào lịch',
+                        style: AppTypography.zaloFont(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1478,7 +1499,14 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
-                            child: Text('Lưu thay đổi lịch học', style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700)),
+                            child: Text(
+                              'Lưu thay đổi lịch học',
+                              style: AppTypography.zaloFont(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -2305,24 +2333,11 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            InkWell(
-                              onTap: () => _confirmDeleteSchedule(s),
-                              borderRadius: BorderRadius.circular(5),
-                              child: Container(
-                                padding: const EdgeInsets.all(5),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFEE2E2),
-                                  borderRadius: BorderRadius.circular(5),
-                                ),
-                                child: const Icon(Icons.delete_outline_rounded, size: 13, color: Color(0xFFDC2626)),
-                              ),
-                            ),
-                            const SizedBox(width: 5),
                             OutlinedButton.icon(
                               onPressed: () => _openEditScheduleSheet(s),
-                              icon: const Icon(Icons.edit_calendar_rounded, size: 11, color: Color(0xFF004890)),
+                              icon: const Icon(Icons.edit_rounded, size: 11, color: Color(0xFF004890)),
                               label: Text(
-                                'Đổi lịch',
+                                'Sửa',
                                 style: AppTypography.zaloFont(
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w600,
@@ -2470,7 +2485,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                         ElevatedButton.icon(
                           onPressed: _openAddStudentSheet,
                           icon: const Icon(Icons.person_add_rounded, size: 15),
-                          label: Text('Thêm học viên vào lớp', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w700)),
+                          label: Text('Thêm học viên vào lớp', style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF00693F),
                             foregroundColor: Colors.white,

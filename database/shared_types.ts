@@ -652,7 +652,7 @@ export interface VoucherDistributionRule {
   isActive: boolean;
 }
 
-export type TaxonomyType = 'TARGET_AUDIENCE' | 'TARGET_NEED' | 'CONTACT_CHANNEL';
+export type TaxonomyType = 'TARGET_AUDIENCE' | 'TARGET_NEED' | 'CONTACT_CHANNEL' | 'BOOKING_TIME_SLOT';
 
 export interface PortalTaxonomyItem {
   id: string;

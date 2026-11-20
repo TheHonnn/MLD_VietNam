@@ -165,6 +165,31 @@ class PortalSettingsService {
     return defaultContactChannels;
   }
 
+  List<String> get bookingTimeSlots {
+    final list = _taxonomies
+        .where((x) =>
+            x['type'] == 'BOOKING_TIME_SLOT' &&
+            (x['is_active'] == true || x['isActive'] == true) &&
+            ((x['name'] as String?)?.trim().isNotEmpty ?? false))
+        .toList();
+    if (list.isEmpty) return const [];
+    list.sort((a, b) {
+      final ordA = (a['sort_order'] as num?)?.toInt() ?? ((a['sortOrder'] as num?)?.toInt() ?? 9999);
+      final ordB = (b['sort_order'] as num?)?.toInt() ?? ((b['sortOrder'] as num?)?.toInt() ?? 9999);
+      final cmp = ordA.compareTo(ordB);
+      if (cmp != 0) return cmp;
+      return (a['name'] as String? ?? '').compareTo(b['name'] as String? ?? '');
+    });
+    final slots = <String>[];
+    for (final item in list) {
+      final name = (item['name'] as String?)?.trim() ?? '';
+      if (name.isNotEmpty && !slots.contains(name)) {
+        slots.add(name);
+      }
+    }
+    return slots;
+  }
+
   /// Lấy danh sách tên Đối tượng lọc (có 'Tất cả đối tượng')
   List<String> get audienceFilterList {
     final list = <String>['Tất cả đối tượng'];

@@ -275,10 +275,13 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Ảnh sản phẩm (Link hoặc từ máy)',
-                      style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                    Expanded(
+                      child: Text(
+                        'Ảnh sản phẩm (Link hoặc từ máy)',
+                        style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     InkWell(
                       onTap: _pickFromDevice,
                       child: Row(
@@ -385,6 +388,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
 
                 // 3. Danh mục & Đơn vị
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       flex: 6,
@@ -588,7 +592,6 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
                       ),
                       Switch(
                         value: _isActive,
-                        activeThumbColor: const Color(0xFF00693F),
                         onChanged: (val) => setState(() => _isActive = val),
                       ),
                     ],
@@ -602,20 +605,19 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _submit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE8F6ED),
-                      foregroundColor: const Color(0xFF00693F),
+                      backgroundColor: const Color(0xFF00693F),
+                      foregroundColor: Colors.white,
                       elevation: 0,
-                      side: const BorderSide(color: Color(0xFF00693F), width: 1.2),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     child: _isSaving
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00693F)))
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : Text(
                             isEdit ? 'Lưu thay đổi sản phẩm' : 'Xác nhận tạo mới sản phẩm',
                             style: AppTypography.zaloFont(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: const Color(0xFF00693F),
+                              color: Colors.white,
                             ),
                           ),
                   ),

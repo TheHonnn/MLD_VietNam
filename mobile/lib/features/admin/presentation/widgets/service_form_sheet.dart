@@ -288,10 +288,13 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Ảnh đại diện dịch vụ (Link hoặc từ máy)',
-                    style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                  Expanded(
+                    child: Text(
+                      'Ảnh đại diện dịch vụ (Link hoặc từ máy)',
+                      style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   InkWell(
                     onTap: _pickFromDevice,
                     child: Row(
@@ -397,17 +400,20 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
 
               // Thời lượng & Phím tắt chọn nhanh
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
                     'Thời lượng (Phút) *',
                     style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                   ),
-                  Row(
-                    children: [45, 60, 75, 90, 120].map((mins) {
-                      return Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: InkWell(
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [45, 60, 75, 90, 120].map((mins) {
+                        return InkWell(
                           onTap: () => setState(() => _durationController.text = mins.toString()),
                           borderRadius: BorderRadius.circular(6),
                           child: Container(
@@ -421,9 +427,9 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                               style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
                             ),
                           ),
-                        ),
-                      );
-                    }).toList(),
+                        );
+                      }).toList(),
+                    ),
                   ),
                 ],
               ),
@@ -522,7 +528,6 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                     ),
                     Switch(
                       value: _isActive,
-                      activeThumbColor: const Color(0xFF00693F),
                       onChanged: (val) => setState(() => _isActive = val),
                     ),
                   ],
@@ -535,10 +540,9 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _submit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE8F6ED),
-                    foregroundColor: const Color(0xFF00693F),
+                    backgroundColor: const Color(0xFF00693F),
+                    foregroundColor: Colors.white,
                     elevation: 0,
-                    side: const BorderSide(color: Color(0xFF00693F), width: 1.2),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -546,14 +550,14 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00693F)),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : Text(
                           isEdit ? 'Lưu thay đổi dịch vụ' : 'Xác nhận tạo mới dịch vụ',
                           style: AppTypography.zaloFont(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF00693F),
+                            color: Colors.white,
                           ),
                         ),
                 ),

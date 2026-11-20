@@ -722,7 +722,7 @@ class AdminAppointmentCard extends StatelessWidget {
               icon: const Icon(Icons.check_rounded, size: 16),
               label: Text(
                 'Duyệt lịch',
-                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
+                style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
@@ -741,7 +741,7 @@ class AdminAppointmentCard extends StatelessWidget {
           icon: const Icon(Icons.how_to_reg_rounded, size: 16),
           label: Text(
             'Tiếp đón Check-in',
-            style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
+            style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF00693F),
@@ -758,7 +758,7 @@ class AdminAppointmentCard extends StatelessWidget {
           icon: const Icon(Icons.play_arrow_rounded, size: 16),
           label: Text(
             'Bắt đầu dịch vụ',
-            style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
+            style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF7E22CE),
@@ -779,7 +779,7 @@ class AdminAppointmentCard extends StatelessWidget {
             ),
             label: Text(
               booking.isPackageSession ? 'Ghi nhật ký & Trừ buổi' : 'Hoàn tất chuyên môn',
-              style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
+              style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF7E22CE),
@@ -799,7 +799,7 @@ class AdminAppointmentCard extends StatelessWidget {
           ),
           label: Text(
             needsPayment ? 'Chờ thu tiền' : 'Hoàn thành Check-out',
-            style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
+            style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: needsPayment ? const Color(0xFFD97706) : const Color(0xFF2563EB),

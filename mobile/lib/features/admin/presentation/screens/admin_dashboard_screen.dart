@@ -92,7 +92,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           }
         }
       } else if (item.type == AdminActionType.waitingBatch) {
-        if (!AuthService.instance.isAdmin) {
+        if (!AuthService.instance.isAdmin &&
+            !AuthService.instance.hasPermission('course_enrollments.update')) {
           TopNotificationService.showInfo(
             title: 'Phân quyền học viện',
             message: 'Chức năng xếp lớp học viên chỉ dành cho Quản trị viên.',
@@ -116,7 +117,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         );
       } else if (item.type == AdminActionType.newQuizSubmission) {
-        if (!AuthService.instance.isAdmin) {
+        if (!AuthService.instance.isAdmin &&
+            !AuthService.instance.hasPermission('quiz_submissions.read')) {
           TopNotificationService.showInfo(
             title: 'Phân quyền học viện',
             message: 'Chức năng chấm bài thi học viên chỉ dành cho Quản trị viên.',
@@ -179,7 +181,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    'QUẢN TRỊ VIÊN',
+                    AuthService.instance.isAdmin
+                        ? 'QUẢN TRỊ VIÊN'
+                        : (AuthService.instance.isReceptionist
+                            ? 'LỄ TÂN TIẾP ĐÓN'
+                            : 'NHÂN VIÊN VẬN HÀNH'),
                     style: AppTypography.zaloFont(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
@@ -401,7 +407,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           icon: Icons.groups_rounded,
                           iconColor: const Color(0xFF7C3AED),
                           iconBgColor: const Color(0xFFEDE9FE),
-                          onTap: () => widget.onNavigateTab?.call(2),
+                          onTap: () => widget.onNavigateTab?.call(2, subTab: 'MONTHLY_STUDENTS'),
                         ),
                       ),
                     ],
@@ -479,8 +485,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           activeCategoryTitle = 'Bài thi học viên';
                           activeCategoryIcon = Icons.assignment_turned_in_rounded;
                           activeCategoryColor = const Color(0xFF00693F);
-                          onOpenTab = () => widget.onNavigateTab?.call(2, subTab: 'QUIZZES');
-                          tabLabel = 'Mở tab Bài thi →';
+                          onOpenTab = () => widget.onNavigateTab?.call(2, subTab: 'MONTHLY_STUDENTS');
+                          tabLabel = 'Mở tab HV Tháng →';
                           break;
                       }
 
@@ -824,6 +830,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
+            if (index == 2 && widget.onNavigateTab != null) {
+              widget.onNavigateTab?.call(2, subTab: 'MONTHLY_STUDENTS');
+              return;
+            }
             if (_selectedApprovalBox == index && hasItems) {
               _showCategoryApprovalSheet(context, index);
             } else {

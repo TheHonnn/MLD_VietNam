@@ -388,8 +388,8 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
 
                 // 2. Số buổi & Thời hạn sử dụng
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Số buổi
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -405,7 +405,7 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                             validator: (v) => (v == null || int.tryParse(v) == null) ? 'Nhập số buổi' : null,
                             decoration: InputDecoration(
                               hintText: '10',
-                              suffixText: 'buổi (= ca)',
+                              suffixText: 'buổi',
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
@@ -649,7 +649,6 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                       const SizedBox(width: 8),
                       Switch(
                         value: _isActive,
-                        activeThumbColor: const Color(0xFF00693F),
                         onChanged: (val) => setState(() => _isActive = val),
                       ),
                     ],
@@ -663,24 +662,23 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _submit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE8F6ED),
-                      foregroundColor: const Color(0xFF00693F),
+                      backgroundColor: const Color(0xFF00693F),
+                      foregroundColor: Colors.white,
                       elevation: 0,
-                      side: const BorderSide(color: Color(0xFF00693F), width: 1.2),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     child: _isSaving
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(color: Color(0xFF00693F), strokeWidth: 2),
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                           )
                         : Text(
                             isEdit ? 'Lưu thay đổi liệu trình' : 'Xác nhận tạo mới liệu trình',
                             style: AppTypography.zaloFont(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: const Color(0xFF00693F),
+                              color: Colors.white,
                             ),
                           ),
                   ),

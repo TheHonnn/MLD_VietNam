@@ -26,6 +26,8 @@ import 'f04_loyalty_points_screen.dart';
 import 'f05_my_vouchers_screen.dart';
 import 'f08_settings_screen.dart';
 import '../../../treatment/presentation/screens/d05_service_review_screen.dart';
+import '../../../treatment/presentation/screens/d07_customer_support_screen.dart';
+import '../../../treatment/presentation/screens/d12_faq_screen.dart';
 
 
 /// Screen F01: Trang Cá nhân chuẩn Design System (#2860EB)
@@ -856,6 +858,28 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               _buildSectionHeader(context.tr('TÀI KHOẢN & HỆ THỐNG', 'ACCOUNT & SETTINGS')),
               const SizedBox(height: 8),
               _buildCardContainer([
+                _buildMenuItem(
+                  icon: Icons.help_outline_rounded,
+                  title: context.tr('Hỏi đáp thường gặp (FAQs)', 'Frequently Asked Questions'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const D12FaqScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 50, color: AppColors.border),
+                _buildMenuItem(
+                  icon: Icons.support_agent_rounded,
+                  title: context.tr('Trung tâm hỗ trợ CSKH', 'Customer Support Center'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const D07CustomerSupportScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 50, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.settings_outlined,
                   title: context.tr('Cài đặt tài khoản', 'Account Settings'),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../../booking/data/repositories/booking_repository.dart';
 import '../../../home/data/models/home_models.dart';
@@ -41,7 +42,7 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
     'Chi nhánh Quận 1 · 45 Lê Duẩn, Bến Nghé',
   ];
 
-  final List<String> _timeSlots = [
+  static const List<String> _defaultTimeSlots = [
     '08:00 - 09:00',
     '09:15 - 10:15',
     '10:30 - 11:30',
@@ -51,16 +52,38 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
     '16:30 - 17:30',
   ];
 
+  late List<String> _timeSlots;
+
   @override
   void initState() {
     super.initState();
+    final portalSlots = PortalSettingsService.instance.bookingTimeSlots;
+    _timeSlots = portalSlots.isNotEmpty ? List<String>.from(portalSlots) : List<String>.from(_defaultTimeSlots);
+    _selectedTime = _timeSlots.isNotEmpty ? _timeSlots.first : '08:00 - 09:00';
     final profile = MembershipRepository.instance.profile;
     _nameController = TextEditingController(text: profile.fullName);
     final phone = AuthService.instance.currentPhone ?? profile.phone;
     _phoneController = TextEditingController(text: phone);
     _notesController = TextEditingController();
     _selectedDate = DateTime.now().add(const Duration(days: 1));
+    PortalSettingsService.instance.settingsVersion.addListener(_onPortalSettingsChanged);
+    if (!WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
+      PortalSettingsService.instance.syncFromCloud();
+    }
     _loadDynamicBranches();
+  }
+
+  void _onPortalSettingsChanged() {
+    if (!mounted) return;
+    final portalSlots = PortalSettingsService.instance.bookingTimeSlots;
+    if (portalSlots.isNotEmpty) {
+      setState(() {
+        _timeSlots = List<String>.from(portalSlots);
+        if (!_timeSlots.contains(_selectedTime)) {
+          _selectedTime = _timeSlots.first;
+        }
+      });
+    }
   }
 
   Future<void> _loadDynamicBranches() async {
@@ -82,6 +105,7 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
 
   @override
   void dispose() {
+    PortalSettingsService.instance.settingsVersion.removeListener(_onPortalSettingsChanged);
     _nameController.dispose();
     _phoneController.dispose();
     _notesController.dispose();

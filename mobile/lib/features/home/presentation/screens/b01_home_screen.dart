@@ -31,6 +31,7 @@ import '../../../treatment/presentation/screens/d08_notifications_screen.dart';
 import '../../../treatment/presentation/screens/d09_documents_screen.dart';
 import '../../../treatment/presentation/screens/d10_lymph_examination_screen.dart';
 import '../../../treatment/presentation/screens/d11_community_screen.dart';
+import '../../../treatment/presentation/screens/d12_faq_screen.dart';
 import '../../../academy/presentation/screens/e02_course_catalog_screen.dart';
 import '../../../academy/presentation/screens/e07_my_courses_screen.dart';
 import '../../../academy/presentation/screens/e11_attendance_schedule_screen.dart';
@@ -585,6 +586,11 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       return;
     }
 
+    if (targetLink == '/faqs' || targetLink.contains('hoi-dap') || targetLink.contains('faq')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const D12FaqScreen()));
+      return;
+    }
+
     // 3. Tab-level Navigation Fallbacks
     if (targetLink.contains('academy') || targetLink.contains('dao-tao')) {
       if (widget.onNavigateToAcademy != null) {
@@ -896,6 +902,13 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: _buildDirectMessagingSection(),
+              ),
+
+              const SizedBox(height: 18),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildFaqShortcutCard(),
               ),
 
               const SizedBox(height: 22),
@@ -1889,6 +1902,28 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
         alignment: Alignment.center,
         child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
       );
+    } else if (code.startsWith('TELEGRAM') || iconName == 'telegram') {
+      iconWidget = Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: const Color(0xFF229ED9),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+      );
+    } else if (code.startsWith('THREADS') || iconName == 'threads') {
+      iconWidget = Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        alignment: Alignment.center,
+        child: const Text('@', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+      );
     } else {
       iconWidget = Container(
         width: 38,
@@ -1915,6 +1950,73 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
       title: title,
       iconWidget: iconWidget,
       onTap: launchAction,
+    );
+  }
+
+  Widget _buildFaqShortcutCard() {
+    final faqCount = PortalSettingsService.instance.faqs.length;
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const D12FaqScreen()),
+        );
+      },
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.mintBackground,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFD1E7D5)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppColors.accent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.quiz_rounded, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Hỏi đáp thường gặp (FAQs)',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    faqCount > 0
+                        ? '$faqCount câu hỏi về dịch vụ, đặt lịch & đào tạo'
+                        : 'Giải đáp nhanh về dẫn lưu bạch huyết & đặt lịch',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF475569),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 15, color: AppColors.accent),
+          ],
+        ),
+      ),
     );
   }
 

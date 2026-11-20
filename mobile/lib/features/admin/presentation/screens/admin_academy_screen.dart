@@ -111,16 +111,27 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
   @override
   void initState() {
     super.initState();
+    _applyInitialWorkflowTab();
+    _fetchData();
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminAcademyScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialWorkflowTab != widget.initialWorkflowTab) {
+      _applyInitialWorkflowTab();
+    }
+  }
+
+  void _applyInitialWorkflowTab() {
     if (widget.initialWorkflowTab != null && widget.initialWorkflowTab!.isNotEmpty) {
-      if (widget.initialWorkflowTab == 'MONTHLY_STUDENTS') {
+      if (widget.initialWorkflowTab == 'MONTHLY_STUDENTS' || widget.initialWorkflowTab == 'QUIZZES') {
         _selectedSegment = 2;
-      } else if (widget.initialWorkflowTab == 'QUIZZES') {
-        _selectedSegment = 1;
       } else {
+        _selectedSegment = 0;
         _selectedWorkflowStatus = widget.initialWorkflowTab!;
       }
     }
-    _fetchData();
   }
 
   @override
@@ -217,15 +228,27 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
     return false;
   }
 
-  List<AdminCandidateModel> get _monthlyEnrolledStudents {
+  List<AdminCandidateModel> _enrolledStudentsForMonth(DateTime month) {
     return _candidates.where((c) {
       final isEnrolled = (c.batchId != null && c.batchId!.isNotEmpty) ||
           c.status == 'ENROLLED_STUDYING' ||
           c.status == 'NOT_GRADUATED' ||
           c.status == 'COMPLETED';
       if (!isEnrolled) return false;
-      return _candidateBelongsToMonth(c, _selectedStudentMonth);
+      return _candidateBelongsToMonth(c, month);
     }).toList();
+  }
+
+  int _registeredCandidatesCountForMonth(DateTime month) {
+    return _candidates.where((c) {
+      final upper = c.status.toUpperCase();
+      if (upper == 'ARCHIVED' || upper == 'DROPPED') return false;
+      return _candidateBelongsToMonth(c, month);
+    }).length;
+  }
+
+  List<AdminCandidateModel> get _monthlyEnrolledStudents {
+    return _enrolledStudentsForMonth(_selectedStudentMonth);
   }
 
   List<AdminCandidateModel> get _filteredMonthlyStudents {
@@ -771,7 +794,11 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : Text(
                                     'Xác nhận mở lớp học',
-                                    style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700),
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
                                   ),
                           ),
                         ),
@@ -1011,20 +1038,19 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE8F6ED),
-                      foregroundColor: const Color(0xFF00693F),
-                      side: const BorderSide(color: Color(0xFF00693F), width: 1.2),
+                      backgroundColor: const Color(0xFF00693F),
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       elevation: 0,
                     ),
                     child: isSubmitting
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Color(0xFF00693F), strokeWidth: 2))
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : Text(
                             'Xác nhận tạo thẻ HV',
                             style: AppTypography.zaloFont(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: const Color(0xFF00693F),
+                              color: Colors.white,
                             ),
                           ),
                   ),
@@ -1432,7 +1458,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                                 height: 14,
                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                               )
-                            : Text('Lưu tư vấn', style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w700)),
+                            : Text('Lưu tư vấn', style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w700, color: Colors.white)),
                       ),
                     ],
                   ),
@@ -1453,7 +1479,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                       icon: const Icon(Icons.group_add_rounded, size: 16),
                       label: Text(
                         current.batchId != null ? 'Đổi lớp học' : 'Xếp lớp học',
-                        style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600),
+                        style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF00693F),
@@ -1520,36 +1546,64 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
         targetStatus == 'DEPOSITED';
     final isLocked = c.amountPaid > 0 && isInitial;
 
+    final Color bgColor = isCurrent
+        ? color
+        : (isLocked ? const Color(0xFFF3F4F6) : color.withValues(alpha: 0.1));
+    final Color fgColor = isCurrent
+        ? Colors.white
+        : (isLocked ? const Color(0xFF9CA3AF) : color);
+    final Color borderColor = isCurrent
+        ? color
+        : (isLocked ? const Color(0xFFE5E7EB) : color.withValues(alpha: 0.3));
+
     return Padding(
       padding: const EdgeInsets.only(right: 6),
-      child: ActionChip(
-        avatar: isCurrent
-            ? const Icon(Icons.check, size: 14, color: Colors.white)
-            : (isLocked ? const Icon(Icons.lock_rounded, size: 12, color: Color(0xFFDC2626)) : null),
-        label: Text(label),
-        labelStyle: AppTypography.zaloFont(
-          fontSize: 11,
-          fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-          color: isLocked ? const Color(0xFF9CA3AF) : (isCurrent ? Colors.white : color),
-        ),
-        backgroundColor: isCurrent ? color : (isLocked ? const Color(0xFFF3F4F6) : color.withValues(alpha: 0.1)),
-        shape: RoundedRectangleBorder(
+      child: Material(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: isCurrent ? color : (isLocked ? const Color(0xFFE5E7EB) : color.withValues(alpha: 0.3))),
+          onTap: (isCurrent || isLocked)
+              ? null
+              : () async {
+                  Navigator.pop(ctx);
+                  final success = await _repository.updateCandidateStatus(c.id, targetStatus);
+                  if (mounted && success) {
+                    TopNotificationService.showSuccess(
+                      title: 'Cập nhật trạng thái',
+                      message: 'Đã chuyển ${c.candidateName} sang cột "$label"!',
+                    );
+                    _fetchData();
+                  }
+                },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: borderColor),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isCurrent) ...[
+                  const Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                  const SizedBox(width: 4),
+                ] else if (isLocked) ...[
+                  const Icon(Icons.lock_rounded, size: 12, color: Color(0xFFDC2626)),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  label,
+                  style: AppTypography.zaloFont(
+                    fontSize: 11,
+                    fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w600,
+                    color: fgColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        onPressed: (isCurrent || isLocked)
-            ? null
-            : () async {
-                Navigator.pop(ctx);
-                final success = await _repository.updateCandidateStatus(c.id, targetStatus);
-                if (mounted && success) {
-                  TopNotificationService.showSuccess(
-                    title: 'Cập nhật trạng thái',
-                    message: 'Đã chuyển ${c.candidateName} sang cột "$label"!',
-                  );
-                  _fetchData();
-                }
-              },
       ),
     );
   }
@@ -2126,6 +2180,11 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                 final isNextMonth = _selectedStudentMonth.year == nextMonth.year &&
                     _selectedStudentMonth.month == nextMonth.month;
 
+                final thisMonthCount = _enrolledStudentsForMonth(thisMonth).length;
+                final nextMonthCount = _enrolledStudentsForMonth(nextMonth).length;
+                final thisMonthRegistered = _registeredCandidatesCountForMonth(thisMonth);
+                final nextMonthRegistered = _registeredCandidatesCountForMonth(nextMonth);
+
                 final enrolledCourseMap = <String, String>{};
                 for (final c in _monthlyEnrolledStudents) {
                   if (c.courseId.isNotEmpty) {
@@ -2138,6 +2197,100 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
                   child: Column(
                     children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setState(() {
+                                _selectedStudentMonth = thisMonth;
+                                _selectedMonthlyCourseId = 'ALL';
+                              }),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isThisMonth ? const Color(0xFFE8F6ED) : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isThisMonth ? const Color(0xFF00693F) : const Color(0xFFE5E7EB),
+                                    width: isThisMonth ? 1.4 : 1,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Tháng này (${DateFormat('MM/yyyy').format(thisMonth)})',
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: isThisMonth ? const Color(0xFF00693F) : AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '$thisMonthCount đang học · $thisMonthRegistered đăng ký',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textHeading,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setState(() {
+                                _selectedStudentMonth = nextMonth;
+                                _selectedMonthlyCourseId = 'ALL';
+                              }),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isNextMonth ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isNextMonth ? AppColors.primary : const Color(0xFFE5E7EB),
+                                    width: isNextMonth ? 1.4 : 1,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Tháng tới (${DateFormat('MM/yyyy').format(nextMonth)})',
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: isNextMonth ? AppColors.primary : AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '$nextMonthCount học viên · $nextMonthRegistered đăng ký',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textHeading,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       SizedBox(
                         height: 34,
                         child: TextField(
@@ -2182,7 +2335,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                         child: Row(
                           children: [
                             _buildMicroPill(
-                              label: 'Tháng này (${DateFormat('MM/yyyy').format(thisMonth)})',
+                              label: 'Tháng này ($thisMonthCount)',
                               icon: Icons.today_rounded,
                               isSelected: isThisMonth,
                               onTap: () => setState(() {
@@ -2192,7 +2345,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                             ),
                             const SizedBox(width: 6),
                             _buildMicroPill(
-                              label: 'Tháng tới (${DateFormat('MM/yyyy').format(nextMonth)})',
+                              label: 'Tháng tới ($nextMonthCount)',
                               icon: Icons.next_plan_rounded,
                               isSelected: isNextMonth,
                               onTap: () => setState(() {
@@ -2938,7 +3091,10 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: Text('Mở chi tiết lớp', style: AppTypography.zaloFont(fontWeight: FontWeight.w700)),
+              child: Text(
+                'Mở chi tiết lớp',
+                style: AppTypography.zaloFont(fontWeight: FontWeight.w700, color: Colors.white),
+              ),
             ),
           ],
         ),

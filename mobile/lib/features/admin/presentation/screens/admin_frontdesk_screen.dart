@@ -511,7 +511,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                       icon: const Icon(Icons.task_alt_rounded, size: 18),
                       label: Text(
                         'Lưu nhật ký & Trừ 1 buổi gói',
-                        style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w700),
+                        style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF7E22CE),
@@ -628,7 +628,10 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
             ),
-            child: Text('Xác nhận hủy', style: AppTypography.zaloFont(fontWeight: FontWeight.w700)),
+            child: Text(
+              'Xác nhận hủy',
+              style: AppTypography.zaloFont(fontWeight: FontWeight.w700, color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -811,7 +814,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                     ),
                     child: Text(
                       'Xác nhận Check-in',
-                      style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700),
+                      style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
                     ),
                   ),
                 ),
@@ -2182,7 +2185,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                           borderRadius: BorderRadius.circular(5),
                         ),
                         child: Text(
-                          '$totalCa ca',
+                          '${dayBookings.isNotEmpty ? dayBookings.length : dayShifts.length}ca',
                           style: AppTypography.zaloFont(
                             fontSize: 9.5,
                             fontWeight: FontWeight.w700,

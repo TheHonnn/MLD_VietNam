@@ -398,6 +398,11 @@ class MembershipRepository {
             validUntil: (data['validUntil']?.toString().isNotEmpty == true) ? data['validUntil'].toString() : _userProfile.validUntil,
           );
           _persistLocalProfile(_userProfile);
+          AuthService.instance.updateProfile(
+            displayName: _userProfile.fullName,
+            avatarUrl: _userProfile.avatarUrl,
+            role: _userProfile.role,
+          );
         }
       }
     } catch (e) {
@@ -658,6 +663,11 @@ class MembershipRepository {
             points: (bData['points'] as num?)?.toInt() ?? _userProfile.points,
           );
           _persistLocalProfile(_userProfile);
+          AuthService.instance.updateProfile(
+            displayName: _userProfile.fullName,
+            avatarUrl: _userProfile.avatarUrl,
+            role: _userProfile.role,
+          );
         }
       }
     } catch (e) {
@@ -982,6 +992,11 @@ class MembershipRepository {
           final pts = (data['currentPoints'] as num).toInt();
           _userProfile = _userProfile.copyWith(points: pts);
           _persistLocalProfile(_userProfile);
+          AuthService.instance.updateProfile(
+            displayName: _userProfile.fullName,
+            avatarUrl: _userProfile.avatarUrl,
+            role: _userProfile.role,
+          );
         }
         await fetchLoyaltyPoints();
         await fetchVouchers();

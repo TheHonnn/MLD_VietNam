@@ -726,7 +726,6 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                     ),
                     Switch(
                       value: _isActive,
-                      activeThumbColor: const Color(0xFF00693F),
                       onChanged: (val) => setState(() => _isActive = val),
                     ),
                   ],

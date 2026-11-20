@@ -607,7 +607,7 @@ class AdminCandidateCard extends StatelessWidget {
                     icon: const Icon(Icons.group_add_rounded, size: 16),
                     label: Text(
                       'Xếp lớp ngay',
-                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w700),
+                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF00693F),
@@ -623,7 +623,7 @@ class AdminCandidateCard extends StatelessWidget {
                     icon: const Icon(Icons.check_rounded, size: 16),
                     label: Text(
                       'Đã tư vấn',
-                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
+                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,

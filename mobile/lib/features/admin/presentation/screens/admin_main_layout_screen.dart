@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/top_notification_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/presentation/screens/a03_login_screen.dart';
+import '../../../home/presentation/screens/main_layout_screen.dart';
+import '../../data/repositories/admin_repository.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_frontdesk_screen.dart';
 import 'admin_academy_screen.dart';
@@ -26,6 +29,7 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
   String? _subTab;
   String? _pendingQrCode;
   int _qrScanNonce = 0;
+  bool _isSyncingSession = false;
 
   bool get _isFullAdmin => AuthService.instance.isAdmin;
 
@@ -34,6 +38,52 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
     super.initState();
     final maxIndex = _isFullAdmin ? 3 : 2;
     _currentIndex = widget.initialTab.clamp(0, maxIndex);
+    AuthService.instance.roleNotifier.addListener(_onRoleChanged);
+    _syncAdminSession();
+  }
+
+  @override
+  void dispose() {
+    AuthService.instance.roleNotifier.removeListener(_onRoleChanged);
+    super.dispose();
+  }
+
+  void _onRoleChanged() {
+    if (!mounted) return;
+    final maxIndex = _isFullAdmin ? 3 : 2;
+    setState(() {
+      _currentIndex = _currentIndex.clamp(0, maxIndex);
+    });
+  }
+
+  Future<void> _syncAdminSession() async {
+    if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
+      return;
+    }
+    if (!AuthService.instance.isLoggedIn) return;
+    if (mounted) {
+      setState(() => _isSyncingSession = true);
+    }
+    final session = await AdminRepository.instance.fetchCurrentAdminSession();
+    if (!mounted) return;
+    if (session != null && session['unauthorized'] == true) {
+      setState(() => _isSyncingSession = false);
+      TopNotificationService.showError(
+        title: 'Phân quyền quản trị',
+        message: 'Tài khoản này chưa được cấp quyền truy cập trang quản trị.',
+      );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
+        (route) => false,
+      );
+      return;
+    }
+    final maxIndex = _isFullAdmin ? 3 : 2;
+    setState(() {
+      _isSyncingSession = false;
+      _currentIndex = _currentIndex.clamp(0, maxIndex);
+    });
   }
 
   void _onNavigateTab(int index, {String? subTab}) {
@@ -132,6 +182,15 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isSyncingSession && !AuthService.instance.isStaff) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
     final List<Widget> screens = _isFullAdmin
         ? [
             AdminDashboardScreen(

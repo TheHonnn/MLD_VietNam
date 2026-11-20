@@ -43,9 +43,14 @@ class AllInOneBookingScreen extends StatefulWidget {
   static List<String> resolveTimeSlotsForBranch(
     BranchModel? branch, {
     List<String>? customTimeSlots,
+    List<String>? portalTimeSlots,
   }) {
     if (customTimeSlots != null && customTimeSlots.isNotEmpty) {
       return List<String>.from(customTimeSlots);
+    }
+    final activePortalSlots = portalTimeSlots ?? PortalSettingsService.instance.bookingTimeSlots;
+    if (activePortalSlots.isNotEmpty) {
+      return List<String>.from(activePortalSlots);
     }
     if (branch != null && branch.customTimeSlots.isNotEmpty) {
       return List<String>.from(branch.customTimeSlots);
@@ -154,8 +159,21 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       _phoneController.text = '0967786399';
       _addressController.text = '123 Nguyễn Thị Minh Khai, Q.3, TP.HCM';
     } else {
+      PortalSettingsService.instance.settingsVersion.addListener(_onPortalSettingsChanged);
+      PortalSettingsService.instance.syncFromCloud();
       _loadBranchesAndUser();
     }
+  }
+
+  void _onPortalSettingsChanged() {
+    if (!mounted) return;
+    final nextSlots = _resolveTimeSlotsForBranch(_selectedBranch);
+    setState(() {
+      _bookingTimeSlots = nextSlots;
+      if (!_bookingTimeSlots.contains(_selectedTimeSlot)) {
+        _selectedTimeSlot = _bookingTimeSlots.isNotEmpty ? _bookingTimeSlots.first : '';
+      }
+    });
   }
 
   List<String> _resolveTimeSlotsForBranch(BranchModel? branch) {
@@ -222,6 +240,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
 
   @override
   void dispose() {
+    PortalSettingsService.instance.settingsVersion.removeListener(_onPortalSettingsChanged);
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();

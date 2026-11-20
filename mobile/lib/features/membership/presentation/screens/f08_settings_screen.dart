@@ -15,6 +15,7 @@ import '../../../../core/services/portal_settings_service.dart';
 import 'f02_edit_profile_screen.dart';
 import 'legal_document_screen.dart';
 import '../widgets/change_password_modal.dart';
+import '../../../treatment/presentation/screens/d12_faq_screen.dart';
 
 class F08SettingsScreen extends StatefulWidget {
   const F08SettingsScreen({super.key});
@@ -711,23 +712,9 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                   icon: Icons.help_outline_rounded,
                   title: isEn ? 'FAQs' : 'Câu hỏi thường gặp',
                   onTap: () {
-                    final faqs = PortalSettingsService.instance.faqs;
-                    String faqContent = '';
-                    if (faqs.isNotEmpty) {
-                      faqContent = faqs.asMap().entries.map((e) {
-                        final q = e.value['question'] ?? '';
-                        final a = e.value['answer'] ?? '';
-                        return '${e.key + 1}. $q\n$a';
-                      }).join('\n\n');
-                    } else {
-                      faqContent = isEn
-                          ? '1. How do I book an appointment? Choose service -> Select branch & specialist -> Select time -> Confirm.\n2. Can I cancel a booking? Yes, at least 2 hours before the scheduled time.'
-                          : '1. Cách đặt lịch? Chọn dịch vụ -> Chọn chi nhánh & kỹ thuật viên -> Chọn giờ -> Xác nhận.\n2. Có thể đổi lịch không? Quý khách có thể đổi trước giờ hẹn tối thiểu 2 tiếng qua app.';
-                    }
-                    _showInfoModal(
+                    Navigator.push(
                       context,
-                      isEn ? 'Frequently Asked Questions' : 'Câu hỏi thường gặp',
-                      faqContent,
+                      MaterialPageRoute(builder: (_) => const D12FaqScreen()),
                     );
                   },
                 ),

@@ -1673,6 +1673,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                             style: AppTypography.zaloFont(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w700,
+                              color: AppColors.accent,
                             ),
                           ),
                           style: ElevatedButton.styleFrom(

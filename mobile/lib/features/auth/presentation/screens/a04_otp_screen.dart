@@ -364,11 +364,13 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
             final refreshToken = session?['refresh_token'];
             final user = res.data['user'];
 
+            final fallbackRole = (user?['role'] ?? user?['app_metadata']?['role'])?.toString();
             await AuthService.instance.saveSession(
               accessToken: accessToken,
               refreshToken: refreshToken,
               phone: widget.phoneNumber,
               userId: user?['id'],
+              role: fallbackRole,
             );
             await AuthService.instance.saveLastLogin(
               phone: widget.phoneNumber,
@@ -378,6 +380,9 @@ class _A04OtpScreenState extends State<A04OtpScreen> {
               fullName: (user?['full_name'] ?? user?['fullName']) as String? ?? '',
               phone: widget.phoneNumber,
             );
+            if (AuthService.instance.currentRole == null) {
+              await MembershipRepository.instance.fetchProfile();
+            }
           } catch (fbErr) {
             // Re-throw để hiển thị thông báo lỗi chính xác
             rethrow;

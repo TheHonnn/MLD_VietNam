@@ -130,12 +130,15 @@ class ApiClient {
                   if (refreshResponse.statusCode == 200 && refreshResponse.data != null) {
                     final newAccessToken = refreshResponse.data['accessToken'] as String?;
                     final newRefreshToken = refreshResponse.data['refreshToken'] as String?;
+                    final refreshedRole = (refreshResponse.data['role'] ??
+                            refreshResponse.data['user']?['role'])
+                        ?.toString();
 
                     if (newAccessToken != null && newAccessToken.isNotEmpty) {
-                      // Lưu token mới đã rotate
                       await AuthService.instance.refreshSession(
                         newAccessToken: newAccessToken,
                         newRefreshToken: newRefreshToken,
+                        role: refreshedRole,
                       );
 
                       // Cập nhật header Authorization cho request ban đầu bị lỗi và retry

@@ -179,7 +179,10 @@ Future<bool> showEditStudentCodeDialog({
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
-                : Text('Lưu mã HV', style: AppTypography.zaloFont(fontWeight: FontWeight.w700)),
+                : Text(
+                    'Lưu mã HV',
+                    style: AppTypography.zaloFont(fontWeight: FontWeight.w700, color: Colors.white),
+                  ),
           ),
         ],
       ),

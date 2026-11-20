@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -48,6 +49,7 @@ class AuthService {
   String? _cachedDisplayName;
   String? _cachedAvatarUrl;
   String? _cachedRole;
+  List<String> _cachedPermissions = const [];
   bool _hasCompletedOnboarding = false;
 
   final List<VoidCallback> _onLogoutCallbacks = [];
@@ -63,11 +65,11 @@ class AuthService {
     _onLogoutCallbacks.remove(callback);
   }
 
-  /// Reactive notifier for authentication status changes
   final ValueNotifier<bool> isLoggedInNotifier = ValueNotifier<bool>(false);
 
-  /// Reactive notifier for phone number updates
   final ValueNotifier<String?> phoneNotifier = ValueNotifier<String?>(null);
+
+  final ValueNotifier<String?> roleNotifier = ValueNotifier<String?>(null);
 
   bool get isLoggedIn => isLoggedInNotifier.value;
   bool get isAuthenticated => isLoggedIn;
@@ -79,9 +81,40 @@ class AuthService {
   String? get currentAvatarUrl => _cachedAvatarUrl;
   String? get currentUserId => _cachedUserId;
   String? get currentRole => _cachedRole;
+  List<String> get currentPermissions => _cachedPermissions;
   bool get isAdmin => _cachedRole == 'ADMIN' || _cachedRole == 'SUPER_ADMIN';
   bool get isReceptionist => _cachedRole == 'RECEPTIONIST';
-  bool get isStaff => isAdmin || isReceptionist || _cachedRole == 'BRANCH_MANAGER' || _cachedRole == 'CASHIER';
+  bool get isStaff =>
+      isAdmin ||
+      isReceptionist ||
+      _cachedRole == 'BRANCH_MANAGER' ||
+      _cachedRole == 'CASHIER' ||
+      _cachedPermissions.isNotEmpty;
+
+  bool hasPermission(String permissionCode) {
+    if (isAdmin) return true;
+    return _cachedPermissions.contains(permissionCode);
+  }
+
+  String? _normalizeRole(String? role) {
+    if (role == null) return null;
+    final clean = role.trim().toUpperCase();
+    return clean.isNotEmpty ? clean : null;
+  }
+
+  String? _extractRoleFromJwt(String? token) {
+    if (token == null || token.isEmpty) return null;
+    try {
+      final parts = token.split('.');
+      if (parts.length < 2) return null;
+      final normalized = base64Url.normalize(parts[1]);
+      final decoded = jsonDecode(utf8.decode(base64Url.decode(normalized)));
+      if (decoded is Map) {
+        return _normalizeRole(decoded['role']?.toString());
+      }
+    } catch (_) {}
+    return null;
+  }
   String? get lastLoginPhone => _prefs?.getString(_keyLastLoginPhone);
   String? get lastLoginEmail => _prefs?.getString(_keyLastLoginEmail);
   String? get lastLoginMethod => _prefs?.getString(_keyLastLoginMethod);
@@ -116,7 +149,8 @@ class AuthService {
     _hasCompletedOnboarding = _prefs?.getBool(_keyCompletedOnboarding) ?? false;
     _cachedDisplayName = _prefs?.getString(_keyDisplayName);
     _cachedAvatarUrl = _prefs?.getString(_keyAvatarUrl);
-    _cachedRole = _prefs?.getString(_keyUserRole);
+    _cachedRole = _normalizeRole(_prefs?.getString(_keyUserRole));
+    _cachedPermissions = const [];
 
     try {
       _cachedAccessToken = await _secureStorage.read(key: _keyAccessToken);
@@ -128,12 +162,13 @@ class AuthService {
       _cachedAccessToken = null;
     }
 
-    // Hybrid fallback from SharedPreferences if secure storage is null/empty
     _cachedAccessToken ??= _prefs?.getString(_keyCachedToken);
     _cachedRefreshToken ??= _prefs?.getString(_keyCachedRefreshToken);
     _cachedUserId ??= _prefs?.getString(_keyCachedUserId);
     _cachedPhone ??= _prefs?.getString(_keyCachedPhone);
 
+    _cachedRole ??= _extractRoleFromJwt(_cachedAccessToken);
+    roleNotifier.value = _cachedRole;
     phoneNotifier.value = _cachedPhone;
 
     final hasToken = _cachedAccessToken != null && _cachedAccessToken!.isNotEmpty;
@@ -202,9 +237,10 @@ class AuthService {
     }
     _cachedDisplayName = (displayName != null && displayName.isNotEmpty) ? displayName : null;
     _cachedAvatarUrl = (avatarUrl != null && avatarUrl.isNotEmpty) ? avatarUrl : null;
-    if (role != null && role.isNotEmpty) {
-      _cachedRole = role.toUpperCase();
-    }
+    _cachedPermissions = const [];
+    final resolvedRole = _normalizeRole(role) ?? _extractRoleFromJwt(accessToken);
+    _cachedRole = resolvedRole;
+    roleNotifier.value = _cachedRole;
 
     try {
       await _secureStorage.write(key: _keyAccessToken, value: accessToken);
@@ -295,10 +331,17 @@ class AuthService {
     String? displayName,
     String? avatarUrl,
     String? role,
+    List<String>? permissions,
   }) async {
-    if (role != null && role.trim().isNotEmpty) {
-      _cachedRole = role.trim().toUpperCase();
-      await _prefs?.setString(_keyUserRole, _cachedRole!);
+    final normalizedRole = _normalizeRole(role);
+    if (normalizedRole != null) {
+      _cachedRole = normalizedRole;
+      await _prefs?.setString(_keyUserRole, normalizedRole);
+      roleNotifier.value = _cachedRole;
+    }
+    if (permissions != null) {
+      _cachedPermissions = List.unmodifiable(permissions);
+      roleNotifier.value = _cachedRole;
     }
     if (displayName != null) {
       final cleanName = displayName.trim();
@@ -328,6 +371,7 @@ class AuthService {
   Future<void> refreshSession({
     required String newAccessToken,
     String? newRefreshToken,
+    String? role,
   }) async {
     _cachedAccessToken = newAccessToken;
     try {
@@ -336,6 +380,13 @@ class AuthService {
       debugPrint('Error writing new access token to secure storage: $e');
     }
     await _prefs?.setString(_keyCachedToken, newAccessToken);
+
+    final resolvedRole = _normalizeRole(role) ?? _extractRoleFromJwt(newAccessToken);
+    if (resolvedRole != null) {
+      _cachedRole = resolvedRole;
+      await _prefs?.setString(_keyUserRole, resolvedRole);
+      roleNotifier.value = resolvedRole;
+    }
 
     if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
       _cachedRefreshToken = newRefreshToken;
@@ -372,7 +423,9 @@ class AuthService {
     _cachedDisplayName = null;
     _cachedAvatarUrl = null;
     _cachedRole = null;
+    _cachedPermissions = const [];
     phoneNotifier.value = null;
+    roleNotifier.value = null;
 
     try {
       await _secureStorage.delete(key: _keyAccessToken);
