@@ -8,6 +8,7 @@ import '../../../../core/motion/app_page_transitions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/launcher_helper.dart';
 import '../../../../core/services/portal_settings_service.dart';
+import '../../../../core/widgets/dual_filter_bar.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
 import '../../../booking/presentation/screens/c09_my_appointments_screen.dart';
@@ -1052,143 +1053,55 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
 
     return Column(
       children: [
-        // 1. Hai nút bộ lọc [ Dịch vụ ▼ ] và [ Cơ sở ▼ ] thiết kế chuẩn như bên Đào tạo
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Row(
-            children: [
-              // Nút 1: Lọc Dịch vụ / Gói
-              Expanded(
-                child: _buildAcademyStyleFilterButton(
-                  label: _selectedTherapyCategory == 'Tất cả'
-                      ? context.tr('Dịch vụ & Gói', 'Services & Packages')
-                      : _selectedTherapyCategory,
-                  isExpanded: _expandedFilter == ServiceFilterExpanded.service,
-                  isSelected: _selectedTherapyCategory != 'Tất cả',
-                  onTap: () {
-                    setState(() {
-                      _expandedFilter = _expandedFilter == ServiceFilterExpanded.service
-                          ? null
-                          : ServiceFilterExpanded.service;
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 10),
-
-              // Nút 2: Lọc Cơ sở / Chi nhánh
-              Expanded(
-                child: _buildAcademyStyleFilterButton(
-                  label: _selectedBranch == 'Tất cả cơ sở' || _selectedBranch == 'Tất cả'
-                      ? context.tr('Cơ sở', 'Branch')
-                      : _selectedBranch,
-                  isExpanded: _expandedFilter == ServiceFilterExpanded.branch,
-                  isSelected: _selectedBranch != 'Tất cả cơ sở' && _selectedBranch != 'Tất cả',
-                  onTap: () {
-                    setState(() {
-                      _expandedFilter = _expandedFilter == ServiceFilterExpanded.branch
-                          ? null
-                          : ServiceFilterExpanded.branch;
-                    });
-                  },
-                ),
-              ),
-            ],
+        DualFilterBar(
+          leftLabel: _selectedTherapyCategory == 'Tất cả'
+              ? context.tr('Dịch vụ & Gói', 'Services & Packages')
+              : _selectedTherapyCategory,
+          rightLabel: _selectedBranch == 'Tất cả cơ sở' || _selectedBranch == 'Tất cả'
+              ? context.tr('Cơ sở', 'Branch')
+              : _selectedBranch,
+          isLeftSelected: _selectedTherapyCategory != 'Tất cả',
+          isRightSelected: _selectedBranch != 'Tất cả cơ sở' && _selectedBranch != 'Tất cả',
+          expandedSide: _expandedFilter == ServiceFilterExpanded.service
+              ? DualFilterSide.left
+              : (_expandedFilter == ServiceFilterExpanded.branch ? DualFilterSide.right : null),
+          leftPanelTitle: context.tr(
+            'Chọn phân loại dịch vụ / gói liệu trình:',
+            'Select service or package category:',
           ),
-        ),
-
-        // 2. Khung sổ xuống các tùy chọn (Accordion mở rộng như bên Đào tạo)
-        AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          child: _expandedFilter == null
-              ? const SizedBox.shrink()
-              : Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF8FAFC),
-                    border: Border(
-                      bottom: BorderSide(color: AppColors.border),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _expandedFilter == ServiceFilterExpanded.service
-                            ? context.tr('Chọn phân loại dịch vụ / gói liệu trình:', 'Select service or package category:')
-                            : context.tr('Chọn cơ sở chi nhánh phục vụ:', 'Select branch clinic:'),
-                        style: AppTypography.zaloFont(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _expandedFilter == ServiceFilterExpanded.service
-                            ? _therapyCategories.map((cat) {
-                                final isSel = _selectedTherapyCategory == cat;
-                                return ChoiceChip(
-                                  label: Text(cat),
-                                  selected: isSel,
-                                  selectedColor: AppColors.primary,
-                                  backgroundColor: Colors.white,
-                                  labelStyle: AppTypography.zaloFont(
-                                    fontSize: 12,
-                                    fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                                    color: isSel ? Colors.white : AppColors.textPrimary,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    side: BorderSide(
-                                      color: isSel ? AppColors.primary : const Color(0xFFCBD5E1),
-                                    ),
-                                  ),
-                                  onSelected: (_) {
-                                    setState(() {
-                                      _selectedTherapyCategory = cat;
-                                      _currentTherapyPage = 1;
-                                      _expandedFilter = null;
-                                    });
-                                  },
-                                );
-                              }).toList()
-                            : ['Tất cả cơ sở', ..._branches.map((b) => b.name)].map((br) {
-                                final isSel = _selectedBranch == br;
-                                return ChoiceChip(
-                                  label: Text(br),
-                                  selected: isSel,
-                                  selectedColor: AppColors.primary,
-                                  backgroundColor: Colors.white,
-                                  labelStyle: AppTypography.zaloFont(
-                                    fontSize: 12,
-                                    fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                                    color: isSel ? Colors.white : AppColors.textPrimary,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    side: BorderSide(
-                                      color: isSel ? AppColors.primary : const Color(0xFFCBD5E1),
-                                    ),
-                                  ),
-                                  onSelected: (_) {
-                                    setState(() {
-                                      _selectedBranch = br;
-                                      _currentTherapyPage = 1;
-                                      _expandedFilter = null;
-                                    });
-                                  },
-                                );
-                              }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
+          rightPanelTitle: context.tr('Chọn cơ sở chi nhánh phục vụ:', 'Select branch clinic:'),
+          leftOptions: _therapyCategories,
+          rightOptions: ['Tất cả cơ sở', ..._branches.map((b) => b.name)],
+          selectedLeftValue: _selectedTherapyCategory,
+          selectedRightValue: _selectedBranch,
+          onToggleLeft: () {
+            setState(() {
+              _expandedFilter = _expandedFilter == ServiceFilterExpanded.service
+                  ? null
+                  : ServiceFilterExpanded.service;
+            });
+          },
+          onToggleRight: () {
+            setState(() {
+              _expandedFilter = _expandedFilter == ServiceFilterExpanded.branch
+                  ? null
+                  : ServiceFilterExpanded.branch;
+            });
+          },
+          onSelectLeft: (cat) {
+            setState(() {
+              _selectedTherapyCategory = cat;
+              _currentTherapyPage = 1;
+              _expandedFilter = null;
+            });
+          },
+          onSelectRight: (br) {
+            setState(() {
+              _selectedBranch = br;
+              _currentTherapyPage = 1;
+              _expandedFilter = null;
+            });
+          },
         ),
 
         const Divider(height: 1, color: Color(0xFFE2E8F0)),
@@ -1693,59 +1606,6 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAcademyStyleFilterButton({
-    required String label,
-    required bool isExpanded,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: isExpanded ? const Color(0xFFEFF6FF) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.zaloFont(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: isExpanded || isSelected
-                      ? AppColors.primary
-                      : AppColors.textPrimary,
-                ),
-              ),
-            ),
-            Icon(
-              isExpanded
-                  ? Icons.keyboard_arrow_up_rounded
-                  : Icons.keyboard_arrow_down_rounded,
-              size: 20,
-              color: isExpanded || isSelected
-                  ? AppColors.primary
-                  : AppColors.textSecondary,
-            ),
-          ],
         ),
       ),
     );

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/dual_filter_bar.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../../core/widgets/smart_image.dart';
 import '../../../../core/services/auth_service.dart';
@@ -105,6 +106,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
 
   // Tab tìm kiếm (0: Khóa học, 1: Dịch vụ & cơ sở)
   int _searchTabIndex = 0;
+  DualFilterSide? _expandedHomeFilter;
 
   final TextEditingController _courseSearchController = TextEditingController();
   List<String> get _audienceCategories => PortalSettingsService.instance.audienceFilterList;
@@ -1415,7 +1417,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
             children: [
               Expanded(
                 child: InkWell(
-                  onTap: () => setState(() => _searchTabIndex = 0),
+                  onTap: () => setState(() {
+                    _searchTabIndex = 0;
+                    _expandedHomeFilter = null;
+                  }),
                   borderRadius: BorderRadius.circular(22),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1447,7 +1452,10 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
               ),
               Expanded(
                 child: InkWell(
-                  onTap: () => setState(() => _searchTabIndex = 1),
+                  onTap: () => setState(() {
+                    _searchTabIndex = 1;
+                    _expandedHomeFilter = null;
+                  }),
                   borderRadius: BorderRadius.circular(22),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1523,143 +1531,67 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
           ),
         ),
 
-        // Hộp lọc kép dạng Pill chia đôi thanh lịch - BỎ VIỀN, NỔI BẬT KHỐI BẰNG BÓNG MỜ MỎNG
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Segment 1 (Bên trái: Nhu cầu / Dịch vụ)
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppColors.iceBlue,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        _searchTabIndex == 0 ? Icons.assignment_outlined : Icons.spa_outlined,
-                        size: 18,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _searchTabIndex == 0 ? 'Nhu cầu' : 'Dịch vụ',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                          ),
-                          DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _searchTabIndex == 0 ? _selectedNeed : _selectedServiceCategory,
-                              isDense: true,
-                              isExpanded: true,
-                              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF64748B)),
-                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
-                              items: (_searchTabIndex == 0 ? _needCategories : _serviceCategories)
-                                  .map((val) => DropdownMenuItem(value: val, child: Text(val, overflow: TextOverflow.ellipsis)))
-                                  .toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() {
-                                    if (_searchTabIndex == 0) {
-                                      _selectedNeed = val;
-                                    } else {
-                                      _selectedServiceCategory = val;
-                                    }
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Vạch ngăn cách dọc
-              Container(
-                width: 1,
-                height: 32,
-                margin: const EdgeInsets.symmetric(horizontal: 10),
-                color: const Color(0xFFE2E8F0),
-              ),
-              // Segment 2 (Bên phải: Đối tượng / Cơ sở)
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppColors.iceBlue,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        _searchTabIndex == 0 ? Icons.people_outline_rounded : Icons.location_on_outlined,
-                        size: 18,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _searchTabIndex == 0 ? 'Đối tượng' : 'Cơ sở',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                          ),
-                          DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _searchTabIndex == 0
-                                  ? (_audienceCategories.contains(_selectedAudience) ? _selectedAudience : _audienceCategories.first)
-                                  : (branchOptions.contains(_selectedBranchFilter) ? _selectedBranchFilter : branchOptions.first),
-                              isDense: true,
-                              isExpanded: true,
-                              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF64748B)),
-                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
-                              items: (_searchTabIndex == 0 ? _audienceCategories : branchOptions)
-                                  .map((val) => DropdownMenuItem(value: val, child: Text(val, overflow: TextOverflow.ellipsis)))
-                                  .toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() {
-                                    if (_searchTabIndex == 0) {
-                                      _selectedAudience = val;
-                                    } else {
-                                      _selectedBranchFilter = val;
-                                    }
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        DualFilterBar(
+          leftLabel: _searchTabIndex == 0
+              ? (_selectedNeed == 'Tất cả nhu cầu' ? 'Nhu cầu' : _selectedNeed)
+              : (_selectedServiceCategory == 'Tất cả dịch vụ'
+                  ? 'Dịch vụ & Gói'
+                  : _selectedServiceCategory),
+          rightLabel: _searchTabIndex == 0
+              ? (_selectedAudience == 'Tất cả đối tượng' ? 'Đối tượng' : _selectedAudience)
+              : (_selectedBranchFilter == 'Tất cả cơ sở' ? 'Cơ sở' : _selectedBranchFilter),
+          isLeftSelected: _searchTabIndex == 0
+              ? _selectedNeed != 'Tất cả nhu cầu'
+              : _selectedServiceCategory != 'Tất cả dịch vụ',
+          isRightSelected: _searchTabIndex == 0
+              ? _selectedAudience != 'Tất cả đối tượng'
+              : _selectedBranchFilter != 'Tất cả cơ sở',
+          expandedSide: _expandedHomeFilter,
+          leftPanelTitle: _searchTabIndex == 0
+              ? 'Chọn nhu cầu học tập:'
+              : 'Chọn phân loại dịch vụ / gói liệu trình:',
+          rightPanelTitle: _searchTabIndex == 0
+              ? 'Chọn đối tượng đào tạo:'
+              : 'Chọn cơ sở chi nhánh phục vụ:',
+          leftOptions: _searchTabIndex == 0 ? _needCategories : _serviceCategories,
+          rightOptions: _searchTabIndex == 0 ? _audienceCategories : branchOptions,
+          selectedLeftValue: _searchTabIndex == 0 ? _selectedNeed : _selectedServiceCategory,
+          selectedRightValue: _searchTabIndex == 0 ? _selectedAudience : _selectedBranchFilter,
+          buttonRowPadding: EdgeInsets.zero,
+          buttonRowBackgroundColor: Colors.transparent,
+          panelBorderRadius: BorderRadius.circular(14),
+          onToggleLeft: () {
+            setState(() {
+              _expandedHomeFilter =
+                  _expandedHomeFilter == DualFilterSide.left ? null : DualFilterSide.left;
+            });
+          },
+          onToggleRight: () {
+            setState(() {
+              _expandedHomeFilter =
+                  _expandedHomeFilter == DualFilterSide.right ? null : DualFilterSide.right;
+            });
+          },
+          onSelectLeft: (val) {
+            setState(() {
+              if (_searchTabIndex == 0) {
+                _selectedNeed = val;
+              } else {
+                _selectedServiceCategory = val;
+              }
+              _expandedHomeFilter = null;
+            });
+          },
+          onSelectRight: (val) {
+            setState(() {
+              if (_searchTabIndex == 0) {
+                _selectedAudience = val;
+              } else {
+                _selectedBranchFilter = val;
+              }
+              _expandedHomeFilter = null;
+            });
+          },
         ),
       ],
     );
