@@ -80,8 +80,9 @@ export function MainLayout(){
       receive(0,apiClient.getServices(),'services',setServices),
       receive(1,apiClient.getBranches(),'branches',items=>{setBranches(items);setBranchId(id=>items.some((item:Branch)=>item.id===id)?id:items[0]?.id||'');}),
       receive(2,apiClient.getDoctors(),'doctors',setDoctors),receive(3,apiClient.getCourses(),'courses',setCourses),
-      receive(4,apiClient.getPortalBanners(),'banners',setBanners),receive(5,apiClient.getAppMetadata(),'',setMetadata),receive(6,apiClient.getPortalSettings(),'',setPortalSettings),
+      receive(4,apiClient.getPortalBanners(),'banners',setBanners),receive(5,apiClient.getAppMetadata(),'',setMetadata),
     ]).finally(()=>{if(current)setLoading(false);});
+    void apiClient.getPortalSettings().then(data=>{if(current&&data&&!data.error)setPortalSettings(data);});
     return()=>{current=false;};
   },[revision,user?.id,user?.role]);
   useEffect(()=>{
