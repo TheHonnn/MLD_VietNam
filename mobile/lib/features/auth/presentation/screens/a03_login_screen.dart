@@ -340,40 +340,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                 ),
                               ),
                             ),
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: TextButton(
-                                    onPressed: () {
-                                      if (Navigator.canPop(context)) {
-                                        Navigator.pop(context);
-                                      } else {
-                                        Navigator.pushReplacement(
-                                          context,
-                                          MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
-                                        );
-                                      }
-                                    },
-                                    style: TextButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                                      minimumSize: Size.zero,
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    child: Text(
-                                      'Khám phá ngay',
-                                      maxLines: 1,
-                                      style: GoogleFonts.beVietnamPro(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: primaryNavy,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                            const Expanded(child: SizedBox.shrink()),
                           ],
                         ),
 
