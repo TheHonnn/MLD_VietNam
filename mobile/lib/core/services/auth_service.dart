@@ -59,6 +59,10 @@ class AuthService {
     }
   }
 
+  void removeOnLogoutListener(VoidCallback callback) {
+    _onLogoutCallbacks.remove(callback);
+  }
+
   /// Reactive notifier for authentication status changes
   final ValueNotifier<bool> isLoggedInNotifier = ValueNotifier<bool>(false);
 
@@ -176,6 +180,19 @@ class AuthService {
     String? avatarUrl,
     String? role,
   }) async {
+    if (_cachedUserId != null &&
+        _cachedUserId!.isNotEmpty &&
+        userId != null &&
+        userId.isNotEmpty &&
+        _cachedUserId != userId) {
+      for (final cb in _onLogoutCallbacks) {
+        try {
+          cb();
+        } catch (e) {
+          debugPrint('Error in account switch reset callback: $e');
+        }
+      }
+    }
     _cachedAccessToken = accessToken;
     if (refreshToken != null) _cachedRefreshToken = refreshToken;
     if (userId != null) _cachedUserId = userId;
@@ -277,7 +294,12 @@ class AuthService {
   Future<void> updateProfile({
     String? displayName,
     String? avatarUrl,
+    String? role,
   }) async {
+    if (role != null && role.trim().isNotEmpty) {
+      _cachedRole = role.trim().toUpperCase();
+      await _prefs?.setString(_keyUserRole, _cachedRole!);
+    }
     if (displayName != null) {
       final cleanName = displayName.trim();
       _cachedDisplayName = cleanName.isNotEmpty ? cleanName : null;
@@ -392,7 +414,7 @@ class AuthService {
       try {
         cb();
       } catch (e) {
-        debugPrint('Error in onLogout callback: ');
+        debugPrint('Error in onLogout callback: $e');
       }
     }
   }
@@ -405,11 +427,22 @@ class AuthService {
       if (token != null && token.isNotEmpty) {
         await ApiClient.instance.delete(ApiEndpoints.authDeleteAccount);
       }
+    } on ApiException catch (e) {
+      debugPrint('Error deleting account on backend: $e');
+      if (e.statusCode != 401 && e.statusCode != 404) {
+        return false;
+      }
+    } on DioException catch (e) {
+      debugPrint('Error deleting account on backend: $e');
+      final code = e.response?.statusCode;
+      if (code != 401 && code != 404) {
+        return false;
+      }
     } catch (e) {
       debugPrint('Error deleting account on backend: $e');
+      return false;
     }
 
-    // Luôn dọn dẹp sạch sẽ toàn bộ local state và secure storage
     await logout();
 
     if (_prefs != null) {
@@ -446,7 +479,7 @@ class AuthService {
         },
         options: Options(
           headers: {
-            'Authorization': 'Bearer ',
+            'Authorization': 'Bearer $token',
           },
         ),
       );

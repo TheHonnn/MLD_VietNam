@@ -14,6 +14,7 @@ class AdminRepository {
   factory AdminRepository() => instance;
 
   final ApiClient _apiClient = ApiClient.instance;
+  String? lastBookingActionError;
 
   // Cache danh sách chi nhánh
   List<AdminBranchModel> _branches = [];
@@ -325,57 +326,301 @@ class AdminRepository {
     }
   }
 
-  /// 4.1. Duyệt lịch hẹn (PENDING -> CONFIRMED)
-  Future<bool> approveBooking(String bookingId) async {
+  String _extractDioErrorMessage(Object error, String fallback) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map) {
+        final msg = data['message'];
+        if (msg is List && msg.isNotEmpty) {
+          return msg.first.toString();
+        }
+        if (msg != null && msg.toString().trim().isNotEmpty) {
+          return msg.toString().trim();
+        }
+      }
+    }
+    return fallback;
+  }
+
+  bool _shouldFallbackToSupabase(DioException error) {
+    final code = error.response?.statusCode;
+    if (code == 404 || code == 502 || code == 503) {
+      return true;
+    }
+    return error.type == DioExceptionType.connectionError ||
+        error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.sendTimeout;
+  }
+
+  Future<({bool handled, bool success})> _postBookingAction(
+    String bookingId,
+    String action, {
+    Map<String, dynamic>? extra,
+  }) async {
+    lastBookingActionError = null;
     try {
+      final res = await _apiClient.dio.post(
+        '/admin/bookings/action',
+        data: {
+          'key': {'id': bookingId},
+          'action': action,
+          ...?extra,
+        },
+      );
+      final ok = res.statusCode == 200 || res.statusCode == 201;
+      return (handled: true, success: ok);
+    } on DioException catch (e) {
+      if (_shouldFallbackToSupabase(e)) {
+        return (handled: false, success: false);
+      }
+      lastBookingActionError = _extractDioErrorMessage(
+        e,
+        'Không thể thực hiện thao tác ($action). Vui lòng thử lại.',
+      );
+      return (handled: true, success: false);
+    } catch (e) {
+      lastBookingActionError = 'Lỗi kết nối: $e';
+      return (handled: true, success: false);
+    }
+  }
+
+  Future<Map<String, dynamic>?> _fetchSingleBookingSnapshot(String bookingId) async {
+    final res = await _apiClient.dio.get(
+      '/rest/v1/bookings?id=eq.$bookingId&select=id,customer_id,technician_id,assigned_room_id,booking_date,start_time,end_time,status,session_status,payment_status,payment_method,final_price,special_notes&limit=1',
+    );
+    if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
+      return Map<String, dynamic>.from((res.data as List).first as Map);
+    }
+    return null;
+  }
+
+  Future<bool> approveBooking(String bookingId) async {
+    final backend = await _postBookingAction(bookingId, 'confirm');
+    if (backend.handled) return backend.success;
+    try {
+      final current = await _fetchSingleBookingSnapshot(bookingId);
+      if (current != null && (current['status']?.toString().toUpperCase() ?? '') != 'PENDING') {
+        lastBookingActionError = 'Chỉ xác nhận lịch đang chờ xử lý.';
+        return false;
+      }
       final res = await _apiClient.dio.patch(
         '/rest/v1/bookings?id=eq.$bookingId',
         data: {'status': 'CONFIRMED'},
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
-      debugPrint('[AdminRepository] approveBooking error: $e');
+      lastBookingActionError = _extractDioErrorMessage(e, 'Không thể duyệt lịch.');
       return false;
     }
   }
 
-  /// 4.2. Tiếp đón khách Check-in (CONFIRMED -> CHECKED_IN)
-  Future<bool> checkInBooking(String bookingId) async {
+  Future<bool> checkInBooking(String bookingId, {String? userPackageId}) async {
+    String? resolvedPackageId = userPackageId;
+    Map<String, dynamic>? current;
+    if (resolvedPackageId == null || resolvedPackageId.isEmpty) {
+      try {
+        current = await _fetchSingleBookingSnapshot(bookingId);
+        resolvedPackageId = extractUserPackageId(current?['special_notes']?.toString());
+      } catch (_) {}
+    }
+
+    final backend = await _postBookingAction(
+      bookingId,
+      'checkin',
+      extra: {
+        if (resolvedPackageId != null && resolvedPackageId.isNotEmpty)
+          'userPackageId': resolvedPackageId,
+      },
+    );
+    if (backend.handled) return backend.success;
+
     try {
+      current ??= await _fetchSingleBookingSnapshot(bookingId);
+      final currentStatus = current?['status']?.toString().toUpperCase() ?? '';
+      if (current != null && currentStatus != 'CONFIRMED') {
+        lastBookingActionError = 'Chỉ check-in lịch đã được xác nhận.';
+        return false;
+      }
+      final paymentMethod = current?['payment_method']?.toString().toUpperCase() ?? '';
+      final finalPrice = double.tryParse(current?['final_price']?.toString() ?? '') ?? 0;
+      final shouldMarkPackagePaid =
+          paymentMethod == 'MEMBERSHIP_WALLET' && finalPrice == 0 && resolvedPackageId != null;
       final res = await _apiClient.dio.patch(
         '/rest/v1/bookings?id=eq.$bookingId',
         data: {
           'status': 'CHECKED_IN',
           'checked_in_at': DateTime.now().toIso8601String(),
+          if (shouldMarkPackagePaid) 'payment_status': 'PAID',
         },
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
-      debugPrint('[AdminRepository] checkInBooking error: $e');
+      lastBookingActionError = _extractDioErrorMessage(e, 'Lỗi tiếp đón Check-in.');
       return false;
     }
   }
 
-  /// 4.3. Bắt đầu dịch vụ (CHECKED_IN -> IN_SERVICE)
   Future<bool> startServiceBooking(String bookingId) async {
+    final backend = await _postBookingAction(bookingId, 'start-service');
+    if (backend.handled) return backend.success;
     try {
+      final current = await _fetchSingleBookingSnapshot(bookingId);
+      final currentStatus = current?['status']?.toString().toUpperCase() ?? '';
+      if (current != null && currentStatus != 'CHECKED_IN') {
+        lastBookingActionError = currentStatus == 'PENDING'
+            ? 'Cần xác nhận lịch hẹn trước khi check-in và phục vụ.'
+            : 'Khách chưa check-in tại quầy. Vui lòng Check-in trước khi bắt đầu phục vụ.';
+        return false;
+      }
       final res = await _apiClient.dio.patch(
         '/rest/v1/bookings?id=eq.$bookingId',
         data: {
           'status': 'IN_SERVICE',
+          'session_status': 'IN_SERVICE',
           'service_started_at': DateTime.now().toIso8601String(),
         },
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
-      debugPrint('[AdminRepository] startServiceBooking error: $e');
+      lastBookingActionError = _extractDioErrorMessage(e, 'Lỗi bắt đầu dịch vụ.');
       return false;
     }
   }
 
-  /// 4.4. Hoàn thành dịch vụ Check-out (IN_SERVICE -> COMPLETED)
-  Future<bool> checkOutBooking(String bookingId) async {
+  Future<bool> completeClinicalSession({
+    required String bookingId,
+    String? userPackageId,
+    String conditionBefore = '',
+    String conditionAfter = '',
+    String treatmentNotes = '',
+    String homeCareInstructions = '',
+    bool hasAbnormalReaction = false,
+    String adverseReactions = '',
+  }) async {
+    lastBookingActionError = null;
+    String? resolvedPackageId = userPackageId;
+    Map<String, dynamic>? current;
+
+    if (resolvedPackageId == null || resolvedPackageId.isEmpty) {
+      try {
+        current = await _fetchSingleBookingSnapshot(bookingId);
+        resolvedPackageId = extractUserPackageId(current?['special_notes']?.toString());
+      } catch (_) {}
+    }
+
+    if (resolvedPackageId != null && resolvedPackageId.isNotEmpty) {
+      try {
+        final res = await _apiClient.dio.post(
+          '/admin/treatment/packages/$resolvedPackageId/complete-session',
+          data: {
+            'bookingId': bookingId,
+            'condition_before': conditionBefore.trim(),
+            'condition_after': conditionAfter.trim(),
+            'treatment_notes': treatmentNotes.trim(),
+            if (homeCareInstructions.trim().isNotEmpty)
+              'home_care_instructions': homeCareInstructions.trim(),
+            'has_abnormal_reaction': hasAbnormalReaction,
+            if (adverseReactions.trim().isNotEmpty)
+              'adverse_reactions': adverseReactions.trim(),
+          },
+        );
+        return res.statusCode == 200 || res.statusCode == 201;
+      } on DioException catch (e) {
+        if (!_shouldFallbackToSupabase(e)) {
+          lastBookingActionError = _extractDioErrorMessage(
+            e,
+            'Không thể hoàn tất hồ sơ chuyên môn cho buổi trị liệu.',
+          );
+          return false;
+        }
+      } catch (e) {
+        lastBookingActionError = 'Lỗi kết nối: $e';
+        return false;
+      }
+
+      try {
+        current ??= await _fetchSingleBookingSnapshot(bookingId);
+        if (current != null) {
+          final st = current['status']?.toString().toUpperCase() ?? '';
+          final ss = current['session_status']?.toString().toUpperCase() ?? '';
+          if (st != 'IN_SERVICE' || ss == 'COMPLETED') {
+            lastBookingActionError = 'Chỉ xác nhận lịch đang phục vụ và chưa hoàn tất chuyên môn.';
+            return false;
+          }
+        }
+        await _syncPackageSessionOnCheckout(
+          bookingId,
+          conditionBefore: conditionBefore,
+          conditionAfter: conditionAfter,
+          treatmentNotes: treatmentNotes,
+          homeCareInstructions: homeCareInstructions,
+        );
+        final paymentMethod = current?['payment_method']?.toString().toUpperCase() ?? '';
+        final finalPrice = double.tryParse(current?['final_price']?.toString() ?? '') ?? 0;
+        final res = await _apiClient.dio.patch(
+          '/rest/v1/bookings?id=eq.$bookingId',
+          data: {
+            'session_status': 'COMPLETED',
+            if (paymentMethod == 'MEMBERSHIP_WALLET' && finalPrice == 0)
+              'payment_status': 'PAID',
+          },
+        );
+        return res.statusCode == 200 || res.statusCode == 204;
+      } catch (e) {
+        lastBookingActionError = _extractDioErrorMessage(e, 'Không thể ghi nhận buổi liệu trình.');
+        return false;
+      }
+    }
+
+    final backend = await _postBookingAction(bookingId, 'finish-service');
+    if (backend.handled) return backend.success;
+
     try {
+      current ??= await _fetchSingleBookingSnapshot(bookingId);
+      if (current != null) {
+        final st = current['status']?.toString().toUpperCase() ?? '';
+        final ss = current['session_status']?.toString().toUpperCase() ?? '';
+        if (st != 'IN_SERVICE' || ss == 'COMPLETED') {
+          lastBookingActionError = 'Ca dịch vụ không ở trạng thái có thể hoàn tất chuyên môn.';
+          return false;
+        }
+      }
+      final res = await _apiClient.dio.patch(
+        '/rest/v1/bookings?id=eq.$bookingId',
+        data: {'session_status': 'COMPLETED'},
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (e) {
+      lastBookingActionError = _extractDioErrorMessage(e, 'Không thể hoàn tất chuyên môn.');
+      return false;
+    }
+  }
+
+  Future<bool> checkOutBooking(String bookingId) async {
+    final backend = await _postBookingAction(bookingId, 'checkout');
+    if (backend.handled) {
+      if (backend.success) {
+        _autoGrantBookingCompletionVoucher(bookingId);
+      }
+      return backend.success;
+    }
+
+    try {
+      final current = await _fetchSingleBookingSnapshot(bookingId);
+      if (current != null) {
+        final st = current['status']?.toString().toUpperCase() ?? '';
+        final ss = current['session_status']?.toString().toUpperCase() ?? '';
+        final ps = current['payment_status']?.toString().toUpperCase() ?? '';
+        if (st != 'IN_SERVICE' || ss != 'COMPLETED') {
+          lastBookingActionError = 'Cần hoàn tất hồ sơ chuyên môn trước khi check-out.';
+          return false;
+        }
+        if (ps != 'PAID') {
+          lastBookingActionError = 'Cần hoàn tất thanh toán trước khi check-out.';
+          return false;
+        }
+      }
       final res = await _apiClient.dio.patch(
         '/rest/v1/bookings?id=eq.$bookingId',
         data: {
@@ -384,13 +629,12 @@ class AdminRepository {
         },
       );
       if (res.statusCode == 200 || res.statusCode == 204) {
-        // Tự động tặng voucher tri ân cho khách hàng sau khi hoàn tất dịch vụ
         _autoGrantBookingCompletionVoucher(bookingId);
         return true;
       }
       return false;
     } catch (e) {
-      debugPrint('[AdminRepository] checkOutBooking error: $e');
+      lastBookingActionError = _extractDioErrorMessage(e, 'Lỗi hoàn thành Check-out.');
       return false;
     }
   }
@@ -406,8 +650,8 @@ class AdminRepository {
       final cRes = await _apiClient.dio.get(
         '${ApiEndpoints.supabaseUrl}/rest/v1/coupons?code=eq.$couponCode&select=*',
         options: Options(headers: {
-          'apikey': ApiEndpoints.supabaseServiceRoleKey,
-          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
         }),
       );
       if (cRes.statusCode != 200 || cRes.data is! List || (cRes.data as List).isEmpty) {
@@ -420,8 +664,8 @@ class AdminRepository {
       final existRes = await _apiClient.dio.get(
         '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?user_id=eq.$userId&coupon_id=eq.$couponId&status=eq.AVAILABLE&select=id',
         options: Options(headers: {
-          'apikey': ApiEndpoints.supabaseServiceRoleKey,
-          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
         }),
       );
       if (existRes.statusCode == 200 && existRes.data is List && (existRes.data as List).isNotEmpty) {
@@ -442,8 +686,8 @@ class AdminRepository {
           'expires_at': expiresAt,
         },
         options: Options(headers: {
-          'apikey': ApiEndpoints.supabaseServiceRoleKey,
-          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           'Prefer': 'return=representation',
         }),
       );
@@ -460,8 +704,8 @@ class AdminRepository {
       final res = await _apiClient.dio.get(
         '${ApiEndpoints.supabaseUrl}/rest/v1/bookings?id=eq.$bookingId&select=user_id,customer_id',
         options: Options(headers: {
-          'apikey': ApiEndpoints.supabaseServiceRoleKey,
-          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
         }),
       );
       if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
@@ -482,8 +726,8 @@ class AdminRepository {
       final res = await _apiClient.dio.get(
         '${ApiEndpoints.supabaseUrl}/rest/v1/course_enrollments?id=eq.$candidateId&select=user_id',
         options: Options(headers: {
-          'apikey': ApiEndpoints.supabaseServiceRoleKey,
-          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
         }),
       );
       if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
@@ -498,20 +742,28 @@ class AdminRepository {
     }
   }
 
-  /// 4.5. Từ chối / Hủy lịch hẹn (PENDING/CONFIRMED -> CANCELLED)
   Future<bool> cancelBooking(String bookingId, {String? reason}) async {
+    final safeReason = (reason != null && reason.trim().isNotEmpty)
+        ? reason.trim()
+        : 'Hủy lịch hẹn bởi quản trị viên';
+    final backend = await _postBookingAction(
+      bookingId,
+      'cancel',
+      extra: {'reason': safeReason},
+    );
+    if (backend.handled) return backend.success;
     try {
       final res = await _apiClient.dio.patch(
         '/rest/v1/bookings?id=eq.$bookingId',
         data: {
           'status': 'CANCELLED',
           'cancelled_at': DateTime.now().toIso8601String(),
-          if (reason != null && reason.trim().isNotEmpty) 'cancellation_reason': reason.trim(),
+          'cancellation_reason': safeReason,
         },
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
-      debugPrint('[AdminRepository] cancelBooking error: $e');
+      lastBookingActionError = _extractDioErrorMessage(e, 'Lỗi khi hủy lịch.');
       return false;
     }
   }
@@ -520,19 +772,54 @@ class AdminRepository {
   Future<List<AdminCandidateModel>> fetchCandidates({String? statusFilter}) async {
     try {
       String query =
-          '/rest/v1/course_enrollments?select=*,courses(title),course_batches(batch_code)&order=enrolled_at.desc';
+          '/rest/v1/course_enrollments?select=*,courses(title,learning_outcomes),course_batches(batch_code,start_date,end_date)&order=enrolled_at.desc';
       final res = await _apiClient.dio.get(
         query,
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
       if (res.data is List) {
-        final all = (res.data as List)
-            .map((item) => AdminCandidateModel.fromJson(item as Map<String, dynamic>))
+        final rawRows = (res.data as List)
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+        final studentIds = rawRows
+            .map((r) => r['student_id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toSet()
+            .toList();
+        final Map<String, Map<String, dynamic>> userMap = {};
+        if (studentIds.isNotEmpty) {
+          try {
+            final userRes = await _apiClient.dio.get(
+              '/rest/v1/users?id=in.(${studentIds.join(',')})&select=id,student_code,role',
+              options: Options(
+                headers: {
+                  'apikey': ApiEndpoints.supabaseAnonKey,
+                  'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
+                },
+              ),
+            );
+            if (userRes.data is List) {
+              for (final u in (userRes.data as List)) {
+                if (u is Map && u['id'] != null) {
+                  userMap[u['id'].toString()] = Map<String, dynamic>.from(u);
+                }
+              }
+            }
+          } catch (_) {}
+        }
+        for (final row in rawRows) {
+          final sid = row['student_id']?.toString() ?? '';
+          if (sid.isNotEmpty && userMap.containsKey(sid)) {
+            row['users'] = userMap[sid];
+          }
+        }
+        final all = rawRows
+            .map((item) => AdminCandidateModel.fromJson(item))
             .toList();
 
         if (statusFilter != null && statusFilter.isNotEmpty && statusFilter != 'ALL') {
@@ -544,6 +831,59 @@ class AdminRepository {
     } catch (e) {
       debugPrint('[AdminRepository] fetchCandidates error: $e');
       return [];
+    }
+  }
+
+  Future<String?> updateCandidateStudentCode({
+    required String studentId,
+    required String studentCode,
+    String? currentRole,
+  }) async {
+    final trimmed = studentCode.trim();
+    if (trimmed.isNotEmpty && !RegExp(r'^[A-Za-z0-9_-]{2,50}$').hasMatch(trimmed)) {
+      return 'Mã học viên chỉ gồm chữ, số, "-" hoặc "_" (2–50 ký tự).';
+    }
+    final nextCode = trimmed.isNotEmpty ? trimmed : null;
+    try {
+      if (nextCode != null) {
+        final dupRes = await _apiClient.dio.get(
+          '/rest/v1/users?select=id&student_code=ilike.${Uri.encodeComponent(nextCode)}&id=neq.$studentId&limit=1',
+          options: Options(
+            headers: {
+              'apikey': ApiEndpoints.supabaseAnonKey,
+              'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
+            },
+          ),
+        );
+        if (dupRes.data is List && (dupRes.data as List).isNotEmpty) {
+          return 'Mã học viên "$nextCode" đã tồn tại trên hệ thống.';
+        }
+      }
+
+      final payload = <String, dynamic>{
+        'student_code': nextCode,
+      };
+      if (nextCode != null && (currentRole == null || currentRole == 'CUSTOMER')) {
+        payload['role'] = 'STUDENT';
+      }
+
+      final res = await _apiClient.dio.patch(
+        '/rest/v1/users?id=eq.$studentId',
+        data: payload,
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
+          },
+        ),
+      );
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        return null;
+      }
+      return 'Không thể cập nhật mã học viên. Vui lòng thử lại.';
+    } catch (e) {
+      debugPrint('[AdminRepository] updateCandidateStudentCode error: $e');
+      return 'Lỗi lưu mã học viên. Vui lòng kiểm tra kết nối hoặc cập nhật CSDL.';
     }
   }
 
@@ -559,7 +899,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
@@ -583,7 +923,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
@@ -602,7 +942,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
@@ -626,7 +966,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
@@ -674,7 +1014,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             'Prefer': 'return=representation',
           },
         ),
@@ -703,7 +1043,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
@@ -724,7 +1064,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
@@ -791,7 +1131,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             'Prefer': 'return=representation',
           },
         ),
@@ -837,7 +1177,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             'Prefer': 'return=representation',
           },
         ),
@@ -867,7 +1207,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
@@ -896,7 +1236,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
@@ -935,7 +1275,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             'Prefer': 'resolution=merge-duplicates',
           },
         ),
@@ -975,7 +1315,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
@@ -1001,14 +1341,19 @@ class AdminRepository {
         patchData['status'] = 'ENROLLED';
         patchData['approval_status'] = 'APPROVED';
         patchData['student_status'] = 'APPROVED';
-        patchData['batch_id'] = null;
         _autoGrantCourseCompletionVoucher(candidateId);
       } else if (newStatus == 'STUDYING' || newStatus == 'ENROLLED_STUDYING') {
         patchData['status'] = 'STUDYING';
         patchData['student_status'] = 'ENROLLED';
+      } else if (newStatus == 'NOT_GRADUATED') {
+        patchData['status'] = 'NOT_GRADUATED';
+        patchData['student_status'] = 'NOT_GRADUATED';
       } else if (newStatus == 'COMPLETED' || newStatus == 'GRADUATED') {
         patchData['status'] = 'GRADUATED';
         patchData['student_status'] = 'GRADUATED';
+      } else if (newStatus == 'ARCHIVED') {
+        patchData['status'] = 'ARCHIVED';
+        patchData['consultation_status'] = 'ARCHIVED';
       } else {
         patchData['status'] = newStatus;
       }
@@ -1019,15 +1364,115 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
+      if (newStatus == 'NOT_GRADUATED' || newStatus == 'ARCHIVED') {
+        try {
+          final fallbackData = newStatus == 'NOT_GRADUATED'
+              ? {'status': 'STUDYING', 'student_status': 'NOT_GRADUATED'}
+              : {'status': 'DROPPED', 'consultation_status': 'ARCHIVED'};
+          final res = await _apiClient.dio.patch(
+            '/rest/v1/course_enrollments?id=eq.$candidateId',
+            data: fallbackData,
+            options: Options(
+              headers: {
+                'apikey': ApiEndpoints.supabaseAnonKey,
+                'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
+              },
+            ),
+          );
+          return res.statusCode == 200 || res.statusCode == 204;
+        } catch (_) {}
+      }
       debugPrint('[AdminRepository] updateCandidateStatus error: $e');
       return false;
     }
+  }
+
+  Future<Map<String, dynamic>> addConsultationNote({
+    required String enrollmentId,
+    required String note,
+    required String authorName,
+    required List<AdminConsultationNoteModel> currentHistory,
+    bool isEnrolledOrPaid = false,
+    bool autoArchiveOnLimit = true,
+  }) async {
+    final trimmed = note.trim();
+    if (trimmed.isEmpty) {
+      return {'success': false, 'autoArchived': false, 'history': currentHistory};
+    }
+
+    final newEntry = AdminConsultationNoteModel(
+      timestamp: DateTime.now().toIso8601String(),
+      author: authorName.trim().isNotEmpty ? authorName.trim() : 'Nhân viên tư vấn',
+      note: trimmed,
+    );
+    final updatedHistory = [...currentHistory, newEntry];
+    final shouldAutoArchive = autoArchiveOnLimit && updatedHistory.length > 3 && !isEnrolledOrPaid;
+
+    final payload = <String, dynamic>{
+      'consultation_history': updatedHistory.map((e) => e.toJson()).toList(),
+    };
+    if (shouldAutoArchive) {
+      payload['status'] = 'ARCHIVED';
+      payload['consultation_status'] = 'ARCHIVED';
+    } else if (!autoArchiveOnLimit && updatedHistory.length > 3 && !isEnrolledOrPaid) {
+      payload['consultation_status'] = 'ADMIN_PINNED';
+    }
+
+    try {
+      final res = await _apiClient.dio.patch(
+        '/rest/v1/course_enrollments?id=eq.$enrollmentId',
+        data: payload,
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
+          },
+        ),
+      );
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        return {
+          'success': true,
+          'autoArchived': shouldAutoArchive,
+          'history': updatedHistory,
+        };
+      }
+    } catch (e) {
+      if (shouldAutoArchive) {
+        try {
+          final fallbackPayload = {
+            'consultation_history': updatedHistory.map((e) => e.toJson()).toList(),
+            'status': 'DROPPED',
+            'consultation_status': 'ARCHIVED',
+          };
+          final res = await _apiClient.dio.patch(
+            '/rest/v1/course_enrollments?id=eq.$enrollmentId',
+            data: fallbackPayload,
+            options: Options(
+              headers: {
+                'apikey': ApiEndpoints.supabaseAnonKey,
+                'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
+              },
+            ),
+          );
+          if (res.statusCode == 200 || res.statusCode == 204) {
+            return {
+              'success': true,
+              'autoArchived': true,
+              'history': updatedHistory,
+            };
+          }
+        } catch (_) {}
+      }
+      debugPrint('[AdminRepository] addConsultationNote error: $e');
+    }
+
+    return {'success': false, 'autoArchived': false, 'history': currentHistory};
   }
 
   Future<bool> deleteCandidate(String candidateId) async {
@@ -1037,7 +1482,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
@@ -1186,7 +1631,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
@@ -1246,7 +1691,7 @@ class AdminRepository {
         options: Options(
           headers: {
             'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
       );
@@ -1633,5 +2078,164 @@ class AdminRepository {
       debugPrint('[AdminRepository] deleteBanner error: $e');
       return false;
     }
+  }
+
+  static String? extractUserPackageId(String? specialNotes) {
+    if (specialNotes == null || specialNotes.isEmpty) return null;
+    final match = RegExp(r'user_package_id=([0-9a-fA-F-]+)').firstMatch(specialNotes);
+    return match?.group(1);
+  }
+
+  static ({int completedSessions, String status}) computeNextPackageProgress({
+    required int totalSessions,
+    required int completedSessions,
+  }) {
+    final safeTotal = totalSessions > 0 ? totalSessions : 1;
+    final nextCompleted = (completedSessions + 1).clamp(0, safeTotal);
+    final nextStatus = nextCompleted >= safeTotal ? 'COMPLETED' : 'ACTIVE';
+    return (completedSessions: nextCompleted, status: nextStatus);
+  }
+
+  Future<void> _syncPackageSessionOnCheckout(
+    String bookingId, {
+    String conditionBefore = '',
+    String conditionAfter = '',
+    String treatmentNotes = '',
+    String homeCareInstructions = '',
+  }) async {
+    try {
+      final bRes = await _apiClient.dio.get(
+        '/rest/v1/bookings?id=eq.$bookingId&select=id,customer_id,technician_id,assigned_room_id,booking_date,start_time,end_time,special_notes',
+      );
+      if (bRes.statusCode != 200 || bRes.data is! List || (bRes.data as List).isEmpty) {
+        return;
+      }
+      final booking = Map<String, dynamic>.from((bRes.data as List).first as Map);
+      final userPackageId = extractUserPackageId(booking['special_notes']?.toString());
+      if (userPackageId == null || userPackageId.isEmpty) {
+        return;
+      }
+
+      final existingJournal = await _apiClient.dio.get(
+        '/rest/v1/treatment_journal?booking_id=eq.$bookingId&select=id&limit=1',
+      );
+      if (existingJournal.statusCode == 200 &&
+          existingJournal.data is List &&
+          (existingJournal.data as List).isNotEmpty) {
+        return;
+      }
+
+      final pkgRes = await _apiClient.dio.get(
+        '/rest/v1/user_packages?id=eq.$userPackageId&select=id,customer_id,total_sessions,completed_sessions,status',
+      );
+      if (pkgRes.statusCode != 200 || pkgRes.data is! List || (pkgRes.data as List).isEmpty) {
+        return;
+      }
+      final pkg = Map<String, dynamic>.from((pkgRes.data as List).first as Map);
+      final totalSessions = (pkg['total_sessions'] as num?)?.toInt() ?? 10;
+      final completedSessions = (pkg['completed_sessions'] as num?)?.toInt() ?? 0;
+      if (completedSessions >= totalSessions) {
+        return;
+      }
+
+      final progress = computeNextPackageProgress(
+        totalSessions: totalSessions,
+        completedSessions: completedSessions,
+      );
+
+      await _apiClient.dio.patch(
+        '/rest/v1/user_packages?id=eq.$userPackageId',
+        data: {
+          'completed_sessions': progress.completedSessions,
+          'status': progress.status,
+        },
+      );
+
+      final customerId = pkg['customer_id']?.toString() ?? booking['customer_id']?.toString() ?? '';
+      if (customerId.isNotEmpty) {
+        final effectiveNotes = treatmentNotes.trim().isNotEmpty
+            ? treatmentNotes.trim()
+            : 'Hoàn tất buổi ${progress.completedSessions}/$totalSessions (1 buổi = 1 ca)';
+        await _apiClient.dio.post(
+          '/rest/v1/treatment_journal',
+          data: {
+            'user_package_id': userPackageId,
+            'booking_id': bookingId,
+            'customer_id': customerId,
+            if (booking['technician_id'] != null) 'technician_id': booking['technician_id'],
+            if (booking['assigned_room_id'] != null) 'assigned_room_id': booking['assigned_room_id'],
+            'session_number': progress.completedSessions > 0 ? progress.completedSessions : 1,
+            'session_date': booking['booking_date']?.toString() ?? DateTime.now().toIso8601String().split('T').first,
+            if (booking['start_time'] != null) 'treatment_start_time': booking['start_time'],
+            if (booking['end_time'] != null) 'treatment_end_time': booking['end_time'],
+            if (conditionBefore.trim().isNotEmpty) 'condition_before': conditionBefore.trim(),
+            if (conditionAfter.trim().isNotEmpty) 'condition_after': conditionAfter.trim(),
+            if (homeCareInstructions.trim().isNotEmpty) 'home_care_instructions': homeCareInstructions.trim(),
+            'confirmation_status': 'CONFIRMED',
+            'treatment_notes': effectiveNotes,
+          },
+        );
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] _syncPackageSessionOnCheckout error: $e');
+    }
+  }
+
+  Future<List<AdminBookingModel>> fetchMonthlyBookings({
+    required int year,
+    required int month,
+    String? branchId,
+  }) async {
+    try {
+      final monthStr = month.toString().padLeft(2, '0');
+      final startStr = '$year-$monthStr-01';
+      final lastDay = DateTime(year, month + 1, 0).day.toString().padLeft(2, '0');
+      final endStr = '$year-$monthStr-$lastDay';
+
+      String query =
+          '/rest/v1/bookings?select=*,branches(name),technicians(full_name),branch_rooms(name),booking_items(*,services(name))&booking_date=gte.$startStr&booking_date=lte.$endStr&order=booking_date.asc,start_time.asc';
+      if (branchId != null && branchId.isNotEmpty && branchId != 'ALL') {
+        query += '&branch_id=eq.$branchId';
+      }
+
+      final res = await _apiClient.dio.get(query);
+      if (res.statusCode == 200 && res.data is List) {
+        return (res.data as List)
+            .map((e) => AdminBookingModel.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchMonthlyBookings error: $e');
+    }
+    return [];
+  }
+
+  Future<List<AdminTechnicianShiftModel>> fetchMonthlyShifts({
+    required int year,
+    required int month,
+    String? branchId,
+  }) async {
+    try {
+      final monthStr = month.toString().padLeft(2, '0');
+      final startStr = '$year-$monthStr-01';
+      final lastDay = DateTime(year, month + 1, 0).day.toString().padLeft(2, '0');
+      final endStr = '$year-$monthStr-$lastDay';
+
+      String query =
+          '/rest/v1/technician_shifts?select=*,technicians(full_name),branches(name),branch_rooms(name)&shift_date=gte.$startStr&shift_date=lte.$endStr&is_cancelled=eq.false&order=shift_date.asc,start_time.asc';
+      if (branchId != null && branchId.isNotEmpty && branchId != 'ALL') {
+        query += '&branch_id=eq.$branchId';
+      }
+
+      final res = await _apiClient.dio.get(query);
+      if (res.statusCode == 200 && res.data is List) {
+        return (res.data as List)
+            .map((e) => AdminTechnicianShiftModel.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('[AdminRepository] fetchMonthlyShifts error: $e');
+    }
+    return [];
   }
 }

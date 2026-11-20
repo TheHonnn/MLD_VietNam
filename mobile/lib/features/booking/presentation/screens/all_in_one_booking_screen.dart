@@ -3,6 +3,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../home/data/models/home_models.dart';
 import '../../../home/data/repositories/branch_repository.dart';
@@ -11,6 +12,7 @@ import '../../../home/data/repositories/mock_home_repository.dart';
 import '../../../home/data/repositories/service_repository.dart';
 import '../../../membership/data/models/membership_models.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
+import '../../../payments/presentation/widgets/auto_payment_checkout_sheet.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/repositories/booking_repository.dart';
 import 'c09_my_appointments_screen.dart';
@@ -37,6 +39,38 @@ class AllInOneBookingScreen extends StatefulWidget {
     this.initialVoucher,
     this.customTimeSlots,
   });
+
+  static List<String> resolveTimeSlotsForBranch(
+    BranchModel? branch, {
+    List<String>? customTimeSlots,
+  }) {
+    if (customTimeSlots != null && customTimeSlots.isNotEmpty) {
+      return List<String>.from(customTimeSlots);
+    }
+    if (branch != null && branch.customTimeSlots.isNotEmpty) {
+      return List<String>.from(branch.customTimeSlots);
+    }
+    if (branch != null && RegExp(r'[-–—]').hasMatch(branch.openingHours)) {
+      final parts = branch.openingHours.split(RegExp(r'[-–—]'));
+      if (parts.length >= 2) {
+        final startH = int.tryParse(parts[0].trim().split(':').first);
+        final endH = int.tryParse(parts[1].trim().split(':').first);
+        if (startH != null && endH != null && endH > startH) {
+          final List<String> generated = [];
+          for (int h = startH; h < endH; h++) {
+            final sStr = '${h.toString().padLeft(2, '0')}:00';
+            final eStr = '${(h + 1).toString().padLeft(2, '0')}:00';
+            generated.add('$sStr - $eStr');
+          }
+          if (generated.isNotEmpty) return generated;
+        }
+      }
+    }
+    return [
+      for (int h = 8; h < 22; h++)
+        '${h.toString().padLeft(2, '0')}:00 - ${(h + 1).toString().padLeft(2, '0')}:00',
+    ];
+  }
 
   @override
   State<AllInOneBookingScreen> createState() => _AllInOneBookingScreenState();
@@ -73,6 +107,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   final TextEditingController _voucherCodeController = TextEditingController();
   bool _isApplyingVoucher = false;
   List<VoucherItem> _availableVouchers = [];
+  String _selectedPaymentMethod = 'CASH_AT_SPA';
 
   bool _isSubmitting = false;
 
@@ -124,29 +159,10 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   }
 
   List<String> _resolveTimeSlotsForBranch(BranchModel? branch) {
-    if (widget.customTimeSlots != null && widget.customTimeSlots!.isNotEmpty) {
-      return List<String>.from(widget.customTimeSlots!);
-    }
-    if (branch != null && branch.customTimeSlots.isNotEmpty) {
-      return List<String>.from(branch.customTimeSlots);
-    }
-    if (branch != null && branch.openingHours.contains('-')) {
-      final parts = branch.openingHours.split('-');
-      if (parts.length == 2) {
-        final startH = int.tryParse(parts[0].trim().split(':').first);
-        final endH = int.tryParse(parts[1].trim().split(':').first);
-        if (startH != null && endH != null && endH > startH) {
-          final List<String> generated = [];
-          for (int h = startH; h < endH; h++) {
-            final sStr = '${h.toString().padLeft(2, '0')}:00';
-            final eStr = '${(h + 1).toString().padLeft(2, '0')}:00';
-            generated.add('$sStr - $eStr');
-          }
-          if (generated.isNotEmpty) return generated;
-        }
-      }
-    }
-    return [];
+    return AllInOneBookingScreen.resolveTimeSlotsForBranch(
+      branch,
+      customTimeSlots: widget.customTimeSlots,
+    );
   }
 
   Future<void> _loadAvailableVouchers() async {
@@ -237,98 +253,113 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   void _showBranchSelector() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      context.tr('Chọn chi nhánh', 'Select Branch'),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 20),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ..._branches.map((b) {
-                  final isSelected = _selectedBranch?.id == b.id;
-                  return InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedBranch = b;
-                        _bookingTimeSlots = _resolveTimeSlotsForBranch(b);
-                        if (!_bookingTimeSlots.contains(_selectedTimeSlot) && _bookingTimeSlots.isNotEmpty) {
-                          _selectedTimeSlot = _bookingTimeSlots.first;
-                        }
-                      });
-                      Navigator.pop(ctx);
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.mintBackground : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected ? AppColors.primary : AppColors.border,
-                          width: isSelected ? 1.5 : 1.0,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.72,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        context.tr('Chọn chi nhánh', 'Select Branch'),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                      child: Row(
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                            color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  b.name.tr(context),
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                    color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                          ..._branches.map((b) {
+                            final isSelected = _selectedBranch?.id == b.id;
+                            return InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _selectedBranch = b;
+                                  _bookingTimeSlots = _resolveTimeSlotsForBranch(b);
+                                  if (!_bookingTimeSlots.contains(_selectedTimeSlot) && _bookingTimeSlots.isNotEmpty) {
+                                    _selectedTimeSlot = _bookingTimeSlots.first;
+                                  }
+                                });
+                                Navigator.pop(ctx);
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? AppColors.mintBackground : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isSelected ? AppColors.primary : AppColors.border,
+                                    width: isSelected ? 1.5 : 1.0,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  b.address.tr(context),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                  ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                                      color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            b.name.tr(context),
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                              color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            b.address.tr(context),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
+                              ),
+                            );
+                          }),
                         ],
                       ),
                     ),
-                  );
-                }),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -337,13 +368,13 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   }
 
   Future<void> _pickDate() async {
-    final currentYear = DateTime.now().year;
+    final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime(currentYear, 12, 31),
-      locale: const Locale('vi'),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      locale: Localizations.localeOf(context),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -440,174 +471,195 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   void _openVoucherSelectorModal() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      context.tr('Chọn mã ưu đãi', 'Select Voucher'),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 20),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (_availableVouchers.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: Text(
-                        context.tr('Bạn chưa có voucher nào khả dụng trong ví.', 'No available vouchers in your wallet.'),
-                        style: const TextStyle(color: AppColors.textSecondary),
-                      ),
-                    ),
-                  )
-                else
-                  ..._availableVouchers.map((v) {
-                    final eligible = v.isEligible(_subtotal);
-                    final isCurrent = _selectedVoucher?.code == v.code;
-                    final discountCalc = v.calculateDiscount(_subtotal);
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isCurrent ? AppColors.mintBackground : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isCurrent
-                              ? AppColors.primary
-                              : (eligible ? AppColors.border : AppColors.border.withValues(alpha: 0.5)),
-                          width: isCurrent ? 1.5 : 1.0,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        context.tr('Chọn mã ưu đãi', 'Select Voucher'),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: eligible ? AppColors.mintBackground : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.confirmation_num_outlined,
-                              color: eligible ? AppColors.primary : Colors.grey,
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (_availableVouchers.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Text(
+                          context.tr('Bạn chưa có voucher nào khả dụng trong ví.', 'No available vouchers in your wallet.'),
+                          style: const TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ..._availableVouchers.map((v) {
+                              final eligible = v.isEligible(_subtotal);
+                              final isCurrent = _selectedVoucher?.code == v.code;
+                              final discountCalc = v.calculateDiscount(_subtotal);
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isCurrent ? AppColors.mintBackground : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isCurrent
+                                        ? AppColors.primary
+                                        : (eligible ? AppColors.border : AppColors.border.withValues(alpha: 0.5)),
+                                    width: isCurrent ? 1.5 : 1.0,
+                                  ),
+                                ),
+                                child: Row(
                                   children: [
-                                    Text(
-                                      v.code,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: eligible ? AppColors.textPrimary : Colors.grey,
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: eligible ? AppColors.mintBackground : Colors.grey.shade100,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        Icons.confirmation_num_outlined,
+                                        color: eligible ? AppColors.primary : Colors.grey,
+                                        size: 22,
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '(${v.discountDescription})',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: eligible ? AppColors.primary : Colors.grey,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  v.code,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: eligible ? AppColors.textPrimary : Colors.grey,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Flexible(
+                                                child: Text(
+                                                  '(${v.discountDescription})',
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: eligible ? AppColors.primary : Colors.grey,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            v.title,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: eligible ? AppColors.textSecondary : Colors.grey.shade500,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (v.minOrderAmount > 0)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2),
+                                              child: Text(
+                                                'Đơn tối thiểu ${_formatCurrency(v.minOrderAmount)}đ',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: eligible ? AppColors.textSecondary : const Color(0xFFD32F2F),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: isCurrent ? AppColors.mintBackground : (eligible ? AppColors.primary : Colors.grey.shade300),
+                                        foregroundColor: isCurrent ? AppColors.primary : (eligible ? Colors.white : Colors.grey.shade600),
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                          side: isCurrent ? const BorderSide(color: AppColors.primary) : BorderSide.none,
+                                        ),
+                                      ),
+                                      onPressed: !eligible
+                                          ? () {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Đơn chưa đạt giá trị tối thiểu ${_formatCurrency(v.minOrderAmount)}đ để áp dụng voucher này.',
+                                                  ),
+                                                  backgroundColor: AppColors.error,
+                                                ),
+                                              );
+                                            }
+                                          : () {
+                                              setState(() => _selectedVoucher = v);
+                                              Navigator.pop(ctx);
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('Đã áp dụng mã ${v.code} (tiết kiệm ${_formatCurrency(discountCalc)}đ)'),
+                                                  backgroundColor: AppColors.primary,
+                                                ),
+                                              );
+                                            },
+                                      child: Text(
+                                        isCurrent ? 'Đang dùng' : 'Dùng mã',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  v.title,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: eligible ? AppColors.textSecondary : Colors.grey.shade500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                if (v.minOrderAmount > 0)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 2),
-                                    child: Text(
-                                      'Đơn tối thiểu ${_formatCurrency(v.minOrderAmount)}đ',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: eligible ? AppColors.textSecondary : const Color(0xFFD32F2F),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isCurrent ? AppColors.mintBackground : (eligible ? AppColors.primary : Colors.grey.shade300),
-                              foregroundColor: isCurrent ? AppColors.primary : (eligible ? Colors.white : Colors.grey.shade600),
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: isCurrent ? const BorderSide(color: AppColors.primary) : BorderSide.none,
-                              ),
-                            ),
-                            onPressed: !eligible
-                                ? () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Đơn chưa đạt giá trị tối thiểu ${_formatCurrency(v.minOrderAmount)}đ để áp dụng voucher này.',
-                                        ),
-                                        backgroundColor: AppColors.error,
-                                      ),
-                                    );
-                                  }
-                                : () {
-                                    setState(() => _selectedVoucher = v);
-                                    Navigator.pop(ctx);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Đã áp dụng mã ${v.code} (tiết kiệm ${_formatCurrency(discountCalc)}đ)'),
-                                        backgroundColor: AppColors.primary,
-                                      ),
-                                    );
-                                  },
-                            child: Text(
-                              isCurrent ? 'Đang dùng' : 'Dùng mã',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
+                              );
+                            }),
+                          ],
+                        ),
                       ),
-                    );
-                  }),
-              ],
+                    ),
+                ],
+              ),
             ),
           ),
         );
@@ -724,7 +776,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       durationMinutes: _serviceDuration,
       branchName: _selectedBranch!.name,
       branchAddress: _selectedBranch!.address,
-      branchPhone: _selectedBranch!.phone.isNotEmpty ? _selectedBranch!.phone : '096.7786.399',
+      branchPhone: _selectedBranch!.phone.isNotEmpty
+          ? _selectedBranch!.phone
+          : PortalSettingsService.instance.hotlineSupport,
       specialistName: 'Kỹ thuật viên hệ thống MLD',
       specialistTitle: 'Chuyên viên Vodder tự động phân bổ',
       specialistAvatar: 'assets/images/logo.webp',
@@ -744,7 +798,7 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       couponId: _selectedVoucher?.couponId,
       couponCode: _selectedVoucher?.code,
       userVoucherId: _selectedVoucher?.userVoucherId,
-      paymentMethod: _usesActivePackage ? 'MEMBERSHIP_WALLET' : 'CASH_AT_SPA',
+      paymentMethod: _usesActivePackage ? 'MEMBERSHIP_WALLET' : _selectedPaymentMethod,
       paymentStatus: 'UNPAID',
       status: AppointmentStatus.pending, // Chờ duyệt
       createdAt: DateTime.now(),
@@ -761,8 +815,24 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       ],
     );
 
-    // Lưu vào Repository
-    await BookingRepository.instance.createAppointment(appointment);
+    final createdId = await BookingRepository.instance.createAppointment(appointment);
+    if (!mounted) return;
+    if (createdId == null || createdId.isEmpty) {
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            BookingRepository.instance.lastBookingError ??
+                context.tr(
+                  'Không thể đặt lịch hẹn. Vui lòng thử lại.',
+                  'Unable to book appointment. Please try again.',
+                ),
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
 
     if (!WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
       await Future.delayed(const Duration(milliseconds: 500));
@@ -771,10 +841,10 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
-    _showBookingPendingModal(appointmentCode, dateString);
+    _showBookingPendingModal(appointmentCode, dateString, bookingId: createdId);
   }
 
-  void _showBookingPendingModal(String code, String dateString) {
+  void _showBookingPendingModal(String code, String dateString, {String? bookingId}) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -817,6 +887,39 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
               ),
             ),
             const SizedBox(height: 20),
+            if (!_usesActivePackage && _selectedPaymentMethod == 'BANK_TRANSFER' && _totalPrice > 0) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    AutoPaymentCheckoutSheet.show(
+                      context,
+                      amount: _totalPrice,
+                      description: 'MLD $code',
+                      targetType: 'BOOKING',
+                      targetId: bookingId,
+                      referenceCode: code,
+                      customerName: _nameController.text.trim(),
+                      customerPhone: _phoneController.text.trim(),
+                    );
+                  },
+                  icon: const Icon(Icons.qr_code_2_rounded, size: 20),
+                  label: Text(
+                    context.tr('Thanh toán online ngay', 'Pay Online Now'),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -1030,9 +1133,16 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                     children: [
                                       const Icon(Icons.access_time_rounded, size: 14, color: AppColors.textSecondary),
                                       const SizedBox(width: 4),
-                                      Text(
-                                        '$_serviceDuration phút',
-                                        style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
+                                      Flexible(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            '$_serviceDuration phút / ca',
+                                            maxLines: 1,
+                                            style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -1685,9 +1795,102 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                   ],
                 ),
               ),
+              if (!_usesActivePackage) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr('Phương thức thanh toán', 'Payment Method'),
+                        style: const TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildPaymentMethodOption(
+                        value: 'CASH_AT_SPA',
+                        icon: Icons.storefront_rounded,
+                        title: context.tr('Thanh toán tại cơ sở', 'Pay at Spa'),
+                        subtitle: context.tr('Thanh toán trực tiếp tại quầy lễ tân khi đến làm dịch vụ', 'Pay at reception upon arrival'),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildPaymentMethodOption(
+                        value: 'BANK_TRANSFER',
+                        icon: Icons.qr_code_scanner_rounded,
+                        title: context.tr('Thanh toán online tự động', 'Automatic Online Payment'),
+                        subtitle: context.tr('Thanh toán trực tuyến qua cổng trung gian / VietQR tự động xác nhận', 'Instant confirmation via Payment Gateway / VietQR'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentMethodOption({
+    required String value,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    final isSelected = _selectedPaymentMethod == value;
+    return InkWell(
+      onTap: () => setState(() => _selectedPaymentMethod = value),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.iceBlue.withValues(alpha: 0.45) : const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: isSelected ? AppColors.primary : AppColors.textSecondary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              color: isSelected ? AppColors.primary : AppColors.textSecondary,
+              size: 20,
+            ),
+          ],
         ),
       ),
     );

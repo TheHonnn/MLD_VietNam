@@ -37,7 +37,6 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
     _selectedTab = widget.initialTabIndex;
     final enrolled = AcademyRepository.instance.enrolledCourses;
     for (final c in enrolled) {
-      _courseQuizzesCache[c.id] = MockAcademyData.getQuizzesForCourse(c.id, c.title);
       _loadQuizzesForCourse(c);
     }
     if (enrolled.isNotEmpty) {
@@ -51,9 +50,6 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
       if (mounted) {
         setState(() {
           for (final c in courses) {
-            if (!_courseQuizzesCache.containsKey(c.id) || _courseQuizzesCache[c.id]!.isEmpty) {
-              _courseQuizzesCache[c.id] = MockAcademyData.getQuizzesForCourse(c.id, c.title);
-            }
             _loadQuizzesForCourse(c);
           }
           if (courses.isNotEmpty && _expandedCourseIdForQuiz == null) {
@@ -71,12 +67,19 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
       final list = await AcademyRepository.instance.getCourseQuizModels(course.id, course.title);
       if (mounted) {
         setState(() {
-          _courseQuizzesCache[course.id] = list;
+          _courseQuizzesCache[course.id] = list.isNotEmpty
+              ? list
+              : MockAcademyData.getQuizzesForCourse(course.id, course.title);
           _isLoadingQuizzes = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _isLoadingQuizzes = false);
+      if (mounted) {
+        setState(() {
+          _courseQuizzesCache[course.id] = MockAcademyData.getQuizzesForCourse(course.id, course.title);
+          _isLoadingQuizzes = false;
+        });
+      }
     }
   }
 
@@ -600,18 +603,31 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.asset(
-                            course.image,
-                            width: 60,
-                            height: 60,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 60,
-                              height: 60,
-                              color: AcademyColors.cardWarm,
-                              child: const Icon(Icons.quiz_outlined, color: AcademyColors.primary),
-                            ),
-                          ),
+                          child: (course.image.startsWith('http://') || course.image.startsWith('https://'))
+                              ? Image.network(
+                                  course.image,
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: AcademyColors.cardWarm,
+                                    child: const Icon(Icons.quiz_outlined, color: AcademyColors.primary),
+                                  ),
+                                )
+                              : Image.asset(
+                                  course.image,
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: AcademyColors.cardWarm,
+                                    child: const Icon(Icons.quiz_outlined, color: AcademyColors.primary),
+                                  ),
+                                ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -792,6 +808,25 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
             height: 38,
             child: ElevatedButton(
               onPressed: () async {
+                final approval = (course.approvalStatus ?? '').toUpperCase();
+                final courseStatus = course.status.toUpperCase();
+                final isPending = approval == 'NOT_APPROVED' ||
+                    approval == 'PENDING_APPROVAL' ||
+                    courseStatus == 'PENDING_APPROVAL';
+                if (isPending) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        context.tr(
+                          'Hồ sơ học viên đang chờ duyệt. Vui lòng hoàn tất ghi danh trước khi làm bài kiểm tra.',
+                          'Enrollment pending approval. Please wait for approval before taking the quiz.',
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFFD97706),
+                    ),
+                  );
+                  return;
+                }
                 final result = await Navigator.push(
                   context,
                   MaterialPageRoute(

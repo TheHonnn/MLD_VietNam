@@ -39,6 +39,7 @@ class ApiClient {
         onRequest: (options, handler) async {
           // 0. Xác định tuyến Backend Gateway NestJS
           final isNestBackendRoute = (options.path.startsWith('/auth/') && !options.path.startsWith('/auth/v1/')) ||
+              options.path.startsWith('/admin/') ||
               options.path.startsWith('/academy/') ||
               options.path.startsWith('/treatment/') ||
               options.path.startsWith('/membership/') ||
@@ -106,15 +107,17 @@ class ApiClient {
               final currentRefreshToken = await AuthService.instance.getRefreshToken();
               if (currentRefreshToken != null && currentRefreshToken.isNotEmpty) {
                 try {
-                  // Sử dụng Dio riêng biệt để gọi refresh, tránh lặp interceptor
+                  var refreshBase = ApiEndpoints.backendBaseUrl.replaceAll(RegExp(r'/+$'), '');
+                  if (!refreshBase.endsWith('/api/v1')) {
+                    refreshBase = '$refreshBase/api/v1';
+                  }
                   final refreshDio = Dio(
                     BaseOptions(
-                      baseUrl: _dio.options.baseUrl,
+                      baseUrl: refreshBase,
                       connectTimeout: const Duration(seconds: 10),
                       receiveTimeout: const Duration(seconds: 10),
                       headers: {
                         'Content-Type': 'application/json',
-                        'apikey': ApiEndpoints.supabaseAnonKey,
                       },
                     ),
                   );

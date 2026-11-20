@@ -1,11 +1,7 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
-import '../../../../core/network/api_client.dart';
-import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/services/auth_service.dart';
-import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/treatment_models.dart';
 import '../../data/repositories/treatment_repository.dart';
 
@@ -254,7 +250,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
                                     ? context.tr('Chỉnh sửa đánh giá', 'Edit Review')
                                     : (item.isService
                                         ? context.tr('Đánh giá dịch vụ trị liệu', 'Review Therapy Service')
-                                        : context.tr('Đánh giá sản phẩm bổ trợ', 'Review Home Product')),
+                                        : context.tr('Đánh giá sản phẩm liệu trình', 'Review Home Product')),
                                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
                               ),
                               const SizedBox(height: 3),
@@ -306,7 +302,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
-                                    item.isService ? 'Dịch vụ trị liệu' : 'Sản phẩm bổ trợ',
+                                    item.isService ? 'Dịch vụ trị liệu' : 'Sản phẩm liệu trình',
                                     style: TextStyle(
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
@@ -542,18 +538,31 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
           unselectedLabelColor: const Color(0xFF64748B),
           indicatorColor: AppColors.primary,
           indicatorWeight: 3,
-          labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          unselectedLabelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+          labelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+          unselectedLabelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500),
           tabs: [
             Tab(
-              text: _pendingReviews.isNotEmpty
-                  ? context.tr('Chưa đánh giá (${_pendingReviews.length})', 'Pending (${_pendingReviews.length})')
-                  : context.tr('Chưa đánh giá', 'Pending Reviews'),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _pendingReviews.isNotEmpty
+                      ? context.tr('Chưa đánh giá (${_pendingReviews.length})', 'Pending (${_pendingReviews.length})')
+                      : context.tr('Chưa đánh giá', 'Pending Reviews'),
+                  maxLines: 1,
+                ),
+              ),
             ),
             Tab(
-              text: _myReviews.isNotEmpty
-                  ? context.tr('Đánh giá của tôi (${_myReviews.length})', 'My Reviews (${_myReviews.length})')
-                  : context.tr('Đánh giá của tôi', 'My Reviews'),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _myReviews.isNotEmpty
+                      ? context.tr('Đánh giá của tôi (${_myReviews.length})', 'My Reviews (${_myReviews.length})')
+                      : context.tr('Đánh giá của tôi', 'My Reviews'),
+                  maxLines: 1,
+                ),
+              ),
             ),
           ],
         ),
@@ -581,7 +590,7 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
     final filters = [
       {'id': 0, 'label': 'Tất cả', 'countPending': _getPendingCount(0), 'countReviewed': _getMyReviewsCount(0)},
       {'id': 1, 'label': 'Dịch vụ trị liệu', 'countPending': _getPendingCount(1), 'countReviewed': _getMyReviewsCount(1)},
-      {'id': 2, 'label': 'Sản phẩm bổ trợ', 'countPending': _getPendingCount(2), 'countReviewed': _getMyReviewsCount(2)},
+      {'id': 2, 'label': 'Sản phẩm liệu trình', 'countPending': _getPendingCount(2), 'countReviewed': _getMyReviewsCount(2)},
     ];
 
     return Container(
@@ -722,32 +731,38 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: item.isService ? const Color(0xFFEFF6EE) : const Color(0xFFDEEAF6),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          item.isService ? Icons.spa_rounded : Icons.inventory_2_outlined,
-                          size: 13,
-                          color: item.isService ? AppColors.accent : AppColors.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          item.isService ? 'Dịch vụ trị liệu' : 'Sản phẩm bổ trợ',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: item.isService ? const Color(0xFFEFF6EE) : const Color(0xFFDEEAF6),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            item.isService ? Icons.spa_rounded : Icons.inventory_2_outlined,
+                            size: 13,
                             color: item.isService ? AppColors.accent : AppColors.primary,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              item.isService ? 'Dịch vụ trị liệu' : 'Sản phẩm liệu trình',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: item.isService ? AppColors.accent : AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
@@ -912,21 +927,25 @@ class _D05ServiceReviewScreenState extends State<D05ServiceReviewScreen> with Si
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: isProduct ? const Color(0xFFDEEAF6) : const Color(0xFFEFF6EE),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      isProduct ? 'Sản phẩm bổ trợ' : 'Dịch vụ trị liệu',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: isProduct ? AppColors.primary : AppColors.accent,
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isProduct ? const Color(0xFFDEEAF6) : const Color(0xFFEFF6EE),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        isProduct ? 'Sản phẩm liệu trình' : 'Dịch vụ trị liệu',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isProduct ? AppColors.primary : AppColors.accent,
+                        ),
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Row(
                     children: List.generate(5, (starIdx) {
                       final star = starIdx + 1;

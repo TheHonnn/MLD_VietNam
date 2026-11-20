@@ -11,11 +11,15 @@ import '../../../../core/services/top_notification_service.dart';
 class AdminFrontdeskScreen extends StatefulWidget {
   final VoidCallback? onBackToDashboard;
   final String? initialStatus;
+  final String? pendingQrCode;
+  final int qrScanNonce;
 
   const AdminFrontdeskScreen({
     super.key,
     this.onBackToDashboard,
     this.initialStatus,
+    this.pendingQrCode,
+    this.qrScanNonce = 0,
   });
 
   @override
@@ -40,6 +44,12 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
   // Trạng thái mở rộng các Ca tiếp đón (Mặc định mở ca hiện tại hoặc toàn bộ)
   final Set<String> _expandedShifts = {'morning', 'afternoon', 'evening'};
   bool _isCompactView = true;
+  bool _isMonthlyView = false;
+  DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  bool _isMonthlyLoading = false;
+  List<AdminBookingModel> _monthlyBookings = [];
+  List<AdminTechnicianShiftModel> _monthlyShifts = [];
+  String? _deferredQrCode;
 
   int _parseHour(String timeStr) {
     try {
@@ -138,8 +148,30 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
         _isAllDates = true;
       }
     }
+    if (widget.pendingQrCode != null && widget.pendingQrCode!.trim().isNotEmpty) {
+      _deferredQrCode = widget.pendingQrCode!.trim();
+    }
     _loadBranches();
     _fetchBookings();
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminFrontdeskScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.qrScanNonce != oldWidget.qrScanNonce &&
+        widget.pendingQrCode != null &&
+        widget.pendingQrCode!.trim().isNotEmpty) {
+      final code = widget.pendingQrCode!.trim();
+      if (_isLoading) {
+        _deferredQrCode = code;
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _handleScannedCode(code);
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -171,7 +203,75 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
         _bookings = list;
         _isLoading = false;
       });
+      final queuedQr = _deferredQrCode;
+      if (queuedQr != null && queuedQr.isNotEmpty) {
+        _deferredQrCode = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _handleScannedCode(queuedQr);
+          }
+        });
+      }
     }
+  }
+
+  Future<void> _fetchMonthlyData() async {
+    setState(() => _isMonthlyLoading = true);
+    final branchFilter = _selectedBranchId == 'ALL' ? null : _selectedBranchId;
+    final results = await Future.wait([
+      _repository.fetchMonthlyBookings(
+        year: _focusedMonth.year,
+        month: _focusedMonth.month,
+        branchId: branchFilter,
+      ),
+      _repository.fetchMonthlyShifts(
+        year: _focusedMonth.year,
+        month: _focusedMonth.month,
+        branchId: branchFilter,
+      ),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        _monthlyBookings = results[0] as List<AdminBookingModel>;
+        _monthlyShifts = results[1] as List<AdminTechnicianShiftModel>;
+        _isMonthlyLoading = false;
+      });
+    }
+  }
+
+  void _changeFocusedMonth(int deltaMonths) {
+    final nextMonth = DateTime(_focusedMonth.year, _focusedMonth.month + deltaMonths, 1);
+    setState(() {
+      _focusedMonth = nextMonth;
+      if (_selectedDate.year != nextMonth.year || _selectedDate.month != nextMonth.month) {
+        _selectedDate = nextMonth;
+      }
+    });
+    _fetchMonthlyData();
+  }
+
+  String _shiftSlotForStartTime(String startTime) {
+    final h = _parseHour(startTime);
+    final parts = startTime.split(':');
+    final m = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+    if (h < 12) return 'morning';
+    if (h < 17 || (h == 17 && m <= 30)) return 'afternoon';
+    return 'evening';
+  }
+
+  List<AdminBookingModel> get _filteredMonthlyBookings {
+    return _monthlyBookings.where((b) {
+      if (_selectedStatus != 'ALL' && b.status != _selectedStatus) {
+        return false;
+      }
+      if (_searchQuery.isEmpty) return true;
+      final q = _searchQuery.toLowerCase();
+      return b.customerName.toLowerCase().contains(q) ||
+          b.customerPhone.toLowerCase().contains(q) ||
+          b.bookingCode.toLowerCase().contains(q) ||
+          b.serviceName.toLowerCase().contains(q);
+    }).toList();
   }
 
   List<AdminBookingModel> get _filteredBookings {
@@ -185,7 +285,14 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
     }).toList();
   }
 
-  // Luồng duyệt lịch
+  void _refreshActiveView() {
+    if (_isMonthlyView) {
+      _fetchMonthlyData();
+    } else {
+      _fetchBookings();
+    }
+  }
+
   Future<void> _handleApprove(AdminBookingModel b) async {
     setState(() => _processingBookingId = b.id);
     final success = await _repository.approveBooking(b.id);
@@ -193,29 +300,33 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
       setState(() => _processingBookingId = null);
       if (success) {
         _showToast('Đã duyệt xác nhận lịch hẹn của ${b.customerName}', AppColors.success);
-        _fetchBookings();
+        _refreshActiveView();
       } else {
-        _showToast('Không thể duyệt lịch. Vui lòng thử lại.', AppColors.error);
+        _showToast(
+          _repository.lastBookingActionError ?? 'Không thể duyệt lịch. Vui lòng thử lại.',
+          AppColors.error,
+        );
       }
     }
   }
 
-  // Luồng Check-in tiếp đón
   Future<void> _handleCheckIn(AdminBookingModel b) async {
     setState(() => _processingBookingId = b.id);
-    final success = await _repository.checkInBooking(b.id);
+    final success = await _repository.checkInBooking(b.id, userPackageId: b.userPackageId);
     if (mounted) {
       setState(() => _processingBookingId = null);
       if (success) {
         _showToast('Đã tiếp đón khách hàng ${b.customerName} thành công!', AppColors.success);
-        _fetchBookings();
+        _refreshActiveView();
       } else {
-        _showToast('Lỗi tiếp đón Check-in. Vui lòng thử lại.', AppColors.error);
+        _showToast(
+          _repository.lastBookingActionError ?? 'Lỗi tiếp đón Check-in. Vui lòng thử lại.',
+          AppColors.error,
+        );
       }
     }
   }
 
-  // Luồng bắt đầu dịch vụ
   Future<void> _handleStartService(AdminBookingModel b) async {
     setState(() => _processingBookingId = b.id);
     final success = await _repository.startServiceBooking(b.id);
@@ -223,24 +334,253 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
       setState(() => _processingBookingId = null);
       if (success) {
         _showToast('Đã bắt đầu trị liệu cho ${b.customerName}', const Color(0xFF7E22CE));
-        _fetchBookings();
+        _refreshActiveView();
       } else {
-        _showToast('Lỗi bắt đầu dịch vụ. Vui lòng thử lại.', AppColors.error);
+        _showToast(
+          _repository.lastBookingActionError ?? 'Lỗi bắt đầu dịch vụ. Vui lòng thử lại.',
+          AppColors.error,
+        );
       }
     }
   }
 
-  // Luồng hoàn thành Check-out
+  Future<void> _handleFinishService(AdminBookingModel b) async {
+    if (b.userPackageId == null) {
+      setState(() => _processingBookingId = b.id);
+      final success = await _repository.completeClinicalSession(bookingId: b.id);
+      if (mounted) {
+        setState(() => _processingBookingId = null);
+        if (success) {
+          _showToast(
+            'Đã hoàn tất chuyên môn cho ${b.customerName}. Sẵn sàng Check-out!',
+            const Color(0xFF047857),
+          );
+          _refreshActiveView();
+        } else {
+          _showToast(
+            _repository.lastBookingActionError ?? 'Không thể hoàn tất chuyên môn. Vui lòng thử lại.',
+            AppColors.error,
+          );
+        }
+      }
+      return;
+    }
+
+    final conditionBeforeController = TextEditingController(text: 'Tình trạng ổn định trước trị liệu');
+    final conditionAfterController = TextEditingController(text: 'Giảm ứ trệ, cơ thể thư giãn sau buổi trị liệu');
+    final treatmentNotesController = TextEditingController(text: 'Thực hiện đúng phác đồ ${b.serviceName}');
+    final homeCareController = TextEditingController(text: 'Uống đủ nước ấm, nghỉ ngơi nhẹ nhàng trong 24h');
+    final adverseController = TextEditingController();
+    bool hasAbnormalReaction = false;
+    String? formError;
+
+    final payload = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD1D5DB),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Hoàn tất buổi liệu trình & Ghi nhật ký',
+                    style: AppTypography.zaloFont(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${b.customerName} • ${b.serviceName}',
+                    style: AppTypography.zaloFont(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: conditionBeforeController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: 'Tình trạng trước buổi *',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: conditionAfterController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: 'Tình trạng sau buổi *',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: treatmentNotesController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: 'Ghi chú chuyên môn *',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: homeCareController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: 'Hướng dẫn chăm sóc tại nhà',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      'Có phản ứng bất thường sau buổi',
+                      style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    value: hasAbnormalReaction,
+                    onChanged: (val) => setModalState(() => hasAbnormalReaction = val),
+                  ),
+                  if (hasAbnormalReaction) ...[
+                    TextField(
+                      controller: adverseController,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        labelText: 'Mô tả phản ứng bất thường',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (formError != null) ...[
+                    Text(
+                      formError!,
+                      style: AppTypography.zaloFont(fontSize: 12, color: AppColors.error),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        final before = conditionBeforeController.text.trim();
+                        final after = conditionAfterController.text.trim();
+                        final notes = treatmentNotesController.text.trim();
+                        if (before.isEmpty || after.isEmpty || notes.isEmpty) {
+                          setModalState(() {
+                            formError = 'Vui lòng nhập đầy đủ tình trạng trước/sau và ghi chú chuyên môn.';
+                          });
+                          return;
+                        }
+                        Navigator.pop(ctx, {
+                          'conditionBefore': before,
+                          'conditionAfter': after,
+                          'treatmentNotes': notes,
+                          'homeCareInstructions': homeCareController.text.trim(),
+                          'hasAbnormalReaction': hasAbnormalReaction,
+                          'adverseReactions': adverseController.text.trim(),
+                        });
+                      },
+                      icon: const Icon(Icons.task_alt_rounded, size: 18),
+                      label: Text(
+                        'Lưu nhật ký & Trừ 1 buổi gói',
+                        style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7E22CE),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    conditionBeforeController.dispose();
+    conditionAfterController.dispose();
+    treatmentNotesController.dispose();
+    homeCareController.dispose();
+    adverseController.dispose();
+
+    if (payload != null && mounted) {
+      setState(() => _processingBookingId = b.id);
+      final success = await _repository.completeClinicalSession(
+        bookingId: b.id,
+        userPackageId: b.userPackageId,
+        conditionBefore: payload['conditionBefore'] as String,
+        conditionAfter: payload['conditionAfter'] as String,
+        treatmentNotes: payload['treatmentNotes'] as String,
+        homeCareInstructions: payload['homeCareInstructions'] as String,
+        hasAbnormalReaction: payload['hasAbnormalReaction'] as bool,
+        adverseReactions: payload['adverseReactions'] as String,
+      );
+      if (mounted) {
+        setState(() => _processingBookingId = null);
+        if (success) {
+          _showToast(
+            'Đã lưu nhật ký trị liệu và trừ 1 buổi cho ${b.customerName}!',
+            const Color(0xFF047857),
+          );
+          _refreshActiveView();
+        } else {
+          _showToast(
+            _repository.lastBookingActionError ?? 'Không thể hoàn tất buổi liệu trình. Vui lòng thử lại.',
+            AppColors.error,
+          );
+        }
+      }
+    }
+  }
+
   Future<void> _handleCheckOut(AdminBookingModel b) async {
     setState(() => _processingBookingId = b.id);
     final success = await _repository.checkOutBooking(b.id);
     if (mounted) {
       setState(() => _processingBookingId = null);
       if (success) {
-        _showToast('Hoàn thành trị liệu cho ${b.customerName}. Đã gửi tặng voucher tri ân vào ví khách!', AppColors.primary);
-        _fetchBookings();
+        final msg = b.isPackageSession
+            ? 'Hoàn thành trị liệu cho ${b.customerName}. Đã đóng ca buổi gói liệu trình!'
+            : 'Hoàn thành trị liệu cho ${b.customerName}. Đã gửi tặng voucher tri ân vào ví khách!';
+        _showToast(msg, AppColors.primary);
+        _refreshActiveView();
       } else {
-        _showToast('Lỗi hoàn thành Check-out. Vui lòng thử lại.', AppColors.error);
+        _showToast(
+          _repository.lastBookingActionError ?? 'Lỗi hoàn thành Check-out. Vui lòng thử lại.',
+          AppColors.error,
+        );
       }
     }
   }
@@ -304,9 +644,12 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
         setState(() => _processingBookingId = null);
         if (success) {
           _showToast('Đã hủy lịch hẹn của ${b.customerName}', const Color(0xFFDC2626));
-          _fetchBookings();
+          _refreshActiveView();
         } else {
-          _showToast('Lỗi khi hủy lịch. Vui lòng thử lại.', AppColors.error);
+          _showToast(
+            _repository.lastBookingActionError ?? 'Lỗi khi hủy lịch. Vui lòng thử lại.',
+            AppColors.error,
+          );
         }
       }
     }
@@ -332,35 +675,44 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
     );
   }
 
-  void _handleScannedCode(String code) {
-    final cleanCode = code.trim().toUpperCase();
-    final match = _bookings.firstWhere(
-      (b) =>
-          b.bookingCode.toUpperCase() == cleanCode ||
+  AdminBookingModel? _findBookingByScannedCode(
+    List<AdminBookingModel> source,
+    String cleanCode,
+  ) {
+    for (final b in source) {
+      if (b.bookingCode.toUpperCase() == cleanCode ||
           b.id.toUpperCase() == cleanCode ||
-          (b.bookingCode.isNotEmpty && cleanCode.contains(b.bookingCode.toUpperCase())),
-      orElse: () => _bookings.firstWhere(
-        (b) => b.customerPhone == cleanCode,
-        orElse: () => const AdminBookingModel(
-          id: '',
-          bookingCode: '',
-          bookingDate: '',
-          startTime: '',
-          endTime: '',
-          customerName: '',
-          customerPhone: '',
-          serviceName: '',
-          finalPrice: 0,
-          status: '',
-          paymentStatus: '',
-        ),
-      ),
-    );
+          (b.bookingCode.isNotEmpty &&
+              cleanCode.contains(b.bookingCode.toUpperCase()))) {
+        return b;
+      }
+    }
+    for (final b in source) {
+      if (b.customerPhone == cleanCode) {
+        return b;
+      }
+    }
+    return null;
+  }
 
-    if (match.id.isNotEmpty) {
+  Future<void> _handleScannedCode(String code) async {
+    final cleanCode = code.trim().toUpperCase();
+    var match = _findBookingByScannedCode(_bookings, cleanCode) ??
+        _findBookingByScannedCode(_monthlyBookings, cleanCode);
+
+    if (match == null) {
+      final allDatesBookings = await _repository.fetchBookings(
+        bookingDate: DateFormat('yyyy-MM-dd').format(_selectedDate),
+        isAllDates: true,
+      );
+      if (!mounted) return;
+      match = _findBookingByScannedCode(allDatesBookings, cleanCode);
+    }
+
+    if (match != null && match.id.isNotEmpty) {
       _showCheckInConfirmSheet(match);
     } else {
-      _showToast('Không tìm thấy lịch hẹn với mã: $code trong ngày hôm nay.', AppColors.error);
+      _showToast('Không tìm thấy lịch hẹn với mã: $code.', AppColors.error);
     }
   }
 
@@ -547,6 +899,12 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
             _buildDetailRow('Ngày hẹn:', b.bookingDate),
             _buildDetailRow('Khung giờ:', '${b.startTime} - ${b.endTime}'),
             _buildDetailRow('Trạng thái:', b.status),
+            _buildDetailRow(
+              'Chuyên môn:',
+              b.isClinicalCompleted
+                  ? 'Đã hoàn tất'
+                  : (b.status == 'IN_SERVICE' ? 'Đang thực hiện' : 'Chưa bắt đầu'),
+            ),
             _buildDetailRow('Thanh toán:', b.paymentStatus),
             if (b.branchName != null) _buildDetailRow('Cơ sở:', b.branchName!),
             if (b.technicianName != null) _buildDetailRow('KTV thực hiện:', b.technicianName!),
@@ -689,9 +1047,11 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
               ),
             ),
             Text(
-              _isAllDates
-                  ? 'Toàn bộ ca hẹn · ${_filteredBookings.length} khách'
-                  : '${DateFormat('dd/MM/yyyy').format(_selectedDate)} · ${_filteredBookings.length} khách',
+              _isMonthlyView
+                  ? 'Tháng ${DateFormat('MM/yyyy').format(_focusedMonth)} · ${_filteredMonthlyBookings.length} ca hẹn · ${_monthlyShifts.length} ca KTV'
+                  : (_isAllDates
+                      ? 'Toàn bộ ca hẹn · ${_filteredBookings.length} khách'
+                      : '${DateFormat('dd/MM/yyyy').format(_selectedDate)} · ${_filteredBookings.length} khách'),
               style: AppTypography.zaloFont(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w500,
@@ -706,7 +1066,11 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
             tooltip: 'Chọn cơ sở',
             onSelected: (val) {
               setState(() => _selectedBranchId = val);
-              _fetchBookings();
+              if (_isMonthlyView) {
+                _fetchMonthlyData();
+              } else {
+                _fetchBookings();
+              }
             },
             itemBuilder: (ctx) => [
               PopupMenuItem(
@@ -777,6 +1141,93 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
             child: Column(
               children: [
+                Container(
+                  padding: const EdgeInsets.all(3),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () {
+                            if (!_isMonthlyView) return;
+                            setState(() => _isMonthlyView = false);
+                            _fetchBookings();
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 7),
+                            decoration: BoxDecoration(
+                              color: !_isMonthlyView ? AppColors.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.view_day_rounded,
+                                  size: 14,
+                                  color: !_isMonthlyView ? Colors.white : const Color(0xFF4B5563),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'Ca theo ngày',
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: !_isMonthlyView ? Colors.white : const Color(0xFF4B5563),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () {
+                            if (_isMonthlyView) return;
+                            setState(() {
+                              _isMonthlyView = true;
+                              _focusedMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
+                            });
+                            _fetchMonthlyData();
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 7),
+                            decoration: BoxDecoration(
+                              color: _isMonthlyView ? AppColors.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.calendar_month_rounded,
+                                  size: 14,
+                                  color: _isMonthlyView ? Colors.white : const Color(0xFF4B5563),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'Ca theo tháng',
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: _isMonthlyView ? Colors.white : const Color(0xFF4B5563),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 // Dòng 1: Ô tìm kiếm toàn chiều rộng
                 SizedBox(
                   height: 34,
@@ -1147,8 +1598,10 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
 
           // 4. Danh sách ca hẹn phân theo Ca
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: _fetchBookings,
+            child: _isMonthlyView
+                ? _buildMonthlyShiftView()
+                : RefreshIndicator(
+                    onRefresh: _fetchBookings,
               color: AppColors.primary,
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
@@ -1434,6 +1887,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                                                 onCancel: () => _handleCancel(b),
                                                 onCheckIn: () => _handleCheckIn(b),
                                                 onStartService: () => _handleStartService(b),
+                                                onFinishService: () => _handleFinishService(b),
                                                 onCheckOut: () => _handleCheckOut(b),
                                                 onViewDetail: () => _showAppointmentDetailSheet(b),
                                               );
@@ -1451,6 +1905,448 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMonthlyShiftView() {
+    final bookingsByDay = <String, List<AdminBookingModel>>{};
+    int morningCount = 0;
+    int afternoonCount = 0;
+    int eveningCount = 0;
+
+    for (final b in _filteredMonthlyBookings) {
+      bookingsByDay.putIfAbsent(b.bookingDate, () => []).add(b);
+      switch (_shiftSlotForStartTime(b.startTime)) {
+        case 'morning':
+          morningCount++;
+          break;
+        case 'afternoon':
+          afternoonCount++;
+          break;
+        default:
+          eveningCount++;
+          break;
+      }
+    }
+
+    final shiftsByDay = <String, List<AdminTechnicianShiftModel>>{};
+    for (final s in _monthlyShifts) {
+      shiftsByDay.putIfAbsent(s.shiftDate, () => []).add(s);
+    }
+
+    final selectedKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final selectedBookings = bookingsByDay[selectedKey] ?? [];
+    final selectedShifts = shiftsByDay[selectedKey] ?? [];
+
+    return RefreshIndicator(
+      onRefresh: _fetchMonthlyData,
+      color: AppColors.primary,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      onPressed: () => _changeFocusedMonth(-1),
+                      icon: const Icon(Icons.chevron_left_rounded, color: AppColors.primary),
+                      tooltip: 'Tháng trước',
+                    ),
+                    Column(
+                      children: [
+                        Text(
+                          'Tháng ${DateFormat('MM / yyyy').format(_focusedMonth)}',
+                          style: AppTypography.zaloFont(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textHeading,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${_filteredMonthlyBookings.length} ca hẹn · ${_monthlyShifts.length} ca trực KTV',
+                          style: AppTypography.zaloFont(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      onPressed: () => _changeFocusedMonth(1),
+                      icon: const Icon(Icons.chevron_right_rounded, color: AppColors.primary),
+                      tooltip: 'Tháng sau',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMonthlySummaryChip(
+                        label: 'Ca Sáng',
+                        count: morningCount,
+                        color: const Color(0xFFD97706),
+                        bgColor: const Color(0xFFFEF3C7),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _buildMonthlySummaryChip(
+                        label: 'Ca Chiều',
+                        count: afternoonCount,
+                        color: AppColors.primary,
+                        bgColor: const Color(0xFFEFF6FF),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _buildMonthlySummaryChip(
+                        label: 'Ca Tối',
+                        count: eveningCount,
+                        color: const Color(0xFF7C3AED),
+                        bgColor: const Color(0xFFEDE9FE),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (_isMonthlyLoading)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: LinearProgressIndicator(minHeight: 2, color: AppColors.primary),
+                  ),
+                _buildMonthlyCalendarGrid(
+                  bookingsByDay: bookingsByDay,
+                  shiftsByDay: shiftsByDay,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _buildSelectedDaySchedulePanel(
+            selectedBookings: selectedBookings,
+            selectedShifts: selectedShifts,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthlySummaryChip({
+    required String label,
+    required int count,
+    required Color color,
+    required Color bgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          Text(
+            '$count ca',
+            style: AppTypography.zaloFont(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: AppTypography.zaloFont(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthlyCalendarGrid({
+    required Map<String, List<AdminBookingModel>> bookingsByDay,
+    required Map<String, List<AdminTechnicianShiftModel>> shiftsByDay,
+  }) {
+    const weekdays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    final firstDay = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
+    final daysInMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0).day;
+    final leadingBlanks = firstDay.weekday - 1;
+    final totalCells = leadingBlanks + daysInMonth;
+    final rowCount = (totalCells / 7).ceil();
+
+    return Column(
+      children: [
+        Row(
+          children: weekdays
+              .map(
+                (day) => Expanded(
+                  child: Center(
+                    child: Text(
+                      day,
+                      style: AppTypography.zaloFont(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: day == 'CN' ? const Color(0xFFDC2626) : AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 6),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: rowCount * 7,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 5,
+            crossAxisSpacing: 5,
+            childAspectRatio: 0.88,
+          ),
+          itemBuilder: (ctx, index) {
+            final dayNum = index - leadingBlanks + 1;
+            if (dayNum < 1 || dayNum > daysInMonth) {
+              return const SizedBox.shrink();
+            }
+
+            final date = DateTime(_focusedMonth.year, _focusedMonth.month, dayNum);
+            final dateKey = DateFormat('yyyy-MM-dd').format(date);
+            final dayBookings = bookingsByDay[dateKey] ?? const [];
+            final dayShifts = shiftsByDay[dateKey] ?? const [];
+            final totalCa = dayBookings.length + dayShifts.length;
+            final isSelected = DateUtils.isSameDay(date, _selectedDate);
+            final isToday = DateUtils.isSameDay(date, DateTime.now());
+
+            final hasMorning = dayBookings.any((b) => _shiftSlotForStartTime(b.startTime) == 'morning') ||
+                dayShifts.any((s) => s.shiftSlot == 'morning');
+            final hasAfternoon = dayBookings.any((b) => _shiftSlotForStartTime(b.startTime) == 'afternoon') ||
+                dayShifts.any((s) => s.shiftSlot == 'afternoon');
+            final hasEvening = dayBookings.any((b) => _shiftSlotForStartTime(b.startTime) == 'evening') ||
+                dayShifts.any((s) => s.shiftSlot == 'evening');
+
+            return InkWell(
+              onTap: () {
+                setState(() {
+                  _selectedDate = date;
+                  _isAllDates = false;
+                });
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primary
+                      : (totalCa > 0 ? const Color(0xFFF0FDF4) : const Color(0xFFF9FAFB)),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.primary
+                        : (isToday ? AppColors.accent : const Color(0xFFE5E7EB)),
+                    width: isToday && !isSelected ? 1.5 : 1,
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '$dayNum',
+                      style: AppTypography.zaloFont(
+                        fontSize: 12,
+                        fontWeight: isSelected || isToday ? FontWeight.w700 : FontWeight.w600,
+                        color: isSelected ? Colors.white : AppColors.textHeading,
+                      ),
+                    ),
+                    if (totalCa > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.white.withValues(alpha: 0.22) : AppColors.mintBackground,
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          '$totalCa ca',
+                          style: AppTypography.zaloFont(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: isSelected ? Colors.white : AppColors.accent,
+                          ),
+                        ),
+                      )
+                    else
+                      const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (hasMorning)
+                          _buildShiftDot(isSelected ? Colors.white : const Color(0xFFD97706)),
+                        if (hasAfternoon)
+                          _buildShiftDot(isSelected ? Colors.white : AppColors.secondary),
+                        if (hasEvening)
+                          _buildShiftDot(isSelected ? Colors.white : const Color(0xFF7C3AED)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShiftDot(Color color) {
+    return Container(
+      width: 5,
+      height: 5,
+      margin: const EdgeInsets.symmetric(horizontal: 1),
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+
+  Widget _buildSelectedDaySchedulePanel({
+    required List<AdminBookingModel> selectedBookings,
+    required List<AdminTechnicianShiftModel> selectedShifts,
+  }) {
+    final dateLabel = DateFormat('dd/MM/yyyy').format(_selectedDate);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                'Lịch ca ngày $dateLabel (${selectedBookings.length} ca hẹn)',
+                style: AppTypography.zaloFont(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textHeading,
+                ),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _isMonthlyView = false;
+                  _isAllDates = false;
+                });
+                _fetchBookings();
+              },
+              icon: const Icon(Icons.open_in_new_rounded, size: 14),
+              label: Text(
+                'Mở theo ngày',
+                style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w600),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              ),
+            ),
+          ],
+        ),
+        if (selectedShifts.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6EE),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'KTV trực ca (${selectedShifts.length})',
+                  style: AppTypography.zaloFont(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accent,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: selectedShifts.map((s) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFD1FAE5)),
+                      ),
+                      child: Text(
+                        '${s.technicianName} · ${s.shiftLabel} (${s.startTime}-${s.endTime})',
+                        style: AppTypography.zaloFont(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textHeading,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        if (selectedBookings.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Center(
+              child: Text(
+                'Không có ca hẹn nào trong ngày $dateLabel',
+                style: AppTypography.zaloFont(
+                  fontSize: 12.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          )
+        else
+          ...selectedBookings.map((b) {
+            return AdminAppointmentCard(
+              booking: b,
+              isProcessing: _processingBookingId == b.id,
+              isCompact: _isCompactView,
+              onApprove: () => _handleApprove(b),
+              onCancel: () => _handleCancel(b),
+              onCheckIn: () => _handleCheckIn(b),
+              onStartService: () => _handleStartService(b),
+              onFinishService: () => _handleFinishService(b),
+              onCheckOut: () => _handleCheckOut(b),
+              onViewDetail: () => _showAppointmentDetailSheet(b),
+            );
+          }),
+      ],
     );
   }
 }

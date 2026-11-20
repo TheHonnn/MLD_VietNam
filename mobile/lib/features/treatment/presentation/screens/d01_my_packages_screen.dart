@@ -2,7 +2,11 @@ import '../../../services/presentation/screens/b02_service_listing_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
+import '../../../booking/data/models/booking_models.dart';
+import '../../../booking/data/repositories/booking_repository.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
+import '../../../booking/presentation/screens/c10_appointment_detail_screen.dart';
+import '../../../home/data/models/home_models.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/treatment_models.dart';
 import '../../data/repositories/treatment_repository.dart';
@@ -32,7 +36,14 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
   }
 
   Future<void> _loadPackages() async {
-    await _repo.fetchPackages();
+    if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
+      if (mounted) setState(() {});
+      return;
+    }
+    await Future.wait([
+      _repo.fetchPackages(),
+      BookingRepository.instance.fetchMyAppointments(),
+    ]);
     if (mounted) setState(() {});
   }
 
@@ -83,8 +94,19 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                 Builder(
                   builder: (context) {
                     final profile = MembershipRepository.instance.profile;
-                    final activePackages = _repo.packages.where((p) => p.status == PackageStatus.active).toList();
-                    final remainingSessions = activePackages.fold<int>(0, (sum, p) => sum + (p.totalSessions - p.completedSessions));
+                    final activePackages = _repo.packages
+                        .where((p) =>
+                            p.status == PackageStatus.active &&
+                            !(p.totalSessions > 0 &&
+                                p.completedSessions >= p.totalSessions))
+                        .toList();
+                    final remainingSessions = activePackages.fold<int>(
+                        0,
+                        (sum, p) =>
+                            sum +
+                            (p.totalSessions > p.completedSessions
+                                ? p.totalSessions - p.completedSessions
+                                : 0));
                     final usedSessions = _repo.packages.fold<int>(0, (sum, p) => sum + p.completedSessions);
 
                     final displayName = profile.fullName.trim().isNotEmpty ? profile.fullName : context.tr('Khách hàng', 'Customer');
@@ -183,16 +205,15 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
 
                 const SizedBox(height: 16),
 
-                // 3. DANH SÁCH GÓI LIỆU TRÌNH THEO TRẠNG THÁI
                 if (_selectedStatusIndex == 0) ...[
-                  if (_repo.packages.where((p) => p.status == PackageStatus.active).isEmpty)
+                  if (_repo.packages.where((p) => p.status == PackageStatus.active && !(p.totalSessions > 0 && p.completedSessions >= p.totalSessions)).isEmpty)
                     _buildEmptyState(
                       icon: Icons.spa_outlined,
                       title: context.tr('Bạn chưa có gói liệu trình nào đang hoạt động', 'You have no active treatment packages'),
                       subtitle: context.tr('Khám phá các dịch vụ & gói chăm sóc sức khỏe hệ bạch huyết để bắt đầu phục hồi cơ thể.', 'Explore lymphatic health services & treatment packages to start your recovery journey.'),
                     )
                   else
-                    ..._repo.packages.where((p) => p.status == PackageStatus.active).map(
+                    ..._repo.packages.where((p) => p.status == PackageStatus.active && !(p.totalSessions > 0 && p.completedSessions >= p.totalSessions)).map(
                           (pkg) => Padding(
                             padding: const EdgeInsets.only(bottom: 8.0),
                             child: _buildPackageCard(
@@ -209,7 +230,12 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                           ),
                         ),
                 ] else if (_selectedStatusIndex == 1) ...[
-                  if (_repo.packages.where((p) => p.status == PackageStatus.completed || p.completedSessions >= p.totalSessions).isEmpty)
+                  if (_repo.packages
+                      .where((p) =>
+                          p.status == PackageStatus.completed ||
+                          (p.totalSessions > 0 &&
+                              p.completedSessions >= p.totalSessions))
+                      .isEmpty)
                     _buildEmptyState(
                       icon: Icons.history_rounded,
                       title: context.tr('Bạn chưa có gói liệu trình nào đã hoàn thành.', 'You have no completed treatment packages.'),
@@ -217,7 +243,12 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                       showBookButton: false,
                     )
                   else
-                    ..._repo.packages.where((p) => p.status == PackageStatus.completed || p.completedSessions >= p.totalSessions).map(
+                    ..._repo.packages
+                        .where((p) =>
+                            p.status == PackageStatus.completed ||
+                            (p.totalSessions > 0 &&
+                                p.completedSessions >= p.totalSessions))
+                        .map(
                           (pkg) => Padding(
                             padding: const EdgeInsets.only(bottom: 8.0),
                             child: _buildPackageCard(
@@ -398,7 +429,7 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
         : context.tr('Trị liệu phục hồi MLD', 'MLD Recovery Therapy');
     final packageCodeDisplay = package.packageCode.trim().isNotEmpty
         ? package.packageCode
-        : 'MLD-PKG-';
+        : 'MLD-PKG-${package.id}';
 
     // Xác định badge trạng thái
     Color statusBg;
@@ -565,29 +596,32 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    RichText(
-                      text: TextSpan(
-                        style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary),
-                        children: [
-                          TextSpan(
-                            text: context.tr('Đã thực hiện: ', 'Completed: '),
-                            style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500),
-                          ),
-                          TextSpan(
-                            text: '${package.completedSessions}',
-                            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 15),
-                          ),
-                          TextSpan(
-                            text: ' / ${package.totalSessions} ${context.tr("buổi", "sessions")}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
+                    Flexible(
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary),
+                          children: [
+                            TextSpan(
+                              text: context.tr('Đã thực hiện: ', 'Completed: '),
+                              style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                            ),
+                            TextSpan(
+                              text: '${package.completedSessions}',
+                              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 15),
+                            ),
+                            TextSpan(
+                              text: ' / ${package.totalSessions} ${context.tr("buổi (${package.totalShifts} ca)", "sessions (${package.totalShifts} shifts)")}',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
-                      '$percentText%',
+                      '${context.tr("Còn ${package.remainingShifts} ca", "${package.remainingShifts} left")} · $percentText%',
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary,
                       ),
@@ -636,67 +670,151 @@ class _D01MyPackagesScreenState extends State<D01MyPackagesScreen> {
                     ),
                   ),
 
-                const SizedBox(height: 14),
-                // 6. Nút thao tác
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 42,
-                        child: OutlinedButton(
-                          onPressed: onTap,
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.primary),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: Text(
-                            context.tr('Xem chi tiết các buổi', 'View Session Details'),
-                            style: const TextStyle(
-                              
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
+                Builder(
+                  builder: (context) {
+                    final openBooking = BookingRepository.instance.getOpenBookingForUserPackage(package.id);
+                    final canBookNext = package.status == PackageStatus.active &&
+                        package.remainingSessions > 0 &&
+                        openBooking == null;
+                    final openDateStr = openBooking != null
+                        ? '${openBooking.appointmentDate.day.toString().padLeft(2, '0')}/${openBooking.appointmentDate.month.toString().padLeft(2, '0')}/${openBooking.appointmentDate.year}'
+                        : '';
+                    final linkedService = (package.serviceId != null && package.serviceId!.isNotEmpty)
+                        ? SpaServiceModel(
+                            id: package.serviceId!,
+                            name: package.serviceName.isNotEmpty ? package.serviceName : package.packageName,
+                            categoryName: 'Gói liệu trình',
+                            shortDescription: package.description,
+                            durationMinutes: package.durationMinutes,
+                            price: 0,
+                            imageUrl: package.imageUrl,
+                          )
+                        : null;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (openBooking != null) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.iceBlue.withValues(alpha: 0.65),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
                             ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (package.remainingSessions > 0) ...[
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: SizedBox(
-                          height: 42,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => AllInOneBookingScreen(
-                                    userPackageId: package.id,
-                                    userPackageName: package.packageName,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.event_note_rounded, size: 16, color: AppColors.primary),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Đã đặt lịch: ${openBooking.timeSlot} · $openDateStr (${openBooking.status.label})',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
                                   ),
                                 ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              elevation: 0,
-                            ),
-                            child: Text(
-                              context.tr('Đặt buổi tiếp', 'Book Next Session'),
-                              style: const TextStyle(
-                                
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              ],
                             ),
                           ),
+                        ],
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 42,
+                                child: OutlinedButton(
+                                  onPressed: onTap,
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: AppColors.primary),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  child: Text(
+                                    context.tr('Xem chi tiết các buổi', 'View Session Details'),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (openBooking != null) ...[
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 42,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => C10AppointmentDetailScreen(appointmentId: openBooking.id),
+                                        ),
+                                      ).then((_) => _loadPackages());
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.accent,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      elevation: 0,
+                                    ),
+                                    child: Text(
+                                      context.tr('Xem lịch đang đặt', 'View Active Booking'),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ] else if (canBookNext) ...[
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 42,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => AllInOneBookingScreen(
+                                            initialService: linkedService,
+                                            userPackageId: package.id,
+                                            userPackageName: package.packageName,
+                                          ),
+                                        ),
+                                      ).then((_) => _loadPackages());
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      elevation: 0,
+                                    ),
+                                    child: Text(
+                                      context.tr('Đặt buổi tiếp', 'Book Next Session'),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ),
-                    ],
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ],
             ),

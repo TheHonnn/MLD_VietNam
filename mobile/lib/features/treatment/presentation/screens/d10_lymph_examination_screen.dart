@@ -3,6 +3,8 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../../booking/data/repositories/booking_repository.dart';
+import '../../../home/data/models/home_models.dart';
+import '../../../home/data/repositories/branch_repository.dart';
 
 /// Screen D10: Đăng ký kiểm tra phù bạch huyết (Section 6, items 76-84)
 /// Quy chuẩn Trắng và Xanh Y tế (#0066B2)
@@ -33,7 +35,8 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
     'Tầm soát & bảo dưỡng hệ bạch huyết định kỳ',
   ];
 
-  final List<String> _branches = [
+  List<BranchModel> _branchModels = [];
+  List<String> _branches = [
     'Chi nhánh Quận 3 · 123 Nguyễn Thị Minh Khai',
     'Chi nhánh Quận 1 · 45 Lê Duẩn, Bến Nghé',
   ];
@@ -57,6 +60,24 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
     _phoneController = TextEditingController(text: phone);
     _notesController = TextEditingController();
     _selectedDate = DateTime.now().add(const Duration(days: 1));
+    _loadDynamicBranches();
+  }
+
+  Future<void> _loadDynamicBranches() async {
+    try {
+      final list = await BranchRepository.instance.getBranches();
+      if (!mounted || list.isEmpty) return;
+      final formatted = list.map((b) => '${b.name} · ${b.address}').toSet().toList();
+      if (formatted.isNotEmpty) {
+        setState(() {
+          _branchModels = list;
+          _branches = formatted;
+          if (!_branches.contains(_selectedBranch)) {
+            _selectedBranch = _branches.first;
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -78,10 +99,20 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
       final extraNotes = _notesController.text.trim();
       final combinedNotes = 'Tình trạng: $_selectedCondition' + (extraNotes.isNotEmpty ? ' | Ghi chú: $extraNotes' : '');
 
+      String? matchedBranchId;
+      for (final b in _branchModels) {
+        if ('${b.name} · ${b.address}' == _selectedBranch ||
+            b.name == _selectedBranch) {
+          matchedBranchId = b.id;
+          break;
+        }
+      }
+
       final bookingCode = await BookingRepository.instance.registerQuickConsultation(
         name: name,
         phone: phone,
         notes: combinedNotes,
+        branchId: matchedBranchId,
         branchName: _selectedBranch,
         date: _selectedDate,
         timeSlot: _selectedTime,
@@ -375,11 +406,17 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
-                      initialValue: _selectedBranch,
+                      initialValue: _branches.contains(_selectedBranch) ? _selectedBranch : _branches.first,
+                      isExpanded: true,
                       items: _branches
                           .map((b) => DropdownMenuItem(
                                 value: b,
-                                child: Text(b, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary)),
+                                child: Text(
+                                  b,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                                ),
                               ))
                           .toList(),
                       onChanged: (v) {

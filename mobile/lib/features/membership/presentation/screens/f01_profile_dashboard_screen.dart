@@ -389,6 +389,29 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                                 color: AppColors.textSecondary,
                               ),
                             ),
+                            if (isUserLoggedIn &&
+                                _profile.studentCode != null &&
+                                _profile.studentCode!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6EE),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: AppColors.accent.withValues(alpha: 0.35),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Học viên · Mã HV: ${_profile.studentCode}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

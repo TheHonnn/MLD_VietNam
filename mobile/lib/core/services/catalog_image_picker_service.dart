@@ -171,8 +171,8 @@ class CatalogImagePickerService {
         data: bytes,
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             'Content-Type': mimeType,
           },
         ),

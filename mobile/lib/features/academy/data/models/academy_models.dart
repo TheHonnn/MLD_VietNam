@@ -123,7 +123,10 @@ class CourseModel {
       progressPercentage: (json['progressPercentage'] as num?)?.toInt() ?? (json['progress_percentage'] as num?)?.toInt() ?? 0,
       status: json['status']?.toString() ?? 'UPCOMING',
       enrollmentId: json['enrollment_id']?.toString() ?? json['enrollmentId']?.toString(),
-      customerCode: json['customer_code']?.toString() ?? json['customerCode']?.toString(),
+      customerCode: json['student_code']?.toString() ??
+          json['studentCode']?.toString() ??
+          json['customer_code']?.toString() ??
+          json['customerCode']?.toString(),
       approvalStatus: json['approval_status']?.toString() ?? json['approvalStatus']?.toString(),
       totalVideos: videoCount,
     );
@@ -1509,6 +1512,7 @@ class QuizSubmissionModel {
 class StudentCertificateModel {
   final String id;
   final String certificateCode;
+  final String? studentCode;
   final String studentName;
   final String courseTitle;
   final String issueDate;
@@ -1525,6 +1529,7 @@ class StudentCertificateModel {
   const StudentCertificateModel({
     required this.id,
     required this.certificateCode,
+    this.studentCode,
     required this.studentName,
     required this.courseTitle,
     required this.issueDate,
@@ -1540,9 +1545,12 @@ class StudentCertificateModel {
   });
 
   factory StudentCertificateModel.fromJson(Map<String, dynamic> json) {
+    final userObj = json['users'];
+    final nestedStudentCode = userObj is Map ? userObj['student_code']?.toString() : null;
     return StudentCertificateModel(
       id: json['id']?.toString() ?? '',
       certificateCode: json['certificateCode']?.toString() ?? json['certificate_code']?.toString() ?? '',
+      studentCode: json['studentCode']?.toString() ?? json['student_code']?.toString() ?? nestedStudentCode,
       studentName: json['studentName']?.toString() ?? json['student_name']?.toString() ?? '',
       courseTitle: json['courseTitle']?.toString() ?? json['course_title']?.toString() ?? '',
       issueDate: json['issueDate']?.toString() ?? json['issue_date']?.toString() ?? '',
@@ -1561,6 +1569,7 @@ class StudentCertificateModel {
   Map<String, dynamic> toJson() => {
     'id': id,
     'certificateCode': certificateCode,
+    'studentCode': studentCode,
     'studentName': studentName,
     'courseTitle': courseTitle,
     'issueDate': issueDate,

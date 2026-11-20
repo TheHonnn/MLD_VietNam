@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../admin/presentation/screens/admin_main_layout_screen.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
@@ -284,34 +285,37 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            if (Navigator.canPop(context))
-                              InkWell(
-                                onTap: () => Navigator.pop(context),
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  width: 42,
-                                  height: 42,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.05),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: primaryNavy),
-                                ),
-                              )
-                            else
-                              const SizedBox(width: 42),
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Navigator.canPop(context)
+                                    ? InkWell(
+                                        onTap: () => Navigator.pop(context),
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(12),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.05),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: primaryNavy),
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
+                            ),
                             Container(
-                              height: 48,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                              height: 44,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(14),
@@ -329,14 +333,47 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                 errorBuilder: (_, __, ___) => Text(
                                   'MLD VIETNAM',
                                   style: GoogleFonts.beVietnamPro(
-                                    fontSize: 16,
+                                    fontSize: 15,
                                     fontWeight: FontWeight.w800,
                                     color: primaryNavy,
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 42),
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: TextButton(
+                                    onPressed: () {
+                                      if (Navigator.canPop(context)) {
+                                        Navigator.pop(context);
+                                      } else {
+                                        Navigator.pushReplacement(
+                                          context,
+                                          MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
+                                        );
+                                      }
+                                    },
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: Text(
+                                      'Khám phá ngay',
+                                      maxLines: 1,
+                                      style: GoogleFonts.beVietnamPro(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: primaryNavy,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
 
@@ -850,17 +887,24 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                                 ),
                               ],
                             ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 const Icon(Icons.explore_outlined, size: 20, color: primaryNavy),
                                 const SizedBox(width: 8),
-                                Text(
-                                  'Khám phá ứng dụng',
-                                  style: GoogleFonts.beVietnamPro(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: primaryNavy,
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      'Khám phá ứng dụng (Không cần đăng nhập)',
+                                      maxLines: 1,
+                                      style: GoogleFonts.beVietnamPro(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: primaryNavy,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -877,10 +921,10 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
                             InkWell(
                               onTap: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Hotline hỗ trợ MLD: 0987 186 399'),
+                                  SnackBar(
+                                    content: Text('Hotline hỗ trợ MLD: ${PortalSettingsService.instance.hotlineSupport}'),
                                     backgroundColor: primaryNavy,
-                                    duration: Duration(seconds: 2),
+                                    duration: const Duration(seconds: 2),
                                   ),
                                 );
                               },

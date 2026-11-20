@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/services/auth_service.dart';
@@ -17,6 +16,20 @@ class F04LoyaltyPointsScreen extends StatefulWidget {
     super.key,
     this.onBack,
   });
+
+  static String formatTransactionPoints(String points, {bool isEn = false}) {
+    return '$points ${isEn ? "pts" : "điểm"}';
+  }
+
+  static bool isTierRuleActive(String ruleDisplayName, String currentTier) {
+    final currentTierLower = currentTier.toLowerCase();
+    final ruleNameLower = ruleDisplayName.toLowerCase();
+    final isStandardMatch = (currentTierLower == 'standard' || currentTierLower.contains('thành viên')) &&
+        (ruleNameLower.contains('tiêu chuẩn') || ruleNameLower.contains('standard'));
+    return isStandardMatch ||
+        ruleNameLower.contains(currentTierLower) ||
+        currentTierLower.contains(ruleNameLower);
+  }
 
   @override
   State<F04LoyaltyPointsScreen> createState() => _F04LoyaltyPointsScreenState();
@@ -742,7 +755,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> with Si
                     ),
                   ),
                   child: Text(
-                    '${tx.points} đ',
+                    F04LoyaltyPointsScreen.formatTransactionPoints(tx.points, isEn: context.isEn),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -945,8 +958,7 @@ class _F04LoyaltyPointsScreenState extends State<F04LoyaltyPointsScreen> with Si
           const SizedBox(height: 8),
 
           ..._tierRules.map((rule) {
-            final isCurrent = rule.displayName.toLowerCase().contains(_profile.memberTier.toLowerCase()) ||
-                _profile.memberTier.toLowerCase().contains(rule.displayName.toLowerCase());
+            final isCurrent = F04LoyaltyPointsScreen.isTierRuleActive(rule.displayName, _profile.memberTier);
 
             return Container(
               margin: const EdgeInsets.only(bottom: 10),

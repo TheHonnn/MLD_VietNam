@@ -5,6 +5,7 @@ import '../../../../core/utils/validators.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
+import '../../../payments/presentation/widgets/auto_payment_checkout_sheet.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import '../../../home/data/models/home_models.dart';
@@ -139,12 +140,40 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
         studentType: studentType,
       );
 
-      final customerCode = enrollResult['customerCode']?.toString() ?? '—';
-
       if (!mounted) return;
       setState(() => _isSubmitting = false);
 
-      _showPendingApprovalDialog(name, phone, customerCode);
+      if (enrollResult['success'] == false) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              enrollResult['message']?.toString() ??
+                  context.tr(
+                    'Bạn đã có một hồ sơ đang được xử lý cho khóa học này.',
+                    'You already have an active enrollment for this course.',
+                  ),
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+
+      final rawCode = enrollResult['studentCode']?.toString() ??
+          enrollResult['customerCode']?.toString() ??
+          '';
+      final customerCode = rawCode.trim().isNotEmpty ? rawCode.trim() : 'Chờ Admin cấp mã';
+      final enrollmentId = enrollResult['id']?.toString();
+      final parsedDeposit = (enrollResult['depositAmount'] as num?)?.toDouble() ?? widget.course.depositFee;
+      final payableAmount = parsedDeposit >= 1000 ? parsedDeposit : widget.course.tuitionFee;
+
+      _showPendingApprovalDialog(
+        name,
+        phone,
+        customerCode,
+        enrollmentId: enrollmentId,
+        depositAmount: payableAmount,
+      );
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -158,7 +187,16 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     }
   }
 
-  void _showPendingApprovalDialog(String studentName, String studentPhone, String customerCode) {
+  void _showPendingApprovalDialog(
+    String studentName,
+    String studentPhone,
+    String customerCode, {
+    String? enrollmentId,
+    double depositAmount = 0,
+  }) {
+    final canPayOnline =
+        enrollmentId != null && enrollmentId.trim().isNotEmpty && depositAmount >= 1000;
+    final refCode = customerCode != 'Chờ Admin cấp mã' ? customerCode : studentPhone;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -304,6 +342,38 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+              if (canPayOnline) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.qr_code_2_rounded, size: 19, color: Colors.white),
+                    label: Text(
+                      context.tr('Thanh toán học phí online (QR)', 'Pay Tuition Online (QR)'),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      AutoPaymentCheckoutSheet.show(
+                        context,
+                        amount: depositAmount,
+                        description: 'MLD HV $refCode',
+                        targetType: 'ENROLLMENT',
+                        targetId: enrollmentId,
+                        referenceCode: refCode,
+                        customerName: studentName,
+                        customerPhone: studentPhone,
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(

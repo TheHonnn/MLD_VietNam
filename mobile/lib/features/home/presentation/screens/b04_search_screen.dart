@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import '../../../services/presentation/screens/b02_service_listing_screen.dart';
 import '../../../directory/presentation/screens/b05_branch_listing_screen.dart';
 import '../../../directory/presentation/screens/b07_specialist_listing_screen.dart';
@@ -38,7 +39,18 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    PortalSettingsService.instance.settingsVersion.addListener(_onSettingsChanged);
+  }
+
+  void _onSettingsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    PortalSettingsService.instance.settingsVersion.removeListener(_onSettingsChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -223,7 +235,54 @@ class _B04SearchScreenState extends State<B04SearchScreen> {
                 }),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
+
+              if (PortalSettingsService.instance.audienceFilterList.length > 1) ...[
+                Text(
+                  context.tr('Nhóm đối tượng', 'Target Audience'),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: PortalSettingsService.instance.audienceFilterList
+                      .where((a) => a != 'Tất cả đối tượng' && a != 'Tất cả')
+                      .map((aud) {
+                    return InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => E01AcademyHomeScreen(initialGroup: aud),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(18),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Text(
+                          aud,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 22),
+              ],
 
               // --- 5. TÌM KIẾM GẦN ĐÂY ---
               if (_recentSearches.isNotEmpty) ...[

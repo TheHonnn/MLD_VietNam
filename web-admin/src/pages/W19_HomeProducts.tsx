@@ -35,10 +35,20 @@ import { compressImageFile } from '../utils/imageCompressor';
 type ProductGroup =
   'Dụng cụ tập luyện' | 'Băng ép' | 'Chăm sóc da' | 'Tài liệu';
 
+type TreatmentPackageGroup =
+  'Chăm sóc khu trú' | 'Chăm sóc mở rộng' | 'Chăm sóc toàn diện';
+
+const TREATMENT_PACKAGE_GROUPS: TreatmentPackageGroup[] = [
+  'Chăm sóc khu trú',
+  'Chăm sóc mở rộng',
+  'Chăm sóc toàn diện',
+];
+
 interface HomeProduct {
   id: string;
   name: string;
   category: ProductGroup;
+  treatment_package_group?: TreatmentPackageGroup | string | null;
   price_min: number;
   price_max: number;
   unit: string;
@@ -60,6 +70,7 @@ const money = new Intl.NumberFormat('vi-VN');
 const emptyForm = {
   name: '',
   category: 'Dụng cụ tập luyện' as ProductGroup,
+  treatment_package_group: 'Chăm sóc toàn diện' as TreatmentPackageGroup,
   price_min: '',
   price_max: '',
   unit: '',
@@ -245,6 +256,7 @@ export const W19_HomeProducts: React.FC = () => {
     setForm({
       name: product.name,
       category: product.category,
+      treatment_package_group: ((product.treatment_package_group as TreatmentPackageGroup) || 'Chăm sóc khu trú'),
       price_min: String(product.price_min),
       price_max: String(product.price_max),
       unit: product.unit,
@@ -499,6 +511,7 @@ export const W19_HomeProducts: React.FC = () => {
       const values = {
         name: form.name.trim(),
         category: form.category,
+        treatment_package_group: form.treatment_package_group,
         price_min: min,
         price_max: max,
         unit: form.unit.trim(),
@@ -1079,7 +1092,6 @@ export const W19_HomeProducts: React.FC = () => {
                 />
               </div>
 
-              {/* Nhóm sản phẩm */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-[#3E200C]">
                   Nhóm sản phẩm
@@ -1092,6 +1104,28 @@ export const W19_HomeProducts: React.FC = () => {
                   className="h-10 w-full rounded-xl border border-[#D7BBA6] bg-white px-3 text-xs font-medium text-[#2C241E] outline-none focus:border-[#985018] focus:ring-2 focus:ring-[#985018]/15"
                 >
                   {groups.slice(1).map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-[#3E200C]">
+                  Thuộc nhóm liệu trình
+                </label>
+                <select
+                  value={form.treatment_package_group}
+                  onChange={(event) =>
+                    update(
+                      'treatment_package_group',
+                      event.target.value as TreatmentPackageGroup,
+                    )
+                  }
+                  className="h-10 w-full rounded-xl border border-[#D7BBA6] bg-white px-3 text-xs font-medium text-[#2C241E] outline-none focus:border-[#985018] focus:ring-2 focus:ring-[#985018]/15"
+                >
+                  {TREATMENT_PACKAGE_GROUPS.map((item) => (
                     <option key={item} value={item}>
                       {item}
                     </option>

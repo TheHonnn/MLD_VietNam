@@ -7,9 +7,6 @@ import 'package:medical_healthcare_app/features/academy/data/models/academy_mode
 import 'package:medical_healthcare_app/features/academy/data/repositories/academy_repository.dart';
 import 'package:medical_healthcare_app/features/academy/presentation/screens/e05_enrollment_form_screen.dart';
 import 'package:medical_healthcare_app/features/admin/data/models/admin_models.dart';
-import 'package:medical_healthcare_app/features/home/data/models/home_models.dart';
-import 'package:medical_healthcare_app/features/home/data/repositories/branch_repository.dart';
-import 'package:medical_healthcare_app/features/home/data/repositories/mock_home_repository.dart';
 
 Widget _buildTestApp({required Widget home}) {
   return MaterialApp(
@@ -126,6 +123,7 @@ void main() {
 
       expect(find.text('Đăng ký thành công!'), findsOneWidget);
       expect(find.text('Chờ nhân viên duyệt'), findsOneWidget);
+      expect(find.text('Thanh toán học phí online (QR)'), findsOneWidget);
       expect(find.text('Xem khóa học của tôi'), findsOneWidget);
       expect(find.text('Về trang đào tạo'), findsOneWidget);
       expect(find.descendant(of: find.byType(Dialog), matching: find.text('Nguyễn Văn Test')), findsOneWidget);

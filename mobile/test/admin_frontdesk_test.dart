@@ -122,6 +122,130 @@ void main() {
       await tester.pump();
       expect(checkOutFired, isTrue);
     });
+
+    testWidgets('renders Step 4 single-service button and fires onFinishService', (tester) async {
+      bool finishFired = false;
+      final inServiceBooking = baseBooking.copyWith(
+        status: 'IN_SERVICE',
+        sessionStatus: 'NOT_STARTED',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AdminAppointmentCard(
+              booking: inServiceBooking,
+              onFinishService: () => finishFired = true,
+              onCheckOut: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Đang phục vụ'), findsOneWidget);
+      expect(find.text('Hoàn tất chuyên môn'), findsOneWidget);
+
+      await tester.tap(find.text('Hoàn tất chuyên môn'));
+      await tester.pump();
+      expect(finishFired, isTrue);
+    });
+
+    testWidgets('renders Step 4 package button when notes contain user_package_id', (tester) async {
+      bool finishFired = false;
+      final pkgBooking = AdminBookingModel.fromJson({
+        'id': 'bk_pkg_01',
+        'booking_code': 'BK-PKG-01',
+        'booking_date': '2026-10-28',
+        'start_time': '10:00',
+        'end_time': '11:00',
+        'customer_name': 'Lê Thị Hoa',
+        'customer_phone': '0988776655',
+        'service_name': 'Gói MLD Toàn Thân',
+        'final_price': 0,
+        'status': 'IN_SERVICE',
+        'payment_status': 'PAID',
+        'session_status': 'NOT_STARTED',
+        'payment_method': 'MEMBERSHIP_WALLET',
+        'notes': '[Gói liệu trình] user_package_id=11111111-2222-3333-4444-555555555555',
+      });
+
+      expect(pkgBooking.userPackageId, '11111111-2222-3333-4444-555555555555');
+      expect(pkgBooking.isPackageSession, isTrue);
+      expect(pkgBooking.isClinicalCompleted, isFalse);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AdminAppointmentCard(
+              booking: pkgBooking,
+              onFinishService: () => finishFired = true,
+              onCheckOut: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Ghi nhật ký & Trừ buổi'), findsOneWidget);
+
+      await tester.tap(find.text('Ghi nhật ký & Trừ buổi'));
+      await tester.pump();
+      expect(finishFired, isTrue);
+    });
+
+    testWidgets('renders Step 5 Chờ thu tiền when clinical completed but UNPAID', (tester) async {
+      bool checkOutFired = false;
+      final awaitingPayBooking = baseBooking.copyWith(
+        status: 'IN_SERVICE',
+        sessionStatus: 'COMPLETED',
+        paymentStatus: 'UNPAID',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AdminAppointmentCard(
+              booking: awaitingPayBooking,
+              onFinishService: () {},
+              onCheckOut: () => checkOutFired = true,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Chờ thu tiền'), findsNWidgets(2));
+
+      await tester.tap(find.text('Chờ thu tiền').last);
+      await tester.pump();
+      expect(checkOutFired, isTrue);
+    });
+
+    testWidgets('renders Step 5 Chờ đóng ca & Hoàn thành Check-out when clinical completed and PAID', (tester) async {
+      bool checkOutFired = false;
+      final readyCloseBooking = baseBooking.copyWith(
+        status: 'IN_SERVICE',
+        sessionStatus: 'COMPLETED',
+        paymentStatus: 'PAID',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AdminAppointmentCard(
+              booking: readyCloseBooking,
+              onFinishService: () {},
+              onCheckOut: () => checkOutFired = true,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Chờ đóng ca'), findsOneWidget);
+      expect(find.text('Hoàn thành Check-out'), findsOneWidget);
+
+      await tester.tap(find.text('Hoàn thành Check-out'));
+      await tester.pump();
+      expect(checkOutFired, isTrue);
+    });
   });
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/launcher_helper.dart';
 import '../../../../core/services/portal_settings_service.dart';
+import '../../../home/data/repositories/branch_repository.dart';
 import '../../data/models/treatment_models.dart';
 import '../../data/repositories/treatment_repository.dart';
 
@@ -717,26 +718,26 @@ class _D07CustomerSupportScreenState extends State<D07CustomerSupportScreen> {
                           Divider(height: 1, color: Color(0xFFE2E8F0)),
                           SizedBox(height: 12),
                           Text(
-                            'Chi nhánh Quận 3',
-                            style: TextStyle(
+                            BranchRepository.instance.activeBranch?.name ?? 'Trụ sở chính MLD Việt Nam',
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textHeading,
                             ),
                           ),
-                          SizedBox(height: 6),
+                          const SizedBox(height: 6),
                           Text(
-                            '123 Nguyễn Thị Minh Khai, Phường 6, Quận 3, TP. Hồ Chí Minh',
-                            style: TextStyle(
+                            BranchRepository.instance.activeBranch?.address ?? PortalSettingsService.instance.headquartersAddress,
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
                               color: AppColors.textHeading,
                             ),
                           ),
-                          SizedBox(height: 12),
+                          const SizedBox(height: 12),
                           Text(
-                            'Bộ phận CSKH MLD luôn sẵn sàng hỗ trợ quý khách từ 08:30 đến 20:30 hàng ngày.',
-                            style: TextStyle(
+                            'Bộ phận CSKH MLD luôn sẵn sàng hỗ trợ quý khách trong khung giờ ${PortalSettingsService.instance.workingHours}.',
+                            style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
                               color: AppColors.textSecondary,

@@ -34,7 +34,8 @@ class E10QuizScreen extends StatefulWidget {
 }
 
 class _E10QuizScreenState extends State<E10QuizScreen> {
-  late List<QuizQuestionModel> _questions;
+  List<QuizQuestionModel> _questions = [];
+  bool _isLoadingQuestions = false;
   int _currentQuestionIndex = 0;
   final Map<int, String> _selectedAnswers = {}; // questionIndex -> 'A' | 'B' | 'C' | 'D'
 
@@ -60,11 +61,25 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
 
   void _loadQuestionsDynamically() async {
     final qId = widget.quiz?.id;
-    if (qId != null && qId.isNotEmpty) {
+    if (qId == null || qId.isEmpty) return;
+    setState(() => _isLoadingQuestions = true);
+    try {
       final raw = await SupabaseDataService.instance.fetchQuizQuestions(qId);
-      if (raw.isNotEmpty && mounted) {
+      if (mounted) {
         setState(() {
-          _questions = raw.map((j) => QuizQuestionModel.fromJson(j)).toList();
+          if (raw.isNotEmpty) {
+            _questions = raw.map((j) => QuizQuestionModel.fromJson(j)).toList();
+          } else {
+            _questions = MockAcademyData.getStandardVodderQuestions(qId);
+          }
+          _isLoadingQuestions = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _questions = MockAcademyData.getStandardVodderQuestions(qId);
+          _isLoadingQuestions = false;
         });
       }
     }
@@ -77,6 +92,7 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
       final qId = widget.quiz?.id ?? 'quiz_default';
       _questions = MockAcademyData.getStandardVodderQuestions(qId);
     } else {
+      _questions = [];
       _loadQuestionsDynamically();
     }
 
@@ -400,7 +416,11 @@ class _E10QuizScreenState extends State<E10QuizScreen> {
     if (_questions.isEmpty) {
       return Scaffold(
         appBar: AcademyAppBar(subtitleTag: context.tr('Bài kiểm tra', 'Quiz Assessment')),
-        body: Center(child: Text(context.tr('Đang chuẩn bị đề kiểm tra trắc nghiệm...', 'Preparing multiple choice quiz...'))),
+        body: Center(
+          child: _isLoadingQuestions
+              ? const CircularProgressIndicator(color: AcademyColors.primary)
+              : Text(context.tr('Đang chuẩn bị đề kiểm tra trắc nghiệm...', 'Preparing multiple choice quiz...')),
+        ),
       );
     }
 

@@ -13,6 +13,7 @@ import '../../data/models/membership_models.dart';
 import '../../data/repositories/membership_repository.dart';
 import '../../../../core/services/portal_settings_service.dart';
 import 'f02_edit_profile_screen.dart';
+import 'legal_document_screen.dart';
 import '../widgets/change_password_modal.dart';
 
 class F08SettingsScreen extends StatefulWidget {
@@ -397,25 +398,38 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                 ),
               );
 
-              await AuthService.instance.deleteAccount();
+              final deleted = await AuthService.instance.deleteAccount();
 
               if (context.mounted) {
                 Navigator.pop(context);
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const A03LoginScreen()),
-                  (route) => false,
-                );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: AppColors.textHeading,
-                    content: Text(
-                      isEn
-                          ? 'Your account and personal data have been permanently deleted.'
-                          : 'Tài khoản và dữ liệu cá nhân của bạn đã được xóa vĩnh viễn thành công.',
+                if (deleted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const A03LoginScreen()),
+                    (route) => false,
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: AppColors.textHeading,
+                      content: Text(
+                        isEn
+                            ? 'Your account and personal data have been permanently deleted.'
+                            : 'Tài khoản và dữ liệu cá nhân của bạn đã được xóa vĩnh viễn thành công.',
+                      ),
                     ),
-                  ),
-                );
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: AppColors.error,
+                      content: Text(
+                        isEn
+                            ? 'Could not delete account right now. Please check your network and try again.'
+                            : 'Không thể xóa tài khoản lúc này. Vui lòng kiểm tra kết nối và thử lại.',
+                      ),
+                    ),
+                  );
+                }
               }
             },
             child: Text(
@@ -635,23 +649,21 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                 _buildMenuItem(
                   icon: Icons.security_rounded,
                   title: isEn ? 'Privacy Policy' : 'Chính sách bảo mật',
-                  onTap: () => _showInfoModal(
+                  onTap: () => Navigator.push(
                     context,
-                    isEn ? 'Privacy Policy' : 'Chính sách bảo mật',
-                    isEn
-                        ? 'MLD Vietnam commits to protecting all personal information and medical data of customers. Information is only used for booking, treatment journals, and loyalty programs under Vietnamese law.'
-                        : 'MLD Việt Nam cam kết bảo vệ dữ liệu cá nhân và hồ sơ trị liệu của khách hàng tuyệt đối an toàn. Mọi dữ liệu chỉ phục vụ đặt lịch, liệu trình và tích điểm theo quy chuẩn an toàn thông tin.',
+                    MaterialPageRoute(
+                      builder: (_) => const LegalDocumentScreen(type: LegalDocType.privacyPolicy),
+                    ),
                   ),
                 ),
                 _buildMenuItem(
                   icon: Icons.description_outlined,
                   title: isEn ? 'Terms of Service' : 'Điều khoản dịch vụ',
-                  onTap: () => _showInfoModal(
+                  onTap: () => Navigator.push(
                     context,
-                    isEn ? 'Terms of Service' : 'Điều khoản dịch vụ',
-                    isEn
-                        ? 'By using the MLD Vietnam application, you agree to our terms of booking, payment policies, cancellation guidelines, and customer code of conduct.'
-                        : 'Khi sử dụng ứng dụng MLD Việt Nam, quý khách đồng ý với các quy định đặt lịch, chính sách thanh toán, hướng dẫn đổi hủy và quy tắc ứng xử của viện thẩm mỹ.',
+                    MaterialPageRoute(
+                      builder: (_) => const LegalDocumentScreen(type: LegalDocType.termsOfService),
+                    ),
                   ),
                 ),
                 _buildMenuItem(
@@ -668,18 +680,20 @@ class _F08SettingsScreenState extends State<F08SettingsScreen> {
                 _buildMenuItem(
                   icon: Icons.download_rounded,
                   title: isEn ? 'Request Data Export' : 'Yêu cầu xuất dữ liệu',
+                  isLast: !AuthService.instance.isLoggedIn,
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(isEn ? 'Data export request submitted' : 'Yêu cầu xuất bản sao dữ liệu đã gửi')),
                     );
                   },
                 ),
-                _buildMenuItem(
-                  icon: Icons.person_remove_outlined,
-                  title: isEn ? 'Delete Account' : 'Xóa tài khoản',
-                  isLast: true,
-                  onTap: () => _showDeleteAccountDialog(context, isEn),
-                ),
+                if (AuthService.instance.isLoggedIn)
+                  _buildMenuItem(
+                    icon: Icons.person_remove_outlined,
+                    title: isEn ? 'Delete Account' : 'Xóa tài khoản',
+                    isLast: true,
+                    onTap: () => _showDeleteAccountDialog(context, isEn),
+                  ),
               ]),
 
               const SizedBox(height: 20),

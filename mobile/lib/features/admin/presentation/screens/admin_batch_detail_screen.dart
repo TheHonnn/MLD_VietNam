@@ -5,6 +5,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
+import '../widgets/edit_student_code_dialog.dart';
 import '../widgets/assign_batch_bottom_sheet.dart';
 import '../../../../core/services/top_notification_service.dart';
 
@@ -134,6 +135,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
     return list.where((c) {
       return c.candidateName.toLowerCase().contains(q) ||
           c.candidatePhone.toLowerCase().contains(q) ||
+          (c.studentCode?.toLowerCase().contains(q) ?? false) ||
           c.orderCode.toLowerCase().contains(q);
     }).toList();
   }
@@ -184,6 +186,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
               final q = searchQuery.toLowerCase();
               return c.candidateName.toLowerCase().contains(q) ||
                   c.candidatePhone.toLowerCase().contains(q) ||
+                  (c.studentCode?.toLowerCase().contains(q) ?? false) ||
                   c.orderCode.toLowerCase().contains(q);
             }).toList();
 
@@ -2580,7 +2583,7 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          '${c.candidatePhone} · ${c.orderCode}',
+                                          '${c.candidatePhone} · ${(c.studentCode != null && c.studentCode!.isNotEmpty) ? c.studentCode! : c.orderCode}',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: AppTypography.zaloFont(fontSize: 10.5, color: AppColors.textSecondary),
@@ -2622,14 +2625,37 @@ class _AdminBatchDetailScreenState extends State<AdminBatchDetailScreen> {
                               padding: EdgeInsets.zero,
                               iconSize: 18,
                               icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF9CA3AF)),
-                              onSelected: (action) {
-                                if (action == 'change_batch') {
+                              onSelected: (action) async {
+                                if (action == 'edit_student_code') {
+                                  final saved = await showEditStudentCodeDialog(
+                                    context: context,
+                                    candidate: c,
+                                    repository: _repository,
+                                  );
+                                  if (saved && mounted) {
+                                    final refreshed = await _repository.fetchCandidates();
+                                    if (mounted && refreshed.isNotEmpty) {
+                                      setState(() => _allCandidates = refreshed);
+                                    }
+                                    widget.onDataChanged?.call();
+                                  }
+                                } else if (action == 'change_batch') {
                                   _openChangeBatch(c);
                                 } else if (action == 'remove') {
                                   _unassignStudent(c);
                                 }
                               },
                               itemBuilder: (ctx) => [
+                                PopupMenuItem(
+                                  value: 'edit_student_code',
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.badge_rounded, size: 16, color: Color(0xFF00693F)),
+                                      const SizedBox(width: 8),
+                                      Text('Cấp / Sửa Mã HV', style: AppTypography.zaloFont(fontSize: 12)),
+                                    ],
+                                  ),
+                                ),
                                 PopupMenuItem(
                                   value: 'change_batch',
                                   child: Row(

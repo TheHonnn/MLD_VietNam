@@ -24,6 +24,8 @@ class AdminMainLayoutScreen extends StatefulWidget {
 class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
   late int _currentIndex;
   String? _subTab;
+  String? _pendingQrCode;
+  int _qrScanNonce = 0;
 
   bool get _isFullAdmin => AuthService.instance.isAdmin;
 
@@ -57,6 +59,8 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
         onCodeScanned: (code) {
           setState(() {
             _currentIndex = 1;
+            _pendingQrCode = code;
+            _qrScanNonce++;
           });
         },
       ),
@@ -138,6 +142,8 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
             AdminFrontdeskScreen(
               key: ValueKey('frontdesk_$_subTab'),
               initialStatus: _subTab,
+              pendingQrCode: _pendingQrCode,
+              qrScanNonce: _qrScanNonce,
             ),
             AdminAcademyScreen(
               key: ValueKey('academy_$_subTab'),
@@ -157,6 +163,8 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
             AdminFrontdeskScreen(
               key: ValueKey('frontdesk_$_subTab'),
               initialStatus: _subTab,
+              pendingQrCode: _pendingQrCode,
+              qrScanNonce: _qrScanNonce,
             ),
             AdminCatalogScreen(
               key: ValueKey('catalog_$_subTab'),

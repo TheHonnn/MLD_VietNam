@@ -116,10 +116,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
   List<BranchModel> _branches = [];
   String _selectedBranch = 'Tất cả cơ sở';
 
-  // Sản phẩm bổ trợ tại nhà
   bool _isLoadingProducts = false;
   List<HomeProductModel> _products = ProductRepository.defaultFallbackProducts;
-  List<String> _productCategories = ['Tất cả', 'Băng ép', 'Chăm sóc da', 'Dụng cụ tập luyện', 'Tài liệu'];
+  List<String> _productCategories = ['Tất cả', ...HomeProductModel.treatmentPackageGroups];
   String _selectedProductCategory = 'Tất cả';
 
   @override
@@ -159,7 +158,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     try {
       final results = await Future.wait([
         ServiceRepository.instance.getServices(),
-        ServiceRepository.instance.getTreatmentPackages(),
+        ServiceRepository.instance.getTreatmentPackages(forceRefresh: true),
         ServiceRepository.instance.getCategories(),
       ]);
 
@@ -195,7 +194,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
             category: p.category,
             price: p.price,
             originalPrice: p.originalPrice,
-            durationOrSessions: '${p.sessionsCount} buổi (${p.validityMonths} tháng)',
+            durationOrSessions: '${p.sessionsCount} buổi (${p.sessionsCount} ca · ${p.validityMonths} tháng)',
             description: p.description,
             imageUrl: p.imageUrl,
             type: TherapyItemType.package,
@@ -238,9 +237,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
 
     if (mounted) {
       setState(() {
-        if (products.isNotEmpty) {
-          _products = products;
-        }
+        _products = products;
         if (categories.isNotEmpty) {
           _productCategories = categories;
         }
@@ -281,20 +278,22 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     }).toList();
   }
 
-  /// Lọc dữ liệu Sản phẩm
   List<HomeProductModel> get _filteredProducts {
     final query = _searchController.text.trim().toLowerCase();
     return _products.where((p) {
+      if (!p.isActive) return false;
       if (_selectedProductCategory != 'Tất cả' && _selectedProductCategory != 'Tất cả sản phẩm') {
-        if (p.category.toLowerCase().trim() != _selectedProductCategory.toLowerCase().trim()) {
+        if (p.treatmentPackageGroup.toLowerCase().trim() != _selectedProductCategory.toLowerCase().trim() &&
+            p.category.toLowerCase().trim() != _selectedProductCategory.toLowerCase().trim()) {
           return false;
         }
       }
       if (query.isNotEmpty) {
         final matchesName = p.name.toLowerCase().contains(query);
         final matchesCat = p.category.toLowerCase().contains(query);
+        final matchesGroup = p.treatmentPackageGroup.toLowerCase().contains(query);
         final matchesDetails = p.details.any((d) => d.toLowerCase().contains(query));
-        if (!matchesName && !matchesCat && !matchesDetails) return false;
+        if (!matchesName && !matchesCat && !matchesGroup && !matchesDetails) return false;
       }
       return true;
     }).toList();
@@ -304,7 +303,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
     final ok = await GuestAuthPrompt.ensureLoggedIn(
       context,
       title: 'Đăng nhập để đặt lịch',
-      message: 'Quý khách vui lòng đăng nhập để đặt lịch dịch vụ hoặc gói bổ trợ.',
+      message: 'Quý khách vui lòng đăng nhập để đặt lịch dịch vụ hoặc liệu trình.',
     );
     if (!ok || !mounted) return;
 
@@ -319,7 +318,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
         SpaServiceModel(
           id: item.package?.id ?? item.id,
           name: item.title,
-          categoryName: item.category.isNotEmpty ? item.category : 'Gói liệu trình bổ trợ',
+          categoryName: item.category.isNotEmpty ? item.category : 'Gói liệu trình',
           shortDescription: item.description,
           fullDescription: item.package?.description ?? item.description,
           durationMinutes: 60,
@@ -957,7 +956,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'SẢN PHẨM (${_products.length})',
+                                    'SẢN PHẨM (${_products.where((p) => p.isActive).length})',
                                     style: AppTypography.zaloFont(
                                       fontSize: 14.5,
                                       fontWeight: _selectedSegment == 1 ? FontWeight.w700 : FontWeight.w500,
@@ -1343,7 +1342,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                       const SizedBox(height: 5),
                       Text(
                         item.isPackage
-                            ? 'Gói ${item.package?.sessionsCount ?? 10} buổi'
+                            ? 'Gói ${item.package?.sessionsCount ?? 10} buổi (${item.package?.sessionsCount ?? 10} ca)'
                             : 'Dịch vụ lẻ',
                         style: AppTypography.zaloFont(
                           fontSize: 12,
@@ -1514,7 +1513,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                                 crossAxisCount: 2,
                                 crossAxisSpacing: 12,
                                 mainAxisSpacing: 14,
-                                childAspectRatio: 0.60,
+                                childAspectRatio: 0.52,
                               ),
                               delegate: SliverChildBuilderDelegate(
                                 (ctx, index) {
@@ -1615,7 +1614,7 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          product.category,
+                          product.treatmentPackageGroup,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTypography.zaloFont(

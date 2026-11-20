@@ -392,6 +392,8 @@ class MembershipRepository {
             avatarUrl: serverAvatar.isNotEmpty ? serverAvatar : _userProfile.avatarUrl,
             memberTier: (data['memberTier']?.toString().isNotEmpty == true) ? data['memberTier'].toString() : _userProfile.memberTier,
             memberCode: (data['memberCode']?.toString().isNotEmpty == true) ? data['memberCode'].toString() : _userProfile.memberCode,
+            studentCode: data['studentCode']?.toString() ?? _userProfile.studentCode,
+            role: (data['role']?.toString().isNotEmpty == true) ? data['role'].toString() : _userProfile.role,
             points: (data['points'] as num?)?.toInt() ?? _userProfile.points,
             validUntil: (data['validUntil']?.toString().isNotEmpty == true) ? data['validUntil'].toString() : _userProfile.validUntil,
           );
@@ -409,15 +411,28 @@ class MembershipRepository {
             ? 'id=eq.$lookupId'
             : (lookupPhone.isNotEmpty ? 'phone=eq.$lookupPhone' : 'email=eq.$lookupEmail');
 
-        final sRes = await _apiClient.dio.get(
-          '${ApiEndpoints.users}?$queryParam&select=id,full_name,phone,email,avatar_url,gender,date_of_birth,address,emergency_contact_name,emergency_contact_phone,membership_tier,reward_points,referral_code,referred_by_id,total_spent&limit=1',
-          options: Options(
-            headers: {
-              'apikey': ApiEndpoints.supabaseAnonKey,
-              'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
-            },
-          ),
-        );
+        dynamic sRes;
+        try {
+          sRes = await _apiClient.dio.get(
+            '${ApiEndpoints.users}?$queryParam&select=id,full_name,phone,email,avatar_url,gender,date_of_birth,address,emergency_contact_name,emergency_contact_phone,membership_tier,reward_points,referral_code,student_code,role,referred_by_id,total_spent&limit=1',
+            options: Options(
+              headers: {
+                'apikey': ApiEndpoints.supabaseAnonKey,
+                'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+              },
+            ),
+          );
+        } catch (_) {
+          sRes = await _apiClient.dio.get(
+            '${ApiEndpoints.users}?$queryParam&select=id,full_name,phone,email,avatar_url,gender,date_of_birth,address,emergency_contact_name,emergency_contact_phone,membership_tier,reward_points,referral_code,role,referred_by_id,total_spent&limit=1',
+            options: Options(
+              headers: {
+                'apikey': ApiEndpoints.supabaseAnonKey,
+                'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+              },
+            ),
+          );
+        }
 
         if (sRes.statusCode == 200 && sRes.data is List && (sRes.data as List).isNotEmpty) {
           final u = (sRes.data as List).first as Map<String, dynamic>;
@@ -444,6 +459,8 @@ class MembershipRepository {
           final dbEmerName = u['emergency_contact_name']?.toString().trim() ?? '';
           final dbEmerPhone = u['emergency_contact_phone']?.toString().trim() ?? '';
           final dbCode = u['referral_code']?.toString().trim() ?? '';
+          final dbStudentCode = u['student_code']?.toString().trim();
+          final dbRole = u['role']?.toString().trim() ?? '';
           final dbPoints = (u['reward_points'] as num?)?.toInt();
           final dbTier = u['membership_tier']?.toString();
           final dbTotalSpent = (u['total_spent'] as num?)?.toDouble() ?? 0.0;
@@ -505,6 +522,8 @@ class MembershipRepository {
             emergencyContactName: dbEmerName.isNotEmpty ? dbEmerName : _userProfile.emergencyContactName,
             emergencyContactPhone: dbEmerPhone.isNotEmpty ? dbEmerPhone : _userProfile.emergencyContactPhone,
             memberCode: dbCode.isNotEmpty ? dbCode : _userProfile.memberCode,
+            studentCode: (dbStudentCode != null && dbStudentCode.isNotEmpty) ? dbStudentCode : _userProfile.studentCode,
+            role: dbRole.isNotEmpty ? dbRole : _userProfile.role,
             points: dbPoints ?? _userProfile.points,
             memberTier: dbTier != null ? _mapTierName(dbTier) : _userProfile.memberTier,
             referrerName: dbReferrerName,
@@ -516,6 +535,7 @@ class MembershipRepository {
           AuthService.instance.updateProfile(
             displayName: _userProfile.fullName,
             avatarUrl: effectiveAvatar,
+            role: _userProfile.role,
           );
         }
       } catch (e) {
@@ -576,7 +596,7 @@ class MembershipRepository {
   }
 
   /// F02: Cập nhật thông tin hồ sơ lên Cơ Sở Dữ Liệu (Supabase & Backend)
-  Future<void> updateProfile(UserProfile updated) async {
+  Future<bool> updateProfile(UserProfile updated) async {
     String finalAvatarUrl = updated.avatarUrl.trim();
     if (finalAvatarUrl.isNotEmpty &&
         !finalAvatarUrl.startsWith('http://') &&
@@ -604,10 +624,11 @@ class MembershipRepository {
       AuthService.instance.updatePhone(updated.phone.trim());
     }
 
-    // Nếu chưa đăng nhập hoặc đang ở chế độ khách, chỉ lưu cục bộ không gọi API từ xa
     if (!AuthService.instance.isAuthenticated || AuthService.instance.isGuest) {
-      return;
+      return true;
     }
+
+    bool remoteSaved = false;
 
     try {
       final backendPayload = <String, dynamic>{
@@ -628,6 +649,7 @@ class MembershipRepository {
         data: backendPayload,
       );
       if (bRes.statusCode == 200 || bRes.statusCode == 201) {
+        remoteSaved = true;
         final bData = bRes.data is Map ? bRes.data['data'] : null;
         if (bData is Map<String, dynamic>) {
           _userProfile = _userProfile.copyWith(
@@ -683,7 +705,7 @@ class MembershipRepository {
           'updated_at': DateTime.now().toIso8601String(),
         };
 
-        await _apiClient.dio.patch(
+        final sbRes = await _apiClient.dio.patch(
           '${ApiEndpoints.users}?$queryParam',
           data: updateData,
           options: Options(
@@ -695,10 +717,15 @@ class MembershipRepository {
             },
           ),
         );
+        if (sbRes.statusCode == 200 || sbRes.statusCode == 204) {
+          remoteSaved = true;
+        }
       }
     } catch (e) {
       debugPrint('>>> [MembershipRepository] Supabase direct fallback ignored: $e');
     }
+
+    return remoteSaved;
   }
 
   Future<void> updateAvatar(String newAvatarUrl) async {
@@ -787,7 +814,9 @@ class MembershipRepository {
     ];
   }
 
-  /// F04: Lấy danh sách biến động điểm thưởng từ Supabase & Backend Gateway
+  bool _isValidUuid(String id) =>
+      RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(id);
+
   Future<List<PointsTransaction>> fetchLoyaltyPoints() async {
     final userId = AuthService.instance.currentUserId ?? _userProfile.id;
 
@@ -830,8 +859,7 @@ class MembershipRepository {
       debugPrint('>>> [MembershipRepository] Backend loyalty points failed, falling back to direct Supabase: $e');
     }
 
-    // 2. Dự phòng trực tiếp từ Supabase: bảng point_transactions và users
-    if (userId.isNotEmpty) {
+    if (_isValidUuid(userId)) {
       try {
         // Cập nhật số dư điểm mới nhất từ users
         final uRes = await _apiClient.dio.get(
@@ -900,28 +928,30 @@ class MembershipRepository {
               );
             }
           }
-          if (list.isNotEmpty) {
-            _pointHistory.clear();
-            _pointHistory.addAll(list);
-            return _pointHistory;
-          }
+          _pointHistory.clear();
+          _pointHistory.addAll(list);
+          return _pointHistory;
         }
       } catch (e) {
         debugPrint('>>> [MembershipRepository] Supabase direct point_transactions error: $e');
       }
     }
 
-    if (_pointHistory.isEmpty) {
-      _pointHistory.addAll([
-        const PointsTransaction(
-          id: 'pt-01',
-          type: 'EARN',
-          title: 'Tích điểm trị liệu MLD chuyên sâu',
-          date: '15/10/2026',
-          branch: 'Chi nhánh Quận 3',
-          points: '+150',
-        ),
-      ]);
+    if (!AuthService.instance.isAuthenticated || AuthService.instance.isGuest) {
+      if (_pointHistory.isEmpty) {
+        _pointHistory.addAll([
+          const PointsTransaction(
+            id: 'pt-01',
+            type: 'EARN',
+            title: 'Tích điểm trị liệu MLD chuyên sâu',
+            date: '15/10/2026',
+            branch: 'Chi nhánh Quận 3',
+            points: '+150',
+          ),
+        ]);
+      }
+    } else {
+      _pointHistory.clear();
     }
     return _pointHistory;
   }
@@ -961,7 +991,10 @@ class MembershipRepository {
       debugPrint('>>> [MembershipRepository] Backend redeem failed, falling back to direct Supabase: $e');
     }
 
-    // 2. Dự phòng trực tiếp Supabase: cập nhật điểm, ghi point_transactions và user_vouchers
+    if (!_isValidUuid(userId)) {
+      return {'success': false, 'message': 'Vui lòng đăng nhập để đổi điểm thưởng.'};
+    }
+
     try {
       int currentPoints = _userProfile.points;
       final uRes = await _apiClient.dio.get(
@@ -1062,7 +1095,7 @@ class MembershipRepository {
     final Set<String> usedCouponIds = {};
     final Set<String> usedCouponCodes = {};
 
-    if (userId.isNotEmpty && !userId.startsWith('usr-temp')) {
+    if (_isValidUuid(userId)) {
       try {
         final res = await _apiClient.dio.get(
           '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers',
@@ -1072,8 +1105,8 @@ class MembershipRepository {
             'order': 'claimed_at.desc',
           },
           options: Options(headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           }),
         );
         if (res.statusCode == 200 && res.data is List) {
@@ -1135,8 +1168,8 @@ class MembershipRepository {
             'select': 'coupon_id',
           },
           options: Options(headers: {
-            'apikey': ApiEndpoints.supabaseServiceRoleKey,
-            'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+            'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           }),
         );
         if (bRes.statusCode == 200 && bRes.data is List) {
@@ -1161,8 +1194,8 @@ class MembershipRepository {
           'order': 'created_at.desc',
         },
         options: Options(headers: {
-          'apikey': ApiEndpoints.supabaseServiceRoleKey,
-          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
         }),
       );
       if (resCoupons.statusCode == 200 && resCoupons.data is List) {
@@ -1317,8 +1350,8 @@ class MembershipRepository {
           'limit': '1',
         },
         options: Options(headers: {
-          'apikey': ApiEndpoints.supabaseServiceRoleKey,
-          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
         }),
       );
 
@@ -1355,7 +1388,7 @@ class MembershipRepository {
       final userId = AuthService.instance.currentUserId ?? _userProfile.id;
       String? userVoucherId;
 
-      if (userId.isNotEmpty && !userId.startsWith('usr-temp')) {
+      if (_isValidUuid(userId)) {
         try {
           final uvUsedRes = await _apiClient.dio.get(
             '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers',
@@ -1367,8 +1400,8 @@ class MembershipRepository {
               'limit': '1',
             },
             options: Options(headers: {
-              'apikey': ApiEndpoints.supabaseServiceRoleKey,
-              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+              'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+              'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             }),
           );
           if (uvUsedRes.statusCode == 200 && uvUsedRes.data is List && (uvUsedRes.data as List).isNotEmpty) {
@@ -1387,8 +1420,8 @@ class MembershipRepository {
               'limit': '1',
             },
             options: Options(headers: {
-              'apikey': ApiEndpoints.supabaseServiceRoleKey,
-              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+              'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+              'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             }),
           );
           if (bUsedRes.statusCode == 200 && bUsedRes.data is List && (bUsedRes.data as List).isNotEmpty) {
@@ -1407,8 +1440,8 @@ class MembershipRepository {
               'limit': '1',
             },
             options: Options(headers: {
-              'apikey': ApiEndpoints.supabaseServiceRoleKey,
-              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+              'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+              'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             }),
           );
           if (uvAvailRes.statusCode == 200 && uvAvailRes.data is List && (uvAvailRes.data as List).isNotEmpty) {
@@ -1476,7 +1509,7 @@ class MembershipRepository {
     }
 
     final userId = AuthService.instance.currentUserId ?? _userProfile.id;
-    if (userId.isEmpty || userId.startsWith('usr-temp')) {
+    if (!_isValidUuid(userId)) {
       return {'success': false, 'message': 'Vui lòng đăng nhập để lưu voucher'};
     }
 
@@ -1489,8 +1522,8 @@ class MembershipRepository {
           'select': '*',
         },
         options: Options(headers: {
-          'apikey': ApiEndpoints.supabaseServiceRoleKey,
-          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
         }),
       );
 
@@ -1509,8 +1542,8 @@ class MembershipRepository {
           'select': 'id,status',
         },
         options: Options(headers: {
-          'apikey': ApiEndpoints.supabaseServiceRoleKey,
-          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
         }),
       );
 
@@ -1532,8 +1565,8 @@ class MembershipRepository {
           'limit': '1',
         },
         options: Options(headers: {
-          'apikey': ApiEndpoints.supabaseServiceRoleKey,
-          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
         }),
       );
       if (bCheck.statusCode == 200 && bCheck.data is List && (bCheck.data as List).isNotEmpty) {
@@ -1554,8 +1587,8 @@ class MembershipRepository {
           'expires_at': expiresAt,
         },
         options: Options(headers: {
-          'apikey': ApiEndpoints.supabaseServiceRoleKey,
-          'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           'Prefer': 'return=representation',
         }),
       );

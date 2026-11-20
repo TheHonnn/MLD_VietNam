@@ -71,7 +71,12 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
       _searchController.text = widget.initialSearchQuery!;
     }
     _academyRepo.enrollmentNotifier.addListener(_onEnrollmentChanged);
+    PortalSettingsService.instance.settingsVersion.addListener(_onSettingsChanged);
     _loadCourses();
+  }
+
+  void _onSettingsChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onEnrollmentChanged() {
@@ -81,6 +86,7 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
   @override
   void dispose() {
     _academyRepo.enrollmentNotifier.removeListener(_onEnrollmentChanged);
+    PortalSettingsService.instance.settingsVersion.removeListener(_onSettingsChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -125,11 +131,10 @@ class E01AcademyHomeScreenState extends State<E01AcademyHomeScreen> {
         final cAud = c.targetAudience.toLowerCase().trim();
         final cGrp = c.courseGroup.toLowerCase().trim();
         final cCat = c.category.toLowerCase().trim();
-        final matchesAudience = cAud == aud ||
-            cAud.contains(aud) ||
-            aud.contains(cAud) ||
-            cGrp.contains(aud) ||
-            cCat.contains(aud);
+        final matchesAudience = (cAud.isNotEmpty &&
+                (cAud == aud || cAud.contains(aud) || aud.contains(cAud))) ||
+            (cGrp.isNotEmpty && cGrp.contains(aud)) ||
+            (cCat.isNotEmpty && cCat.contains(aud));
         if (!matchesAudience) return false;
       }
 

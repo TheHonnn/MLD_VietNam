@@ -148,6 +148,7 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     super.initState();
     _bannerPageController = PageController();
     _initBranchListener();
+    PortalSettingsService.instance.settingsVersion.addListener(_onPortalSettingsChanged);
     _loadUserProfile();
     _loadCoreServiceFromAdmin();
     _initBannersFromLocalCache();
@@ -295,7 +296,14 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
     _serviceSearchController.dispose();
 
     BranchRepository.instance.activeBranchNotifier.removeListener(_onActiveBranchChanged);
+    PortalSettingsService.instance.settingsVersion.removeListener(_onPortalSettingsChanged);
     super.dispose();
+  }
+
+  void _onPortalSettingsChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _handleBooking() async {
@@ -856,6 +864,8 @@ class _B01HomeScreenState extends State<B01HomeScreen> {
             _loadUserProfile(),
             _loadCoreServiceFromAdmin(),
             _loadBanners(),
+            PortalSettingsService.instance.syncFromCloud(),
+            BranchRepository.instance.getBranches(),
           ]);
         },
         child: SingleChildScrollView(

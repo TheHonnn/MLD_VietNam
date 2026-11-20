@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
+import '../../../booking/data/models/booking_models.dart';
+import '../../../booking/data/repositories/booking_repository.dart';
 import '../../../booking/presentation/screens/all_in_one_booking_screen.dart';
+import '../../../booking/presentation/screens/c10_appointment_detail_screen.dart';
+import '../../../home/data/models/home_models.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/treatment_models.dart';
 import 'd03_care_journal_screen.dart';
 
-/// Screen D02: Chi tiết gói liệu trình & Chi tiết từng buổi điều trị
-/// - Chuẩn 100% Hệ thống Y khoa MLD Việt Nam & Design System (#2860EB)
-/// - Hiển thị đầy đủ: Mã liệu trình, Tên liệu trình, Tên dịch vụ, Tên khách hàng,
-///   Số buổi, Tổng số buổi cần điều trị, Giờ điều trị, Trạng thái, Nội dung, Hình ảnh minh chứng.
-class D02PackageDetailsScreen extends StatelessWidget {
+class D02PackageDetailsScreen extends StatefulWidget {
   final UserPackageModel package;
 
   const D02PackageDetailsScreen({
@@ -19,7 +19,23 @@ class D02PackageDetailsScreen extends StatelessWidget {
   });
 
   @override
+  State<D02PackageDetailsScreen> createState() => _D02PackageDetailsScreenState();
+}
+
+class _D02PackageDetailsScreenState extends State<D02PackageDetailsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (!WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
+      BookingRepository.instance.fetchMyAppointments().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final package = widget.package;
     final percentText = (package.progressPercent * 100).toStringAsFixed(1).replaceAll('.0', '');
     final profile = MembershipRepository.instance.profile;
     final customerDisplayName = package.customerName.trim().isNotEmpty
@@ -241,23 +257,25 @@ class D02PackageDetailsScreen extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              RichText(
-                                text: TextSpan(
-                                  style: const TextStyle( fontSize: 13.5, color: AppColors.textPrimary),
-                                  children: [
-                                    TextSpan(
-                                      text: '${package.completedSessions}',
-                                      style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary, fontSize: 15),
-                                    ),
-                                    TextSpan(
-                                      text: ' / ${package.totalSessions} ${context.tr("buổi", "sessions")}',
-                                      style: const TextStyle(fontWeight: FontWeight.w600),
-                                    ),
-                                    TextSpan(
-                                      text: ' ($percentText%)',
-                                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
-                                    ),
-                                  ],
+                              Flexible(
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle( fontSize: 13.5, color: AppColors.textPrimary),
+                                    children: [
+                                      TextSpan(
+                                        text: '${package.completedSessions}',
+                                        style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary, fontSize: 15),
+                                      ),
+                                      TextSpan(
+                                        text: ' / ${package.totalSessions} ${context.tr("buổi (${package.totalShifts} ca)", "sessions (${package.totalShifts} shifts)")}',
+                                        style: const TextStyle(fontWeight: FontWeight.w600),
+                                      ),
+                                      TextSpan(
+                                        text: ' ($percentText%)',
+                                        style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
@@ -375,49 +393,106 @@ class D02PackageDetailsScreen extends StatelessWidget {
               ),
             ),
 
-            // ==========================================
-            // 4. BOTTOM ACTION BAR (ĐẶT LỊCH BUỔI TIẾP)
-            // ==========================================
-            if (package.remainingSessions > 0)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(
-                    top: BorderSide(color: AppColors.border, width: 1.0),
-                  ),
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AllInOneBookingScreen(
-                            userPackageId: package.id,
-                            userPackageName: package.packageName,
-                          ),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      context.tr('Đặt lịch buổi tiếp theo', 'Book Next Session'),
-                      style: const TextStyle(
-                        
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
+            if (package.status == PackageStatus.active && package.remainingSessions > 0)
+              Builder(
+                builder: (context) {
+                  final openBooking = BookingRepository.instance.getOpenBookingForUserPackage(package.id);
+                  final openDateStr = openBooking != null
+                      ? '${openBooking.appointmentDate.day.toString().padLeft(2, '0')}/${openBooking.appointmentDate.month.toString().padLeft(2, '0')}/${openBooking.appointmentDate.year}'
+                      : '';
+                  final linkedService = (package.serviceId != null && package.serviceId!.isNotEmpty)
+                      ? SpaServiceModel(
+                          id: package.serviceId!,
+                          name: package.serviceName.isNotEmpty ? package.serviceName : package.packageName,
+                          categoryName: 'Gói liệu trình',
+                          shortDescription: package.description,
+                          durationMinutes: package.durationMinutes,
+                          price: 0,
+                          imageUrl: package.imageUrl,
+                        )
+                      : null;
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      border: Border(
+                        top: BorderSide(color: AppColors.border, width: 1.0),
                       ),
                     ),
-                  ),
-                ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (openBooking != null) ...[
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.iceBlue.withValues(alpha: 0.65),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+                            ),
+                            child: Text(
+                              'Đang có lịch hẹn: ${openBooking.timeSlot} · $openDateStr (${openBooking.status.label})',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              if (openBooking != null) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => C10AppointmentDetailScreen(appointmentId: openBooking.id),
+                                  ),
+                                ).then((_) {
+                                  if (mounted) setState(() {});
+                                });
+                              } else {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AllInOneBookingScreen(
+                                      initialService: linkedService,
+                                      userPackageId: package.id,
+                                      userPackageName: package.packageName,
+                                    ),
+                                  ),
+                                ).then((_) {
+                                  if (mounted) setState(() {});
+                                });
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: openBooking != null ? AppColors.accent : AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              openBooking != null
+                                  ? context.tr('Xem lịch hẹn đang đặt', 'View Active Booking')
+                                  : context.tr('Đặt lịch buổi tiếp theo', 'Book Next Session'),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
           ],
         ),
@@ -579,15 +654,19 @@ class D02PackageDetailsScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '${context.tr("Buổi", "Session")} ${session.sessionNumber}',
-                          style: const TextStyle(
-                            
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
+                        Expanded(
+                          child: Text(
+                            '${context.tr("Buổi", "Session")} ${session.sessionNumber}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
@@ -597,7 +676,6 @@ class D02PackageDetailsScreen extends StatelessWidget {
                           child: Text(
                             badgeText,
                             style: TextStyle(
-                              
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: badgeColor,

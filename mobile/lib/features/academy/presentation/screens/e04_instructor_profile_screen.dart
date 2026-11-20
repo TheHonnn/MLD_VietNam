@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translation.dart';
 import '../../data/models/academy_models.dart';
 import '../../data/repositories/academy_repository.dart';
 import '../widgets/academy_widgets.dart';
@@ -89,24 +90,43 @@ class E04InstructorProfileScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Image.asset(
-                    instructor.avatar,
-                    height: 264,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 264,
-                      width: double.infinity,
-                      color: AcademyColors.cardWarm,
-                      child: const Center(
-                        child: Icon(
-                          Icons.person,
-                          size: 64,
-                          color: AcademyColors.primary,
+                  (instructor.avatar.startsWith('http://') || instructor.avatar.startsWith('https://'))
+                      ? Image.network(
+                          instructor.avatar,
+                          height: 264,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 264,
+                            width: double.infinity,
+                            color: AcademyColors.cardWarm,
+                            child: const Center(
+                              child: Icon(
+                                Icons.person,
+                                size: 64,
+                                color: AcademyColors.primary,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Image.asset(
+                          instructor.avatar,
+                          height: 264,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 264,
+                            width: double.infinity,
+                            color: AcademyColors.cardWarm,
+                            child: const Center(
+                              child: Icon(
+                                Icons.person,
+                                size: 64,
+                                color: AcademyColors.primary,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
                   Padding(
                     padding: const EdgeInsets.all(18),
                     child: Column(
@@ -298,10 +318,21 @@ class E04InstructorProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            ...(AcademyRepository.instance.cachedCourses.isNotEmpty ? AcademyRepository.instance.cachedCourses : MockAcademyData.courses).take(2).map((c) => Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: _buildCourseSubCard(context, c),
-                )),
+            ...() {
+              final allCourses = AcademyRepository.instance.cachedCourses.isNotEmpty
+                  ? AcademyRepository.instance.cachedCourses
+                  : MockAcademyData.courses;
+              final instructorMatched = allCourses.where((c) {
+                final cIns = c.instructorName.toLowerCase();
+                final iName = instructor.name.toLowerCase();
+                return cIns.isNotEmpty && iName.isNotEmpty && (cIns.contains(iName) || iName.contains(cIns));
+              }).toList();
+              final displayCourses = instructorMatched.isNotEmpty ? instructorMatched : allCourses.take(2).toList();
+              return displayCourses.map((c) => Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: _buildCourseSubCard(context, c),
+                  ));
+            }(),
             const SizedBox(height: 14),
 
             // 7. Lịch đào tạo [8116:25564]
@@ -313,19 +344,19 @@ class E04InstructorProfileScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Lịch đào tạo',
-                    style: TextStyle(
+                    context.tr('Lịch đào tạo', 'Training Schedule'),
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: AcademyColors.heading,
                     ),
                   ),
-                  SizedBox(height: 10),
-                  Text(
+                  const SizedBox(height: 10),
+                  const Text(
                     '16/10/2026 · 13:00–17:00 Thực hành kỹ thuật massage cơ bản',
                     style: TextStyle(
                       fontSize: 14,
@@ -333,8 +364,8 @@ class E04InstructorProfileScreen extends StatelessWidget {
                       color: AcademyColors.textPrimary,
                     ),
                   ),
-                  SizedBox(height: 6),
-                  Text(
+                  const SizedBox(height: 6),
+                  const Text(
                     '23/10/2026 · 13:00–17:00 Khai giảng lớp MCN-1026',
                     style: TextStyle(
                       fontSize: 14,
@@ -342,8 +373,8 @@ class E04InstructorProfileScreen extends StatelessWidget {
                       color: AcademyColors.textPrimary,
                     ),
                   ),
-                  SizedBox(height: 8),
-                  Text(
+                  const SizedBox(height: 8),
+                  const Text(
                     'Chi nhánh Quận 3 · Lịch giảng dạy',
                     style: TextStyle(
                       fontSize: 12,
@@ -373,16 +404,27 @@ class E04InstructorProfileScreen extends StatelessWidget {
           SizedBox(
             height: 150,
             width: double.infinity,
-            child: Image.asset(
-              course.image,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                color: AcademyColors.cardWarm,
-                child: const Center(
-                  child: Icon(Icons.school, size: 48, color: AcademyColors.primary),
-                ),
-              ),
-            ),
+            child: (course.image.startsWith('http://') || course.image.startsWith('https://'))
+                ? Image.network(
+                    course.image,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: AcademyColors.cardWarm,
+                      child: const Center(
+                        child: Icon(Icons.school, size: 48, color: AcademyColors.primary),
+                      ),
+                    ),
+                  )
+                : Image.asset(
+                    course.image,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: AcademyColors.cardWarm,
+                      child: const Center(
+                        child: Icon(Icons.school, size: 48, color: AcademyColors.primary),
+                      ),
+                    ),
+                  ),
           ),
           Padding(
             padding: const EdgeInsets.all(14),

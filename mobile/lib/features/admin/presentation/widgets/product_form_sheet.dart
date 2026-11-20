@@ -29,6 +29,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
   late final TextEditingController _unitController;
   late final TextEditingController _imageUrlController;
   late final TextEditingController _detailsController;
+  late String _selectedPackageGroup;
   late bool _isActive;
 
   bool _isSaving = false;
@@ -36,13 +37,19 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
   bool get isEdit => widget.product != null;
 
   static const List<String> _suggestedCategories = [
-    'Băng ép y khoa',
-    'Kem dưỡng da y khoa',
-    'Tất vớ áp lực',
+    'Băng ép',
+    'Chăm sóc da',
     'Dụng cụ tập luyện',
-    'Vật tư tiêu hao',
-    'Sản phẩm hỗ trợ',
+    'Tài liệu',
   ];
+
+  static String _normalizeDbCategory(String raw) {
+    final lower = raw.trim().toLowerCase();
+    if (lower.contains('băng') || lower.contains('bang')) return 'Băng ép';
+    if (lower.contains('da') || lower.contains('kem')) return 'Chăm sóc da';
+    if (lower.contains('tài liệu') || lower.contains('sách')) return 'Tài liệu';
+    return 'Dụng cụ tập luyện';
+  }
 
   static const List<String> _suggestedUnits = [
     'Cuộn',
@@ -59,11 +66,13 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
     super.initState();
     final p = widget.product;
     _nameController = TextEditingController(text: p?.name ?? '');
-    _categoryController = TextEditingController(text: p?.category ?? 'Băng ép y khoa');
+    _categoryController = TextEditingController(text: p != null ? _normalizeDbCategory(p.category) : 'Băng ép');
     _priceController = TextEditingController(text: p != null ? p.priceMin.toInt().toString() : '');
     _unitController = TextEditingController(text: p?.unit ?? 'Cuộn');
     _imageUrlController = TextEditingController(text: p?.imageUrl ?? '');
     _detailsController = TextEditingController(text: p?.details.join('\n') ?? '');
+    _selectedPackageGroup = p?.treatmentPackageGroup ??
+        HomeProductModel.resolvePackageGroup(null, _categoryController.text);
     _isActive = p?.isActive ?? true;
   }
 
@@ -131,7 +140,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
     setState(() => _isSaving = true);
 
     final name = _nameController.text.trim();
-    final category = _categoryController.text.trim();
+    final category = _normalizeDbCategory(_categoryController.text);
     final unit = _unitController.text.trim();
     final price = double.tryParse(_priceController.text.replaceAll(',', '').replaceAll('.', '')) ?? 0.0;
     final imageUrl = _imageUrlController.text.trim().isNotEmpty ? _imageUrlController.text.trim() : null;
@@ -150,6 +159,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
       success = await ProductRepository.instance.updateProduct(widget.product!.id, {
         'name': name,
         'category': category,
+        'treatment_package_group': _selectedPackageGroup,
         'price_min': price,
         'price_max': price,
         'unit': unit,
@@ -161,6 +171,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
         success = await ProductRepository.instance.updateProduct(widget.product!.id, {
           'name': name,
           'category': category,
+          'treatment_package_group': _selectedPackageGroup,
           'price_min': price,
           'price_max': price,
           'unit': unit,
@@ -172,6 +183,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
       success = await ProductRepository.instance.createProduct(
         name: name,
         category: category,
+        treatmentPackageGroup: _selectedPackageGroup,
         priceMin: price,
         priceMax: price,
         unit: unit,
@@ -221,7 +233,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      isEdit ? 'Chỉnh sửa Sản phẩm bổ trợ' : 'Thêm Sản phẩm bổ trợ mới',
+                      isEdit ? 'Chỉnh sửa Sản phẩm' : 'Thêm Sản phẩm mới',
                       style: AppTypography.zaloFont(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -242,7 +254,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
 
                 // 1. Tên sản phẩm
                 Text(
-                  'Tên sản phẩm bổ trợ *',
+                  'Tên sản phẩm *',
                   style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                 ),
                 const SizedBox(height: 6),
@@ -466,6 +478,40 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,
                             color: _categoryController.text == c ? const Color(0xFF00693F) : const Color(0xFF4B5563),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Thuộc gói liệu trình *',
+                  style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: HomeProductModel.treatmentPackageGroups.map((group) {
+                    final isSelected = _selectedPackageGroup == group;
+                    return InkWell(
+                      onTap: () => setState(() => _selectedPackageGroup = group),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF00693F) : Colors.transparent,
+                          ),
+                        ),
+                        child: Text(
+                          group,
+                          style: AppTypography.zaloFont(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: isSelected ? const Color(0xFF00693F) : const Color(0xFF4B5563),
                           ),
                         ),
                       ),

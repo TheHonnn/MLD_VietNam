@@ -11,6 +11,7 @@ class AdminAppointmentCard extends StatelessWidget {
   final VoidCallback? onCancel;
   final VoidCallback? onCheckIn;
   final VoidCallback? onStartService;
+  final VoidCallback? onFinishService;
   final VoidCallback? onCheckOut;
   final VoidCallback? onViewDetail;
   final bool isProcessing;
@@ -23,6 +24,7 @@ class AdminAppointmentCard extends StatelessWidget {
     this.onCancel,
     this.onCheckIn,
     this.onStartService,
+    this.onFinishService,
     this.onCheckOut,
     this.onViewDetail,
     this.isProcessing = false,
@@ -79,10 +81,17 @@ class AdminAppointmentCard extends StatelessWidget {
         statusIcon = Icons.how_to_reg_rounded;
         break;
       case 'IN_SERVICE':
-        statusBg = const Color(0xFFF3E8FF);
-        statusText = const Color(0xFF7E22CE);
-        statusLabel = 'Đang phục vụ';
-        statusIcon = Icons.spa_rounded;
+        if (booking.isClinicalCompleted) {
+          statusBg = const Color(0xFFECFDF5);
+          statusText = const Color(0xFF047857);
+          statusLabel = booking.isPaid ? 'Chờ đóng ca' : 'Chờ thu tiền';
+          statusIcon = booking.isPaid ? Icons.assignment_turned_in_rounded : Icons.payments_rounded;
+        } else {
+          statusBg = const Color(0xFFF3E8FF);
+          statusText = const Color(0xFF7E22CE);
+          statusLabel = 'Đang phục vụ';
+          statusIcon = Icons.spa_rounded;
+        }
         break;
       case 'COMPLETED':
         statusBg = const Color(0xFFF3F4F6);
@@ -284,6 +293,28 @@ class AdminAppointmentCard extends StatelessWidget {
                         ),
                       ),
                     )
+                  else if (booking.status == 'IN_SERVICE' &&
+                      !booking.isClinicalCompleted &&
+                      onFinishService != null)
+                    InkWell(
+                      onTap: onFinishService,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7E22CE),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          booking.isPackageSession ? 'Nhật ký' : 'Xong CM',
+                          style: AppTypography.zaloFont(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    )
                   else if (booking.status == 'IN_SERVICE' && onCheckOut != null)
                     InkWell(
                       onTap: onCheckOut,
@@ -291,11 +322,13 @@ class AdminAppointmentCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF00693F),
+                          color: booking.isClinicalCompleted && !booking.isPaid
+                              ? const Color(0xFFD97706)
+                              : const Color(0xFF00693F),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          'Xong',
+                          booking.isClinicalCompleted && !booking.isPaid ? 'Thu tiền' : 'Xong',
                           style: AppTypography.zaloFont(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
@@ -737,15 +770,39 @@ class AdminAppointmentCard extends StatelessWidget {
         );
 
       case 'IN_SERVICE':
+        if (!booking.isClinicalCompleted && onFinishService != null) {
+          return ElevatedButton.icon(
+            onPressed: onFinishService,
+            icon: Icon(
+              booking.isPackageSession ? Icons.edit_note_rounded : Icons.task_alt_rounded,
+              size: 16,
+            ),
+            label: Text(
+              booking.isPackageSession ? 'Ghi nhật ký & Trừ buổi' : 'Hoàn tất chuyên môn',
+              style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7E22CE),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+        final needsPayment = booking.isClinicalCompleted && !booking.isPaid;
         return ElevatedButton.icon(
           onPressed: onCheckOut,
-          icon: const Icon(Icons.logout_rounded, size: 16),
+          icon: Icon(
+            needsPayment ? Icons.payments_rounded : Icons.logout_rounded,
+            size: 16,
+          ),
           label: Text(
-            'Hoàn thành Check-out',
+            needsPayment ? 'Chờ thu tiền' : 'Hoàn thành Check-out',
             style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2563EB),
+            backgroundColor: needsPayment ? const Color(0xFFD97706) : const Color(0xFF2563EB),
             foregroundColor: Colors.white,
             elevation: 0,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

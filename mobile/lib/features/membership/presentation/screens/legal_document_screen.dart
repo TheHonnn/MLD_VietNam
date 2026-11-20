@@ -32,7 +32,7 @@ class LegalDocumentScreen extends StatelessWidget {
 
     if (policy != null && policy['content_markdown'] != null) {
       final md = policy['content_markdown'] as String;
-      final parsed = _parseMarkdownSections(md);
+      final parsed = _parseMarkdownSections(md, fallbackTitle: shortTitle);
       if (parsed.isNotEmpty) {
         sections = parsed;
       }
@@ -144,7 +144,7 @@ class LegalDocumentScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      screenTitle.toUpperCase(),
+                      displayTitle.toUpperCase(),
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
@@ -263,27 +263,29 @@ class LegalDocumentScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    const Row(
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.location_on_outlined, size: 16, color: AppColors.primary),
-                        SizedBox(width: 8),
+                        const Icon(Icons.location_on_outlined, size: 16, color: AppColors.primary),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Số 8, ngõ 110 Quan Nhân, P. Nhân Chính, Q. Thanh Xuân, Hà Nội',
-                            style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                            PortalSettingsService.instance.headquartersAddress.isNotEmpty
+                                ? PortalSettingsService.instance.headquartersAddress
+                                : 'Số 8, ngõ 110 Quan Nhân, P. Nhân Chính, Q. Thanh Xuân, Hà Nội',
+                            style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.phone_outlined, size: 16, color: AppColors.primary),
-                        SizedBox(width: 8),
+                        const Icon(Icons.phone_outlined, size: 16, color: AppColors.primary),
+                        const SizedBox(width: 8),
                         Text(
-                          '0868.06.2703 (Hotline trung tâm)',
-                          style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                          '${PortalSettingsService.instance.hotlineSupport} (Hotline trung tâm)',
+                          style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
                         ),
                       ],
                     ),
@@ -357,18 +359,35 @@ class LegalDocumentScreen extends StatelessWidget {
       content: '– Điều khoản sử dụng được điều chỉnh và giải thích bởi pháp luật nước Cộng hòa Xã hội Chủ nghĩa Việt Nam.\n\n– Một điều khoản sử dụng bị vô hiệu theo quyết định của tòa án có thẩm quyền sẽ không làm ảnh hưởng đến tính hiệu lực của các điều khoản còn lại.\n\n– Hệ Bạch Huyết luôn hoan nghênh những ý kiến/góp ý của bạn về nội dung. Nếu có phần nào bạn cho rằng có dấu hiệu vi phạm bản quyền, vui lòng gửi phản hồi về cho chúng tôi.\n\n– Thông báo này và tất cả các điều khoản sử dụng tạo thành toàn bộ thỏa thuận giữa Hệ Bạch Huyết và bạn liên quan đến việc sử dụng. Các điều chỉnh có hiệu lực ngay khi cập nhật trên ứng dụng.',
     ),
   ];
-  static List<_LegalSection> _parseMarkdownSections(String markdown) {
+  static List<_LegalSection> _parseMarkdownSections(String markdown, {String fallbackTitle = 'Nội dung'}) {
+    final trimmedAll = markdown.trim();
+    if (trimmedAll.isEmpty) return const [];
     final list = <_LegalSection>[];
-    final blocks = markdown.split(RegExp(r'\n(?=##\s+)'));
+    final blocks = trimmedAll.split(RegExp(r'\n(?=#{1,3}\s+)'));
     for (final block in blocks) {
       final trimmed = block.trim();
       if (trimmed.isEmpty) continue;
-      if (trimmed.startsWith('## ')) {
+      if (trimmed.startsWith('### ')) {
+        final lines = trimmed.split('\n');
+        final title = lines.first.replaceFirst('### ', '').trim();
+        final content = lines.skip(1).join('\n').trim();
+        list.add(_LegalSection(title: title, content: content));
+      } else if (trimmed.startsWith('## ')) {
         final lines = trimmed.split('\n');
         final title = lines.first.replaceFirst('## ', '').trim();
         final content = lines.skip(1).join('\n').trim();
         list.add(_LegalSection(title: title, content: content));
+      } else if (trimmed.startsWith('# ')) {
+        final lines = trimmed.split('\n');
+        final title = lines.first.replaceFirst('# ', '').trim();
+        final content = lines.skip(1).join('\n').trim();
+        if (content.isNotEmpty) {
+          list.add(_LegalSection(title: title, content: content));
+        }
       }
+    }
+    if (list.isEmpty) {
+      list.add(_LegalSection(title: fallbackTitle, content: trimmedAll));
     }
     return list;
   }

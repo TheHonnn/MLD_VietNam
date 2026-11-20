@@ -1,11 +1,9 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../../../../core/localization/app_translation.dart';
@@ -144,6 +142,18 @@ class _E12LearningResultsScreenState extends State<E12LearningResultsScreen> {
                                 color: AcademyColors.textPrimary,
                               ),
                             ),
+                            if (profile.studentCode != null &&
+                                profile.studentCode!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Mã học viên: ${profile.studentCode!.trim()}',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AcademyColors.primary,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 3),
                             Text(
                               'Đã cấp ${_certificates.length} chứng nhận chính thức',
@@ -454,7 +464,14 @@ class _E12LearningResultsScreenState extends State<E12LearningResultsScreen> {
                           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                         ),
                         onPressed: () {
-                          _downloadCertificatePdf(context, cert, boundaryKey);
+                          Share.share(
+                            'Chứng nhận hoàn thành đào tạo MLD Việt Nam\n'
+                            'Học viên: ${cert.studentName}\n'
+                            'Khóa học: ${cert.courseTitle}\n'
+                            'Mã chứng nhận: ${cert.certificateCode}\n'
+                            'Ngày cấp: ${cert.issueDate}',
+                            subject: 'Chứng nhận ${cert.certificateCode} - MLD Việt Nam',
+                          );
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF004890),
@@ -932,6 +949,40 @@ class CertificateVisualCard extends StatelessWidget {
                           children: [
                             const Text(
                               'Mã học viên: ',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1F2937),
+                              ),
+                            ),
+                            Text(
+                              (cert.studentCode != null &&
+                                      cert.studentCode!.trim().isNotEmpty)
+                                  ? cert.studentCode!
+                                  : ((MembershipRepository.instance.profile
+                                                  .studentCode !=
+                                              null &&
+                                          MembershipRepository.instance.profile
+                                              .studentCode!
+                                              .trim()
+                                              .isNotEmpty)
+                                      ? MembershipRepository
+                                          .instance.profile.studentCode!
+                                          .trim()
+                                      : 'Chưa cấp mã'),
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            const Text(
+                              'Số chứng nhận: ',
                               style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w600,

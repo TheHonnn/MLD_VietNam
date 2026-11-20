@@ -115,6 +115,33 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
     }
   }
 
+  Widget _buildCourseThumbWidget(String path) {
+    final trimmed = path.trim();
+    Widget fallback() => Container(
+          width: 124,
+          height: 70,
+          color: AcademyColors.cardWarm,
+          child: const Icon(Icons.school, color: AcademyColors.primary, size: 28),
+        );
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return Image.network(
+        trimmed,
+        width: 124,
+        height: 70,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback(),
+      );
+    }
+    if (trimmed.isEmpty) return fallback();
+    return Image.asset(
+      trimmed,
+      width: 124,
+      height: 70,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => fallback(),
+    );
+  }
+
   void _onLessonTap(LessonModel lesson) async {
     final isUnlocked = AcademyRepository.instance.canAccessLesson(_courseId, lesson, _allLessons);
     if (!isUnlocked) {
@@ -157,9 +184,21 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
       backgroundColor: AcademyColors.background,
       appBar: const AcademyAppBar(),
       bottomNavigationBar: AcademyFixedBottomBar(
-        summaryText: _nextLessonToStudy?.title ?? 'Bắt đầu học ngay',
-        buttonText: _completedLessonsCount == 0 ? 'Bắt đầu học ngay' : 'Tiếp tục bài học',
+        summaryText: _isCourseCompleted
+            ? context.tr('Đã hoàn thành toàn bộ khóa học', 'All course lessons completed')
+            : (_nextLessonToStudy?.title ?? context.tr('Bắt đầu học ngay', 'Start learning now')),
+        buttonText: _isCourseCompleted
+            ? context.tr('Hoàn thành khóa học', 'Course Completed')
+            : (_completedLessonsCount == 0
+                ? context.tr('Bắt đầu học ngay', 'Start learning now')
+                : context.tr('Tiếp tục bài học', 'Continue lesson')),
         onPressed: () {
+          if (_isCourseCompleted) {
+            if (_allLessons.isNotEmpty) {
+              _onLessonTap(_allLessons.first);
+            }
+            return;
+          }
           final target = _nextLessonToStudy ?? (_allLessons.isNotEmpty ? _allLessons.first : null);
           if (target != null) {
             _onLessonTap(target);
@@ -292,20 +331,10 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                     width: 124,
                                                     height: 70,
                                                     fit: BoxFit.cover,
-                                                    errorBuilder: (_, __, ___) => Image.asset(
-                                                      _resolveCourseImage(),
-                                                      width: 124,
-                                                      height: 70,
-                                                      fit: BoxFit.cover,
-                                                    ),
+                                                    errorBuilder: (_, __, ___) => _buildCourseThumbWidget(_resolveCourseImage()),
                                                   )
                                                 else
-                                                  Image.asset(
-                                                    _resolveCourseImage(),
-                                                    width: 124,
-                                                    height: 70,
-                                                    fit: BoxFit.cover,
-                                                  ),
+                                                  _buildCourseThumbWidget(_resolveCourseImage()),
                                                 // Lớp phủ khóa nếu chưa mở khóa (Anti-cheat)
                                                 if (!isUnlocked)
                                                   Container(

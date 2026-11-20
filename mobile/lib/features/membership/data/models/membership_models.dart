@@ -13,6 +13,8 @@ class UserProfile {
   final String avatarUrl;
   final String memberTier;
   final String memberCode;
+  final String? studentCode;
+  final String role;
   final int points;
   final String validUntil;
   final String? referrerName;
@@ -34,6 +36,8 @@ class UserProfile {
     required this.avatarUrl,
     required this.memberTier,
     required this.memberCode,
+    this.studentCode,
+    this.role = 'CUSTOMER',
     required this.points,
     required this.validUntil,
     this.referrerName,
@@ -56,6 +60,8 @@ class UserProfile {
     String? avatarUrl,
     String? memberTier,
     String? memberCode,
+    String? studentCode,
+    String? role,
     int? points,
     String? validUntil,
     String? referrerName,
@@ -78,6 +84,8 @@ class UserProfile {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       memberTier: memberTier ?? this.memberTier,
       memberCode: memberCode ?? this.memberCode,
+      studentCode: studentCode ?? this.studentCode,
+      role: role ?? this.role,
       points: points ?? this.points,
       validUntil: validUntil ?? this.validUntil,
       referrerName: clearReferrer ? null : (referrerName ?? this.referrerName),
