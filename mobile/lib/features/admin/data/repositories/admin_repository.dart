@@ -41,8 +41,11 @@ class AdminRepository {
       }
     } on DioException catch (e) {
       final code = e.response?.statusCode;
-      if (code == 401 || code == 403) {
-        return {'unauthorized': true, 'statusCode': code};
+      if (code == 403) {
+        return {'forbidden': true, 'statusCode': code};
+      }
+      if (code == 401) {
+        return {'tokenRejected': true, 'statusCode': code};
       }
     } catch (e) {
       debugPrint('[AdminRepository] fetchCurrentAdminSession error: $e');
@@ -120,71 +123,33 @@ class AdminRepository {
       final monthPrefix = DateFormat('yyyy-MM').format(now);
       final monthStartStr = DateFormat('yyyy-MM-01').format(now);
 
-      // A. Doanh thu hôm nay & tháng này (tổng từ hóa đơn Spa + Học phí đã thu)
       double todayRev = 0.0;
       double monthRev = 0.0;
       try {
-        final branchParam = (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
-            ? '&branch_id=eq.$branchId'
-            : '';
-        List<dynamic> invoiceRows = const [];
-        try {
-          final gwInvRes = await _apiClient.dio.get(
-            '/admin/invoices',
-            queryParameters: {
-              'filter': jsonEncode({
-                'payment_status': 'PAID',
-                if (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
-                  'branch_id': branchId,
-              }),
-              'limit': '500',
-            },
-          );
-          if (gwInvRes.statusCode == 200 && gwInvRes.data is Map) {
-            final payload = gwInvRes.data['data'] ?? gwInvRes.data;
-            final rows = payload is Map ? (payload['rows'] ?? payload['data']) : payload;
-            if (rows is List) {
-              invoiceRows = rows;
-            }
-          }
-        } catch (_) {
-          final invRes = await _apiClient.dio.get(
-            '/rest/v1/invoices?select=total_amount,payment_status,paid_at,created_at&payment_status=eq.PAID$branchParam',
-          );
-          if (invRes.data is List) {
-            invoiceRows = invRes.data as List;
-          }
-        }
-        for (final inv in invoiceRows) {
-          if (inv is! Map) continue;
-          final amt = double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
-          final pDate = inv['paid_at']?.toString() ?? inv['created_at']?.toString() ?? '';
-          if (pDate.startsWith(monthPrefix)) {
-            monthRev += amt;
-          }
-          if (pDate.startsWith(todayStr)) {
-            todayRev += amt;
-          }
-        }
-      } catch (_) {}
-
-      // 2. Thu từ Học viện (course_enrollments - đồng bộ học phí thực nộp)
-      try {
-        final enrRevRes = await _apiClient.dio.get(
-          '/rest/v1/course_enrollments?select=amount_paid,enrolled_at,payment_status&amount_paid=gt.0',
+        final monthEndStr = DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month + 1, 0));
+        final raw = await _fetchRawRevenueDataset(branchId: branchId);
+        final todayReport = computeRevenueEngine(
+          invoices: raw['invoices'] ?? const [],
+          tuitions: raw['tuitions'] ?? const [],
+          enrollments: raw['enrollments'] ?? const [],
+          branchId: branchId,
+          startIso: todayStr,
+          endIso: todayStr,
+          period: 'TODAY',
+          referenceNow: now,
         );
-        if (enrRevRes.data is List) {
-          for (final e in enrRevRes.data) {
-            final amt = double.tryParse(e['amount_paid']?.toString() ?? '0') ?? 0.0;
-            final eDate = e['enrolled_at']?.toString() ?? '';
-            if (eDate.startsWith(monthPrefix)) {
-              monthRev += amt;
-            }
-            if (eDate.startsWith(todayStr)) {
-              todayRev += amt;
-            }
-          }
-        }
+        final monthReport = computeRevenueEngine(
+          invoices: raw['invoices'] ?? const [],
+          tuitions: raw['tuitions'] ?? const [],
+          enrollments: raw['enrollments'] ?? const [],
+          branchId: branchId,
+          startIso: monthStartStr,
+          endIso: monthEndStr,
+          period: 'MONTH',
+          referenceNow: now,
+        );
+        todayRev = todayReport.totalRevenue;
+        monthRev = monthReport.totalRevenue;
       } catch (_) {}
 
       // B. Thống kê Học viên mới hôm nay & tháng này (Tuyển sinh & Ghi danh)
@@ -1853,260 +1818,423 @@ class AdminRepository {
     }
   }
 
-  /// 9. Tải Báo cáo Doanh thu chi tiết phục vụ Biểu đồ Lưới (Revenue Grid Modal)
+  static bool isTestCode(String? code) {
+    if (code == null) return false;
+    final upper = code.toUpperCase();
+    return upper.contains('TEST') ||
+        upper.contains('UAT') ||
+        upper.contains('E2E') ||
+        upper.contains('SEC') ||
+        upper.contains('EXPIRY');
+  }
+
+  static bool isDateInRange(String? dateStr, String startIso, String endIso) {
+    if (dateStr == null || dateStr.trim().isEmpty) return false;
+    final rawIso = dateStr.length >= 10 ? dateStr.substring(0, 10) : '';
+    String localIso = '';
+    final dt = DateTime.tryParse(dateStr)?.toLocal();
+    if (dt != null) {
+      localIso = DateFormat('yyyy-MM-dd').format(dt);
+    }
+    if (rawIso.isNotEmpty && rawIso.compareTo(startIso) >= 0 && rawIso.compareTo(endIso) <= 0) {
+      return true;
+    }
+    if (localIso.isNotEmpty && localIso.compareTo(startIso) >= 0 && localIso.compareTo(endIso) <= 0) {
+      return true;
+    }
+    return false;
+  }
+
+  static AdminRevenueReport computeRevenueEngine({
+    required List<dynamic> invoices,
+    required List<dynamic> tuitions,
+    required List<dynamic> enrollments,
+    String? branchId,
+    required String startIso,
+    required String endIso,
+    required String period,
+    DateTime? referenceNow,
+  }) {
+    final now = referenceNow ?? DateTime.now();
+    final effectiveBranchId = (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
+        ? branchId
+        : null;
+
+    final invoicedEnrollmentIds = <String>{};
+    final invoicedCodes = <String>{};
+    final explicitTxEnrollmentIds = <String>{};
+
+    final List<AdminRevenueItem> items = [];
+    double serviceRev = 0.0;
+    double academyRev = 0.0;
+    double productRev = 0.0;
+
+    for (final inv in invoices) {
+      if (inv is! Map) continue;
+      final code = (inv['invoice_code']?.toString() ?? '').trim();
+      if (isTestCode(code)) continue;
+
+      final invBranchId = inv['branch_id']?.toString();
+      if (effectiveBranchId != null && invBranchId != null && invBranchId != effectiveBranchId) {
+        continue;
+      }
+
+      final pDateStr = inv['paid_at']?.toString() ?? inv['created_at']?.toString() ?? '';
+      if (!isDateInRange(pDateStr, startIso, endIso)) continue;
+
+      final status = (inv['payment_status']?.toString() ?? '').toUpperCase();
+      if (status != 'PAID') continue;
+
+      final totalAmt = double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
+      final refundAmt = double.tryParse(inv['refund_amount']?.toString() ?? '0') ?? 0.0;
+      final netAmt = (totalAmt - refundAmt > 0) ? (totalAmt - refundAmt) : 0.0;
+
+      final enrollmentId = inv['enrollment_id']?.toString();
+      if (enrollmentId != null && enrollmentId.isNotEmpty) {
+        invoicedEnrollmentIds.add(enrollmentId);
+      }
+      if (code.isNotEmpty) {
+        invoicedCodes.add(code);
+      }
+
+      final upperCode = code.toUpperCase();
+      final isAcademy = (enrollmentId != null && enrollmentId.isNotEmpty) || upperCode.startsWith('HD-HP-');
+
+      final rawItems = inv['invoice_items'];
+      final itemsList = (rawItems is List) ? rawItems : const [];
+      final hasItems = itemsList.isNotEmpty;
+      final allProductItems = hasItems && itemsList.every((it) => it is Map && it['item_type']?.toString().toUpperCase() == 'PRODUCT');
+
+      String category;
+      String itemTitle;
+      if (isAcademy) {
+        category = 'ACADEMY_TUITION';
+        itemTitle = 'Học phí học viện';
+        academyRev += netAmt;
+      } else if (allProductItems || (inv['booking_id'] == null && inv['user_package_id'] == null && !upperCode.startsWith('HD-SPA-') && !upperCode.startsWith('HD-DV-') && !upperCode.startsWith('HD-LT-') && hasItems)) {
+        category = 'PRODUCT';
+        itemTitle = 'Hóa đơn sản phẩm';
+        productRev += netAmt;
+      } else {
+        category = 'SPA_SERVICE';
+        itemTitle = 'Hóa đơn dịch vụ trị liệu';
+        serviceRev += netAmt;
+      }
+
+      final brObj = inv['branches'];
+      final brName = brObj is Map ? brObj['name']?.toString() : inv['branch_name']?.toString();
+
+      items.add(AdminRevenueItem(
+        id: 'inv_${inv['id']}',
+        code: code.isNotEmpty ? code : 'HD-${inv['id']?.toString().substring(0, 6)}',
+        title: itemTitle,
+        customerOrStudentName: inv['receipt_customer_name']?.toString() ?? 'Khách hàng',
+        category: category,
+        amount: netAmt,
+        timestamp: pDateStr,
+        status: 'PAID',
+        branchName: brName,
+      ));
+    }
+
+    for (final t in tuitions) {
+      if (t is! Map) continue;
+      final tStatus = (t['payment_status']?.toString() ?? '').toUpperCase();
+      if (tStatus != 'PAID') continue;
+
+      final tEnrId = t['enrollment_id']?.toString();
+      if (tEnrId != null && invoicedEnrollmentIds.contains(tEnrId)) continue;
+
+      final tCode = (t['transaction_code']?.toString() ?? '').trim();
+      if (tCode.isNotEmpty && invoicedCodes.contains(tCode)) continue;
+
+      final tBranchId = t['branch_id']?.toString();
+      if (effectiveBranchId != null && tBranchId != null && tBranchId != effectiveBranchId) {
+        continue;
+      }
+
+      final tDateStr = t['paid_at']?.toString() ?? '';
+      if (!isDateInRange(tDateStr, startIso, endIso)) continue;
+
+      if (tEnrId != null && tEnrId.isNotEmpty) {
+        explicitTxEnrollmentIds.add(tEnrId);
+      }
+
+      final rawAmt = double.tryParse(t['amount']?.toString() ?? '0') ?? 0.0;
+      final tType = (t['transaction_type']?.toString() ?? '').toUpperCase();
+      final isRefund = tType == 'REFUND';
+      final netAmt = isRefund ? -rawAmt : rawAmt;
+
+      academyRev += netAmt;
+
+      final cObj = t['courses'];
+      final cTitle = cObj is Map ? cObj['title']?.toString() : 'Khóa học';
+
+      items.add(AdminRevenueItem(
+        id: 'tt_${t['id']}',
+        code: tCode.isNotEmpty ? tCode : 'TT-${t['id']?.toString().substring(0, 6)}',
+        title: isRefund ? 'Hoàn tiền học phí: $cTitle' : 'Thu học phí: $cTitle',
+        customerOrStudentName: 'Học viên',
+        category: 'ACADEMY_TUITION',
+        amount: netAmt,
+        timestamp: tDateStr,
+        status: isRefund ? 'REFUND' : 'PAID',
+      ));
+    }
+
+    final existingEnrollmentIds = <String>{...invoicedEnrollmentIds, ...explicitTxEnrollmentIds};
+    for (final e in enrollments) {
+      if (e is! Map) continue;
+      final eId = e['id']?.toString() ?? '';
+      if (eId.isEmpty || existingEnrollmentIds.contains(eId)) continue;
+
+      final amtPaid = double.tryParse(e['amount_paid']?.toString() ?? '0') ?? 0.0;
+      if (amtPaid <= 0) continue;
+
+      if (effectiveBranchId != null) {
+        final batchObj = e['course_batches'];
+        final batchBranchId = batchObj is Map ? batchObj['branch_id']?.toString() : null;
+        final selBranch = e['selected_branch']?.toString();
+        if (batchBranchId != null && batchBranchId.isNotEmpty) {
+          if (batchBranchId != effectiveBranchId) continue;
+        } else if (selBranch != null && selBranch.isNotEmpty) {
+          if (selBranch != effectiveBranchId) continue;
+        }
+      }
+
+      final eDateStr = e['approved_at']?.toString() ?? e['enrolled_at']?.toString() ?? '';
+      if (!isDateInRange(eDateStr, startIso, endIso)) continue;
+
+      academyRev += amtPaid;
+
+      final cObj = e['courses'];
+      final cTitle = cObj is Map ? cObj['title']?.toString() : 'Khóa học';
+      final sName = e['student_name']?.toString() ?? 'Học viên';
+      final eCode = e['order_code']?.toString() ?? 'ENR-${eId.length >= 6 ? eId.substring(eId.length - 6).toUpperCase() : eId}';
+
+      items.add(AdminRevenueItem(
+        id: 'enr_$eId',
+        code: eCode,
+        title: 'Học phí: $cTitle',
+        customerOrStudentName: sName,
+        phone: e['student_phone']?.toString(),
+        category: 'ACADEMY_TUITION',
+        amount: amtPaid,
+        timestamp: eDateStr,
+        status: 'PAID',
+        branchName: e['selected_branch']?.toString(),
+      ));
+    }
+
+    items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    final totalRev = serviceRev + academyRev + productRev;
+    final totalCount = items.length;
+    final avgTicket = (totalCount > 0 && totalRev > 0) ? (totalRev / totalCount) : 0.0;
+
+    final List<AdminRevenuePoint> points = [];
+    if (period == 'TODAY') {
+      final shifts = [
+        {'label': 'Ca Sáng (8h-12h)', 'key': 'morning'},
+        {'label': 'Ca Chiều (12h-17h30)', 'key': 'afternoon'},
+        {'label': 'Ca Tối (17h30-21h)', 'key': 'evening'},
+      ];
+
+      for (final s in shifts) {
+        double sTotal = 0.0;
+        double sAcad = 0.0;
+        double sServ = 0.0;
+        int sCount = 0;
+
+        for (final it in items) {
+          final dt = DateTime.tryParse(it.timestamp)?.toLocal() ?? now;
+          final h = dt.hour;
+          bool match = false;
+          if (s['key'] == 'morning' && h < 12) match = true;
+          if (s['key'] == 'afternoon' && h >= 12 && h < 18) match = true;
+          if (s['key'] == 'evening' && h >= 18) match = true;
+
+          if (match) {
+            sTotal += it.amount;
+            sCount++;
+            if (it.category == 'ACADEMY_TUITION') sAcad += it.amount;
+            if (it.category == 'SPA_SERVICE') sServ += it.amount;
+          }
+        }
+
+        points.add(AdminRevenuePoint(
+          label: s['label']!,
+          dateIso: startIso,
+          totalAmount: sTotal,
+          academyAmount: sAcad,
+          serviceAmount: sServ,
+          transactionCount: sCount,
+        ));
+      }
+    } else if (period == 'WEEK') {
+      final weekdays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+      for (int i = 6; i >= 0; i--) {
+        final targetDate = now.subtract(Duration(days: i));
+        final targetStr = DateFormat('yyyy-MM-dd').format(targetDate);
+        final weekdayStr = weekdays[(targetDate.weekday - 1).clamp(0, 6)];
+        final displayLabel = '$weekdayStr (${DateFormat('dd/MM').format(targetDate)})';
+
+        double dTotal = 0.0;
+        double dAcad = 0.0;
+        double dServ = 0.0;
+        int dCount = 0;
+
+        for (final it in items) {
+          if (isDateInRange(it.timestamp, targetStr, targetStr)) {
+            dTotal += it.amount;
+            dCount++;
+            if (it.category == 'ACADEMY_TUITION') dAcad += it.amount;
+            if (it.category == 'SPA_SERVICE') dServ += it.amount;
+          }
+        }
+
+        points.add(AdminRevenuePoint(
+          label: displayLabel,
+          dateIso: targetStr,
+          totalAmount: dTotal,
+          academyAmount: dAcad,
+          serviceAmount: dServ,
+          transactionCount: dCount,
+        ));
+      }
+    } else {
+      final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
+      final weeks = [
+        {'label': 'Tuần 1 (1 - 7)', 'start': 1, 'end': 7},
+        {'label': 'Tuần 2 (8 - 14)', 'start': 8, 'end': 14},
+        {'label': 'Tuần 3 (15 - 21)', 'start': 15, 'end': 21},
+        {'label': 'Tuần 4 (22 - $lastDayOfMonth)', 'start': 22, 'end': 31},
+      ];
+
+      for (final w in weeks) {
+        double wTotal = 0.0;
+        double wAcad = 0.0;
+        double wServ = 0.0;
+        int wCount = 0;
+
+        for (final it in items) {
+          final dt = DateTime.tryParse(it.timestamp)?.toLocal();
+          if (dt != null && dt.month == now.month && dt.year == now.year) {
+            if (dt.day >= (w['start'] as int) && dt.day <= (w['end'] as int)) {
+              wTotal += it.amount;
+              wCount++;
+              if (it.category == 'ACADEMY_TUITION') wAcad += it.amount;
+              if (it.category == 'SPA_SERVICE') wServ += it.amount;
+            }
+          }
+        }
+
+        points.add(AdminRevenuePoint(
+          label: w['label'] as String,
+          dateIso: DateFormat('yyyy-MM').format(now),
+          totalAmount: wTotal,
+          academyAmount: wAcad,
+          serviceAmount: wServ,
+          transactionCount: wCount,
+        ));
+      }
+    }
+
+    return AdminRevenueReport(
+      period: period,
+      totalRevenue: totalRev,
+      serviceRevenue: serviceRev,
+      academyRevenue: academyRev,
+      productRevenue: productRev,
+      totalTransactions: totalCount,
+      averageTicket: avgTicket,
+      chartPoints: points,
+      items: items,
+    );
+  }
+
+  Future<Map<String, List<dynamic>>> _fetchRawRevenueDataset({String? branchId}) async {
+    final branchParam = (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
+        ? '&branch_id=eq.$branchId'
+        : '';
+
+    List<dynamic> invoices = [];
+    try {
+      final invRes = await _apiClient.dio.get(
+        '/rest/v1/invoices?select=id,invoice_code,branch_id,booking_id,user_package_id,enrollment_id,total_amount,refund_amount,payment_status,paid_at,created_at,branches(name),invoice_items(item_type,amount)&payment_status=eq.PAID$branchParam&order=paid_at.desc',
+      );
+      if (invRes.data is List) {
+        invoices = invRes.data as List;
+      }
+    } catch (_) {
+      try {
+        final invResFallback = await _apiClient.dio.get(
+          '/rest/v1/invoices?select=id,invoice_code,branch_id,booking_id,user_package_id,enrollment_id,total_amount,refund_amount,payment_status,paid_at,created_at,branches(name)&payment_status=eq.PAID$branchParam&order=paid_at.desc',
+        );
+        if (invResFallback.data is List) {
+          invoices = invResFallback.data as List;
+        }
+      } catch (_) {}
+    }
+
+    List<dynamic> tuitions = [];
+    try {
+      final tuiRes = await _apiClient.dio.get(
+        '/rest/v1/tuition_transactions?select=id,transaction_code,enrollment_id,student_id,course_id,branch_id,transaction_type,amount,payment_status,paid_at,notes,courses(title)&payment_status=eq.PAID$branchParam&order=paid_at.desc',
+      );
+      if (tuiRes.data is List) {
+        tuitions = tuiRes.data as List;
+      }
+    } catch (_) {}
+
+    List<dynamic> enrollments = [];
+    try {
+      final enrRes = await _apiClient.dio.get(
+        '/rest/v1/course_enrollments?select=id,order_code,student_name,student_phone,amount_paid,tuition_total,enrolled_at,approved_at,approval_notes,payment_status,selected_branch,batch_id,course_batches(branch_id),courses(title)&amount_paid=gt.0&order=enrolled_at.desc',
+      );
+      if (enrRes.data is List) {
+        enrollments = enrRes.data as List;
+      }
+    } catch (_) {}
+
+    return {
+      'invoices': invoices,
+      'tuitions': tuitions,
+      'enrollments': enrollments,
+    };
+  }
+
   Future<AdminRevenueReport> fetchRevenueReport({
     String? branchId,
-    String period = 'MONTH', // 'TODAY', 'WEEK', 'MONTH'
+    String period = 'MONTH',
   }) async {
     try {
       final now = DateTime.now();
       final todayStr = DateFormat('yyyy-MM-dd').format(now);
-      DateTime startDt;
+      String startIso;
+      String endIso;
       if (period == 'TODAY') {
-        startDt = DateTime(now.year, now.month, now.day);
+        startIso = todayStr;
+        endIso = todayStr;
       } else if (period == 'WEEK') {
-        startDt = now.subtract(const Duration(days: 6));
+        final startDt = now.subtract(const Duration(days: 6));
+        startIso = DateFormat('yyyy-MM-dd').format(startDt);
+        endIso = todayStr;
       } else {
-        startDt = DateTime(now.year, now.month, 1);
+        startIso = DateFormat('yyyy-MM-01').format(now);
+        endIso = DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month + 1, 0));
       }
 
-      final List<AdminRevenueItem> items = [];
-      double serviceRev = 0.0;
-      double academyRev = 0.0;
-      double productRev = 0.0;
-
-      // 1. Lấy dữ liệu Học viện (Tuyển sinh & Học phí)
-      try {
-        final enrRes = await _apiClient.dio.get(
-          '/rest/v1/course_enrollments?select=id,order_code,student_name,student_phone,amount_paid,enrolled_at,payment_status,selected_branch,courses(title)&amount_paid=gt.0&order=enrolled_at.desc',
-        );
-        if (enrRes.data is List) {
-          for (final e in enrRes.data) {
-            final eDateStr = e['enrolled_at']?.toString() ?? '';
-            if (eDateStr.isEmpty) continue;
-            final eDate = DateTime.tryParse(eDateStr)?.toLocal() ?? now;
-
-            // Kiểm tra theo khoảng thời gian
-            if (period == 'TODAY') {
-              if (!eDateStr.startsWith(todayStr)) continue;
-            } else {
-              if (eDate.isBefore(startDt)) continue;
-            }
-
-            final amt = double.tryParse(e['amount_paid']?.toString() ?? '0') ?? 0.0;
-            academyRev += amt;
-            final cTitle = (e['courses'] is Map) ? e['courses']['title']?.toString() ?? 'Khóa học' : 'Khóa học';
-            final sName = e['student_name']?.toString() ?? 'Học viên';
-
-            items.add(AdminRevenueItem(
-              id: 'enr_${e['id']}',
-              code: e['order_code']?.toString() ?? 'ENR-${e['id']?.toString().substring(0, 6)}',
-              title: 'Học phí: $cTitle',
-              customerOrStudentName: sName,
-              phone: e['student_phone']?.toString(),
-              category: 'ACADEMY_TUITION',
-              amount: amt,
-              timestamp: eDateStr,
-              status: e['payment_status']?.toString() ?? 'PAID',
-              branchName: e['selected_branch']?.toString(),
-            ));
-          }
-        }
-      } catch (e) {
-        debugPrint('[AdminRepository] fetchRevenueReport enrollments error: $e');
-      }
-
-      try {
-        final branchParam = (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
-            ? '&branch_id=eq.$branchId'
-            : '';
-        List<dynamic> invoiceRows = const [];
-        try {
-          final gwInvRes = await _apiClient.dio.get(
-            '/admin/invoices',
-            queryParameters: {
-              'filter': jsonEncode({
-                'payment_status': 'PAID',
-                if (branchId != null && branchId.isNotEmpty && branchId != 'ALL')
-                  'branch_id': branchId,
-              }),
-              'limit': '500',
-            },
-          );
-          if (gwInvRes.statusCode == 200 && gwInvRes.data is Map) {
-            final payload = gwInvRes.data['data'] ?? gwInvRes.data;
-            final rows = payload is Map ? (payload['rows'] ?? payload['data']) : payload;
-            if (rows is List) {
-              invoiceRows = rows;
-            }
-          }
-        } catch (_) {
-          final invRes = await _apiClient.dio.get(
-            '/rest/v1/invoices?select=id,invoice_code,total_amount,payment_status,paid_at,created_at,branch_id,branches(name)&payment_status=eq.PAID$branchParam&order=paid_at.desc',
-          );
-          if (invRes.data is List) {
-            invoiceRows = invRes.data as List;
-          }
-        }
-        for (final inv in invoiceRows) {
-          if (inv is! Map) continue;
-          final pDateStr = inv['paid_at']?.toString() ?? inv['created_at']?.toString() ?? '';
-          if (pDateStr.isEmpty) continue;
-          final pDate = DateTime.tryParse(pDateStr)?.toLocal() ?? now;
-
-          if (period == 'TODAY') {
-            if (!pDateStr.startsWith(todayStr)) continue;
-          } else {
-            if (pDate.isBefore(startDt)) continue;
-          }
-
-          final amt = double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
-          serviceRev += amt;
-          final brObj = inv['branches'];
-          final brName = brObj is Map ? brObj['name']?.toString() : inv['branch_name']?.toString();
-
-          items.add(AdminRevenueItem(
-            id: 'inv_${inv['id']}',
-            code: inv['invoice_code']?.toString() ?? 'HD-${inv['id']?.toString().substring(0, 6)}',
-            title: 'Hóa đơn dịch vụ trị liệu',
-            customerOrStudentName: 'Khách hàng',
-            category: 'SPA_SERVICE',
-            amount: amt,
-            timestamp: pDateStr,
-            status: 'PAID',
-            branchName: brName,
-          ));
-        }
-      } catch (_) {}
-
-      // Sắp xếp items theo thời gian giảm dần
-      items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-      final totalRev = serviceRev + academyRev + productRev;
-      final totalCount = items.length;
-      final avgTicket = totalCount > 0 ? (totalRev / totalCount) : 0.0;
-
-      // 3. Xây dựng các điểm đồ thị lưới (chartPoints)
-      final List<AdminRevenuePoint> points = [];
-
-      if (period == 'TODAY') {
-        // Chia 3 khung giờ ca làm việc: Sáng (08:00 - 12:00), Chiều (12:00 - 17:30), Tối (17:30 - 21:00)
-        final shifts = [
-          {'label': 'Ca Sáng (8h-12h)', 'key': 'morning'},
-          {'label': 'Ca Chiều (12h-17h30)', 'key': 'afternoon'},
-          {'label': 'Ca Tối (17h30-21h)', 'key': 'evening'},
-        ];
-
-        for (final s in shifts) {
-          double sTotal = 0.0;
-          double sAcad = 0.0;
-          double sServ = 0.0;
-          int sCount = 0;
-
-          for (final it in items) {
-            final dt = DateTime.tryParse(it.timestamp)?.toLocal() ?? now;
-            final h = dt.hour;
-            bool match = false;
-            if (s['key'] == 'morning' && h < 12) match = true;
-            if (s['key'] == 'afternoon' && h >= 12 && h < 18) match = true;
-            if (s['key'] == 'evening' && h >= 18) match = true;
-
-            if (match) {
-              sTotal += it.amount;
-              sCount++;
-              if (it.category == 'ACADEMY_TUITION') sAcad += it.amount;
-              if (it.category == 'SPA_SERVICE') sServ += it.amount;
-            }
-          }
-
-          points.add(AdminRevenuePoint(
-            label: s['label']!,
-            dateIso: todayStr,
-            totalAmount: sTotal,
-            academyAmount: sAcad,
-            serviceAmount: sServ,
-            transactionCount: sCount,
-          ));
-        }
-      } else if (period == 'WEEK') {
-        const weekdays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-        for (int i = 6; i >= 0; i--) {
-          final targetDate = now.subtract(Duration(days: i));
-          final targetStr = DateFormat('yyyy-MM-dd').format(targetDate);
-          final weekdayStr = weekdays[(targetDate.weekday - 1).clamp(0, 6)];
-          final displayLabel = '$weekdayStr (${DateFormat('dd/MM').format(targetDate)})';
-
-          double dTotal = 0.0;
-          double dAcad = 0.0;
-          double dServ = 0.0;
-          int dCount = 0;
-
-          for (final it in items) {
-            if (it.timestamp.startsWith(targetStr)) {
-              dTotal += it.amount;
-              dCount++;
-              if (it.category == 'ACADEMY_TUITION') dAcad += it.amount;
-              if (it.category == 'SPA_SERVICE') dServ += it.amount;
-            }
-          }
-
-          points.add(AdminRevenuePoint(
-            label: displayLabel,
-            dateIso: targetStr,
-            totalAmount: dTotal,
-            academyAmount: dAcad,
-            serviceAmount: dServ,
-            transactionCount: dCount,
-          ));
-        }
-      } else {
-        // THÁNG NÀY: Gom nhóm theo 4 tuần / mốc ngày (Tuần 1: 1-7, Tuần 2: 8-14, Tuần 3: 15-21, Tuần 4: 22-hết)
-        final weeks = [
-          {'label': 'Tuần 1 (1 - 7)', 'start': 1, 'end': 7},
-          {'label': 'Tuần 2 (8 - 14)', 'start': 8, 'end': 14},
-          {'label': 'Tuần 3 (15 - 21)', 'start': 15, 'end': 21},
-          {'label': 'Tuần 4 (22 - ${DateTime(now.year, now.month + 1, 0).day})', 'start': 22, 'end': 31},
-        ];
-
-        for (final w in weeks) {
-          double wTotal = 0.0;
-          double wAcad = 0.0;
-          double wServ = 0.0;
-          int wCount = 0;
-
-          for (final it in items) {
-            final dt = DateTime.tryParse(it.timestamp)?.toLocal();
-            if (dt != null && dt.month == now.month && dt.year == now.year) {
-              if (dt.day >= (w['start'] as int) && dt.day <= (w['end'] as int)) {
-                wTotal += it.amount;
-                wCount++;
-                if (it.category == 'ACADEMY_TUITION') wAcad += it.amount;
-                if (it.category == 'SPA_SERVICE') wServ += it.amount;
-              }
-            }
-          }
-
-          points.add(AdminRevenuePoint(
-            label: w['label'] as String,
-            dateIso: DateFormat('yyyy-MM').format(now),
-            totalAmount: wTotal,
-            academyAmount: wAcad,
-            serviceAmount: wServ,
-            transactionCount: wCount,
-          ));
-        }
-      }
-
-      return AdminRevenueReport(
+      final raw = await _fetchRawRevenueDataset(branchId: branchId);
+      return computeRevenueEngine(
+        invoices: raw['invoices'] ?? const [],
+        tuitions: raw['tuitions'] ?? const [],
+        enrollments: raw['enrollments'] ?? const [],
+        branchId: branchId,
+        startIso: startIso,
+        endIso: endIso,
         period: period,
-        totalRevenue: totalRev,
-        serviceRevenue: serviceRev,
-        academyRevenue: academyRev,
-        productRevenue: productRev,
-        totalTransactions: totalCount,
-        averageTicket: avgTicket,
-        chartPoints: points,
-        items: items,
+        referenceNow: now,
       );
     } catch (e) {
       debugPrint('[AdminRepository] fetchRevenueReport error: $e');

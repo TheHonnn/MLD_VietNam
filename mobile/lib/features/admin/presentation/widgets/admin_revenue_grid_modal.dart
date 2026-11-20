@@ -690,9 +690,17 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
 
   Widget _buildTransactionRow(AdminRevenueItem it) {
     final isAcademy = it.category == 'ACADEMY_TUITION';
-    final badgeColor = isAcademy ? const Color(0xFF7C3AED) : const Color(0xFF1E40AF);
-    final badgeBg = isAcademy ? const Color(0xFFEDE9FE) : const Color(0xFFEFF6FF);
-    final badgeText = isAcademy ? 'HỌC VIỆN' : 'SPA TRỊ LIỆU';
+    final isProduct = it.category == 'PRODUCT';
+    final isRefund = it.amount < 0 || it.status == 'REFUND';
+    final badgeColor = isAcademy
+        ? const Color(0xFF7C3AED)
+        : (isProduct ? const Color(0xFFD97706) : const Color(0xFF1E40AF));
+    final badgeBg = isAcademy
+        ? const Color(0xFFEDE9FE)
+        : (isProduct ? const Color(0xFFFEF3C7) : const Color(0xFFEFF6FF));
+    final badgeText = isAcademy
+        ? 'HỌC VIỆN'
+        : (isProduct ? 'SẢN PHẨM' : 'SPA TRỊ LIỆU');
 
     String timeFormatted = it.timestamp;
     try {
@@ -711,7 +719,6 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Icon Category
           Container(
             width: 38,
             height: 38,
@@ -720,7 +727,9 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              isAcademy ? Icons.school_rounded : Icons.spa_rounded,
+              isAcademy
+                  ? Icons.school_rounded
+                  : (isProduct ? Icons.shopping_bag_rounded : Icons.spa_rounded),
               color: badgeColor,
               size: 20,
             ),
@@ -796,31 +805,32 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
             ),
           ),
 
-          // Amount
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '+ ${_formatCurrency(it.amount)}',
+                isRefund
+                    ? '- ${_formatCurrency(it.amount.abs())}'
+                    : '+ ${_formatCurrency(it.amount)}',
                 style: AppTypography.zaloFont(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF00693F),
+                  color: isRefund ? const Color(0xFFDC2626) : const Color(0xFF00693F),
                 ),
               ),
               const SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F6ED),
+                  color: isRefund ? const Color(0xFFFEE2E2) : const Color(0xFFE8F6ED),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  'ĐÃ THU',
+                  isRefund ? 'HOÀN TIỀN' : 'ĐÃ THU',
                   style: AppTypography.zaloFont(
                     fontSize: 9.5,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF00693F),
+                    color: isRefund ? const Color(0xFFDC2626) : const Color(0xFF00693F),
                   ),
                 ),
               ),

@@ -5,6 +5,7 @@ import '../../../../core/services/top_notification_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/presentation/screens/a03_login_screen.dart';
 import '../../../home/presentation/screens/main_layout_screen.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/repositories/admin_repository.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_frontdesk_screen.dart';
@@ -66,7 +67,7 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
     }
     final session = await AdminRepository.instance.fetchCurrentAdminSession();
     if (!mounted) return;
-    if (session != null && session['unauthorized'] == true) {
+    if (session != null && session['forbidden'] == true) {
       setState(() => _isSyncingSession = false);
       TopNotificationService.showError(
         title: 'Phân quyền quản trị',
@@ -78,6 +79,23 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
         (route) => false,
       );
       return;
+    }
+    if (session != null && session['tokenRejected'] == true) {
+      await MembershipRepository.instance.fetchProfile();
+      if (!mounted) return;
+      if (!AuthService.instance.isStaff) {
+        setState(() => _isSyncingSession = false);
+        TopNotificationService.showError(
+          title: 'Phân quyền quản trị',
+          message: 'Tài khoản này chưa được cấp quyền truy cập trang quản trị.',
+        );
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
+          (route) => false,
+        );
+        return;
+      }
     }
     final maxIndex = _isFullAdmin ? 3 : 2;
     setState(() {

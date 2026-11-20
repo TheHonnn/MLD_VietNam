@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/features/admin/data/models/admin_models.dart';
+import 'package:medical_healthcare_app/features/admin/data/repositories/admin_repository.dart';
 import 'package:medical_healthcare_app/features/admin/presentation/widgets/admin_kpi_card.dart';
 import 'package:medical_healthcare_app/features/admin/presentation/widgets/admin_action_card.dart';
 
@@ -200,6 +201,148 @@ void main() {
       await tester.tap(find.text('Doanh thu tháng'));
       await tester.pump();
       expect(tapped, isTrue);
+    });
+
+    test('AdminRepository.isTestCode detects test invoice codes', () {
+      expect(AdminRepository.isTestCode('HD-TEST-001'), isTrue);
+      expect(AdminRepository.isTestCode('INV-UAT-99'), isTrue);
+      expect(AdminRepository.isTestCode('SEC-CHECK-1'), isTrue);
+      expect(AdminRepository.isTestCode('EXPIRY-DUE'), isTrue);
+      expect(AdminRepository.isTestCode('E2E-RUN-5'), isTrue);
+      expect(AdminRepository.isTestCode('HD-SPA-20261120-001'), isFalse);
+      expect(AdminRepository.isTestCode('HD-HP-20261120-002'), isFalse);
+      expect(AdminRepository.isTestCode(null), isFalse);
+    });
+
+    test('AdminRepository.isDateInRange checks date ranges correctly', () {
+      expect(AdminRepository.isDateInRange('2026-11-20T10:00:00Z', '2026-11-20', '2026-11-20'), isTrue);
+      expect(AdminRepository.isDateInRange('2026-11-20', '2026-11-01', '2026-11-30'), isTrue);
+      expect(AdminRepository.isDateInRange('2026-10-31', '2026-11-01', '2026-11-30'), isFalse);
+      expect(AdminRepository.isDateInRange('', '2026-11-01', '2026-11-30'), isFalse);
+      expect(AdminRepository.isDateInRange(null, '2026-11-01', '2026-11-30'), isFalse);
+    });
+
+    test('AdminRepository.computeRevenueEngine calculates Web Admin parity revenue', () {
+      final invoices = [
+        {
+          'id': 'inv_1',
+          'invoice_code': 'HD-SPA-001',
+          'branch_id': 'branch_q3',
+          'booking_id': 'bk_1',
+          'total_amount': '1000000',
+          'refund_amount': '200000',
+          'payment_status': 'PAID',
+          'paid_at': '2026-11-20T08:00:00',
+        },
+        {
+          'id': 'inv_test',
+          'invoice_code': 'HD-TEST-999',
+          'branch_id': 'branch_q3',
+          'total_amount': '5000000',
+          'refund_amount': '0',
+          'payment_status': 'PAID',
+          'paid_at': '2026-11-20T08:30:00',
+        },
+        {
+          'id': 'inv_academy',
+          'invoice_code': 'HD-HP-001',
+          'branch_id': 'branch_q3',
+          'enrollment_id': 'enr_1',
+          'total_amount': '35000000',
+          'refund_amount': '0',
+          'payment_status': 'PAID',
+          'paid_at': '2026-11-20T09:00:00',
+        },
+        {
+          'id': 'inv_prod',
+          'invoice_code': 'HD-PR-001',
+          'branch_id': 'branch_q3',
+          'total_amount': '500000',
+          'refund_amount': '0',
+          'payment_status': 'PAID',
+          'paid_at': '2026-11-20T09:30:00',
+          'invoice_items': [
+            {'item_type': 'PRODUCT', 'amount': '500000'}
+          ],
+        },
+      ];
+
+      final tuitions = [
+        {
+          'id': 'tt_1',
+          'transaction_code': 'TT-001',
+          'enrollment_id': 'enr_1',
+          'branch_id': 'branch_q3',
+          'transaction_type': 'DEPOSIT',
+          'amount': '35000000',
+          'payment_status': 'PAID',
+          'paid_at': '2026-11-20T09:00:00',
+        },
+        {
+          'id': 'tt_2',
+          'transaction_code': 'TT-002',
+          'enrollment_id': 'enr_2',
+          'branch_id': 'branch_q3',
+          'transaction_type': 'FULL_PAYMENT',
+          'amount': '20000000',
+          'payment_status': 'PAID',
+          'paid_at': '2026-11-20T10:00:00',
+        },
+        {
+          'id': 'tt_refund',
+          'transaction_code': 'TT-003',
+          'enrollment_id': 'enr_refund',
+          'branch_id': 'branch_q3',
+          'transaction_type': 'REFUND',
+          'amount': '5000000',
+          'payment_status': 'PAID',
+          'paid_at': '2026-11-20T11:00:00',
+        },
+      ];
+
+      final enrollments = [
+        {
+          'id': 'enr_1',
+          'order_code': 'ENR-001',
+          'student_name': 'Học viên 1',
+          'amount_paid': '35000000',
+          'approved_at': '2026-11-20T09:00:00',
+          'selected_branch': 'branch_q3',
+        },
+        {
+          'id': 'enr_2',
+          'order_code': 'ENR-002',
+          'student_name': 'Học viên 2',
+          'amount_paid': '20000000',
+          'approved_at': '2026-11-20T10:00:00',
+          'selected_branch': 'branch_q3',
+        },
+        {
+          'id': 'enr_3',
+          'order_code': 'ENR-003',
+          'student_name': 'Học viên 3',
+          'amount_paid': '10000000',
+          'approved_at': '2026-11-20T14:00:00',
+          'selected_branch': 'branch_q3',
+        },
+      ];
+
+      final report = AdminRepository.computeRevenueEngine(
+        invoices: invoices,
+        tuitions: tuitions,
+        enrollments: enrollments,
+        branchId: 'branch_q3',
+        startIso: '2026-11-20',
+        endIso: '2026-11-20',
+        period: 'TODAY',
+        referenceNow: DateTime.parse('2026-11-20T15:00:00'),
+      );
+
+      expect(report.serviceRevenue, 800000);
+      expect(report.productRevenue, 500000);
+      expect(report.academyRevenue, 60000000);
+      expect(report.totalRevenue, 61300000);
+      expect(report.totalTransactions, 6);
     });
   });
 }

@@ -26,7 +26,6 @@ import 'f04_loyalty_points_screen.dart';
 import 'f05_my_vouchers_screen.dart';
 import 'f08_settings_screen.dart';
 import '../../../treatment/presentation/screens/d05_service_review_screen.dart';
-import '../../../treatment/presentation/screens/d07_customer_support_screen.dart';
 import '../../../treatment/presentation/screens/d12_faq_screen.dart';
 
 
@@ -865,17 +864,6 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const D12FaqScreen()),
-                    );
-                  },
-                ),
-                const Divider(height: 1, indent: 50, color: AppColors.border),
-                _buildMenuItem(
-                  icon: Icons.support_agent_rounded,
-                  title: context.tr('Trung tâm hỗ trợ CSKH', 'Customer Support Center'),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const D07CustomerSupportScreen()),
                     );
                   },
                 ),
