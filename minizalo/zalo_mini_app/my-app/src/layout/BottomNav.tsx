@@ -1,6 +1,53 @@
 import React from 'react';
-import {NavHomeIcon,MapIcon,PhoneIcon,ChatBubbleIcon} from '@/components/Icons';
-export type NavTabId='home'|'services'|'academy'|'documents'|'profile';
-export function BottomNav({activeTab,onChangeTab,onBranches,onConsultation,phone,branchActive=false,disabled=false}:{activeTab:NavTabId;onChangeTab:(tab:NavTabId)=>void;onBranches:()=>void;onConsultation:()=>void;phone:string;branchActive?:boolean;disabled?:boolean}){
-  return <nav className="app-bottom-nav matched-bottom-nav" aria-label="Điều hướng chính"><button type="button" aria-current={activeTab==='home'&&!branchActive?'page':undefined} disabled={disabled} onClick={()=>onChangeTab('home')}><NavHomeIcon size={22}/><span>Trang chủ</span></button>{phone&&!disabled?<a href={`tel:${phone}`} className="matched-call"><PhoneIcon size={17}/><span>Gọi ngay</span></a>:<button type="button" className="matched-call" disabled><PhoneIcon size={17}/><span>Gọi ngay</span></button>}<button type="button" className="matched-consult" disabled={disabled} onClick={onConsultation}><ChatBubbleIcon size={17}/><span>Tư vấn</span></button><button type="button" aria-current={branchActive?'page':undefined} disabled={disabled} onClick={onBranches}><MapIcon size={22}/><span>Cơ sở</span></button></nav>;
+import {
+  NavHomeIcon,
+  NavServiceIcon,
+  NavAcademyIcon,
+  BookOpenIcon,
+  NavProfileIcon,
+} from '@/components/Icons';
+
+export type NavTabId = 'home' | 'services' | 'academy' | 'documents' | 'profile';
+
+const TABS: Array<{ id: NavTabId; label: string; Icon: React.ComponentType<{ size?: number }> }> = [
+  { id: 'home', label: 'Trang chủ', Icon: NavHomeIcon },
+  { id: 'services', label: 'Dịch vụ', Icon: NavServiceIcon },
+  { id: 'academy', label: 'Đào tạo', Icon: NavAcademyIcon },
+  { id: 'documents', label: 'Kiến thức', Icon: BookOpenIcon },
+  { id: 'profile', label: 'Cá nhân', Icon: NavProfileIcon },
+];
+
+export function BottomNav({
+  activeTab,
+  onChangeTab,
+  disabled = false,
+}: {
+  activeTab: NavTabId;
+  onChangeTab: (tab: NavTabId) => void;
+  onBranches?: () => void;
+  onConsultation?: () => void;
+  phone?: string;
+  branchActive?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <nav className="app-bottom-nav matched-bottom-nav" aria-label="Điều hướng chính">
+      {TABS.map(({ id, label, Icon }) => {
+        const active = activeTab === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            className={active ? 'is-active' : undefined}
+            aria-current={active ? 'page' : undefined}
+            disabled={disabled}
+            onClick={() => onChangeTab(id)}
+          >
+            <Icon size={21} />
+            <span>{label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
 }

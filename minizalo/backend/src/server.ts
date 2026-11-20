@@ -18,7 +18,7 @@ import {bookingFilters} from './booking-filters.js';
 import {collectionPage} from './collection-page.js';
 import {customerRequest} from './customer-request.js';
 import {profileAvatar,profileBirthDate} from './profile-input.js';
-import {isStaffRole,staffScope,optionalStaffScope,staffCustomers,staffCustomer,bookingAccess,staffSessionStatus,bookingGuests} from './staff-booking.js';
+import {isStaffRole,staffScope,optionalStaffScope,staffCustomers,staffCustomer,bookingAccess,staffSessionStatus,bookingGuests,staffShifts} from './staff-booking.js';
 import {bookingGroup,cancelBookingGroup} from './booking-groups.js';
 import {bookingPeople,reserveBed,filterResourceSlots} from './booking-resources.js';
 import {certificateSelect,certificateVerification,verifyCertificate,certificateVerificationPage} from './certificates.js';
@@ -31,11 +31,12 @@ import {accountSession,accountSessions,revokeSession,revokeOtherSessions} from '
 import {lessonMedia} from './lesson-media.js';
 import {portalContent,portalContentDetail} from './portal-content.js';
 import {createJournalShare,sharedJournal,journalPage,journalPdf} from './journal-sharing.js';
-import {academyCandidates,approveCandidate} from './staff-academy.js';
+import {academyCandidates,approveCandidate,updateCandidateStudentCode,addCandidateConsultationNote} from './staff-academy.js';
 import {staffCatalog,saveStaffCatalog} from './staff-catalog.js';
 import {homeProducts,homeProduct,servicePricing} from './customer-catalog.js';
 import {assessmentSubmissions,reviewSubmission} from './staff-assessments.js';
 import {staffClassSchedules,attendanceCode,recordAttendance} from './attendance.js';
+import {getPaymentGatewayConfig,createPaymentGatewayIntent,checkPaymentGatewayStatus} from './payment-gateway.js';
 export { ApiError } from './errors.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -453,6 +454,20 @@ export function createApp(store: Store, options: AppOptions) {
   app.use('/api',(req,res,next)=>['GET','HEAD','OPTIONS'].includes(req.method)?next():writeLimit(req,res,next));
   app.get('/api/auth/sessions',route(async(_req,res)=>success(res,await accountSessions(store,res.locals.userId,res.locals.sessionId))));
   app.post('/api/auth/logout',route(async(_req,res)=>success(res,await revokeSession(store,res.locals.userId,res.locals.sessionId,res.locals.sessionId))));
+  app.delete('/api/auth/account',route(async(_req,res)=>{
+    const anonymizedPhone=`del_${randomUUID().replace(/-/g,'').slice(0,16)}`;
+    await store.transaction(async tx=>{
+      await tx.query(Prisma.sql`UPDATE users SET is_active=false,phone=${anonymizedPhone},email=NULL,password_hash=NULL,full_name='Tài khoản đã xóa',avatar_url=NULL,address=NULL,date_of_birth=NULL,emergency_contact_name=NULL,emergency_contact_phone=NULL,updated_at=clock_timestamp() WHERE id=${res.locals.userId}::uuid`);
+      await tx.query(Prisma.sql`DELETE FROM miniapp_customer_profiles WHERE user_id=${res.locals.userId}::uuid`);
+      await tx.query(Prisma.sql`INSERT INTO audit_logs(actor_id,action,table_name,record_id,new_data) VALUES(${res.locals.userId}::uuid,'MINIAPP_DELETE_ACCOUNT','users',${res.locals.userId}::uuid,${JSON.stringify({isActive:false,anonymized:true})}::jsonb) RETURNING id`);
+    });
+    await revokeOtherSessions(store,res.locals.userId,res.locals.sessionId);
+    await revokeSession(store,res.locals.userId,res.locals.sessionId,res.locals.sessionId);
+    return success(res,{deleted:true});
+  }));
+  app.get('/api/payments/gateway/config',route(async(_req,res)=>success(res,getPaymentGatewayConfig())));
+  app.post('/api/payments/gateway/intent',route(async(req,res)=>success(res,await createPaymentGatewayIntent(store,res.locals.userId,req.body),201)));
+  app.get('/api/payments/gateway/status/:orderCode',route(async(req,res)=>success(res,await checkPaymentGatewayStatus(store,res.locals.userId,req.params.orderCode))));
   app.post('/api/auth/sessions/revoke-others',route(async(_req,res)=>success(res,await revokeOtherSessions(store,res.locals.userId,res.locals.sessionId))));
   app.post('/api/auth/sessions/:id/revoke',route(async(req,res)=>success(res,await revokeSession(store,res.locals.userId,uuid(req.params.id),res.locals.sessionId))));
   const staffReadLimit=createRateLimiter(60,60000,(_req,res)=>res.locals.userId);
@@ -464,6 +479,9 @@ export function createApp(store: Store, options: AppOptions) {
   app.get('/api/staff/academy/submissions',route(async(req,res)=>success(res,await assessmentSubmissions(store,res.locals.userId,req.query))));
   app.patch('/api/staff/academy/submissions/:id',route(async(req,res)=>success(res,{submission:await reviewSubmission(store,res.locals.userId,uuid(req.params.id),req.body)})));
   app.patch('/api/staff/academy/candidates/:id/approve',route(async(req,res)=>success(res,{enrollment:await approveCandidate(store,res.locals.userId,uuid(req.params.id),req.body)})));
+  app.patch('/api/staff/academy/candidates/:id/student-code',route(async(req,res)=>success(res,await updateCandidateStudentCode(store,res.locals.userId,uuid(req.params.id),req.body?.studentCode))));
+  app.post('/api/staff/academy/candidates/:id/consult',route(async(req,res)=>success(res,await addCandidateConsultationNote(store,res.locals.userId,uuid(req.params.id),req.body?.note))));
+  app.get('/api/staff/shifts',route(async(req,res)=>success(res,await staffShifts(store,res.locals.userId,req.query.month))));
   app.get('/api/staff/dashboard',route(async(_req,res)=>success(res,await staffDashboard(store,res.locals.userId))));
   app.get('/api/staff/customers/directory',route(async(req,res)=>success(res,await staffCustomerDirectory(store,res.locals.userId,req.query))));
   app.get('/api/staff/customers',route(async(req,res)=>success(res,{customers:await staffCustomers(store,res.locals.userId,req.query.search)})));

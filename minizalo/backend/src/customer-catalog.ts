@@ -5,12 +5,28 @@ import {ApiError} from './errors.js';
 const uuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const literalSearch=(value:string)=>'%'+value.replace(/[\\%_]/g,'\\$&')+'%';
 const folded=(field:Prisma.Sql)=>Prisma.sql`replace(lower(regexp_replace(normalize(${field},NFD),'[̀-ͯ]','','g')),'đ','d')`;
+export function resolvePackageGroup(rawGroup:unknown,category:unknown){
+  const trimmed=typeof rawGroup==='string'?rawGroup.trim():'';
+  if(trimmed){
+    const lower=trimmed.toLowerCase();
+    if(lower.includes('mở rộng'))return 'Chăm sóc mở rộng';
+    if(lower.includes('toàn diện'))return 'Chăm sóc toàn diện';
+    if(lower.includes('khu trú'))return 'Chăm sóc khu trú';
+    return trimmed;
+  }
+  const catLower=String(category||'').toLowerCase();
+  if(catLower.includes('băng ép')||catLower.includes('tất vớ')||catLower.includes('áp lực'))return 'Chăm sóc mở rộng';
+  if(catLower.includes('dụng cụ')||catLower.includes('tài liệu'))return 'Chăm sóc toàn diện';
+  return 'Chăm sóc khu trú';
+}
 export async function homeProduct(store:Store,id:string){
   const [schema]=await store.query(Prisma.sql`SELECT to_regclass('public.home_products') IS NOT NULL AS ready`);
   if(!schema?.ready)throw new ApiError(404,'Product is unavailable');
-  const [product]=await store.query(Prisma.sql`SELECT p.id,p.name,p.category,p.price_min,p.price_max,p.unit,p.details,p.sort_order,to_jsonb(p)->>'image_url' AS image_url
+  const [product]=await store.query(Prisma.sql`SELECT p.id,p.name,p.category,p.price_min,p.price_max,p.unit,p.details,p.sort_order,to_jsonb(p)->>'image_url' AS image_url,to_jsonb(p)->>'treatment_package_group' AS raw_package_group
     FROM home_products p WHERE p.id=${id}::uuid AND (to_jsonb(p)->>'is_active' IS NULL OR to_jsonb(p)->>'is_active'='true')`);
-  if(!product)throw new ApiError(404,'Product is unavailable');return product;
+  if(!product)throw new ApiError(404,'Product is unavailable');
+  const {raw_package_group,...rest}=product;
+  return {...rest,treatment_package_group:resolvePackageGroup(raw_package_group,product.category)};
 }
 export async function homeProducts(store:Store,input:Row){
   for(const name of ['search','category'])if(input[name]!=null&&(typeof input[name]!=='string'||input[name].length>150||input[name].includes('\0')))throw new ApiError(400,'Invalid product filter');
@@ -21,14 +37,14 @@ export async function homeProducts(store:Store,input:Row){
   const [schema]=await store.query(Prisma.sql`SELECT to_regclass('public.home_products') IS NOT NULL AS ready`);
   if(!schema?.ready)return {products:[],categories:[],nextCursor:null};
   const query=String(input.search||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase();
-  const rows=await store.query(Prisma.sql`SELECT p.id,p.name,p.category,p.price_min,p.price_max,p.unit,p.details,p.sort_order,to_jsonb(p)->>'image_url' AS image_url
+  const rows=await store.query(Prisma.sql`SELECT p.id,p.name,p.category,p.price_min,p.price_max,p.unit,p.details,p.sort_order,to_jsonb(p)->>'image_url' AS image_url,to_jsonb(p)->>'treatment_package_group' AS raw_package_group
     FROM home_products p WHERE (to_jsonb(p)->>'is_active' IS NULL OR to_jsonb(p)->>'is_active'='true')
     AND (${String(input.category||'')}='' OR p.category=${String(input.category||'')})
     AND ${folded(Prisma.sql`concat_ws(' ',p.name,p.category,array_to_string(p.details,' '))`)} LIKE ${literalSearch(query)}
     ${cursor?Prisma.sql`AND (p.sort_order,p.name,p.id)>(${cursor.order},${cursor.name},${cursor.id}::uuid)`:Prisma.empty}
     ORDER BY p.sort_order,p.name,p.id LIMIT ${limit+1}`);
   const categories=await store.query(Prisma.sql`SELECT DISTINCT category FROM home_products p WHERE to_jsonb(p)->>'is_active' IS NULL OR to_jsonb(p)->>'is_active'='true' ORDER BY category`);
-  const selected=rows.slice(0,limit),last=selected[selected.length-1];
+  const selected:Row[]=rows.slice(0,limit).map((row:Row)=>{const {raw_package_group,...rest}=row;return {...rest,treatment_package_group:resolvePackageGroup(raw_package_group,row.category)};}),last=selected[selected.length-1];
   return {products:selected,categories:categories.map(row=>row.category),nextCursor:rows.length>limit?Buffer.from(JSON.stringify({order:last.sort_order,name:last.name,id:last.id})).toString('base64url'):null};
 }
 

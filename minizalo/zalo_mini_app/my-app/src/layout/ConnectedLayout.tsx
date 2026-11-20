@@ -39,7 +39,8 @@ const StaffWork=deferredScreen(()=>import('@/features/staff/StaffWork').then(m=>
 const HomeProducts=deferredScreen(()=>import('@/features/services/CustomerCatalog').then(m=>({default:m.HomeProducts})));
 const ServicePricing=deferredScreen(()=>import('@/features/services/CustomerCatalog').then(m=>({default:m.ServicePricing})));
 const AccountActivity=deferredScreen(()=>import('@/features/profile/AccountActivity').then(m=>({default:m.AccountActivity})));
-type View='points'|'payments'|'home-products'|'pricing'|'vouchers'|'care_guide'|'consultation'|'review'|'examination'|'booking'|'appointments'|'packages'|'journal'|'support'|'community'|'my-courses'|'schedule'|'certificates'|'branches'|'specialists'|'service-detail'|'branch-detail'|'specialist-detail'|'notifications'|'sessions'|'staff-work';
+const FAQ=deferredScreen(()=>import('@/components/FAQScreen').then(m=>({default:m.FAQScreen})));
+type View='points'|'payments'|'home-products'|'pricing'|'vouchers'|'care_guide'|'consultation'|'review'|'examination'|'booking'|'appointments'|'packages'|'journal'|'support'|'faq'|'community'|'my-courses'|'schedule'|'certificates'|'branches'|'specialists'|'service-detail'|'branch-detail'|'specialist-detail'|'notifications'|'sessions'|'staff-work';
 const protectedViews=new Set<View>(['points','payments','vouchers','booking','appointments','packages','journal','support','my-courses','schedule','certificates','notifications','sessions','staff-work','care_guide','consultation','review']);
 
 export function MainLayout(){
@@ -140,7 +141,7 @@ export function MainLayout(){
     if(['home','services','academy','documents','profile'].includes(destination)){setTab(destination as NavTabId);close();return;}
     if(destination==='examination'){visit('examination');return;}if(destination==='learning'){visit('my-courses');return;}if(destination==='new-booking'){book();return;}if(destination==='booking'){visit('appointments');setWorkAppointments(canUseStaffTools(user||{}));return;}if(destination==='search'){setSearch(true);return;}if(destination==='profile-edit'||destination==='profile-settings'){setProfilePanel(destination==='profile-edit'?'edit':'settings');setTab('profile');close();return;}if(destination==='results'){setAcademyTarget({id:String(Date.now()),enrollmentId:'',tab:'results'});visit('my-courses',{keepAcademyTarget:true});return;}
     if(destination==='vouchers'){visit('vouchers');return;}
-    if(['home-products','pricing','packages','journal','community','branches','specialists','notifications','support','schedule','certificates','care_guide','consultation','review'].includes(destination))visit(destination as View);
+    if(['home-products','pricing','packages','journal','community','branches','specialists','notifications','support','faq','schedule','certificates','care_guide','consultation','review'].includes(destination))visit(destination as View);
   };
   const openNotification=async(item:AppNotification)=>{const target=item.data?.target;if(!target){setNotice(item.message);return;}if(target.screen==='booking'){setBookingId(target.bookingId||target.entityId);visit('appointments',{work:Boolean(item.data?.staffBranchId)});}else if(target.screen==='academy'){setAcademyTarget({id:item.id,enrollmentId:target.enrollmentId||'',tab:target.tab||'content',quizId:target.quizId,certificateId:target.entityId});setView('my-courses');}else if(target.screen==='treatment'){setTreatmentEntityId(target.entityId);visit(target.tab==='support'?'support':target.tab==='journal'?'journal':target.tab==='care_guide'?'care_guide':'packages');}else if(target.screen==='profile'&&['vouchers','points','payments'].includes(target.tab||'')){setProfileEntityId(target.entityId);visit(target.tab as View);}else{setTab('profile');close();setNotice(item.message);}};
   const showCourse=(item:Course)=>{setCourseId(item.id);setTab('academy');setView(null);};
@@ -160,6 +161,7 @@ export function MainLayout(){
     if(view==='home-products')return <HomeProducts onBack={close} onConsultation={message=>openConsultation('','',message)}/>;
     if(view==='pricing')return <ServicePricing onBack={close} onConsultation={message=>openConsultation('','',message)} onService={item=>{setServices(rows=>rows.some(service=>service.id===item.id)?rows.map(service=>service.id===item.id?item:service):[...rows,item]);setDetailSource('pricing');setService(item);setView('service-detail');}}/>;
     if(view==='community')return <Community onBack={close} onExamination={()=>visit('examination')}/>;
+    if(view==='faq')return <FAQ onBack={close} onSupport={()=>visit('support')}/>;
     if(view==='sessions')return <Sessions userId={user?.id||''} userName={user?.name||''} phone={user?.phone} onClose={close} onLogout={async()=>{await apiClient.logout();setUser(null);close();}}/>;
     if(view==='staff-work'&&user)return <StaffWork onChanged={()=>setRevision(value=>value+1)} user={user} services={services} branches={branches} onBack={close} onAppointment={id=>{setWorkAppointments(true);setBookingId(id);setView('appointments');}} onNavigate={navigate} onBooked={saved=>{setWorkAppointments(true);setBookingId(saved.id);setView('appointments');void loadPrivate();}}/>;
     if(view==='branches')return <Branches branches={branches} services={services} onClose={close} onSelectBranch={openBranch}/>;

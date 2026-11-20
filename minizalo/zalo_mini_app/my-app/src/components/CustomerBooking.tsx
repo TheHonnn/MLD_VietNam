@@ -1,4 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
+import QRCode from 'qrcode';
 import type {MedicalService,Branch,User,Booking} from '../../../../backend/src/data/database';
 import {apiClient} from '@/api/client';
 import {ArrowLeftIcon} from './Icons';
@@ -19,6 +20,19 @@ export function CustomerBooking({currentUser,initialService,initialBranch,initia
   const [version,setVersion]=useState(0),[loading,setLoading]=useState(true),[slotsError,setSlotsError]=useState(''),[slotsFor,setSlotsFor]=useState('');
   const [forSelf,setForSelf]=useState(true),[name,setName]=useState(currentUser.name),[phone,setPhone]=useState(currentUser.phone||''),[notes,setNotes]=useState(initialNotes),[email,setEmail]=useState(currentUser.email||''),[address,setAddress]=useState(currentUser.address||'');
   const [packages,setPackages]=useState<OwnedPackage[]>([]),[packageId,setPackageId]=useState(initialPackageId||''),[packageError,setPackageError]=useState('');
+  const [paymentMethod,setPaymentMethod]=useState<'AT_BRANCH'|'ONLINE_GATEWAY'>('AT_BRANCH');
+  const [checkoutBooking,setCheckoutBooking]=useState<Booking|null>(null);
+  const [paymentIntent,setPaymentIntent]=useState<Record<string,any>|null>(null);
+  const [paymentQrUrl,setPaymentQrUrl]=useState('');
+  const [paymentStatusMsg,setPaymentStatusMsg]=useState('');
+  const [checkingPayment,setCheckingPayment]=useState(false);
+  useEffect(()=>{
+    const raw=paymentIntent?.qrCode;
+    if(!raw){setPaymentQrUrl('');return;}
+    let active=true;
+    void QRCode.toDataURL(String(raw),{width:220,margin:1}).then(url=>{if(active)setPaymentQrUrl(url);}).catch(()=>{if(active)setPaymentQrUrl('');});
+    return()=>{active=false;};
+  },[paymentIntent?.qrCode]);
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
   const locked=useRef(false),mounted=useRef(true),epoch=useRef(apiClient.sessionVersion());
   const service=catalog.find(item=>item.id===serviceId),key=JSON.stringify([branchId,serviceId,date,people,version]);
@@ -57,7 +71,14 @@ export function CustomerBooking({currentUser,initialService,initialBranch,initia
     try{
       const result=await apiClient.createBooking({serviceId,branchId,date,timeSlot:time,people,bookedForName:name.trim(),bookedForPhone:contactPhone(phone),specialNotes:[notes.trim(),email.trim()?`Email liên hệ: ${email.trim()}`:'',address.trim()?`Địa chỉ liên hệ: ${address.trim()}`:''].filter(Boolean).join('\n'),expectedFinalPrice:packageId?0:service.price*people,...(packageId?{userPackageId:packageId}:{})},currentUser.id);
       if(!mounted.current||epoch.current!==apiClient.sessionVersion())return;
-      if(result?.booking?.id){onBookingSuccess(result.booking);return;}
+      if(result?.booking?.id){
+        if(!packageId&&paymentMethod==='ONLINE_GATEWAY'){
+          const intent=await apiClient.createPaymentGatewayIntent({amount:service.price*people,description:`MLD ${result.booking.code||result.booking.id.slice(0,8)}`,targetType:'BOOKING',targetId:result.booking.id,referenceCode:result.booking.code||result.booking.id});
+          if(!mounted.current||epoch.current!==apiClient.sessionVersion())return;
+          setCheckoutBooking(result.booking);setPaymentIntent(intent);setPaymentStatusMsg(intent?.message||'');return;
+        }
+        onBookingSuccess(result.booking);return;
+      }
       setError(result?.error||'Không thể đặt lịch. Vui lòng thử lại.');
       if(result?.code==='PRICE_CHANGED'){
         apiClient.invalidateReadPaths(['/services']);const fresh=await apiClient.getServices();
@@ -85,11 +106,30 @@ export function CustomerBooking({currentUser,initialService,initialBranch,initia
         <label>Số điện thoại<input aria-label="Số điện thoại người sử dụng" type="tel" value={phone} maxLength={20} autoComplete="tel" onChange={event=>setPhone(event.target.value)}/></label>
         <label>Email liên hệ<input aria-label="Email liên hệ" type="email" value={email} maxLength={150} onChange={e=>setEmail(e.target.value)}/></label><label>Địa chỉ liên hệ<input aria-label="Địa chỉ liên hệ" value={address} maxLength={500} onChange={e=>setAddress(e.target.value)}/></label>
         <label>Ghi chú<textarea aria-label="Ghi chú đặt lịch" value={notes} maxLength={9000} onChange={event=>setNotes(event.target.value)}/></label>
-        {(availablePackages.length>0||packageId)&&<label>Liệu trình của tôi<select aria-label="Liệu trình của tôi" value={packageId} onChange={event=>setPackageId(event.target.value)}><option value="">Không dùng liệu trình</option>{!packageReady&&<option value={packageId} disabled>Liệu trình không còn khả dụng</option>}{availablePackages.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+        {(availablePackages.length>0||packageId)&&<label>Liệu trình của tôi<select aria-label="Liệu trình của tôi" value={packageId} onChange={event=>setPackageId(event.target.value)}><option value="">Không dùng liệu trình</option>{!packageReady&&<option value={packageId} disabled>Liệu trình không còn khả dụng</option>}{availablePackages.map(item=>{const left=Math.max(0,item.totalSessions-item.completedSessions-item.reservedSessions);return <option key={item.id} value={item.id}>{item.name} ({item.totalSessions} buổi = {item.totalSessions} ca · còn {left} ca)</option>;})}</select></label>}
         {packageId&&packageError&&<p role="alert">{packageError}</p>}
+        {!packageId&&<div className="staff-customer-modes" role="radiogroup" aria-label="Phương thức thanh toán">
+          <label><input type="radio" name="booking-payment-method" checked={paymentMethod==='AT_BRANCH'} onChange={()=>setPaymentMethod('AT_BRANCH')}/>Thanh toán tại cơ sở</label>
+          <label><input type="radio" name="booking-payment-method" checked={paymentMethod==='ONLINE_GATEWAY'} onChange={()=>setPaymentMethod('ONLINE_GATEWAY')}/>Thanh toán online tự động</label>
+        </div>}
       </section>
       <section className="booking-summary"><h2>Thông tin đặt lịch</h2><p>{service?.title}</p><p>{branches.find(b=>b.id===branchId)?.name}</p><p>{date.split('-').reverse().join('/')} · {time}</p><p>{people} người · {name} · {phone}</p>{email&&<p>{email}</p>}{address&&<p>{address}</p>}</section>
     </fieldset></main>
+    {checkoutBooking&&paymentIntent&&<div role="dialog" aria-modal="true" aria-label="Thanh toán online tự động" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-5 space-y-3 text-sm text-[#183b47]">
+      <h2 className="text-base font-bold">Thanh toán online tự động</h2>
+      <p>Mã lịch hẹn: <strong>{paymentIntent.referenceCode||checkoutBooking.code||checkoutBooking.id}</strong></p>
+      <p>Số tiền: <strong>{Number(paymentIntent.amount||0).toLocaleString('vi-VN')}đ</strong></p>
+      <p>Cổng thanh toán: <strong>{paymentIntent.gatewayConfigured?(paymentIntent.provider||'GATEWAY'):'Chờ cấu hình cổng'}</strong></p>
+      {!paymentIntent.gatewayConfigured&&<p role="status" className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">{paymentIntent.message||'Cổng thanh toán trung gian đang chờ cấu hình.'}</p>}
+      {paymentQrUrl&&<img src={paymentQrUrl} alt="Mã QR thanh toán" className="mx-auto h-44 w-44 rounded-lg border border-[#c8dde3] p-1"/>}
+      {paymentIntent.accountNumber&&<p className="text-xs">STK: {paymentIntent.accountNumber} · {paymentIntent.accountName}</p>}
+      {paymentIntent.checkoutUrl&&<a href={paymentIntent.checkoutUrl} target="_blank" rel="noopener noreferrer" className="block text-xs font-semibold text-[#2860eb] underline">Mở cổng thanh toán</a>}
+      {paymentStatusMsg&&<p role="status" className="text-xs">{paymentStatusMsg}</p>}
+      <div className="flex gap-2 pt-2">
+        <button type="button" disabled={checkingPayment} className="mobile-primary flex-1" onClick={async()=>{if(!paymentIntent.orderCode)return;setCheckingPayment(true);try{const st=await apiClient.checkPaymentGatewayStatus(Number(paymentIntent.orderCode));setPaymentStatusMsg(st?.isPaid?'Thanh toán thành công!':(st?.message||'Chưa ghi nhận giao dịch thành công.'));if(st?.isPaid){onBookingSuccess(checkoutBooking);}}finally{setCheckingPayment(false);}}}>{checkingPayment?'Đang kiểm tra...':'Kiểm tra trạng thái thanh toán'}</button>
+        <button type="button" className="rounded-lg border border-[#c8dde3] px-3 py-2 text-xs font-semibold" onClick={()=>onBookingSuccess(checkoutBooking)}>Đóng</button>
+      </div>
+    </div></div>}
     <footer className="booking-footer">{error&&<p role="alert" className="booking-error">{error}</p>}<div className="booking-footer-summary">{service&&`${service.durationMinutes} phút · ${packageId?'Đặt bằng liệu trình':(service.price*people).toLocaleString('vi-VN')+'đ'}`}</div><button type="button" disabled={busy||!valid} onClick={()=>void submit()}>{busy?'Đang lưu lịch hẹn...':'Xác nhận đặt lịch'}</button></footer>
   </section>;
 }

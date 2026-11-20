@@ -7,7 +7,7 @@ test('home products use Admin rows, accent-insensitive filters, stable ordering 
   try{
     await db.exec('ALTER TABLE home_products RENAME TO isolated_unused_home_products');
     assert.deepEqual((await f.request('/portal/products',{anonymous:true})).data,{products:[],categories:[],nextCursor:null});
-    await db.exec(`ALTER TABLE isolated_unused_home_products RENAME TO home_products; ALTER TABLE home_products ADD COLUMN IF NOT EXISTS image_url text; ALTER TABLE home_products ADD COLUMN is_active boolean DEFAULT true; ALTER TABLE home_products ADD COLUMN private_note text;`);
+    await db.exec(`ALTER TABLE isolated_unused_home_products RENAME TO home_products; ALTER TABLE home_products ADD COLUMN IF NOT EXISTS image_url text; ALTER TABLE home_products ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true; ALTER TABLE home_products ADD COLUMN IF NOT EXISTS private_note text;`);
     for(const [n,name,category,order,active] of [[710,'Băng ép cổ tay','Băng ép',2,true],[711,'Dụng cụ tập luyện','Dụng cụ tập luyện',1,true],[712,'Băng ép chân','Băng ép',2,true],[713,'Hidden product','Băng ép',0,false]])await db.query(`INSERT INTO home_products(id,name,category,price_min,price_max,unit,details,sort_order,image_url,is_active,private_note) VALUES($1,$2,$3,150000,200000,'chiếc',ARRAY['Chi tiết thật'],$4,'https://files.test/product.png',$5,'Not public')`,[id(n),name,category,order,active]);
     const first=await f.request('/portal/products?limit=1',{anonymous:true});assert.equal(first.status,200);assert.deepEqual(first.data.products.map(p=>p.id),[id(711)]);
     assert.ok(first.data.nextCursor);assert.equal(first.data.products[0].privateNote,undefined);
