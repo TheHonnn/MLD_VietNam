@@ -5,6 +5,7 @@ import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { isOriginAllowed, resolveAllowedCorsOrigins } from './common/cors';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,44 +13,16 @@ async function bootstrap() {
   app.use(urlencoded({ extended: true, limit: '15mb' }));
   const logger = new Logger('Bootstrap');
   const isProduction = process.env.NODE_ENV === 'production';
-  const defaultProdOrigins = [
-    'https://mldvietnam.vn',
-    'https://admin.mldvietnam.vn',
-    'https://mld-web-admin.vercel.app',
-    'https://mld-vietnam.vercel.app',
-  ];
-  let allowedOrigins: string[] | string = (process.env.CORS_ORIGIN || '')
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean);
+  const allowedOrigins = resolveAllowedCorsOrigins(process.env.CORS_ORIGIN);
 
-  if (isProduction) {
-    if (!allowedOrigins.length || (Array.isArray(allowedOrigins) && allowedOrigins.includes('*'))) {
-      allowedOrigins = defaultProdOrigins;
-    }
-  } else {
-    if (!allowedOrigins.length || (Array.isArray(allowedOrigins) && allowedOrigins.includes('*'))) {
-      allowedOrigins = '*';
-    }
-  }
-
-  // 1. CORS Configuration
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins === '*' || (Array.isArray(allowedOrigins) && allowedOrigins.includes('*'))) {
-        return callback(null, true);
-      }
-      if (Array.isArray(allowedOrigins) && allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      if (!isProduction) {
-        return callback(null, true);
-      }
-      callback(null, false);
+      callback(null, isOriginAllowed(origin, allowedOrigins, isProduction));
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: ['Content-Type', 'Authorization', 'X-MLD-Local-Admin', 'Accept', 'Origin', 'X-Requested-With'],
     credentials: true,
+    optionsSuccessStatus: 204,
   });
 
   // 2. Normalize misconfigured URLs (e.g. client having /health in base URL)

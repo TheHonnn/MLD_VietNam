@@ -130,8 +130,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
     try {
       if (resourceCode === 401) {
         setResourceStatus('Đang làm mới phiên đăng nhập…');
-        const { error } = await supabase.auth.refreshSession();
-        if (error) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error || !data?.session?.access_token) {
+          throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        }
+        sessionStorage.setItem('mld_admin_token', data.session.access_token);
+        localStorage.setItem('mld_admin_token', data.session.access_token);
       }
       setAttempt(value => value + 1);
     } catch (error) {
