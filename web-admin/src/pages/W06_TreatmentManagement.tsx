@@ -1,3 +1,4 @@
+import { TreatmentTimeFields } from '../components/treatment/TreatmentTimeFields';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { consumedSessions, belongsToPackage, availableTreatmentSessions } from '../services/treatment-display.mjs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -3057,24 +3058,7 @@ export const W06_TreatmentManagement: React.FC = () => {
                         className="w-full px-3 py-2 bg-white/80 border border-[#E8DFD8] rounded-xl text-xs font-medium text-[#2C241E] cursor-default"
                       />
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-[#2C241E] mb-1">Giờ bắt đầu</label>
-                      <input
-                        type="time"
-                        value={treatmentStartTime}
-                        onChange={(e) => setTreatmentStartTime(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-[#2C241E] mb-1">Giờ kết thúc</label>
-                      <input
-                        type="time"
-                        value={treatmentEndTime}
-                        onChange={(e) => setTreatmentEndTime(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-[#E8DFD8] rounded-xl text-xs text-[#2C241E] focus:outline-none focus:border-[#985018]"
-                      />
-                    </div>
+                    <div className="col-span-2 sm:col-span-4"><TreatmentTimeFields start={treatmentStartTime} end={treatmentEndTime} onStartChange={setTreatmentStartTime} onEndChange={setTreatmentEndTime} /></div>
                   </div>
                   <p className="text-[10.5px] text-[#8C7A6B]">
                     Ngày được khóa theo lịch hẹn đang phục vụ; giờ bắt đầu có thể hiệu chỉnh theo thực tế.
