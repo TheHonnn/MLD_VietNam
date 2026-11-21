@@ -149,3 +149,26 @@ test('maxRedeemablePoints caps points by balance, order percentage limit, and mi
   assert.equal(rules.maxRedeemablePoints(1000, 500, 100, 30), 0);
 });
 
+test('booking deep-link helpers build full POS URLs and resolve target bookings accurately', () => {
+  const path = rules.buildBookingPosPath({
+    bookingId: 'bk-uuid-1',
+    bookingCode: 'BK-493739',
+    customerId: 'cust-uuid-1',
+    branchId: 'branch-uuid-1',
+  });
+  assert.equal(
+    path,
+    '/cashier-pos?tab=pos&bookingId=bk-uuid-1&booking=BK-493739&customerId=cust-uuid-1&branchId=branch-uuid-1',
+  );
+  assert.equal(rules.buildBookingPosPath({ branchId: 'ALL', tab: 'receipts' }), '/cashier-pos?tab=receipts');
+
+  const bookings = [
+    { id: 'bk-uuid-1', bookingCode: 'BK-493739' },
+    { id: 'bk-uuid-2', bookingCode: 'BK-500000' },
+  ];
+  assert.equal(rules.findTargetBookingForPos(bookings, 'bk-uuid-2', 'BK-493739'), bookings[1]);
+  assert.equal(rules.findTargetBookingForPos(bookings, '', ' bk-493739 '), bookings[0]);
+  assert.equal(rules.findTargetBookingForPos(bookings, '', 'bk-uuid-2'), bookings[1]);
+  assert.equal(rules.findTargetBookingForPos(bookings, 'missing', 'missing'), undefined);
+});
+

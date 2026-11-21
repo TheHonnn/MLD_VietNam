@@ -62,6 +62,7 @@ import {
 import { matchSearch, isUuid } from '../utils/searchUtils';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import type { RealtimeTable } from '../services/realtime.service';
+import { buildBookingPosPath } from './cashier-pos.rules';
 
 const REALTIME_SCHEDULE_TABLES: RealtimeTable[] = ['bookings', 'user_packages', 'treatment_journal'];
 
@@ -2352,8 +2353,16 @@ export const W05_StaffSchedule: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            const bCode = selectedApp.customerCode?.split('·')[1]?.trim() || selectedApp.id;
-                            navigate(`/cashier-pos?booking=${encodeURIComponent(bCode)}${selectedApp.branchId ? `&branchId=${selectedApp.branchId}` : ''}`);
+                            const bCode = selectedApp.customerCode?.split('·')[1]?.trim();
+                            navigate(
+                              buildBookingPosPath({
+                                bookingId: selectedApp.id,
+                                bookingCode: bCode,
+                                customerId: selectedApp.customerId,
+                                branchId: selectedApp.branchId,
+                                tab: 'pos',
+                              }),
+                            );
                           }}
                           className="w-full py-2.5 bg-[#985018] hover:bg-[#854412] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                         >
@@ -2386,8 +2395,16 @@ export const W05_StaffSchedule: React.FC = () => {
               {selectedApp.statusRaw === 'COMPLETED' && <button
                 type="button"
                 onClick={() => {
-                  const bCode = selectedApp.customerCode?.split('·')[1]?.trim() || selectedApp.id;
-                  navigate(`/cashier-pos?booking=${encodeURIComponent(bCode)}${selectedApp.branchId ? `&branchId=${selectedApp.branchId}` : ''}`);
+                  const bCode = selectedApp.customerCode?.split('·')[1]?.trim();
+                  navigate(
+                    buildBookingPosPath({
+                      bookingId: selectedApp.id,
+                      bookingCode: bCode,
+                      customerId: selectedApp.customerId,
+                      branchId: selectedApp.branchId,
+                      tab: selectedApp.paymentStatus === 'PAID' ? 'receipts' : 'pos',
+                    }),
+                  );
                 }}
                 className="w-full py-2.5 bg-white border border-[#D8BDA7] text-[#904206] rounded-xl text-xs font-bold hover:bg-[#FAF8F5] transition-colors text-center shadow-2xs cursor-pointer flex items-center justify-center gap-1.5"
               >

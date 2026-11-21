@@ -105,6 +105,48 @@ export function findTuitionEnrollment<T extends { id: string; orderCode?: string
   return matches.length === 1 ? matches[0] : undefined;
 }
 
+export function findTargetBookingForPos<T extends { id: string; bookingCode?: string | null }>(
+  bookings: T[],
+  bookingId?: string | null,
+  bookingCode?: string | null,
+): T | undefined {
+  const cleanId = String(bookingId || '').trim().toLowerCase();
+  if (cleanId) {
+    const byId = bookings.find((b) => String(b.id || '').trim().toLowerCase() === cleanId);
+    if (byId) return byId;
+  }
+  const cleanCode = String(bookingCode || '').trim().toLowerCase();
+  if (cleanCode) {
+    const byCode = bookings.find(
+      (b) =>
+        String(b.bookingCode || '').trim().toLowerCase() === cleanCode ||
+        String(b.id || '').trim().toLowerCase() === cleanCode,
+    );
+    if (byCode) return byCode;
+  }
+  return undefined;
+}
+
+export function buildBookingPosPath(params: {
+  bookingId?: unknown;
+  bookingCode?: unknown;
+  customerId?: unknown;
+  branchId?: unknown;
+  tab?: 'pos' | 'queue' | 'receipts';
+}): string {
+  const query = new URLSearchParams();
+  query.set('tab', params.tab || 'pos');
+  const bookingId = String(params.bookingId || '').trim();
+  const bookingCode = String(params.bookingCode || '').trim();
+  const customerId = String(params.customerId || '').trim();
+  const branchId = String(params.branchId || '').trim();
+  if (bookingId) query.set('bookingId', bookingId);
+  if (bookingCode) query.set('booking', bookingCode);
+  if (customerId) query.set('customerId', customerId);
+  if (branchId && branchId !== 'ALL') query.set('branchId', branchId);
+  return `/cashier-pos?${query.toString()}`;
+}
+
 export function getBookingEffectiveDiscount(booking?: {
   baseTotal?: number;
   finalPrice?: number;

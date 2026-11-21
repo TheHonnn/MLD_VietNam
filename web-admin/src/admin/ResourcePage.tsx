@@ -100,6 +100,7 @@ import {
 } from "../data/vietnamLocations";
 import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
 import { CertificateStatus, StudentCertificate } from "../types/shared_types";
+import { buildBookingPosPath } from "../pages/cashier-pos.rules";
 
 const toSlug = (str: string) =>
   str
@@ -4625,7 +4626,18 @@ function BookingOperationsView({
                 </div>
                 <div className="flex items-center justify-start lg:justify-end gap-2">
                   {isWaitingPayment ? (
-                    <Link to={`/cashier-pos?bookingId=${encodeURIComponent(String(row.id))}`} className="inline-flex items-center justify-center gap-1.5 min-w-[132px] rounded-lg bg-[#985018] px-3 py-2 text-xs font-bold text-white hover:bg-[#7F4115] active:translate-y-px"><CreditCard size={14} />Mở thu ngân</Link>
+                    <Link
+                      to={buildBookingPosPath({
+                        bookingId: row.id,
+                        bookingCode: row.booking_code,
+                        customerId: row.customer_id,
+                        branchId: row.branch_id,
+                        tab: "pos",
+                      })}
+                      className="inline-flex items-center justify-center gap-1.5 min-w-[132px] rounded-lg bg-[#985018] px-3 py-2 text-xs font-bold text-white hover:bg-[#7F4115] active:translate-y-px"
+                    >
+                      <CreditCard size={14} />Mở thu ngân
+                    </Link>
                   ) : action && ActionIcon ? (
                     <button type="button" onClick={() => onAction(action.key, row)} className="inline-flex items-center justify-center gap-1.5 min-w-[132px] rounded-lg bg-[#985018] px-3 py-2 text-xs font-bold text-white hover:bg-[#7F4115] active:translate-y-px"><ActionIcon size={14} />{action.label}</button>
                   ) : (

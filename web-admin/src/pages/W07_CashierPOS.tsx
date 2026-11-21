@@ -93,6 +93,7 @@ import {
   hasCashierShiftSnapshotChanged,
   maxRedeemablePoints,
   SYSTEM_GUEST_CUSTOMER_ID,
+  findTargetBookingForPos,
   findTuitionEnrollment,
 } from './cashier-pos.rules';
 
@@ -281,6 +282,9 @@ export const W07_CashierPOS: React.FC = () => {
   const tuitionEnrollmentId = searchParams.get('tuitionEnrollment') || '';
   const tuitionReference = tuitionEnrollmentId || tuitionOrder;
   const handledTuitionReference = useRef('');
+  const handledBookingKey = useRef('');
+  const fetchedMissingBookingKey = useRef('');
+  const [posBookingsLoaded, setPosBookingsLoaded] = useState(false);
   const [enrollmentLoad, setEnrollmentLoad] = useState<'loading' | 'ready' | 'error'>('loading');
   const [tuitionSearchTerm, setTuitionSearchTerm] = useState(tuitionOrder);
 
@@ -464,6 +468,9 @@ export const W07_CashierPOS: React.FC = () => {
 
   const fetchPosData = async () => {
     try {
+      if (searchParams.get('bookingId') || searchParams.get('booking')) {
+        supabaseService.invalidateCache('bookings');
+      }
       const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, srvRes, techRes, courseRes] = await Promise.allSettled([
         posService.getInvoices(),
         bookingService.getBookings(),
@@ -519,6 +526,8 @@ export const W07_CashierPOS: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to load POS data:', err);
+    } finally {
+      setPosBookingsLoaded(true);
     }
   };
 
@@ -698,6 +707,61 @@ export const W07_CashierPOS: React.FC = () => {
       if (cust) setSelectedCustomer(cust);
     }
   }, [searchParams, allCustomers]);
+
+  useEffect(() => {
+    const bookingIdParam = (searchParams.get('bookingId') || '').trim();
+    const bookingCodeParam = (searchParams.get('booking') || '').trim();
+    const requestKey = [bookingIdParam, bookingCodeParam].filter(Boolean).join('|');
+    if (!requestKey) {
+      handledBookingKey.current = '';
+      fetchedMissingBookingKey.current = '';
+      return;
+    }
+    if (handledBookingKey.current === requestKey) return;
+
+    const targetBooking = findTargetBookingForPos(allBookings, bookingIdParam, bookingCodeParam);
+    if (!targetBooking) {
+      if (!posBookingsLoaded || fetchedMissingBookingKey.current === requestKey) return;
+      fetchedMissingBookingKey.current = requestKey;
+      supabaseService.invalidateCache('bookings');
+      bookingService.getBookingById(bookingIdParam || bookingCodeParam).then((res) => {
+        if (res.success && res.data) {
+          const found = res.data;
+          setAllBookings((prev) =>
+            prev.some((b) => b.id === found.id)
+              ? prev.map((b) => (b.id === found.id ? found : b))
+              : [found, ...prev],
+          );
+        }
+      });
+      return;
+    }
+
+    handledBookingKey.current = requestKey;
+
+    if (targetBooking.paymentStatus === PaymentStatus.PAID) {
+      const paidInvoice = invoices.find(
+        (inv) =>
+          inv.bookingId === targetBooking.id ||
+          Boolean(targetBooking.bookingCode && (inv as any).bookingCode === targetBooking.bookingCode),
+      );
+      setActiveTab('receipts');
+      if (paidInvoice?.invoiceCode || targetBooking.bookingCode) {
+        setInvoiceSearchTerm(paidInvoice?.invoiceCode || targetBooking.bookingCode || '');
+      }
+      if (paidInvoice?.invoiceCode) {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', 'receipts');
+          next.set('invoice', paidInvoice.invoiceCode);
+          return next;
+        });
+      }
+      return;
+    }
+
+    loadBookingIntoCart(targetBooking);
+  }, [searchParams, allBookings, invoices, posBookingsLoaded]);
 
   // Load receipt if ?invoice= or ?receipt= param present
   useEffect(() => {
@@ -1128,19 +1192,16 @@ export const W07_CashierPOS: React.FC = () => {
   }, [filteredPendingBookings]);
 
   const loadBookingIntoCart = (bk: Booking) => {
-    // 1. Tự động chuyển cơ sở sang đúng cơ sở của lịch hẹn nếu khác cơ sở hiện tại
     if (bk.branchId && bk.branchId !== selectedBranchId) {
       handleBranchSelect(bk.branchId);
     }
 
-    const bookingLines = bookingItemsToCart(bk);
-    if (!bookingLines.length) {
-      toast.error('Lịch hẹn chưa có dịch vụ', 'Không thể thu tiền trước khi lịch hẹn có đầy đủ chi tiết dịch vụ.');
-      return;
-    }
+    const matchedCustomer =
+      (bk.customerId ? allCustomers.find((c) => c.id === bk.customerId) : undefined) ||
+      bk.customer;
 
-    if (bk.customer) {
-      setSelectedCustomer(bk.customer);
+    if (matchedCustomer) {
+      setSelectedCustomer(matchedCustomer);
     } else if (bk.bookedForName) {
       setSelectedCustomer({
         id: bk.customerId || GUEST_CUSTOMER.id,
@@ -1157,6 +1218,15 @@ export const W07_CashierPOS: React.FC = () => {
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       });
+    }
+
+    const bookingLines = bookingItemsToCart(bk);
+    if (!bookingLines.length) {
+      if (bk.bookingCode) {
+        setQueueSearchTerm(bk.bookingCode);
+      }
+      toast.error('Lịch hẹn chưa có dịch vụ', 'Không thể thu tiền trước khi lịch hẹn có đầy đủ chi tiết dịch vụ.');
+      return;
     }
 
     if (bk.technicianId || bk.technician?.userId) {
