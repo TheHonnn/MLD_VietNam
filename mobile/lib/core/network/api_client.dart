@@ -72,15 +72,11 @@ class ApiClient {
             }
           }
 
-          // 3. Đính kèm Bearer token: NestJS token cho backend NestJS, Supabase anon key cho Supabase REST
           if (!options.headers.containsKey('Authorization')) {
-            if (isNestBackendRoute) {
-              final token = await AuthService.instance.getAccessToken();
-              if (token != null && token.isNotEmpty) {
-                options.headers['Authorization'] = 'Bearer $token';
-              }
+            final token = await AuthService.instance.getAccessToken();
+            if (token != null && token.isNotEmpty) {
+              options.headers['Authorization'] = 'Bearer $token';
             } else {
-              // Tuyến Supabase REST: Luôn dùng Supabase Anon Key làm Bearer token
               options.headers['Authorization'] = 'Bearer ${ApiEndpoints.supabaseAnonKey}';
             }
           }

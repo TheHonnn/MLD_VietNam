@@ -229,6 +229,42 @@ class VoucherItem {
     this.maxDiscount,
   });
 
+  VoucherItem copyWith({
+    String? id,
+    String? title,
+    String? subtitle,
+    String? discountBanner,
+    String? description,
+    String? expiryDate,
+    String? code,
+    String? status,
+    String? statusText,
+    String? couponId,
+    String? userVoucherId,
+    double? discountPercent,
+    double? discountAmount,
+    double? minOrderAmount,
+    double? maxDiscount,
+  }) {
+    return VoucherItem(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      discountBanner: discountBanner ?? this.discountBanner,
+      description: description ?? this.description,
+      expiryDate: expiryDate ?? this.expiryDate,
+      code: code ?? this.code,
+      status: status ?? this.status,
+      statusText: statusText ?? this.statusText,
+      couponId: couponId ?? this.couponId,
+      userVoucherId: userVoucherId ?? this.userVoucherId,
+      discountPercent: discountPercent ?? this.discountPercent,
+      discountAmount: discountAmount ?? this.discountAmount,
+      minOrderAmount: minOrderAmount ?? this.minOrderAmount,
+      maxDiscount: maxDiscount ?? this.maxDiscount,
+    );
+  }
+
   double calculateDiscount(double subtotal) {
     if (subtotal < minOrderAmount) return 0.0;
     if (discountPercent > 0) {

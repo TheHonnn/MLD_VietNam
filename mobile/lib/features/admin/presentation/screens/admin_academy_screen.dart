@@ -230,11 +230,8 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
 
   List<AdminCandidateModel> _enrolledStudentsForMonth(DateTime month) {
     return _candidates.where((c) {
-      final isEnrolled = (c.batchId != null && c.batchId!.isNotEmpty) ||
-          c.status == 'ENROLLED_STUDYING' ||
-          c.status == 'NOT_GRADUATED' ||
-          c.status == 'COMPLETED';
-      if (!isEnrolled) return false;
+      final upper = c.status.toUpperCase();
+      if (upper == 'ARCHIVED' || upper == 'DROPPED') return false;
       return _candidateBelongsToMonth(c, month);
     }).toList();
   }
@@ -257,7 +254,19 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       list = list.where((c) => c.courseId == _selectedMonthlyCourseId).toList();
     }
     if (_selectedMonthlyGradFilter != 'ALL') {
-      list = list.where((c) => c.status == _selectedMonthlyGradFilter).toList();
+      if (_selectedMonthlyGradFilter == 'STUDYING') {
+        list = list.where((c) =>
+            c.status == 'ENROLLED_STUDYING' ||
+            (c.batchId != null && c.batchId!.isNotEmpty && c.status != 'COMPLETED')).toList();
+      } else if (_selectedMonthlyGradFilter == 'REGISTERED') {
+        list = list.where((c) =>
+            c.status == 'PAID_WAITING_CLASS' ||
+            c.status == 'PENDING' ||
+            c.status == 'PENDING_APPROVAL' ||
+            (c.batchId == null && c.amountPaid > 0)).toList();
+      } else {
+        list = list.where((c) => c.status == _selectedMonthlyGradFilter).toList();
+      }
     }
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -2436,21 +2445,21 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                             const SizedBox(width: 6),
                             _buildMicroPill(
                               label: 'Đang học',
-                              isSelected: _selectedMonthlyGradFilter == 'ENROLLED_STUDYING',
+                              isSelected: _selectedMonthlyGradFilter == 'STUDYING',
                               activeColor: const Color(0xFF00693F),
                               onTap: () => setState(() {
                                 _selectedMonthlyGradFilter =
-                                    _selectedMonthlyGradFilter == 'ENROLLED_STUDYING' ? 'ALL' : 'ENROLLED_STUDYING';
+                                    _selectedMonthlyGradFilter == 'STUDYING' ? 'ALL' : 'STUDYING';
                               }),
                             ),
                             const SizedBox(width: 6),
                             _buildMicroPill(
-                              label: 'Chưa tốt nghiệp',
-                              isSelected: _selectedMonthlyGradFilter == 'NOT_GRADUATED',
-                              activeColor: const Color(0xFFC2410C),
+                              label: 'Đã đăng ký',
+                              isSelected: _selectedMonthlyGradFilter == 'REGISTERED',
+                              activeColor: const Color(0xFFD97706),
                               onTap: () => setState(() {
                                 _selectedMonthlyGradFilter =
-                                    _selectedMonthlyGradFilter == 'NOT_GRADUATED' ? 'ALL' : 'NOT_GRADUATED';
+                                    _selectedMonthlyGradFilter == 'REGISTERED' ? 'ALL' : 'REGISTERED';
                               }),
                             ),
                             const SizedBox(width: 6),

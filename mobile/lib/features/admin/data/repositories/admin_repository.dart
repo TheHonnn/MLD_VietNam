@@ -313,43 +313,40 @@ class AdminRepository {
       debugPrint('[AdminRepository] fetch waiting batch error: $e');
     }
 
-    // C. Bài thi học viên nộp gần đây chưa duyệt feedback
     try {
+      final now = DateTime.now();
+      final monthStart = DateFormat('yyyy-MM-01').format(now);
       final res = await _apiClient.dio.get(
-        '/rest/v1/quiz_submissions?select=id,score,passed,submitted_at,instructor_feedback,course_enrollments(student_name,courses(title))&order=submitted_at.desc&limit=25',
+        '${ApiEndpoints.supabaseUrl}/rest/v1/course_enrollments?select=id,order_code,student_name,student_phone,status,student_status,amount_paid,tuition_total,enrolled_at,courses(title),course_batches(batch_code)&enrolled_at=gte.$monthStart&order=enrolled_at.desc&limit=30',
+        options: Options(headers: {
+          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
+        }),
       );
       if (res.data is List) {
-        for (final q in res.data) {
-          final fb = q['instructor_feedback']?.toString() ?? '';
-          if (fb.trim().isNotEmpty) continue; // Đã nhận xét xong, bỏ qua
-
-          final enr = q['course_enrollments'];
-          String sName = 'Học viên';
-          String cTitle = 'Đào tạo MLD';
-          if (enr is Map) {
-            sName = enr['student_name']?.toString() ?? sName;
-            final cObj = enr['courses'];
-            if (cObj is Map) {
-              cTitle = cObj['title']?.toString() ?? cTitle;
-            }
-          }
-          final score = q['score']?.toString() ?? '0';
-          final passed = q['passed'] == true;
+        for (final e in res.data) {
+          final sName = e['student_name']?.toString() ?? 'Học viên';
+          final cObj = e['courses'];
+          final cTitle = cObj is Map ? cObj['title']?.toString() ?? 'Khóa học MLD' : 'Khóa học MLD';
+          final batchObj = e['course_batches'];
+          final batchCode = batchObj is Map ? batchObj['batch_code']?.toString() : null;
+          final isStudying = batchCode != null && batchCode.isNotEmpty;
+          final statusLabel = isStudying ? 'Đang học ($batchCode)' : 'Đã đăng ký';
 
           items.add(AdminActionItem(
-            id: 'quiz_${q['id']}',
+            id: 'stu_${e['id']}',
             type: AdminActionType.newQuizSubmission,
-            title: '$sName vừa nộp bài thi ($score điểm)',
-            subtitle: 'Khóa: $cTitle · ${passed ? "HOÀN THÀNH" : "CẦN ÔN TẬP"}',
-            timeAgo: 'Bài thi mới',
-            secondaryInfo: 'Cần nhận xét giảng viên',
-            rawId: q['id']?.toString() ?? '',
-            rawData: q as Map<String, dynamic>,
+            title: '$sName · $cTitle',
+            subtitle: 'Trạng thái: $statusLabel',
+            timeAgo: 'Tháng ${now.month}/${now.year}',
+            secondaryInfo: e['student_phone']?.toString(),
+            rawId: e['id']?.toString() ?? '',
+            rawData: e as Map<String, dynamic>,
           ));
         }
       }
     } catch (e) {
-      debugPrint('[AdminRepository] fetch quiz submissions error: $e');
+      debugPrint('[AdminRepository] fetch monthly students error: $e');
     }
 
     return items;
@@ -406,7 +403,7 @@ class AdminRepository {
 
   bool _shouldFallbackToSupabase(DioException error) {
     final code = error.response?.statusCode;
-    if (code == 404 || code == 502 || code == 503) {
+    if (code == 401 || code == 403 || code == 404 || code == 500 || code == 502 || code == 503) {
       return true;
     }
     return error.type == DioExceptionType.connectionError ||
@@ -448,18 +445,26 @@ class AdminRepository {
   }
 
   Future<Map<String, dynamic>?> _fetchSingleBookingSnapshot(String bookingId) async {
-    final res = await _apiClient.dio.get(
-      '/rest/v1/bookings?id=eq.$bookingId&select=id,customer_id,technician_id,assigned_room_id,booking_date,start_time,end_time,status,session_status,payment_status,payment_method,final_price,special_notes&limit=1',
-    );
-    if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
-      return Map<String, dynamic>.from((res.data as List).first as Map);
-    }
+    try {
+      final res = await _apiClient.dio.get(
+        '${ApiEndpoints.supabaseUrl}/rest/v1/bookings?id=eq.$bookingId&select=id,customer_id,technician_id,assigned_room_id,booking_date,start_time,end_time,status,session_status,payment_status,payment_method,final_price,special_notes&limit=1',
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
+          },
+        ),
+      );
+      if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
+        return Map<String, dynamic>.from((res.data as List).first as Map);
+      }
+    } catch (_) {}
     return null;
   }
 
   Future<bool> approveBooking(String bookingId) async {
     final backend = await _postBookingAction(bookingId, 'confirm');
-    if (backend.handled) return backend.success;
+    if (backend.handled && backend.success) return true;
     try {
       final current = await _fetchSingleBookingSnapshot(bookingId);
       if (current != null && (current['status']?.toString().toUpperCase() ?? '') != 'PENDING') {
@@ -467,8 +472,15 @@ class AdminRepository {
         return false;
       }
       final res = await _apiClient.dio.patch(
-        '/rest/v1/bookings?id=eq.$bookingId',
+        '${ApiEndpoints.supabaseUrl}/rest/v1/bookings?id=eq.$bookingId',
         data: {'status': 'CONFIRMED'},
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
+            'Prefer': 'return=representation',
+          },
+        ),
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -974,7 +986,7 @@ class AdminRepository {
   Future<bool> assignBatchToCandidate(String enrollmentId, String batchId) async {
     try {
       final res = await _apiClient.dio.patch(
-        '/rest/v1/course_enrollments?id=eq.$enrollmentId',
+        '${ApiEndpoints.supabaseUrl}/rest/v1/course_enrollments?id=eq.$enrollmentId',
         data: {
           'batch_id': batchId,
           'status': 'ENROLLED',
@@ -982,7 +994,7 @@ class AdminRepository {
         },
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
+            'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
             'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),
@@ -997,7 +1009,7 @@ class AdminRepository {
   Future<bool> unassignBatchFromCandidate(String enrollmentId) async {
     try {
       final res = await _apiClient.dio.patch(
-        '/rest/v1/course_enrollments?id=eq.$enrollmentId',
+        '${ApiEndpoints.supabaseUrl}/rest/v1/course_enrollments?id=eq.$enrollmentId',
         data: {
           'batch_id': null,
           'status': 'ENROLLED',
@@ -1006,7 +1018,7 @@ class AdminRepository {
         },
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
+            'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
             'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           },
         ),

@@ -117,30 +117,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         );
       } else if (item.type == AdminActionType.newQuizSubmission) {
-        if (!AuthService.instance.isAdmin &&
-            !AuthService.instance.hasPermission('quiz_submissions.read')) {
-          TopNotificationService.showInfo(
-            title: 'Phân quyền học viện',
-            message: 'Chức năng chấm bài thi học viên chỉ dành cho Quản trị viên.',
-          );
-          return;
-        }
-        final sub = AdminQuizSubmissionModel.fromJson(item.rawData);
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => QuizSubmissionDetailSheet(
-            submission: sub,
-            onSaved: () async {
-              TopNotificationService.showSuccess(
-                title: 'Nhận xét bài thi',
-                message: 'Đã lưu nhận xét bài thi thành công!',
-              );
-              await _fetchData();
-            },
-          ),
-        );
+        widget.onNavigateTab?.call(2, subTab: 'MONTHLY_STUDENTS');
       }
     } finally {
       if (mounted) {
@@ -454,11 +431,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     builder: (context) {
                       final bookingItems = _actionItems.where((it) => it.type == AdminActionType.pendingBooking).toList();
                       final batchItems = _actionItems.where((it) => it.type == AdminActionType.waitingBatch).toList();
-                      final quizItems = _actionItems.where((it) => it.type == AdminActionType.newQuizSubmission).toList();
+                      final studentItems = _actionItems.where((it) => it.type == AdminActionType.newQuizSubmission).toList();
 
                       final bookingCount = _metrics.pendingBookingsCount > bookingItems.length ? _metrics.pendingBookingsCount : bookingItems.length;
                       final batchCount = _metrics.waitingBatchStudentsCount > batchItems.length ? _metrics.waitingBatchStudentsCount : batchItems.length;
-                      final quizCount = _metrics.pendingQuizzesCount > quizItems.length ? _metrics.pendingQuizzesCount : quizItems.length;
+                      final studentCount = _metrics.monthStudentsCount > studentItems.length ? _metrics.monthStudentsCount : studentItems.length;
 
                       List<AdminActionItem> activeItems;
                       String activeCategoryTitle;
@@ -486,9 +463,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           break;
                         case 2:
                         default:
-                          activeItems = quizItems;
-                          activeCategoryTitle = 'Bài thi học viên';
-                          activeCategoryIcon = Icons.assignment_turned_in_rounded;
+                          activeItems = studentItems;
+                          activeCategoryTitle = 'Học viên theo tháng';
+                          activeCategoryIcon = Icons.groups_rounded;
                           activeCategoryColor = const Color(0xFF00693F);
                           onOpenTab = () => widget.onNavigateTab?.call(2, subTab: 'MONTHLY_STUDENTS');
                           tabLabel = 'Mở tab HV Tháng →';
@@ -570,10 +547,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               const SizedBox(width: 8),
                               _buildApprovalBox(
                                 index: 2,
-                                title: 'Chấm bài thi',
-                                subtitle: 'Học viên nộp',
-                                count: quizCount,
-                                icon: Icons.assignment_turned_in_rounded,
+                                title: 'Học viên tháng',
+                                subtitle: 'Đang học & Đã ĐK',
+                                count: studentCount,
+                                icon: Icons.groups_rounded,
                                 color: const Color(0xFF00693F),
                                 bgColor: const Color(0xFFE8F6ED),
                               ),
@@ -943,7 +920,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ? 'Lịch hẹn tiếp đón'
         : categoryIndex == 1
             ? 'Học viên chờ xếp lớp'
-            : 'Bài thi học viên';
+            : 'Học viên theo tháng';
 
     final categoryColor = categoryIndex == 0
         ? const Color(0xFF0284C7)
@@ -952,137 +929,194 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             : const Color(0xFF00693F);
 
     final items = _actionItems.where((it) => it.type == categoryType).toList();
+    String studentSubFilter = 'ALL';
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.82,
-          ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 10, bottom: 6),
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD1D5DB),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final displayItems = categoryIndex == 2
+                ? (studentSubFilter == 'STUDYING'
+                    ? items.where((it) => it.subtitle.contains('Đang học')).toList()
+                    : studentSubFilter == 'REGISTERED'
+                        ? items.where((it) => it.subtitle.contains('Đã đăng ký')).toList()
+                        : items)
+                : items;
+
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.82,
               ),
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(7),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 6),
+                      width: 38,
+                      height: 4,
                       decoration: BoxDecoration(
-                        color: categoryColor.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        categoryIndex == 0
-                            ? Icons.calendar_month_rounded
-                            : categoryIndex == 1
-                                ? Icons.school_rounded
-                                : Icons.assignment_turned_in_rounded,
-                        color: categoryColor,
-                        size: 20,
+                        color: const Color(0xFFD1D5DB),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Danh sách $categoryTitle',
-                            style: AppTypography.zaloFont(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textHeading,
-                            ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: categoryColor.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
                           ),
-                          Text(
-                            '${items.length} lượt cần duyệt',
-                            style: AppTypography.zaloFont(
-                              fontSize: 11.5,
-                              color: categoryColor,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          child: Icon(
+                            categoryIndex == 0
+                                ? Icons.calendar_month_rounded
+                                : categoryIndex == 1
+                                    ? Icons.school_rounded
+                                    : Icons.groups_rounded,
+                            color: categoryColor,
+                            size: 20,
                           ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF9CA3AF)),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xFFE5E7EB)),
-              // Content
-              Expanded(
-                child: items.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
                           child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.check_circle_outline_rounded, size: 48, color: categoryColor),
-                              const SizedBox(height: 12),
                               Text(
-                                'Không có $categoryTitle nào đang chờ duyệt',
+                                'Danh sách $categoryTitle',
                                 style: AppTypography.zaloFont(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
                                   color: AppColors.textHeading,
                                 ),
                               ),
-                              const SizedBox(height: 4),
                               Text(
-                                'Tất cả đã được xử lý xong.',
+                                categoryIndex == 2
+                                    ? '${displayItems.length} học viên trong tháng'
+                                    : '${displayItems.length} lượt cần duyệt',
                                 style: AppTypography.zaloFont(
-                                  fontSize: 12,
-                                  color: AppColors.textSecondary,
+                                  fontSize: 11.5,
+                                  color: categoryColor,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        itemCount: items.length,
-                        itemBuilder: (_, idx) {
-                          final item = items[idx];
-                          return AdminActionCard(
-                            item: item,
-                            isProcessing: _processingItemId == item.id,
-                            onAction: () async {
-                              Navigator.pop(ctx);
-                              await _handleAction(item);
-                            },
-                          );
-                        },
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF9CA3AF)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (categoryIndex == 2)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: Row(
+                        children: [
+                          ChoiceChip(
+                            label: Text('Tất cả (${items.length})'),
+                            selected: studentSubFilter == 'ALL',
+                            onSelected: (_) => setSheetState(() => studentSubFilter = 'ALL'),
+                            selectedColor: const Color(0xFF00693F).withValues(alpha: 0.15),
+                            labelStyle: TextStyle(
+                              color: studentSubFilter == 'ALL' ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                              fontWeight: studentSubFilter == 'ALL' ? FontWeight.w700 : FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text('Đang học'),
+                            selected: studentSubFilter == 'STUDYING',
+                            onSelected: (_) => setSheetState(() => studentSubFilter = 'STUDYING'),
+                            selectedColor: const Color(0xFF00693F).withValues(alpha: 0.15),
+                            labelStyle: TextStyle(
+                              color: studentSubFilter == 'STUDYING' ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                              fontWeight: studentSubFilter == 'STUDYING' ? FontWeight.w700 : FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text('Đã đăng ký'),
+                            selected: studentSubFilter == 'REGISTERED',
+                            onSelected: (_) => setSheetState(() => studentSubFilter = 'REGISTERED'),
+                            selectedColor: const Color(0xFFD97706).withValues(alpha: 0.15),
+                            labelStyle: TextStyle(
+                              color: studentSubFilter == 'REGISTERED' ? const Color(0xFFD97706) : const Color(0xFF6B7280),
+                              fontWeight: studentSubFilter == 'REGISTERED' ? FontWeight.w700 : FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                  Expanded(
+                    child: displayItems.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.check_circle_outline_rounded, size: 48, color: categoryColor),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    categoryIndex == 2
+                                        ? 'Không có học viên nào theo bộ lọc này'
+                                        : 'Không có $categoryTitle nào đang chờ duyệt',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textHeading,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Dữ liệu đã được cập nhật.',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            itemCount: displayItems.length,
+                            itemBuilder: (_, idx) {
+                              final item = displayItems[idx];
+                              return AdminActionCard(
+                                item: item,
+                                isProcessing: _processingItemId == item.id,
+                                onAction: () async {
+                                  Navigator.pop(ctx);
+                                  await _handleAction(item);
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

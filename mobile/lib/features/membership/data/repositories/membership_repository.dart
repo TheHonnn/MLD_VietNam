@@ -136,6 +136,7 @@ class MembershipRepository {
   ];
 
   final List<VoucherItem> _vouchers = [];
+  final ValueNotifier<int> availableVouchersCountNotifier = ValueNotifier<int>(0);
   final List<PaymentTransaction> _payments = [];
   final List<ReferralRecord> _referralHistory = [];
 
@@ -1314,11 +1315,24 @@ class MembershipRepository {
       ]);
     }
 
+    final resolvedList = <VoucherItem>[];
+    for (final v in list) {
+      final isUsed = (v.couponId != null && usedCouponIds.contains(v.couponId)) ||
+          usedCouponCodes.contains(v.code.toUpperCase()) ||
+          v.status == 'USED';
+      if (isUsed) {
+        resolvedList.add(v.copyWith(status: 'USED', statusText: 'Đã sử dụng'));
+      } else {
+        resolvedList.add(v);
+      }
+    }
+
     _vouchers.clear();
-    _vouchers.addAll(list);
+    _vouchers.addAll(resolvedList);
+    availableVouchersCountNotifier.value = _vouchers.where((v) => v.status == 'AVAILABLE').length;
 
     if (filter != null && filter.isNotEmpty && filter != 'ALL') {
-      return list.where((v) => v.status == filter).toList();
+      return resolvedList.where((v) => v.status == filter).toList();
     }
     return List.unmodifiable(_vouchers);
   }

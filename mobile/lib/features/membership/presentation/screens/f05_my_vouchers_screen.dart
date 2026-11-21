@@ -147,6 +147,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
   }
 
   int get _availableCount => _allVouchers.where((v) => v.status == 'AVAILABLE').length;
+  int get _expiredOrUsedCount => _allVouchers.where((v) => v.status != 'AVAILABLE').length;
 
   @override
   Widget build(BuildContext context) {
@@ -328,7 +329,7 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                     const SizedBox(width: 8),
                     _buildTabChip(1, 'Khả dụng ($_availableCount)'),
                     const SizedBox(width: 8),
-                    _buildTabChip(2, 'Đã dùng / Hết hạn'),
+                    _buildTabChip(2, 'Đã dùng / Hết hạn ($_expiredOrUsedCount)'),
                   ],
                 ),
               ),
@@ -581,6 +582,28 @@ class _F05MyVouchersScreenState extends State<F05MyVouchersScreen> {
                                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                                 ),
                               ],
+                            ),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          height: 34,
+                          child: Container(
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              item.status == 'USED'
+                                  ? context.tr('Voucher này đã được sử dụng', 'This voucher has been used')
+                                  : context.tr('Voucher đã hết hạn sử dụng', 'This voucher has expired'),
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF94A3B8),
+                              ),
                             ),
                           ),
                         ),

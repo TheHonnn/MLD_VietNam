@@ -103,6 +103,9 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
   }
 
   void _refreshProfile() {
+    MembershipRepository.instance.fetchVouchers().then((_) {
+      if (mounted) setState(() {});
+    }).catchError((_) {});
     setState(() {
       _profile = _repo.profile;
     });

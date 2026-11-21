@@ -503,7 +503,7 @@ class BookingRepository {
         bool alreadyUsed = false;
         try {
           final uvCheck = await _apiClient.dio.get(
-            '/rest/v1/user_vouchers?user_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=eq.USED&select=id&limit=1',
+            '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?user_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=eq.USED&select=id&limit=1',
             options: Options(headers: {
               'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
               'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
@@ -515,7 +515,7 @@ class BookingRepository {
 
           if (!alreadyUsed) {
             final bkCheck = await _apiClient.dio.get(
-              '/rest/v1/bookings?customer_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=neq.CANCELLED&select=id&limit=1',
+              '${ApiEndpoints.supabaseUrl}/rest/v1/bookings?customer_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=neq.CANCELLED&select=id&limit=1',
               options: Options(headers: {
                 'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
                 'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
@@ -677,7 +677,7 @@ class BookingRepository {
         if (appliedUserVoucherId != null && appliedUserVoucherId.isNotEmpty) {
           try {
             await _apiClient.dio.patch(
-              '/rest/v1/user_vouchers?id=eq.$appliedUserVoucherId',
+              '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?id=eq.$appliedUserVoucherId',
               data: {
                 'status': 'USED',
                 'used_at': DateTime.now().toIso8601String(),
@@ -692,7 +692,7 @@ class BookingRepository {
         } else if (appliedCouponId != null && appliedCouponId.isNotEmpty) {
           try {
             final uvRes = await _apiClient.dio.get(
-              '/rest/v1/user_vouchers?user_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=eq.AVAILABLE&limit=1',
+              '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?user_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=eq.AVAILABLE&limit=1',
               options: Options(headers: {
                 'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
                 'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
@@ -701,7 +701,7 @@ class BookingRepository {
             if (uvRes.statusCode == 200 && uvRes.data is List && (uvRes.data as List).isNotEmpty) {
               final uvId = (uvRes.data as List).first['id'];
               await _apiClient.dio.patch(
-                '/rest/v1/user_vouchers?id=eq.$uvId',
+                '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?id=eq.$uvId',
                 data: {
                   'status': 'USED',
                   'used_at': DateTime.now().toIso8601String(),
@@ -714,7 +714,7 @@ class BookingRepository {
               );
             } else {
               await _apiClient.dio.post(
-                '/rest/v1/user_vouchers',
+                '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers',
                 data: {
                   'user_id': effectiveCustomerId,
                   'coupon_id': appliedCouponId,
@@ -737,7 +737,7 @@ class BookingRepository {
         if (appliedCouponId != null && appliedCouponId.isNotEmpty) {
           try {
             final cRes = await _apiClient.dio.get(
-              '/rest/v1/coupons?id=eq.$appliedCouponId&select=used_count&limit=1',
+              '${ApiEndpoints.supabaseUrl}/rest/v1/coupons?id=eq.$appliedCouponId&select=used_count&limit=1',
               options: Options(headers: {
                 'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
                 'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
@@ -746,7 +746,7 @@ class BookingRepository {
             if (cRes.statusCode == 200 && cRes.data is List && (cRes.data as List).isNotEmpty) {
               final currentUsed = (cRes.data as List).first['used_count'] as int? ?? 0;
               await _apiClient.dio.patch(
-                '/rest/v1/coupons?id=eq.$appliedCouponId',
+                '${ApiEndpoints.supabaseUrl}/rest/v1/coupons?id=eq.$appliedCouponId',
                 data: {'used_count': currentUsed + 1},
                 options: Options(headers: {
                   'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
@@ -756,6 +756,11 @@ class BookingRepository {
             }
           } catch (_) {}
         }
+
+        try {
+          MembershipRepository.instance.fetchVouchers();
+        } catch (_) {}
+
         return realId;
       }
     } catch (e) {
