@@ -75,6 +75,7 @@ class _AutoPaymentCheckoutSheetState extends State<AutoPaymentCheckoutSheet> {
   final PaymentGatewayRepository _repository = PaymentGatewayRepository.instance;
   bool _isLoading = true;
   bool _isCheckingStatus = false;
+  bool _isConfirmingManual = false;
   bool _isPaid = false;
   PaymentGatewayIntentModel? _intent;
   String _statusMessage = '';
@@ -146,6 +147,32 @@ class _AutoPaymentCheckoutSheetState extends State<AutoPaymentCheckoutSheet> {
 
     setState(() {
       _isCheckingStatus = false;
+      _statusMessage = result.message;
+      if (result.isPaid) {
+        _isPaid = true;
+        _pollingTimer?.cancel();
+      }
+    });
+
+    if (result.isPaid) {
+      widget.onPaymentSuccess?.call(result);
+    }
+  }
+
+  Future<void> _handleManualConfirm() async {
+    final intent = _intent;
+    if (intent == null || intent.orderCode <= 0) return;
+
+    setState(() => _isConfirmingManual = true);
+    final result = await _repository.confirmPaymentManually(
+      intent.orderCode,
+      targetType: widget.targetType,
+      targetId: widget.targetId,
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _isConfirmingManual = false;
       _statusMessage = result.message;
       if (result.isPaid) {
         _isPaid = true;
@@ -308,6 +335,33 @@ class _AutoPaymentCheckoutSheetState extends State<AutoPaymentCheckoutSheet> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    onPressed: _isConfirmingManual ? null : _handleManualConfirm,
+                    icon: _isConfirmingManual
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          )
+                        : const Icon(Icons.check_circle_outline_rounded, size: 19, color: AppColors.primary),
+                    label: Text(
+                      context.tr('Tôi đã chuyển khoản thành công', 'I have completed payment'),
+                      style: AppTypography.zaloFont(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary, width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
               ],
             ],
           ),
@@ -456,6 +510,9 @@ class _AutoPaymentCheckoutSheetState extends State<AutoPaymentCheckoutSheet> {
   }
 
   Widget _buildBankInfoBox(BuildContext context, PaymentGatewayIntentModel intent) {
+    final bankTitle = intent.bankBin == '970422' || intent.bankBin.isEmpty
+        ? 'MB Bank (Ngân hàng Quân Đội)'
+        : 'Ngân hàng (${intent.bankBin})';
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -465,6 +522,18 @@ class _AutoPaymentCheckoutSheetState extends State<AutoPaymentCheckoutSheet> {
       ),
       child: Column(
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Ngân hàng: $bankTitle',
+                  style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.primary),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

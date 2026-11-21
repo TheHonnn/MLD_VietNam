@@ -345,15 +345,7 @@ class AcademyRepository {
           }
         }
       }
-    } catch (e) {
-      if (e is DioException &&
-          e.response?.statusCode != null &&
-          e.response!.statusCode != 404 &&
-          e.response!.statusCode != 502 &&
-          e.response!.statusCode != 503) {
-        rethrow;
-      }
-    }
+    } catch (_) {}
 
     String? createdEnrollmentId;
     try {
@@ -656,7 +648,7 @@ class AcademyRepository {
     final enr = getEnrolledCourse(courseId, title);
     if (enr == null) return false;
 
-    const validApprovedStatuses = {'APPROVED', 'ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'};
+    const validApprovedStatuses = {'APPROVED', 'ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED', 'ACTIVE'};
     const unapprovedStatuses = {
       'NOT_APPROVED',
       'PENDING',

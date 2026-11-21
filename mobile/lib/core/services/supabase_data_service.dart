@@ -924,4 +924,38 @@ class SupabaseDataService {
       return false;
     }
   }
+
+  Future<bool> updateCourseEnrollmentStatus({
+    required String enrollmentId,
+    required String status,
+    String? approvalStatus,
+    String? paymentStatus,
+    String? admissionStatus,
+    double? amountPaid,
+  }) async {
+    try {
+      final response = await _client.patch(
+        '${ApiEndpoints.courseEnrollments}?id=eq.$enrollmentId',
+        data: {
+          'status': status,
+          if (approvalStatus != null) 'approval_status': approvalStatus,
+          if (paymentStatus != null) 'payment_status': paymentStatus,
+          if (admissionStatus != null) 'admission_status': admissionStatus,
+          if (amountPaid != null) 'amount_paid': amountPaid,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+        ),
+      );
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
 }

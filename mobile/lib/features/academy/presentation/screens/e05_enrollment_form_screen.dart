@@ -3,6 +3,7 @@ import '../../../../core/localization/app_translation.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/supabase_data_service.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../../payments/presentation/widgets/auto_payment_checkout_sheet.dart';
@@ -13,6 +14,7 @@ import '../../../home/data/repositories/branch_repository.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
 import '../widgets/academy_widgets.dart';
 import 'e07_my_courses_screen.dart';
+import 'e08_class_detail_screen.dart';
 
 class E05EnrollmentFormScreen extends StatefulWidget {
   final CourseModel course;
@@ -194,8 +196,23 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     String? enrollmentId,
     double depositAmount = 0,
   }) {
-    final canPayOnline =
-        enrollmentId != null && enrollmentId.trim().isNotEmpty && depositAmount >= 1000;
+    final groupLower = widget.course.courseGroup.toLowerCase();
+    final catLower = widget.course.category.toLowerCase();
+    final targetLower = widget.course.targetAudience.toLowerCase();
+    final titleLower = widget.course.title.toLowerCase();
+
+    final isPractitionerCourse = _selectedTargetGroup == 1 ||
+        groupLower.contains('làm nghề') ||
+        catLower.contains('làm nghề') ||
+        targetLower.contains('làm nghề') ||
+        titleLower.contains('làm nghề');
+
+    final isBeginnerCourse = !isPractitionerCourse;
+
+    final canPayOnline = isBeginnerCourse &&
+        enrollmentId != null &&
+        enrollmentId.trim().isNotEmpty &&
+        depositAmount >= 1000;
     final refCode = customerCode != 'Chờ Admin cấp mã' ? customerCode : studentPhone;
     showDialog(
       context: context,
@@ -261,6 +278,17 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
               ),
+              if (canPayOnline) ...[
+                const SizedBox(height: 6),
+                Text(
+                  context.tr(
+                    'Bạn có thể thanh toán học phí online ngay để hệ thống tự động kích hoạt và mở toàn bộ video bài học.',
+                    'You can pay tuition online now to unlock all course lessons immediately.',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w600),
+                ),
+              ],
               const SizedBox(height: 18),
               Container(
                 width: double.infinity,
@@ -368,6 +396,43 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                         referenceCode: refCode,
                         customerName: studentName,
                         customerPhone: studentPhone,
+                        onPaymentSuccess: (status) async {
+                          final approvedCourse = widget.course.copyWith(
+                            status: 'ACTIVE',
+                            approvalStatus: 'APPROVED',
+                            customerCode: customerCode,
+                            enrollmentId: enrollmentId,
+                          );
+                          AcademyRepository.instance.enrollCourseLocal(approvedCourse);
+                          if (enrollmentId != null && enrollmentId.isNotEmpty) {
+                            try {
+                              await SupabaseDataService.instance.updateCourseEnrollmentStatus(
+                                enrollmentId: enrollmentId,
+                                status: 'ACTIVE',
+                                approvalStatus: 'APPROVED',
+                                paymentStatus: 'PAID',
+                                admissionStatus: 'STUDYING',
+                                amountPaid: depositAmount,
+                              );
+                            } catch (_) {}
+                          }
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(context.tr(
+                                'Thanh toán thành công! Khóa học đã được mở cho bạn.',
+                                'Payment successful! Course lessons are now unlocked for you.',
+                              )),
+                              backgroundColor: AppColors.accent,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (_) => E08ClassDetailScreen(course: approvedCourse),
+                            ),
+                          );
+                        },
                       );
                     },
                   ),

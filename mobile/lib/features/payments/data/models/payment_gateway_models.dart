@@ -101,6 +101,44 @@ class PaymentGatewayIntentModel {
       message: json['message']?.toString() ?? '',
     );
   }
+
+  PaymentGatewayIntentModel copyWith({
+    int? orderCode,
+    String? provider,
+    bool? gatewayConfigured,
+    String? targetType,
+    String? targetId,
+    String? referenceCode,
+    double? amount,
+    String? description,
+    String? bankBin,
+    String? accountNumber,
+    String? accountName,
+    String? qrCode,
+    String? checkoutUrl,
+    String? status,
+    bool? isPaid,
+    String? message,
+  }) {
+    return PaymentGatewayIntentModel(
+      orderCode: orderCode ?? this.orderCode,
+      provider: provider ?? this.provider,
+      gatewayConfigured: gatewayConfigured ?? this.gatewayConfigured,
+      targetType: targetType ?? this.targetType,
+      targetId: targetId ?? this.targetId,
+      referenceCode: referenceCode ?? this.referenceCode,
+      amount: amount ?? this.amount,
+      description: description ?? this.description,
+      bankBin: bankBin ?? this.bankBin,
+      accountNumber: accountNumber ?? this.accountNumber,
+      accountName: accountName ?? this.accountName,
+      qrCode: qrCode ?? this.qrCode,
+      checkoutUrl: checkoutUrl ?? this.checkoutUrl,
+      status: status ?? this.status,
+      isPaid: isPaid ?? this.isPaid,
+      message: message ?? this.message,
+    );
+  }
 }
 
 class PaymentGatewayStatusModel {
