@@ -5,7 +5,6 @@ import '../../../../core/utils/launcher_helper.dart';
 import '../../../../core/services/portal_settings_service.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/repositories/booking_repository.dart';
-import '../../../payments/presentation/widgets/auto_payment_checkout_sheet.dart';
 import '../widgets/booking_status_badge.dart';
 import '../widgets/cancel_booking_dialog.dart';
 import '../widgets/group_c_widgets.dart';
@@ -385,50 +384,6 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
 
               const SizedBox(height: 24),
 
-              if (!app.isPackageSession &&
-                  app.paymentStatus.toUpperCase() != 'PAID' &&
-                  app.status != AppointmentStatus.cancelled &&
-                  app.totalAmount > 0) ...[
-                SizedBox(
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      AutoPaymentCheckoutSheet.show(
-                        context,
-                        amount: app.totalAmount,
-                        description: 'MLD ${app.bookingCode}',
-                        targetType: 'BOOKING',
-                        targetId: app.id,
-                        referenceCode: app.bookingCode,
-                        customerName: app.customerName,
-                        customerPhone: app.customerPhone,
-                        onPaymentSuccess: (_) {
-                          if (mounted) {
-                            setState(() {
-                              _appointment = app.copyWith(paymentStatus: 'PAID');
-                            });
-                          }
-                        },
-                      );
-                    },
-                    icon: const Icon(Icons.qr_code_2_rounded, size: 19),
-                    label: Text(
-                      context.tr('Thanh toán online ngay', 'Pay Online Now'),
-                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ],
-
-              // NÚT HÀNH ĐỘNG
-              // Nút Hotline
               SizedBox(
                 height: 48,
                 child: OutlinedButton.icon(
