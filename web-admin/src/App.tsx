@@ -377,6 +377,7 @@ const AppContent: React.FC = () => {
             <Route path="manage/system_settings" element={<Navigate to="/settings" replace />} />
             <Route path="manage/support_faqs" element={<Navigate to="/portal-content?tab=faqs" replace />} />
             <Route path="manage/support_tickets" element={<Navigate to="/help?tab=customer-tickets" replace />} />
+            <Route path="manage/service_categories" element={<Navigate to="/services-catalog" replace />} />
             <Route path="manage/:table" element={<div className="admin-module"><ResourcePage /></div>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
