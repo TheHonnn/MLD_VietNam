@@ -172,3 +172,27 @@ test('booking deep-link helpers build full POS URLs and resolve target bookings 
   assert.equal(rules.findTargetBookingForPos(bookings, 'missing', 'missing'), undefined);
 });
 
+test('findMatchingCommissionStaffId matches booking technician by userId or technicianId', () => {
+  const staff = [
+    { id: 'user-1', technicianId: 'tech-1' },
+    { id: 'user-2', technicianId: null },
+  ];
+  assert.equal(rules.findMatchingCommissionStaffId(staff, { technicianId: 'tech-1' }), 'user-1');
+  assert.equal(
+    rules.findMatchingCommissionStaffId(staff, { technicianId: 'unknown', technician: { userId: 'user-2' } }),
+    'user-2',
+  );
+  assert.equal(rules.findMatchingCommissionStaffId(staff, { technicianId: 'missing' }), '');
+  assert.equal(rules.findMatchingCommissionStaffId(staff, null), '');
+});
+
+test('staffService loads non-customer staff accounts with direct staff_profiles fallback', async () => {
+  const { readFileSync } = await import('node:fs');
+  const staffSrc = readFileSync(new URL('../src/services/staff.service.ts', import.meta.url), 'utf8');
+  const supaSrc = readFileSync(new URL('../src/services/supabaseService.ts', import.meta.url), 'utf8');
+  assert.match(staffSrc, /supabaseService\.getStaffUsers/);
+  assert.match(staffSrc, /supabaseService\.getStaffProfiles/);
+  assert.doesNotMatch(staffSrc, /supabaseService\.getUsers\(/);
+  assert.match(supaSrc, /role=not\.in\.\(CUSTOMER,STUDENT,GUEST\)/);
+});
+

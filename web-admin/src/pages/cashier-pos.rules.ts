@@ -147,6 +147,22 @@ export function buildBookingPosPath(params: {
   return `/cashier-pos?${query.toString()}`;
 }
 
+export function findMatchingCommissionStaffId(
+  staffList: Array<{ id: string; technicianId?: string | null }>,
+  booking?: { technicianId?: string | null; technician?: { userId?: string | null } | null } | null,
+): string {
+  if (!booking) return '';
+  const targetTechUserId = String(booking.technician?.userId || '').trim();
+  const targetTechId = String(booking.technicianId || '').trim();
+  if (!targetTechUserId && !targetTechId) return '';
+  const matched = staffList.find(
+    (s) =>
+      (targetTechUserId && s.id === targetTechUserId) ||
+      (targetTechId && (s.id === targetTechId || s.technicianId === targetTechId)),
+  );
+  return matched?.id || '';
+}
+
 export function getBookingEffectiveDiscount(booking?: {
   baseTotal?: number;
   finalPrice?: number;

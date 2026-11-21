@@ -32,6 +32,9 @@ import {
   AttendanceStatus,
   DualSlotAvailability,
   InvoiceSyncResult,
+  StaffProfile,
+  StaffDepartment,
+  EmploymentType,
 } from '../types/shared_types';
 
 import { adminApi, Listing } from '../admin/api';
@@ -674,16 +677,8 @@ class SupabaseService {
     }
   }
 
-  // 3. TÀI KHOẢN KHÁCH HÀNG / NGƯỜI DÙNG (USERS)
-  async getUsers(search?: string, tier?: MemberTier): Promise<User[] | null> {
-    let path = 'users?select=*&role=eq.CUSTOMER&order=created_at.desc';
-    if (tier) {
-      path += `&membership_tier=eq.${tier}`;
-    }
-    const raw = await this.query<any[]>(path);
-    if (!raw || raw.length === 0) return null;
-
-    let result: User[] = raw.map((u) => ({
+  private mapUserRow(u: any): User {
+    return {
       id: u.id,
       phone: u.phone,
       email: u.email,
@@ -703,7 +698,18 @@ class SupabaseService {
       isActive: Boolean(u.is_active),
       createdAt: u.created_at,
       updatedAt: u.updated_at,
-    }));
+    };
+  }
+
+  async getUsers(search?: string, tier?: MemberTier): Promise<User[] | null> {
+    let path = 'users?select=*&role=eq.CUSTOMER&order=created_at.desc';
+    if (tier) {
+      path += `&membership_tier=eq.${tier}`;
+    }
+    const raw = await this.query<any[]>(path);
+    if (!raw || raw.length === 0) return null;
+
+    let result: User[] = raw.map((u) => this.mapUserRow(u));
 
     if (search && search.trim()) {
       result = result.filter((u) =>
@@ -712,6 +718,44 @@ class SupabaseService {
     }
 
     return result;
+  }
+
+  async getStaffUsers(search?: string): Promise<User[]> {
+    const raw = await this.query<any[]>(
+      'users?select=*&role=not.in.(CUSTOMER,STUDENT,GUEST)&is_active=eq.true&order=full_name.asc',
+    );
+    if (!raw || raw.length === 0) return [];
+    let result: User[] = raw.map((u) => this.mapUserRow(u));
+    if (search && search.trim()) {
+      result = result.filter((u) =>
+        matchSearch([u.fullName, u.phone, u.email, u.address], search),
+      );
+    }
+    return result;
+  }
+
+  async getStaffProfiles(): Promise<StaffProfile[]> {
+    const raw = await this.query<any[]>(
+      'staff_profiles?select=*&is_active=eq.true',
+    );
+    if (!raw || raw.length === 0) return [];
+    return raw.map((p) => ({
+      id: p.id,
+      userId: p.user_id,
+      branchId: p.branch_id || '',
+      employeeCode: p.employee_code || '',
+      department: p.department || StaffDepartment.RECEPTION,
+      position: p.position || '',
+      employmentType: p.employment_type || EmploymentType.FULL_TIME,
+      baseSalary: Number(p.base_salary || 0),
+      commissionRate: Number(p.commission_rate || 0),
+      packageCommissionRate: Number(p.package_commission_rate || 0),
+      productCommissionRate: Number(p.product_commission_rate || 0),
+      hireDate: p.hire_date || '',
+      resignationDate: p.resignation_date || null,
+      idCardNumber: p.id_card_number || null,
+      isActive: Boolean(p.is_active),
+    }));
   }
 
   async updateUserTier(userId: string, tier: MemberTier): Promise<boolean> {

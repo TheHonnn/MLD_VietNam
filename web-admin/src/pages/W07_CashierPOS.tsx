@@ -93,6 +93,7 @@ import {
   hasCashierShiftSnapshotChanged,
   maxRedeemablePoints,
   SYSTEM_GUEST_CUSTOMER_ID,
+  findMatchingCommissionStaffId,
   findTargetBookingForPos,
   findTuitionEnrollment,
 } from './cashier-pos.rules';
@@ -322,6 +323,9 @@ export const W07_CashierPOS: React.FC = () => {
   const [homeProducts, setHomeProducts] = useState<any[]>([]);
   const [allTechnicians, setAllTechnicians] = useState<Technician[]>([]);
   const [commissionStaff, setCommissionStaff] = useState<Array<StaffWithProfile & { role?: string; technicianId?: string | null }>>([]);
+  const [commissionStaffLoading, setCommissionStaffLoading] = useState(false);
+  const [commissionStaffLoadError, setCommissionStaffLoadError] = useState(false);
+  const commissionStaffManuallySet = useRef(false);
   const [workspaceInvoices, setWorkspaceInvoices] = useState<any[]>([]);
   const [posSettings, setPosSettings] = useState(DEFAULT_SETTINGS_STATE.pos);
   const [generalSettings, setGeneralSettings] = useState(DEFAULT_SETTINGS_STATE.general);
@@ -578,10 +582,11 @@ export const W07_CashierPOS: React.FC = () => {
     };
   };
 
-  useEffect(() => {
-    fetchPosData();
-    const bParam = selectedBranchId !== 'ALL' ? selectedBranchId : undefined;
-    posService.getWorkspace(bParam).then(async (wsRes) => {
+  const loadCommissionWorkspace = async (branchScope?: string) => {
+    setCommissionStaffLoading(true);
+    setCommissionStaffLoadError(false);
+    try {
+      const wsRes = await posService.getWorkspace(branchScope);
       const mergedMap = new Map<string, StaffWithProfile & { role?: string; technicianId?: string | null }>();
       if (wsRes.success && wsRes.data) {
         if (Array.isArray(wsRes.data.invoices)) {
@@ -612,21 +617,90 @@ export const W07_CashierPOS: React.FC = () => {
           }
         }
       }
-      if (mergedMap.size === 0 && ['SUPER_ADMIN', 'ADMIN'].includes(adminUser?.role || '')) {
-        const stRes = await staffService.getStaffList().catch(() => null);
+      if (mergedMap.size === 0) {
+        let stRes = await staffService.getStaffList({ branchId: branchScope }).catch(() => null);
+        if (!stRes?.success || !stRes.data?.length) {
+          stRes = await staffService.getStaffList().catch(() => null);
+        }
         if (stRes?.success && stRes.data) {
           for (const staff of stRes.data) {
             mergedMap.set(staff.id, { ...staff, role: staff.role });
           }
         }
       }
+      if (mergedMap.size === 0 && allTechnicians.length > 0) {
+        for (const tech of allTechnicians) {
+          if (tech.isActive === false || !tech.userId || mergedMap.has(tech.userId)) continue;
+          mergedMap.set(tech.userId, {
+            id: tech.userId,
+            fullName: tech.fullName || 'KTV',
+            phone: '',
+            role: UserRole.TECHNICIAN,
+            technicianId: tech.id,
+            isActive: true,
+            staffProfile: {
+              id: '',
+              userId: tech.userId,
+              branchId: tech.branchId || '',
+              employeeCode: '',
+              position: tech.title || 'Kỹ thuật viên',
+              commissionRate: 0,
+              packageCommissionRate: 0,
+              productCommissionRate: 0,
+              isActive: true,
+            },
+          } as any);
+        }
+      }
+      setCommissionStaffLoadError(!wsRes.success && mergedMap.size === 0);
       setCommissionStaff(
         Array.from(mergedMap.values()).sort((a, b) =>
           String(a.fullName || '').localeCompare(String(b.fullName || ''), 'vi'),
         ),
       );
-    });
+    } finally {
+      setCommissionStaffLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosData();
+    const bParam = selectedBranchId !== 'ALL' ? selectedBranchId : undefined;
+    void loadCommissionWorkspace(bParam);
   }, [selectedBranchId]);
+
+  useEffect(() => {
+    if (!booking || selectedCommissionStaffId || commissionStaffManuallySet.current) return;
+    const matchedId = findMatchingCommissionStaffId(commissionStaff, booking);
+    if (matchedId) {
+      setSelectedCommissionStaffId(matchedId);
+    }
+  }, [booking?.id, booking?.technicianId, booking?.technician?.userId, commissionStaff, selectedCommissionStaffId]);
+
+  const renderCommissionStaffHint = () => {
+    if (commissionStaffLoading) {
+      return <p className="mt-1 text-[11px] text-[#8C7A6B]">Đang tải danh sách nhân viên hưởng hoa hồng...</p>;
+    }
+    if (commissionStaff.length === 0) {
+      return (
+        <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-amber-800">
+          <span>
+            {commissionStaffLoadError
+              ? 'Không tải được danh sách nhân viên.'
+              : 'Chưa có nhân viên hoạt động để chọn hoa hồng.'}
+          </span>
+          <button
+            type="button"
+            onClick={() => void loadCommissionWorkspace(selectedBranchId !== 'ALL' ? selectedBranchId : undefined)}
+            className="font-bold text-[#985018] underline hover:text-[#7F4115] cursor-pointer"
+          >
+            Tải lại
+          </button>
+        </div>
+      );
+    }
+    return null;
+  };
 
   // The active shift is branch-scoped. Keep it synchronized whenever the URL,
   // global branch selector, or the local selector changes branch. The initial
@@ -943,6 +1017,7 @@ export const W07_CashierPOS: React.FC = () => {
     setSelectedUserVoucherId('');
     setRedeemPoints(0);
     setDiscountReason('');
+    commissionStaffManuallySet.current = false;
     setSelectedCommissionStaffId('');
   };
 
@@ -1229,17 +1304,9 @@ export const W07_CashierPOS: React.FC = () => {
       return;
     }
 
-    if (bk.technicianId || bk.technician?.userId) {
-      const matchedStaff = commissionStaff.find(
-        (s) =>
-          s.id === bk.technician?.userId ||
-          s.id === bk.technicianId ||
-          s.technicianId === bk.technicianId,
-      );
-      if (matchedStaff) {
-        setSelectedCommissionStaffId(matchedStaff.id);
-      }
-    }
+    commissionStaffManuallySet.current = false;
+    const matchedStaffId = findMatchingCommissionStaffId(commissionStaff, bk);
+    setSelectedCommissionStaffId(matchedStaffId);
 
     setPosCart(bookingLines);
 
@@ -3389,7 +3456,10 @@ export const W07_CashierPOS: React.FC = () => {
               <div className="relative">
                 <select
                   value={selectedCommissionStaffId}
-                  onChange={(e) => setSelectedCommissionStaffId(e.target.value)}
+                  onChange={(e) => {
+                    commissionStaffManuallySet.current = true;
+                    setSelectedCommissionStaffId(e.target.value);
+                  }}
                   className="w-full h-9 px-3 pr-8 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] text-xs font-medium text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer appearance-none"
                 >
                   <option value="">-- Tùy chọn: Chọn nhân viên bán hàng --</option>
@@ -3401,6 +3471,7 @@ export const W07_CashierPOS: React.FC = () => {
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
+              {renderCommissionStaffHint()}
             </div>
 
             {/* Pricing Breakdown & VAT */}
@@ -4312,6 +4383,7 @@ export const W07_CashierPOS: React.FC = () => {
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
+                {renderCommissionStaffHint()}
               </div>
 
               <div>
