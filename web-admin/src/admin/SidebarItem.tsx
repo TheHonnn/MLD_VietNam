@@ -4,6 +4,7 @@ import { ChevronDown, type LucideIcon } from 'lucide-react';
 import { Resource } from './api';
 import { useAdmin } from './Auth';
 import { canAccessAdminPath } from './access';
+import { formatBadgeCount } from '../pages/action-center.rules';
 
 export interface SubMenuItem {
   name: string;
@@ -24,7 +25,7 @@ export const menuResources: Record<string, string[]> = {
   '/curriculum': ['course_categories', 'courses', 'course_batches', 'batch_schedules', 'course_chapters', 'course_lessons', 'course_quizzes', 'quiz_questions', 'quiz_submissions'],
   '/manage/services': ['service_categories', 'services', 'service_materials'],
   '/manage/staff_profiles': ['staff_profiles', 'technicians'],
-  '/manage/coupons': ['coupons', 'voucher_distribution_rules', 'user_vouchers', 'membership_tier_rules', 'loyalty_point_settings', 'point_transactions'],
+  '/manage/coupons': ['coupons', 'voucher_distribution_rules', 'user_vouchers', 'loyalty_point_settings', 'point_transactions'],
   '/manage/roles': ['roles', 'permissions', 'role_permissions', 'user_roles', 'audit_logs'],
 };
 
@@ -35,6 +36,8 @@ export interface SidebarItemProps {
   resources?: Resource[];
   subItems?: SubMenuItem[];
   onlyWhenAllowed?: boolean;
+  badgeCount?: number;
+  badgeMap?: Record<string, number>;
   onNavigate?: () => void;
 }
 
@@ -44,6 +47,8 @@ export function SidebarItem({
   icon: Icon,
   resources = [],
   subItems,
+  badgeCount = 0,
+  badgeMap,
   onNavigate,
 }: SidebarItemProps) {
   const { user } = useAdmin();
@@ -174,7 +179,12 @@ export function SidebarItem({
             className={`w-4 h-4 shrink-0 stroke-[1.8] ${childActive || isParentActive ? 'text-[#004890]' : 'text-[#64748B]'
               }`}
           />
-          <span className="truncate">{name}</span>
+          <span className="truncate flex-1">{name}</span>
+          {formatBadgeCount(badgeCount) && (
+            <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#985018] text-white leading-none">
+              {formatBadgeCount(badgeCount)}
+            </span>
+          )}
         </NavLink>
         {children.length > 0 && (
           <button
@@ -208,7 +218,12 @@ export function SidebarItem({
                   className={`w-1.5 h-1.5 rounded-full transition-colors shrink-0 ${active ? 'bg-[#004890]' : 'bg-[#CBD5E1]'
                     }`}
                 />
-                <span className="truncate">{sub.name}</span>
+                <span className="truncate flex-1">{sub.name}</span>
+                {formatBadgeCount(badgeMap?.[sub.path]) && (
+                  <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[9.5px] font-bold bg-[#985018] text-white leading-none">
+                    {formatBadgeCount(badgeMap?.[sub.path])}
+                  </span>
+                )}
               </NavLink>
             );
           })}

@@ -357,16 +357,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                 border: Border.all(color: AcademyColors.cardBorder, width: 1.0),
               ),
               clipBehavior: Clip.antiAlias,
-              child: Image.asset(
-                course.image,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: AcademyColors.cardWarm,
-                  child: const Center(
-                    child: Icon(Icons.school, size: 60, color: AcademyColors.primary),
-                  ),
-                ),
-              ),
+              child: _buildCourseImage(course.image, width: double.infinity, height: 195),
             ),
             const SizedBox(height: 12),
 
@@ -721,19 +712,17 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                                 width: 128,
                                 height: 72,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Image.asset(
+                                errorBuilder: (_, __, ___) => _buildCourseImage(
                                   widget.course.image,
                                   width: 128,
                                   height: 72,
-                                  fit: BoxFit.cover,
                                 ),
                               )
                             else
-                              Image.asset(
+                              _buildCourseImage(
                                 widget.course.image,
                                 width: 128,
                                 height: 72,
-                                fit: BoxFit.cover,
                               ),
 
                             // Lớp phủ bóng mờ
@@ -760,9 +749,7 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
                               child: Icon(
                                 isCompleted
                                     ? Icons.check
-                                    : (!_isEnrolled
-                                        ? Icons.lock_outline_rounded
-                                        : (isUnlocked ? Icons.play_arrow_rounded : Icons.lock_outline_rounded)),
+                                    : (isUnlocked ? Icons.play_arrow_rounded : Icons.lock_outline_rounded),
                                 color: Colors.white,
                                 size: 20,
                               ),
@@ -952,6 +939,35 @@ class _E03CourseDetailScreenState extends State<E03CourseDetailScreen> {
         _buildBenefitItem('Tác phong chuyên nghiệp và chuẩn mực đạo đức nghề nghiệp'),
         const SizedBox(height: 24),
       ],
+    );
+  }
+
+  Widget _buildCourseImage(String path, {double? width, double? height}) {
+    final trimmed = path.trim();
+    Widget fallback() => Container(
+          width: width,
+          height: height,
+          color: AcademyColors.cardWarm,
+          child: const Center(
+            child: Icon(Icons.school, size: 42, color: AcademyColors.primary),
+          ),
+        );
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return Image.network(
+        trimmed,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback(),
+      );
+    }
+    if (trimmed.isEmpty) return fallback();
+    return Image.asset(
+      trimmed,
+      width: width,
+      height: height,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => fallback(),
     );
   }
 

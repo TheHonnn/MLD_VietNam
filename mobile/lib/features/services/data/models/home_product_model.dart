@@ -4,9 +4,35 @@ import 'package:intl/intl.dart';
 /// Model Sản phẩm bổ trợ tại nhà chuẩn Y khoa MLD
 /// Ánh xạ trực tiếp từ bảng `public.home_products` trên Database Supabase
 class HomeProductModel {
+  static const List<String> treatmentPackageGroups = [
+    'Chăm sóc khu trú',
+    'Chăm sóc mở rộng',
+    'Chăm sóc toàn diện',
+  ];
+
+  static String resolvePackageGroup(String? rawGroup, String category) {
+    final trimmed = rawGroup?.trim() ?? '';
+    if (trimmed.isNotEmpty) {
+      final lower = trimmed.toLowerCase();
+      if (lower.contains('mở rộng')) return 'Chăm sóc mở rộng';
+      if (lower.contains('toàn diện')) return 'Chăm sóc toàn diện';
+      if (lower.contains('khu trú')) return 'Chăm sóc khu trú';
+      return trimmed;
+    }
+    final catLower = category.toLowerCase();
+    if (catLower.contains('băng ép') || catLower.contains('tất vớ') || catLower.contains('áp lực')) {
+      return 'Chăm sóc mở rộng';
+    }
+    if (catLower.contains('dụng cụ') || catLower.contains('tài liệu')) {
+      return 'Chăm sóc toàn diện';
+    }
+    return 'Chăm sóc khu trú';
+  }
+
   final String id;
   final String name;
   final String category;
+  final String treatmentPackageGroup;
   final double priceMin;
   final double priceMax;
   final String unit;
@@ -20,6 +46,7 @@ class HomeProductModel {
     required this.id,
     required this.name,
     required this.category,
+    this.treatmentPackageGroup = 'Chăm sóc khu trú',
     required this.priceMin,
     required this.priceMax,
     required this.unit,
@@ -34,6 +61,7 @@ class HomeProductModel {
     String? id,
     String? name,
     String? category,
+    String? treatmentPackageGroup,
     double? priceMin,
     double? priceMax,
     String? unit,
@@ -47,6 +75,7 @@ class HomeProductModel {
       id: id ?? this.id,
       name: name ?? this.name,
       category: category ?? this.category,
+      treatmentPackageGroup: treatmentPackageGroup ?? this.treatmentPackageGroup,
       priceMin: priceMin ?? this.priceMin,
       priceMax: priceMax ?? this.priceMax,
       unit: unit ?? this.unit,
@@ -95,10 +124,17 @@ class HomeProductModel {
         ? (rawActive == true || rawActive == 1 || rawActive.toString().toLowerCase() == 'true')
         : !detailsList.contains('STATUS:INACTIVE');
 
+    final parsedCategory = json['category']?.toString() ?? 'Dụng cụ tập luyện';
+    final packageGroup = resolvePackageGroup(
+      json['treatment_package_group']?.toString() ?? json['treatmentPackageGroup']?.toString(),
+      parsedCategory,
+    );
+
     return HomeProductModel(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Sản phẩm MLD',
-      category: json['category']?.toString() ?? 'Dụng cụ tập luyện',
+      category: parsedCategory,
+      treatmentPackageGroup: packageGroup,
       priceMin: double.tryParse(json['price_min']?.toString() ?? '0') ?? 0.0,
       priceMax: double.tryParse(json['price_max']?.toString() ?? '0') ?? 0.0,
       unit: json['unit']?.toString() ?? 'chiếc',
@@ -115,6 +151,7 @@ class HomeProductModel {
       'id': id,
       'name': name,
       'category': category,
+      'treatment_package_group': treatmentPackageGroup,
       'price_min': priceMin,
       'price_max': priceMax,
       'unit': unit,

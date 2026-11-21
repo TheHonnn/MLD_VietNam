@@ -5,6 +5,7 @@ import '../../../../core/utils/launcher_helper.dart';
 import '../../../../core/services/portal_settings_service.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/repositories/booking_repository.dart';
+import '../../../payments/presentation/widgets/auto_payment_checkout_sheet.dart';
 import '../widgets/booking_status_badge.dart';
 import '../widgets/cancel_booking_dialog.dart';
 import '../widgets/group_c_widgets.dart';
@@ -288,6 +289,13 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                     _buildDetailRow(context.tr('Chi nhánh:', 'Branch:'), app.branchName.tr(context)),
                     _buildDetailRow(context.tr('Địa chỉ:', 'Address:'), app.branchAddress.tr(context)),
                     _buildDetailRow(context.tr('Thời gian:', 'Time:'), '${app.timeSlot} · ${_formatDate(app.appointmentDate)}'),
+                    if (app.status == AppointmentStatus.inService)
+                      _buildDetailRow(
+                        context.tr('Chuyên môn:', 'Clinical Stage:'),
+                        app.isClinicalCompleted
+                            ? context.tr('Đã hoàn tất chuyên môn', 'Clinical work completed')
+                            : context.tr('Đang thực hiện', 'In progress'),
+                      ),
                     if (app.specialistName.isNotEmpty && !app.specialistName.contains('ngẫu nhiên'))
                       _buildDetailRow(context.tr('Chuyên viên:', 'Specialist:'), app.specialistName.tr(context)),
                     if (app.specialNotes.isNotEmpty)
@@ -339,12 +347,85 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          context.tr('Thanh toán:', 'Payment:'),
+                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: app.paymentStatus.toUpperCase() == 'PAID'
+                                ? AppColors.mintBackground
+                                : const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            app.paymentStatus.toUpperCase() == 'PAID'
+                                ? context.tr('Đã thanh toán', 'Paid')
+                                : context.tr('Chưa thanh toán', 'Unpaid'),
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: app.paymentStatus.toUpperCase() == 'PAID'
+                                  ? AppColors.accent
+                                  : const Color(0xFFB45309),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
 
                   ],
                 ),
               ),
 
               const SizedBox(height: 24),
+
+              if (!app.isPackageSession &&
+                  app.paymentStatus.toUpperCase() != 'PAID' &&
+                  app.status != AppointmentStatus.cancelled &&
+                  app.totalAmount > 0) ...[
+                SizedBox(
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      AutoPaymentCheckoutSheet.show(
+                        context,
+                        amount: app.totalAmount,
+                        description: 'MLD ${app.bookingCode}',
+                        targetType: 'BOOKING',
+                        targetId: app.id,
+                        referenceCode: app.bookingCode,
+                        customerName: app.customerName,
+                        customerPhone: app.customerPhone,
+                        onPaymentSuccess: (_) {
+                          if (mounted) {
+                            setState(() {
+                              _appointment = app.copyWith(paymentStatus: 'PAID');
+                            });
+                          }
+                        },
+                      );
+                    },
+                    icon: const Icon(Icons.qr_code_2_rounded, size: 19),
+                    label: Text(
+                      context.tr('Thanh toán online ngay', 'Pay Online Now'),
+                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
 
               // NÚT HÀNH ĐỘNG
               // Nút Hotline

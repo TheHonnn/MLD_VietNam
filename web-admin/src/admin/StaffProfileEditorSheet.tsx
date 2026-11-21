@@ -118,6 +118,12 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
   const [commissionRate, setCommissionRate] = useState(
     row.commission_rate !== undefined && row.commission_rate !== null ? String(row.commission_rate) : "5"
   );
+  const [packageCommissionRate, setPackageCommissionRate] = useState(
+    row.package_commission_rate !== undefined && row.package_commission_rate !== null ? String(row.package_commission_rate) : "5"
+  );
+  const [productCommissionRate, setProductCommissionRate] = useState(
+    row.product_commission_rate !== undefined && row.product_commission_rate !== null ? String(row.product_commission_rate) : "5"
+  );
   const [hireDate, setHireDate] = useState(
     row.hire_date ? String(row.hire_date).slice(0, 10) : new Date().toISOString().slice(0, 10)
   );
@@ -233,6 +239,8 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
         employment_type: employmentType,
         base_salary: isNaN(Number(baseSalary)) ? 0 : Number(baseSalary),
         commission_rate: isNaN(Number(commissionRate)) ? 0 : Number(commissionRate),
+        package_commission_rate: isNaN(Number(packageCommissionRate)) ? 0 : Number(packageCommissionRate),
+        product_commission_rate: isNaN(Number(productCommissionRate)) ? 0 : Number(productCommissionRate),
         hire_date: hireDate || new Date().toISOString().slice(0, 10),
         resignation_date: resignationDate || null,
         id_card_number: idCardNumber.trim() || null,
@@ -612,6 +620,40 @@ export const StaffProfileEditorSheet: React.FC<StaffProfileEditorSheetProps> = (
                 disabled={isView}
                 value={commissionRate}
                 onChange={(e) => setCommissionRate(e.target.value)}
+                className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5] disabled:text-[#766554]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[#2C241E] mb-1.5">
+                Tỷ lệ hoa hồng bán gói liệu trình (%)
+              </label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                max="100"
+                placeholder="Ví dụ: 5"
+                disabled={isView}
+                value={packageCommissionRate}
+                onChange={(e) => setPackageCommissionRate(e.target.value)}
+                className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5] disabled:text-[#766554]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[#2C241E] mb-1.5">
+                Tỷ lệ hoa hồng bán sản phẩm mang về (%)
+              </label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                max="100"
+                placeholder="Ví dụ: 5"
+                disabled={isView}
+                value={productCommissionRate}
+                onChange={(e) => setProductCommissionRate(e.target.value)}
                 className="w-full text-xs px-3 py-2.5 bg-white border border-[#E8DFD8] rounded-lg text-[#2C241E] focus:outline-none focus:border-[#B38A58] disabled:bg-[#F9F7F5] disabled:text-[#766554]"
               />
             </div>

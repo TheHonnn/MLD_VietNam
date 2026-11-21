@@ -98,6 +98,8 @@ class AdminBookingModel {
   final double finalPrice;
   final String status; // PENDING, CONFIRMED, CHECKED_IN, IN_SERVICE, COMPLETED, CANCELLED
   final String paymentStatus; // UNPAID, PAID
+  final String sessionStatus;
+  final String paymentMethod;
   final String? branchId;
   final String? branchName;
   final String? technicianName;
@@ -120,6 +122,8 @@ class AdminBookingModel {
     required this.finalPrice,
     required this.status,
     required this.paymentStatus,
+    this.sessionStatus = 'NOT_STARTED',
+    this.paymentMethod = 'CASH_AT_SPA',
     this.branchId,
     this.branchName,
     this.technicianName,
@@ -179,6 +183,8 @@ class AdminBookingModel {
               : 0.0,
       status: (json['status']?.toString() ?? 'PENDING').toUpperCase(),
       paymentStatus: (json['payment_status']?.toString() ?? 'UNPAID').toUpperCase(),
+      sessionStatus: (json['session_status']?.toString() ?? 'NOT_STARTED').toUpperCase(),
+      paymentMethod: (json['payment_method']?.toString() ?? 'CASH_AT_SPA').toUpperCase(),
       branchId: json['branch_id']?.toString(),
       branchName: branchObj is Map ? branchObj['name']?.toString() : null,
       technicianName: techObj is Map ? techObj['full_name']?.toString() : null,
@@ -186,13 +192,31 @@ class AdminBookingModel {
       checkedInAt: json['checked_in_at']?.toString(),
       serviceStartedAt: json['service_started_at']?.toString(),
       checkedOutAt: json['checked_out_at']?.toString(),
-      notes: json['notes']?.toString(),
+      notes: json['notes']?.toString() ?? json['special_notes']?.toString(),
       cancellationReason: json['cancellation_reason']?.toString() ?? json['cancel_reason']?.toString(),
     );
   }
 
+  String? get userPackageId {
+    final n = notes ?? '';
+    if (n.isEmpty) return null;
+    return RegExp(r'user_package_id=([0-9a-fA-F-]+)').firstMatch(n)?.group(1);
+  }
+
+  bool get isPackageSession {
+    final n = notes ?? '';
+    return userPackageId != null || n.contains('Gói liệu trình') || paymentMethod == 'MEMBERSHIP_WALLET';
+  }
+
+  bool get isClinicalCompleted => sessionStatus == 'COMPLETED';
+
+  bool get isPaid => paymentStatus == 'PAID';
+
   AdminBookingModel copyWith({
     String? status,
+    String? paymentStatus,
+    String? sessionStatus,
+    String? paymentMethod,
     String? checkedInAt,
     String? serviceStartedAt,
     String? checkedOutAt,
@@ -209,7 +233,9 @@ class AdminBookingModel {
       serviceName: serviceName,
       finalPrice: finalPrice,
       status: status ?? this.status,
-      paymentStatus: paymentStatus,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      sessionStatus: sessionStatus ?? this.sessionStatus,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
       branchId: branchId,
       branchName: branchName,
       technicianName: technicianName,
@@ -223,9 +249,38 @@ class AdminBookingModel {
   }
 }
 
+class AdminConsultationNoteModel {
+  final String timestamp;
+  final String author;
+  final String note;
+
+  const AdminConsultationNoteModel({
+    required this.timestamp,
+    required this.author,
+    required this.note,
+  });
+
+  factory AdminConsultationNoteModel.fromJson(Map<String, dynamic> json) {
+    return AdminConsultationNoteModel(
+      timestamp: json['timestamp']?.toString() ?? '',
+      author: json['author']?.toString() ?? 'Nhân viên tư vấn',
+      note: json['note']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'timestamp': timestamp,
+        'author': author,
+        'note': note,
+      };
+}
+
 /// 5. Hồ sơ học viên tuyển sinh (Course Enrollment)
 class AdminCandidateModel {
   final String id;
+  final String studentId;
+  final String? studentCode;
+  final String? studentRole;
   final String orderCode;
   final String candidateName;
   final String candidatePhone;
@@ -234,14 +289,21 @@ class AdminCandidateModel {
   final String courseTitle;
   final String? batchId;
   final String? batchCode;
+  final String? batchStartDate;
+  final String? batchEndDate;
   final double tuitionTotal;
   final double amountPaid;
-  final String status; // PENDING_CONSULTATION, CONFIRMED_PENDING_PAY, PAID_WAITING_CLASS, ENROLLED_STUDYING, DROPPED
+  final String status; // PENDING_CONSULTATION, CONFIRMED_PENDING_PAY, PAID_WAITING_CLASS, ENROLLED_STUDYING, NOT_GRADUATED, COMPLETED, ARCHIVED, DROPPED
   final String createdAt;
   final String? notes;
+  final String targetAudience;
+  final List<AdminConsultationNoteModel> consultationHistory;
 
   const AdminCandidateModel({
     required this.id,
+    this.studentId = '',
+    this.studentCode,
+    this.studentRole,
     required this.orderCode,
     required this.candidateName,
     required this.candidatePhone,
@@ -250,12 +312,21 @@ class AdminCandidateModel {
     required this.courseTitle,
     this.batchId,
     this.batchCode,
+    this.batchStartDate,
+    this.batchEndDate,
     required this.tuitionTotal,
     required this.amountPaid,
     required this.status,
     required this.createdAt,
     this.notes,
+    this.targetAudience = 'Người mới bắt đầu',
+    this.consultationHistory = const [],
   });
+
+  int get consultationCount => consultationHistory.length;
+
+  String? get latestConsultationSummary =>
+      consultationHistory.isNotEmpty ? consultationHistory.last.note : null;
 
   factory AdminCandidateModel.fromJson(Map<String, dynamic> json) {
     final batchObj = json['course_batches'];
@@ -266,15 +337,61 @@ class AdminCandidateModel {
       title = courseObj['title']?.toString() ?? '';
     }
 
+    String audience = json['target_audience']?.toString().trim() ?? '';
+    if (audience.isEmpty && courseObj is Map) {
+      final outcomes = courseObj['learning_outcomes'];
+      if (outcomes is Map) {
+        audience = outcomes['target_audience']?.toString().trim() ??
+            outcomes['targetAudience']?.toString().trim() ??
+            '';
+      }
+      if (audience.isEmpty) {
+        audience = courseObj['target_audience']?.toString().trim() ?? '';
+      }
+    }
+    if (audience.isEmpty) {
+      final sType = json['student_type']?.toString().toUpperCase() ?? '';
+      if (sType == 'PRO') {
+        audience = 'Người làm nghề / KTV Spa';
+      } else if (sType == 'ADVANCED') {
+        audience = 'Chuyên môn y khoa';
+      } else {
+        audience = 'Người mới bắt đầu';
+      }
+    }
+
+    final List<AdminConsultationNoteModel> history = [];
+    final rawHistory = json['consultation_history'] ?? json['consultationHistory'];
+    if (rawHistory is List) {
+      for (final item in rawHistory) {
+        if (item is Map) {
+          final parsed = AdminConsultationNoteModel.fromJson(Map<String, dynamic>.from(item));
+          if (parsed.note.trim().isNotEmpty) {
+            history.add(parsed);
+          }
+        }
+      }
+    }
+
     final bId = json['batch_id']?.toString();
     final paid = double.tryParse(json['amount_paid']?.toString() ?? '0') ?? 0.0;
     final total = double.tryParse(json['tuition_total']?.toString() ?? '0') ?? 0.0;
-    final rawStatus = json['status']?.toString() ?? 'CONSULTING';
-    final consultationStatus = json['consultation_status']?.toString() ?? '';
-    final approvalStatus = json['approval_status']?.toString() ?? '';
+    final rawStatus = json['status']?.toString().toUpperCase() ?? 'CONSULTING';
+    final consultationStatus = json['consultation_status']?.toString().toUpperCase() ?? '';
+    final studentStatus = json['student_status']?.toString().toUpperCase() ?? '';
+    final approvalStatus = json['approval_status']?.toString().toUpperCase() ?? '';
 
     String workflowStatus;
-    if (rawStatus == 'GRADUATED' || rawStatus == 'COMPLETED') {
+    if (rawStatus == 'ARCHIVED' ||
+        consultationStatus == 'ARCHIVED' ||
+        (history.length > 3 &&
+            paid <= 0 &&
+            (bId == null || bId.isEmpty) &&
+            consultationStatus != 'ADMIN_PINNED')) {
+      workflowStatus = 'ARCHIVED';
+    } else if (rawStatus == 'NOT_GRADUATED' || studentStatus == 'NOT_GRADUATED') {
+      workflowStatus = 'NOT_GRADUATED';
+    } else if (rawStatus == 'GRADUATED' || rawStatus == 'COMPLETED') {
       workflowStatus = 'COMPLETED';
     } else if (bId != null && bId.isNotEmpty) {
       workflowStatus = 'ENROLLED_STUDYING';
@@ -300,8 +417,19 @@ class AdminCandidateModel {
       cEmail = userObj['email']?.toString();
     }
 
+    final rawStudentCode = (userObj is Map ? userObj['student_code']?.toString() : null) ??
+        json['student_code']?.toString() ??
+        json['studentCode']?.toString();
+    final rawStudentRole = (userObj is Map ? userObj['role']?.toString() : null) ??
+        json['student_role']?.toString();
+
     return AdminCandidateModel(
       id: json['id']?.toString() ?? '',
+      studentId: json['student_id']?.toString() ?? '',
+      studentCode: (rawStudentCode != null && rawStudentCode.trim().isNotEmpty)
+          ? rawStudentCode.trim()
+          : null,
+      studentRole: rawStudentRole,
       orderCode: json['order_code']?.toString() ?? 'ENR-000',
       candidateName: cName.isNotEmpty ? cName : 'Học viên',
       candidatePhone: cPhone,
@@ -310,11 +438,15 @@ class AdminCandidateModel {
       courseTitle: title.isNotEmpty ? title : 'Khóa đào tạo MLD',
       batchId: bId,
       batchCode: batchObj is Map ? batchObj['batch_code']?.toString() : null,
+      batchStartDate: batchObj is Map ? batchObj['start_date']?.toString() : null,
+      batchEndDate: batchObj is Map ? batchObj['end_date']?.toString() : null,
       tuitionTotal: total,
       amountPaid: paid,
       status: workflowStatus,
       createdAt: json['enrolled_at']?.toString() ?? json['created_at']?.toString() ?? '',
       notes: json['approval_notes']?.toString() ?? json['notes']?.toString(),
+      targetAudience: audience,
+      consultationHistory: history,
     );
   }
 
@@ -322,9 +454,18 @@ class AdminCandidateModel {
     String? status,
     String? batchId,
     String? batchCode,
+    String? batchStartDate,
+    String? batchEndDate,
+    String? studentCode,
+    String? studentRole,
+    String? targetAudience,
+    List<AdminConsultationNoteModel>? consultationHistory,
   }) {
     return AdminCandidateModel(
       id: id,
+      studentId: studentId,
+      studentCode: studentCode ?? this.studentCode,
+      studentRole: studentRole ?? this.studentRole,
       orderCode: orderCode,
       candidateName: candidateName,
       candidatePhone: candidatePhone,
@@ -333,11 +474,15 @@ class AdminCandidateModel {
       courseTitle: courseTitle,
       batchId: batchId ?? this.batchId,
       batchCode: batchCode ?? this.batchCode,
+      batchStartDate: batchStartDate ?? this.batchStartDate,
+      batchEndDate: batchEndDate ?? this.batchEndDate,
       tuitionTotal: tuitionTotal,
       amountPaid: amountPaid,
       status: status ?? this.status,
       createdAt: createdAt,
       notes: notes,
+      targetAudience: targetAudience ?? this.targetAudience,
+      consultationHistory: consultationHistory ?? this.consultationHistory,
     );
   }
 }
@@ -1108,6 +1253,79 @@ class AdminBannerModel {
       sortOrder: sortOrder ?? this.sortOrder,
       isFeatured: isFeatured ?? this.isFeatured,
       createdAt: createdAt,
+    );
+  }
+}
+
+class AdminTechnicianShiftModel {
+  final String id;
+  final String technicianId;
+  final String technicianName;
+  final String branchId;
+  final String branchName;
+  final String? assignedRoomId;
+  final String? roomName;
+  final String shiftDate;
+  final String startTime;
+  final String endTime;
+  final bool isCancelled;
+
+  const AdminTechnicianShiftModel({
+    required this.id,
+    required this.technicianId,
+    required this.technicianName,
+    required this.branchId,
+    required this.branchName,
+    this.assignedRoomId,
+    this.roomName,
+    required this.shiftDate,
+    required this.startTime,
+    required this.endTime,
+    this.isCancelled = false,
+  });
+
+  static String _trimTime(dynamic raw) {
+    final value = raw?.toString() ?? '';
+    return value.length >= 5 ? value.substring(0, 5) : value;
+  }
+
+  String get shiftSlot {
+    final parts = startTime.split(':');
+    final h = parts.isNotEmpty ? (int.tryParse(parts[0]) ?? 9) : 9;
+    final m = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+    if (h < 12) return 'morning';
+    if (h < 17 || (h == 17 && m <= 30)) return 'afternoon';
+    return 'evening';
+  }
+
+  String get shiftLabel {
+    switch (shiftSlot) {
+      case 'morning':
+        return 'Ca Sáng';
+      case 'afternoon':
+        return 'Ca Chiều';
+      default:
+        return 'Ca Tối';
+    }
+  }
+
+  factory AdminTechnicianShiftModel.fromJson(Map<String, dynamic> json) {
+    final techObj = json['technicians'] ?? json['technician'];
+    final branchObj = json['branches'] ?? json['branch'];
+    final roomObj = json['branch_rooms'] ?? json['room'];
+
+    return AdminTechnicianShiftModel(
+      id: json['id']?.toString() ?? '',
+      technicianId: json['technician_id']?.toString() ?? '',
+      technicianName: techObj is Map ? (techObj['full_name']?.toString() ?? 'KTV') : (json['technician_name']?.toString() ?? 'KTV'),
+      branchId: json['branch_id']?.toString() ?? '',
+      branchName: branchObj is Map ? (branchObj['name']?.toString() ?? 'MLD Spa') : (json['branch_name']?.toString() ?? 'MLD Spa'),
+      assignedRoomId: json['assigned_room_id']?.toString(),
+      roomName: roomObj is Map ? roomObj['name']?.toString() : json['room_name']?.toString(),
+      shiftDate: json['shift_date']?.toString() ?? '',
+      startTime: _trimTime(json['start_time']),
+      endTime: _trimTime(json['end_time']),
+      isCancelled: json['is_cancelled'] == true,
     );
   }
 }

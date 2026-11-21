@@ -62,10 +62,18 @@ export interface SecuritySettings {
   enable_audit_logging: boolean;
 }
 
+export interface LoyaltySettings {
+  earn_amount_per_point: number;
+  redeem_value_per_point: number;
+  max_redeem_percent_per_order: number;
+  point_expiry_months: number;
+}
+
 export interface SystemSettingsState {
   general: CompanySettings;
   booking: BookingSettings;
   pos: PosSettings;
+  loyalty: LoyaltySettings;
   academy: AcademySettings;
   integrations: IntegrationsSettings;
   security: SecuritySettings;
@@ -111,6 +119,12 @@ export const DEFAULT_SETTINGS_STATE: SystemSettingsState = {
     receipt_header_text: 'MLD HEALTHCARE & SPA - TRỊ LIỆU DẪN LƯU BẠCH HUYẾT',
     receipt_footer_note: 'Cảm ơn Quý khách đã tin tưởng dịch vụ MLD. Chúc Quý khách có một ngày thư thái!',
     auto_print_receipt_on_payment: true,
+  },
+  loyalty: {
+    earn_amount_per_point: 10000,
+    redeem_value_per_point: 100,
+    max_redeem_percent_per_order: 30,
+    point_expiry_months: 12,
   },
   academy: {
     min_attendance_percent_to_graduate: 80,
@@ -172,7 +186,12 @@ export const settingsService = {
    */
   async getSettingsByCategory<T>(category: string, signal?: AbortSignal): Promise<T> {
     const res = await adminApi<{ data: T }>(`settings/${category}`, undefined, signal);
-    return res?.data || (DEFAULT_SETTINGS_STATE as any)[category];
+    const raw =
+      res && typeof res === 'object' && 'data' in res && res.data && typeof res.data === 'object'
+        ? (res.data as T)
+        : (res as unknown as T);
+    const fallback = (DEFAULT_SETTINGS_STATE as any)[category] || {};
+    return raw && typeof raw === 'object' ? ({ ...fallback, ...raw } as T) : (fallback as T);
   },
 
   /**

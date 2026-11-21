@@ -111,21 +111,36 @@ class TreatmentRepository {
                 }
               }
 
-              // Determine status
               PackageStatus pkgStatus = PackageStatus.active;
               final statusStr = item['status']?.toString().toLowerCase() ?? '';
               if (statusStr.contains('complete') || completed >= total) {
                 pkgStatus = PackageStatus.completed;
-              } else if (statusStr.contains('expire')) {
+              } else if (statusStr.contains('expire') || statusStr.contains('cancel')) {
                 pkgStatus = PackageStatus.expired;
               }
+
+              final linkedService = tp?['services'] is Map<String, dynamic>
+                  ? tp!['services'] as Map<String, dynamic>
+                  : null;
+              final resolvedServiceId = item['service_id']?.toString() ??
+                  tp?['service_id']?.toString() ??
+                  linkedService?['id']?.toString();
+              final resolvedServiceName = item['service_name']?.toString() ??
+                  linkedService?['name']?.toString() ??
+                  tp?['service_name']?.toString() ??
+                  'Dẫn lưu bạch huyết';
+              final resolvedDuration = (item['duration_minutes'] as num?)?.toInt() ??
+                  (linkedService?['duration_minutes'] as num?)?.toInt() ??
+                  60;
 
               list.add(
                 UserPackageModel(
                   id: item['id']?.toString() ?? 'pkg-${list.length + 1}',
                   packageCode: item['package_code']?.toString() ?? item['code']?.toString() ?? 'MLD-PKG-${(list.length + 1).toString().padLeft(3, '0')}',
                   packageName: tp?['name']?.toString() ?? item['package_name']?.toString() ?? 'Gói Liệu trình MLD',
-                  serviceName: tp?['service_name']?.toString() ?? item['service_name']?.toString() ?? 'Dẫn lưu bạch huyết',
+                  serviceId: resolvedServiceId,
+                  serviceName: resolvedServiceName,
+                  durationMinutes: resolvedDuration,
                   customerName: item['customer_name']?.toString() ?? item['client_name']?.toString() ?? '',
                   description: tp?['description']?.toString() ?? item['description']?.toString() ?? '',
                   imageUrl: tp?['image_url']?.toString() ?? item['image_url']?.toString() ?? 'assets/images/specialist_hero_1.png',
@@ -605,8 +620,8 @@ class TreatmentRepository {
             data: {'reward_points': newPoints},
             options: Options(
               headers: {
-                'apikey': ApiEndpoints.supabaseServiceRoleKey,
-                'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+                'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
               },
             ),
           );
@@ -698,6 +713,26 @@ class TreatmentRepository {
   }
 
   List<HomeCareArticleModel> getGuidelineArticles() => guidelineArticles;
+
+  Future<List<HomeCareArticleModel>> fetchGuidelineArticles() async {
+    try {
+      final res = await _apiClient.dio.get(
+        '${ApiEndpoints.homeCareGuidelines}?is_published=eq.true&select=*&order=created_at.desc',
+      );
+      if (res.statusCode == 200 && res.data is List) {
+        final list = (res.data as List)
+            .whereType<Map>()
+            .map((e) => HomeCareArticleModel.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        _guidelineArticles
+          ..clear()
+          ..addAll(list);
+      }
+    } catch (e) {
+      debugPrint('>>> [TreatmentRepository] fetchGuidelineArticles error: $e');
+    }
+    return guidelineArticles;
+  }
   List<ChatMessageModel> getChatMessages() => chatMessages;
   List<TreatmentNotificationModel> getTreatmentNotifications() => notifications;
 

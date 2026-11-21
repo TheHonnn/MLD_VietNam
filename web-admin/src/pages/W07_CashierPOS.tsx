@@ -53,7 +53,10 @@ import {
   StaffWithProfile,
 } from '../services';
 import { toast, AdminTabs } from '../components/common';
-import { MLDInvoiceDocument, MLDInvoiceLine } from '../components/invoices/MLDInvoiceDocument';
+import { MLDInvoiceDocument, MLDInvoiceLine, MLDInvoicePackageInfo } from '../components/invoices/MLDInvoiceDocument';
+import { settingsService, DEFAULT_SETTINGS_STATE, PosSettings, CompanySettings } from '../services/settings.service';
+import { paymentGatewayService } from '../services/paymentGateway.service';
+import { CashierCustomerBenefits } from '../services/pos.service';
 import {
   Invoice,
   Booking,
@@ -81,13 +84,17 @@ import { useAdmin } from '../admin/Auth';
 import { supabase } from '../services/supabaseClient';
 import {
   bookingItemsToCart,
+  calculatePosTotals,
   cartCompositionError,
   classifyPosSource,
   getBookingEffectiveDiscount,
   isBookingWaitingPayment,
   isCompletedServiceBooking,
   hasCashierShiftSnapshotChanged,
+  maxRedeemablePoints,
   SYSTEM_GUEST_CUSTOMER_ID,
+  findMatchingCommissionStaffId,
+  findTargetBookingForPos,
   findTuitionEnrollment,
 } from './cashier-pos.rules';
 
@@ -251,18 +258,21 @@ export const W07_CashierPOS: React.FC = () => {
   const [catalogCategory, setCatalogCategory] = useState<'ALL' | 'SERVICE' | 'PACKAGE' | 'PRODUCT'>('ALL');
   const [catalogSearch, setCatalogSearch] = useState('');
 
-  // Discount & VAT states
   const [discountAmount, setDiscountAmount] = useState<number>(0);
-  const [vatRate, setVatRate] = useState<number>(8); // Mặc định VAT 8% (Chuẩn Y tế Nghị định 72/2024)
-  const [selectedMethod, setSelectedMethod] = useState<'onsite' | 'transfer' | 'online'>(() =>
+  const [couponInput, setCouponInput] = useState<string>('');
+  const [appliedCouponCode, setAppliedCouponCode] = useState<string>('');
+  const [selectedUserVoucherId, setSelectedUserVoucherId] = useState<string>('');
+  const [redeemPoints, setRedeemPoints] = useState<number>(0);
+  const [customerBenefits, setCustomerBenefits] = useState<CashierCustomerBenefits | null>(null);
+  const [benefitsLoading, setBenefitsLoading] = useState<boolean>(false);
+  const [discountReason, setDiscountReason] = useState<string>('');
+  const [vatRate, setVatRate] = useState<number>(8);
+  const [selectedMethod, setSelectedMethod] = useState<'onsite' | 'transfer' | 'online'>('onsite');
+  const [tuitionMethod, setTuitionMethod] = useState<'onsite' | 'transfer'>(() =>
     searchParams.get('tuitionOrder') ? 'transfer' : 'onsite');
   const [tuitionBankReference, setTuitionBankReference] = useState('');
-  const [draftInvoiceCode, setDraftInvoiceCode] = useState<string>(() => {
-    const d = new Date();
-    const dateStr = `${d.getFullYear().toString().slice(-2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    return `HD-POS-${dateStr}-${rand}`;
-  });
+  const customerSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const couponInputRef = useRef<HTMLInputElement | null>(null);
 
   // Tuition State
   const [allEnrollments, setAllEnrollments] = useState<CourseEnrollment[]>([]);
@@ -273,6 +283,9 @@ export const W07_CashierPOS: React.FC = () => {
   const tuitionEnrollmentId = searchParams.get('tuitionEnrollment') || '';
   const tuitionReference = tuitionEnrollmentId || tuitionOrder;
   const handledTuitionReference = useRef('');
+  const handledBookingKey = useRef('');
+  const fetchedMissingBookingKey = useRef('');
+  const [posBookingsLoaded, setPosBookingsLoaded] = useState(false);
   const [enrollmentLoad, setEnrollmentLoad] = useState<'loading' | 'ready' | 'error'>('loading');
   const [tuitionSearchTerm, setTuitionSearchTerm] = useState(tuitionOrder);
 
@@ -286,12 +299,13 @@ export const W07_CashierPOS: React.FC = () => {
     const enrollment = findTuitionEnrollment(allEnrollments, tuitionReference);
     setSelectedEnrollment(enrollment);
     setTuitionSearchTerm(enrollment ? '' : tuitionOrder || tuitionReference);
-    setSelectedMethod('transfer');
+    setTuitionMethod('transfer');
     setTuitionPaymentAmount(0);
   }, [allEnrollments, enrollmentLoad, tuitionOrder, tuitionReference]);
 
   useEffect(() => {
     setTuitionBankReference('');
+    setTuitionCommissionStaffId(selectedEnrollment?.assignedStaffId || '');
   }, [selectedEnrollment?.id]);
   const [tuitionReceiptSearchTerm, setTuitionReceiptSearchTerm] = useState('');
   const [tuitionReceiptBranchFilter, setTuitionReceiptBranchFilter] = useState('ALL');
@@ -308,7 +322,31 @@ export const W07_CashierPOS: React.FC = () => {
   const [allServices, setAllServices] = useState<Service[]>([]);
   const [homeProducts, setHomeProducts] = useState<any[]>([]);
   const [allTechnicians, setAllTechnicians] = useState<Technician[]>([]);
-  const [commissionStaff, setCommissionStaff] = useState<StaffWithProfile[]>([]);
+  const [commissionStaff, setCommissionStaff] = useState<Array<StaffWithProfile & { role?: string; technicianId?: string | null }>>([]);
+  const [commissionStaffLoading, setCommissionStaffLoading] = useState(false);
+  const [commissionStaffLoadError, setCommissionStaffLoadError] = useState(false);
+  const commissionStaffManuallySet = useRef(false);
+  const [workspaceInvoices, setWorkspaceInvoices] = useState<any[]>([]);
+  const [posSettings, setPosSettings] = useState(DEFAULT_SETTINGS_STATE.pos);
+  const [generalSettings, setGeneralSettings] = useState(DEFAULT_SETTINGS_STATE.general);
+  const [receiptPrintMode, setReceiptPrintMode] = useState<'thermal80' | 'a5'>('thermal80');
+  const [tuitionCommissionStaffId, setTuitionCommissionStaffId] = useState('');
+  const [isCreatingPendingQr, setIsCreatingPendingQr] = useState(false);
+  const [pendingPosQr, setPendingPosQr] = useState<{
+    kind: 'BOOKING' | 'PACKAGE' | 'CART' | 'TUITION';
+    invoiceId?: string;
+    invoiceCode?: string;
+    enrollmentId?: string;
+    baselinePaid?: number;
+    orderCode: number;
+    amount: number;
+    transferContent: string;
+    qrUrl: string;
+    bankAccountNo: string;
+    bankAccountName: string;
+    checkoutUrl?: string;
+    isPaid?: boolean;
+  } | null>(null);
   const [booking, setBooking] = useState<Booking | undefined>(undefined);
 
   // Cashier Shift states
@@ -395,8 +433,10 @@ export const W07_CashierPOS: React.FC = () => {
     customerEmail?: string;
     branchPhone?: string;
     lineItems?: MLDInvoiceLine[];
+    packageInfo?: MLDInvoicePackageInfo | null;
     subtotalValue?: number;
     discountValue?: number;
+    pointsRedeemedValue?: number;
     vatRateValue?: number;
     vatAmountValue?: number;
     totalValue?: number;
@@ -432,6 +472,9 @@ export const W07_CashierPOS: React.FC = () => {
 
   const fetchPosData = async () => {
     try {
+      if (searchParams.get('bookingId') || searchParams.get('booking')) {
+        supabaseService.invalidateCache('bookings');
+      }
       const [invRes, bkRes, custRes, brRes, pkgRes, shiftRes, srvRes, techRes, courseRes] = await Promise.allSettled([
         posService.getInvoices(),
         bookingService.getBookings(),
@@ -480,22 +523,184 @@ export const W07_CashierPOS: React.FC = () => {
       }
 
       try {
-        const productRows = await supabaseService.query<any[]>('home_products?order=sort_order.asc');
-        setHomeProducts(productRows || []);
+        const productRows = await supabaseService.query<any[]>('home_products?is_active=eq.true&order=sort_order.asc');
+        setHomeProducts((productRows || []).filter((p: any) => p.is_active !== false));
       } catch (prodErr) {
         console.warn('Không tải được danh mục sản phẩm bổ trợ:', prodErr);
       }
     } catch (err) {
       console.error('Failed to load POS data:', err);
+    } finally {
+      setPosBookingsLoaded(true);
+    }
+  };
+
+  useEffect(() => {
+    Promise.all([
+      settingsService.getSettingsByCategory<PosSettings>('pos'),
+      settingsService.getSettingsByCategory<CompanySettings>('general'),
+    ])
+      .then(([posCfg, genCfg]) => {
+        if (posCfg) setPosSettings({ ...DEFAULT_SETTINGS_STATE.pos, ...posCfg });
+        if (genCfg) setGeneralSettings({ ...DEFAULT_SETTINGS_STATE.general, ...genCfg });
+      })
+      .catch(() => {});
+  }, []);
+
+  const triggerAutoPrintIfConfigured = () => {
+    if (
+      posSettings.auto_print_receipt_on_payment &&
+      typeof navigator !== 'undefined' &&
+      !navigator.webdriver
+    ) {
+      window.setTimeout(() => {
+        window.print();
+      }, 350);
+    }
+  };
+
+  const buildPackageInfoFromRecord = (
+    pkg?: {
+      packageName?: string | null;
+      totalSessions?: number;
+      completedSessions?: number;
+      remainingSessions?: number;
+      expiresAt?: string | null;
+    } | null,
+    wsInv?: any,
+  ): MLDInvoicePackageInfo | null => {
+    const total = Number(pkg?.totalSessions ?? wsInv?.packageTotalSessions ?? 0);
+    if (!Number.isFinite(total) || total <= 0) return null;
+    const completed = Number(pkg?.completedSessions ?? wsInv?.packageCompletedSessions ?? 0);
+    const remaining = Math.max(0, Number(pkg?.remainingSessions ?? total - completed));
+    return {
+      packageName: pkg?.packageName || wsInv?.packageName || null,
+      totalSessions: total,
+      completedSessions: completed,
+      remainingSessions: remaining,
+      expiresAt: pkg?.expiresAt || wsInv?.packageExpiresAt || null,
+    };
+  };
+
+  const loadCommissionWorkspace = async (branchScope?: string) => {
+    setCommissionStaffLoading(true);
+    setCommissionStaffLoadError(false);
+    try {
+      const wsRes = await posService.getWorkspace(branchScope);
+      const mergedMap = new Map<string, StaffWithProfile & { role?: string; technicianId?: string | null }>();
+      if (wsRes.success && wsRes.data) {
+        if (Array.isArray(wsRes.data.invoices)) {
+          setWorkspaceInvoices(wsRes.data.invoices);
+        }
+        if (Array.isArray(wsRes.data.staff)) {
+          for (const item of wsRes.data.staff) {
+            const sp = item.staffProfile || {};
+            mergedMap.set(item.id, {
+              id: item.id,
+              fullName: item.fullName || 'Nhân viên',
+              phone: item.phone || '',
+              role: (item.role || UserRole.CASHIER) as UserRole,
+              technicianId: item.technicianId || null,
+              isActive: true,
+              staffProfile: {
+                id: sp.id || '',
+                userId: item.id,
+                branchId: sp.branchId || '',
+                employeeCode: sp.employeeCode || '',
+                position: sp.position || item.role || 'Nhân viên',
+                commissionRate: Number(sp.commissionRate ?? 0),
+                packageCommissionRate: Number(sp.packageCommissionRate ?? 0),
+                productCommissionRate: Number(sp.productCommissionRate ?? 0),
+                isActive: true,
+              },
+            } as any);
+          }
+        }
+      }
+      if (mergedMap.size === 0) {
+        let stRes = await staffService.getStaffList({ branchId: branchScope }).catch(() => null);
+        if (!stRes?.success || !stRes.data?.length) {
+          stRes = await staffService.getStaffList().catch(() => null);
+        }
+        if (stRes?.success && stRes.data) {
+          for (const staff of stRes.data) {
+            mergedMap.set(staff.id, { ...staff, role: staff.role });
+          }
+        }
+      }
+      if (mergedMap.size === 0 && allTechnicians.length > 0) {
+        for (const tech of allTechnicians) {
+          if (tech.isActive === false || !tech.userId || mergedMap.has(tech.userId)) continue;
+          mergedMap.set(tech.userId, {
+            id: tech.userId,
+            fullName: tech.fullName || 'KTV',
+            phone: '',
+            role: UserRole.TECHNICIAN,
+            technicianId: tech.id,
+            isActive: true,
+            staffProfile: {
+              id: '',
+              userId: tech.userId,
+              branchId: tech.branchId || '',
+              employeeCode: '',
+              position: tech.title || 'Kỹ thuật viên',
+              commissionRate: 0,
+              packageCommissionRate: 0,
+              productCommissionRate: 0,
+              isActive: true,
+            },
+          } as any);
+        }
+      }
+      setCommissionStaffLoadError(!wsRes.success && mergedMap.size === 0);
+      setCommissionStaff(
+        Array.from(mergedMap.values()).sort((a, b) =>
+          String(a.fullName || '').localeCompare(String(b.fullName || ''), 'vi'),
+        ),
+      );
+    } finally {
+      setCommissionStaffLoading(false);
     }
   };
 
   useEffect(() => {
     fetchPosData();
-    staffService.getStaffList().then((res) => {
-      if (res.success && res.data) setCommissionStaff(res.data.filter((staff) => staff.staffProfile.isActive));
-    });
-  }, []);
+    const bParam = selectedBranchId !== 'ALL' ? selectedBranchId : undefined;
+    void loadCommissionWorkspace(bParam);
+  }, [selectedBranchId]);
+
+  useEffect(() => {
+    if (!booking || selectedCommissionStaffId || commissionStaffManuallySet.current) return;
+    const matchedId = findMatchingCommissionStaffId(commissionStaff, booking);
+    if (matchedId) {
+      setSelectedCommissionStaffId(matchedId);
+    }
+  }, [booking?.id, booking?.technicianId, booking?.technician?.userId, commissionStaff, selectedCommissionStaffId]);
+
+  const renderCommissionStaffHint = () => {
+    if (commissionStaffLoading) {
+      return <p className="mt-1 text-[11px] text-[#8C7A6B]">Đang tải danh sách nhân viên hưởng hoa hồng...</p>;
+    }
+    if (commissionStaff.length === 0) {
+      return (
+        <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-amber-800">
+          <span>
+            {commissionStaffLoadError
+              ? 'Không tải được danh sách nhân viên.'
+              : 'Chưa có nhân viên hoạt động để chọn hoa hồng.'}
+          </span>
+          <button
+            type="button"
+            onClick={() => void loadCommissionWorkspace(selectedBranchId !== 'ALL' ? selectedBranchId : undefined)}
+            className="font-bold text-[#985018] underline hover:text-[#7F4115] cursor-pointer"
+          >
+            Tải lại
+          </button>
+        </div>
+      );
+    }
+    return null;
+  };
 
   // The active shift is branch-scoped. Keep it synchronized whenever the URL,
   // global branch selector, or the local selector changes branch. The initial
@@ -577,6 +782,61 @@ export const W07_CashierPOS: React.FC = () => {
     }
   }, [searchParams, allCustomers]);
 
+  useEffect(() => {
+    const bookingIdParam = (searchParams.get('bookingId') || '').trim();
+    const bookingCodeParam = (searchParams.get('booking') || '').trim();
+    const requestKey = [bookingIdParam, bookingCodeParam].filter(Boolean).join('|');
+    if (!requestKey) {
+      handledBookingKey.current = '';
+      fetchedMissingBookingKey.current = '';
+      return;
+    }
+    if (handledBookingKey.current === requestKey) return;
+
+    const targetBooking = findTargetBookingForPos(allBookings, bookingIdParam, bookingCodeParam);
+    if (!targetBooking) {
+      if (!posBookingsLoaded || fetchedMissingBookingKey.current === requestKey) return;
+      fetchedMissingBookingKey.current = requestKey;
+      supabaseService.invalidateCache('bookings');
+      bookingService.getBookingById(bookingIdParam || bookingCodeParam).then((res) => {
+        if (res.success && res.data) {
+          const found = res.data;
+          setAllBookings((prev) =>
+            prev.some((b) => b.id === found.id)
+              ? prev.map((b) => (b.id === found.id ? found : b))
+              : [found, ...prev],
+          );
+        }
+      });
+      return;
+    }
+
+    handledBookingKey.current = requestKey;
+
+    if (targetBooking.paymentStatus === PaymentStatus.PAID) {
+      const paidInvoice = invoices.find(
+        (inv) =>
+          inv.bookingId === targetBooking.id ||
+          Boolean(targetBooking.bookingCode && (inv as any).bookingCode === targetBooking.bookingCode),
+      );
+      setActiveTab('receipts');
+      if (paidInvoice?.invoiceCode || targetBooking.bookingCode) {
+        setInvoiceSearchTerm(paidInvoice?.invoiceCode || targetBooking.bookingCode || '');
+      }
+      if (paidInvoice?.invoiceCode) {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', 'receipts');
+          next.set('invoice', paidInvoice.invoiceCode);
+          return next;
+        });
+      }
+      return;
+    }
+
+    loadBookingIntoCart(targetBooking);
+  }, [searchParams, allBookings, invoices, posBookingsLoaded]);
+
   // Load receipt if ?invoice= or ?receipt= param present
   useEffect(() => {
     const invoiceParam = searchParams.get('invoice') || searchParams.get('receipt') || searchParams.get('code');
@@ -586,11 +846,12 @@ export const W07_CashierPOS: React.FC = () => {
       );
       if (found) {
         const detail = resolveReceiptDetail(found);
+        const wsInv = workspaceInvoices.find((w) => w.id === found.id || w.invoiceCode === found.invoiceCode);
+        const packageInfo = buildPackageInfoFromRecord(found.userPackage || null, wsInv);
         setSelectedReceiptData({
           id: detail.id,
           customerName: detail.customerName,
           customerPhone: detail.customerPhone,
-          customerTier: detail.customerTier,
           branchName: detail.branchName,
           serviceName: detail.content,
           category: detail.category,
@@ -601,6 +862,8 @@ export const W07_CashierPOS: React.FC = () => {
           date: detail.date,
           status: detail.status,
           shiftCode: (found as any).shiftCode || (found as any).shift_code,
+          technicianName: detail.technicianName,
+          packageInfo,
           customerEmail: found.customer?.email || undefined,
           branchAddress: found.branch ? `${found.branch.address}, ${found.branch.district}, ${found.branch.city}` : undefined,
           branchPhone: found.branch?.phone,
@@ -612,6 +875,7 @@ export const W07_CashierPOS: React.FC = () => {
           })),
           subtotalValue: Number(found.subtotal || 0),
           discountValue: Number(found.discountAmount || 0),
+          pointsRedeemedValue: Number(found.pointsRedeemedAmount || 0),
           vatRateValue: Number(found.vatRate || 0),
           vatAmountValue: Number(found.vatAmount || 0),
           totalValue: Number(found.totalAmount || 0) - Number(found.refundAmount || 0),
@@ -620,6 +884,27 @@ export const W07_CashierPOS: React.FC = () => {
       }
     }
   }, [searchParams, invoices]);
+
+  useEffect(() => {
+    if (activeTab !== 'pos') return;
+    let cancelled = false;
+    setSelectedUserVoucherId('');
+    setRedeemPoints(0);
+    setBenefitsLoading(true);
+    const custId = isUuid(selectedCustomer.id) ? selectedCustomer.id : GUEST_CUSTOMER.id;
+    posService.getCustomerBenefits(custId).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) {
+        setCustomerBenefits(res.data);
+      } else {
+        setCustomerBenefits(null);
+      }
+      setBenefitsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, selectedCustomer.id]);
 
   // Tự động tải danh sách 10 ca 1 tiếng DRC khi mở modal Đặt lịch tại quầy
   useEffect(() => {
@@ -724,15 +1009,144 @@ export const W07_CashierPOS: React.FC = () => {
   const clearCart = () => {
     setPosCart([]);
     setBooking(undefined);
+    setPendingPosQr(null);
     setSelectedCustomer(allCustomers.find((c) => c.id === GUEST_CUSTOMER.id) || GUEST_CUSTOMER);
     setDiscountAmount(0);
+    setCouponInput('');
+    setAppliedCouponCode('');
+    setSelectedUserVoucherId('');
+    setRedeemPoints(0);
+    setDiscountReason('');
+    commissionStaffManuallySet.current = false;
     setSelectedCommissionStaffId('');
-    setDraftInvoiceCode(() => {
-      const d = new Date();
-      const dateStr = `${d.getFullYear().toString().slice(-2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-      const rand = Math.floor(1000 + Math.random() * 9000);
-      return `HD-POS-${dateStr}-${rand}`;
-    });
+  };
+
+  const isPosMethodEnabled = (method: 'onsite' | 'transfer' | 'online') => {
+    if (method === 'onsite') return posSettings.enable_cash !== false;
+    if (method === 'transfer') return posSettings.enable_vietqr !== false;
+    return posSettings.enable_card_pos !== false;
+  };
+
+  useEffect(() => {
+    if (!isPosMethodEnabled(selectedMethod)) {
+      if (posSettings.enable_cash !== false) setSelectedMethod('onsite');
+      else if (posSettings.enable_vietqr !== false) setSelectedMethod('transfer');
+      else if (posSettings.enable_card_pos !== false) setSelectedMethod('online');
+    }
+    if (tuitionMethod === 'onsite' && posSettings.enable_cash === false && posSettings.enable_vietqr !== false) {
+      setTuitionMethod('transfer');
+    } else if (tuitionMethod === 'transfer' && posSettings.enable_vietqr === false && posSettings.enable_cash !== false) {
+      setTuitionMethod('onsite');
+    }
+  }, [posSettings, selectedMethod, tuitionMethod]);
+
+  const applyCouponCode = async (rawCode: string) => {
+    const code = rawCode.trim().toUpperCase();
+    if (!code) {
+      setAppliedCouponCode('');
+      return;
+    }
+    try {
+      const rows = await supabaseService.query<any[]>(`coupons?code=eq.${encodeURIComponent(code)}`);
+      const c = rows?.[0];
+      if (!c || c.is_active === false) {
+        setAppliedCouponCode('');
+        setDiscountAmount(0);
+        toast.warning('Mã không hợp lệ', 'Không tìm thấy mã giảm giá đang hoạt động.');
+        return;
+      }
+      const now = Date.now();
+      if (c.valid_from && new Date(c.valid_from).getTime() > now) {
+        setAppliedCouponCode('');
+        setDiscountAmount(0);
+        toast.warning('Mã chưa đến hạn', `Mã ${code} chưa có hiệu lực.`);
+        return;
+      }
+      if (c.valid_to && new Date(c.valid_to).getTime() < now) {
+        setAppliedCouponCode('');
+        setDiscountAmount(0);
+        toast.error('Mã đã hết hạn', `Mã giảm giá ${code} đã hết hạn sử dụng.`);
+        return;
+      }
+      if (c.usage_limit != null && Number(c.usage_limit) > 0 && Number(c.used_count || 0) >= Number(c.usage_limit)) {
+        setAppliedCouponCode('');
+        setDiscountAmount(0);
+        toast.error('Hết lượt sử dụng', `Mã ${code} đã đạt giới hạn lượt sử dụng.`);
+        return;
+      }
+      const sub = Number(cartSubtotal || 0);
+      const minOrder = Number(c.min_order_amount || 0);
+      if (minOrder > 0 && sub < minOrder) {
+        setAppliedCouponCode('');
+        setDiscountAmount(0);
+        toast.warning('Chưa đạt giá trị tối thiểu', `Đơn tối thiểu để áp dụng ${code} là ${minOrder.toLocaleString('vi-VN')}đ.`);
+        return;
+      }
+      const pct = Number(c.discount_percent || 0);
+      const flat = Number(c.discount_amount || 0);
+      let computed = pct > 0 ? Math.round((sub * pct) / 100) : flat;
+      const maxCap = Number(c.max_discount ?? c.max_discount_amount ?? 0);
+      if (maxCap > 0 && computed > maxCap) {
+        computed = maxCap;
+      }
+      const finalDiscount = Math.min(sub, Math.max(0, computed));
+      if (finalDiscount <= 0) {
+        setAppliedCouponCode('');
+        toast.warning('Không đủ điều kiện', `Mã ${code} không tạo ra mức giảm hợp lệ cho giỏ hàng này.`);
+        return;
+      }
+      setSelectedUserVoucherId('');
+      setAppliedCouponCode(code);
+      setDiscountAmount(finalDiscount);
+      setDiscountReason(c.title ? `Áp dụng mã ${code} (${c.title})` : `Áp dụng mã ${code}`);
+      toast.success('Đã áp dụng mã giảm giá', `${c.title || code}: -${finalDiscount.toLocaleString('vi-VN')}đ`);
+    } catch {
+      toast.error('Lỗi kiểm tra mã', 'Không thể xác thực mã giảm giá lúc này.');
+    }
+  };
+
+  const applyBenefitCoupon = (benefit: {
+    code: string;
+    title?: string;
+    discountPercent: number;
+    discountAmount: number;
+    maxDiscountAmount: number | null;
+    minOrderAmount: number;
+    userVoucherId?: string;
+  }) => {
+    const sub = Number(cartSubtotal || 0);
+    if (sub <= 0) {
+      toast.warning('Đơn hàng trống', 'Vui lòng chọn dịch vụ hoặc sản phẩm trước khi áp dụng ưu đãi.');
+      return;
+    }
+    if (benefit.minOrderAmount > 0 && sub < benefit.minOrderAmount) {
+      toast.warning('Chưa đạt giá trị tối thiểu', `Đơn tối thiểu để dùng ${benefit.code} là ${benefit.minOrderAmount.toLocaleString('vi-VN')}đ.`);
+      return;
+    }
+    let computed =
+      benefit.discountPercent > 0
+        ? Math.round((sub * benefit.discountPercent) / 100)
+        : benefit.discountAmount;
+    if (benefit.maxDiscountAmount && benefit.maxDiscountAmount > 0) {
+      computed = Math.min(computed, benefit.maxDiscountAmount);
+    }
+    const finalDiscount = Math.min(sub, Math.max(0, computed));
+    if (finalDiscount <= 0) {
+      toast.warning('Không đủ điều kiện', `Ưu đãi ${benefit.code} không áp dụng được cho giỏ hàng này.`);
+      return;
+    }
+    setCouponInput(benefit.code);
+    setAppliedCouponCode(benefit.code);
+    setSelectedUserVoucherId(benefit.userVoucherId || '');
+    setDiscountAmount(finalDiscount);
+    setDiscountReason(
+      benefit.userVoucherId
+        ? `Voucher khách hàng ${benefit.code}`
+        : benefit.title
+          ? `Áp dụng mã ${benefit.code} (${benefit.title})`
+          : `Áp dụng mã ${benefit.code}`,
+    );
+    toast.success('Đã áp dụng ưu đãi', `${benefit.code}: -${finalDiscount.toLocaleString('vi-VN')}đ`);
   };
 
   // -------------------------------------------------------------
@@ -769,21 +1183,47 @@ export const W07_CashierPOS: React.FC = () => {
     return posCart.reduce((acc, it) => acc + it.unitPrice * it.quantity, 0);
   }, [posCart]);
 
-  const cartPreTax = useMemo(() => {
-    return Math.max(0, cartSubtotal - discountAmount);
-  }, [cartSubtotal, discountAmount]);
+  const maxRedeemablePts = useMemo(() => {
+    if (
+      !customerBenefits ||
+      !customerBenefits.loyaltySettings.isActive ||
+      selectedCustomer.id === GUEST_CUSTOMER.id ||
+      isTreatmentRegistration ||
+      cartHasPackage ||
+      Boolean(booking?.id)
+    ) {
+      return 0;
+    }
+    return maxRedeemablePoints(
+      Math.max(0, cartSubtotal - discountAmount),
+      customerBenefits.rewardPoints,
+      customerBenefits.loyaltySettings.redeemValuePerPoint,
+      customerBenefits.loyaltySettings.maxRedeemPercentPerOrder,
+    );
+  }, [customerBenefits, selectedCustomer.id, isTreatmentRegistration, cartHasPackage, booking?.id, cartSubtotal, discountAmount]);
 
-  const cartVat = useMemo(() => {
-    return Math.round(cartPreTax * (vatRate / 100));
-  }, [cartPreTax, vatRate]);
+  const effectiveRedeemPoints = useMemo(() => {
+    return Math.min(Math.max(0, Math.floor(redeemPoints)), maxRedeemablePts);
+  }, [redeemPoints, maxRedeemablePts]);
 
-  const cartTotal = useMemo(() => {
-    return cartPreTax + cartVat;
-  }, [cartPreTax, cartVat]);
+  useEffect(() => {
+    if (redeemPoints !== effectiveRedeemPoints) {
+      setRedeemPoints(effectiveRedeemPoints);
+    }
+  }, [redeemPoints, effectiveRedeemPoints]);
 
-  // VietQR URL (MBBank 0394316963 BUI THE HOANG)
-  const vietQrTransferMemo = `HD POS ${draftInvoiceCode.slice(-9)}`;
-  const dynamicVietQrUrl = `https://api.vietqr.io/image/970422-0394316963-compact2.jpg?amount=${cartTotal}&addInfo=${encodeURIComponent(vietQrTransferMemo)}&accountName=BUI%20THE%20HOANG`;
+  const pointsDiscountValue = useMemo(() => {
+    const valuePerPt = Number(customerBenefits?.loyaltySettings.redeemValuePerPoint || 0);
+    return effectiveRedeemPoints > 0 && valuePerPt > 0 ? effectiveRedeemPoints * valuePerPt : 0;
+  }, [effectiveRedeemPoints, customerBenefits?.loyaltySettings.redeemValuePerPoint]);
+
+  const posTotals = useMemo(() => {
+    return calculatePosTotals(cartSubtotal, discountAmount, vatRate, pointsDiscountValue);
+  }, [cartSubtotal, discountAmount, vatRate, pointsDiscountValue]);
+
+  const cartPreTax = posTotals.preTax;
+  const cartVat = posTotals.vat;
+  const cartTotal = posTotals.total;
 
   // -------------------------------------------------------------
   // PENDING BOOKINGS QUEUE
@@ -827,19 +1267,16 @@ export const W07_CashierPOS: React.FC = () => {
   }, [filteredPendingBookings]);
 
   const loadBookingIntoCart = (bk: Booking) => {
-    // 1. Tự động chuyển cơ sở sang đúng cơ sở của lịch hẹn nếu khác cơ sở hiện tại
     if (bk.branchId && bk.branchId !== selectedBranchId) {
       handleBranchSelect(bk.branchId);
     }
 
-    const bookingLines = bookingItemsToCart(bk);
-    if (!bookingLines.length) {
-      toast.error('Lịch hẹn chưa có dịch vụ', 'Không thể thu tiền trước khi lịch hẹn có đầy đủ chi tiết dịch vụ.');
-      return;
-    }
+    const matchedCustomer =
+      (bk.customerId ? allCustomers.find((c) => c.id === bk.customerId) : undefined) ||
+      bk.customer;
 
-    if (bk.customer) {
-      setSelectedCustomer(bk.customer);
+    if (matchedCustomer) {
+      setSelectedCustomer(matchedCustomer);
     } else if (bk.bookedForName) {
       setSelectedCustomer({
         id: bk.customerId || GUEST_CUSTOMER.id,
@@ -858,9 +1295,18 @@ export const W07_CashierPOS: React.FC = () => {
       });
     }
 
-    if (bk.technicianId) {
-      setSelectedCommissionStaffId(bk.technicianId);
+    const bookingLines = bookingItemsToCart(bk);
+    if (!bookingLines.length) {
+      if (bk.bookingCode) {
+        setQueueSearchTerm(bk.bookingCode);
+      }
+      toast.error('Lịch hẹn chưa có dịch vụ', 'Không thể thu tiền trước khi lịch hẹn có đầy đủ chi tiết dịch vụ.');
+      return;
     }
+
+    commissionStaffManuallySet.current = false;
+    const matchedStaffId = findMatchingCommissionStaffId(commissionStaff, bk);
+    setSelectedCommissionStaffId(matchedStaffId);
 
     setPosCart(bookingLines);
 
@@ -905,6 +1351,15 @@ export const W07_CashierPOS: React.FC = () => {
       return;
     }
 
+    if (!isPosMethodEnabled(selectedMethod)) {
+      toast.error('Kênh thanh toán đang tắt', 'Cấu hình POS hiện không cho phép phương thức thanh toán này.');
+      return;
+    }
+    if (posSettings.require_discount_reason && discountAmount > 0 && !appliedCouponCode && !booking?.id && !discountReason.trim()) {
+      toast.warning('Thiếu lý do giảm giá', 'Cấu hình POS yêu cầu nhập lý do khi giảm giá thủ công.');
+      return;
+    }
+
     paymentLock.current = true;
     setIsProcessing(true);
     try {
@@ -917,7 +1372,7 @@ export const W07_CashierPOS: React.FC = () => {
           ? PaymentMethod.CASH_AT_SPA
           : selectedMethod === 'transfer'
           ? PaymentMethod.BANK_TRANSFER
-          : PaymentMethod.MOMO;
+          : PaymentMethod.VNPAY;
 
       const isSinglePackage =
         !booking?.id &&
@@ -935,14 +1390,15 @@ export const W07_CashierPOS: React.FC = () => {
             ? { packageId: posCart[0].packageId || posCart[0].id }
             : { items: posCart.map(item => ({ id: item.id, type: item.type, quantity: item.quantity, serviceId: item.serviceId, packageId: item.packageId })) }),
         customerId: targetCustomerId, branchId: currentShift.branchId,
-        shiftId: currentShift.id, paymentMethod: paymentMethodEnum as PaymentMethod.CASH_AT_SPA | PaymentMethod.BANK_TRANSFER,
+        shiftId: currentShift.id, paymentMethod: paymentMethodEnum,
         vatRate, discountAmount, expectedTotal: cartTotal, commissionStaffId: selectedCommissionStaffId || undefined,
+        couponCode: appliedCouponCode || undefined,
+        userVoucherId: selectedUserVoucherId || undefined,
+        redeemPoints: effectiveRedeemPoints > 0 ? effectiveRedeemPoints : undefined,
+        discountReason: discountReason.trim() || undefined,
       });
       if (!collection.success || !collection.data?.invoice?.id) throw new Error(collection.message);
       if (registrationPackage) {
-        // POS writes through the workflow API, not SupabaseService.query(). Clear the
-        // operational cache so the treatment screen sees the newly activated package
-        // immediately when the cashier hands off to first-session scheduling.
         supabaseService.invalidateCache('user_packages');
         supabaseService.invalidateCache('invoices');
       }
@@ -954,13 +1410,23 @@ export const W07_CashierPOS: React.FC = () => {
       const sourceKind = classifyPosSource(booking?.id, posCart);
       const firstServiceItem = posCart.find((i) => i.type === 'SERVICE');
 
-      // 6. Hiển thị biên lai điện tử
       const techName = commissionStaff.find((s) => s.id === selectedCommissionStaffId)?.fullName;
+      const pkgData = collection.data.userPackage;
+      const packageInfo = buildPackageInfoFromRecord(
+        pkgData
+          ? {
+              packageName: pkgData.packageName || pkgData.package_name || matchingPackageDef?.name || posCart.find((i) => i.type === 'PACKAGE')?.name,
+              totalSessions: Number(pkgData.totalSessions ?? pkgData.total_sessions ?? matchingPackageDef?.totalSessions ?? 0),
+              completedSessions: Number(pkgData.completedSessions ?? pkgData.completed_sessions ?? 0),
+              remainingSessions: pkgData.remainingSessions,
+              expiresAt: pkgData.expiresAt || pkgData.expires_at || null,
+            }
+          : null,
+      );
       setSelectedReceiptData({
         id: receiptCode,
         customerName: selectedCustomer.fullName || 'Khách hàng',
         customerPhone: selectedCustomer.phone || '--',
-        customerTier: selectedCustomer.membershipTier || 'STANDARD',
         customerEmail: selectedCustomer.email || undefined,
         branchName: activeBranch?.name || 'Trụ sở MLD Việt Nam',
         branchAddress: activeBranch ? `${activeBranch.address}, ${activeBranch.district}, ${activeBranch.city}` : undefined,
@@ -988,6 +1454,7 @@ export const W07_CashierPOS: React.FC = () => {
         technicianName: techName,
         userPackageId: collection.data.userPackage?.id,
         packageDefinitionId: collection.data.userPackage?.package_id,
+        packageInfo,
         znsSent: false,
         materialsText: 'Chưa xác nhận xuất kho vật tư',
         sourceKind,
@@ -996,12 +1463,15 @@ export const W07_CashierPOS: React.FC = () => {
         lineItems: posCart.map((item) => ({ description: item.name, quantity: item.quantity, unitPrice: item.unitPrice, amount: item.unitPrice * item.quantity })),
         subtotalValue: cartSubtotal,
         discountValue: discountAmount,
+        pointsRedeemedValue: Number(collection.data.invoice.points_redeemed_amount ?? pointsDiscountValue),
         vatRateValue: vatRate,
         vatAmountValue: cartVat,
         totalValue: Number(collection.data.amount ?? cartTotal),
       });
 
+      setPendingPosQr(null);
       setShowReceiptModal(true);
+      triggerAutoPrintIfConfigured();
       toast.success(
         registrationPackage ? 'Đã kích hoạt liệu trình' : 'Thanh toán thành công',
         registrationPackage
@@ -1009,7 +1479,6 @@ export const W07_CashierPOS: React.FC = () => {
           : `Đã ghi nhận hóa đơn ${receiptCode} · ${cartTotal.toLocaleString('vi-VN')}đ`
       );
 
-      // Reset cart và tạo mã mới cho đơn kế tiếp
       clearCart();
       await fetchPosData();
     } catch (err: any) {
@@ -1020,6 +1489,341 @@ export const W07_CashierPOS: React.FC = () => {
       setIsProcessing(false);
     }
   };
+
+  const shortcutsStateRef = useRef({
+    activeTab,
+    booking,
+    hasOpenModal: false,
+    canQuickPay: false,
+    onQuickPay: handleProcessPosPayment,
+  });
+  shortcutsStateRef.current = {
+    activeTab,
+    booking,
+    hasOpenModal: Boolean(
+      showReceiptModal ||
+        showOpenShiftModal ||
+        showCloseShiftModal ||
+        showWalkInModal ||
+        isAddingCustomer ||
+        editingReceipt,
+    ),
+    canQuickPay: Boolean(
+      currentShift &&
+        selectedBranchId !== 'ALL' &&
+        posCart.length > 0 &&
+        !(cartHasPackage && selectedCustomer.id === GUEST_CUSTOMER.id) &&
+        !isProcessing,
+    ),
+    onQuickPay: handleProcessPosPayment,
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const state = shortcutsStateRef.current;
+      if (state.activeTab !== 'pos' || state.hasOpenModal) return;
+      if (event.key === 'F2') {
+        event.preventDefault();
+        if (!state.booking) setShowCustomerDropdown(true);
+        customerSearchInputRef.current?.focus();
+      } else if (event.key === 'F4') {
+        event.preventDefault();
+        couponInputRef.current?.focus();
+      } else if (event.key === 'F9') {
+        event.preventDefault();
+        if (state.canQuickPay) {
+          void state.onQuickPay();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const handleStartAutoPayQr = async (targetKind: 'POS' | 'TUITION') => {
+    if (isCreatingPendingQr) return;
+    if (selectedBranchId === 'ALL') {
+      toast.warning('Chưa chọn chi nhánh', 'Vui lòng chọn cơ sở chi nhánh cụ thể trước khi tạo mã QR tự động.');
+      return;
+    }
+    if (!currentShift || currentShift.branchId !== selectedBranchId) {
+      toast.warning('Chưa mở ca thu ngân', 'Vui lòng mở ca thu ngân trước khi tạo QR tự động.');
+      setShowOpenShiftModal(true);
+      return;
+    }
+
+    if (posSettings.enable_vietqr === false) {
+      toast.error('Kênh VietQR đang tắt', 'Cấu hình POS hiện đang tắt thanh toán VietQR.');
+      return;
+    }
+
+    setIsCreatingPendingQr(true);
+    try {
+      if (targetKind === 'TUITION') {
+        if (!selectedEnrollment) {
+          toast.error('Thiếu hồ sơ', 'Vui lòng chọn học viên để tạo mã QR học phí.');
+          return;
+        }
+        if (tuitionPaymentAmount <= 0) {
+          toast.error('Số tiền không hợp lệ', 'Vui lòng nhập số tiền cần thu lớn hơn 0.');
+          return;
+        }
+        const pendingRes = await posService.createPendingQr({
+          kind: 'TUITION',
+          enrollmentId: selectedEnrollment.id,
+          amount: tuitionPaymentAmount,
+          shiftId: currentShift.id,
+          branchId: currentShift.branchId,
+          commissionStaffId: tuitionCommissionStaffId || selectedEnrollment.assignedStaffId || undefined,
+        });
+        if (!pendingRes.success || !pendingRes.data) throw new Error(pendingRes.message);
+        const payosRes = await paymentGatewayService.createPayosPaymentLink({
+          amount: pendingRes.data.amount,
+          description: pendingRes.data.transferContent,
+          orderCode: pendingRes.data.orderCode,
+          enrollmentId: selectedEnrollment.id,
+          customerName: getEnrollmentStudentName(selectedEnrollment),
+          customerPhone: getEnrollmentStudentPhone(selectedEnrollment),
+        });
+        setPendingPosQr({
+          kind: 'TUITION',
+          enrollmentId: selectedEnrollment.id,
+          baselinePaid: Number(selectedEnrollment.amountPaid || 0),
+          orderCode: pendingRes.data.orderCode,
+          amount: pendingRes.data.amount,
+          transferContent: pendingRes.data.transferContent,
+          qrUrl: pendingRes.data.qrUrl,
+          bankAccountNo: pendingRes.data.bankAccountNo,
+          bankAccountName: pendingRes.data.bankAccountName,
+          checkoutUrl: payosRes.data?.checkoutUrl,
+          isPaid: false,
+        });
+        toast.success('Đã tạo QR học phí tự động', `Chờ khách quét mã với nội dung ${pendingRes.data.transferContent}`);
+        return;
+      }
+
+      if (posCart.length === 0) {
+        toast.warning('Đơn hàng trống', 'Vui lòng chọn ít nhất 1 dịch vụ, gói hoặc sản phẩm.');
+        return;
+      }
+      const hasPackage = posCart.some((i) => i.type === 'PACKAGE') || isTreatmentRegistration;
+      if (hasPackage && selectedCustomer.id === GUEST_CUSTOMER.id) {
+        toast.error('Yêu cầu khách hàng định danh', 'Gói liệu trình bắt buộc gắn với hồ sơ khách hàng.');
+        return;
+      }
+      if (posSettings.require_discount_reason && discountAmount > 0 && !appliedCouponCode && !booking?.id && !discountReason.trim()) {
+        toast.warning('Thiếu lý do giảm giá', 'Cấu hình POS yêu cầu nhập lý do khi giảm giá thủ công.');
+        return;
+      }
+      const targetCustomerId = isUuid(selectedCustomer.id) ? selectedCustomer.id : GUEST_CUSTOMER.id;
+      const isSinglePackage = !booking?.id && posCart.length === 1 && posCart[0].type === 'PACKAGE' && posCart[0].quantity === 1;
+      const qrKind: 'BOOKING' | 'PACKAGE' | 'CART' = booking?.id ? 'BOOKING' : isSinglePackage ? 'PACKAGE' : 'CART';
+      const pendingRes = await posService.createPendingQr({
+        kind: qrKind,
+        ...(booking?.id
+          ? { bookingId: booking.id }
+          : isSinglePackage
+            ? { packageId: posCart[0].packageId || posCart[0].id }
+            : { items: posCart.map((item) => ({ id: item.id, type: item.type, quantity: item.quantity, serviceId: item.serviceId, packageId: item.packageId })) }),
+        customerId: targetCustomerId,
+        branchId: currentShift.branchId,
+        shiftId: currentShift.id,
+        vatRate,
+        discountAmount,
+        expectedTotal: cartTotal,
+        commissionStaffId: selectedCommissionStaffId || undefined,
+        couponCode: appliedCouponCode || undefined,
+        userVoucherId: selectedUserVoucherId || undefined,
+        redeemPoints: effectiveRedeemPoints > 0 ? effectiveRedeemPoints : undefined,
+        discountReason: discountReason.trim() || undefined,
+      });
+      if (!pendingRes.success || !pendingRes.data) throw new Error(pendingRes.message);
+      const payosRes = await paymentGatewayService.createPayosPaymentLink({
+        amount: pendingRes.data.amount,
+        description: pendingRes.data.transferContent,
+        orderCode: pendingRes.data.orderCode,
+        invoiceId: pendingRes.data.invoiceId,
+        invoiceCode: pendingRes.data.invoiceCode,
+        bookingId: booking?.id,
+        customerName: selectedCustomer.fullName,
+        customerPhone: selectedCustomer.phone,
+      });
+      setPendingPosQr({
+        kind: qrKind,
+        invoiceId: pendingRes.data.invoiceId,
+        invoiceCode: pendingRes.data.invoiceCode,
+        orderCode: pendingRes.data.orderCode,
+        amount: pendingRes.data.amount,
+        transferContent: pendingRes.data.transferContent,
+        qrUrl: pendingRes.data.qrUrl,
+        bankAccountNo: pendingRes.data.bankAccountNo,
+        bankAccountName: pendingRes.data.bankAccountName,
+        checkoutUrl: payosRes.data?.checkoutUrl,
+        isPaid: false,
+      });
+      toast.success('Đã tạo QR đối soát tự động', `Mã hóa đơn chờ: ${pendingRes.data.invoiceCode}`);
+    } catch (err: any) {
+      toast.error('Không thể tạo QR tự động', err?.message || 'Vui lòng thử lại.');
+    } finally {
+      setIsCreatingPendingQr(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!pendingPosQr || pendingPosQr.isPaid) return;
+    let active = true;
+    const interval = window.setInterval(async () => {
+      if (!active) return;
+      try {
+        await paymentGatewayService.checkPayosStatus(pendingPosQr.orderCode);
+        if (pendingPosQr.kind !== 'TUITION' && pendingPosQr.invoiceId) {
+          const statusRes = await posService.getPendingQrStatus(pendingPosQr.invoiceId);
+          if (active && statusRes.success && statusRes.data?.isPaid) {
+            const inv = statusRes.data.invoice;
+            const pkg = statusRes.data.userPackage;
+            const activeBranch = branches.find((b) => b.id === (inv?.branch_id || currentShift?.branchId));
+            const techName =
+              statusRes.data.commissionStaffName ||
+              commissionStaff.find((s) => s.id === (inv?.commission_staff_id || selectedCommissionStaffId))?.fullName;
+            const packageInfo = buildPackageInfoFromRecord(pkg || null);
+            const totalAmt = Number(inv?.total_amount || pendingPosQr.amount || 0);
+            const subAmt = Number(inv?.subtotal || totalAmt);
+            const discAmt = Number(inv?.discount_amount || 0);
+            const vatAmt = Number(inv?.vat_amount || 0);
+            const vatR = Number(inv?.vat_rate || 0);
+
+            setSelectedReceiptData({
+              id: statusRes.data.invoiceCode || pendingPosQr.invoiceCode || '',
+              customerName: selectedCustomer.fullName || 'Khách hàng',
+              customerPhone: selectedCustomer.phone || '--',
+              customerEmail: selectedCustomer.email || undefined,
+              branchName: activeBranch?.name || 'Trụ sở MLD Việt Nam',
+              branchAddress: activeBranch ? `${activeBranch.address}, ${activeBranch.district}, ${activeBranch.city}` : undefined,
+              branchPhone: activeBranch?.phone,
+              serviceName: posCart.map((i) => `${i.name} (x${i.quantity})`).join(', ') || statusRes.data.invoiceCode,
+              category: pendingPosQr.kind === 'PACKAGE' ? 'PACKAGE' : 'SERVICE',
+              method: 'Chuyển khoản tự động (VietQR / PayOS)',
+              amount: `${totalAmt.toLocaleString('vi-VN')}đ`,
+              subtotal: `${subAmt.toLocaleString('vi-VN')}đ`,
+              discount: discAmt > 0 ? `${discAmt.toLocaleString('vi-VN')}đ` : '0đ',
+              vatRateText: `${vatR}%`,
+              vatAmountText: `${vatAmt.toLocaleString('vi-VN')}đ`,
+              shiftCode: currentShift?.shiftCode,
+              date: new Intl.DateTimeFormat('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              }).format(new Date()),
+              status: 'Đã thanh toán tự động 100%',
+              technicianName: techName,
+              userPackageId: pkg?.id,
+              packageDefinitionId: pkg?.package_id,
+              packageInfo,
+              sourceKind: classifyPosSource(booking?.id, posCart),
+              lineItems: posCart.map((item) => ({ description: item.name, quantity: item.quantity, unitPrice: item.unitPrice, amount: item.unitPrice * item.quantity })),
+              subtotalValue: subAmt,
+              discountValue: discAmt,
+              pointsRedeemedValue: Number(inv?.points_redeemed_amount || 0),
+              vatRateValue: vatR,
+              vatAmountValue: vatAmt,
+              totalValue: totalAmt,
+            });
+            setPendingPosQr(null);
+            supabaseService.invalidateCache('user_packages');
+            supabaseService.invalidateCache('invoices');
+            clearCart();
+            setShowReceiptModal(true);
+            triggerAutoPrintIfConfigured();
+            toast.success('Nhận tiền tự động thành công!', `Hóa đơn ${statusRes.data.invoiceCode} đã được chốt tự động.`);
+            await fetchPosData();
+          }
+        } else if (pendingPosQr.kind === 'TUITION' && pendingPosQr.enrollmentId) {
+          supabaseService.invalidateCache('course_enrollments');
+          supabaseService.invalidateCache('tuition_transactions');
+          const enrRes = await academyService.getEnrollments({ fresh: true });
+          if (!active || !enrRes.success || !enrRes.data) return;
+          const updated = enrRes.data.find((e) => e.id === pendingPosQr.enrollmentId);
+          if (!updated) return;
+          const newPaid = Number(updated.amountPaid || 0);
+          if (newPaid > Number(pendingPosQr.baselinePaid || 0)) {
+            const received = newPaid - Number(pendingPosQr.baselinePaid || 0);
+            const activeBranch = selectedBranchId !== 'ALL' ? branches.find((b) => b.id === selectedBranchId) : branches[0];
+            const totalT = updated.finalTuition ?? updated.tuitionTotal ?? 0;
+            const remainingTuition = Math.max(0, totalT - newPaid);
+            setAllEnrollments(enrRes.data);
+            if (currentShift?.branchId) {
+              const shiftRes = await posService.getActiveShift(currentShift.branchId);
+              if (shiftRes.success) setCurrentShift(shiftRes.data || null);
+            }
+            setSelectedEnrollment(updated);
+            setTuitionPaymentAmount(remainingTuition);
+            setTuitionLedgerRevision((rev) => rev + 1);
+            setPendingPosQr(null);
+            setSelectedReceiptData({
+              id: updated.orderCode || pendingPosQr.transferContent,
+              customerName: getEnrollmentStudentName(updated),
+              customerPhone: getEnrollmentStudentPhone(updated),
+              branchName: activeBranch?.name || 'Trụ sở MLD Việt Nam',
+              branchAddress: activeBranch ? `${activeBranch.address}, ${activeBranch.district}, ${activeBranch.city}` : undefined,
+              branchPhone: activeBranch?.phone,
+              serviceName: getEnrollmentCourseTitle(updated),
+              category: 'ACADEMY',
+              method: 'Chuyển khoản tự động (VietQR / PayOS)',
+              amount: `${received.toLocaleString('vi-VN')}đ`,
+              subtotal: `${received.toLocaleString('vi-VN')}đ`,
+              vatRateText: '0%',
+              vatAmountText: '0đ',
+              shiftCode: currentShift?.shiftCode,
+              date: new Intl.DateTimeFormat('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              }).format(new Date()),
+              status: remainingTuition === 0 ? 'Đã tất toán toàn khóa' : `Đã nhận tự động (còn nợ ${remainingTuition.toLocaleString('vi-VN')}đ)`,
+              technicianName: commissionStaff.find((s) => s.id === (tuitionCommissionStaffId || updated.assignedStaffId))?.fullName,
+              sourceKind: 'TUITION',
+              lineItems: [{ description: getEnrollmentCourseTitle(updated), quantity: 1, unitPrice: received, amount: received }],
+              subtotalValue: received,
+              discountValue: 0,
+              vatRateValue: 0,
+              vatAmountValue: 0,
+              totalValue: received,
+            });
+            setShowReceiptModal(true);
+            triggerAutoPrintIfConfigured();
+            toast.success('Nhận học phí tự động thành công!', `Đã đối soát ${received.toLocaleString('vi-VN')}đ cho hồ sơ ${updated.orderCode || ''}.`);
+            await fetchPosData();
+          }
+        }
+      } catch {
+      }
+    }, 3500);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [pendingPosQr]);
+
+  useEffect(() => {
+    setPendingPosQr((prev) => {
+      if (!prev) return null;
+      if (prev.kind === 'TUITION') {
+        if (tuitionMethod !== 'transfer') return null;
+        if (prev.enrollmentId !== selectedEnrollment?.id) return null;
+        if (prev.amount !== tuitionPaymentAmount) return null;
+        return prev;
+      }
+      if (selectedMethod !== 'transfer') return null;
+      if (prev.amount !== cartTotal) return null;
+      return prev;
+    });
+  }, [cartTotal, selectedMethod, tuitionMethod, selectedEnrollment?.id, tuitionPaymentAmount]);
 
   // -------------------------------------------------------------
   // WALK-IN QUICK BOOKING MODAL HANDLER
@@ -1134,8 +1938,12 @@ export const W07_CashierPOS: React.FC = () => {
       return;
     }
     if (due === 0) { toast.warning('Đã thu đủ học phí', 'Hồ sơ này không còn khoản phải thu.'); return; }
+    if ((tuitionMethod === 'onsite' && posSettings.enable_cash === false) || (tuitionMethod === 'transfer' && posSettings.enable_vietqr === false)) {
+      toast.error('Kênh thanh toán đang tắt', 'Cấu hình POS hiện không cho phép phương thức thu này.');
+      return;
+    }
     const amount = tuitionPaymentAmount;
-    if (selectedMethod === 'transfer' && !tuitionBankReference.trim()) {
+    if (tuitionMethod === 'transfer' && !tuitionBankReference.trim()) {
       toast.error('Thiếu mã giao dịch', 'Nhập mã giao dịch chuyển khoản trên sao kê.');
       return;
     }
@@ -1151,18 +1959,16 @@ export const W07_CashierPOS: React.FC = () => {
       return;
     }
 
-    if (selectedMethod === 'transfer' &&
+    if (tuitionMethod === 'transfer' &&
         !window.confirm(`Xác nhận đã đối chiếu sao kê và thực nhận ${amount.toLocaleString('vi-VN')}đ cho hồ sơ ${selectedEnrollment.orderCode || selectedEnrollment.id}?\nMã giao dịch: ${tuitionBankReference.trim()}`)) return;
 
     paymentLock.current = true;
     setIsProcessing(true);
     try {
       const paymentMethodEnum =
-        selectedMethod === 'onsite'
+        tuitionMethod === 'onsite'
           ? PaymentMethod.CASH_AT_SPA
-          : selectedMethod === 'transfer'
-          ? PaymentMethod.BANK_TRANSFER
-          : PaymentMethod.MOMO;
+          : PaymentMethod.BANK_TRANSFER;
 
       const activeBranch = selectedBranchId !== 'ALL' ? branches.find((b) => b.id === selectedBranchId) : branches[0];
       const validBranchId = isUuid(selectedEnrollment.batch?.branchId)
@@ -1172,10 +1978,12 @@ export const W07_CashierPOS: React.FC = () => {
 
       const collection = await posService.collectPayment({ kind: 'TUITION', enrollmentId: selectedEnrollment.id, amount,
         shiftId: currentShift.id, branchId: currentShift.branchId,
-        bankReference: selectedMethod === 'transfer' ? tuitionBankReference.trim() : undefined,
-        paymentMethod: paymentMethodEnum as PaymentMethod.CASH_AT_SPA | PaymentMethod.BANK_TRANSFER });
+        commissionStaffId: tuitionCommissionStaffId || undefined,
+        bankReference: tuitionMethod === 'transfer' ? tuitionBankReference.trim() : undefined,
+        paymentMethod: paymentMethodEnum });
       if (!collection.success || !collection.data?.transactionCode) throw new Error(collection.message);
       setTuitionBankReference('');
+      setPendingPosQr(null);
       const generatedInvoiceCode = collection.data.transactionCode;
       const newPaidTotal = collection.data.paidTotal;
       supabaseService.invalidateCache('tuition_transactions');
@@ -1189,6 +1997,9 @@ export const W07_CashierPOS: React.FC = () => {
       const shift = await posService.getActiveShift(currentShift.branchId);
       if (shift.success) setCurrentShift(shift.data);
 
+      const tuitionSellerName = commissionStaff.find(
+        (s) => s.id === (tuitionCommissionStaffId || selectedEnrollment.assignedStaffId),
+      )?.fullName;
       setSelectedReceiptData({
         id: generatedInvoiceCode,
         customerName: getEnrollmentStudentName(selectedEnrollment),
@@ -1198,7 +2009,7 @@ export const W07_CashierPOS: React.FC = () => {
         branchPhone: activeBranch?.phone,
         serviceName: getEnrollmentCourseTitle(selectedEnrollment),
         category: 'ACADEMY',
-        method: selectedMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : 'Chuyển khoản VietQR',
+        method: tuitionMethod === 'onsite' ? 'Tiền mặt tại cơ sở' : 'Chuyển khoản VietQR',
         amount: `${amount.toLocaleString('vi-VN')}đ`,
         subtotal: `${amount.toLocaleString('vi-VN')}đ`,
         vatRateText: '0%',
@@ -1213,6 +2024,7 @@ export const W07_CashierPOS: React.FC = () => {
           year: 'numeric',
         }).format(new Date()),
         status: isFull ? 'Đã tất toán toàn khóa' : `Đã đóng đợt (còn nợ ${remainingTuition.toLocaleString('vi-VN')}đ)`,
+        technicianName: tuitionSellerName,
         sourceKind: 'TUITION',
         customerId: validCustomerId !== GUEST_CUSTOMER.id ? validCustomerId : undefined,
         lineItems: [{ description: getEnrollmentCourseTitle(selectedEnrollment), quantity: 1, unitPrice: amount, amount }],
@@ -1224,6 +2036,7 @@ export const W07_CashierPOS: React.FC = () => {
       });
 
       setShowReceiptModal(true);
+      triggerAutoPrintIfConfigured();
       toast.success('Đã thu học phí', `${amount.toLocaleString('vi-VN')}đ · ${generatedInvoiceCode}`);
       await Promise.all([fetchPosData(), loadTuitionEnrollments()]);
     } catch (err: any) {
@@ -1278,7 +2091,12 @@ export const W07_CashierPOS: React.FC = () => {
     const cust = inv.customer || allCustomers.find((c) => c.id === inv.customerId);
     const customerName = inv.receiptCustomerName || enrStudentName || cust?.fullName || 'Khách hàng MLD';
     const customerPhone = enrStudentPhone || cust?.phone || '--';
-    const customerTier = cust?.membershipTier || 'STANDARD';
+    const wsInv = workspaceInvoices.find((w) => w.id === inv.id || w.invoiceCode === inv.invoiceCode);
+    const packageInfo = buildPackageInfoFromRecord(inv.userPackage || null, wsInv);
+    const technicianName =
+      inv.commissionStaffName ||
+      wsInv?.commissionStaffName ||
+      (inv.commissionStaffId ? commissionStaff.find((s) => s.id === inv.commissionStaffId)?.fullName : undefined);
 
     const br = inv.branch || branches.find((b) => b.id === inv.branchId);
     const branchName = br?.name || 'Trụ sở MLD Việt Nam';
@@ -1317,7 +2135,7 @@ export const W07_CashierPOS: React.FC = () => {
         ? 'Tiền mặt tại cơ sở'
         : inv.paymentMethod === PaymentMethod.MOMO
         ? 'Ví điện tử MoMo'
-        : (inv.paymentMethod as string) === 'CREDIT_CARD'
+        : inv.paymentMethod === PaymentMethod.VNPAY || (inv.paymentMethod as string) === 'CREDIT_CARD'
         ? 'Quẹt thẻ POS'
         : 'Chuyển khoản VietQR';
 
@@ -1356,7 +2174,8 @@ export const W07_CashierPOS: React.FC = () => {
       customerName,
       customerPhone,
       customerAvatar: cust?.avatarUrl,
-      customerTier,
+      technicianName,
+      packageInfo,
       branchName,
       branchCode,
       branchDistrict,
@@ -1378,7 +2197,7 @@ export const W07_CashierPOS: React.FC = () => {
 
   const pastReceipts = useMemo(() => {
     return invoices.map(resolveReceiptDetail);
-  }, [invoices, allCustomers, branches, allEnrollments, allCourses, allBookings, treatmentPackages]);
+  }, [invoices, allCustomers, branches, allEnrollments, allCourses, allBookings, treatmentPackages, workspaceInvoices, commissionStaff]);
 
   const openReceiptEditor = (receipt: (typeof pastReceipts)[number]) => {
     const invoice = invoices.find((item) => item.id === receipt.rawId);
@@ -1515,10 +2334,14 @@ export const W07_CashierPOS: React.FC = () => {
     const code = selectedReceiptData?.id || 'HOA_DON_POS';
     try {
       setIsExportingPdf(true);
+      const pdfFormat: 'a5' | [number, number] =
+        receiptPrintMode === 'thermal80'
+          ? [80, Math.max(110, Math.round((el.scrollHeight / Math.max(1, el.scrollWidth)) * 80) + 6)]
+          : 'a5';
       await exportElementToPdf(el, {
         fileName: `HoaDon_MLD_${code}`,
         orientation: 'portrait',
-        format: 'a5',
+        format: pdfFormat,
         scale: 2.5,
       });
       toast.success('Xuất file thành công', `Đã tải về hóa đơn điện tử HoaDon_MLD_${code}.pdf`);
@@ -1654,7 +2477,7 @@ export const W07_CashierPOS: React.FC = () => {
     }
     return allCustomers.filter((c) => {
       if (!isUuid(c.id) || c.id === GUEST_CUSTOMER.id) return false;
-      return matchSearch([c.fullName, c.phone, c.email, c.membershipTier], q);
+      return matchSearch([c.fullName, c.phone, c.email], q);
     }).slice(0, 15);
   }, [allCustomers, customerSearchKeyword]);
 
@@ -2372,6 +3195,7 @@ export const W07_CashierPOS: React.FC = () => {
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 text-[#8C7A6B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
+                    ref={customerSearchInputRef}
                     type="text"
                     disabled={Boolean(booking)}
                     value={customerSearchKeyword}
@@ -2432,12 +3256,8 @@ export const W07_CashierPOS: React.FC = () => {
                             <div className="text-[11px] text-[#73675F]">0900000000 · Thanh toán nhanh tại quầy</div>
                           </div>
                         </div>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FAF0E4] text-[#8A4F23]">
-                          STANDARD
-                        </span>
                       </button>
 
-                      {/* Filtered Customer List */}
                       {filteredCustomers.length > 0 ? (
                         filteredCustomers.map((cust) => {
                           const isSelected = selectedCustomer.id === cust.id;
@@ -2463,19 +3283,6 @@ export const W07_CashierPOS: React.FC = () => {
                                   <div className="text-[11px] text-[#73675F]">{cust.phone || 'Chưa có SĐT'}</div>
                                 </div>
                               </div>
-                              <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                  cust.membershipTier === 'DIAMOND'
-                                    ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                                    : cust.membershipTier === 'GOLD'
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                    : cust.membershipTier === 'SILVER'
-                                    ? 'bg-slate-100 text-slate-700 border border-slate-200'
-                                    : 'bg-[#FAF0E4] text-[#8A4F23]'
-                                }`}
-                              >
-                                {cust.membershipTier || 'STANDARD'}
-                              </span>
                             </button>
                           );
                         })
@@ -2512,29 +3319,20 @@ export const W07_CashierPOS: React.FC = () => {
                     {selectedCustomer.id === GUEST_CUSTOMER.id ? '👤' : (selectedCustomer.fullName?.charAt(0).toUpperCase() || 'K')}
                   </div>
                   <div>
-                    <div className="font-bold text-[#2C241E] flex items-center gap-1.5">
+                    <div className="font-bold text-[#2C241E] flex items-center gap-1.5 flex-wrap">
                       <span>{selectedCustomer.fullName}</span>
-                      {selectedCustomer.id === GUEST_CUSTOMER.id && (
+                      {selectedCustomer.id === GUEST_CUSTOMER.id ? (
                         <span className="text-[10px] px-1 py-0.2 bg-[#EFE4D9] text-[#73675F] rounded font-medium">Vãng lai</span>
-                      )}
+                      ) : customerBenefits?.loyaltySettings.isActive ? (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded font-bold border border-amber-200">
+                          {customerBenefits.rewardPoints.toLocaleString('vi-VN')} điểm
+                        </span>
+                      ) : null}
                     </div>
                     <div className="text-[11px] text-[#73675F]">{selectedCustomer.phone || 'Không có SĐT'}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                      selectedCustomer.membershipTier === 'DIAMOND'
-                        ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                        : selectedCustomer.membershipTier === 'GOLD'
-                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                        : selectedCustomer.membershipTier === 'SILVER'
-                        ? 'bg-slate-100 text-slate-700 border border-slate-200'
-                        : 'bg-[#FAF0E4] text-[#8A4F23] border border-[#E8DFD8]'
-                    }`}
-                  >
-                    {selectedCustomer.membershipTier || 'STANDARD'}
-                  </span>
                   {selectedCustomer.id !== GUEST_CUSTOMER.id && !booking && (
                     <button
                       type="button"
@@ -2651,26 +3449,29 @@ export const W07_CashierPOS: React.FC = () => {
               )}
             </div>
 
-            {/* Staff / Technician Attribution */}
             <div>
               <label className="block text-xs font-bold text-[#2C241E] mb-1">
-                KTV / Chuyên viên hưởng hoa hồng:
+                Nhân viên bán hàng / KTV hưởng hoa hồng:
               </label>
               <div className="relative">
                 <select
                   value={selectedCommissionStaffId}
-                  onChange={(e) => setSelectedCommissionStaffId(e.target.value)}
+                  onChange={(e) => {
+                    commissionStaffManuallySet.current = true;
+                    setSelectedCommissionStaffId(e.target.value);
+                  }}
                   className="w-full h-9 px-3 pr-8 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] text-xs font-medium text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer appearance-none"
                 >
-                  <option value="">-- Tùy chọn: Chọn người thực hiện --</option>
+                  <option value="">-- Tùy chọn: Chọn nhân viên bán hàng --</option>
                   {commissionStaff.map((st) => (
                     <option key={st.id} value={st.id}>
-                      👤 {st.fullName} ({st.staffProfile.commissionRate || 10}%)
+                      👤 {st.fullName} (DV {st.staffProfile.commissionRate ?? 0}% · Gói {st.staffProfile.packageCommissionRate ?? 0}% · SP {st.staffProfile.productCommissionRate ?? 0}%)
                     </option>
                   ))}
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
+              {renderCommissionStaffHint()}
             </div>
 
             {/* Pricing Breakdown & VAT */}
@@ -2680,37 +3481,199 @@ export const W07_CashierPOS: React.FC = () => {
                 <span className="font-semibold text-[#2C241E]">{cartSubtotal.toLocaleString('vi-VN')}đ</span>
               </div>
 
-              {/* Discount Input */}
-              <div className="flex items-center justify-between text-[#73675F]">
-                <div>
-                  <span>Chiết khấu / Ưu đãi</span>
-                  {packageHasPreconfiguredDiscount && (
-                    <div className="text-[10px] text-amber-700 font-medium">Gói đã áp dụng giá ưu đãi niêm yết</div>
-                  )}
-                  {booking?.id && (
-                    <div className="text-[10px] text-sky-800 font-medium">Chiết khấu theo lịch hẹn đã xác nhận</div>
-                  )}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[#73675F] gap-2">
+                  <div>
+                    <span>Chiết khấu / Ưu đãi</span>
+                    {packageHasPreconfiguredDiscount && (
+                      <div className="text-[10px] text-amber-700 font-medium">Gói đã áp dụng giá ưu đãi niêm yết</div>
+                    )}
+                    {booking?.id && (
+                      <div className="text-[10px] text-sky-800 font-medium">Chiết khấu theo lịch hẹn đã xác nhận</div>
+                    )}
+                    {appliedCouponCode && (
+                      <div className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                        <span>Đang áp dụng mã {appliedCouponCode}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAppliedCouponCode('');
+                            setSelectedUserVoucherId('');
+                            setCouponInput('');
+                            setDiscountAmount(0);
+                            setDiscountReason('');
+                          }}
+                          className="text-rose-600 hover:underline cursor-pointer"
+                        >
+                          Bỏ mã
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 flex-wrap justify-end">
+                    <div className="flex items-center gap-1">
+                      <input
+                        ref={couponInputRef}
+                        type="text"
+                        value={couponInput}
+                        onChange={(e) => {
+                          setSelectedUserVoucherId('');
+                          setCouponInput(e.target.value.toUpperCase());
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            applyCouponCode(couponInput);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          if (!selectedUserVoucherId && e.target.value.trim() && e.target.value.trim().toUpperCase() !== appliedCouponCode) {
+                            applyCouponCode(e.target.value);
+                          }
+                        }}
+                        placeholder="Mã giảm giá / voucher"
+                        disabled={isTreatmentRegistration || packageHasPreconfiguredDiscount || Boolean(booking?.id)}
+                        className="w-28 py-0.5 px-1.5 border border-[#E8DFD8] bg-white rounded text-[11px] text-[#2C241E] focus:outline-none focus:border-[#985018] disabled:bg-[#F1ECE7]"
+                      />
+                      <button
+                        type="button"
+                        disabled={isTreatmentRegistration || packageHasPreconfiguredDiscount || Boolean(booking?.id) || !couponInput.trim()}
+                        onClick={() => applyCouponCode(couponInput)}
+                        className="px-2 py-0.5 rounded border border-[#985018]/30 bg-[#FAF0E4] text-[10px] font-bold text-[#8A4F23] hover:bg-[#F3E2CE] disabled:opacity-40 cursor-pointer"
+                      >
+                        Áp dụng
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step="10000"
+                      value={discountAmount || ''}
+                      onChange={(e) => {
+                        setAppliedCouponCode('');
+                        setSelectedUserVoucherId('');
+                        setDiscountAmount(Math.max(0, Number(e.target.value) || 0));
+                      }}
+                      placeholder="0"
+                      disabled={isTreatmentRegistration || packageHasPreconfiguredDiscount || Boolean(booking?.id)}
+                      title={
+                        booking?.id
+                          ? 'Chiết khấu và ưu đãi được áp dụng theo lịch hẹn đã đặt.'
+                          : isTreatmentRegistration || packageHasPreconfiguredDiscount
+                          ? 'Gói liệu trình sử dụng đúng giá ưu đãi đã cấu hình của gói.'
+                          : undefined
+                      }
+                      className="w-20 text-right py-0.5 px-1.5 border border-[#E8DFD8] bg-white rounded text-xs font-semibold text-emerald-700 focus:outline-none focus:border-[#985018] disabled:bg-[#F1ECE7] disabled:text-[#9A8E84] disabled:cursor-not-allowed"
+                    />
+                    <span className="font-bold text-emerald-700">đ</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
+                {!isTreatmentRegistration &&
+                  !packageHasPreconfiguredDiscount &&
+                  !booking?.id &&
+                  !benefitsLoading &&
+                  ((customerBenefits?.userVouchers?.length || 0) > 0 || (customerBenefits?.publicCoupons?.length || 0) > 0) && (
+                    <div className="space-y-1 pt-0.5">
+                      <div className="text-[10px] font-semibold text-[#8C7A6B]">Chọn nhanh ưu đãi khả dụng:</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {customerBenefits?.userVouchers.map((uv) => {
+                          const active = selectedUserVoucherId === uv.id;
+                          return (
+                            <button
+                              key={`uv-${uv.id}`}
+                              type="button"
+                              onClick={() =>
+                                applyBenefitCoupon({
+                                  code: uv.code,
+                                  title: uv.title,
+                                  discountPercent: uv.discountPercent,
+                                  discountAmount: uv.discountAmount,
+                                  maxDiscountAmount: uv.maxDiscountAmount,
+                                  minOrderAmount: uv.minOrderAmount,
+                                  userVoucherId: uv.id,
+                                })
+                              }
+                              className={`px-2 py-0.5 rounded-md border text-[10px] font-bold transition-colors cursor-pointer ${
+                                active
+                                  ? 'bg-[#985018] text-white border-[#985018]'
+                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                              }`}
+                            >
+                              Ví khách · {uv.code} ({uv.discountPercent > 0 ? `-${uv.discountPercent}%` : `-${uv.discountAmount.toLocaleString('vi-VN')}đ`})
+                            </button>
+                          );
+                        })}
+                        {customerBenefits?.publicCoupons.map((cp) => {
+                          const active = !selectedUserVoucherId && appliedCouponCode === cp.code;
+                          return (
+                            <button
+                              key={`cp-${cp.id}`}
+                              type="button"
+                              onClick={() => applyBenefitCoupon(cp)}
+                              className={`px-2 py-0.5 rounded-md border text-[10px] font-bold transition-colors cursor-pointer ${
+                                active
+                                  ? 'bg-[#985018] text-white border-[#985018]'
+                                  : 'bg-white text-[#8A4F23] border-[#E8DFD8] hover:bg-[#FAF0E4]'
+                              }`}
+                            >
+                              {cp.code} ({cp.discountPercent > 0 ? `-${cp.discountPercent}%` : `-${cp.discountAmount.toLocaleString('vi-VN')}đ`})
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                {selectedCustomer.id !== GUEST_CUSTOMER.id &&
+                  !isTreatmentRegistration &&
+                  !cartHasPackage &&
+                  !booking?.id &&
+                  customerBenefits?.loyaltySettings.isActive &&
+                  customerBenefits.rewardPoints > 0 && (
+                    <div className="pt-2 border-t border-dashed border-[#E8DFD8] space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[#73675F]">
+                          <span className="font-semibold text-[#2C241E]">Đổi điểm thưởng</span>
+                          <span className="block text-[10px] text-[#8C7A6B]">
+                            Có {customerBenefits.rewardPoints.toLocaleString('vi-VN')} điểm · 1 điểm = {customerBenefits.loyaltySettings.redeemValuePerPoint.toLocaleString('vi-VN')}đ (tối đa {customerBenefits.loyaltySettings.maxRedeemPercentPerOrder}%)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min={0}
+                            max={maxRedeemablePts}
+                            value={effectiveRedeemPoints || ''}
+                            onChange={(e) => setRedeemPoints(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                            placeholder="0 điểm"
+                            className="w-16 text-right py-0.5 px-1.5 border border-[#E8DFD8] bg-white rounded text-[11px] font-semibold text-[#985018] focus:outline-none focus:border-[#985018]"
+                          />
+                          <button
+                            type="button"
+                            disabled={maxRedeemablePts <= 0}
+                            onClick={() => setRedeemPoints(maxRedeemablePts)}
+                            className="px-2 py-0.5 rounded border border-amber-300 bg-amber-50 text-[10px] font-bold text-amber-800 hover:bg-amber-100 disabled:opacity-40 cursor-pointer"
+                          >
+                            Dùng tối đa ({maxRedeemablePts})
+                          </button>
+                        </div>
+                      </div>
+                      {pointsDiscountValue > 0 && (
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-amber-800">
+                          <span>Giảm trừ từ {effectiveRedeemPoints.toLocaleString('vi-VN')} điểm</span>
+                          <span>-{pointsDiscountValue.toLocaleString('vi-VN')}đ</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                {posSettings.require_discount_reason && discountAmount > 0 && !appliedCouponCode && !booking?.id && (
                   <input
-                    type="number"
-                    min="0"
-                    step="10000"
-                    value={discountAmount || ''}
-                    onChange={(e) => setDiscountAmount(Math.max(0, Number(e.target.value) || 0))}
-                    placeholder="0"
-                    disabled={isTreatmentRegistration || packageHasPreconfiguredDiscount || Boolean(booking?.id)}
-                    title={
-                      booking?.id
-                        ? 'Chiết khấu và ưu đãi được áp dụng theo lịch hẹn đã đặt.'
-                        : isTreatmentRegistration || packageHasPreconfiguredDiscount
-                        ? 'Gói liệu trình sử dụng đúng giá ưu đãi đã cấu hình của gói.'
-                        : undefined
-                    }
-                    className="w-20 text-right py-0.5 px-1.5 border border-[#E8DFD8] bg-white rounded text-xs font-semibold text-emerald-700 focus:outline-none focus:border-[#985018] disabled:bg-[#F1ECE7] disabled:text-[#9A8E84] disabled:cursor-not-allowed"
+                    type="text"
+                    value={discountReason}
+                    onChange={(e) => setDiscountReason(e.target.value)}
+                    placeholder="Nhập lý do giảm giá thủ công (bắt buộc theo cấu hình POS)..."
+                    className="w-full py-1 px-2 border border-amber-300 bg-amber-50/40 rounded text-[11px] text-[#2C241E] focus:outline-none focus:border-[#985018]"
                   />
-                  <span className="font-bold text-emerald-700">đ</span>
-                </div>
+                )}
               </div>
 
               {/* VAT Switcher (8% Chuẩn Y tế) */}
@@ -2754,8 +3717,9 @@ export const W07_CashierPOS: React.FC = () => {
               <div className="grid grid-cols-3 gap-1.5">
                 <button
                   type="button"
+                  disabled={posSettings.enable_cash === false}
                   onClick={() => setSelectedMethod('onsite')}
-                  className={`py-2 px-1.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                  className={`py-2 px-1.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                     selectedMethod === 'onsite'
                       ? 'bg-[#985018] text-white border-[#985018] shadow-xs'
                       : 'bg-white text-[#73675F] border-[#E8DFD8] hover:bg-[#FAF8F5]'
@@ -2766,8 +3730,9 @@ export const W07_CashierPOS: React.FC = () => {
                 </button>
                 <button
                   type="button"
+                  disabled={posSettings.enable_vietqr === false}
                   onClick={() => setSelectedMethod('transfer')}
-                  className={`py-2 px-1.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                  className={`py-2 px-1.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                     selectedMethod === 'transfer'
                       ? 'bg-[#985018] text-white border-[#985018] shadow-xs'
                       : 'bg-white text-[#73675F] border-[#E8DFD8] hover:bg-[#FAF8F5]'
@@ -2778,8 +3743,9 @@ export const W07_CashierPOS: React.FC = () => {
                 </button>
                 <button
                   type="button"
+                  disabled={posSettings.enable_card_pos === false}
                   onClick={() => setSelectedMethod('online')}
-                  className={`py-2 px-1.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                  className={`py-2 px-1.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                     selectedMethod === 'online'
                       ? 'bg-[#985018] text-white border-[#985018] shadow-xs'
                       : 'bg-white text-[#73675F] border-[#E8DFD8] hover:bg-[#FAF8F5]'
@@ -2791,62 +3757,110 @@ export const W07_CashierPOS: React.FC = () => {
               </div>
             </div>
 
-            {/* Dynamic VietQR Preview Card (If Transfer Selected) */}
-            {selectedMethod === 'transfer' && cartTotal > 0 && (
-              <div className="p-3 bg-white rounded-2xl border border-sky-200 shadow-xs space-y-2 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-sky-800 flex items-center gap-1">
-                    <QrCode className="w-3.5 h-3.5" />
-                    <span>Mã thanh toán VietQR động</span>
-                  </span>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                    Khớp tiền tự động
-                  </span>
-                </div>
+            {selectedMethod === 'transfer' && cartTotal > 0 && (() => {
+              const activeQr = pendingPosQr && pendingPosQr.kind !== 'TUITION' ? pendingPosQr : null;
+              return (
+                <div className="p-3 bg-white rounded-2xl border border-sky-200 shadow-xs space-y-2.5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between text-xs gap-2">
+                    <span className="font-bold text-sky-800 flex items-center gap-1">
+                      <QrCode className="w-3.5 h-3.5" />
+                      <span>{activeQr ? 'QR đang chờ tiền tự động' : 'Thanh toán VietQR tự động'}</span>
+                    </span>
+                    {activeQr ? (
+                      <span className="text-[10px] font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded flex items-center gap-1 border border-sky-200">
+                        <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                        Đang chờ webhook
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                        Chưa kích hoạt QR
+                      </span>
+                    )}
+                  </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="w-24 h-24 bg-white p-1 rounded-xl border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
-                    <img
-                      src={dynamicVietQrUrl}
-                      alt="VietQR MLD"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <div className="text-[11px] space-y-1 flex-1">
-                    <div>
-                      <span className="text-slate-500">Ngân hàng:</span> <strong>MBBank</strong>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Số tài khoản:</span>
+                  {activeQr ? (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <div className="w-24 h-24 bg-white p-1 rounded-xl border border-slate-200 shrink-0 flex items-center justify-center overflow-hidden">
+                          <img
+                            src={activeQr.qrUrl}
+                            alt="VietQR MLD"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <div className="text-[11px] space-y-1 flex-1">
+                          <div>
+                            <span className="text-slate-500">Ngân hàng:</span> <strong>MBBank</strong>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500">Số tài khoản:</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(activeQr.bankAccountNo, 'STK')}
+                              className="font-mono font-bold text-sky-800 hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              {activeQr.bankAccountNo} <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Chủ TK:</span> <strong>{activeQr.bankAccountName}</strong>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500">Số tiền:</span>
+                            <strong className="text-emerald-700 font-bold">{cartTotal.toLocaleString('vi-VN')}đ</strong>
+                          </div>
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                            <span className="text-slate-500">Nội dung CK:</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(activeQr.transferContent, 'Nội dung')}
+                              className="font-mono text-[10px] font-bold text-slate-700 hover:underline flex items-center gap-0.5 cursor-pointer"
+                            >
+                              {activeQr.transferContent} <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+                        <button
+                          type="button"
+                          disabled={isCreatingPendingQr}
+                          onClick={() => handleStartAutoPayQr('POS')}
+                          className="flex-1 py-1.5 px-2.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isCreatingPendingQr ? 'animate-spin' : ''}`} />
+                          <span>Tạo lại QR tự động</span>
+                        </button>
+                        {activeQr.checkoutUrl && (
+                          <a
+                            href={activeQr.checkoutUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="py-1.5 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-bold inline-flex items-center gap-1"
+                          >
+                            <span>Cổng PayOS</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-2 text-[11px] text-slate-600">
+                      <p>Nhấn nút bên dưới để phát hành hóa đơn chờ <code>HD-POS-...</code> và tạo mã QR đối soát tự động qua SePay / PayOS.</p>
                       <button
                         type="button"
-                        onClick={() => copyToClipboard('0394316963', 'STK')}
-                        className="font-mono font-bold text-sky-800 hover:underline flex items-center gap-1 cursor-pointer"
+                        disabled={isCreatingPendingQr}
+                        onClick={() => handleStartAutoPayQr('POS')}
+                        className="w-full py-2 px-3 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
                       >
-                        0394316963 <Copy className="w-3 h-3" />
+                        <QrCode className={`w-3.5 h-3.5 ${isCreatingPendingQr ? 'animate-spin' : ''}`} />
+                        <span>Tạo QR đối soát tự động ({cartTotal.toLocaleString('vi-VN')}đ)</span>
                       </button>
                     </div>
-                    <div>
-                      <span className="text-slate-500">Chủ TK:</span> <strong>BUI THE HOANG</strong>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Số tiền:</span>
-                      <strong className="text-emerald-700 font-bold">{cartTotal.toLocaleString('vi-VN')}đ</strong>
-                    </div>
-                    <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                      <span className="text-slate-500">Nội dung CK:</span>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(vietQrTransferMemo, 'Nội dung')}
-                        className="font-mono text-[10px] font-bold text-slate-700 hover:underline flex items-center gap-0.5 cursor-pointer"
-                      >
-                        {vietQrTransferMemo} <Copy className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Primary Action Button */}
             {(() => {
@@ -2930,6 +3944,11 @@ export const W07_CashierPOS: React.FC = () => {
                 </button>
               );
             })()}
+            <div className="text-[10px] text-center text-[#8C7A6B]">
+              Phím tắt nhanh: <kbd className="px-1 py-0.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded font-mono">F2</kbd> Tìm khách ·{' '}
+              <kbd className="px-1 py-0.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded font-mono">F4</kbd> Nhập mã ·{' '}
+              <kbd className="px-1 py-0.5 bg-[#FAF8F5] border border-[#E8DFD8] rounded font-mono">F9</kbd> Thu tiền
+            </div>
           </div>
           </div>
         </div>
@@ -3200,6 +4219,7 @@ export const W07_CashierPOS: React.FC = () => {
                             key={enr.id}
                             onClick={() => {
                               setSelectedEnrollment(enr);
+                              setTuitionCommissionStaffId(enr.assignedStaffId || '');
                               setTuitionPaymentAmount(due);
                               setIsTuitionStudentDropdownOpen(false);
                               setTuitionSearchTerm('');
@@ -3261,6 +4281,7 @@ export const W07_CashierPOS: React.FC = () => {
                             type="button"
                             onClick={() => {
                               setSelectedEnrollment(enr);
+                              setTuitionCommissionStaffId(enr.assignedStaffId || '');
                               const total = (enr.finalTuition ?? enr.tuitionTotal ?? 0);
                               const paid = enr.amountPaid || 0;
                               setTuitionPaymentAmount(Math.max(0, total - paid));
@@ -3343,15 +4364,37 @@ export const W07_CashierPOS: React.FC = () => {
                 <span>Quyết toán học phí học viên</span>
               </h2>
 
-              {/* Payment Method */}
+              <div>
+                <label className="block text-xs font-bold text-[#2C241E] mb-1">
+                  Nhân viên tư vấn / bán khóa học hưởng hoa hồng:
+                </label>
+                <div className="relative">
+                  <select
+                    value={tuitionCommissionStaffId}
+                    onChange={(e) => setTuitionCommissionStaffId(e.target.value)}
+                    className="w-full h-9 px-3 pr-8 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] text-xs font-medium text-[#2C241E] focus:outline-none focus:border-[#985018] cursor-pointer appearance-none"
+                  >
+                    <option value="">-- Giữ theo người phụ trách hồ sơ / Không chọn --</option>
+                    {commissionStaff.map((st) => (
+                      <option key={st.id} value={st.id}>
+                        👤 {st.fullName} ({st.staffProfile.commissionRate ?? 0}%)
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+                {renderCommissionStaffHint()}
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-[#2C241E] mb-1.5">Hình thức nộp phí:</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setSelectedMethod('onsite')}
-                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      selectedMethod === 'onsite'
+                    disabled={posSettings.enable_cash === false}
+                    onClick={() => setTuitionMethod('onsite')}
+                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                      tuitionMethod === 'onsite'
                         ? 'bg-[#985018] text-white border-[#985018]'
                         : 'bg-white text-[#73675F] border-[#E8DFD8]'
                     }`}
@@ -3361,9 +4404,10 @@ export const W07_CashierPOS: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSelectedMethod('transfer')}
-                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      selectedMethod === 'transfer'
+                    disabled={posSettings.enable_vietqr === false}
+                    onClick={() => setTuitionMethod('transfer')}
+                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                      tuitionMethod === 'transfer'
                         ? 'bg-[#985018] text-white border-[#985018]'
                         : 'bg-white text-[#73675F] border-[#E8DFD8]'
                     }`}
@@ -3487,17 +4531,52 @@ export const W07_CashierPOS: React.FC = () => {
 
                 return (
                   <>
-                  {selectedMethod === 'transfer' && (
-                    <label className="block space-y-1 text-xs font-semibold">
-                      Mã giao dịch ngân hàng trên sao kê
-                      <input
-                        className="block w-full rounded-xl border border-[#E8DFD8] px-3 py-2"
-                        value={tuitionBankReference}
-                        onChange={event => setTuitionBankReference(event.target.value)}
-                        maxLength={128}
-                        autoComplete="off"
-                      />
-                    </label>
+                  {tuitionMethod === 'transfer' && (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-[#FAF8F5] rounded-2xl border border-sky-200 space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-sky-900 flex items-center gap-1.5">
+                            <QrCode className="w-3.5 h-3.5" />
+                            <span>Chuyển khoản tự động (PayOS / SePay)</span>
+                          </span>
+                          {pendingPosQr?.kind === 'TUITION' && pendingPosQr.enrollmentId === selectedEnrollment.id && (
+                            <span className="text-[10px] font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200 inline-flex items-center gap-1">
+                              <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                              Đang chờ tự động
+                            </span>
+                          )}
+                        </div>
+                        {pendingPosQr?.kind === 'TUITION' && pendingPosQr.enrollmentId === selectedEnrollment.id && (
+                          <div className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-[#EFE4D9]">
+                            <img src={pendingPosQr.qrUrl} alt="VietQR Học phí" className="w-20 h-20 object-contain rounded" />
+                            <div className="text-[11px] space-y-0.5 flex-1">
+                              <div><strong>MBBank · {pendingPosQr.bankAccountNo}</strong></div>
+                              <div>Số tiền: <strong className="text-emerald-700">{pendingPosQr.amount.toLocaleString('vi-VN')}đ</strong></div>
+                              <div>Nội dung: <code className="font-mono font-bold text-[#985018]">{pendingPosQr.transferContent}</code></div>
+                            </div>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          disabled={isCreatingPendingQr || tuitionPaymentAmount <= 0}
+                          onClick={() => handleStartAutoPayQr('TUITION')}
+                          className="w-full py-2 px-3 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                          <span>{pendingPosQr?.kind === 'TUITION' && pendingPosQr.enrollmentId === selectedEnrollment.id ? 'Cập nhật lại QR học phí tự động' : 'Tạo QR học phí tự động đối soát'}</span>
+                        </button>
+                      </div>
+                      <label className="block space-y-1 text-xs font-semibold">
+                        Hoặc nhập mã giao dịch ngân hàng trên sao kê (ghi nhận tay)
+                        <input
+                          className="block w-full rounded-xl border border-[#E8DFD8] px-3 py-2"
+                          value={tuitionBankReference}
+                          onChange={event => setTuitionBankReference(event.target.value)}
+                          maxLength={128}
+                          autoComplete="off"
+                        />
+                      </label>
+                    </div>
                   )}
                   <button
                     type="button"
@@ -3785,7 +4864,6 @@ export const W07_CashierPOS: React.FC = () => {
                                       id: r.id,
                                       customerName: r.studentName,
                                       customerPhone: r.studentPhone,
-                                      customerTier: r.customerTier,
                                       branchName: r.branchName,
                                       serviceName: r.courseTitle,
                                       category: r.category,
@@ -3795,6 +4873,7 @@ export const W07_CashierPOS: React.FC = () => {
                                       discount: `${r.discountAmount.toLocaleString('vi-VN')}đ`,
                                       date: r.date,
                                       status: r.status,
+                                      technicianName: r.technicianName,
                                       lineItems: [{ description: r.courseTitle, quantity: 1, unitPrice: r.subtotal, amount: r.subtotal }],
                                       subtotalValue: r.subtotal,
                                       discountValue: r.discountAmount,
@@ -4048,6 +5127,7 @@ export const W07_CashierPOS: React.FC = () => {
               <option value="ALL">Tất cả phương thức</option>
               <option value={PaymentMethod.BANK_TRANSFER}>Chuyển khoản VietQR</option>
               <option value={PaymentMethod.CASH_AT_SPA}>Tiền mặt tại cơ sở</option>
+              <option value={PaymentMethod.VNPAY}>Quẹt thẻ POS</option>
               <option value={PaymentMethod.MOMO}>Ví điện tử MoMo</option>
             </select>
 
@@ -4118,7 +5198,6 @@ export const W07_CashierPOS: React.FC = () => {
                               id: r.id,
                               customerName: r.customerName,
                               customerPhone: r.customerPhone,
-                              customerTier: r.customerTier,
                               branchName: r.branchName,
                               serviceName: r.content,
                               category: r.category,
@@ -4128,11 +5207,15 @@ export const W07_CashierPOS: React.FC = () => {
                               discount: `${r.discountAmount.toLocaleString('vi-VN')}đ`,
                               date: r.date,
                               status: r.status,
+                              technicianName: r.technicianName,
+                              userPackageId: invoice?.userPackageId || undefined,
+                              packageInfo: r.packageInfo || null,
                               branchAddress: branch ? `${branch.address}, ${branch.district}, ${branch.city}` : undefined,
                               branchPhone: branch?.phone,
                               lineItems: invoice?.items?.map((item) => ({ description: item.itemName, quantity: Number(item.quantity || 1), unitPrice: Number(item.unitPrice || 0), amount: Number(item.amount || 0) })) || [{ description: r.content, quantity: 1, unitPrice: r.subtotal, amount: r.subtotal }],
                               subtotalValue: r.subtotal,
                               discountValue: r.discountAmount,
+                              pointsRedeemedValue: Number(invoice?.pointsRedeemedAmount || 0),
                               vatRateValue: Number(invoice?.vatRate || 0),
                               vatAmountValue: Number(invoice?.vatAmount || 0),
                               totalValue: r.netAmount,
@@ -4174,7 +5257,39 @@ export const W07_CashierPOS: React.FC = () => {
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
         >
           <div className="flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[#DDE5DD] bg-white text-xs shadow-2xl">
-            <div className="no-print relative border-b border-[#DDE5DD] bg-white px-6 py-4 text-left">
+            <div className="no-print relative border-b border-[#DDE5DD] bg-white px-6 py-4 text-left flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-extrabold text-[#153F3E]">
+                  {selectedReceiptData.userPackageId ? 'Liệu trình đã được kích hoạt!' : 'Thanh toán thành công!'}
+                </h3>
+                <p className="mt-0.5 text-[11px] text-[#5F7473]">
+                  {selectedReceiptData.userPackageId ? 'Hóa đơn và hồ sơ liệu trình đã liên kết thành công' : 'Biên lai điện tử MLD Healthcare & Spa'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 pr-8">
+                <button
+                  type="button"
+                  onClick={() => setReceiptPrintMode('thermal80')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                    receiptPrintMode === 'thermal80'
+                      ? 'bg-[#176F6C] text-white border-[#176F6C]'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  Máy in POS 80mm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReceiptPrintMode('a5')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                    receiptPrintMode === 'a5'
+                      ? 'bg-[#176F6C] text-white border-[#176F6C]'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  Khổ A5
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowReceiptModal(false)}
@@ -4182,17 +5297,10 @@ export const W07_CashierPOS: React.FC = () => {
               >
                 <X className="w-4 h-4" />
               </button>
-              <h3 className="text-base font-extrabold text-[#153F3E]">
-                {selectedReceiptData.userPackageId ? 'Liệu trình đã được kích hoạt!' : 'Thanh toán thành công!'}
-              </h3>
-              <p className="mt-0.5 text-[11px] text-[#5F7473]">
-                {selectedReceiptData.userPackageId ? 'Hóa đơn và hồ sơ liệu trình đã liên kết thành công' : 'Biên lai điện tử MLD Healthcare & Spa'}
-              </p>
             </div>
 
-            {/* Receipt Content Body */}
             <div className="overflow-y-auto bg-[#DCE4DE] p-3 sm:p-6">
-              <MLDInvoiceDocument data={{
+              <MLDInvoiceDocument mode={receiptPrintMode} data={{
                 id: selectedReceiptData.id,
                 issuedAt: selectedReceiptData.date,
                 customerName: selectedReceiptData.customerName,
@@ -4201,6 +5309,10 @@ export const W07_CashierPOS: React.FC = () => {
                 branchName: selectedReceiptData.branchName,
                 branchAddress: selectedReceiptData.branchAddress,
                 branchPhone: selectedReceiptData.branchPhone,
+                headerText: posSettings.receipt_header_text,
+                footerNote: posSettings.receipt_footer_note,
+                hotline: generalSettings.hotline,
+                packageInfo: selectedReceiptData.packageInfo || null,
                 paymentMethod: selectedReceiptData.method,
                 status: selectedReceiptData.status,
                 shiftCode: selectedReceiptData.shiftCode,
@@ -4213,6 +5325,7 @@ export const W07_CashierPOS: React.FC = () => {
                 }],
                 subtotal: selectedReceiptData.subtotalValue ?? (parseVnd(selectedReceiptData.subtotal) || parseVnd(selectedReceiptData.amount)),
                 discount: selectedReceiptData.discountValue ?? parseVnd(selectedReceiptData.discount),
+                pointsRedeemed: selectedReceiptData.pointsRedeemedValue ?? 0,
                 vatRate: selectedReceiptData.vatRateValue ?? parseVnd(selectedReceiptData.vatRateText),
                 vatAmount: selectedReceiptData.vatAmountValue ?? parseVnd(selectedReceiptData.vatAmountText),
                 total: selectedReceiptData.totalValue ?? parseVnd(selectedReceiptData.amount),

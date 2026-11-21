@@ -1,7 +1,20 @@
 import { Booking, BookingStatus, PaymentStatus, PaymentMethod, ApiResponse, DualSlotAvailability } from '../types/shared_types';
 import { supabaseService } from './supabaseService';
 import { isUuid } from '../utils/searchUtils';
-import { adminCommand } from '../admin/api';
+import { adminApi, adminCommand } from '../admin/api';
+import type {
+  ConsultationSurveyRecord,
+  OnLeaveTechnician,
+  StaffScheduleSlot,
+  StaffScheduleSlotCapacity,
+} from '../pages/booking-ux.rules';
+
+export interface StaffScheduleSlotsResponse {
+  slots: StaffScheduleSlot[];
+  shifts: { technicianId: string; start: string; end: string }[];
+  slotCapacities: StaffScheduleSlotCapacity[];
+  onLeaveTechnicians: OnLeaveTechnician[];
+}
 
 export const bookingService = {
   async runWorkflowAction(
@@ -109,6 +122,37 @@ export const bookingService = {
         data: [],
       };
     }
+  },
+
+  async getStaffScheduleSlots(
+    branchId: string,
+    date: string,
+    serviceId: string,
+  ): Promise<StaffScheduleSlotsResponse> {
+    const params = new URLSearchParams({ branchId, date, serviceId });
+    const res = await adminApi<Partial<StaffScheduleSlotsResponse>>(
+      'staff-schedule/slots?' + params.toString(),
+    );
+    return {
+      slots: Array.isArray(res?.slots) ? res.slots : [],
+      shifts: Array.isArray(res?.shifts) ? res.shifts : [],
+      slotCapacities: Array.isArray(res?.slotCapacities) ? res.slotCapacities : [],
+      onLeaveTechnicians: Array.isArray(res?.onLeaveTechnicians) ? res.onLeaveTechnicians : [],
+    };
+  },
+
+  async getConsultationSurveys(): Promise<ConsultationSurveyRecord[]> {
+    try {
+      const res = await adminApi<{ rows?: ConsultationSurveyRecord[] }>(
+        'consultation_surveys?limit=200',
+      );
+      if (Array.isArray(res?.rows)) {
+        return res.rows;
+      }
+    } catch {
+    }
+    const fallback = await supabaseService.getConsultationSurveys();
+    return Array.isArray(fallback) ? fallback : [];
   },
 
   async checkSlotDualAvailability(
@@ -310,12 +354,11 @@ export const bookingService = {
         return {
           success: false,
           statusCode: 409,
-          message: `Không thể đặt lịch: ${drc.statusText} (Giường trống: ${drc.freeBeds}/6, KTV rảnh: ${drc.freeStaff})`,
+          message: `Không thể đặt lịch: ${drc.statusText} (Giường trống: ${drc.freeBeds}, KTV rảnh: ${drc.freeStaff})`,
           data: {} as Booking,
         };
       }
 
-      // 2. Gán giường trống cố định trong 6 giường (2 VIP + 4 Body)
       const bookings = await supabaseService.getBookings(targetBranchId) || [];
       const overlappingBookings = bookings.filter((booking) =>
         booking.bookingDate === params.bookingDate &&
@@ -333,7 +376,11 @@ export const bookingService = {
         };
       }
 
-      const standardBeds = ['G-VIP-01', 'G-VIP-02', 'G-BODY-01', 'G-BODY-02', 'G-BODY-03', 'G-BODY-04'];
+      const branchRooms = await supabaseService.getRooms(targetBranchId).catch(() => []);
+      const activeServiceRooms = (branchRooms || []).filter((r: any) => r.isAvailable !== false && !['ACADEMY_CLASSROOM', 'PRACTICE_LAB'].includes(String(r.roomType || '')));
+      const standardBeds = activeServiceRooms.length > 0
+        ? activeServiceRooms.map((r: any, idx: number) => r.name || `G-ROOM-${idx + 1}`)
+        : ['G-VIP-01', 'G-VIP-02', 'G-BODY-01', 'G-BODY-02', 'G-BODY-03', 'G-BODY-04'];
       let bedCode = params.assignedBedNumber;
       if (!bedCode) {
         const busyBeds = new Set(
@@ -341,7 +388,7 @@ export const bookingService = {
             .map((b) => b.assignedBedNumber)
             .filter(Boolean)
         );
-        bedCode = standardBeds.find((b) => !busyBeds.has(b));
+        bedCode = standardBeds.find((b: string) => !busyBeds.has(b));
         if (!bedCode) {
           return {
             success: false,

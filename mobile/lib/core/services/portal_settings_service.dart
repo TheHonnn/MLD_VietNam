@@ -11,6 +11,7 @@ class PortalSettingsService {
   static final PortalSettingsService instance = PortalSettingsService._internal();
 
   final SupabaseDataService _supabase = SupabaseDataService();
+  final ValueNotifier<int> settingsVersion = ValueNotifier<int>(0);
 
   // Giá trị mặc định y khoa an toàn
   static const String defaultHotline = '096.7786.399';
@@ -30,7 +31,7 @@ class PortalSettingsService {
       'id': 'cc000000-0001-0001-0001-000000000001',
       'type': 'CONTACT_CHANNEL',
       'code': 'HOTLINE',
-      'name': 'Hotline CSKH & Đặt lịch',
+      'name': 'Hotline',
       'description': '096.7786.399',
       'icon_name': 'phone',
       'sort_order': 1,
@@ -40,7 +41,7 @@ class PortalSettingsService {
       'id': 'cc000000-0001-0001-0001-000000000002',
       'type': 'CONTACT_CHANNEL',
       'code': 'ZALO',
-      'name': 'Zalo Official Account',
+      'name': 'Zalo',
       'description': 'https://zalo.me/1424469774232439257?src=qr',
       'icon_name': 'zalo',
       'sort_order': 2,
@@ -50,29 +51,29 @@ class PortalSettingsService {
       'id': 'cc000000-0001-0001-0001-000000000003',
       'type': 'CONTACT_CHANNEL',
       'code': 'FACEBOOK',
-      'name': 'Facebook Fanpage',
+      'name': 'Facebook',
       'description': 'https://facebook.com/hebachhuyet.mldvietnam',
       'icon_name': 'facebook',
       'sort_order': 3,
       'is_active': true,
     },
     {
-      'id': 'cc000000-0001-0001-0001-000000000004',
+      'id': 'cc000000-0001-0001-0001-000000000005',
       'type': 'CONTACT_CHANNEL',
-      'code': 'MESSENGER',
-      'name': 'Messenger Fanpage',
-      'description': 'https://m.me/hebachhuyet.mldvietnam',
-      'icon_name': 'messenger',
+      'code': 'TIKTOK',
+      'name': 'TikTok',
+      'description': 'https://www.tiktok.com/@trungtamgiamphu',
+      'icon_name': 'tiktok',
       'sort_order': 4,
       'is_active': true,
     },
     {
-      'id': 'cc000000-0001-0001-0001-000000000005',
+      'id': 'cc000000-0001-0001-0001-000000000004',
       'type': 'CONTACT_CHANNEL',
-      'code': 'TIKTOK',
-      'name': 'TikTok Official',
-      'description': 'https://www.tiktok.com/@trungtamgiamphu',
-      'icon_name': 'tiktok',
+      'code': 'MESSENGER',
+      'name': 'Messenger',
+      'description': 'https://m.me/hebachhuyet.mldvietnam',
+      'icon_name': 'messenger',
       'sort_order': 5,
       'is_active': true,
     },
@@ -80,7 +81,7 @@ class PortalSettingsService {
       'id': 'cc000000-0001-0001-0001-000000000006',
       'type': 'CONTACT_CHANNEL',
       'code': 'YOUTUBE',
-      'name': 'Kênh YouTube MLD',
+      'name': 'YouTube',
       'description': 'https://www.youtube.com/@mldvietnam',
       'icon_name': 'youtube',
       'sort_order': 6,
@@ -90,7 +91,7 @@ class PortalSettingsService {
       'id': 'cc000000-0001-0001-0001-000000000007',
       'type': 'CONTACT_CHANNEL',
       'code': 'WEBSITE',
-      'name': 'Website MLD Việt Nam',
+      'name': 'Website',
       'description': 'https://mldvietnam.com',
       'icon_name': 'globe',
       'sort_order': 7,
@@ -162,6 +163,31 @@ class PortalSettingsService {
       return list;
     }
     return defaultContactChannels;
+  }
+
+  List<String> get bookingTimeSlots {
+    final list = _taxonomies
+        .where((x) =>
+            x['type'] == 'BOOKING_TIME_SLOT' &&
+            (x['is_active'] == true || x['isActive'] == true) &&
+            ((x['name'] as String?)?.trim().isNotEmpty ?? false))
+        .toList();
+    if (list.isEmpty) return const [];
+    list.sort((a, b) {
+      final ordA = (a['sort_order'] as num?)?.toInt() ?? ((a['sortOrder'] as num?)?.toInt() ?? 9999);
+      final ordB = (b['sort_order'] as num?)?.toInt() ?? ((b['sortOrder'] as num?)?.toInt() ?? 9999);
+      final cmp = ordA.compareTo(ordB);
+      if (cmp != 0) return cmp;
+      return (a['name'] as String? ?? '').compareTo(b['name'] as String? ?? '');
+    });
+    final slots = <String>[];
+    for (final item in list) {
+      final name = (item['name'] as String?)?.trim() ?? '';
+      if (name.isNotEmpty && !slots.contains(name)) {
+        slots.add(name);
+      }
+    }
+    return slots;
   }
 
   /// Lấy danh sách tên Đối tượng lọc (có 'Tất cả đối tượng')
@@ -312,6 +338,7 @@ class PortalSettingsService {
         _legalPolicies = cloudPolicies;
         await prefs.setString('cached_portal_policies', jsonEncode(cloudPolicies));
       }
+      settingsVersion.value++;
     } catch (e) {
       debugPrint('[PortalSettingsService] syncFromCloud error: $e');
     }

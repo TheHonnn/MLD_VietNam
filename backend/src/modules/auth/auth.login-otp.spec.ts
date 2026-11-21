@@ -180,6 +180,56 @@ describe('AuthService - Login OTP Flow', () => {
       expect(res.user.email).toBe('test@mld.vn');
       expect(res.accessToken).toBe('mock_jwt_token');
       expect(res.refreshToken).toBe('mock_jwt_token');
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: 'u1', role: 'CUSTOMER' }),
+        expect.not.objectContaining({ audience: 'mld-admin' }),
+      );
+    });
+
+    it('should sign access token with mld-admin audience for SUPER_ADMIN account', async () => {
+      mockSupabaseService.adminClient.from.mockImplementation((table: string) => {
+        if (table === 'users') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: {
+                    id: 'admin-1',
+                    phone: '0901000001',
+                    email: 'admin@mldvietnam.vn',
+                    full_name: 'Ban Quan Tri',
+                    role: 'SUPER_ADMIN',
+                    is_active: true,
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+          };
+        }
+        if (table === 'refresh_tokens') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        return {
+          select: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ data: [] }) }),
+        };
+      });
+
+      const res = await authService.verifyLoginOtp({
+        email: 'admin@mldvietnam.vn',
+        otp: '654321',
+      });
+
+      expect(res.user.role).toBe('SUPER_ADMIN');
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: 'admin-1', role: 'SUPER_ADMIN' }),
+        expect.objectContaining({ audience: 'mld-admin' }),
+      );
     });
   });
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Calendar, CheckCircle2, Clock, CreditCard, Mail, MapPin, Pencil, Phone, UserCheck, Users, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { bookingService } from "../services";
+import { buildBookingPosPath } from "../pages/cashier-pos.rules";
 import { Row } from "./api";
 
 const statusMeta: Record<string, { label: string; tone: string; step: number }> = {
@@ -135,7 +136,20 @@ export function BookingDetailDialog({ row, onClose, onEdit }: { row: Row; onClos
       <footer>
         <button type="button" className="btn btn-outline" onClick={onClose}>Đóng</button>
         {!isLocked && <button type="button" className="btn btn-outline inline-flex items-center gap-2" onClick={onEdit}><Pencil size={15} />Chỉnh sửa lịch</button>}
-        {paymentStatus !== "PAID" && status !== "CANCELLED" && status !== "NO_SHOW" && <Link to={`/cashier-pos?tab=queue&booking=${encodeURIComponent(String(bookingCode))}`} className="btn btn-primary inline-flex items-center gap-2"><CreditCard size={15} />Mở thu ngân</Link>}
+        {paymentStatus !== "PAID" && status !== "CANCELLED" && status !== "NO_SHOW" && (
+          <Link
+            to={buildBookingPosPath({
+              bookingId: pick(booking.id, row.id),
+              bookingCode: pick(booking.bookingCode, booking.booking_code, row.booking_code),
+              customerId: pick(booking.customerId, booking.customer_id, booking.customer?.id, row.customer_id),
+              branchId: pick(booking.branchId, booking.branch_id, row.branch_id),
+              tab: "pos",
+            })}
+            className="btn btn-primary inline-flex items-center gap-2"
+          >
+            <CreditCard size={15} />Mở thu ngân
+          </Link>
+        )}
         {status === "COMPLETED" && paymentStatus === "PAID" && <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700"><CheckCircle2 size={15} />Quy trình đã hoàn tất</span>}
       </footer>
     </div>

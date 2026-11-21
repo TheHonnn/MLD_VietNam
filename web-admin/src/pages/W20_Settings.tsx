@@ -115,7 +115,7 @@ export const W20_Settings: React.FC = () => {
 
   const isCurrentDirty = isCategoryDirty(currentTab);
 
-  const needsSettings = currentTab !== 'profile' && currentTab !== 'loyalty';
+  const needsSettings = currentTab !== 'profile';
   const blocked = needsSettings && (loading || Boolean(error));
 
   return (
@@ -585,7 +585,7 @@ export const W20_Settings: React.FC = () => {
                     <span>1.000.000đ</span>
                   </div>
                   <div className="flex justify-between text-[#15803D]">
-                    <span>Ưu đãi thành viên (Vàng):</span>
+                    <span>Ưu đãi voucher / điểm thưởng:</span>
                     <span>-100.000đ</span>
                   </div>
                   <div className="flex justify-between text-xs font-bold text-[#2C241E] pt-1 border-t border-[#E8DFD8]">
@@ -620,7 +620,7 @@ export const W20_Settings: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-[#2C241E] uppercase tracking-wide">
-                  Chính sách Hội viên & Điểm thưởng Loyalty
+                  Chính sách Điểm thưởng & Voucher Loyalty
                 </h2>
                 <p className="text-xs text-[#73675F] mt-1">
                   Cấu hình tích lũy điểm khi sử dụng dịch vụ và quy tắc đổi thưởng cho khách hàng.
@@ -628,10 +628,10 @@ export const W20_Settings: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <a
-                  href="/manage/membership_tier_rules"
+                  href="/manage/loyalty_point_settings"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#8A4F23] bg-[#FAF3EA] border border-[#EAD8C7] rounded-xl hover:bg-[#F3E5D4] transition-colors"
                 >
-                  <span>Quy tắc thăng hạng</span>
+                  <span>Cấu hình điểm thưởng</span>
                   <ExternalLink size={12} />
                 </a>
                 <a
@@ -644,19 +644,22 @@ export const W20_Settings: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
               <div className="p-4 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] space-y-2">
                 <span className="font-bold text-[#2C241E] block">Tỷ lệ tích điểm</span>
                 <p className="text-[#73675F] text-[11px]">Số tiền chi tiêu để nhận 1 điểm thưởng</p>
                 <div className="flex items-center gap-2 pt-1">
                   <input
                     type="number"
-                    defaultValue={10000}
+                    min={1000}
+                    step={1000}
+                    value={settings.loyalty?.earn_amount_per_point ?? 10000}
+                    onChange={(e) => updateField('loyalty', 'earn_amount_per_point', Number(e.target.value) || 0)}
                     className="w-full px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white font-semibold text-[#2C241E]"
                   />
                   <span className="font-bold text-[#8C7A6B]">VNĐ</span>
                 </div>
-                <span className="text-[10.5px] text-[#15803D] block">Tương đương 1% giá trị hóa đơn</span>
+                <span className="text-[10.5px] text-[#15803D] block">Chi tiêu tích điểm tự động theo quy chuẩn</span>
               </div>
 
               <div className="p-4 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] space-y-2">
@@ -665,12 +668,32 @@ export const W20_Settings: React.FC = () => {
                 <div className="flex items-center gap-2 pt-1">
                   <input
                     type="number"
-                    defaultValue={100}
+                    min={1}
+                    step={10}
+                    value={settings.loyalty?.redeem_value_per_point ?? 100}
+                    onChange={(e) => updateField('loyalty', 'redeem_value_per_point', Number(e.target.value) || 0)}
                     className="w-full px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white font-semibold text-[#2C241E]"
                   />
                   <span className="font-bold text-[#8C7A6B]">VNĐ</span>
                 </div>
-                <span className="text-[10.5px] text-[#73675F] block">100 điểm = 10.000 VNĐ</span>
+                <span className="text-[10.5px] text-[#73675F] block">100 điểm = {(100 * (settings.loyalty?.redeem_value_per_point || 0)).toLocaleString('vi-VN')} VNĐ</span>
+              </div>
+
+              <div className="p-4 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] space-y-2">
+                <span className="font-bold text-[#2C241E] block">Giới hạn dùng điểm tối đa</span>
+                <p className="text-[#73675F] text-[11px]">Phần trăm hóa đơn tối đa được trừ bằng điểm</p>
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={settings.loyalty?.max_redeem_percent_per_order ?? 30}
+                    onChange={(e) => updateField('loyalty', 'max_redeem_percent_per_order', Number(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white font-semibold text-[#2C241E]"
+                  />
+                  <span className="font-bold text-[#8C7A6B]">%</span>
+                </div>
+                <span className="text-[10.5px] text-[#73675F] block">Tối đa 0 - 100% giá trị đơn</span>
               </div>
 
               <div className="p-4 rounded-xl border border-[#E8DFD8] bg-[#FAF8F5] space-y-2">
@@ -679,12 +702,15 @@ export const W20_Settings: React.FC = () => {
                 <div className="flex items-center gap-2 pt-1">
                   <input
                     type="number"
-                    defaultValue={12}
+                    min={1}
+                    max={120}
+                    value={settings.loyalty?.point_expiry_months ?? 12}
+                    onChange={(e) => updateField('loyalty', 'point_expiry_months', Number(e.target.value) || 1)}
                     className="w-full px-3 py-2 rounded-lg border border-[#E8DFD8] bg-white font-semibold text-[#2C241E]"
                   />
                   <span className="font-bold text-[#8C7A6B]">Tháng</span>
                 </div>
-                <span className="text-[10.5px] text-[#73675F] block">Tự động xóa sau 12 tháng</span>
+                <span className="text-[10.5px] text-[#73675F] block">Hết hạn sau {settings.loyalty?.point_expiry_months ?? 12} tháng</span>
               </div>
             </div>
           </div>

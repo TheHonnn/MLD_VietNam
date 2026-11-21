@@ -12,7 +12,7 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'invoice_items', title: 'Chi tiết hóa đơn', group: 'Thu ngân & Tiếp đón', actions: ['create', 'update', 'delete', 'action'] },
   { name: 'home_products', title: 'Sản phẩm mang về', group: 'Dịch vụ & Định mức', actions: ['create', 'update', 'delete'] },
 
-  // 3. Khách hàng (CRM)
+  { name: 'consultation_surveys', title: 'Khảo sát tiền dịch vụ', group: 'Khách hàng (CRM)', readonly: true, actions: [] },
   { name: 'reviews', title: 'Đánh giá từ khách', group: 'Khách hàng (CRM)', actions: ['update', 'delete', 'action'] },
 
   // 4. Quản lý Liệu trình
@@ -36,12 +36,11 @@ export const DEFAULT_RESOURCES: Resource[] = [
   { name: 'staff_commissions', title: 'Hoa hồng KTV & Thưởng', group: 'Nhân sự & Kỹ thuật viên', actions: ['create', 'update', 'delete', 'action'] },
 
   // 7. Voucher & Hội viên
-  { name: 'coupons', title: 'Mã giảm giá (Voucher)', group: 'Voucher & Hội viên', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'user_vouchers', title: 'Voucher khách hàng', group: 'Voucher & Hội viên', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'voucher_distribution_rules', title: 'Quy tắc phân phối', group: 'Voucher & Hội viên', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'membership_tier_rules', title: 'Hạng thành viên', group: 'Voucher & Hội viên', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'loyalty_point_settings', title: 'Cấu hình điểm thưởng', group: 'Voucher & Hội viên', actions: ['create', 'update', 'delete', 'action'] },
-  { name: 'point_transactions', title: 'Lịch sử giao dịch điểm', group: 'Voucher & Hội viên', readonly: true, actions: [] },
+  { name: 'coupons', title: 'Mã giảm giá (Voucher)', group: 'Voucher & Điểm thưởng', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'user_vouchers', title: 'Voucher khách hàng', group: 'Voucher & Điểm thưởng', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'voucher_distribution_rules', title: 'Quy tắc phân phối', group: 'Voucher & Điểm thưởng', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'loyalty_point_settings', title: 'Cấu hình điểm thưởng', group: 'Voucher & Điểm thưởng', actions: ['create', 'update', 'delete', 'action'] },
+  { name: 'point_transactions', title: 'Lịch sử giao dịch điểm', group: 'Voucher & Điểm thưởng', readonly: true, actions: [] },
 
   // 8. Tuyển sinh & Ghi danh
   { name: 'course_enrollments', title: 'Danh sách ghi danh', group: 'Tuyển sinh & Ghi danh', actions: ['create', 'update', 'delete', 'action'] },

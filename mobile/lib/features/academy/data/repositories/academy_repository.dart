@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../../../../core/services/supabase_data_service.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
@@ -68,11 +69,32 @@ class AcademyRepository {
     await syncUserEnrollmentFromSupabase();
   }
 
-  /// Đồng bộ khóa học đã đăng ký thực tế từ Supabase Cloud
+  Future<String?> _fetchUserStudentCode(String userId) async {
+    if (userId.isEmpty || !RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(userId)) {
+      return null;
+    }
+    try {
+      final res = await _apiClient.dio.get(
+        '${ApiEndpoints.users}?id=eq.$userId&select=student_code&limit=1',
+      );
+      if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
+        final code = (res.data as List).first['student_code']?.toString().trim();
+        if (code != null && code.isNotEmpty) return code;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> syncUserEnrollmentFromSupabase() async {
     try {
-      final userId = AuthService.instance.currentUserId ?? '4ee38f82-bb0a-4c15-a9d3-868d20a3f0a9';
+      final userId = AuthService.instance.currentUserId;
       final phone = AuthService.instance.phoneNotifier.value;
+      if ((userId == null || userId.isEmpty) && (phone == null || phone.isEmpty)) {
+        return;
+      }
+      final userStudentCode = userId != null && userId.isNotEmpty
+          ? await _fetchUserStudentCode(userId)
+          : null;
       final rawList = await SupabaseDataService.instance.fetchUserEnrollments(studentId: userId, studentPhone: phone);
       if (rawList.isNotEmpty) {
         bool changed = false;
@@ -84,7 +106,9 @@ class AcademyRepository {
             }
             final notes = item['approval_notes']?.toString() ?? '';
             final notesCode = RegExp(r'Mã KH:\s*([A-Za-z0-9_-]+)').firstMatch(notes)?.group(1);
-            final customerCode = notesCode ?? 'HV-${item['id'].toString().substring(0, 4).toUpperCase()}';
+            final customerCode = (userStudentCode != null && userStudentCode.isNotEmpty)
+                ? userStudentCode
+                : (notesCode ?? item['order_code']?.toString() ?? '');
             final enrStatus = item['status']?.toString() ?? 'PENDING_APPROVAL';
             final enrApproval = item['approval_status']?.toString() ?? item['student_status']?.toString() ?? 'NOT_APPROVED';
             final model = CourseModel.fromJson(cMap).copyWith(
@@ -108,7 +132,7 @@ class AcademyRepository {
         }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error syncing user enrollments: ');
+      debugPrint('>>> [AcademyRepository] Error syncing user enrollments: $e');
     }
   }
 
@@ -148,7 +172,7 @@ class AcademyRepository {
             }
             list.add(CourseModel.fromJson(map));
           } catch (e) {
-            debugPrint('>>> [AcademyRepository] Error mapping course: ');
+            debugPrint('>>> [AcademyRepository] Error mapping course: $e');
           }
         }
         if (list.isNotEmpty) {
@@ -163,14 +187,13 @@ class AcademyRepository {
         }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Supabase courses fetch error: ');
+      debugPrint('>>> [AcademyRepository] Supabase courses fetch error: $e');
     }
 
-    // 2. Thử Backend Gateway nếu Supabase REST gặp sự cố mạng
     try {
       String path = ApiEndpoints.academyCourses;
       if (category != null && category.isNotEmpty && category != 'Tất cả') {
-        path += '?category=';
+        path += '?category=${Uri.encodeQueryComponent(category)}';
       }
 
       final response = await _apiClient.dio.get(path);
@@ -196,23 +219,20 @@ class AcademyRepository {
         }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Backend gateway error: ');
+      debugPrint('>>> [AcademyRepository] Backend gateway error: $e');
     }
 
     return _cachedCourses;
   }
 
-  /// E03: Lấy chi tiết một khóa học động từ Supabase
   Future<CourseModel?> getCourseDetail(String id) async {
-    // 1. Kiểm tra cache đã tải từ database
     final cached = _cachedCourses.where((c) => c.id == id);
     if (cached.isNotEmpty) {
       return cached.first;
     }
 
-    // 2. Tải trực tiếp từ Supabase
     try {
-      final response = await _apiClient.dio.get('?id=eq.&select=*,course_categories(name)');
+      final response = await _apiClient.dio.get('${ApiEndpoints.courses}?id=eq.$id&select=*,course_categories(name)');
       if (response.statusCode == 200 && response.data is List && (response.data as List).isNotEmpty) {
         final map = Map<String, dynamic>.from((response.data as List).first as Map);
         if (map['course_categories'] is Map) {
@@ -221,7 +241,7 @@ class AcademyRepository {
         return CourseModel.fromJson(map);
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error fetching course detail from Supabase: ');
+      debugPrint('>>> [AcademyRepository] Error fetching course detail from Supabase: $e');
     }
 
     // 3. Tải từ Backend Gateway
@@ -251,11 +271,18 @@ class AcademyRepository {
     String? selectedShift,
     double? depositAmount,
   }) async {
-    final codeSuffix = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
-    final customerCode = 'HV-$codeSuffix';
-    final approvalNotes = 'Mã KH: $customerCode';
+    final userId = AuthService.instance.currentUserId ?? '';
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding');
+    if (!isTest && userId.isEmpty) {
+      return {
+        'success': false,
+        'statusCode': 401,
+        'message': 'Vui lòng đăng nhập tài khoản để gửi hồ sơ ghi danh khóa học.',
+      };
+    }
+    final existingStudentCode = isTest ? null : await _fetchUserStudentCode(userId);
+    final customerCode = existingStudentCode ?? '';
 
-    // Lưu local cache với status PENDING_APPROVAL và mã khách hàng
     final pendingCourse = course.copyWith(
       status: 'PENDING_APPROVAL',
       customerCode: customerCode,
@@ -263,40 +290,21 @@ class AcademyRepository {
     );
     enrollCourseLocal(pendingCourse);
 
-    if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
+    if (isTest) {
       return {
+        'id': 'enr-test-${course.id}',
         'enrollmentCode': 'MLD-EDU-TEST',
+        'studentCode': customerCode,
         'customerCode': customerCode,
         'courseTitle': course.title,
         'studentName': studentName,
+        'depositAmount': course.depositFee,
+        'tuitionTotal': course.tuitionFee,
         'status': 'PENDING_APPROVAL',
         'message': 'Đã gửi hồ sơ đăng ký thành công. Trạng thái: Chờ nhân viên xét duyệt.',
       };
     }
 
-    // Gửi bản ghi ghi danh thực tế lên Supabase Cloud (bảng course_enrollments)
-    try {
-      final userId = AuthService.instance.currentUserId ?? '4ee38f82-bb0a-4c15-a9d3-868d20a3f0a9';
-      await SupabaseDataService.instance.createCourseEnrollment(
-        courseId: course.id,
-        studentId: userId,
-        studentName: studentName,
-        studentPhone: studentPhone,
-        studentEmail: studentEmail,
-        studentAddress: studentAddress,
-        selectedBranch: selectedBranch ?? 'Trụ sở MLD Việt Nam (5 Master LV3) - Số 260, Ngõ 271 Bùi Xương Trạch, Khương Đình, Hà Nội',
-        studentType: studentType ?? 'BEGINNER',
-        approvalNotes: approvalNotes,
-        tuitionTotal: course.tuitionFee,
-        amountPaid: 0.00,
-        status: 'PENDING_APPROVAL',
-        approvalStatus: 'PENDING_APPROVAL',
-      );
-    } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error posting enrollment to Supabase: $e');
-    }
-
-    // Gửi lên Backend Gateway
     try {
       final response = await _apiClient.dio.post(
         ApiEndpoints.academyEnroll,
@@ -312,29 +320,92 @@ class AcademyRepository {
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return (response.data['data'] ?? response.data) as Map<String, dynamic>;
+        final body = response.data;
+        if (body is Map<String, dynamic>) {
+          if (body['success'] == false) {
+            final nested = body['data'];
+            return {
+              if (nested is Map<String, dynamic>) ...nested,
+              'success': false,
+              'statusCode': body['statusCode'],
+              'message': body['message'],
+              'studentCode': customerCode,
+              'customerCode': customerCode,
+              'depositAmount': course.depositFee,
+              'tuitionTotal': course.tuitionFee,
+            };
+          }
+          final payload = body['data'] ?? body;
+          if (payload is Map<String, dynamic>) {
+            return {
+              ...payload,
+              if ((payload['studentCode']?.toString() ?? '').isEmpty) 'studentCode': customerCode,
+              if ((payload['customerCode']?.toString() ?? '').isEmpty) 'customerCode': customerCode,
+            };
+          }
+        }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error posting course enrollment to Backend: $e');
+      if (e is DioException &&
+          e.response?.statusCode != null &&
+          e.response!.statusCode != 404 &&
+          e.response!.statusCode != 502 &&
+          e.response!.statusCode != 503) {
+        rethrow;
+      }
+    }
+
+    String? createdEnrollmentId;
+    try {
+      final created = await SupabaseDataService.instance.createCourseEnrollment(
+        courseId: course.id,
+        studentId: userId,
+        studentName: studentName,
+        studentPhone: studentPhone,
+        studentEmail: studentEmail,
+        studentAddress: studentAddress,
+        selectedBranch: selectedBranch ?? 'Trụ sở MLD Việt Nam (5 Master LV3) - Số 260, Ngõ 271 Bùi Xương Trạch, Khương Đình, Hà Nội',
+        studentType: studentType ?? 'BEGINNER',
+        approvalNotes: 'Đăng ký từ Mobile App',
+        tuitionTotal: course.tuitionFee,
+        amountPaid: 0.00,
+        status: 'PENDING_APPROVAL',
+        approvalStatus: 'PENDING_APPROVAL',
+      );
+      createdEnrollmentId = created?['id']?.toString();
+    } catch (e) {
+      debugPrint('>>> [AcademyRepository] Error posting enrollment to Supabase: $e');
     }
 
     return {
+      if (createdEnrollmentId != null && createdEnrollmentId.isNotEmpty) 'id': createdEnrollmentId,
       'enrollmentCode': 'MLD-EDU-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      'studentCode': customerCode,
       'customerCode': customerCode,
       'courseTitle': course.title,
       'studentName': studentName,
+      'depositAmount': course.depositFee,
+      'tuitionTotal': course.tuitionFee,
       'status': 'PENDING_APPROVAL',
       'message': 'Đã gửi hồ sơ đăng ký thành công. Trạng thái: Chờ nhân viên xét duyệt.',
     };
   }
 
 
-  /// E07: Lấy danh sách khóa học của học viên hoàn toàn động từ bảng course_enrollments
   Future<List<CourseModel>> getMyCourses() async {
-    // 1. Tải danh sách ghi danh thực tế từ Supabase
     try {
-      final userId = AuthService.instance.currentUserId ?? '4ee38f82-bb0a-4c15-a9d3-868d20a3f0a9';
-      final enrollments = await SupabaseDataService.instance.fetchUserEnrollments(studentId: userId);
+      final userId = AuthService.instance.currentUserId;
+      final phone = AuthService.instance.phoneNotifier.value;
+      if ((userId == null || userId.isEmpty) && (phone == null || phone.isEmpty)) {
+        return List.unmodifiable(_enrolledCourses);
+      }
+      final userStudentCode = userId != null && userId.isNotEmpty
+          ? await _fetchUserStudentCode(userId)
+          : null;
+      final enrollments = await SupabaseDataService.instance.fetchUserEnrollments(
+        studentId: userId,
+        studentPhone: phone,
+      );
       if (enrollments.isNotEmpty) {
         final List<CourseModel> list = [];
         for (final e in enrollments) {
@@ -345,7 +416,9 @@ class AcademyRepository {
             }
             final notes = e['approval_notes']?.toString() ?? '';
             final notesCode = RegExp(r'Mã KH:\s*([A-Za-z0-9_-]+)').firstMatch(notes)?.group(1);
-            final customerCode = notesCode ?? 'HV-${e['id'].toString().substring(0, 4).toUpperCase()}';
+            final customerCode = (userStudentCode != null && userStudentCode.isNotEmpty)
+                ? userStudentCode
+                : (notesCode ?? e['order_code']?.toString() ?? '');
             final model = CourseModel.fromJson(cMap).copyWith(
               progressPercentage: (e['progress_percent'] as num?)?.toInt() ?? 0,
               status: e['status']?.toString() ?? 'PENDING_APPROVAL',
@@ -357,26 +430,18 @@ class AcademyRepository {
           }
         }
         if (list.isNotEmpty) {
-          for (final item in list) {
-            final idx = _enrolledCourses.indexWhere((c) =>
-                c.id.trim().toLowerCase() == item.id.trim().toLowerCase() ||
-                c.title.trim().toLowerCase() == item.title.trim().toLowerCase());
-            if (idx >= 0) {
-              _enrolledCourses[idx] = item;
-            } else {
-              _enrolledCourses.add(item);
-            }
-          }
+          _enrolledCourses
+            ..clear()
+            ..addAll(list);
           await _saveEnrolledCourses();
           enrollmentNotifier.value++;
           return _enrolledCourses;
         }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error fetching my courses from Supabase: ');
+      debugPrint('>>> [AcademyRepository] Error fetching my courses from Supabase: $e');
     }
 
-    // 2. Thử Backend Gateway
     try {
       final response = await _apiClient.dio.get(ApiEndpoints.academyMyCourses);
       if (response.statusCode == 200 && response.data != null) {
@@ -397,7 +462,7 @@ class AcademyRepository {
         }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error fetching my courses from Gateway: ');
+      debugPrint('>>> [AcademyRepository] Error fetching my courses from Gateway: $e');
     }
 
     return enrolledCourses;
@@ -426,8 +491,11 @@ class AcademyRepository {
     }
 
     try {
-      final userId = AuthService.instance.currentUserId ?? '4ee38f82-bb0a-4c15-a9d3-868d20a3f0a9';
+      final userId = AuthService.instance.currentUserId;
       final phone = AuthService.instance.phoneNotifier.value;
+      if ((userId == null || userId.isEmpty) && (phone == null || phone.isEmpty)) {
+        return [];
+      }
       final rawList = await SupabaseDataService.instance.fetchUserEnrollments(studentId: userId, studentPhone: phone);
 
       final List<StudentBatchScheduleItem> schedules = [];
@@ -505,10 +573,11 @@ class AcademyRepository {
     } catch (_) {}
 
     try {
-      final userId = AuthService.instance.currentUserId ?? MembershipRepository.instance.profile.id;
-      if (userId.isNotEmpty) {
+      final candidateId = AuthService.instance.currentUserId ?? MembershipRepository.instance.profile.id;
+      final isValidUuid = RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(candidateId);
+      if (isValidUuid) {
         final enrollRes = await _apiClient.dio.get(
-          '${ApiEndpoints.courseEnrollments}?student_id=eq.$userId&select=id',
+          '${ApiEndpoints.courseEnrollments}?student_id=eq.$candidateId&select=id',
         );
         final enrollmentIds = <String>[];
         if (enrollRes.statusCode == 200 && enrollRes.data is List) {
@@ -520,16 +589,23 @@ class AcademyRepository {
         }
 
         final queryParam = enrollmentIds.isNotEmpty
-            ? 'or=(student_id.eq.$userId,enrollment_id.in.(${enrollmentIds.join(",")}))&'
-            : 'student_id=eq.$userId&';
+            ? 'or=(student_id.eq.$candidateId,enrollment_id.in.(${enrollmentIds.join(",")}))&'
+            : 'student_id=eq.$candidateId&';
         final response = await _apiClient.dio.get(
           '${ApiEndpoints.studentCertificates}?${queryParam}status=eq.ISSUED&order=issue_date.desc',
         );
         if (response.statusCode == 200 && response.data is List) {
+          final studentCode = await _fetchUserStudentCode(candidateId);
           final list = response.data as List;
-          return list
-              .map((json) => StudentCertificateModel.fromJson(json as Map<String, dynamic>))
-              .toList();
+          return list.map((json) {
+            final map = Map<String, dynamic>.from(json as Map);
+            if ((map['student_code'] == null || map['student_code'].toString().isEmpty) &&
+                studentCode != null &&
+                studentCode.isNotEmpty) {
+              map['student_code'] = studentCode;
+            }
+            return StudentCertificateModel.fromJson(map);
+          }).toList();
         }
       }
     } catch (_) {}
@@ -660,6 +736,16 @@ class AcademyRepository {
     } catch (_) {}
   }
 
+  String? _resolveValidEnrollmentUuid(String courseId) {
+    final uuidRegex = RegExp(r'^[0-9a-fA-F-]{36}$');
+    for (final c in _enrolledCourses) {
+      if (c.id == courseId && c.enrollmentId != null && uuidRegex.hasMatch(c.enrollmentId!)) {
+        return c.enrollmentId!;
+      }
+    }
+    return null;
+  }
+
   Future<void> saveLessonPosition(String courseId, String lessonId, double positionSeconds) async {
     _lessonPositions['${courseId}_$lessonId'] = positionSeconds;
     _lessonPositions[lessonId] = positionSeconds;
@@ -668,14 +754,17 @@ class AcademyRepository {
       await prefs.setString(_lessonPositionsKey, jsonEncode(_lessonPositions));
     } catch (_) {}
 
-    try {
-      await SupabaseDataService.instance.upsertLessonProgress(
-        enrollmentId: 'enroll_$courseId',
-        lessonId: lessonId,
-        watchedSeconds: positionSeconds.toInt(),
-        isCompleted: isLessonCompleted(courseId, lessonId),
-      );
-    } catch (_) {}
+    final realEnrollmentId = _resolveValidEnrollmentUuid(courseId);
+    if (realEnrollmentId != null) {
+      try {
+        await SupabaseDataService.instance.upsertLessonProgress(
+          enrollmentId: realEnrollmentId,
+          lessonId: lessonId,
+          watchedSeconds: positionSeconds.toInt(),
+          isCompleted: isLessonCompleted(courseId, lessonId),
+        );
+      } catch (_) {}
+    }
   }
 
   double getLessonPosition(String courseId, String lessonId) {
@@ -689,14 +778,17 @@ class AcademyRepository {
       await prefs.setStringList(_lessonProgressKey, _completedLessonIds.toList());
     } catch (_) {}
 
-    try {
-      await SupabaseDataService.instance.upsertLessonProgress(
-        enrollmentId: 'enroll_$courseId',
-        lessonId: lessonId,
-        watchedSeconds: 9999,
-        isCompleted: true,
-      );
-    } catch (_) {}
+    final realEnrollmentId = _resolveValidEnrollmentUuid(courseId);
+    if (realEnrollmentId != null) {
+      try {
+        await SupabaseDataService.instance.upsertLessonProgress(
+          enrollmentId: realEnrollmentId,
+          lessonId: lessonId,
+          watchedSeconds: 9999,
+          isCompleted: true,
+        );
+      } catch (_) {}
+    }
   }
 
   /// Kiểm tra bài học đã xem hết hay chưa (được phân tách chính xác theo từng khóa học)

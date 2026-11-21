@@ -777,17 +777,29 @@ class SupabaseDataService {
       }
     } catch (_) {}
 
+    final validStudentId = (studentId != null &&
+            RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(studentId))
+        ? studentId
+        : null;
+    final validPhone =
+        (studentPhone != null && studentPhone.trim().isNotEmpty)
+            ? studentPhone.trim()
+            : null;
+    if (validStudentId == null && validPhone == null) {
+      return [];
+    }
+
     try {
       final query = <String, dynamic>{
         'select': '*,courses(*,course_categories(name)),course_batches(batch_code,schedule_text,start_date,end_date,instructors!course_batches_instructor_id_fkey(full_name),branches(name,address))',
         'order': 'enrolled_at.desc',
       };
-      if (studentId != null && studentId.isNotEmpty && studentPhone != null && studentPhone.isNotEmpty) {
-        query['or'] = '(student_id.eq.' + studentId + ',student_phone.eq.' + studentPhone + ')';
-      } else if (studentId != null && studentId.isNotEmpty) {
-        query['student_id'] = 'eq.' + studentId;
-      } else if (studentPhone != null && studentPhone.isNotEmpty) {
-        query['student_phone'] = 'eq.' + studentPhone;
+      if (validStudentId != null && validPhone != null) {
+        query['or'] = '(student_id.eq.$validStudentId,student_phone.eq.$validPhone)';
+      } else if (validStudentId != null) {
+        query['student_id'] = 'eq.$validStudentId';
+      } else {
+        query['student_phone'] = 'eq.$validPhone';
       }
 
       final response = await _client.get<List<dynamic>>(

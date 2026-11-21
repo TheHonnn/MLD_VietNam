@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/features/admin/data/models/admin_models.dart';
 import 'package:medical_healthcare_app/features/admin/presentation/widgets/service_form_sheet.dart';
 import 'package:medical_healthcare_app/features/admin/presentation/widgets/course_form_sheet.dart';
+import 'package:medical_healthcare_app/features/admin/presentation/widgets/product_form_sheet.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -91,6 +92,52 @@ void main() {
       expect(sampleCourse.code, 'MLD-PRO-01');
       expect(sampleCourse.level, 'INTERMEDIATE');
       expect(sampleCourse.tuitionFee, 15000000);
+    });
+
+    testWidgets('CourseFormSheet renders create mode with empty course', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CourseFormSheet(
+              course: null,
+              onSaved: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Thêm mới Khóa đào tạo'), findsOneWidget);
+    });
+
+    testWidgets('ProductFormSheet renders create mode with empty product', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ProductFormSheet(
+              product: null,
+              onSaved: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Thêm Sản phẩm mới'), findsOneWidget);
+    });
+
+    testWidgets('CourseFormSheet level dropdown has isExpanded set to prevent overflow', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CourseFormSheet(
+              course: null,
+              onSaved: () {},
+            ),
+          ),
+        ),
+      );
+
+      final dropdownFinder = find.byWidgetPredicate((w) => w is DropdownButton && w.isExpanded);
+      expect(dropdownFinder, findsOneWidget);
     });
   });
 }

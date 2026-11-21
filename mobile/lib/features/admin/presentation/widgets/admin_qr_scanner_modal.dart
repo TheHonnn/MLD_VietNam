@@ -218,7 +218,7 @@ class _AdminQrScannerModalState extends State<AdminQrScannerModal> {
                         ),
                         child: Text(
                           'Tìm kiếm',
-                          style: GoogleFonts.montserrat(fontSize: 12.5, fontWeight: FontWeight.w600),
+                          style: GoogleFonts.montserrat(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white),
                         ),
                       ),
                     ],

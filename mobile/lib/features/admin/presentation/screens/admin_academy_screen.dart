@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
 import '../../data/repositories/admin_repository.dart';
+import '../../../../core/services/auth_service.dart';
 import '../widgets/admin_candidate_card.dart';
 import '../widgets/assign_batch_bottom_sheet.dart';
-import '../widgets/quiz_submission_detail_sheet.dart';
+import '../widgets/edit_student_code_dialog.dart';
+import '../widgets/pending_consultation_card.dart';
+import '../widgets/quick_contact_actions.dart';
 import '../../../../core/services/top_notification_service.dart';
 import 'admin_batch_detail_screen.dart';
 
@@ -38,15 +40,15 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
   List<AdminCandidateModel> _candidates = [];
   List<AdminCourseBatchModel> _batches = [];
   List<AdminCourseModel> _courses = [];
-  List<AdminQuizSubmissionModel> _submissions = [];
   List<Map<String, dynamic>> _instructors = [];
 
-  String _selectedSubmissionBatchId = 'ALL';
-  String _selectedSubmissionResult = 'ALL';
+  String _selectedTrelloBatchId = 'ALL';
+  DateTime _selectedStudentMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  String _selectedMonthlyCourseId = 'ALL';
+  String _selectedMonthlyGradFilter = 'ALL';
   DateTime? _selectedBatchDate;
   bool _isAllBatchDates = true;
 
-  // Các cột trạng thái Kanban chuẩn quy trình Tuyển sinh & Đào tạo kiểu Trello
   final List<Map<String, dynamic>> _kanbanColumns = [
     {
       'key': 'PENDING_CONSULTATION',
@@ -81,6 +83,14 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       'statuses': ['ENROLLED_STUDYING', 'STUDYING'],
     },
     {
+      'key': 'NOT_GRADUATED',
+      'title': 'Chưa tốt nghiệp',
+      'icon': Icons.hourglass_bottom_rounded,
+      'color': const Color(0xFFC2410C),
+      'bgColor': const Color(0xFFFFF7ED),
+      'statuses': ['NOT_GRADUATED'],
+    },
+    {
       'key': 'COMPLETED',
       'title': 'Tốt nghiệp',
       'icon': Icons.verified_rounded,
@@ -88,19 +98,40 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       'bgColor': const Color(0xFFF3F4F6),
       'statuses': ['COMPLETED', 'GRADUATED'],
     },
+    {
+      'key': 'ARCHIVED',
+      'title': 'Lưu trữ khách',
+      'icon': Icons.archive_rounded,
+      'color': const Color(0xFF6B7280),
+      'bgColor': const Color(0xFFF1F5F9),
+      'statuses': ['ARCHIVED', 'DROPPED'],
+    },
   ];
 
   @override
   void initState() {
     super.initState();
+    _applyInitialWorkflowTab();
+    _fetchData();
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminAcademyScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialWorkflowTab != widget.initialWorkflowTab) {
+      _applyInitialWorkflowTab();
+    }
+  }
+
+  void _applyInitialWorkflowTab() {
     if (widget.initialWorkflowTab != null && widget.initialWorkflowTab!.isNotEmpty) {
-      if (widget.initialWorkflowTab == 'QUIZZES') {
+      if (widget.initialWorkflowTab == 'MONTHLY_STUDENTS' || widget.initialWorkflowTab == 'QUIZZES') {
         _selectedSegment = 2;
       } else {
+        _selectedSegment = 0;
         _selectedWorkflowStatus = widget.initialWorkflowTab!;
       }
     }
-    _fetchData();
   }
 
   @override
@@ -115,14 +146,12 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       final candidatesFuture = _repository.fetchCandidates();
       final batchesFuture = _repository.fetchAllCourseBatches();
       final coursesFuture = _repository.fetchCourses();
-      final submissionsFuture = _repository.fetchQuizSubmissions();
       final instructorsFuture = _repository.fetchInstructors();
 
       final results = await Future.wait([
         candidatesFuture,
         batchesFuture,
         coursesFuture,
-        submissionsFuture,
         instructorsFuture,
       ]);
 
@@ -131,8 +160,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
           _candidates = results[0] as List<AdminCandidateModel>;
           _batches = results[1] as List<AdminCourseBatchModel>;
           _courses = results[2] as List<AdminCourseModel>;
-          _submissions = results[3] as List<AdminQuizSubmissionModel>;
-          _instructors = results[4] as List<Map<String, dynamic>>;
+          _instructors = results[3] as List<Map<String, dynamic>>;
           _isLoading = false;
         });
       }
@@ -141,8 +169,16 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
     }
   }
 
+  bool _matchesTrelloBatch(AdminCandidateModel c) {
+    if (_selectedTrelloBatchId == 'ALL') return true;
+    if (_selectedTrelloBatchId == 'NO_BATCH') {
+      return c.batchId == null || c.batchId!.isEmpty;
+    }
+    return c.batchId == _selectedTrelloBatchId || c.batchCode == _selectedTrelloBatchId;
+  }
+
   List<AdminCandidateModel> get _filteredCandidates {
-    List<AdminCandidateModel> list = _candidates;
+    List<AdminCandidateModel> list = _candidates.where(_matchesTrelloBatch).toList();
     if (_selectedWorkflowStatus != 'ALL') {
       list = list.where((c) => c.status == _selectedWorkflowStatus).toList();
     }
@@ -152,72 +188,97 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
         return c.candidateName.toLowerCase().contains(q) ||
             c.candidatePhone.toLowerCase().contains(q) ||
             c.orderCode.toLowerCase().contains(q) ||
+            (c.studentCode?.toLowerCase().contains(q) ?? false) ||
             c.courseTitle.toLowerCase().contains(q);
       }).toList();
     }
     return list;
   }
 
-  String _getSubmissionBatchCode(AdminQuizSubmissionModel sub) {
-    if (sub.batchCode != null && sub.batchCode!.isNotEmpty) {
-      return sub.batchCode!;
-    }
-    for (final c in _candidates) {
-      if (c.id == sub.enrollmentId && c.batchCode != null && c.batchCode!.isNotEmpty) {
-        return c.batchCode!;
+  bool _candidateBelongsToMonth(AdminCandidateModel c, DateTime month) {
+    final monthStart = DateTime(month.year, month.month, 1);
+    final monthEnd = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+
+    String? startRaw = c.batchStartDate;
+    String? endRaw = c.batchEndDate;
+    if ((startRaw == null || startRaw.isEmpty) && c.batchId != null) {
+      for (final b in _batches) {
+        if (b.id == c.batchId) {
+          startRaw = b.startDate;
+          endRaw = b.endDate;
+          break;
+        }
       }
     }
-    return '';
-  }
 
-  String _getSubmissionBatchId(AdminQuizSubmissionModel sub) {
-    if (sub.batchId != null && sub.batchId!.isNotEmpty) {
-      return sub.batchId!;
-    }
-    for (final c in _candidates) {
-      if (c.id == sub.enrollmentId && c.batchId != null && c.batchId!.isNotEmpty) {
-        return c.batchId!;
+    final startDate = startRaw != null ? DateTime.tryParse(startRaw) : null;
+    final endDate = endRaw != null ? DateTime.tryParse(endRaw) : null;
+
+    if (startDate != null) {
+      if (endDate != null) {
+        return !startDate.isAfter(monthEnd) && !endDate.isBefore(monthStart);
       }
+      return startDate.year == month.year && startDate.month == month.month;
     }
-    return '';
+
+    final created = DateTime.tryParse(c.createdAt);
+    if (created != null) {
+      return created.year == month.year && created.month == month.month;
+    }
+    return false;
   }
 
-  List<AdminQuizSubmissionModel> get _filteredSubmissions {
-    var list = _submissions;
+  List<AdminCandidateModel> _enrolledStudentsForMonth(DateTime month) {
+    return _candidates.where((c) {
+      final upper = c.status.toUpperCase();
+      if (upper == 'ARCHIVED' || upper == 'DROPPED') return false;
+      return _candidateBelongsToMonth(c, month);
+    }).toList();
+  }
 
-    // Lọc theo Lớp học (Batch)
-    if (_selectedSubmissionBatchId != 'ALL') {
-      if (_selectedSubmissionBatchId == 'NO_BATCH') {
-        list = list.where((s) => _getSubmissionBatchId(s).isEmpty).toList();
+  int _registeredCandidatesCountForMonth(DateTime month) {
+    return _candidates.where((c) {
+      final upper = c.status.toUpperCase();
+      if (upper == 'ARCHIVED' || upper == 'DROPPED') return false;
+      return _candidateBelongsToMonth(c, month);
+    }).length;
+  }
+
+  List<AdminCandidateModel> get _monthlyEnrolledStudents {
+    return _enrolledStudentsForMonth(_selectedStudentMonth);
+  }
+
+  List<AdminCandidateModel> get _filteredMonthlyStudents {
+    var list = _monthlyEnrolledStudents;
+    if (_selectedMonthlyCourseId != 'ALL') {
+      list = list.where((c) => c.courseId == _selectedMonthlyCourseId).toList();
+    }
+    if (_selectedMonthlyGradFilter != 'ALL') {
+      if (_selectedMonthlyGradFilter == 'STUDYING') {
+        list = list.where((c) =>
+            c.status == 'ENROLLED_STUDYING' ||
+            (c.batchId != null && c.batchId!.isNotEmpty && c.status != 'COMPLETED')).toList();
+      } else if (_selectedMonthlyGradFilter == 'REGISTERED') {
+        list = list.where((c) =>
+            c.status == 'PAID_WAITING_CLASS' ||
+            c.status == 'PENDING' ||
+            c.status == 'PENDING_APPROVAL' ||
+            (c.batchId == null && c.amountPaid > 0)).toList();
       } else {
-        list = list.where((s) {
-          final bId = _getSubmissionBatchId(s);
-          final bCode = _getSubmissionBatchCode(s);
-          return bId == _selectedSubmissionBatchId || bCode == _selectedSubmissionBatchId;
-        }).toList();
+        list = list.where((c) => c.status == _selectedMonthlyGradFilter).toList();
       }
     }
-
-    // Lọc theo kết quả Đạt / Chưa đạt
-    if (_selectedSubmissionResult == 'PASSED') {
-      list = list.where((s) => s.passed).toList();
-    } else if (_selectedSubmissionResult == 'FAILED') {
-      list = list.where((s) => !s.passed).toList();
-    }
-
-    // Tìm kiếm bài thi
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      list = list.where((s) {
-        final bCode = _getSubmissionBatchCode(s).toLowerCase();
-        return s.studentName.toLowerCase().contains(q) ||
-            s.studentPhone.toLowerCase().contains(q) ||
-            s.quizTitle.toLowerCase().contains(q) ||
-            s.courseTitle.toLowerCase().contains(q) ||
-            bCode.contains(q);
+      list = list.where((c) {
+        return c.candidateName.toLowerCase().contains(q) ||
+            c.candidatePhone.toLowerCase().contains(q) ||
+            c.orderCode.toLowerCase().contains(q) ||
+            (c.studentCode?.toLowerCase().contains(q) ?? false) ||
+            (c.batchCode?.toLowerCase().contains(q) ?? false) ||
+            c.courseTitle.toLowerCase().contains(q);
       }).toList();
     }
-
     return list;
   }
 
@@ -320,6 +381,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
 
   List<AdminCandidateModel> _getCandidatesForColumn(List<dynamic> columnStatuses) {
     return _candidates.where((c) {
+      if (!_matchesTrelloBatch(c)) return false;
       final statusUpper = c.status.toUpperCase();
       final matchStatus = columnStatuses.any((s) => statusUpper == s.toString().toUpperCase());
       if (!matchStatus) return false;
@@ -328,6 +390,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       return c.candidateName.toLowerCase().contains(q) ||
           c.candidatePhone.toLowerCase().contains(q) ||
           c.orderCode.toLowerCase().contains(q) ||
+          (c.studentCode?.toLowerCase().contains(q) ?? false) ||
           c.courseTitle.toLowerCase().contains(q);
     }).toList();
   }
@@ -740,7 +803,11 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : Text(
                                     'Xác nhận mở lớp học',
-                                    style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700),
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
                                   ),
                           ),
                         ),
@@ -980,20 +1047,19 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE8F6ED),
-                      foregroundColor: const Color(0xFF00693F),
-                      side: const BorderSide(color: Color(0xFF00693F), width: 1.2),
+                      backgroundColor: const Color(0xFF00693F),
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       elevation: 0,
                     ),
                     child: isSubmitting
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Color(0xFF00693F), strokeWidth: 2))
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : Text(
                             'Xác nhận tạo thẻ HV',
                             style: AppTypography.zaloFont(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: const Color(0xFF00693F),
+                              color: Colors.white,
                             ),
                           ),
                   ),
@@ -1037,8 +1103,11 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
     );
   }
 
-  // --- CRUD KIỂU TRELLO: READ, UPDATE (COLUMN MOVE), DELETE ---
   void _showCandidateDetailSheet(AdminCandidateModel c) {
+    AdminCandidateModel current = c;
+    final noteController = TextEditingController();
+    bool isSavingNote = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1046,147 +1115,380 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.88,
-        ),
-        padding: const EdgeInsets.all(20),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalCtx, setModalState) {
+          final isEnrolledOrPaid = current.amountPaid > 0 ||
+              (current.batchId != null && current.batchId!.isNotEmpty);
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.9,
+            ),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              20 + MediaQuery.of(modalCtx).viewInsets.bottom,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              current.candidateName,
+                              style: AppTypography.zaloFont(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textHeading,
+                              ),
+                            ),
+                            Text(
+                              'Mã hồ sơ: ${current.orderCode}',
+                              style: AppTypography.zaloFont(fontSize: 11.5, color: AppColors.textSecondary),
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Text(
+                                  'Mã học viên: ${current.studentCode ?? "Chưa cấp mã"}',
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: current.studentCode != null
+                                        ? const Color(0xFF00693F)
+                                        : const Color(0xFFD97706),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                InkWell(
+                                  onTap: () async {
+                                    Navigator.pop(ctx);
+                                    final saved = await showEditStudentCodeDialog(
+                                      context: context,
+                                      candidate: current,
+                                      repository: _repository,
+                                    );
+                                    if (saved && mounted) _fetchData();
+                                  },
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE8F6ED),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      current.studentCode != null ? 'Sửa mã' : 'Cấp mã HV',
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF00693F),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Color(0xFFE5E7EB)),
+                  const SizedBox(height: 8),
+
+                  Text(
+                    'DI CHUYỂN CỘT KANBAN (TRELLO)',
+                    style: AppTypography.zaloFont(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
                       children: [
-                        Text(
-                          c.candidateName,
-                          style: AppTypography.zaloFont(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textHeading,
-                          ),
-                        ),
-                        Text(
-                          'Mã hồ sơ: ${c.orderCode}',
-                          style: AppTypography.zaloFont(fontSize: 11.5, color: AppColors.textSecondary),
-                        ),
+                        _buildMoveChip(ctx, current, 'PENDING_CONSULTATION', 'Chờ tư vấn', const Color(0xFFD97706)),
+                        _buildMoveChip(ctx, current, 'CONFIRMED_PENDING_PAY', 'Chờ nộp phí', const Color(0xFF0284C7)),
+                        _buildMoveChip(ctx, current, 'PAID_WAITING_CLASS', 'Chờ xếp lớp', const Color(0xFF7C3AED)),
+                        _buildMoveChip(ctx, current, 'ENROLLED_STUDYING', 'Đang học', const Color(0xFF00693F)),
+                        _buildMoveChip(ctx, current, 'NOT_GRADUATED', 'Chưa tốt nghiệp', const Color(0xFFC2410C)),
+                        _buildMoveChip(ctx, current, 'COMPLETED', 'Tốt nghiệp', const Color(0xFF4B5563)),
+                        _buildMoveChip(ctx, current, 'ARCHIVED', 'Lưu trữ khách', const Color(0xFF6B7280)),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const Divider(color: Color(0xFFE5E7EB)),
-              const SizedBox(height: 8),
+                  const SizedBox(height: 12),
+                  const Divider(color: Color(0xFFF1F5F9)),
+                  const SizedBox(height: 6),
 
-              // Bấm chuyển cột nhanh trên bảng Kanban Trello
-              Text(
-                'DI CHUYỂN CỘT KANBAN (TRELLO)',
-                style: AppTypography.zaloFont(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 6),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildMoveChip(ctx, c, 'PENDING_CONSULTATION', 'Chờ tư vấn', const Color(0xFFD97706)),
-                    _buildMoveChip(ctx, c, 'CONFIRMED_PENDING_PAY', 'Chờ nộp phí', const Color(0xFF0284C7)),
-                    _buildMoveChip(ctx, c, 'PAID_WAITING_CLASS', 'Chờ xếp lớp', const Color(0xFF7C3AED)),
-                    _buildMoveChip(ctx, c, 'ENROLLED_STUDYING', 'Đang học', const Color(0xFF00693F)),
-                    _buildMoveChip(ctx, c, 'COMPLETED', 'Tốt nghiệp', const Color(0xFF4B5563)),
+                  _buildDetailRow('Số điện thoại:', current.candidatePhone),
+                  if (current.candidateEmail != null && current.candidateEmail!.isNotEmpty)
+                    _buildDetailRow('Email:', current.candidateEmail!),
+                  _buildDetailRow('Khóa học:', current.courseTitle),
+                  _buildDetailRow('Dành cho đối tượng:', current.targetAudience, valueColor: AppColors.primary),
+                  _buildDetailRow('Trạng thái hiện tại:', current.status),
+                  _buildDetailRow('Học phí niêm yết:', _formatPrice(current.tuitionTotal)),
+                  _buildDetailRow('Đã thanh toán:', _formatPrice(current.amountPaid)),
+                  if (current.tuitionTotal > current.amountPaid)
+                    _buildDetailRow(
+                      'Còn lại cần thu:',
+                      _formatPrice(current.tuitionTotal - current.amountPaid),
+                      valueColor: const Color(0xFFDC2626),
+                    ),
+                  if (current.batchCode != null && current.batchCode!.isNotEmpty)
+                    _buildDetailRow('Lớp phân bổ:', current.batchCode!),
+                  if (current.createdAt.isNotEmpty)
+                    _buildDetailRow('Ngày đăng ký:', current.createdAt),
+                  if (current.notes != null && current.notes!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Ghi chú hồ sơ:',
+                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Text(
+                        current.notes!,
+                        style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textHeading),
+                      ),
+                    ),
                   ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Divider(color: Color(0xFFF1F5F9)),
-              const SizedBox(height: 6),
 
-              _buildDetailRow('Số điện thoại:', c.candidatePhone),
-              if (c.candidateEmail != null && c.candidateEmail!.isNotEmpty)
-                _buildDetailRow('Email:', c.candidateEmail!),
-              _buildDetailRow('Khóa học:', c.courseTitle),
-              _buildDetailRow('Trạng thái hiện tại:', c.status),
-              _buildDetailRow('Học phí niêm yết:', _formatPrice(c.tuitionTotal)),
-              _buildDetailRow('Đã thanh toán:', _formatPrice(c.amountPaid)),
-              if (c.tuitionTotal > c.amountPaid)
-                _buildDetailRow(
-                  'Còn lại cần thu:',
-                  _formatPrice(c.tuitionTotal - c.amountPaid),
-                  valueColor: const Color(0xFFDC2626),
-                ),
-              if (c.batchCode != null && c.batchCode!.isNotEmpty)
-                _buildDetailRow('Lớp phân bổ:', c.batchCode!),
-              if (c.createdAt.isNotEmpty)
-                _buildDetailRow('Ngày đăng ký:', c.createdAt),
-              if (c.notes != null && c.notes!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Ghi chú hồ sơ:',
-                  style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  const SizedBox(height: 14),
+                  const Divider(color: Color(0xFFE5E7EB)),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'LỊCH SỬ TƯ VẤN (${current.consultationCount}/3)',
+                        style: AppTypography.zaloFont(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: current.consultationCount >= 3
+                              ? const Color(0xFFDC2626)
+                              : const Color(0xFFD97706),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      if (current.status == 'ARCHIVED')
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Đã lưu trữ',
+                            style: AppTypography.zaloFont(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                  child: Text(
-                    c.notes!,
-                    style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textHeading),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 20),
-
-              // Hành động chính
-              Row(
-                children: [
-                  if (c.candidatePhone.isNotEmpty)
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final uri = Uri.parse('tel:${c.candidatePhone}');
-                          if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri);
-                          }
-                        },
-                        icon: const Icon(Icons.phone_rounded, size: 16),
-                        label: Text('Gọi điện', style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600)),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0D6832),
-                          side: const BorderSide(color: Color(0xFF0D6832)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  if (current.consultationCount >= 3 && !isEnrolledOrPaid) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFECACA)),
+                      ),
+                      child: Text(
+                        current.consultationCount > 3
+                            ? 'Khách đã tư vấn quá 3 lần không học — đã chuyển vào mục Lưu trữ khách.'
+                            : 'Đã đủ 3 lần tư vấn. Thêm lần tư vấn tiếp theo mà chưa học sẽ tự động đưa vào Lưu trữ khách.',
+                        style: AppTypography.zaloFont(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFB91C1C),
                         ),
                       ),
                     ),
-                  if (c.candidatePhone.isNotEmpty) const SizedBox(width: 10),
-                  Expanded(
+                  ],
+                  const SizedBox(height: 8),
+                  if (current.consultationHistory.isEmpty)
+                    Text(
+                      'Chưa có lịch sử tư vấn.',
+                      style: AppTypography.zaloFont(fontSize: 11.5, color: AppColors.textSecondary),
+                    )
+                  else
+                    ...current.consultationHistory.asMap().entries.map((entry) {
+                      final idx = entry.key + 1;
+                      final item = entry.value;
+                      final dt = DateTime.tryParse(item.timestamp)?.toLocal();
+                      final timeStr = dt != null ? DateFormat('dd/MM/yyyy HH:mm').format(dt) : item.timestamp;
+                      return Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Tư vấn lần $idx · ${item.author}',
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF92400E),
+                                  ),
+                                ),
+                                Text(
+                                  timeStr,
+                                  style: AppTypography.zaloFont(fontSize: 10, color: AppColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              item.note,
+                              style: AppTypography.zaloFont(fontSize: 12, color: AppColors.textHeading),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: noteController,
+                          enabled: !isSavingNote,
+                          style: AppTypography.zaloFont(fontSize: 12),
+                          decoration: InputDecoration(
+                            hintText: 'Nhập nội dung lần tư vấn mới...',
+                            hintStyle: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            filled: true,
+                            fillColor: const Color(0xFFF9FAFB),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: isSavingNote
+                            ? null
+                            : () async {
+                                final text = noteController.text.trim();
+                                if (text.isEmpty) return;
+                                setModalState(() => isSavingNote = true);
+                                final res = await _repository.addConsultationNote(
+                                  enrollmentId: current.id,
+                                  note: text,
+                                  authorName: AuthService.instance.currentDisplayName ?? 'Tư vấn viên',
+                                  currentHistory: current.consultationHistory,
+                                  isEnrolledOrPaid: isEnrolledOrPaid,
+                                );
+                                if (!modalCtx.mounted) return;
+                                if (res['success'] == true) {
+                                  final updatedHistory = res['history'] as List<AdminConsultationNoteModel>;
+                                  final autoArchived = res['autoArchived'] == true;
+                                  noteController.clear();
+                                  setModalState(() {
+                                    isSavingNote = false;
+                                    current = current.copyWith(
+                                      consultationHistory: updatedHistory,
+                                      status: autoArchived ? 'ARCHIVED' : current.status,
+                                    );
+                                  });
+                                  _fetchData();
+                                  if (autoArchived) {
+                                    TopNotificationService.showInfo(
+                                      title: 'Chuyển vào Lưu trữ khách',
+                                      message: '${current.candidateName} đã tư vấn quá 3 lần chưa học.',
+                                    );
+                                  } else {
+                                    TopNotificationService.showSuccess(
+                                      title: 'Đã lưu tư vấn',
+                                      message: 'Đã ghi nhận lần tư vấn thứ ${updatedHistory.length}.',
+                                    );
+                                  }
+                                } else {
+                                  setModalState(() => isSavingNote = false);
+                                  TopNotificationService.showError(
+                                    message: 'Không thể lưu lịch sử tư vấn. Vui lòng thử lại.',
+                                  );
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFD97706),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: isSavingNote
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : Text('Lưu tư vấn', style: AppTypography.zaloFont(fontSize: 11.5, fontWeight: FontWeight.w700, color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (current.candidatePhone.isNotEmpty) ...[
+                    QuickContactActions(phone: current.candidatePhone, compact: false),
+                    const SizedBox(height: 10),
+                  ],
+
+                  SizedBox(
+                    width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
                         Navigator.pop(ctx);
-                        _openAssignBatch(c);
+                        _openAssignBatch(current);
                       },
                       icon: const Icon(Icons.group_add_rounded, size: 16),
                       label: Text(
-                        c.batchId != null ? 'Đổi lớp' : 'Xếp lớp',
-                        style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600),
+                        current.batchId != null ? 'Đổi lớp học' : 'Xếp lớp học',
+                        style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF00693F),
@@ -1197,53 +1499,50 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (dCtx) => AlertDialog(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            title: Text('Xác nhận xóa học viên', style: AppTypography.zaloFont(fontWeight: FontWeight.w700, fontSize: 16)),
+                            content: Text('Bạn có chắc chắn muốn xóa học viên "${current.candidateName}" khỏi hệ thống không?'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text('Hủy')),
+                              ElevatedButton(
+                                onPressed: () => Navigator.pop(dCtx, true),
+                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE11D48)),
+                                child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          final success = await _repository.deleteCandidate(current.id);
+                          if (mounted && success) {
+                            TopNotificationService.showInfo(
+                              title: 'Đã xóa',
+                              message: 'Đã xóa học viên ${current.candidateName}!',
+                            );
+                            _fetchData();
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFE11D48), size: 16),
+                      label: Text('Xóa thẻ học viên này', style: AppTypography.zaloFont(color: const Color(0xFFE11D48), fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 10),
-
-              // Nút xóa / Hủy thẻ học viên (Delete)
-              Center(
-                child: TextButton.icon(
-                  onPressed: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (dCtx) => AlertDialog(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        title: Text('Xác nhận xóa học viên', style: AppTypography.zaloFont(fontWeight: FontWeight.w700, fontSize: 16)),
-                        content: Text('Bạn có chắc chắn muốn xóa học viên "${c.candidateName}" khỏi hệ thống không?'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text('Hủy')),
-                          ElevatedButton(
-                            onPressed: () => Navigator.pop(dCtx, true),
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE11D48)),
-                            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (confirm == true) {
-                      if (ctx.mounted) Navigator.pop(ctx);
-                      final success = await _repository.deleteCandidate(c.id);
-                      if (mounted) {
-                        if (success) {
-                          TopNotificationService.showInfo(
-                            title: 'Đã xóa',
-                            message: 'Đã xóa học viên ${c.candidateName}!',
-                          );
-                          _fetchData();
-                        }
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFE11D48), size: 16),
-                  label: Text('Xóa thẻ học viên này', style: AppTypography.zaloFont(color: const Color(0xFFE11D48), fontSize: 12, fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
-    );
+    ).whenComplete(noteController.dispose);
   }
 
   Widget _buildMoveChip(BuildContext ctx, AdminCandidateModel c, String targetStatus, String label, Color color) {
@@ -1256,36 +1555,64 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
         targetStatus == 'DEPOSITED';
     final isLocked = c.amountPaid > 0 && isInitial;
 
+    final Color bgColor = isCurrent
+        ? color
+        : (isLocked ? const Color(0xFFF3F4F6) : color.withValues(alpha: 0.1));
+    final Color fgColor = isCurrent
+        ? Colors.white
+        : (isLocked ? const Color(0xFF9CA3AF) : color);
+    final Color borderColor = isCurrent
+        ? color
+        : (isLocked ? const Color(0xFFE5E7EB) : color.withValues(alpha: 0.3));
+
     return Padding(
       padding: const EdgeInsets.only(right: 6),
-      child: ActionChip(
-        avatar: isCurrent
-            ? const Icon(Icons.check, size: 14, color: Colors.white)
-            : (isLocked ? const Icon(Icons.lock_rounded, size: 12, color: Color(0xFFDC2626)) : null),
-        label: Text(label),
-        labelStyle: AppTypography.zaloFont(
-          fontSize: 11,
-          fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-          color: isLocked ? const Color(0xFF9CA3AF) : (isCurrent ? Colors.white : color),
-        ),
-        backgroundColor: isCurrent ? color : (isLocked ? const Color(0xFFF3F4F6) : color.withValues(alpha: 0.1)),
-        shape: RoundedRectangleBorder(
+      child: Material(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: isCurrent ? color : (isLocked ? const Color(0xFFE5E7EB) : color.withValues(alpha: 0.3))),
+          onTap: (isCurrent || isLocked)
+              ? null
+              : () async {
+                  Navigator.pop(ctx);
+                  final success = await _repository.updateCandidateStatus(c.id, targetStatus);
+                  if (mounted && success) {
+                    TopNotificationService.showSuccess(
+                      title: 'Cập nhật trạng thái',
+                      message: 'Đã chuyển ${c.candidateName} sang cột "$label"!',
+                    );
+                    _fetchData();
+                  }
+                },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: borderColor),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isCurrent) ...[
+                  const Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                  const SizedBox(width: 4),
+                ] else if (isLocked) ...[
+                  const Icon(Icons.lock_rounded, size: 12, color: Color(0xFFDC2626)),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  label,
+                  style: AppTypography.zaloFont(
+                    fontSize: 11,
+                    fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w600,
+                    color: fgColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        onPressed: (isCurrent || isLocked)
-            ? null
-            : () async {
-                Navigator.pop(ctx);
-                final success = await _repository.updateCandidateStatus(c.id, targetStatus);
-                if (mounted && success) {
-                  TopNotificationService.showSuccess(
-                    title: 'Cập nhật trạng thái',
-                    message: 'Đã chuyển ${c.candidateName} sang cột "$label"!',
-                  );
-                  _fetchData();
-                }
-              },
       ),
     );
   }
@@ -1302,20 +1629,6 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
             title: 'Xếp lớp thành công',
             message: 'Đã xếp học viên ${candidate.candidateName} vào lớp $batchCode thành công!',
           );
-          _fetchData();
-        },
-      ),
-    );
-  }
-
-  void _openSubmissionDetail(AdminQuizSubmissionModel sub) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => QuizSubmissionDetailSheet(
-        submission: sub,
-        onSaved: () {
           _fetchData();
         },
       ),
@@ -1384,7 +1697,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                   ? '${_filteredCandidates.length} học viên phễu Tuyển sinh'
                   : _selectedSegment == 1
                       ? '${_batches.length} lớp học đang mở'
-                      : '${_filteredSubmissions.length} bài thi học viên nộp',
+                      : '${_filteredMonthlyStudents.length} học viên tháng ${DateFormat('MM/yyyy').format(_selectedStudentMonth)}',
               style: AppTypography.zaloFont(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w500,
@@ -1446,87 +1759,202 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
               children: [
                 _buildSegmentButton(0, 'Trello (${_candidates.length})', Icons.view_kanban_rounded),
                 _buildSegmentButton(1, 'Lớp học (${_batches.length})', Icons.meeting_room_rounded),
-                _buildSegmentButton(2, 'Bài thi (${_submissions.length})', Icons.assignment_rounded),
+                _buildSegmentButton(2, 'HV Tháng (${_monthlyEnrolledStudents.length})', Icons.calendar_month_rounded),
               ],
             ),
           ),
 
           // 2. Nội dung Toolbar theo từng Segment
           if (_selectedSegment == 0) ...[
-            // Ô tìm kiếm học viên & Switch kiểu xem (Trello / Danh sách)
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 34,
-                      child: TextField(
-                        controller: _searchController,
-                        style: AppTypography.zaloFont(fontSize: 12),
-                        decoration: InputDecoration(
-                          hintText: 'Tìm học viên, SĐT, mã đơn, khóa...',
-                          hintStyle: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
-                          prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF9CA3AF)),
-                          prefixIconConstraints: const BoxConstraints(minWidth: 32),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded, size: 14),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() => _searchQuery = '');
-                                  },
-                                )
-                              : null,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                          filled: true,
-                          fillColor: const Color(0xFFF9FAFB),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Color(0xFF00693F)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 34,
+                          child: TextField(
+                            controller: _searchController,
+                            style: AppTypography.zaloFont(fontSize: 12),
+                            decoration: InputDecoration(
+                              hintText: 'Tìm học viên, mã HV, SĐT, khóa...',
+                              hintStyle: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
+                              prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF9CA3AF)),
+                              prefixIconConstraints: const BoxConstraints(minWidth: 32),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear_rounded, size: 14),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
+                                      },
+                                    )
+                                  : null,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                              filled: true,
+                              fillColor: const Color(0xFFF9FAFB),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Color(0xFF00693F)),
+                              ),
+                            ),
+                            onChanged: (val) => setState(() => _searchQuery = val.trim()),
                           ),
                         ),
-                        onChanged: (val) => setState(() => _searchQuery = val.trim()),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Nút chuyển giữa dạng Bảng Trello và Danh sách
-                  InkWell(
-                    onTap: () => setState(() => _isKanbanViewMode = !_isKanbanViewMode),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      height: 34,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3F4F6),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () => setState(() => _isKanbanViewMode = !_isKanbanViewMode),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        child: Container(
+                          height: 34,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _isKanbanViewMode ? Icons.view_agenda_rounded : Icons.view_kanban_rounded,
+                                size: 16,
+                                color: const Color(0xFF00693F),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _isKanbanViewMode ? 'Danh sách' : 'Trello',
+                                style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF00693F)),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _isKanbanViewMode ? Icons.view_agenda_rounded : Icons.view_kanban_rounded,
-                            size: 16,
-                            color: const Color(0xFF00693F),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      PopupMenuButton<String>(
+                        offset: const Offset(0, 32),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        elevation: 6,
+                        color: Colors.white,
+                        tooltip: 'Lọc Trello theo lớp hoặc tất cả',
+                        onSelected: (batchId) => setState(() => _selectedTrelloBatchId = batchId),
+                        itemBuilder: (ctx) => [
+                          PopupMenuItem<String>(
+                            value: 'ALL',
+                            height: 38,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.layers_rounded, size: 16, color: Color(0xFF00693F)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Tất cả các lớp (${_candidates.length})',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 12,
+                                      fontWeight: _selectedTrelloBatchId == 'ALL' ? FontWeight.w700 : FontWeight.w500,
+                                      color: _selectedTrelloBatchId == 'ALL' ? const Color(0xFF00693F) : AppColors.textHeading,
+                                    ),
+                                  ),
+                                ),
+                                if (_selectedTrelloBatchId == 'ALL')
+                                  const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
+                              ],
+                            ),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _isKanbanViewMode ? 'Danh sách' : 'Trello',
-                            style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF00693F)),
+                          PopupMenuItem<String>(
+                            value: 'NO_BATCH',
+                            height: 38,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.hourglass_empty_rounded, size: 16, color: Color(0xFFD97706)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Chưa xếp lớp',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 12,
+                                      fontWeight: _selectedTrelloBatchId == 'NO_BATCH' ? FontWeight.w700 : FontWeight.w500,
+                                      color: _selectedTrelloBatchId == 'NO_BATCH' ? const Color(0xFF00693F) : AppColors.textHeading,
+                                    ),
+                                  ),
+                                ),
+                                if (_selectedTrelloBatchId == 'NO_BATCH')
+                                  const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
+                              ],
+                            ),
                           ),
+                          if (_batches.isNotEmpty) const PopupMenuDivider(height: 1),
+                          ..._batches.map((b) {
+                            final isSel = _selectedTrelloBatchId == b.id || _selectedTrelloBatchId == b.batchCode;
+                            final count = _candidates.where((c) => c.batchId == b.id || c.batchCode == b.batchCode).length;
+                            return PopupMenuItem<String>(
+                              value: b.id,
+                              height: 38,
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.school_rounded, size: 15, color: Color(0xFF00693F)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '${b.batchCode} · ${b.courseTitle ?? ''}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 11.5,
+                                        fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                                        color: isSel ? const Color(0xFF00693F) : AppColors.textHeading,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text('$count', style: AppTypography.zaloFont(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                                  if (isSel) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.check_rounded, size: 15, color: Color(0xFF00693F)),
+                                  ],
+                                ],
+                              ),
+                            );
+                          }),
                         ],
+                        child: _buildMicroPill(
+                          label: _selectedTrelloBatchId == 'ALL'
+                              ? 'Trello: Tất cả lớp'
+                              : (_selectedTrelloBatchId == 'NO_BATCH'
+                                  ? 'Trello: Chưa xếp lớp'
+                                  : 'Lớp: ${_getBatchCodeFromId(_selectedTrelloBatchId)}'),
+                          icon: Icons.filter_list_rounded,
+                          isSelected: _selectedTrelloBatchId != 'ALL',
+                          showDropdownArrow: true,
+                        ),
                       ),
-                    ),
+                      if (_selectedTrelloBatchId != 'ALL') ...[
+                        const SizedBox(width: 6),
+                        _buildMicroPill(
+                          label: 'Xem tất cả',
+                          isSelected: false,
+                          onTap: () => setState(() => _selectedTrelloBatchId = 'ALL'),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -1751,271 +2179,311 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
           ],
 
           if (_selectedSegment == 2) ...[
-            // TOOLBAR BÀI THI: TÌM KIẾM + LỌC THEO LỚP HỌC (POPUP TỪ NÚT) & KẾT QUẢ ĐẠT / CHƯA ĐẠT
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: Column(
-                children: [
-                  // Dòng 1: Tìm kiếm bài thi
-                  SizedBox(
-                    height: 34,
-                    child: TextField(
-                      controller: _searchController,
-                      style: AppTypography.zaloFont(fontSize: 12),
-                      decoration: InputDecoration(
-                        hintText: 'Tìm bài thi theo học viên, SĐT, lớp...',
-                        hintStyle: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
-                        prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF9CA3AF)),
-                        prefixIconConstraints: const BoxConstraints(minWidth: 32),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear_rounded, size: 14),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() => _searchQuery = '');
-                                },
-                              )
-                            : null,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                        filled: true,
-                        fillColor: const Color(0xFFF9FAFB),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF00693F)),
-                        ),
-                      ),
-                      onChanged: (val) => setState(() => _searchQuery = val.trim()),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
+            Builder(
+              builder: (_) {
+                final now = DateTime.now();
+                final thisMonth = DateTime(now.year, now.month);
+                final nextMonth = DateTime(now.year, now.month + 1);
+                final isThisMonth = _selectedStudentMonth.year == thisMonth.year &&
+                    _selectedStudentMonth.month == thisMonth.month;
+                final isNextMonth = _selectedStudentMonth.year == nextMonth.year &&
+                    _selectedStudentMonth.month == nextMonth.month;
 
-                  // Dòng 2: LỌC THEO LỚP HỌC (TỪ NÚT XỔ RA) & NÚT ĐẠT CHUẨN / CHƯA ĐẠT NẰM CẠNH NHAU
-                  Row(
+                final thisMonthCount = _enrolledStudentsForMonth(thisMonth).length;
+                final nextMonthCount = _enrolledStudentsForMonth(nextMonth).length;
+                final thisMonthRegistered = _registeredCandidatesCountForMonth(thisMonth);
+                final nextMonthRegistered = _registeredCandidatesCountForMonth(nextMonth);
+
+                final enrolledCourseMap = <String, String>{};
+                for (final c in _monthlyEnrolledStudents) {
+                  if (c.courseId.isNotEmpty) {
+                    enrolledCourseMap[c.courseId] = c.courseTitle;
+                  }
+                }
+
+                return Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+                  child: Column(
                     children: [
-                      // NÚT LỌC THEO LỚP (Xổ menu từ chính nút ra)
-                      PopupMenuButton<String>(
-                        offset: const Offset(0, 32),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        ),
-                        elevation: 6,
-                        color: Colors.white,
-                        tooltip: 'Lọc theo lớp học',
-                        onSelected: (batchId) {
-                          setState(() => _selectedSubmissionBatchId = batchId);
-                        },
-                        itemBuilder: (ctx) {
-                          final items = <PopupMenuEntry<String>>[];
-
-                          // Tất cả các lớp
-                          items.add(
-                            PopupMenuItem<String>(
-                              value: 'ALL',
-                              height: 38,
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.school_rounded, size: 16, color: Color(0xFF00693F)),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Tất cả các lớp',
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setState(() {
+                                _selectedStudentMonth = thisMonth;
+                                _selectedMonthlyCourseId = 'ALL';
+                              }),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isThisMonth ? const Color(0xFFE8F6ED) : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isThisMonth ? const Color(0xFF00693F) : const Color(0xFFE5E7EB),
+                                    width: isThisMonth ? 1.4 : 1,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Tháng này (${DateFormat('MM/yyyy').format(thisMonth)})',
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: isThisMonth ? const Color(0xFF00693F) : AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '$thisMonthCount đang học · $thisMonthRegistered đăng ký',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: AppTypography.zaloFont(
                                         fontSize: 12,
-                                        fontWeight: _selectedSubmissionBatchId == 'ALL' ? FontWeight.w700 : FontWeight.w500,
-                                        color: _selectedSubmissionBatchId == 'ALL' ? const Color(0xFF00693F) : AppColors.textHeading,
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                    decoration: BoxDecoration(
-                                      color: _selectedSubmissionBatchId == 'ALL' ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '${_submissions.length}',
-                                      style: AppTypography.zaloFont(
-                                        fontSize: 10,
                                         fontWeight: FontWeight.w700,
-                                        color: _selectedSubmissionBatchId == 'ALL' ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                                        color: AppColors.textHeading,
                                       ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setState(() {
+                                _selectedStudentMonth = nextMonth;
+                                _selectedMonthlyCourseId = 'ALL';
+                              }),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isNextMonth ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isNextMonth ? AppColors.primary : const Color(0xFFE5E7EB),
+                                    width: isNextMonth ? 1.4 : 1,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Tháng tới (${DateFormat('MM/yyyy').format(nextMonth)})',
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: isNextMonth ? AppColors.primary : AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '$nextMonthCount học viên · $nextMonthRegistered đăng ký',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textHeading,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 34,
+                        child: TextField(
+                          controller: _searchController,
+                          style: AppTypography.zaloFont(fontSize: 12),
+                          decoration: InputDecoration(
+                            hintText: 'Tìm học viên, mã HV, SĐT, lớp, khóa...',
+                            hintStyle: AppTypography.zaloFont(fontSize: 11.5, color: const Color(0xFF9CA3AF)),
+                            prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF9CA3AF)),
+                            prefixIconConstraints: const BoxConstraints(minWidth: 32),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear_rounded, size: 14),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                  )
+                                : null,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                            filled: true,
+                            fillColor: const Color(0xFFF9FAFB),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFF00693F)),
+                            ),
+                          ),
+                          onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildMicroPill(
+                              label: 'Tháng này ($thisMonthCount)',
+                              icon: Icons.today_rounded,
+                              isSelected: isThisMonth,
+                              onTap: () => setState(() {
+                                _selectedStudentMonth = thisMonth;
+                                _selectedMonthlyCourseId = 'ALL';
+                              }),
+                            ),
+                            const SizedBox(width: 6),
+                            _buildMicroPill(
+                              label: 'Tháng tới ($nextMonthCount)',
+                              icon: Icons.next_plan_rounded,
+                              isSelected: isNextMonth,
+                              onTap: () => setState(() {
+                                _selectedStudentMonth = nextMonth;
+                                _selectedMonthlyCourseId = 'ALL';
+                              }),
+                            ),
+                            const SizedBox(width: 6),
+                            _buildMicroPill(
+                              label: (!isThisMonth && !isNextMonth)
+                                  ? 'Tháng ${DateFormat('MM/yyyy').format(_selectedStudentMonth)}'
+                                  : 'Chọn tháng',
+                              icon: Icons.calendar_month_rounded,
+                              isSelected: !isThisMonth && !isNextMonth,
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: _selectedStudentMonth,
+                                  firstDate: DateTime(2024),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (picked != null && mounted) {
+                                  setState(() {
+                                    _selectedStudentMonth = DateTime(picked.year, picked.month);
+                                    _selectedMonthlyCourseId = 'ALL';
+                                  });
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            PopupMenuButton<String>(
+                              offset: const Offset(0, 32),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: const BorderSide(color: Color(0xFFE5E7EB)),
+                              ),
+                              elevation: 6,
+                              color: Colors.white,
+                              onSelected: (courseId) => setState(() => _selectedMonthlyCourseId = courseId),
+                              itemBuilder: (_) => [
+                                PopupMenuItem<String>(
+                                  value: 'ALL',
+                                  height: 36,
+                                  child: Text(
+                                    'Tất cả khóa đã xếp lớp (${_monthlyEnrolledStudents.length})',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 12,
+                                      fontWeight: _selectedMonthlyCourseId == 'ALL' ? FontWeight.w700 : FontWeight.w500,
+                                      color: _selectedMonthlyCourseId == 'ALL' ? const Color(0xFF00693F) : AppColors.textHeading,
                                     ),
                                   ),
-                                  if (_selectedSubmissionBatchId == 'ALL') ...[
-                                    const SizedBox(width: 6),
-                                    const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
-                                  ],
-                                ],
+                                ),
+                                ...enrolledCourseMap.entries.map((entry) {
+                                  final isSel = _selectedMonthlyCourseId == entry.key;
+                                  final count = _monthlyEnrolledStudents.where((c) => c.courseId == entry.key).length;
+                                  return PopupMenuItem<String>(
+                                    value: entry.key,
+                                    height: 36,
+                                    child: Text(
+                                      '${entry.value} ($count)',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 12,
+                                        fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                                        color: isSel ? const Color(0xFF00693F) : AppColors.textHeading,
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ],
+                              child: _buildMicroPill(
+                                label: _selectedMonthlyCourseId == 'ALL'
+                                    ? 'Khóa: Tất cả'
+                                    : 'Khóa: ${enrolledCourseMap[_selectedMonthlyCourseId] ?? "Đã chọn"}',
+                                icon: Icons.menu_book_rounded,
+                                isSelected: _selectedMonthlyCourseId != 'ALL',
+                                showDropdownArrow: true,
                               ),
                             ),
-                          );
-
-                          items.add(const PopupMenuDivider(height: 1));
-
-                          // Từng lớp trong _batches
-                          for (final batch in _batches) {
-                            final isSelected = _selectedSubmissionBatchId == batch.id || _selectedSubmissionBatchId == batch.batchCode;
-                            final count = _submissions.where((s) {
-                              final bId = _getSubmissionBatchId(s);
-                              final bCode = _getSubmissionBatchCode(s);
-                              return bId == batch.id || bCode == batch.batchCode;
-                            }).length;
-
-                            items.add(
-                              PopupMenuItem<String>(
-                                value: batch.id,
-                                height: 38,
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 7,
-                                      height: 7,
-                                      margin: const EdgeInsets.only(right: 8),
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF00693F),
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        '${batch.batchCode} · ${batch.courseTitle}',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: AppTypography.zaloFont(
-                                          fontSize: 11.5,
-                                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                          color: isSelected ? const Color(0xFF00693F) : AppColors.textHeading,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                      decoration: BoxDecoration(
-                                        color: isSelected ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        '$count',
-                                        style: AppTypography.zaloFont(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: isSelected ? const Color(0xFF00693F) : const Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                    ),
-                                    if (isSelected) ...[
-                                      const SizedBox(width: 6),
-                                      const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            );
-                          }
-
-                          if (_submissions.any((s) => _getSubmissionBatchId(s).isEmpty && _getSubmissionBatchCode(s).isEmpty)) {
-                            final isNoBatch = _selectedSubmissionBatchId == 'NO_BATCH';
-                            items.add(
-                              PopupMenuItem<String>(
-                                value: 'NO_BATCH',
-                                height: 38,
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        'Chưa xếp lớp',
-                                        style: AppTypography.zaloFont(
-                                          fontSize: 11.5,
-                                          fontWeight: isNoBatch ? FontWeight.w700 : FontWeight.w500,
-                                          color: isNoBatch ? const Color(0xFF00693F) : AppColors.textHeading,
-                                        ),
-                                      ),
-                                    ),
-                                    if (isNoBatch) const Icon(Icons.check_rounded, size: 16, color: Color(0xFF00693F)),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }
-
-                          return items;
-                        },
-                        child: _buildMicroPill(
-                          label: _selectedSubmissionBatchId == 'ALL'
-                              ? 'Lớp: Tất cả'
-                              : (_selectedSubmissionBatchId == 'NO_BATCH'
-                                  ? 'Lớp: Chưa xếp'
-                                  : 'Lớp: ${_getBatchCodeFromId(_selectedSubmissionBatchId)}'),
-                          icon: Icons.school_rounded,
-                          isSelected: _selectedSubmissionBatchId != 'ALL',
-                          showDropdownArrow: true,
-                        ),
-                      ),
-
-                      if (_selectedSubmissionBatchId != 'ALL') ...[
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () => setState(() => _selectedSubmissionBatchId = 'ALL'),
-                          child: Container(
-                            padding: const EdgeInsets.all(5),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFF3F4F6),
-                              shape: BoxShape.circle,
+                            const SizedBox(width: 6),
+                            _buildMicroPill(
+                              label: 'Đang học',
+                              isSelected: _selectedMonthlyGradFilter == 'STUDYING',
+                              activeColor: const Color(0xFF00693F),
+                              onTap: () => setState(() {
+                                _selectedMonthlyGradFilter =
+                                    _selectedMonthlyGradFilter == 'STUDYING' ? 'ALL' : 'STUDYING';
+                              }),
                             ),
-                            child: const Icon(Icons.close_rounded, size: 13, color: Color(0xFF6B7280)),
-                          ),
+                            const SizedBox(width: 6),
+                            _buildMicroPill(
+                              label: 'Đã đăng ký',
+                              isSelected: _selectedMonthlyGradFilter == 'REGISTERED',
+                              activeColor: const Color(0xFFD97706),
+                              onTap: () => setState(() {
+                                _selectedMonthlyGradFilter =
+                                    _selectedMonthlyGradFilter == 'REGISTERED' ? 'ALL' : 'REGISTERED';
+                              }),
+                            ),
+                            const SizedBox(width: 6),
+                            _buildMicroPill(
+                              label: 'Tốt nghiệp',
+                              isSelected: _selectedMonthlyGradFilter == 'COMPLETED',
+                              activeColor: const Color(0xFF4B5563),
+                              onTap: () => setState(() {
+                                _selectedMonthlyGradFilter =
+                                    _selectedMonthlyGradFilter == 'COMPLETED' ? 'ALL' : 'COMPLETED';
+                              }),
+                            ),
+                          ],
                         ),
-                      ],
-
-                      const SizedBox(width: 8),
-
-                      // NÚT ĐẠT (LỌC BÀI THI)
-                      _buildMicroPill(
-                        label: 'Đạt',
-                        badgeText: '${_submissions.where((s) => s.passed).length}',
-                        isSelected: _selectedSubmissionResult == 'PASSED',
-                        activeColor: const Color(0xFF00693F),
-                        onTap: () {
-                          setState(() {
-                            _selectedSubmissionResult = _selectedSubmissionResult == 'PASSED' ? 'ALL' : 'PASSED';
-                          });
-                        },
-                      ),
-                      const SizedBox(width: 6),
-
-                      // NÚT CHƯA ĐẠT (VẪN GIỮ NGUYÊN)
-                      _buildMicroPill(
-                        label: 'Chưa đạt',
-                        badgeText: '${_submissions.where((s) => !s.passed).length}',
-                        isSelected: _selectedSubmissionResult == 'FAILED',
-                        activeColor: const Color(0xFFD97706),
-                        onTap: () {
-                          setState(() {
-                            _selectedSubmissionResult = _selectedSubmissionResult == 'FAILED' ? 'ALL' : 'FAILED';
-                          });
-                        },
                       ),
                     ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ],
 
           const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
-          // 3. Danh sách dữ liệu chính
           Expanded(
             child: RefreshIndicator(
               onRefresh: _fetchData,
@@ -2026,7 +2494,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                       ? (_isKanbanViewMode ? _buildKanbanTrelloView() : _buildCandidatesList())
                       : _selectedSegment == 1
                           ? _buildClassBasedView()
-                          : _buildSubmissionsList(),
+                          : _buildMonthlyStudentsView(),
             ),
           ),
         ],
@@ -2056,24 +2524,27 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                 ),
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: 16,
-                  color: isSelected ? const Color(0xFF00693F) : const Color(0xFF9CA3AF),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: AppTypography.zaloFont(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 16,
+                    color: isSelected ? const Color(0xFF00693F) : const Color(0xFF9CA3AF),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: AppTypography.zaloFont(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -2283,9 +2754,81 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
     );
   }
 
-  // Thẻ học viên kiểu Card Trello Compact (Chiều cao ~58px, hiển thị được 8-10 thẻ)
+  Future<void> _handleInlineAddConsultation(AdminCandidateModel c, String note) async {
+    final isEnrolledOrPaid = c.amountPaid > 0 ||
+        c.status == 'PAID_WAITING_CLASS' ||
+        c.status == 'ENROLLED_STUDYING' ||
+        c.status == 'COMPLETED';
+    final res = await _repository.addConsultationNote(
+      enrollmentId: c.id,
+      note: note,
+      authorName: AuthService.instance.currentDisplayName ?? 'Tư vấn viên',
+      currentHistory: c.consultationHistory,
+      isEnrolledOrPaid: isEnrolledOrPaid,
+      autoArchiveOnLimit: false,
+    );
+    if (!mounted) return;
+    if (res['success'] == true) {
+      final updatedHistory = res['history'] as List<AdminConsultationNoteModel>;
+      setState(() {
+        final idx = _candidates.indexWhere((item) => item.id == c.id);
+        if (idx != -1) {
+          _candidates[idx] = _candidates[idx].copyWith(
+            consultationHistory: updatedHistory,
+          );
+        }
+      });
+      _fetchData();
+      TopNotificationService.showSuccess(
+        title: 'Đã lưu tư vấn',
+        message: 'Đã ghi nhận Tư vấn lần ${updatedHistory.length}.',
+      );
+    } else {
+      TopNotificationService.showError(
+        message: 'Không thể lưu lịch sử tư vấn. Vui lòng thử lại.',
+      );
+    }
+  }
+
+  Future<void> _handleArchiveCandidate(AdminCandidateModel c) async {
+    final ok = await _repository.updateCandidateStatus(c.id, 'ARCHIVED');
+    if (!mounted) return;
+    if (ok) {
+      setState(() {
+        final idx = _candidates.indexWhere((item) => item.id == c.id);
+        if (idx != -1) {
+          _candidates[idx] = _candidates[idx].copyWith(status: 'ARCHIVED');
+        }
+      });
+      _fetchData();
+      TopNotificationService.showInfo(
+        title: 'Đã cho vào lưu trữ',
+        message: '${c.candidateName} đã được chuyển vào mục Lưu trữ khách.',
+      );
+    } else {
+      TopNotificationService.showError(
+        message: 'Không thể chuyển vào lưu trữ. Vui lòng thử lại.',
+      );
+    }
+  }
+
   Widget _buildTrelloCard(AdminCandidateModel c, Color tagColor) {
+    final normalized = c.status.toUpperCase();
+    if (normalized == 'PENDING_CONSULTATION' ||
+        normalized == 'PENDING' ||
+        normalized == 'CONSULTING' ||
+        normalized == 'PENDING_APPROVAL') {
+      return PendingConsultationCard(
+        candidate: c,
+        onViewDetail: () => _showCandidateDetailSheet(c),
+        onAddConsultationNote: (note) => _handleInlineAddConsultation(c, note),
+        onArchiveCandidate: () => _handleArchiveCandidate(c),
+      );
+    }
+
     final isPaid = c.amountPaid > 0;
+    final isPendingConsult = c.status == 'PENDING_CONSULTATION' || c.status == 'ARCHIVED';
+    final isGradGroup = c.status == 'NOT_GRADUATED' || c.status == 'COMPLETED';
 
     return Material(
       color: Colors.transparent,
@@ -2314,7 +2857,6 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Dòng 1: Mã đơn + Lớp + Tên học viên + Tiền
               Row(
                 children: [
                   Container(
@@ -2324,7 +2866,7 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      c.orderCode,
+                      (c.studentCode != null && c.studentCode!.isNotEmpty) ? c.studentCode! : c.orderCode,
                       style: AppTypography.zaloFont(fontSize: 9, fontWeight: FontWeight.w700, color: tagColor),
                     ),
                   ),
@@ -2366,7 +2908,6 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                 ],
               ),
               const SizedBox(height: 3),
-              // Dòng 2: Khóa học + SĐT + Icon kéo thả
               Row(
                 children: [
                   Expanded(
@@ -2380,6 +2921,76 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                   const Icon(Icons.drag_indicator_rounded, size: 14, color: Color(0xFF9CA3AF)),
                 ],
               ),
+              if (isPendingConsult) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        c.targetAudience,
+                        style: AppTypography.zaloFont(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: c.consultationCount >= 3 ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'TV ${c.consultationCount}/3',
+                        style: AppTypography.zaloFont(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          color: c.consultationCount >= 3 ? const Color(0xFFDC2626) : const Color(0xFFB45309),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (c.latestConsultationSummary != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'Lịch sử: ${c.latestConsultationSummary}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.zaloFont(
+                      fontSize: 10,
+                      fontStyle: FontStyle.italic,
+                      color: const Color(0xFF92400E),
+                    ),
+                  ),
+                ],
+              ],
+              if (isGradGroup) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        c.candidateEmail != null && c.candidateEmail!.isNotEmpty
+                            ? c.candidateEmail!
+                            : (c.candidatePhone.isNotEmpty ? 'SĐT: ${c.candidatePhone}' : 'Chưa có thông tin LH'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.zaloFont(fontSize: 10, color: AppColors.textSecondary),
+                      ),
+                    ),
+                    if (c.candidatePhone.isNotEmpty)
+                      QuickContactActions(phone: c.candidatePhone, compact: true),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -2489,7 +3100,10 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: Text('Mở chi tiết lớp', style: AppTypography.zaloFont(fontWeight: FontWeight.w700)),
+              child: Text(
+                'Mở chi tiết lớp',
+                style: AppTypography.zaloFont(fontWeight: FontWeight.w700, color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -2759,6 +3373,8 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
           isCompact: true,
           onViewDetail: () => _showCandidateDetailSheet(c),
           onAssignBatch: () => _openAssignBatch(c),
+          onAddConsultationNote: (note) => _handleInlineAddConsultation(c, note),
+          onArchiveCandidate: () => _handleArchiveCandidate(c),
           onConfirmConsultation: () {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -2772,35 +3388,31 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
     );
   }
 
-  // ==============================================================
-  // 4. GIAO DIỆN BÀI THI & TRẮC NGHIỆM (HỖ TRỢ LỌC THEO LỚP & GIAO DIỆN COMPACT)
-  // ==============================================================
-  Widget _buildSubmissionsList() {
-    final list = _filteredSubmissions;
+  Widget _buildMonthlyStudentsView() {
+    final list = _filteredMonthlyStudents;
+    final monthLabel = DateFormat('MM/yyyy').format(_selectedStudentMonth);
 
     if (list.isEmpty) {
       return ListView(
         children: [
-          const SizedBox(height: 50),
+          const SizedBox(height: 60),
           Center(
             child: Column(
               children: [
                 Container(
-                  width: 52,
-                  height: 52,
+                  width: 56,
+                  height: 56,
                   decoration: const BoxDecoration(color: Color(0xFFF3F4F6), shape: BoxShape.circle),
-                  child: const Icon(Icons.assignment_turned_in_rounded, size: 26, color: Color(0xFF9CA3AF)),
+                  child: const Icon(Icons.groups_outlined, size: 28, color: Color(0xFF9CA3AF)),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  _submissions.isEmpty ? 'Chưa có bài thi nào được nộp' : 'Không tìm thấy bài thi phù hợp bộ lọc',
+                  'Chưa có học viên xếp lớp trong tháng $monthLabel',
                   style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _submissions.isEmpty
-                      ? 'Khi học viên hoàn thành bài kiểm tra, kết quả sẽ hiện tại đây.'
-                      : 'Hãy chọn lớp khác hoặc xóa từ khóa tìm kiếm.',
+                  'Hãy chọn tháng khác hoặc chuyển đổi giữa Tháng này / Tháng tới.',
                   style: AppTypography.zaloFont(fontSize: 11.5, color: AppColors.textSecondary),
                 ),
               ],
@@ -2810,161 +3422,167 @@ class _AdminAcademyScreenState extends State<AdminAcademyScreen> {
       );
     }
 
+    final grouped = <String, List<AdminCandidateModel>>{};
+    for (final student in list) {
+      final key = student.courseTitle;
+      grouped.putIfAbsent(key, () => []).add(student);
+    }
+    final courseEntries = grouped.entries.toList();
+
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      itemCount: list.length,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
+      itemCount: courseEntries.length,
       itemBuilder: (ctx, index) {
-        final sub = list[index];
-        final bCode = _getSubmissionBatchCode(sub);
+        final courseTitle = courseEntries[index].key;
+        final students = courseEntries[index].value;
 
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _openSubmissionDetail(sub),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: sub.passed ? const Color(0xFFE5E7EB) : const Color(0xFFFDE68A),
-                  width: sub.passed ? 1 : 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1)),
-                ],
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Dòng 1: Badge Lớp học + Badge Kết quả + Điểm số
-                  Row(
-                    children: [
-                      // Badge Lớp học (BÀI THI LỌC THEO LỚP)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: bCode.isNotEmpty ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: bCode.isNotEmpty ? const Color(0xFF00693F).withValues(alpha: 0.3) : const Color(0xFFE5E7EB),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.school_rounded,
-                              size: 12,
-                              color: bCode.isNotEmpty ? const Color(0xFF00693F) : const Color(0xFF6B7280),
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              bCode.isNotEmpty ? 'Lớp: $bCode' : 'Chưa có lớp',
-                              style: AppTypography.zaloFont(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: bCode.isNotEmpty ? const Color(0xFF00693F) : const Color(0xFF6B7280),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-
-                      // Điểm số nổi bật
-                      Text(
-                        '${sub.score.toStringAsFixed(sub.score.truncateToDouble() == sub.score ? 0 : 1)} đ',
-                        style: AppTypography.zaloFont(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w800,
-                          color: sub.passed ? const Color(0xFF00693F) : const Color(0xFFD97706),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Dòng 2: Tên học viên + SĐT
-                  Row(
-                    children: [
-                      Text(
-                        sub.studentName,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEFF6EE),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.menu_book_rounded, size: 16, color: Color(0xFF00693F)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        courseTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: AppTypography.zaloFont(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.textHeading,
+                          color: const Color(0xFF00693F),
                         ),
                       ),
-                      if (sub.studentPhone.isNotEmpty) ...[
-                        Text(
-                          ' · ${sub.studentPhone}',
-                          style: AppTypography.zaloFont(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-
-                  // Dòng 3: Bài thi & Khóa học
-                  Text(
-                    '${sub.quizTitle} · ${sub.courseTitle}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.zaloFont(fontSize: 11, color: AppColors.textSecondary),
-                  ),
-
-                  if (sub.instructorFeedback != null && sub.instructorFeedback!.isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    ),
                     Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        'GV nhận xét: "${sub.instructorFeedback}"',
-                        style: AppTypography.zaloFont(fontSize: 10.5, fontStyle: FontStyle.italic, color: const Color(0xFF4B5563)),
+                        '${students.length} học viên',
+                        style: AppTypography.zaloFont(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF00693F),
+                        ),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 8),
+                ),
+              ),
+              ...students.map((c) {
+                Color statusBg;
+                Color statusFg;
+                String statusText;
+                if (c.status == 'COMPLETED') {
+                  statusBg = const Color(0xFFF3F4F6);
+                  statusFg = const Color(0xFF4B5563);
+                  statusText = 'Tốt nghiệp';
+                } else if (c.status == 'NOT_GRADUATED') {
+                  statusBg = const Color(0xFFFFF7ED);
+                  statusFg = const Color(0xFFC2410C);
+                  statusText = 'Chưa tốt nghiệp';
+                } else {
+                  statusBg = const Color(0xFFE8F6ED);
+                  statusFg = const Color(0xFF00693F);
+                  statusText = 'Đang học';
+                }
 
-                  // Dòng 4: Số câu đúng + Nút Xem & Nhận xét
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Đúng: ${sub.correctCount} câu',
-                        style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xFF6B7280)),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF00693F),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Xem & Nhận xét',
-                          style: AppTypography.zaloFont(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                return InkWell(
+                  onTap: () => _showCandidateDetailSheet(c),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: const BoxDecoration(
+                      border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      c.candidateName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textHeading,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: statusBg,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      statusText,
+                                      style: AppTypography.zaloFont(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: statusFg,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${(c.studentCode != null && c.studentCode!.isNotEmpty) ? "Mã HV: ${c.studentCode}" : c.orderCode}'
+                                '${(c.batchCode != null && c.batchCode!.isNotEmpty) ? " · Lớp: ${c.batchCode}" : ""}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.zaloFont(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${c.candidatePhone}${c.candidateEmail != null && c.candidateEmail!.isNotEmpty ? " · ${c.candidateEmail}" : ""}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.zaloFont(fontSize: 11, color: AppColors.textSecondary),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        if (c.candidatePhone.isNotEmpty)
+                          QuickContactActions(phone: c.candidatePhone, compact: true),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
+                );
+              }),
+            ],
           ),
         );
       },

@@ -114,3 +114,31 @@ export async function staffSessionStatus(store:Store,actorId:string,bookingId:st
   await store.query(Prisma.sql`UPDATE bookings SET status=${status}::booking_status WHERE id=${bookingId}::uuid RETURNING id`);
   await store.query(Prisma.sql`INSERT INTO audit_logs(actor_id,action,table_name,record_id,old_data,new_data) VALUES(${actorId}::uuid,'MINIAPP_SESSION_STATUS','bookings',${bookingId}::uuid,${JSON.stringify({status:current.status})}::jsonb,${JSON.stringify({status})}::jsonb) RETURNING id`);
 }
+
+export async function staffShifts(store:Store,actorId:string,rawMonth?:unknown){
+  const scope=await staffScope(store,actorId);
+  const defaultMonth=new Date(Date.now()+7*3600_000).toISOString().slice(0,7);
+  const month=typeof rawMonth==='string'&&rawMonth.trim()?rawMonth.trim():defaultMonth;
+  if(!/^\d{4}-\d{2}$/.test(month))throw new ApiError(400,'Tháng không hợp lệ (YYYY-MM)');
+  const [year,mon]=month.split('-').map(Number);
+  if(!Number.isInteger(year)||!Number.isInteger(mon)||mon<1||mon>12)throw new ApiError(400,'Tháng không hợp lệ (YYYY-MM)');
+  const startDate=`${month}-01`;
+  const endDate=new Date(Date.UTC(year,mon,0)).toISOString().slice(0,10);
+  const rows=await store.query(Prisma.sql`SELECT sh.id,sh.technician_id,sh.branch_id,
+    to_char(sh.shift_date,'YYYY-MM-DD') AS shift_date,
+    to_char(sh.start_time,'HH24:MI:SS') AS start_time,
+    to_char(sh.end_time,'HH24:MI:SS') AS end_time,
+    t.full_name AS technician_name,b.name AS branch_name
+    FROM technician_shifts sh
+    JOIN technicians t ON t.id=sh.technician_id
+    JOIN branches b ON b.id=sh.branch_id
+    WHERE NOT sh.is_cancelled AND sh.shift_date BETWEEN ${startDate}::date AND ${endDate}::date
+      AND (${scope.branchId}::uuid IS NULL OR sh.branch_id=${scope.branchId}::uuid)
+    ORDER BY sh.shift_date ASC,sh.start_time ASC,t.full_name ASC`);
+  const shifts=rows.map(r=>{
+    const start=String(r.start_time||'00:00:00');
+    const shiftSlot=start<'12:00:00'?'morning':start<'18:00:00'?'afternoon':'evening';
+    return {id:r.id,technicianId:r.technician_id,branchId:r.branch_id,shiftDate:r.shift_date,startTime:r.start_time,endTime:r.end_time,shiftSlot,technicianName:r.technician_name,branchName:r.branch_name};
+  });
+  return {month,branchId:scope.branchId,shifts};
+}

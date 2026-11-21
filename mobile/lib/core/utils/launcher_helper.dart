@@ -72,18 +72,16 @@ class AppLauncherHelper {
 
     if (latitude != null && longitude != null) {
       if (!kIsWeb && Platform.isIOS) {
-        // Apple Maps
         final query = label != null ? Uri.encodeComponent(label) : '$latitude,$longitude';
-        uri = Uri.parse('http://maps.apple.com/?ll=$latitude,$longitude&q=$query');
+        uri = Uri.parse('https://maps.apple.com/?ll=$latitude,$longitude&q=$query');
       } else {
-        // Android Google Maps
         final query = label != null ? Uri.encodeComponent(label) : '$latitude,$longitude';
         uri = Uri.parse('geo:$latitude,$longitude?q=$latitude,$longitude($query)');
       }
     } else if (address != null && address.isNotEmpty) {
       final encodedAddress = Uri.encodeComponent(address);
       if (!kIsWeb && Platform.isIOS) {
-        uri = Uri.parse('http://maps.apple.com/?q=$encodedAddress');
+        uri = Uri.parse('https://maps.apple.com/?q=$encodedAddress');
       } else {
         uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$encodedAddress');
       }

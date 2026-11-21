@@ -39,14 +39,15 @@ const StaffWork=deferredScreen(()=>import('@/features/staff/StaffWork').then(m=>
 const HomeProducts=deferredScreen(()=>import('@/features/services/CustomerCatalog').then(m=>({default:m.HomeProducts})));
 const ServicePricing=deferredScreen(()=>import('@/features/services/CustomerCatalog').then(m=>({default:m.ServicePricing})));
 const AccountActivity=deferredScreen(()=>import('@/features/profile/AccountActivity').then(m=>({default:m.AccountActivity})));
-type View='points'|'payments'|'home-products'|'pricing'|'vouchers'|'care_guide'|'consultation'|'review'|'examination'|'booking'|'appointments'|'packages'|'journal'|'support'|'community'|'my-courses'|'schedule'|'certificates'|'branches'|'specialists'|'service-detail'|'branch-detail'|'specialist-detail'|'notifications'|'sessions'|'staff-work';
+const FAQ=deferredScreen(()=>import('@/components/FAQScreen').then(m=>({default:m.FAQScreen})));
+type View='points'|'payments'|'home-products'|'pricing'|'vouchers'|'care_guide'|'consultation'|'review'|'examination'|'booking'|'appointments'|'packages'|'journal'|'support'|'faq'|'community'|'my-courses'|'schedule'|'certificates'|'branches'|'specialists'|'service-detail'|'branch-detail'|'specialist-detail'|'notifications'|'sessions'|'staff-work';
 const protectedViews=new Set<View>(['points','payments','vouchers','booking','appointments','packages','journal','support','my-courses','schedule','certificates','notifications','sessions','staff-work','care_guide','consultation','review']);
 
 export function MainLayout(){
   useLocale();
   const contentRef=useRef<HTMLElement|null>(null);
   const [tab,setTab]=useState<NavTabId>('home'),[view,setView]=useState<View|null>(null),[auth,setAuth]=useState(false),[pending,setPending]=useState<View|null>(null);
-  const [user,setUser]=useState<User|null>(null),[services,setServices]=useState<MedicalService[]>([]),[branches,setBranches]=useState<Branch[]>([]),[doctors,setDoctors]=useState<Doctor[]>([]),[courses,setCourses]=useState<Course[]>([]),[banners,setBanners]=useState<PortalBanner[]>([]);
+  const [user,setUser]=useState<User|null>(null),[services,setServices]=useState<MedicalService[]>([]),[branches,setBranches]=useState<Branch[]>([]),[doctors,setDoctors]=useState<Doctor[]>([]),[courses,setCourses]=useState<Course[]>([]),[banners,setBanners]=useState<PortalBanner[]>([]),[portalSettings,setPortalSettings]=useState<any>(null);
   const [profileEntityId,setProfileEntityId]=useState<string|undefined>();
   const [detailSource,setDetailSource]=useState<'pricing'|null>(null);
   const [branchId,setBranchId]=useState(''),[service,setService]=useState<MedicalService|null>(null),[selectedBranch,setSelectedBranch]=useState<Branch|null>(null),[doctor,setDoctor]=useState<Doctor|null>(null);
@@ -81,6 +82,7 @@ export function MainLayout(){
       receive(2,apiClient.getDoctors(),'doctors',setDoctors),receive(3,apiClient.getCourses(),'courses',setCourses),
       receive(4,apiClient.getPortalBanners(),'banners',setBanners),receive(5,apiClient.getAppMetadata(),'',setMetadata),
     ]).finally(()=>{if(current)setLoading(false);});
+    void apiClient.getPortalSettings().then(data=>{if(current&&data&&!data.error)setPortalSettings(data);});
     return()=>{current=false;};
   },[revision,user?.id,user?.role]);
   useEffect(()=>{
@@ -140,7 +142,7 @@ export function MainLayout(){
     if(['home','services','academy','documents','profile'].includes(destination)){setTab(destination as NavTabId);close();return;}
     if(destination==='examination'){visit('examination');return;}if(destination==='learning'){visit('my-courses');return;}if(destination==='new-booking'){book();return;}if(destination==='booking'){visit('appointments');setWorkAppointments(canUseStaffTools(user||{}));return;}if(destination==='search'){setSearch(true);return;}if(destination==='profile-edit'||destination==='profile-settings'){setProfilePanel(destination==='profile-edit'?'edit':'settings');setTab('profile');close();return;}if(destination==='results'){setAcademyTarget({id:String(Date.now()),enrollmentId:'',tab:'results'});visit('my-courses',{keepAcademyTarget:true});return;}
     if(destination==='vouchers'){visit('vouchers');return;}
-    if(['home-products','pricing','packages','journal','community','branches','specialists','notifications','support','schedule','certificates','care_guide','consultation','review'].includes(destination))visit(destination as View);
+    if(['home-products','pricing','packages','journal','community','branches','specialists','notifications','support','faq','schedule','certificates','care_guide','consultation','review'].includes(destination))visit(destination as View);
   };
   const openNotification=async(item:AppNotification)=>{const target=item.data?.target;if(!target){setNotice(item.message);return;}if(target.screen==='booking'){setBookingId(target.bookingId||target.entityId);visit('appointments',{work:Boolean(item.data?.staffBranchId)});}else if(target.screen==='academy'){setAcademyTarget({id:item.id,enrollmentId:target.enrollmentId||'',tab:target.tab||'content',quizId:target.quizId,certificateId:target.entityId});setView('my-courses');}else if(target.screen==='treatment'){setTreatmentEntityId(target.entityId);visit(target.tab==='support'?'support':target.tab==='journal'?'journal':target.tab==='care_guide'?'care_guide':'packages');}else if(target.screen==='profile'&&['vouchers','points','payments'].includes(target.tab||'')){setProfileEntityId(target.entityId);visit(target.tab as View);}else{setTab('profile');close();setNotice(item.message);}};
   const showCourse=(item:Course)=>{setCourseId(item.id);setTab('academy');setView(null);};
@@ -160,6 +162,7 @@ export function MainLayout(){
     if(view==='home-products')return <HomeProducts onBack={close} onConsultation={message=>openConsultation('','',message)}/>;
     if(view==='pricing')return <ServicePricing onBack={close} onConsultation={message=>openConsultation('','',message)} onService={item=>{setServices(rows=>rows.some(service=>service.id===item.id)?rows.map(service=>service.id===item.id?item:service):[...rows,item]);setDetailSource('pricing');setService(item);setView('service-detail');}}/>;
     if(view==='community')return <Community onBack={close} onExamination={()=>visit('examination')}/>;
+    if(view==='faq')return <FAQ faqs={portalSettings?.faqs} onBack={close} onSupport={()=>visit('support')}/>;
     if(view==='sessions')return <Sessions userId={user?.id||''} userName={user?.name||''} phone={user?.phone} onClose={close} onLogout={async()=>{await apiClient.logout();setUser(null);close();}}/>;
     if(view==='staff-work'&&user)return <StaffWork onChanged={()=>setRevision(value=>value+1)} user={user} services={services} branches={branches} onBack={close} onAppointment={id=>{setWorkAppointments(true);setBookingId(id);setView('appointments');}} onNavigate={navigate} onBooked={saved=>{setWorkAppointments(true);setBookingId(saved.id);setView('appointments');void loadPrivate();}}/>;
     if(view==='branches')return <Branches branches={branches} services={services} onClose={close} onSelectBranch={openBranch}/>;
@@ -167,7 +170,7 @@ export function MainLayout(){
     if(view==='service-detail'&&service)return <ServiceDetail userId={user?.id} service={service} doctors={doctors.filter(d=>d.serviceIds?.includes(service.id))} onSpecialist={openSpecialist} onClose={close} onRequireLogin={()=>setAuth(true)} onBookNow={book}/>;
     if(view==='branch-detail'&&selectedBranch)return <BranchDetail branch={selectedBranch} onClose={close} onSelectBranch={item=>{setBranchId(item.id);book();}}/>;
     if(view==='specialist-detail'&&doctor)return <SpecialistDetail doctor={doctor} branches={branches} onClose={close} onBookWithDoctor={item=>{const selected=services.find(s=>item.serviceIds?.includes(s.id));if(!selected){setNotice('Cơ sở chưa được phân công chuyên viên cho dịch vụ này.');return;}if(item.branchId)setBranchId(item.branchId);book(selected);}}/>;
-    if(tab==='home')return <HomeScreen user={user} services={services} branches={branches} doctors={doctors} courses={courses} banners={banners} activeBranchId={branchId} onBranch={setBranchId} onNavigate={navigate} onSearch={()=>setSearch(true)} onService={item=>{setDetailSource(null);setService(item);setView('service-detail');}} onCourse={showCourse} onSpecialist={openSpecialist} onBook={book} onConsultation={openConsultation} onCourseSearch={filter=>{setCourseSearch({...filter,id:Date.now()});setCourseId(undefined);setTab('academy');setView(null);}} onServiceSearch={filter=>{setServiceSearch({...filter,id:Date.now()});if(filter.branchId)setBranchId(filter.branchId);setTab('services');setView(null);}} unread={unread}/>;
+    if(tab==='home')return <HomeScreen user={user} services={services} branches={branches} doctors={doctors} courses={courses} banners={banners} portalSettings={portalSettings} activeBranchId={branchId} onBranch={setBranchId} onNavigate={navigate} onSearch={()=>setSearch(true)} onService={item=>{setDetailSource(null);setService(item);setView('service-detail');}} onCourse={showCourse} onSpecialist={openSpecialist} onBook={book} onConsultation={openConsultation} onCourseSearch={filter=>{setCourseSearch({...filter,id:Date.now()});setCourseId(undefined);setTab('academy');setView(null);}} onServiceSearch={filter=>{setServiceSearch({...filter,id:Date.now()});if(filter.branchId)setBranchId(filter.branchId);setTab('services');setView(null);}} unread={unread}/>;
     if(tab==='services')return <ServicesScreen key={serviceSearch?.id} initialFilter={serviceSearch} services={services} branches={branches} doctors={doctors} activeBranchId={branchId} onBranch={setBranchId} onSelect={item=>{setDetailSource(null);setService(item);setView('service-detail');}} onBook={book} onSearch={()=>setSearch(true)} onAppointments={()=>visit('appointments')} onBranches={()=>visit('branches')} onPricing={()=>visit('pricing')} onProducts={()=>visit('home-products')}/>;
     if(tab==='academy')return <Academy key={user?.id||'guest'} courses={courses} branches={branches} user={user||undefined} userId={user?.id||''} initialCourseId={courseId} catalogFilters={courseSearch} mode="catalog" loading={loading} error={error} onRefresh={refresh} onRequireLogin={()=>setAuth(true)} onBusyChange={setBusy}/>;
     if(tab==='documents')return <Documents key={user?.id||'guest'} onBack={()=>setTab('home')}/>;

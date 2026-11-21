@@ -100,6 +100,7 @@ import {
 } from "../data/vietnamLocations";
 import { SUPABASE_URL, getSupabaseHeaders } from "../services/supabaseClient";
 import { CertificateStatus, StudentCertificate } from "../types/shared_types";
+import { buildBookingPosPath } from "../pages/cashier-pos.rules";
 
 const toSlug = (str: string) =>
   str
@@ -927,7 +928,6 @@ const loyaltyPages: Record<string, { title: string; description: string; create?
   coupons: { title: "Mã giảm giá", description: "Tạo điều kiện ưu đãi trước khi cấp voucher cho khách.", create: "Tạo mã giảm giá", fields: ["code","title","discount_percent","discount_amount","min_order_amount","max_discount","valid_from","valid_to","usage_limit","is_active","description"] },
   voucher_distribution_rules: { title: "Quy tắc phân phối", description: "Thiết lập điều kiện nhận, hạng áp dụng và hạn dùng sau khi nhận.", create: "Thêm quy tắc", fields: ["coupon_id","trigger_event","target_tier","valid_days_after_claim","is_auto_grant","notify_user","is_active","description"] },
   user_vouchers: { title: "Voucher khách hàng", description: "Tra cứu ví voucher và cấp ưu đãi cho khách cụ thể. Trạng thái sử dụng do hệ thống ghi nhận.", create: "Cấp voucher cho khách", fields: ["user_id","coupon_id","expires_at"] },
-  membership_tier_rules: { title: "Hạng thành viên", description: "Cấu hình mốc chi tiêu và quyền lợi của từng hạng. Khách được xếp hạng từ giao dịch thực tế.", fields: ["tier","min_accumulated_spent","point_earning_rate","discount_service_percent","free_head_spa_sessions","birthday_voucher_id","priority_booking","description"] },
   loyalty_point_settings: { title: "Cấu hình điểm thưởng", description: "Kiểm tra tỷ lệ quy đổi và giới hạn sử dụng điểm trước khi lưu.", fields: ["earn_amount_per_point","redeem_value_per_point","max_redeem_percent_per_order","point_expiry_months","is_active"] },
   point_transactions: { title: "Lịch sử điểm", description: "Tra cứu số điểm tăng giảm và số dư sau mỗi giao dịch.", fields: [] },
 };
@@ -4626,7 +4626,18 @@ function BookingOperationsView({
                 </div>
                 <div className="flex items-center justify-start lg:justify-end gap-2">
                   {isWaitingPayment ? (
-                    <Link to={`/cashier-pos?bookingId=${encodeURIComponent(String(row.id))}`} className="inline-flex items-center justify-center gap-1.5 min-w-[132px] rounded-lg bg-[#985018] px-3 py-2 text-xs font-bold text-white hover:bg-[#7F4115] active:translate-y-px"><CreditCard size={14} />Mở thu ngân</Link>
+                    <Link
+                      to={buildBookingPosPath({
+                        bookingId: row.id,
+                        bookingCode: row.booking_code,
+                        customerId: row.customer_id,
+                        branchId: row.branch_id,
+                        tab: "pos",
+                      })}
+                      className="inline-flex items-center justify-center gap-1.5 min-w-[132px] rounded-lg bg-[#985018] px-3 py-2 text-xs font-bold text-white hover:bg-[#7F4115] active:translate-y-px"
+                    >
+                      <CreditCard size={14} />Mở thu ngân
+                    </Link>
                   ) : action && ActionIcon ? (
                     <button type="button" onClick={() => onAction(action.key, row)} className="inline-flex items-center justify-center gap-1.5 min-w-[132px] rounded-lg bg-[#985018] px-3 py-2 text-xs font-bold text-white hover:bg-[#7F4115] active:translate-y-px"><ActionIcon size={14} />{action.label}</button>
                   ) : (
@@ -5559,7 +5570,6 @@ export function ResourcePage({ table: fixedTable }: { table?: string }) {
     coupons: ["code","discount_amount","min_order_amount","valid_to","used_count","is_active"],
     user_vouchers: ["user_id","coupon_id","expires_at","status","source_trigger"],
     voucher_distribution_rules: ["coupon_id","trigger_event","target_tier","valid_days_after_claim","is_auto_grant","is_active"],
-    membership_tier_rules: ["tier","min_accumulated_spent","point_earning_rate","discount_service_percent","priority_booking"],
     loyalty_point_settings: ["earn_amount_per_point","redeem_value_per_point","max_redeem_percent_per_order","is_active"],
     point_transactions: ["created_at","user_id","points_change","balance_after","action_type","description"],
     branches: ["name", "code", "phone", "address", "city", "is_active"],

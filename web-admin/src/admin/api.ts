@@ -819,6 +819,19 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
 
   const [tableOrAction, queryString] = path.split("?");
 
+  if (body === undefined && /^settings\/[a-z_]+$/i.test(tableOrAction)) {
+    const category = tableOrAction.split("/")[1];
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/system_settings?category=eq.${encodeURIComponent(category)}&select=data&limit=1`, {
+      headers: getSupabaseHeaders({ "Cache-Control": "no-cache" }),
+      cache: "no-store",
+      signal,
+    });
+    if (!res.ok) throw new Error("Không thể tải cấu hình hệ thống.");
+    const rows = await res.json();
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    return { category, data: row?.data || {} } as unknown as T;
+  }
+
   // Handle table listing
   if (body === undefined) {
     const table = tableOrAction;
@@ -1335,7 +1348,7 @@ async function querySupabaseFallback<T>(path: string, body?: unknown, signal?: A
               email: studentEmail,
               role: "STUDENT",
               purpose: "ACADEMY",
-              referral_code: `HV${Date.now().toString().slice(-6)}`,
+              referral_code: `HV-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Date.now().toString().slice(-3)}`,
               membership_tier: "STANDARD",
               is_active: true,
             }),

@@ -232,9 +232,11 @@ export const GroupDTreatment: React.FC<GroupDTreatmentProps> = ({
   };
   const title = (plan: Plan) => plan.package?.name || plan.name || '';
   const stats = (plan: Plan) => {
-    const total = count(plan.totalSessions), used = count(plan.completedSessions ?? plan.usedSessions);
+    const total = count(plan.totalSessions), used = count(plan.completedSessions ?? plan.usedSessions), reserved = count(plan.reservedSessions) ?? 0;
+    const remaining = total != null && used != null ? Math.max(0, total - used) : null;
     return <div className="space-y-2 text-xs">
-      <p>Tổng buổi: {total ?? ''} · Đã dùng: {used ?? ''} · Còn lại: {total != null && used != null ? Math.max(0, total - used) : ''}</p>
+      <p>Tổng: {total != null ? `${total} buổi (${total} ca)` : ''} · Đã dùng: {used != null ? `${used} ca` : ''} · Còn lại: {remaining != null ? `${remaining} ca` : ''}</p>
+      {reserved > 0 && <p className="font-semibold text-[#087e9c]">Đang có {reserved} lịch hẹn chờ thực hiện</p>}
       {total != null && total > 0 && used != null && <progress aria-label="Tiến độ liệu trình" value={Math.min(used, total)} max={total} className="h-2 w-full accent-[#2860eb]" />}
       <p>Ngày mua: {careDate(plan.purchasedAt || plan.purchaseDate)}</p><p>Hạn sử dụng: {careDate(plan.expiresAt || plan.expiryDate)}</p>
     </div>;

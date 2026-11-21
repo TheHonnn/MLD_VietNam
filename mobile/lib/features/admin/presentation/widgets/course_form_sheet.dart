@@ -231,15 +231,15 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.9,
       ),
-      padding: EdgeInsets.only(
+      padding: const EdgeInsets.only(
         left: 20,
         right: 20,
         top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        bottom: 24,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Form(
         key: _formKey,
@@ -441,6 +441,7 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                         ),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
+                          isExpanded: true,
                           value: _levels.any((lvl) => lvl['value'] == _level) ? _level : _levels.first['value'],
                           decoration: _inputDecoration(''),
                           items: _levels.map((lvl) {
@@ -726,7 +727,6 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                     ),
                     Switch(
                       value: _isActive,
-                      activeThumbColor: const Color(0xFF00693F),
                       onChanged: (val) => setState(() => _isActive = val),
                     ),
                   ],

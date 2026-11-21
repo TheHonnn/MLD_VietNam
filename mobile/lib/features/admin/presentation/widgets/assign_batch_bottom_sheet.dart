@@ -364,7 +364,7 @@ class _AssignBatchBottomSheetState extends State<AssignBatchBottomSheet> {
                         )
                       : Text(
                           'Xác nhận Xếp lớp',
-                          style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700),
+                          style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
                         ),
                 ),
               ),

@@ -190,8 +190,12 @@ export async function createTreatmentBooking(
       throw new ConflictException('Khung giờ đã hết giường phục vụ.');
     const technicians = (
       await client.query(
-        'SELECT id FROM technicians WHERE branch_id=$1 AND is_active=true AND ($2::uuid IS NULL OR id=$2) ORDER BY id',
-        [branchId, technicianId],
+        `SELECT t.id FROM technicians t
+         WHERE t.branch_id=$1 AND t.is_active=true AND ($2::uuid IS NULL OR t.id=$2)
+           AND (t.staff_profile_id IS NULL OR EXISTS (SELECT 1 FROM staff_profiles p WHERE p.id=t.staff_profile_id AND p.is_active))
+           AND NOT EXISTS (SELECT 1 FROM staff_leaves l WHERE l.staff_id=t.staff_profile_id AND l.status='APPROVED' AND $3::date BETWEEN l.start_date AND l.end_date)
+         ORDER BY t.id`,
+        [branchId, technicianId, day],
       )
     ).rows;
     const assignedTech = technicians.find(

@@ -32,6 +32,9 @@ import {
   AttendanceStatus,
   DualSlotAvailability,
   InvoiceSyncResult,
+  StaffProfile,
+  StaffDepartment,
+  EmploymentType,
 } from '../types/shared_types';
 
 import { adminApi, Listing } from '../admin/api';
@@ -297,6 +300,7 @@ class SupabaseService {
         image_url: branch.imageUrl || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800',
         gallery_urls: branch.galleryUrls || [],
         amenities: cleanAmenities,
+        custom_time_slots: branch.customTimeSlots || [],
         is_active: branch.isActive !== undefined ? branch.isActive : true,
       };
 
@@ -319,6 +323,7 @@ class SupabaseService {
           longitude: Number(b.longitude),
           openingTime: b.opening_time,
           closingTime: b.closing_time,
+          customTimeSlots: Array.isArray(b.custom_time_slots) ? b.custom_time_slots : (branch.customTimeSlots || []),
           imageUrl: b.image_url,
           galleryUrls: Array.isArray(b.gallery_urls) ? b.gallery_urls : [],
           amenities: Array.isArray(b.amenities) ? b.amenities : [],
@@ -350,6 +355,9 @@ class SupabaseService {
           clean.push(`SLOTS:${updates.customTimeSlots.join(',')}`);
         }
         payload.amenities = clean;
+      }
+      if (updates.customTimeSlots !== undefined) {
+        payload.custom_time_slots = updates.customTimeSlots;
       }
       if (updates.isActive !== undefined) payload.is_active = updates.isActive;
 
@@ -669,16 +677,8 @@ class SupabaseService {
     }
   }
 
-  // 3. TÀI KHOẢN KHÁCH HÀNG / NGƯỜI DÙNG (USERS)
-  async getUsers(search?: string, tier?: MemberTier): Promise<User[] | null> {
-    let path = 'users?select=*&role=eq.CUSTOMER&order=created_at.desc';
-    if (tier) {
-      path += `&membership_tier=eq.${tier}`;
-    }
-    const raw = await this.query<any[]>(path);
-    if (!raw || raw.length === 0) return null;
-
-    let result: User[] = raw.map((u) => ({
+  private mapUserRow(u: any): User {
+    return {
       id: u.id,
       phone: u.phone,
       email: u.email,
@@ -698,7 +698,18 @@ class SupabaseService {
       isActive: Boolean(u.is_active),
       createdAt: u.created_at,
       updatedAt: u.updated_at,
-    }));
+    };
+  }
+
+  async getUsers(search?: string, tier?: MemberTier): Promise<User[] | null> {
+    let path = 'users?select=*&role=eq.CUSTOMER&order=created_at.desc';
+    if (tier) {
+      path += `&membership_tier=eq.${tier}`;
+    }
+    const raw = await this.query<any[]>(path);
+    if (!raw || raw.length === 0) return null;
+
+    let result: User[] = raw.map((u) => this.mapUserRow(u));
 
     if (search && search.trim()) {
       result = result.filter((u) =>
@@ -707,6 +718,44 @@ class SupabaseService {
     }
 
     return result;
+  }
+
+  async getStaffUsers(search?: string): Promise<User[]> {
+    const raw = await this.query<any[]>(
+      'users?select=*&role=not.in.(CUSTOMER,STUDENT,GUEST)&is_active=eq.true&order=full_name.asc',
+    );
+    if (!raw || raw.length === 0) return [];
+    let result: User[] = raw.map((u) => this.mapUserRow(u));
+    if (search && search.trim()) {
+      result = result.filter((u) =>
+        matchSearch([u.fullName, u.phone, u.email, u.address], search),
+      );
+    }
+    return result;
+  }
+
+  async getStaffProfiles(): Promise<StaffProfile[]> {
+    const raw = await this.query<any[]>(
+      'staff_profiles?select=*&is_active=eq.true',
+    );
+    if (!raw || raw.length === 0) return [];
+    return raw.map((p) => ({
+      id: p.id,
+      userId: p.user_id,
+      branchId: p.branch_id || '',
+      employeeCode: p.employee_code || '',
+      department: p.department || StaffDepartment.RECEPTION,
+      position: p.position || '',
+      employmentType: p.employment_type || EmploymentType.FULL_TIME,
+      baseSalary: Number(p.base_salary || 0),
+      commissionRate: Number(p.commission_rate || 0),
+      packageCommissionRate: Number(p.package_commission_rate || 0),
+      productCommissionRate: Number(p.product_commission_rate || 0),
+      hireDate: p.hire_date || '',
+      resignationDate: p.resignation_date || null,
+      idCardNumber: p.id_card_number || null,
+      isActive: Boolean(p.is_active),
+    }));
   }
 
   async updateUserTier(userId: string, tier: MemberTier): Promise<boolean> {
@@ -1503,7 +1552,7 @@ class SupabaseService {
 
   // 11. HÓA ĐƠN THU NGÂN (INVOICES)
   async getInvoices(branchId?: string, customerId?: string): Promise<Invoice[] | null> {
-    let path = `invoices?select=*,customer:customer_id(id,full_name,phone,email,avatar_url,membership_tier),branch:branch_id(id,name,code,address,district,city),items:invoice_items(*)&order=paid_at.desc`;
+    let path = `invoices?select=*,customer:customer_id(id,full_name,phone,email,avatar_url,membership_tier),branch:branch_id(id,name,code,address,district,city),user_package:user_package_id(id,total_sessions,completed_sessions,status,expires_at,package:package_id(name)),items:invoice_items(*)&order=paid_at.desc`;
     if (branchId && branchId !== 'ALL') path += `&branch_id=eq.${branchId}`;
     if (customerId) path += `&customer_id=eq.${customerId}`;
 
@@ -1530,6 +1579,7 @@ class SupabaseService {
         cashierId: inv.cashier_id,
         bookingId: inv.booking_id,
         userPackageId: inv.user_package_id,
+        commissionStaffId: inv.commission_staff_id || null,
         enrollmentId: inv.enrollment_id,
         subtotal: Number(inv.subtotal),
         discountAmount: Number(inv.discount_amount || 0),
@@ -1563,6 +1613,19 @@ class SupabaseService {
           district: inv.branch.district,
           city: inv.branch.city,
         } as any : undefined,
+        userPackage: inv.user_package
+          ? {
+              id: inv.user_package.id,
+              packageName: inv.user_package.package?.name || null,
+              totalSessions: Number(inv.user_package.total_sessions || 0),
+              completedSessions: Number(inv.user_package.completed_sessions || 0),
+              remainingSessions: Math.max(
+                0,
+                Number(inv.user_package.total_sessions || 0) - Number(inv.user_package.completed_sessions || 0),
+              ),
+              expiresAt: inv.user_package.expires_at || null,
+            }
+          : null,
         items: parsedItems,
         serviceTitle: parsedItems.length > 0 ? parsedItems.map((i: { itemName: string }) => i.itemName).join(', ') : undefined,
         serviceCategory: (() => {
@@ -1570,7 +1633,7 @@ class SupabaseService {
           if (inv.enrollment_id || code.startsWith('HD-HP-')) return 'ACADEMY';
           if (inv.user_package_id || code.startsWith('HD-LT-')) return 'PACKAGE';
           if (inv.booking_id || code.startsWith('HD-SPA-') || code.startsWith('HD-DV-')) return 'SERVICE';
-          if (parsedItems.some((it: { itemType?: string }) => it.itemType === 'PRODUCT')) return 'OTHER';
+          if (parsedItems.length > 0 && parsedItems.every((it: { itemType?: string }) => it.itemType === 'PRODUCT')) return 'OTHER';
           return 'SERVICE';
         })(),
       };
@@ -1672,6 +1735,7 @@ class SupabaseService {
         cashierId: inv.cashier_id,
         bookingId: inv.booking_id,
         userPackageId: inv.user_package_id,
+        commissionStaffId: inv.commission_staff_id || null,
         enrollmentId: inv.enrollment_id,
         shiftId: inv.shift_id || payload.shift_id,
         subtotal: Number(inv.subtotal),

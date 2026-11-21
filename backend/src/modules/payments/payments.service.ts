@@ -15,6 +15,7 @@ import { PaymentGatewayAdapter } from './payment-gateway.adapter';
 import { EmailService } from '../auth/services/email.service';
 import { AdminDatabase } from '../admin/admin.database';
 import { tuitionBankCode } from '../../common/tuition-bank-reference';
+import { getStaffCommissionRates, settlePendingPosInvoice, updateCashierShiftTotalsSql } from './pos-settlement.helper';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { PayOS } = require('@payos/node');
@@ -30,11 +31,12 @@ export class PaymentsService {
   private readonly bankAccountNo: string;
   private readonly bankAccountName: string;
 
-  // In-memory cache dự phòng mapping orderCode -> bookingId
   private readonly orderMappings = new Map<number, {
     bookingId?: string;
     bookingCode?: string;
     enrollmentId?: string;
+    invoiceId?: string;
+    invoiceCode?: string;
     amount: number;
     description: string;
     customerName?: string;
@@ -56,9 +58,9 @@ export class PaymentsService {
     const apiKey = this.configService.get<string>('PAYOS_API_KEY');
     const checksumKey = this.configService.get<string>('PAYOS_CHECKSUM_KEY');
 
-    this.bankBin = this.configService.get<string>('PAYOS_BANK_BIN', '970422');
-    this.bankAccountNo = this.configService.get<string>('PAYOS_BANK_ACCOUNT_NO', '');
-    this.bankAccountName = this.configService.get<string>('PAYOS_BANK_ACCOUNT_NAME', 'MLD VIETNAM');
+    this.bankBin = this.configService.get<string>('PAYOS_BANK_BIN', '970422') || '970422';
+    this.bankAccountNo = this.configService.get<string>('PAYOS_BANK_ACCOUNT_NO', '0394316963') || '0394316963';
+    this.bankAccountName = this.configService.get<string>('PAYOS_BANK_ACCOUNT_NAME', 'BUI THE HOANG') || 'BUI THE HOANG';
 
     if (clientId && apiKey && checksumKey) {
       try {
@@ -116,11 +118,12 @@ export class PaymentsService {
       }
     }
 
-    // Lưu mapping để đối soát
     const mappingData = {
       bookingId: dto.bookingId,
       bookingCode: dto.bookingCode,
       enrollmentId: dto.enrollmentId,
+      invoiceId: dto.invoiceId,
+      invoiceCode: dto.invoiceCode,
       amount: dto.amount,
       description: cleanDesc,
       customerName: dto.customerName,
@@ -206,14 +209,60 @@ export class PaymentsService {
     }
 
     try {
-      // 1. Gọi trực tiếp API PayOS để lấy thông tin trạng thái mới nhất từ ngân hàng
+      const { data: paidInvoice } = await this.supabaseService.adminClient
+        .from('invoices')
+        .select('id, invoice_code, total_amount, payment_status, user_package_id')
+        .eq('gateway_transaction_id', String(orderCode))
+        .maybeSingle();
+
+      if (paidInvoice && paidInvoice.payment_status === 'PAID') {
+        return {
+          orderCode,
+          isPaid: true,
+          status: 'PAID',
+          amountPaid: Number(paidInvoice.total_amount || 0),
+          invoiceId: paidInvoice.id,
+          invoiceCode: paidInvoice.invoice_code,
+          userPackageId: paidInvoice.user_package_id || null,
+          message: 'Thanh toán thành công! Hóa đơn đã được ghi nhận.',
+          bookingId: mapping?.bookingId,
+        };
+      }
+
+      if (!this.payos) {
+        if (mapping?.enrollmentId) {
+          const { data: enr } = await this.supabaseService.adminClient
+            .from('course_enrollments')
+            .select('id, payment_status, amount_paid, tuition_total')
+            .eq('id', mapping.enrollmentId)
+            .maybeSingle();
+          if (enr && (enr.payment_status === 'PAID' || Number(enr.amount_paid || 0) >= Number(mapping.amount || 1))) {
+            return {
+              orderCode,
+              isPaid: true,
+              status: 'PAID',
+              amountPaid: Number(enr.amount_paid || 0),
+              enrollmentId: enr.id,
+              message: 'Học phí đã được đối soát tự động!',
+            };
+          }
+        }
+        return {
+          orderCode,
+          isPaid: false,
+          status: mapping?.status || 'PENDING',
+          amountPaid: 0,
+          amountRemaining: mapping?.amount || 0,
+          message: 'Đang chờ biến động số dư hoặc xác nhận thanh toán tự động từ ngân hàng.',
+        };
+      }
+
       const payosInfo = await this.payos.paymentRequests.get(orderCode);
       const isPaid = payosInfo.status === 'PAID';
 
       this.logger.log(`[PayOS Check] orderCode: ${orderCode} -> status: ${payosInfo.status}, amountPaid: ${payosInfo.amountPaid}đ`);
 
       if (isPaid) {
-        // CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG TRÊN DATABASE
         await this.handlePaymentSuccess(orderCode, mapping, payosInfo);
 
         return {
@@ -221,12 +270,12 @@ export class PaymentsService {
           isPaid: true,
           status: 'PAID',
           amountPaid: payosInfo.amountPaid,
-          message: 'Thanh toán thành công! Hệ thống đã ghi nhận tiền cọc.',
+          invoiceId: mapping?.invoiceId || paidInvoice?.id,
+          message: 'Thanh toán thành công! Hệ thống đã ghi nhận giao dịch.',
           bookingId: mapping?.bookingId,
         };
       }
 
-      // CHƯA NHẬN ĐƯỢC TIỀN TỪ NGÂN HÀNG
       return {
         orderCode,
         isPaid: false,
@@ -308,12 +357,14 @@ export class PaymentsService {
    * 4. HÀM CẬP NHẬT KHI ĐÃ NHẬN TIỀN THỰC TẾ VÀO TÀI KHOẢN NGÂN HÀNG
    */
   private async handlePaymentSuccess(orderCode: number, mapping: any, paymentData: any) {
+    let existingPosInv: { id?: string; payment_status?: string } | null = null;
     try {
       const { data: existingInv } = await this.supabaseService.adminClient
         .from('invoices')
         .select('id, payment_status')
         .eq('gateway_transaction_id', String(orderCode))
         .maybeSingle();
+      existingPosInv = existingInv;
 
       if (existingInv && existingInv.payment_status === 'PAID') {
         this.logger.log(`[PayOS Idempotent] orderCode ${orderCode} already processed into invoice ${existingInv.id}. Skipping duplicate.`);
@@ -331,6 +382,35 @@ export class PaymentsService {
       } catch (_) {}
     }
 
+    if (this.adminDatabase && (mapping?.invoiceId || existingPosInv?.id)) {
+      const client = await this.adminDatabase.connection.connect();
+      try {
+        await client.query('BEGIN');
+        const inv = (
+          await client.query(
+            mapping?.invoiceId
+              ? 'SELECT * FROM invoices WHERE id=$1 FOR UPDATE'
+              : 'SELECT * FROM invoices WHERE gateway_transaction_id=$1 FOR UPDATE',
+            [mapping?.invoiceId || String(orderCode)],
+          )
+        ).rows[0];
+        if (inv) {
+          await settlePendingPosInvoice(client, inv, {
+            gatewayTransactionId: String(orderCode),
+            paymentMethod: 'BANK_TRANSFER',
+          });
+          await client.query('COMMIT');
+          return;
+        }
+        await client.query('ROLLBACK');
+      } catch (e) {
+        await client.query('ROLLBACK');
+        this.logger.warn(`[PayOS POS Settlement Error]: ${e}`);
+      } finally {
+        client.release();
+      }
+    }
+
     const bookingId = mapping?.bookingId;
     let bkgData: any = null;
 
@@ -338,7 +418,7 @@ export class PaymentsService {
       try {
         const { data } = await this.supabaseService.adminClient
           .from('bookings')
-          .select('id, branch_id, customer_id, final_price, booking_code')
+          .select('id, branch_id, customer_id, final_price, booking_code, status')
           .eq('id', bookingId)
           .maybeSingle();
         bkgData = data;
@@ -349,7 +429,7 @@ export class PaymentsService {
       try {
         const { data } = await this.supabaseService.adminClient
           .from('bookings')
-          .select('id, branch_id, customer_id, final_price, booking_code')
+          .select('id, branch_id, customer_id, final_price, booking_code, status')
           .eq('booking_code', mapping.bookingCode)
           .maybeSingle();
         bkgData = data;
@@ -369,12 +449,12 @@ export class PaymentsService {
         await this.supabaseService.adminClient
           .from('bookings')
           .update({
-            status: 'CONFIRMED',
+            ...(bkgData?.status === 'PENDING' ? { status: 'CONFIRMED' } : {}),
             payment_status: newPaymentStatus,
             special_notes: `[PayOS] Đã nhận thanh toán ${amountPaid}đ qua VietQR MBBank. Trạng thái: ${newPaymentStatus}`,
           })
           .eq('id', targetBookingId);
-        this.logger.log(`[Database Sync] Booking ${targetBookingId} updated to CONFIRMED / ${newPaymentStatus} via PayOS payment.`);
+        this.logger.log(`[Database Sync] Booking ${targetBookingId} updated to ${newPaymentStatus} via PayOS payment.`);
       } catch (e) {
         this.logger.error(`[Database Sync Error] for booking ${targetBookingId}: ${e}`);
       }
@@ -477,15 +557,32 @@ export class PaymentsService {
       }
 
       if (targetEnrollmentId) {
+        if (this.adminDatabase) {
+          const enrRow = (
+            await this.adminDatabase.connection.query(
+              'SELECT order_code, consultation_status, COALESCE(cb.branch_id, b.id) AS receipt_branch_id FROM course_enrollments e LEFT JOIN course_batches cb ON cb.id=e.batch_id LEFT JOIN LATERAL (SELECT id FROM branches WHERE name=e.selected_branch LIMIT 1) b ON true WHERE e.id=$1',
+              [targetEnrollmentId],
+            )
+          ).rows[0];
+          if (enrRow?.order_code && enrRow.consultation_status === 'CONFIRMED' && enrRow.receipt_branch_id) {
+            await this.recordTuitionTransfer(enrRow.order_code, amountPaid, `PAYOS-${orderCode}`);
+            return;
+          }
+        }
+        const { data: currentEnr } = await this.supabaseService.adminClient
+          .from('course_enrollments')
+          .select('id, amount_paid, tuition_total')
+          .eq('id', targetEnrollmentId)
+          .maybeSingle();
+        const prevPaid = Number(currentEnr?.amount_paid || 0);
+        const totalTuition = Number(currentEnr?.tuition_total || amountPaid);
+        const nextPaid = Math.min(totalTuition, prevPaid + amountPaid);
+
         await this.supabaseService.adminClient
           .from('course_enrollments')
           .update({
-            status: 'ENROLLED',
-            approval_status: 'APPROVED',
-            amount_paid: amountPaid,
-            approved_by: 'PAYOS_AUTO_RECONCILIATION',
-            approved_at: new Date().toISOString(),
-            approval_notes: `[Tự động duyệt] Đã nhận thanh toán ${amountPaid.toLocaleString('vi-VN')}đ qua chuyển khoản VietQR MBBank.`,
+            amount_paid: nextPaid,
+            payment_status: nextPaid >= totalTuition ? 'PAID' : 'PARTIALLY_PAID',
           })
           .eq('id', targetEnrollmentId);
 
@@ -494,10 +591,10 @@ export class PaymentsService {
           amountPaid,
           `TX-PAYOS-${orderCode}`,
           undefined,
-          `Đối soát PayOS cho mã ${orderCode}`,
+          `Đối soát PayOS tự động cho mã ${orderCode}`,
         );
 
-        this.logger.log(`[Auto-Approve] Enrollment ${targetEnrollmentId} đã được tự động duyệt vào khóa học thành công!`);
+        this.logger.log(`[PayOS Tuition Sync] Enrollment ${targetEnrollmentId} updated payment status (${nextPaid}/${totalTuition}).`);
       }
     } catch (enrErr) {
       this.logger.warn(`[Auto-Approve Warning]: ${enrErr}`);
@@ -621,15 +718,52 @@ export class PaymentsService {
             enrollment.consultation_status !== 'CONFIRMED' || !enrollment.receipt_branch_id) {
           throw new BadRequestException('Giao dịch học phí cần đối chiếu thủ công.');
         }
+        const pendingPosQr = enrollment.pending_pos_qr && typeof enrollment.pending_pos_qr === 'object'
+          ? enrollment.pending_pos_qr
+          : null;
+        let matchedShiftId: string | null = null;
+        let matchedCashierId: string | null = null;
+        if (pendingPosQr?.shiftId && (!pendingPosQr.amount || Number(pendingPosQr.amount) === amount)) {
+          const shiftRow = (await client.query('SELECT id FROM cashier_shifts WHERE id=$1 FOR UPDATE', [pendingPosQr.shiftId])).rows[0];
+          if (shiftRow?.id) {
+            matchedShiftId = shiftRow.id;
+            matchedCashierId = pendingPosQr.cashierId || null;
+          }
+        }
         const type = nextPaid === tuition ? (paid ? 'REMAINING_BALANCE' : 'FULL_PAYMENT') : (paid ? 'INSTALLMENT_1' : 'DEPOSIT');
+        const insertedTx = matchedShiftId
+          ? (await client.query(
+              `INSERT INTO tuition_transactions(transaction_code,enrollment_id,student_id,course_id,branch_id,transaction_type,amount,payment_method,payment_status,receipt_number,notes,shift_id,cashier_id)
+               VALUES($1,$2,$3,$4,$5,$6,$7,'BANK_TRANSFER','PAID',$1,$8,$9,$10) RETURNING id`,
+              [code,enrollment.id,enrollment.student_id,enrollment.course_id,enrollment.receipt_branch_id,type,amount,`Webhook ngân hàng: ${reference.trim()}`,matchedShiftId,matchedCashierId],
+            )).rows[0]
+          : (await client.query(
+              `INSERT INTO tuition_transactions(transaction_code,enrollment_id,student_id,course_id,branch_id,transaction_type,amount,payment_method,payment_status,receipt_number,notes)
+               VALUES($1,$2,$3,$4,$5,$6,$7,'BANK_TRANSFER','PAID',$1,$8) RETURNING id`,
+              [code,enrollment.id,enrollment.student_id,enrollment.course_id,enrollment.receipt_branch_id,type,amount,`Webhook ngân hàng: ${reference.trim()}`],
+            )).rows[0];
+        if (matchedShiftId) {
+          await updateCashierShiftTotalsSql(client, matchedShiftId, 'BANK_TRANSFER', amount);
+        }
+        const sellerId = pendingPosQr?.commissionStaffId || enrollment.assigned_staff_id || null;
+        if (sellerId && insertedTx?.id) {
+          const { serviceRate } = await getStaffCommissionRates(client, sellerId);
+          if (serviceRate > 0 && serviceRate <= 100) {
+            await client.query(
+              `INSERT INTO staff_commissions(staff_id,branch_id,tuition_transaction_id,commission_type,base_amount,percentage,commission_amount,status,cycle_month,notes)
+               VALUES($1,$2,$3,'COURSE_ENROLLMENT',$4,$5,round($4::numeric*$5::numeric/100),'PENDING',to_char(now(),'YYYY-MM'),$6)
+               ON CONFLICT (tuition_transaction_id) WHERE tuition_transaction_id IS NOT NULL DO NOTHING`,
+              [sellerId,enrollment.receipt_branch_id,insertedTx.id,amount,serviceRate,`Hoa hồng tư vấn khóa học từ chuyển khoản tự động ${code}`],
+            );
+          }
+        }
         await client.query(
-          `INSERT INTO tuition_transactions(transaction_code,enrollment_id,student_id,course_id,branch_id,transaction_type,amount,payment_method,payment_status,receipt_number,notes)
-           VALUES($1,$2,$3,$4,$5,$6,$7,'BANK_TRANSFER','PAID',$1,$8)`,
-          [code,enrollment.id,enrollment.student_id,enrollment.course_id,enrollment.receipt_branch_id,type,amount,`Webhook ngân hàng: ${reference.trim()}`],
-        );
-        await client.query(
-          `UPDATE course_enrollments SET amount_paid=$2,
-           payment_status=CASE WHEN $2>=tuition_total THEN 'PAID' ELSE 'PARTIALLY_PAID' END WHERE id=$1`,
+          pendingPosQr
+            ? `UPDATE course_enrollments SET amount_paid=$2,
+               payment_status=CASE WHEN $2>=tuition_total THEN 'PAID' ELSE 'PARTIALLY_PAID' END,
+               pending_pos_qr=NULL WHERE id=$1`
+            : `UPDATE course_enrollments SET amount_paid=$2,
+               payment_status=CASE WHEN $2>=tuition_total THEN 'PAID' ELSE 'PARTIALLY_PAID' END WHERE id=$1`,
           [enrollment.id,nextPaid],
         );
       }
@@ -745,18 +879,64 @@ export class PaymentsService {
       let matchedId: string | null = null;
       let matchedCode: string | null = null;
 
-      const tuitionCode = upperContent.match(/(?:^|[^A-Z0-9_-])(?:MLD\s+)?(KH-\d{8}-\d{3,})(?![A-Z0-9_-])/);
+      const tuitionCode = upperContent.match(/(?:^|[^A-Z0-9_-])(?:MLD\s+)?((?:HV|KH)-?\d{8}-?\d{3,})(?![A-Z0-9_-])/);
       if (tuitionCode) {
-        matchedCode = tuitionCode[1];
+        matchedCode = tuitionCode[1].replace(/^(HV|KH)-?(\d{8})-?(\d{3,})$/, '$1-$2-$3');
         matchedId = await this.recordTuitionTransfer(matchedCode, amount, referenceCode);
         results.push({ amount, referenceCode, matchedType: 'ENROLLMENT', matchedCode, matchedId, success: true });
         continue;
       }
 
-      // 1. Kiểm tra đối soát với Hóa đơn (invoices): HD-SPA-..., HD-HP-..., INV-...
-      const invMatch = upperContent.match(/(HD-SPA-[A-Z0-9_-]+|HD-HP-[A-Z0-9_-]+|INV-[A-Z0-9_-]+)/i);
+      const invMatch = upperContent.match(/(HD-?POS-?[A-Z0-9]+-?[A-Z0-9]+|POS-[A-Z0-9_-]+|HD-?SPA-[A-Z0-9_-]+|HD-?HP-[A-Z0-9_-]+|INV-[A-Z0-9_-]+)/i);
       if (invMatch) {
         matchedCode = invMatch[1].toUpperCase();
+        if (this.adminDatabase) {
+          const client = await this.adminDatabase.connection.connect();
+          try {
+            await client.query('BEGIN');
+            const lockedInv = (
+              await client.query(
+                "SELECT * FROM invoices WHERE invoice_code=$1 OR ($1 NOT LIKE '%-%' AND replace(invoice_code,'-','')=replace($1,'-','')) FOR UPDATE",
+                [matchedCode],
+              )
+            ).rows[0];
+            if (lockedInv) {
+              matchedCode = lockedInv.invoice_code;
+              if (lockedInv.payment_status === 'PAID') {
+                await client.query('COMMIT');
+                results.push({ matchedCode, status: 'ALREADY_PAID', skipped: true });
+                continue;
+              }
+              if (amount < Number(lockedInv.total_amount)) {
+                await client.query(
+                  "UPDATE invoices SET payment_status='PARTIAL', paid_at=now(), gateway_transaction_id=COALESCE($2,gateway_transaction_id) WHERE id=$1",
+                  [lockedInv.id, referenceCode || 'BANK_TRANSFER_WEBHOOK'],
+                );
+                await client.query('COMMIT');
+                results.push({ matchedCode, status: 'PARTIAL', amountPaid: amount, required: Number(lockedInv.total_amount) });
+                continue;
+              }
+              if (lockedInv.shift_id || lockedInv.pending_meta) {
+                const settled = await settlePendingPosInvoice(client, lockedInv, {
+                  gatewayTransactionId: referenceCode || 'BANK_TRANSFER_WEBHOOK',
+                  paymentMethod: 'BANK_TRANSFER',
+                });
+                await client.query('COMMIT');
+                matchedType = 'INVOICE';
+                matchedId = settled.invoice.id;
+                results.push({ content, amount, referenceCode, matchedType, matchedCode, matchedId, success: true });
+                continue;
+              }
+            }
+            await client.query('ROLLBACK');
+          } catch (posErr) {
+            await client.query('ROLLBACK');
+            throw posErr;
+          } finally {
+            client.release();
+          }
+        }
+
         const { data: inv } = await this.supabaseService.adminClient
           .from('invoices')
           .select('id, invoice_code, total_amount, payment_status, enrollment_id, booking_id, customer_id, branch_id')
@@ -834,13 +1014,7 @@ export class PaymentsService {
               .from('course_enrollments')
               .update({
                 payment_status: 'PAID',
-                student_status: 'APPROVED',
-                approval_status: 'APPROVED',
-                status: 'ENROLLED',
                 amount_paid: amount,
-                approved_at: new Date().toISOString(),
-                approved_by: 'f0dc713a-56fc-4347-9fb3-240528726ba3',
-                approval_notes: `[Tự động đối soát Webhook Ngân hàng] Nhận ${amount.toLocaleString('vi-VN')}đ khớp ${matchedCode}`,
               })
               .eq('id', inv.enrollment_id);
             await this.ensureEnrollmentPayment(
@@ -857,8 +1031,7 @@ export class PaymentsService {
               .from('bookings')
               .update({
                 payment_status: 'PAID',
-                status: 'COMPLETED',
-                checked_out_at: new Date().toISOString(),
+                payment_method: 'BANK_TRANSFER',
                 special_notes: `[Tự động đối soát Webhook Ngân hàng] Đã thanh toán ${amount.toLocaleString('vi-VN')}đ`,
               })
               .eq('id', inv.booking_id);
@@ -963,7 +1136,7 @@ export class PaymentsService {
               .update({
                 payment_status: 'PAID',
                 payment_method: 'BANK_TRANSFER',
-                status: bkg.status === 'IN_SERVICE' ? 'COMPLETED' : 'CONFIRMED',
+                ...(bkg.status === 'PENDING' ? { status: 'CONFIRMED' } : {}),
                 special_notes: `[Tự động đối soát Webhook Ngân hàng] Đã thanh toán ${amount.toLocaleString('vi-VN')}đ khớp mã ${matchedCode}`,
               })
               .eq('id', bkg.id);

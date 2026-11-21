@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/top_notification_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/presentation/screens/a03_login_screen.dart';
+import '../../../home/presentation/screens/main_layout_screen.dart';
+import '../../../membership/data/repositories/membership_repository.dart';
+import '../../data/repositories/admin_repository.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_frontdesk_screen.dart';
 import 'admin_academy_screen.dart';
 import 'admin_catalog_screen.dart';
+import 'admin_profile_screen.dart';
 import '../widgets/admin_qr_scanner_modal.dart';
 
 class AdminMainLayoutScreen extends StatefulWidget {
@@ -24,26 +29,92 @@ class AdminMainLayoutScreen extends StatefulWidget {
 class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
   late int _currentIndex;
   String? _subTab;
+  String? _pendingQrCode;
+  int _qrScanNonce = 0;
+  bool _isSyncingSession = false;
 
   bool get _isFullAdmin => AuthService.instance.isAdmin;
 
   @override
   void initState() {
     super.initState();
-    final maxIndex = _isFullAdmin ? 3 : 2;
+    final maxIndex = _isFullAdmin ? 4 : 2;
     _currentIndex = widget.initialTab.clamp(0, maxIndex);
+    AuthService.instance.roleNotifier.addListener(_onRoleChanged);
+    _syncAdminSession();
+  }
+
+  @override
+  void dispose() {
+    AuthService.instance.roleNotifier.removeListener(_onRoleChanged);
+    super.dispose();
+  }
+
+  void _onRoleChanged() {
+    if (!mounted) return;
+    final maxIndex = _isFullAdmin ? 4 : 2;
+    setState(() {
+      _currentIndex = _currentIndex.clamp(0, maxIndex);
+    });
+  }
+
+  Future<void> _syncAdminSession() async {
+    if (WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
+      return;
+    }
+    if (!AuthService.instance.isLoggedIn) return;
+    if (mounted) {
+      setState(() => _isSyncingSession = true);
+    }
+    final session = await AdminRepository.instance.fetchCurrentAdminSession();
+    if (!mounted) return;
+    if (session != null && session['forbidden'] == true) {
+      setState(() => _isSyncingSession = false);
+      TopNotificationService.showError(
+        title: 'Phân quyền quản trị',
+        message: 'Tài khoản này chưa được cấp quyền truy cập trang quản trị.',
+      );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
+        (route) => false,
+      );
+      return;
+    }
+    if (session != null && session['tokenRejected'] == true) {
+      await MembershipRepository.instance.fetchProfile();
+      if (!mounted) return;
+      if (!AuthService.instance.isStaff) {
+        setState(() => _isSyncingSession = false);
+        TopNotificationService.showError(
+          title: 'Phân quyền quản trị',
+          message: 'Tài khoản này chưa được cấp quyền truy cập trang quản trị.',
+        );
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const MainLayoutScreen()),
+          (route) => false,
+        );
+        return;
+      }
+    }
+    final maxIndex = _isFullAdmin ? 4 : 2;
+    setState(() {
+      _isSyncingSession = false;
+      _currentIndex = _currentIndex.clamp(0, maxIndex);
+    });
   }
 
   void _onNavigateTab(int index, {String? subTab}) {
     int targetIndex = index;
     if (!_isFullAdmin) {
-      if (index == 3) {
+      if (index == 4 || index == 3) {
         targetIndex = 2;
       } else if (index == 2) {
         targetIndex = 1;
       }
     }
-    final maxIndex = _isFullAdmin ? 3 : 2;
+    final maxIndex = _isFullAdmin ? 4 : 2;
     setState(() {
       _currentIndex = targetIndex.clamp(0, maxIndex);
       _subTab = subTab;
@@ -57,6 +128,8 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
         onCodeScanned: (code) {
           setState(() {
             _currentIndex = 1;
+            _pendingQrCode = code;
+            _qrScanNonce++;
           });
         },
       ),
@@ -128,6 +201,15 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isSyncingSession && !AuthService.instance.isStaff) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
     final List<Widget> screens = _isFullAdmin
         ? [
             AdminDashboardScreen(
@@ -138,6 +220,8 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
             AdminFrontdeskScreen(
               key: ValueKey('frontdesk_$_subTab'),
               initialStatus: _subTab,
+              pendingQrCode: _pendingQrCode,
+              qrScanNonce: _qrScanNonce,
             ),
             AdminAcademyScreen(
               key: ValueKey('academy_$_subTab'),
@@ -146,6 +230,9 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
             AdminCatalogScreen(
               key: ValueKey('catalog_$_subTab'),
               initialTab: _subTab,
+            ),
+            AdminProfileScreen(
+              onLogout: _handleLogout,
             ),
           ]
         : [
@@ -157,10 +244,11 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
             AdminFrontdeskScreen(
               key: ValueKey('frontdesk_$_subTab'),
               initialStatus: _subTab,
+              pendingQrCode: _pendingQrCode,
+              qrScanNonce: _qrScanNonce,
             ),
-            AdminCatalogScreen(
-              key: ValueKey('catalog_$_subTab'),
-              initialTab: _subTab,
+            AdminProfileScreen(
+              onLogout: _handleLogout,
             ),
           ];
 
@@ -196,13 +284,12 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
                       _buildNavItem(1, 'Tiếp đón', Icons.calendar_month_rounded),
                       _buildNavItem(2, 'Tuyển sinh', Icons.view_kanban_rounded),
                       _buildNavItem(3, 'Danh mục & SP', Icons.storefront_rounded),
-                      _buildLogoutItem(),
+                      _buildNavItem(4, 'Cá nhân', Icons.person_rounded),
                     ]
                   : [
                       _buildNavItem(0, 'Tổng quan', Icons.grid_view_rounded),
                       _buildNavItem(1, 'Tiếp đón', Icons.calendar_month_rounded),
-                      _buildNavItem(2, 'Danh mục & SP', Icons.storefront_rounded),
-                      _buildLogoutItem(),
+                      _buildNavItem(2, 'Cá nhân', Icons.person_rounded),
                     ],
             ),
           ),
@@ -257,42 +344,4 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
       ),
     );
   }
-
-  Widget _buildLogoutItem() {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _handleLogout,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          margin: const EdgeInsets.only(right: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE11D48),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.logout_rounded,
-                size: 15,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Đăng xuất',
-                style: AppTypography.zaloFont(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
-

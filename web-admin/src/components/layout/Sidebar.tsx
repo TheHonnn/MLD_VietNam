@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { SidebarItem, type SubMenuItem } from '../../admin/SidebarItem';
 import { Resource } from '../../admin/api';
 import { loadResources } from '../../admin/loadResources';
@@ -7,6 +7,9 @@ import { supabase } from '../../services/supabaseClient';
 import { useAdmin } from '../../admin/Auth';
 import { canAccessAdminPath } from '../../admin/access';
 import { ADMIN_NAVIGATION_GROUPS } from '../../admin/navigation';
+import { actionCenterService } from '../../services/actionCenter.service';
+import { useRealtimeSync } from '../../hooks/useRealtimeSync';
+import { formatBadgeCount, mapActionCountsToSidebarBadges } from '../../pages/action-center.rules';
 import { toast } from '../common';
 import {
   LayoutGrid,
@@ -52,11 +55,53 @@ interface SidebarSection {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }) => {
   const { user, authRevision } = useAdmin();
+  const location = useLocation();
   const [resources, setResources] = useState<Resource[]>([]);
   const [resourceError, setResourceError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [resourceStatus, setResourceStatus] = useState('');
   const [resourceCode, setResourceCode] = useState(0);
+  const [branchId, setBranchId] = useState<string>(() => localStorage.getItem('mld_selected_branch_id') || 'ALL');
+  const [actionBadges, setActionBadges] = useState<Record<string, number>>({});
+  const [badgeTick, setBadgeTick] = useState(0);
+
+  useEffect(() => {
+    const handleBranchChange = (e: any) => {
+      if (e?.detail?.branchId) setBranchId(e.detail.branchId);
+    };
+    const handleManualRefresh = () => setBadgeTick((v) => v + 1);
+    window.addEventListener('mld_branch_changed' as any, handleBranchChange);
+    window.addEventListener('mld_action_center_refresh' as any, handleManualRefresh);
+    const interval = window.setInterval(handleManualRefresh, 45000);
+    return () => {
+      window.removeEventListener('mld_branch_changed' as any, handleBranchChange);
+      window.removeEventListener('mld_action_center_refresh' as any, handleManualRefresh);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  useRealtimeSync({
+    tables: ['bookings', 'course_enrollments', 'user_packages', 'treatment_journal', 'notifications'],
+    debounceMs: 400,
+    onDataChange: () => setBadgeTick((v) => v + 1),
+  });
+
+  useEffect(() => {
+    if (!user?.id) {
+      setActionBadges({});
+      return;
+    }
+    const controller = new AbortController();
+    actionCenterService
+      .getSummary(branchId, controller.signal)
+      .then((res) => {
+        if (!controller.signal.aborted) {
+          setActionBadges(mapActionCountsToSidebarBadges(res.counts));
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [user?.id, authRevision, branchId, location.pathname, badgeTick]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -85,8 +130,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
     try {
       if (resourceCode === 401) {
         setResourceStatus('Đang làm mới phiên đăng nhập…');
-        const { error } = await supabase.auth.refreshSession();
-        if (error) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error || !data?.session?.access_token) {
+          throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        }
+        sessionStorage.setItem('mld_admin_token', data.session.access_token);
+        localStorage.setItem('mld_admin_token', data.session.access_token);
       }
       setAttempt(value => value + 1);
     } catch (error) {
@@ -137,6 +186,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           icon: Users,
           subItems: [
             { name: 'Hồ sơ Khách hàng', path: '/customers' },
+            { name: 'Khảo sát tiền dịch vụ', path: '/manage/consultation_surveys' },
+            { name: 'Phiếu hỗ trợ khách hàng', path: '/help?tab=customer-tickets' },
             { name: 'Đánh giá từ khách', path: '/manage/reviews' },
           ],
         },
@@ -149,6 +200,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
             { name: 'Liệu trình khách hàng', path: '/manage/user_packages' },
             { name: 'Nhật ký điều trị', path: '/manage/treatment_journal' },
             { name: 'Hướng dẫn chăm sóc tại nhà', path: '/manage/home_care_guidelines' },
+            { name: 'Kho vật tư điều trị', path: '/treatment-inventory' },
           ],
         },
         {
@@ -158,9 +210,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           subItems: [
             { name: 'Bảng giá & Gói liệu trình', path: '/services-catalog' },
             { name: 'Sản phẩm mang về', path: '/home-products' },
-            { name: 'Nhóm dịch vụ', path: '/manage/service_categories' },
             { name: 'Định mức tiêu hao vật tư (BOM)', path: '/manage/service_materials' },
-            { name: 'Xuất kho vật tư tiêu hao (BOM)', path: '/manage/inventory_consumption_logs' },
           ],
         },
         {
@@ -177,14 +227,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           ],
         },
         {
-          name: 'Voucher & Hội viên',
+          name: 'Voucher & Điểm thưởng',
           path: '/manage/coupons',
           icon: Ticket,
           subItems: [
             { name: 'Mã giảm giá (Voucher)', path: '/manage/coupons' },
             { name: 'Voucher khách hàng', path: '/manage/user_vouchers' },
             { name: 'Quy tắc phân phối', path: '/manage/voucher_distribution_rules' },
-            { name: 'Hạng thành viên', path: '/manage/membership_tier_rules' },
             { name: 'Cấu hình điểm thưởng', path: '/manage/loyalty_point_settings' },
             { name: 'Lịch sử giao dịch điểm', path: '/manage/point_transactions' },
           ],
@@ -367,6 +416,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
                         key={item.path}
                         {...item}
                         resources={resources}
+                        badgeCount={actionBadges[item.path] || 0}
+                        badgeMap={actionBadges}
                         onNavigate={onCloseMobile}
                       />
                     ))}
@@ -391,22 +442,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           >
             <HelpCircle className="w-4 h-4 text-[#004890] stroke-[1.8]" />
             <span>Cần hỗ trợ?</span>
+            {formatBadgeCount(actionBadges['/help']) && (
+              <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#985018] text-white leading-none">
+                {formatBadgeCount(actionBadges['/help'])}
+              </span>
+            )}
           </NavLink>
-          <NavLink
-            to="/settings"
-            onClick={onCloseMobile}
-            className={({ isActive }) =>
-              `w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                isActive
-                  ? 'bg-[#EBF3FC] text-[#004890] font-bold shadow-2xs'
-                  : 'text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#004890]'
-              }`
-            }
-            title="Cài đặt hệ thống quản trị"
-          >
-            <Settings className="w-4 h-4 text-[#004890] stroke-[1.8]" />
-            <span>Cài đặt</span>
-          </NavLink>
+          {canAccessAdminPath('/settings', user?.role || '', resources) && (
+            <NavLink
+              to="/settings"
+              onClick={onCloseMobile}
+              className={({ isActive }) =>
+                `w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-[#EBF3FC] text-[#004890] font-bold shadow-2xs'
+                    : 'text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#004890]'
+                }`
+              }
+              title="Cài đặt hệ thống quản trị"
+            >
+              <Settings className="w-4 h-4 text-[#004890] stroke-[1.8]" />
+              <span>Cài đặt</span>
+            </NavLink>
+          )}
           <div className="pt-2 px-3">
             <p className="text-[10px] text-[#64748B]">Hệ thống Quản trị MLD v1.0</p>
           </div>

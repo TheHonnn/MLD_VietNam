@@ -4,6 +4,7 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
   Logger,
   Optional,
 } from '@nestjs/common';
@@ -698,10 +699,21 @@ export class AuthService {
         .eq('jti', jti);
     } catch {}
 
-    // 3. Tạo bộ Token mới
-    const tokens = await this.generateTokens(userId, identifier || '', role || 'CUSTOMER');
+    const { data: latestUser } = await this.supabaseService.adminClient
+      .from('users')
+      .select('role, is_active')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (latestUser && latestUser.is_active === false) {
+      throw new UnauthorizedException('Tài khoản này đã bị tạm khóa.');
+    }
+
+    const effectiveRole = String(latestUser?.role || role || 'CUSTOMER').trim().toUpperCase();
+    const tokens = await this.generateTokens(userId, identifier || '', effectiveRole);
     return {
       message: 'Làm mới phiên đăng nhập thành công',
+      role: effectiveRole,
       ...tokens,
     };
   }
@@ -738,25 +750,32 @@ export class AuthService {
   async deleteAccount(userId: string) {
     this.logger.log(`🗑️ Bắt đầu tiến trình xóa vĩnh viễn tài khoản: ${userId}`);
 
-    // 1. Thu hồi toàn bộ Refresh Token của người dùng
     await this.revokeAllTokens(userId);
 
-    // 2. Ẩn danh hóa / Vô hiệu hóa thông tin cá nhân trong bảng users để bảo vệ quyền riêng tư
-    const anonymizedPhone = `deleted_${userId}_${Date.now()}`;
+    const anonymizedPhone = `del_${crypto.randomBytes(8).toString('hex')}`.slice(0, 20);
     const { error: userError } = await this.supabaseService.adminClient
       .from('users')
       .update({
         is_active: false,
         phone: anonymizedPhone,
         email: null,
+        password_hash: null,
         full_name: 'Tài khoản đã xóa',
         avatar_url: null,
+        address: null,
+        date_of_birth: null,
+        emergency_contact_name: null,
+        emergency_contact_phone: null,
+        fcm_device_token: null,
+        is_phone_verified: false,
+        is_email_verified: false,
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId);
 
     if (userError) {
       this.logger.error(`Lỗi khi cập nhật trạng thái xóa tài khoản: ${userError.message}`);
+      throw new InternalServerErrorException('Không thể xóa tài khoản lúc này. Vui lòng thử lại sau.');
     }
 
     // 3. Xóa các định danh xác thực trong auth_identities nếu có
@@ -1255,12 +1274,22 @@ export class AuthService {
       this.configService.get<string>('JWT_REFRESH_SECRET') ||
       'super-secret-refresh-token-key-mld-vietnam-2026';
 
-    const accessPayload = { sub: userId, identifier, role };
-    const refreshPayload = { sub: userId, jti, identifier, role };
+    const normalizedRole = String(role || 'CUSTOMER').trim().toUpperCase();
+    const isAdminPortalRole = [
+      'SUPER_ADMIN',
+      'ADMIN',
+      'BRANCH_MANAGER',
+      'CASHIER',
+      'RECEPTIONIST',
+    ].includes(normalizedRole);
+
+    const accessPayload = { sub: userId, identifier, role: normalizedRole };
+    const refreshPayload = { sub: userId, jti, identifier, role: normalizedRole };
 
     const accessToken = this.jwtService.sign(accessPayload, {
       secret: accessSecret,
       expiresIn: '30m',
+      ...(isAdminPortalRole ? { audience: 'mld-admin' } : {}),
     });
 
     const refreshToken = this.jwtService.sign(refreshPayload, {

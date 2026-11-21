@@ -121,6 +121,7 @@ class AppointmentItemModel {
   final double remainingAmount; // 300.000đ
   final String paymentMethod;
   final String paymentStatus;
+  final String sessionStatus;
   final AppointmentStatus status;
   final DateTime createdAt;
   final List<BookingTimelineEvent> timeline;
@@ -161,6 +162,7 @@ class AppointmentItemModel {
     required this.remainingAmount,
     this.paymentMethod = '',
     this.paymentStatus = 'UNPAID',
+    this.sessionStatus = 'NOT_STARTED',
     this.status = AppointmentStatus.confirmed,
     required this.createdAt,
     this.timeline = const [],
@@ -173,6 +175,16 @@ class AppointmentItemModel {
     this.finalPrice,
     this.userVoucherId,
   });
+
+  String? get userPackageId {
+    if (specialNotes.isEmpty) return null;
+    return RegExp(r'user_package_id=([0-9a-fA-F-]+)').firstMatch(specialNotes)?.group(1);
+  }
+
+  bool get isPackageSession =>
+      userPackageId != null || paymentMethod.toUpperCase() == 'MEMBERSHIP_WALLET';
+
+  bool get isClinicalCompleted => sessionStatus.toUpperCase() == 'COMPLETED';
 
   AppointmentItemModel copyWith({
     String? id,
@@ -202,6 +214,7 @@ class AppointmentItemModel {
     double? remainingAmount,
     String? paymentMethod,
     String? paymentStatus,
+    String? sessionStatus,
     AppointmentStatus? status,
     DateTime? createdAt,
     List<BookingTimelineEvent>? timeline,
@@ -242,6 +255,7 @@ class AppointmentItemModel {
       remainingAmount: remainingAmount ?? this.remainingAmount,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       paymentStatus: paymentStatus ?? this.paymentStatus,
+      sessionStatus: sessionStatus ?? this.sessionStatus,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       timeline: timeline ?? this.timeline,

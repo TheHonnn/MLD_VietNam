@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/portal_settings_service.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../../booking/data/repositories/booking_repository.dart';
+import '../../../home/data/models/home_models.dart';
+import '../../../home/data/repositories/branch_repository.dart';
 
 /// Screen D10: Đăng ký kiểm tra phù bạch huyết (Section 6, items 76-84)
 /// Quy chuẩn Trắng và Xanh Y tế (#0066B2)
@@ -33,12 +36,13 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
     'Tầm soát & bảo dưỡng hệ bạch huyết định kỳ',
   ];
 
-  final List<String> _branches = [
+  List<BranchModel> _branchModels = [];
+  List<String> _branches = [
     'Chi nhánh Quận 3 · 123 Nguyễn Thị Minh Khai',
     'Chi nhánh Quận 1 · 45 Lê Duẩn, Bến Nghé',
   ];
 
-  final List<String> _timeSlots = [
+  static const List<String> _defaultTimeSlots = [
     '08:00 - 09:00',
     '09:15 - 10:15',
     '10:30 - 11:30',
@@ -48,19 +52,60 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
     '16:30 - 17:30',
   ];
 
+  late List<String> _timeSlots;
+
   @override
   void initState() {
     super.initState();
+    final portalSlots = PortalSettingsService.instance.bookingTimeSlots;
+    _timeSlots = portalSlots.isNotEmpty ? List<String>.from(portalSlots) : List<String>.from(_defaultTimeSlots);
+    _selectedTime = _timeSlots.isNotEmpty ? _timeSlots.first : '08:00 - 09:00';
     final profile = MembershipRepository.instance.profile;
     _nameController = TextEditingController(text: profile.fullName);
     final phone = AuthService.instance.currentPhone ?? profile.phone;
     _phoneController = TextEditingController(text: phone);
     _notesController = TextEditingController();
     _selectedDate = DateTime.now().add(const Duration(days: 1));
+    PortalSettingsService.instance.settingsVersion.addListener(_onPortalSettingsChanged);
+    if (!WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding')) {
+      PortalSettingsService.instance.syncFromCloud();
+    }
+    _loadDynamicBranches();
+  }
+
+  void _onPortalSettingsChanged() {
+    if (!mounted) return;
+    final portalSlots = PortalSettingsService.instance.bookingTimeSlots;
+    if (portalSlots.isNotEmpty) {
+      setState(() {
+        _timeSlots = List<String>.from(portalSlots);
+        if (!_timeSlots.contains(_selectedTime)) {
+          _selectedTime = _timeSlots.first;
+        }
+      });
+    }
+  }
+
+  Future<void> _loadDynamicBranches() async {
+    try {
+      final list = await BranchRepository.instance.getBranches();
+      if (!mounted || list.isEmpty) return;
+      final formatted = list.map((b) => '${b.name} · ${b.address}').toSet().toList();
+      if (formatted.isNotEmpty) {
+        setState(() {
+          _branchModels = list;
+          _branches = formatted;
+          if (!_branches.contains(_selectedBranch)) {
+            _selectedBranch = _branches.first;
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    PortalSettingsService.instance.settingsVersion.removeListener(_onPortalSettingsChanged);
     _nameController.dispose();
     _phoneController.dispose();
     _notesController.dispose();
@@ -78,10 +123,20 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
       final extraNotes = _notesController.text.trim();
       final combinedNotes = 'Tình trạng: $_selectedCondition' + (extraNotes.isNotEmpty ? ' | Ghi chú: $extraNotes' : '');
 
+      String? matchedBranchId;
+      for (final b in _branchModels) {
+        if ('${b.name} · ${b.address}' == _selectedBranch ||
+            b.name == _selectedBranch) {
+          matchedBranchId = b.id;
+          break;
+        }
+      }
+
       final bookingCode = await BookingRepository.instance.registerQuickConsultation(
         name: name,
         phone: phone,
         notes: combinedNotes,
+        branchId: matchedBranchId,
         branchName: _selectedBranch,
         date: _selectedDate,
         timeSlot: _selectedTime,
@@ -375,11 +430,17 @@ class _D10LymphExaminationScreenState extends State<D10LymphExaminationScreen> {
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
-                      initialValue: _selectedBranch,
+                      initialValue: _branches.contains(_selectedBranch) ? _selectedBranch : _branches.first,
+                      isExpanded: true,
                       items: _branches
                           .map((b) => DropdownMenuItem(
                                 value: b,
-                                child: Text(b, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary)),
+                                child: Text(
+                                  b,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                                ),
                               ))
                           .toList(),
                       onChanged: (v) {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Branch, Course, CourseAudience, CourseEnrollment, User } from '../../../../backend/src/data/database';
 import { ArrowLeftIcon, BellIcon, NavProfileIcon, SearchIcon } from './Icons';
 import { EntityImage } from './GroupBExtensions';
+import { DualFilterBar, type DualFilterSide } from './DualFilterBar';
 import { searchText } from '@/utils/catalog';
 import {trainingMetadata} from '@/utils/training-metadata';
 
@@ -34,6 +35,7 @@ export function AcademyHome({courses,user,branches,branchId,onBranch,onCatalog,o
 export function AcademyCatalog({courses,branches,branchId,onBranch,onBack,onCourse,instructorId,initialQuery='',initialAudience='',initialFilters}:{courses:Course[];branches:Branch[];branchId:string;onBranch:(id:string)=>void;onBack?:()=>void;onCourse:(course:Course)=>void;instructorId?:string;initialQuery?:string;initialAudience?:CourseAudience|'';initialFilters?:{targetAudience:string;targetNeed:string}}) {
   const [audience,setAudience]=useState<CourseAudience|''>(initialAudience);
   const [targetAudience,setTargetAudience]=useState(initialFilters?.targetAudience||''),[targetNeed,setTargetNeed]=useState(initialFilters?.targetNeed||'');
+  const [expandedSide,setExpandedSide]=useState<DualFilterSide|null>(null);
   const [search,setSearch]=useState(initialQuery),[category,setCategory]=useState(''),[level,setLevel]=useState(''),[hours,setHours]=useState(''),[price,setPrice]=useState(''),[format,setFormat]=useState('');
   const formats=Array.from(new Set(courses.map(course=>course.deliveryFormat).filter(Boolean)));
   const categories=Array.from(new Set(courses.map(course=>course.category).filter(Boolean)));
@@ -47,20 +49,38 @@ export function AcademyCatalog({courses,branches,branchId,onBranch,onBack,onCour
     return (!targetAudience||metadata.targetAudience===targetAudience)&&(!targetNeed||metadata.targetNeed===targetNeed)&&(!audience||course.trainingAudience===audience)&&(!instructorId||course.instructorProfile?.id===instructorId)&&(!branchId||course.batches?.some(batch=>batch.branchId===branchId))&&(!category||course.category===category)&&(!level||course.level===level)&&(!hours||course.totalHours===Number(hours))&&(!price||course.price===Number(price))&&(!format||course.deliveryFormat===format)&&searchText([course.title,course.category,course.instructor,course.description,metadata.targetAudience,metadata.targetNeed,metadata.courseGroup].join(' ')).includes(searchText(search));
   });
   return <><AcademyHeader title="Đào tạo & Khóa học" onBack={onBack}/><main className="academy-body">
-    <label className="academy-search"><SearchIcon size={19}/><input aria-label="Tìm khóa học" placeholder="Tìm khóa học, kỹ năng hoặc chuyên ngành..." value={search} onChange={event=>setSearch(event.target.value)}/></label>
-    <div className="academy-chips" role="group" aria-label="Nhóm đào tạo">{([['','Tất cả'],['BEGINNER','Mới bắt đầu'],['PRACTITIONER','Đang làm nghề']] as const).map(([value,label])=><button key={value} type="button" aria-pressed={audience===value} onClick={()=>setAudience(value)}>{label}</button>)}</div>
-    <div className="academy-filters">
-      <label>Đối tượng<select aria-label="Đối tượng khóa học" value={targetAudience} onChange={event=>setTargetAudience(event.target.value)}><option value="">Tất cả đối tượng</option>{audiences.map(value=><option key={value}>{value}</option>)}</select></label>
-      <label>Nhu cầu<select aria-label="Nhu cầu đào tạo" value={targetNeed} onChange={event=>setTargetNeed(event.target.value)}><option value="">Tất cả nhu cầu</option>{needs.map(value=><option key={value}>{value}</option>)}</select></label>
+    <label className="academy-search"><SearchIcon size={19}/><input aria-label="Tìm khóa học" placeholder="Tìm kiếm khóa học dẫn lưu..." value={search} onChange={event=>setSearch(event.target.value)}/></label>
+    <DualFilterBar
+      leftLabel={targetNeed||'Nhu cầu'}
+      rightLabel={targetAudience||'Đối tượng'}
+      isLeftSelected={Boolean(targetNeed)}
+      isRightSelected={Boolean(targetAudience)}
+      expandedSide={expandedSide}
+      leftPanelTitle="Nhu cầu đào tạo"
+      rightPanelTitle="Đối tượng khóa học"
+      leftOptions={[{value:'',label:'Tất cả nhu cầu'},...needs.map(v=>({value:v,label:v}))]}
+      rightOptions={[{value:'',label:'Tất cả đối tượng'},...audiences.map(v=>({value:v,label:v}))]}
+      selectedLeftValue={targetNeed}
+      selectedRightValue={targetAudience}
+      onToggleLeft={()=>setExpandedSide(s=>s==='left'?null:'left')}
+      onToggleRight={()=>setExpandedSide(s=>s==='right'?null:'right')}
+      onSelectLeft={val=>{setTargetNeed(val);setExpandedSide(null);}}
+      onSelectRight={val=>{setTargetAudience(val);setExpandedSide(null);}}
+    />
+    <div className="sr-only" aria-hidden="true">
+      <select aria-label="Đối tượng khóa học" value={targetAudience} onChange={event=>setTargetAudience(event.target.value)}><option value="">Tất cả đối tượng</option>{audiences.map(value=><option key={value}>{value}</option>)}</select>
+      <select aria-label="Nhu cầu đào tạo" value={targetNeed} onChange={event=>setTargetNeed(event.target.value)}><option value="">Tất cả nhu cầu</option>{needs.map(value=><option key={value}>{value}</option>)}</select>
     </div>
-    <h2 className="academy-filter-title">Tinh chỉnh chương trình</h2><div className="academy-filters">
+    <details className="academy-more-filters mt-3"><summary>Bộ lọc nâng cao</summary>
+    <div className="academy-chips mt-2" role="group" aria-label="Nhóm đào tạo">{([['','Tất cả'],['BEGINNER','Mới bắt đầu'],['PRACTITIONER','Đang làm nghề']] as const).map(([value,label])=><button key={value} type="button" aria-pressed={audience===value} onClick={()=>setAudience(value)}>{label}</button>)}</div>
+    <div className="academy-filters">
       <label>Chuyên ngành<select aria-label="Chuyên ngành" value={category} onChange={event=>setCategory(event.target.value)}><option value="">Tất cả</option>{categories.map(value=><option key={value}>{value}</option>)}</select></label>
       <label>Trình độ<select aria-label="Trình độ" value={level} onChange={event=>setLevel(event.target.value)}><option value="">Tất cả</option>{levels.map(value=><option key={value} value={value}>{({BEGINNER:'Cơ bản',INTERMEDIATE:'Trung cấp',ADVANCED:'Nâng cao',MASTER:'Chuyên sâu'} as Record<string,string>)[value]||value}</option>)}</select></label>
       <label>Thời lượng<select value={hours} onChange={event=>setHours(event.target.value)}><option value="">Tất cả</option>{durations.map(value=><option key={value} value={value}>{value} giờ</option>)}</select></label>
       <label>Học phí<select value={price} onChange={event=>setPrice(event.target.value)}><option value="">Tất cả</option>{prices.map(value=><option key={value} value={value}>{academyMoney(value)}</option>)}</select></label>
       <label>Hình thức<select aria-label="Hình thức" value={format} onChange={event=>setFormat(event.target.value)}><option value="">Tất cả</option>{formats.map(value=><option key={value} value={value!}>{({ONLINE:'Trực tuyến',ONSITE:'Trực tiếp',HYBRID:'Kết hợp'})[value!]}</option>)}</select></label>
     </div><label className="academy-field">Chi nhánh<select value={branchId} onChange={event=>onBranch(event.target.value)}><option value="">Tất cả chi nhánh</option>{branches.map(branch=><option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
-    <button type="button" className="academy-outline" onClick={()=>{setAudience('');setTargetAudience('');setTargetNeed('');setSearch('');setCategory('');setLevel('');setHours('');setPrice('');setFormat('');onBranch('');}}>Đặt lại bộ lọc</button>
+    <button type="button" className="academy-outline" onClick={()=>{setAudience('');setTargetAudience('');setTargetNeed('');setSearch('');setCategory('');setLevel('');setHours('');setPrice('');setFormat('');onBranch('');}}>Đặt lại bộ lọc</button></details>
     <h2 className="academy-count">{filtered.length} chương trình đào tạo</h2>
     {filtered.map(course=><button type="button" key={course.id} className="academy-course-card" onClick={()=>onCourse(course)}><EntityImage src={course.image} alt={course.title} className="academy-course-photo"/><span><strong>{course.title}</strong><small>{[course.category,course.duration].filter(Boolean).join(' · ')}</small><b>{academyMoney(course.price)}</b></span></button>)}
   </main></>;

@@ -701,7 +701,6 @@ class _QuizSubmissionDetailSheetState extends State<QuizSubmissionDetailSheet> {
                 ),
                 Switch(
                   value: _passed,
-                  activeThumbColor: const Color(0xFF00693F),
                   onChanged: (val) => setState(() => _passed = val),
                 ),
               ],

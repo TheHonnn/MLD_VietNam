@@ -135,5 +135,64 @@ test('calculatePosTotals computes totals matching backend expectedTotal exactly'
   assert.equal(fullDiscount.preTax, 0);
   assert.equal(fullDiscount.vat, 0);
   assert.equal(fullDiscount.total, 0);
+
+  const withPoints = rules.calculatePosTotals(1000000, 100000, 8, 200000);
+  assert.equal(withPoints.preTax, 700000);
+  assert.equal(withPoints.vat, 56000);
+  assert.equal(withPoints.total, 756000);
+});
+
+test('maxRedeemablePoints caps points by balance, order percentage limit, and minimum payable amount', () => {
+  assert.equal(rules.maxRedeemablePoints(1000000, 5000, 100, 30), 3000);
+  assert.equal(rules.maxRedeemablePoints(1000000, 1200, 100, 30), 1200);
+  assert.equal(rules.maxRedeemablePoints(5000, 500, 100, 100), 40);
+  assert.equal(rules.maxRedeemablePoints(1000, 500, 100, 30), 0);
+});
+
+test('booking deep-link helpers build full POS URLs and resolve target bookings accurately', () => {
+  const path = rules.buildBookingPosPath({
+    bookingId: 'bk-uuid-1',
+    bookingCode: 'BK-493739',
+    customerId: 'cust-uuid-1',
+    branchId: 'branch-uuid-1',
+  });
+  assert.equal(
+    path,
+    '/cashier-pos?tab=pos&bookingId=bk-uuid-1&booking=BK-493739&customerId=cust-uuid-1&branchId=branch-uuid-1',
+  );
+  assert.equal(rules.buildBookingPosPath({ branchId: 'ALL', tab: 'receipts' }), '/cashier-pos?tab=receipts');
+
+  const bookings = [
+    { id: 'bk-uuid-1', bookingCode: 'BK-493739' },
+    { id: 'bk-uuid-2', bookingCode: 'BK-500000' },
+  ];
+  assert.equal(rules.findTargetBookingForPos(bookings, 'bk-uuid-2', 'BK-493739'), bookings[1]);
+  assert.equal(rules.findTargetBookingForPos(bookings, '', ' bk-493739 '), bookings[0]);
+  assert.equal(rules.findTargetBookingForPos(bookings, '', 'bk-uuid-2'), bookings[1]);
+  assert.equal(rules.findTargetBookingForPos(bookings, 'missing', 'missing'), undefined);
+});
+
+test('findMatchingCommissionStaffId matches booking technician by userId or technicianId', () => {
+  const staff = [
+    { id: 'user-1', technicianId: 'tech-1' },
+    { id: 'user-2', technicianId: null },
+  ];
+  assert.equal(rules.findMatchingCommissionStaffId(staff, { technicianId: 'tech-1' }), 'user-1');
+  assert.equal(
+    rules.findMatchingCommissionStaffId(staff, { technicianId: 'unknown', technician: { userId: 'user-2' } }),
+    'user-2',
+  );
+  assert.equal(rules.findMatchingCommissionStaffId(staff, { technicianId: 'missing' }), '');
+  assert.equal(rules.findMatchingCommissionStaffId(staff, null), '');
+});
+
+test('staffService loads non-customer staff accounts with direct staff_profiles fallback', async () => {
+  const { readFileSync } = await import('node:fs');
+  const staffSrc = readFileSync(new URL('../src/services/staff.service.ts', import.meta.url), 'utf8');
+  const supaSrc = readFileSync(new URL('../src/services/supabaseService.ts', import.meta.url), 'utf8');
+  assert.match(staffSrc, /supabaseService\.getStaffUsers/);
+  assert.match(staffSrc, /supabaseService\.getStaffProfiles/);
+  assert.doesNotMatch(staffSrc, /supabaseService\.getUsers\(/);
+  assert.match(supaSrc, /role=not\.in\.\(CUSTOMER,STUDENT,GUEST\)/);
 });
 

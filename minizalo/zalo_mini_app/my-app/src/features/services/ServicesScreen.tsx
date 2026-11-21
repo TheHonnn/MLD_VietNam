@@ -1,15 +1,143 @@
-import React,{useMemo,useState} from 'react';
-import type {MedicalService,Branch,Doctor} from '../../../../../backend/src/data/database';
-import {EntityImage} from '@/components/GroupBExtensions';
-import {serviceSearchText,searchText} from '@/utils/catalog';
-export function ServicesScreen({services,branches,doctors,activeBranchId,onBranch,onSelect,onBook,onSearch,onAppointments,onBranches,onPricing,onProducts,initialFilter}:{services:MedicalService[];branches:Branch[];doctors:Doctor[];activeBranchId:string;onBranch:(id:string)=>void;onSelect:(service:MedicalService)=>void;onBook:(service:MedicalService)=>void;onSearch:()=>void;onAppointments:()=>void;onBranches:()=>void;onPricing?:()=>void;onProducts?:()=>void;initialFilter?:{branchId:string;serviceId:string}}){
-  const [query,setQuery]=useState(''),[category,setCategory]=useState(''),[branch,setBranch]=useState(initialFilter?.branchId||''),[sort,setSort]=useState('name'),[min,setMin]=useState(''),[max,setMax]=useState(''),[duration,setDuration]=useState('');
-  const [selectedService,setSelectedService]=useState(initialFilter?.serviceId||'');
-  const categories=[...new Set(services.map(s=>s.category).filter(Boolean))];
-  const invalidPrice=(min!==''&&!Number.isFinite(Number(min)))||(max!==''&&!Number.isFinite(Number(max)))||(min!==''&&max!==''&&Number(min)>Number(max));
-  const visible=useMemo(()=>services.filter(s=>(!selectedService||s.id===selectedService)&&(!category||s.category===category)&&(!branch||doctors.some(d=>d.branchId===branch&&d.serviceIds?.includes(s.id)))&&serviceSearchText(s).includes(searchText(query))&&(!min||s.price>=Number(min))&&(!max||s.price<=Number(max))&&(!duration||s.durationMinutes<=Number(duration))).sort((a,b)=>sort==='priceAsc'?a.price-b.price:sort==='priceDesc'?b.price-a.price:sort==='duration'?a.durationMinutes-b.durationMinutes:a.title.localeCompare(b.title,'vi')),[services,doctors,query,category,branch,sort,min,max,duration,selectedService]);
-  return <section className="mobile-body"><div className="mobile-section-heading"><h1>Dịch vụ trị liệu</h1><button type="button" onClick={onAppointments}>Lịch hẹn của tôi</button></div><div className="mobile-chips"><button type="button" aria-pressed="true">Dịch vụ</button><button type="button" onClick={onBranches}>Cơ sở</button></div><nav className="service-catalog-links" aria-label="Danh mục chăm sóc">{onPricing&&<button type="button" onClick={onPricing}>Bảng giá & gói liệu trình</button>}{onProducts&&<button type="button" onClick={onProducts}>Sản phẩm bổ trợ tại nhà</button>}</nav><p>Khám phá dịch vụ phù hợp với nhu cầu của bạn.</p><button className="mobile-search" type="button" onClick={onSearch}>Tìm dịch vụ, khóa học, chuyên viên...</button><div className="mobile-chips"><button aria-pressed={!category} onClick={()=>setCategory('')}>Tất cả</button>{categories.map(item=><button key={item} aria-pressed={category===item} onClick={()=>setCategory(item)}>{item}</button>)}</div>
-    <details className="mobile-card p-3"><summary>Bộ lọc</summary><div className="mobile-filter-grid"><label className="mobile-field">Chi nhánh<select value={branch} onChange={e=>{setBranch(e.target.value);if(e.target.value)onBranch(e.target.value);}}><option value="">Tất cả</option>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label><label className="mobile-field">Sắp xếp<select value={sort} onChange={e=>setSort(e.target.value)}><option value="name">Tên dịch vụ</option><option value="priceAsc">Giá tăng dần</option><option value="priceDesc">Giá giảm dần</option><option value="duration">Thời lượng chăm sóc</option></select></label><label className="mobile-field">Giá từ<input type="number" min="0" value={min} onChange={e=>setMin(e.target.value)}/></label><label className="mobile-field">Giá đến<input type="number" min="0" value={max} onChange={e=>setMax(e.target.value)}/></label><label className="mobile-field">Thời lượng tối đa<input type="number" min="1" value={duration} onChange={e=>setDuration(e.target.value)}/></label></div><button type="button" onClick={()=>{setSelectedService('');setQuery('');setCategory('');setBranch('');setMin('');setMax('');setDuration('');setSort('name');}}>Xóa bộ lọc</button></details>
-    {invalidPrice?<p role="alert">Giá đến phải lớn hơn hoặc bằng giá từ.</p>:<><p>{visible.length} dịch vụ phù hợp</p>{visible.map(service=><article key={service.id} className="mobile-card"><button type="button" className="w-full text-left" onClick={()=>onSelect(service)}><EntityImage src={service.image} alt={service.title}/><div className="p-4"><small>{service.category} · {service.durationMinutes} phút</small><h2>{service.title}</h2><p>{service.description}</p><strong>{service.price.toLocaleString('vi-VN')} ₫</strong></div></button><button type="button" className="mobile-primary m-3" onClick={()=>onBook(service)}>Đặt lịch ngay</button></article>)}</>}
-  </section>;
+import React, { useMemo, useState } from 'react';
+import type { MedicalService, Branch, Doctor } from '../../../../../backend/src/data/database';
+import { EntityImage } from '@/components/GroupBExtensions';
+import { DualFilterBar, type DualFilterSide } from '@/components/DualFilterBar';
+import { serviceSearchText, searchText } from '@/utils/catalog';
+
+export function ServicesScreen({
+  services,
+  branches,
+  doctors,
+  onBranch,
+  onSelect,
+  onBook,
+  onAppointments,
+  onPricing,
+  onProducts,
+  initialFilter,
+}: {
+  services: MedicalService[];
+  branches: Branch[];
+  doctors: Doctor[];
+  activeBranchId: string;
+  onBranch: (id: string) => void;
+  onSelect: (service: MedicalService) => void;
+  onBook: (service: MedicalService) => void;
+  onSearch: () => void;
+  onAppointments: () => void;
+  onBranches: () => void;
+  onPricing?: () => void;
+  onProducts?: () => void;
+  initialFilter?: { branchId: string; serviceId: string };
+}) {
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('');
+  const [branch, setBranch] = useState(initialFilter?.branchId || '');
+  const [selectedService] = useState(initialFilter?.serviceId || '');
+  const [expandedSide, setExpandedSide] = useState<DualFilterSide | null>(null);
+
+  const categories = [...new Set(services.map((s) => s.category).filter(Boolean))];
+
+  const visible = useMemo(
+    () =>
+      services.filter(
+        (s) =>
+          (!selectedService || s.id === selectedService) &&
+          (!category || s.category === category) &&
+          (!branch || doctors.some((d) => d.branchId === branch && d.serviceIds?.includes(s.id))) &&
+          serviceSearchText(s).includes(searchText(query)),
+      ),
+    [services, doctors, query, category, branch, selectedService],
+  );
+
+  const selectedBranchName = branches.find((b) => b.id === branch)?.name || 'Cơ sở';
+
+  return (
+    <section className="mobile-body services-screen-matched">
+      <div className="mobile-section-heading">
+        <h1>Dịch vụ & Sản phẩm</h1>
+        <button type="button" onClick={onAppointments}>
+          Lịch hẹn của tôi
+        </button>
+      </div>
+
+      <div className="matched-segmented-tabs" role="tablist" aria-label="Danh mục dịch vụ và sản phẩm">
+        <button type="button" role="tab" aria-selected="true">
+          TRỊ LIỆU ({services.length})
+        </button>
+        {onProducts && (
+          <button type="button" role="tab" aria-selected="false" onClick={onProducts}>
+            SẢN PHẨM
+          </button>
+        )}
+      </div>
+
+      <input
+        type="search"
+        className="mobile-search"
+        aria-label="Tìm kiếm dịch vụ, gói liệu trình"
+        placeholder="Tìm kiếm dịch vụ, gói liệu trình..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+
+      <DualFilterBar
+        leftLabel={category || 'Dịch vụ & Gói'}
+        rightLabel={selectedBranchName}
+        isLeftSelected={Boolean(category)}
+        isRightSelected={Boolean(branch)}
+        expandedSide={expandedSide}
+        leftPanelTitle="Loại dịch vụ & Gói"
+        rightPanelTitle="Cơ sở áp dụng"
+        leftOptions={[
+          { value: '', label: 'Tất cả dịch vụ' },
+          ...categories.map((c) => ({ value: c, label: c })),
+        ]}
+        rightOptions={[
+          { value: '', label: 'Tất cả cơ sở' },
+          ...branches.map((b) => ({ value: b.id, label: b.name })),
+        ]}
+        selectedLeftValue={category}
+        selectedRightValue={branch}
+        onToggleLeft={() => setExpandedSide((s) => (s === 'left' ? null : 'left'))}
+        onToggleRight={() => setExpandedSide((s) => (s === 'right' ? null : 'right'))}
+        onSelectLeft={(val) => {
+          setCategory(val);
+          setExpandedSide(null);
+        }}
+        onSelectRight={(val) => {
+          setBranch(val);
+          if (val) onBranch(val);
+          setExpandedSide(null);
+        }}
+      />
+
+      {onPricing && (
+        <nav className="service-catalog-links" aria-label="Bảng giá">
+          <button type="button" onClick={onPricing}>
+            Bảng giá & gói liệu trình
+          </button>
+        </nav>
+      )}
+
+      <div className="matched-service-grid">
+        {visible.map((service) => (
+          <article key={service.id} className="matched-service-card">
+            <button type="button" className="matched-service-thumb" onClick={() => onSelect(service)}>
+              <EntityImage src={service.image} alt={service.title} />
+              <span className="matched-service-badge">DỊCH VỤ LẺ</span>
+            </button>
+            <div className="matched-service-info">
+              <h2>{service.title}</h2>
+              <small>{service.durationMinutes} phút / ca</small>
+              <strong>{service.price.toLocaleString('vi-VN')} đ</strong>
+              <button type="button" className="matched-book-btn" onClick={() => onBook(service)}>
+                Đặt lịch
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
 }

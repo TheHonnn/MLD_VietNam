@@ -26,6 +26,17 @@ import { recordMaterialCount, syncInventoryItem } from './treatment-inventory';
 import { enrichReferenceLabels } from './admin.labels';
 import { allowedBranches, branchPredicate, assertRowScope, assertCashierBranch, packageBranchIdsSql } from './admin.scope';
 import {
+  awardInvoicePoints,
+  createCartCommissions,
+  getStaffCommissionRates,
+  loadUserPackageSummary,
+  markUserVoucherUsed,
+  redeemInvoicePoints,
+  resolveSellerUserId,
+  settlePendingPosInvoice,
+  updateCashierShiftTotalsSql,
+} from '../payments/pos-settlement.helper';
+import {
   ADMIN_RESOURCES,
   COMPUTED_COLUMNS,
   GENERATED_COLUMNS,
@@ -374,6 +385,9 @@ export class AdminService {
         } else if (table === 'user_lesson_progress') {
           predicates.push(`EXISTS (SELECT 1 FROM public.course_enrollments e LEFT JOIN public.users u ON u.id=e.student_id LEFT JOIN public.courses c ON c.id=e.course_id WHERE e.id="user_lesson_progress".enrollment_id AND (e.student_name ILIKE $${values.length} OR u.full_name ILIKE $${values.length} OR e.student_phone ILIKE $${values.length} OR e.order_code ILIKE $${values.length} OR c.title ILIKE $${values.length}))`);
           predicates.push(`EXISTS (SELECT 1 FROM public.course_lessons l LEFT JOIN public.course_chapters ch ON ch.id=l.chapter_id WHERE l.id="user_lesson_progress".lesson_id AND (l.title ILIKE $${values.length} OR ch.title ILIKE $${values.length}))`);
+        } else if (table === 'consultation_surveys') {
+          predicates.push(`EXISTS (SELECT 1 FROM public.users u WHERE u.id="consultation_surveys".customer_id AND (u.full_name ILIKE $${values.length} OR u.phone ILIKE $${values.length}))`);
+          predicates.push(`EXISTS (SELECT 1 FROM public.bookings bk WHERE bk.id="consultation_surveys".booking_id AND bk.booking_code ILIKE $${values.length})`);
         }
         where.push('(' + predicates.join(' OR ') + ')');
       }
@@ -508,6 +522,19 @@ export class AdminService {
                FROM branches b WHERE b.id IN (${packageBranchIdsSql('up')})), '[]'::jsonb) AS package_branches
            FROM user_packages up JOIN treatment_packages tp ON tp.id=up.package_id
            LEFT JOIN services s ON s.id=tp.service_id WHERE up.id=ANY($1::uuid[])`,
+          [data.rows.map(row => row.id)],
+        );
+        const contexts = new Map(context.rows.map(row => [row.id, row]));
+        for (const row of data.rows) Object.assign(row, contexts.get(row.id) || {});
+      }
+      if (table === 'consultation_surveys' && data.rows.length) {
+        const context = await client.query(
+          `SELECT cs.id, u.full_name AS customer_name, u.phone AS customer_phone, u.avatar_url AS customer_avatar,
+             bk.booking_code, bk.booking_date::text AS booking_date, bk.start_time::text AS booking_time, bk.status::text AS booking_status
+           FROM public.consultation_surveys cs
+           LEFT JOIN public.users u ON u.id=cs.customer_id
+           LEFT JOIN public.bookings bk ON bk.id=cs.booking_id
+           WHERE cs.id=ANY($1::uuid[])`,
           [data.rows.map(row => row.id)],
         );
         const contexts = new Map(context.rows.map(row => [row.id, row]));
@@ -1273,6 +1300,12 @@ export class AdminService {
         )).rows[0];
         if (!enrollment || enrollment.student_id !== data.student_id || enrollment.course_id !== data.course_id)
           throw new BadRequestException('Học viên và khóa đào tạo phải khớp với hồ sơ ghi danh.');
+        const academicRecord = (await client.query(
+          'SELECT theory_score,practical_score FROM student_academic_records WHERE enrollment_id=$1 LIMIT 1',
+          [data.enrollment_id],
+        )).rows[0];
+        if (!academicRecord || academicRecord.theory_score === null || academicRecord.practical_score === null)
+          throw new ConflictException('Học viên chưa có bảng điểm học tập hợp lệ trong hệ thống.');
         const existing = await client.query(
           "SELECT id FROM student_certificates WHERE enrollment_id=$1 AND status IN ('DRAFT','ISSUED')",
           [data.enrollment_id],
@@ -1281,6 +1314,8 @@ export class AdminService {
           throw new ConflictException('Hồ sơ ghi danh đã có bản nháp hoặc chứng nhận đang hiệu lực.');
         data.student_name = enrollment.student_name;
         data.course_title = enrollment.course_title;
+        data.theory_score = Number(academicRecord.theory_score);
+        data.practical_score = Number(academicRecord.practical_score);
         data.status = 'DRAFT';
         data.final_grade = 'CHƯA XẾP LOẠI';
         data.qr_verification_code = randomUUID();
@@ -2166,50 +2201,80 @@ export class AdminService {
             ],
           );
         }
+        const redeemedPts = (
+          await client.query(
+            "SELECT coalesce(sum(-points_change),0)::int n FROM point_transactions WHERE reference_id=$1 AND action_type='BOOKING_REDEEM'",
+            [row.id],
+          )
+        ).rows[0].n;
+        if (redeemedPts > 0) {
+          const returnedUser = (
+            await client.query(
+              'UPDATE users SET reward_points=COALESCE(reward_points,0)+$2 WHERE id=$1 RETURNING reward_points',
+              [row.customer_id, redeemedPts],
+            )
+          ).rows[0];
+          await client.query(
+            "INSERT INTO point_transactions(user_id,points_change,balance_after,action_type,description,reference_id) VALUES($1,$2,$3,'REFUND_REDEEM_RETURN',$4,$5)",
+            [
+              row.customer_id,
+              redeemedPts,
+              returnedUser.reward_points,
+              'Hoàn điểm đã quy đổi từ hóa đơn ' + row.invoice_code,
+              row.id,
+            ],
+          );
+        }
+        await client.query(
+          "UPDATE user_vouchers SET status='AVAILABLE',used_at=NULL,used_in_invoice_id=NULL WHERE used_in_invoice_id=$1 AND status='USED' AND expires_at>now()",
+          [row.id],
+        );
         await client.query(
           "UPDATE invoices SET payment_status='REFUNDED',refund_amount=total_amount,refunded_at=now(),refund_reason=$2,refunded_by_id=$3 WHERE id=$1",
           [row.id, body.reason.trim().slice(0, 2000), actor.id],
         );
+        if (row.shift_id) {
+          const shiftRow = (
+            await client.query('SELECT status FROM cashier_shifts WHERE id=$1 FOR UPDATE', [row.shift_id])
+          ).rows[0];
+          if (shiftRow?.status === 'OPEN') {
+            await this.updateCashierShiftTotals(client, row.shift_id, row.payment_method, -Number(row.total_amount || 0));
+          }
+        }
         if (row.booking_id)
           await client.query(
             "UPDATE bookings SET payment_status='REFUNDED' WHERE id=$1",
             [row.booking_id],
           );
+        if (row.user_package_id)
+          await client.query(
+            "UPDATE user_packages SET status='REFUNDED',refunded_at=now(),refund_amount=$2,refund_reason=$3 WHERE id=$1 AND status NOT IN ('REFUNDED','CANCELLED')",
+            [row.user_package_id, row.total_amount, body.reason.trim().slice(0, 2000)],
+          );
       } else if (table === 'student_certificates' && body.action === 'issue') {
         if (row.status !== 'DRAFT')
           throw new ConflictException('Chỉ phát hành chứng chỉ nháp.');
-        const record = (
-          await client.query(
-            'SELECT * FROM student_academic_records WHERE enrollment_id=$1 FOR UPDATE',
-            [row.enrollment_id],
-          )
-        ).rows[0];
-        const enrollment = (
-          await client.query(
-            'SELECT * FROM course_enrollments WHERE id=$1 FOR UPDATE',
-            [row.enrollment_id],
-          )
-        ).rows[0];
-        if (
-          !enrollment ||
-          enrollment.student_id !== row.student_id ||
-          enrollment.course_id !== row.course_id
-        )
+        const { enrollment, theory, practical } = await this.verifyCertificateEligibility(
+          client,
+          String(row.enrollment_id),
+        );
+        if (enrollment.student_id !== row.student_id || enrollment.course_id !== row.course_id)
           throw new ConflictException(
             'Học viên và khóa đào tạo phải khớp với hồ sơ ghi danh.',
           );
-        const theory = record?.theory_score ?? null;
-        const practical = record?.practical_score ?? null;
-        const average = (Number(theory) + Number(practical)) / 2;
-        const grade = Number(theory) < 5 || Number(practical) < 5 ? 'CHƯA XẾP LOẠI'
-          : average >= 9 ? 'XUẤT SẮC' : average >= 8 ? 'GIỎI' : average >= 7 ? 'KHÁ' : 'ĐẠT';
+        const average = (theory + practical) / 2;
+        const grade = average >= 9 ? 'XUẤT SẮC' : average >= 8 ? 'GIỎI' : average >= 7 ? 'KHÁ' : 'ĐẠT';
         await client.query(
           "UPDATE student_certificates SET status='ISSUED',issue_date=(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,theory_score=$2,practical_score=$3,final_grade=$4 WHERE id=$1",
           [row.id, theory, practical, grade],
         );
         await client.query(
-          'UPDATE student_academic_records SET certificate_id=$2 WHERE enrollment_id=$1',
+          "UPDATE student_academic_records SET certificate_id=$2,is_graduated=TRUE,graduation_date=COALESCE(graduation_date,(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date) WHERE enrollment_id=$1",
           [row.enrollment_id, row.id],
+        );
+        await client.query(
+          "UPDATE course_enrollments SET status='GRADUATED',student_status='GRADUATED' WHERE id=$1",
+          [row.enrollment_id],
         );
       } else if (table === 'student_certificates' && body.action === 'revoke') {
         if (row.status !== 'ISSUED' || !body.reason?.trim())
@@ -2219,6 +2284,14 @@ export class AdminService {
         await client.query(
           "UPDATE student_certificates SET status='REVOKED',revoked_at=now(),revocation_reason=$2 WHERE id=$1",
           [row.id, body.reason.trim().slice(0, 2000)],
+        );
+        await client.query(
+          'UPDATE student_academic_records SET certificate_id=NULL,is_graduated=FALSE WHERE enrollment_id=$1 AND certificate_id=$2',
+          [row.enrollment_id, row.id],
+        );
+        await client.query(
+          "UPDATE course_enrollments SET status='STUDYING',student_status='STUDYING' WHERE id=$1 AND status='GRADUATED'",
+          [row.enrollment_id],
         );
       } else if (table === 'user_packages') {
         const action = body.action || '';
@@ -2646,12 +2719,17 @@ export class AdminService {
   async staffScheduleSlots(actor: AdminActor, query: Record<string,string>) {
     const client = await this.db.connection.connect();
     try {
-      const {slots, shifts} = await scheduleAvailability(client, actor, query.branchId || '', query.date || '', query.serviceId || '');
-      return {slots, shifts: shifts.map(shift => ({
-        technicianId: shift.technician_id,
-        start: String(shift.start_time).slice(0, 5),
-        end: String(shift.end_time).slice(0, 5),
-      }))};
+      const {slots, shifts, slotCapacities, onLeaveTechnicians} = await scheduleAvailability(client, actor, query.branchId || '', query.date || '', query.serviceId || '');
+      return {
+        slots,
+        shifts: shifts.map(shift => ({
+          technicianId: shift.technician_id,
+          start: String(shift.start_time).slice(0, 5),
+          end: String(shift.end_time).slice(0, 5),
+        })),
+        slotCapacities,
+        onLeaveTechnicians,
+      };
     } finally { client.release(); }
   }
 
@@ -2943,6 +3021,98 @@ export class AdminService {
     finally { client.release(); }
   }
 
+  async getCashierCustomerBenefits(actor: AdminActor, rawCustomerId?: string) {
+    this.requireCashier(actor);
+    const posRow = (await this.db.connection.query("SELECT data FROM system_settings WHERE category='pos' LIMIT 1")).rows[0];
+    const posConfig = posRow?.data && typeof posRow.data === 'object' ? posRow.data : {};
+    const loyaltyRow = (
+      await this.db.connection.query(
+        'SELECT earn_amount_per_point, redeem_value_per_point, max_redeem_percent_per_order, is_active FROM loyalty_point_settings WHERE id=1 LIMIT 1',
+      )
+    ).rows[0];
+    const publicCoupons = (
+      await this.db.connection.query(
+        `SELECT id, code, title, discount_percent, discount_amount, max_discount, min_order_amount, valid_to
+         FROM coupons
+         WHERE is_active=true
+           AND (valid_from IS NULL OR valid_from<=now())
+           AND (valid_to IS NULL OR valid_to>now())
+           AND (usage_limit IS NULL OR usage_limit=0 OR COALESCE(used_count,0)<usage_limit)
+         ORDER BY discount_percent DESC, discount_amount DESC, code ASC
+         LIMIT 20`,
+      )
+    ).rows.map((c: any) => ({
+      id: c.id,
+      code: c.code,
+      title: c.title,
+      discountPercent: Number(c.discount_percent || 0),
+      discountAmount: Number(c.discount_amount || 0),
+      maxDiscountAmount: c.max_discount !== null && c.max_discount !== undefined ? Number(c.max_discount) : null,
+      minOrderAmount: Number(c.min_order_amount || 0),
+      validTo: c.valid_to,
+    }));
+
+    let rewardPoints = 0;
+    let userVouchers: Array<{
+      id: string;
+      couponId: string;
+      code: string;
+      title: string;
+      discountPercent: number;
+      discountAmount: number;
+      maxDiscountAmount: number | null;
+      minOrderAmount: number;
+      expiresAt: string;
+    }> = [];
+
+    if (rawCustomerId && this.isUuid(rawCustomerId) && rawCustomerId !== SYSTEM_GUEST_CUSTOMER_ID) {
+      const userRow = (
+        await this.db.connection.query('SELECT reward_points FROM users WHERE id=$1 AND is_active=true LIMIT 1', [rawCustomerId])
+      ).rows[0];
+      rewardPoints = Math.max(0, Number(userRow?.reward_points || 0));
+      const uvRows = (
+        await this.db.connection.query(
+          `SELECT uv.id, uv.coupon_id, uv.expires_at, c.code, c.title, c.discount_percent, c.discount_amount, c.max_discount, c.min_order_amount
+           FROM user_vouchers uv
+           JOIN coupons c ON c.id=uv.coupon_id
+           WHERE uv.user_id=$1
+             AND uv.status='AVAILABLE'
+             AND uv.expires_at>now()
+             AND c.is_active=true
+             AND (c.valid_from IS NULL OR c.valid_from<=now())
+             AND (c.valid_to IS NULL OR c.valid_to>now())
+             AND (c.usage_limit IS NULL OR c.usage_limit=0 OR COALESCE(c.used_count,0)<c.usage_limit)
+           ORDER BY uv.expires_at ASC
+           LIMIT 20`,
+          [rawCustomerId],
+        )
+      ).rows;
+      userVouchers = uvRows.map((uv: any) => ({
+        id: uv.id,
+        couponId: uv.coupon_id,
+        code: uv.code,
+        title: uv.title,
+        discountPercent: Number(uv.discount_percent || 0),
+        discountAmount: Number(uv.discount_amount || 0),
+        maxDiscountAmount: uv.max_discount !== null && uv.max_discount !== undefined ? Number(uv.max_discount) : null,
+        minOrderAmount: Number(uv.min_order_amount || 0),
+        expiresAt: uv.expires_at,
+      }));
+    }
+
+    return {
+      rewardPoints,
+      loyaltySettings: {
+        isActive: Boolean(loyaltyRow ? loyaltyRow.is_active : true) && posConfig.enable_loyalty_points !== false,
+        earnAmountPerPoint: Number(loyaltyRow?.earn_amount_per_point || 10000),
+        redeemValuePerPoint: Number(loyaltyRow?.redeem_value_per_point || 100),
+        maxRedeemPercentPerOrder: Number(loyaltyRow?.max_redeem_percent_per_order ?? 30),
+      },
+      publicCoupons,
+      userVouchers,
+    };
+  }
+
   async cashierWorkspace(actor: AdminActor, branchId?: string) {
     this.requireCashier(actor);
     const permitted = allowedBranches(actor, 'cashier.collect');
@@ -2955,8 +3125,19 @@ export class AdminService {
     )).rows;
     const ids = branches.map((branch) => branch.id);
     const invoices = (await this.db.connection.query(
-      `SELECT id,invoice_code,branch_id,customer_id,booking_id,total_amount,payment_status,payment_method,paid_at
-       FROM invoices WHERE branch_id=ANY($1::uuid[]) ORDER BY paid_at DESC NULLS LAST LIMIT 200`, [ids],
+      `SELECT i.id,i.invoice_code,i.branch_id,i.customer_id,i.booking_id,i.user_package_id,i.commission_staff_id,
+              i.total_amount,i.payment_status,i.payment_method,i.paid_at,i.gateway_transaction_id,
+              cs.full_name AS commission_staff_name,
+              up.total_sessions AS package_total_sessions,
+              up.completed_sessions AS package_completed_sessions,
+              up.expires_at AS package_expires_at,
+              tp.name AS package_name
+       FROM invoices i
+       LEFT JOIN users cs ON cs.id=i.commission_staff_id
+       LEFT JOIN user_packages up ON up.id=i.user_package_id
+       LEFT JOIN treatment_packages tp ON tp.id=up.package_id
+       WHERE i.branch_id=ANY($1::uuid[])
+       ORDER BY i.paid_at DESC NULLS LAST, i.id DESC LIMIT 200`, [ids],
     )).rows;
     const customers = (await this.db.connection.query(
       `SELECT DISTINCT u.id,u.full_name,u.phone,u.email,u.role,u.is_active
@@ -2964,12 +3145,36 @@ export class AdminService {
        OR EXISTS (SELECT 1 FROM invoices i WHERE i.customer_id=u.id AND i.branch_id=ANY($1::uuid[]))
        ORDER BY u.full_name LIMIT 200`, [ids],
     )).rows;
-    const staff = (await this.db.connection.query(
-      `SELECT u.id,u.full_name,u.phone,sp.id AS profile_id,sp.branch_id,sp.position,sp.employee_code
-       FROM staff_profiles sp JOIN users u ON u.id=sp.user_id WHERE sp.branch_id=ANY($1::uuid[]) ORDER BY u.full_name`, [ids],
-    )).rows.map((row) => ({
-      id: row.id, full_name: row.full_name, phone: row.phone,
-      staff_profile: { id: row.profile_id, branch_id: row.branch_id, position: row.position, employee_code: row.employee_code },
+    const staffRows = (await this.db.connection.query(
+      `SELECT DISTINCT ON (u.id)
+              u.id,u.full_name,u.phone,u.role::text AS role,
+              sp.id AS profile_id,sp.branch_id,sp.position,sp.employee_code,
+              COALESCE(sp.commission_rate, 0) AS commission_rate,
+              COALESCE(sp.package_commission_rate, 0) AS package_commission_rate,
+              COALESCE(sp.product_commission_rate, 0) AS product_commission_rate,
+              t.id AS technician_id
+       FROM users u
+       LEFT JOIN staff_profiles sp ON sp.user_id=u.id AND sp.is_active=true
+       LEFT JOIN technicians t ON t.user_id=u.id AND t.is_active=true
+       WHERE u.is_active=true AND u.role::text NOT IN ('CUSTOMER','STUDENT','GUEST')
+       ORDER BY u.id, (sp.branch_id=ANY($1::uuid[])) DESC NULLS LAST, sp.updated_at DESC NULLS LAST`, [ids],
+    )).rows;
+    staffRows.sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''), 'vi'));
+    const staff = staffRows.map((row) => ({
+      id: row.id,
+      full_name: row.full_name,
+      phone: row.phone,
+      role: row.role,
+      technician_id: row.technician_id || null,
+      staff_profile: {
+        id: row.profile_id || null,
+        branch_id: row.branch_id || null,
+        position: row.position || row.role,
+        employee_code: row.employee_code || '',
+        commission_rate: Number(row.commission_rate || 0),
+        package_commission_rate: Number(row.package_commission_rate || 0),
+        product_commission_rate: Number(row.product_commission_rate || 0),
+      },
     }));
     return { branches, invoices, customers, staff };
   }
@@ -3100,8 +3305,8 @@ export class AdminService {
     const vatRate = Number(body.vatRate ?? 0);
     if (!['BOOKING', 'TUITION', 'PACKAGE', 'CART'].includes(String(kind)))
       throw new BadRequestException('Loại khoản thu không hợp lệ.');
-    if (!['CASH_AT_SPA', 'BANK_TRANSFER'].includes(String(paymentMethod)))
-      throw new BadRequestException('POS hiện chỉ nhận tiền mặt hoặc chuyển khoản đã xác nhận.');
+    if (!['CASH_AT_SPA', 'BANK_TRANSFER', 'VNPAY', 'MOMO'].includes(String(paymentMethod)))
+      throw new BadRequestException('POS hiện chỉ nhận tiền mặt, chuyển khoản ngân hàng hoặc ví điện tử/thẻ.');
     if (!this.isUuid(shiftId) || ![0, 8, 10].includes(vatRate))
       throw new BadRequestException('Ca thu ngân hoặc mức thuế không hợp lệ.');
     if (body.requestId !== undefined && !this.isUuid(String(body.requestId)))
@@ -3173,17 +3378,19 @@ export class AdminService {
            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PAID',$1,$11,now()) RETURNING *`,
           [transactionCode,enrollment.id,enrollment.student_id,enrollment.course_id,branchId,actor.id,shiftId,transactionType,amount,paymentMethod,reference ? `Mã giao dịch ngân hàng: ${reference}` : typeof body.notes === 'string' ? body.notes.trim().slice(0, 1000) : null],
         )).rows[0];
-        if (enrollment.assigned_staff_id) {
-          const commissionRate = Number((await client.query(
-            'SELECT commission_rate FROM staff_profiles WHERE user_id=$1 AND is_active=true',
-            [enrollment.assigned_staff_id],
-          )).rows[0]?.commission_rate || 0);
+        const requestedSellerId = body.commissionStaffId ? await resolveSellerUserId(client, body.commissionStaffId) : null;
+        if (body.commissionStaffId && !requestedSellerId) {
+          throw new BadRequestException('Nhân viên hưởng hoa hồng không hợp lệ hoặc không hoạt động.');
+        }
+        const effectiveSellerId = requestedSellerId || enrollment.assigned_staff_id || null;
+        if (effectiveSellerId) {
+          const { serviceRate: commissionRate } = await getStaffCommissionRates(client, effectiveSellerId);
           if (commissionRate > 0 && commissionRate <= 100) {
             await client.query(
               `INSERT INTO staff_commissions(staff_id,branch_id,tuition_transaction_id,commission_type,base_amount,percentage,commission_amount,status,cycle_month,notes)
-               VALUES($1,$2,$3,'COURSE_ENROLLMENT',$4,$5,round($4*$5/100),'PENDING',to_char(now(),'YYYY-MM'),$6)
+               VALUES($1,$2,$3,'COURSE_ENROLLMENT',$4,$5,round($4::numeric*$5::numeric/100),'PENDING',to_char(now(),'YYYY-MM'),$6)
                ON CONFLICT (tuition_transaction_id) WHERE tuition_transaction_id IS NOT NULL DO NOTHING`,
-              [enrollment.assigned_staff_id,branchId,transaction.id,amount,commissionRate,`Hoa hồng tư vấn khóa học từ giao dịch ${transactionCode}`],
+              [effectiveSellerId,branchId,transaction.id,amount,commissionRate,`Hoa hồng tư vấn khóa học từ giao dịch ${transactionCode}`],
             );
           }
         }
@@ -3237,8 +3444,13 @@ export class AdminService {
         if (total <= 0) throw new BadRequestException('Tổng thanh toán phải lớn hơn 0.');
         if (body.expectedTotal !== undefined && Number(body.expectedTotal) !== total)
           throw new ConflictException('Số tiền trên màn hình đã thay đổi. Tải lại lịch hẹn trước khi thu.');
+        const sellerUserId = body.commissionStaffId ? await resolveSellerUserId(client, body.commissionStaffId) : null;
+        if (body.commissionStaffId && !sellerUserId) {
+          throw new BadRequestException('Nhân viên hưởng hoa hồng không hợp lệ hoặc không hoạt động.');
+        }
         const catalogPackageId = String(booking.special_notes || '').match(/package_id=([0-9a-f-]{36})/i)?.[1];
-        const hasLinkedUserPackage = /user_package_id=([0-9a-f-]{36})/i.test(String(booking.special_notes || ''));
+        const linkedUserPackageId = String(booking.special_notes || '').match(/user_package_id=([0-9a-f-]{36})/i)?.[1];
+        const hasLinkedUserPackage = Boolean(linkedUserPackageId);
         let activatedPackage: any = null;
         if (catalogPackageId && !hasLinkedUserPackage) {
           if (booking.customer_id === SYSTEM_GUEST_CUSTOMER_ID)
@@ -3249,17 +3461,17 @@ export class AdminService {
           )).rows[0];
           if (pkgDef) {
             activatedPackage = (await client.query(
-              `INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,purchased_at,expires_at)
-               VALUES($1,$2,$3,0,'ACTIVE',now(),now()+($4::int * interval '1 month')) RETURNING *`,
-              [booking.customer_id, pkgDef.id, pkgDef.total_sessions, pkgDef.validity_months || 6],
+              `INSERT INTO user_packages(customer_id,package_id,total_sessions,completed_sessions,status,purchased_at,expires_at,commission_staff_id)
+               VALUES($1,$2,$3,0,'ACTIVE',now(),now()+($4::int * interval '1 month'),$5) RETURNING *`,
+              [booking.customer_id, pkgDef.id, pkgDef.total_sessions, pkgDef.validity_months || 6, sellerUserId || null],
             )).rows[0];
           }
         }
-        const invoiceCode = `POS-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+        const invoiceCode = `HD-POS-${Date.now().toString().slice(-6)}-${randomUUID().slice(0, 4).toUpperCase()}`;
         const invoice = (await client.query(
-          `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,shift_id,booking_id,user_package_id,subtotal,discount_amount,points_redeemed_amount,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status,paid_at)
-           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'PENDING',now()) RETURNING *`,
-          [invoiceCode,booking.branch_id,booking.customer_id,actor.id,shiftId,booking.id,activatedPackage?.id || null,subtotal,discount,points,preTax,vatRate,vatAmount,total,paymentMethod],
+          `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,commission_staff_id,shift_id,booking_id,user_package_id,subtotal,discount_amount,points_redeemed_amount,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status,paid_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'PENDING',now()) RETURNING *`,
+          [invoiceCode,booking.branch_id,booking.customer_id,actor.id,sellerUserId,shiftId,booking.id,activatedPackage?.id || linkedUserPackageId || null,subtotal,discount,points,preTax,vatRate,vatAmount,total,paymentMethod],
         )).rows[0];
         for (const item of items.rows) {
           await client.query(
@@ -3280,9 +3492,32 @@ export class AdminService {
         const paidInvoice = (await client.query(
           "UPDATE invoices SET payment_status='PAID',paid_at=now() WHERE id=$1 RETURNING *", [invoice.id],
         )).rows[0];
+        if (sellerUserId) {
+          const rates = await getStaffCommissionRates(client, sellerUserId);
+          if (activatedPackage && rates.packageRate > 0 && rates.packageRate <= 100) {
+            await client.query(
+              `INSERT INTO staff_commissions(staff_id,branch_id,invoice_id,user_package_id,commission_type,base_amount,percentage,commission_amount,status,cycle_month,notes)
+               VALUES($1,$2,$3,$4,'TREATMENT_PATHWAY',$5,$6,round($5::numeric*$6::numeric/100),'PENDING',to_char(now(),'YYYY-MM'),$7)
+               ON CONFLICT (user_package_id) WHERE user_package_id IS NOT NULL DO NOTHING`,
+              [sellerUserId,booking.branch_id,paidInvoice.id,activatedPackage.id,preTax,rates.packageRate,`Hoa hồng bán lộ trình từ hóa đơn ${invoiceCode}`],
+            );
+          } else if (!activatedPackage && rates.serviceRate > 0 && rates.serviceRate <= 100) {
+            const techUser = booking.technician_id
+              ? (await client.query('SELECT user_id FROM technicians WHERE id=$1', [booking.technician_id])).rows[0]?.user_id
+              : null;
+            if (sellerUserId !== techUser) {
+              await client.query(
+                `INSERT INTO staff_commissions(staff_id,branch_id,invoice_id,commission_type,base_amount,percentage,commission_amount,status,cycle_month,notes)
+                 VALUES($1,$2,$3,'SERVICE_DIRECT',$4,$5,round($4::numeric*$5::numeric/100),'PENDING',to_char(now(),'YYYY-MM'),$6)`,
+                [sellerUserId,booking.branch_id,paidInvoice.id,preTax,rates.serviceRate,`Hoa hồng tư vấn dịch vụ từ hóa đơn ${invoiceCode}`],
+              );
+            }
+          }
+        }
+        const pkgSummary = await loadUserPackageSummary(client, paidInvoice.user_package_id);
         await this.updateCashierShiftTotals(client, shiftId, paymentMethod, total);
         await this.audit(client, actor, 'invoices', 'COLLECT', invoice.id);
-        return await this.finishCollection(client, actor, body, { kind, amount: total, invoice: paidInvoice, ...(activatedPackage ? { userPackage: activatedPackage } : {}), paymentStatus: 'PAID' });
+        return await this.finishCollection(client, actor, body, { kind, amount: total, invoice: paidInvoice, ...(pkgSummary ? { userPackage: pkgSummary } : {}), paymentStatus: 'PAID' });
       }
 
       if (kind === 'CART') {
@@ -3292,13 +3527,16 @@ export class AdminService {
 
       const packageId = String(body.packageId || '');
       const customerId = String(body.customerId || '');
-      const commissionStaffId = String(body.commissionStaffId || '');
+      const requestedCommissionId = String(body.commissionStaffId || '');
       if (!this.isUuid(packageId) || !this.isUuid(customerId))
         throw new BadRequestException('Gói liệu trình hoặc khách hàng không hợp lệ.');
       if (customerId === SYSTEM_GUEST_CUSTOMER_ID)
         throw new BadRequestException('Không cho phép khách vãng lai đăng ký gói liệu trình. Vui lòng chọn hồ sơ khách hàng.');
-      if (commissionStaffId && !this.isUuid(commissionStaffId))
+      if (requestedCommissionId && !this.isUuid(requestedCommissionId))
         throw new BadRequestException('Nhân viên phụ trách gói liệu trình không hợp lệ.');
+      const commissionStaffId = requestedCommissionId ? await resolveSellerUserId(client, requestedCommissionId) : null;
+      if (requestedCommissionId && !commissionStaffId)
+        throw new BadRequestException('Nhân viên phụ trách gói liệu trình không hợp lệ hoặc đã ngừng hoạt động.');
       const treatmentPackage = (await client.query(
         `SELECT tp.*,s.is_active AS service_is_active
          FROM treatment_packages tp
@@ -3332,11 +3570,11 @@ export class AdminService {
          VALUES($1,$2,$3,0,'ACTIVE',now(),now()+($4::int * interval '1 month'),$5) RETURNING *`,
         [customerId,packageId,treatmentPackage.total_sessions,treatmentPackage.validity_months,commissionStaffId || null],
       )).rows[0];
-      const invoiceCode = `POS-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+      const invoiceCode = `HD-POS-${Date.now().toString().slice(-6)}-${randomUUID().slice(0, 4).toUpperCase()}`;
       const invoice = (await client.query(
-        `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,shift_id,user_package_id,subtotal,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status,paid_at)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$11,'PENDING',now()) RETURNING *`,
-        [invoiceCode,shift.branch_id,customerId,actor.id,shiftId,packageOwner.id,subtotal,vatRate,vatAmount,total,paymentMethod],
+        `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,commission_staff_id,shift_id,user_package_id,subtotal,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status,paid_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11,$12,'PENDING',now()) RETURNING *`,
+        [invoiceCode,shift.branch_id,customerId,actor.id,commissionStaffId || null,shiftId,packageOwner.id,subtotal,vatRate,vatAmount,total,paymentMethod],
       )).rows[0];
       await client.query(
         `INSERT INTO invoice_items(invoice_id,item_name,item_type,quantity,unit_price,amount)
@@ -3346,22 +3584,20 @@ export class AdminService {
         "UPDATE invoices SET payment_status='PAID',paid_at=now() WHERE id=$1 RETURNING *", [invoice.id],
       )).rows[0];
       if (commissionStaffId) {
-        const commissionRate = Number((await client.query(
-          'SELECT commission_rate FROM staff_profiles WHERE user_id=$1 AND is_active=true',
-          [commissionStaffId],
-        )).rows[0]?.commission_rate || 0);
+        const { packageRate: commissionRate } = await getStaffCommissionRates(client, commissionStaffId);
         if (commissionRate > 0 && commissionRate <= 100) {
           await client.query(
             `INSERT INTO staff_commissions(staff_id,branch_id,invoice_id,user_package_id,commission_type,base_amount,percentage,commission_amount,status,cycle_month,notes)
-             VALUES($1,$2,$3,$4,'TREATMENT_PATHWAY',$5,$6,round($5*$6/100),'PENDING',to_char(now(),'YYYY-MM'),$7)
+             VALUES($1,$2,$3,$4,'TREATMENT_PATHWAY',$5,$6,round($5::numeric*$6::numeric/100),'PENDING',to_char(now(),'YYYY-MM'),$7)
              ON CONFLICT (user_package_id) WHERE user_package_id IS NOT NULL DO NOTHING`,
             [commissionStaffId,shift.branch_id,paidInvoice.id,packageOwner.id,subtotal,commissionRate,`Hoa hồng bán lộ trình ${treatmentPackage.name} từ hóa đơn ${invoiceCode}`],
           );
         }
       }
+      const pkgSummary = await loadUserPackageSummary(client, packageOwner.id);
       await this.updateCashierShiftTotals(client, shiftId, paymentMethod, total);
       await this.audit(client, actor, 'invoices', 'PACKAGE_SALE', invoice.id);
-      return await this.finishCollection(client, actor, body, { kind, amount: total, invoice: paidInvoice, userPackage: packageOwner, paymentStatus: 'PAID' });
+      return await this.finishCollection(client, actor, body, { kind, amount: total, invoice: paidInvoice, userPackage: pkgSummary || packageOwner, paymentStatus: 'PAID' });
     } catch (error) {
       await client.query('ROLLBACK');
       this.fail(error);
@@ -3383,6 +3619,10 @@ export class AdminService {
     const customerId = String(body.customerId || '');
     if (!this.isUuid(customerId) || !(await client.query('SELECT id FROM users WHERE id=$1 AND is_active=true', [customerId])).rowCount)
       throw new BadRequestException('Chọn khách hàng có hồ sơ hợp lệ trước khi thu tiền.');
+    const sellerUserId = body.commissionStaffId ? await resolveSellerUserId(client, body.commissionStaffId) : null;
+    if (body.commissionStaffId && !sellerUserId) {
+      throw new BadRequestException('Nhân viên hưởng hoa hồng không hợp lệ hoặc không hoạt động.');
+    }
     if (!Array.isArray(body.items) || !body.items.length || body.items.length > 100)
       throw new BadRequestException('Giỏ hàng không hợp lệ.');
     const lines: Array<{ name: string; type: string; quantity: number; price: number }> = [];
@@ -3402,26 +3642,355 @@ export class AdminService {
       lines.push({ name: row.name, type: item.type, quantity: item.quantity, price });
     }
     const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
-    const discount = Number(body.discountAmount || 0);
-    if (!Number.isFinite(discount) || discount < 0 || discount > subtotal)
-      throw new BadRequestException('Giảm giá không hợp lệ.');
-    const preTax = subtotal - discount;
+    const {
+      discount,
+      pointsRedeemedAmount,
+      redeemPoints,
+      userVoucher,
+      coupon,
+      discountReason,
+      posConfig,
+    } = await this.resolvePosCartPricing(
+      client,
+      body,
+      subtotal,
+      paymentMethod,
+      customerId,
+    );
+    const preTax = subtotal - discount - pointsRedeemedAmount;
     const vat = Math.round(preTax * vatRate) / 100;
     const total = preTax + vat;
     if (total <= 0 || (body.expectedTotal !== undefined && Number(body.expectedTotal) !== total))
       throw new ConflictException('Giá hoặc tổng tiền đã thay đổi. Tải lại giỏ hàng trước khi thu tiền.');
+    const invoiceCode = `HD-POS-${Date.now().toString().slice(-6)}-${randomUUID().slice(0, 4).toUpperCase()}`;
     const invoice = (await client.query(
-      `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,shift_id,subtotal,discount_amount,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'PENDING') RETURNING *`,
-      [`POS-${randomUUID()}`,shift.branch_id,customerId,actor.id,shift.id,subtotal,discount,preTax,vatRate,vat,total,paymentMethod],
+      `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,commission_staff_id,shift_id,subtotal,discount_amount,coupon_id,coupon_code,discount_reason,points_redeemed_amount,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'PENDING') RETURNING *`,
+      [invoiceCode,shift.branch_id,customerId,actor.id,sellerUserId,shift.id,subtotal,discount,coupon?.id || null,coupon?.code || null,discountReason,pointsRedeemedAmount,preTax,vatRate,vat,total,paymentMethod],
     )).rows[0];
     for (const line of lines) {
       await client.query('INSERT INTO invoice_items(invoice_id,item_name,item_type,quantity,unit_price,amount) VALUES($1,$2,$3,$4,$5,$6)', [invoice.id,line.name,line.type,line.quantity,line.price,line.price * line.quantity]);
     }
     const paid = (await client.query("UPDATE invoices SET payment_status='PAID',paid_at=now() WHERE id=$1 RETURNING *", [invoice.id])).rows[0];
+    if (coupon) {
+      await client.query('UPDATE coupons SET used_count=COALESCE(used_count,0)+1 WHERE id=$1', [coupon.id]);
+    }
+    if (userVoucher) {
+      await markUserVoucherUsed(client, userVoucher.id, customerId, paid.id);
+    }
+    if (redeemPoints > 0) {
+      await redeemInvoicePoints(client, paid.id, customerId, redeemPoints, invoiceCode);
+    }
+    await awardInvoicePoints(client, paid.id, customerId, total, invoiceCode, posConfig);
+    await createCartCommissions(client, {
+      invoiceId: paid.id,
+      branchId: shift.branch_id,
+      staffUserId: sellerUserId,
+      invoiceCode,
+      lines,
+      discountAmount: discount,
+    });
     await this.updateCashierShiftTotals(client, shift.id, paymentMethod, total);
     await this.audit(client, actor, 'invoices', 'COLLECT', invoice.id);
     return { kind: 'CART', amount: total, invoice: paid, paymentStatus: 'PAID' };
+  }
+
+  async createPendingCashierQr(actor: AdminActor, body: Record<string, unknown>) {
+    this.requireCashier(actor);
+    const kind = String(body.kind || '');
+    const shiftId = String(body.shiftId || '');
+    const vatRate = Number(body.vatRate ?? 0);
+    if (!['BOOKING', 'TUITION', 'PACKAGE', 'CART'].includes(kind))
+      throw new BadRequestException('Loại khoản thu QR không hợp lệ.');
+    if (!this.isUuid(shiftId) || ![0, 8, 10].includes(vatRate))
+      throw new BadRequestException('Ca thu ngân hoặc mức thuế không hợp lệ.');
+
+    const bankBin = process.env.PAYOS_BANK_BIN || '970422';
+    const bankAccountNo = process.env.PAYOS_BANK_ACCOUNT_NO || '0394316963';
+    const bankAccountName = process.env.PAYOS_BANK_ACCOUNT_NAME || 'BUI THE HOANG';
+    const buildQrUrl = (amount: number, transferContent: string) =>
+      `https://img.vietqr.io/image/${bankBin}-${bankAccountNo}-compact2.jpg?amount=${Math.round(amount)}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankAccountName)}`;
+
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      const shift = (await client.query('SELECT * FROM cashier_shifts WHERE id=$1 FOR UPDATE', [shiftId])).rows[0];
+      if (!shift || shift.cashier_id !== actor.id || shift.status !== 'OPEN')
+        throw new ConflictException('Hãy mở ca thu ngân của bạn trước khi tạo mã thanh toán.');
+      assertCashierBranch(actor, shift.branch_id, 'cashier.collect');
+
+      if (kind === 'TUITION') {
+        const enrollmentId = String(body.enrollmentId || '');
+        const amount = Number(body.amount);
+        if (!this.isUuid(enrollmentId) || !Number.isFinite(amount) || amount <= 0)
+          throw new BadRequestException('Hồ sơ học viên hoặc số tiền thu không hợp lệ.');
+        const enrollment = (await client.query(
+          `SELECT e.*,b.branch_id AS batch_branch_id, r.id AS selected_branch_id FROM course_enrollments e
+           LEFT JOIN course_batches b ON b.id=e.batch_id
+           LEFT JOIN LATERAL (SELECT id FROM branches WHERE name=e.selected_branch LIMIT 1) r ON true
+           WHERE e.id=$1 FOR UPDATE OF e`,
+          [enrollmentId],
+        )).rows[0];
+        if (!enrollment) throw new NotFoundException('Không tìm thấy hồ sơ học viên.');
+        if (enrollment.consultation_status !== 'CONFIRMED')
+          throw new ConflictException('Xác nhận học phí trước khi tạo mã thanh toán học phí.');
+        const branchId = enrollment.batch_branch_id || enrollment.selected_branch_id || String(body.branchId || '');
+        if (!this.isUuid(branchId) || branchId !== shift.branch_id)
+          throw new BadRequestException('Ca thu ngân không khớp chi nhánh của lớp học.');
+        const paid = Number(enrollment.amount_paid || 0);
+        const tuition = Number(enrollment.tuition_total || 0);
+        if (amount > tuition - paid)
+          throw new ConflictException('Số tiền vượt quá học phí còn phải thu.');
+
+        let orderRef = enrollment.order_code ? String(enrollment.order_code).trim().toUpperCase() : '';
+        if (!orderRef) {
+          const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+          orderRef = `HV-${day}-${enrollment.id.slice(0, 4).toUpperCase()}`;
+        }
+        const sellerUserId = body.commissionStaffId ? await resolveSellerUserId(client, body.commissionStaffId) : null;
+        if (body.commissionStaffId && !sellerUserId)
+          throw new BadRequestException('Nhân viên hưởng hoa hồng không hợp lệ hoặc không hoạt động.');
+        const orderCode = Number(`${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 89)}`);
+        const pendingPosQr = {
+          shiftId,
+          cashierId: actor.id,
+          commissionStaffId: sellerUserId || enrollment.assigned_staff_id || null,
+          amount,
+          orderCode,
+          orderRef,
+          createdAt: new Date().toISOString(),
+        };
+        await client.query(
+          'UPDATE course_enrollments SET order_code=$2, assigned_staff_id=COALESCE(assigned_staff_id,$3), pending_pos_qr=$4::jsonb WHERE id=$1',
+          [enrollment.id, orderRef, sellerUserId, JSON.stringify(pendingPosQr)],
+        );
+        const transferContent = `MLD ${orderRef}`;
+        await client.query('COMMIT');
+        return {
+          kind: 'TUITION',
+          enrollmentId: enrollment.id,
+          orderCode,
+          orderRef,
+          amount,
+          transferContent,
+          qrUrl: buildQrUrl(amount, transferContent),
+          bankBin,
+          bankAccountNo,
+          bankAccountName,
+          status: 'PENDING',
+        };
+      }
+
+      if (typeof body.requestId === 'string' && body.requestId) {
+        const existingPending = (await client.query(
+          "SELECT * FROM invoices WHERE pending_meta->>'requestId'=$1 LIMIT 1",
+          [body.requestId],
+        )).rows[0];
+        if (existingPending) {
+          const transferContent = `MLD ${existingPending.invoice_code}`;
+          const orderCode = Number(existingPending.gateway_transaction_id || Date.now().toString().slice(-7));
+          await client.query('COMMIT');
+          return {
+            kind,
+            invoiceId: existingPending.id,
+            invoiceCode: existingPending.invoice_code,
+            orderCode,
+            amount: Number(existingPending.total_amount),
+            transferContent,
+            qrUrl: buildQrUrl(Number(existingPending.total_amount), transferContent),
+            bankBin,
+            bankAccountNo,
+            bankAccountName,
+            status: existingPending.payment_status,
+            isPaid: existingPending.payment_status === 'PAID',
+          };
+        }
+      }
+
+      const sellerUserId = body.commissionStaffId ? await resolveSellerUserId(client, body.commissionStaffId) : null;
+      if (body.commissionStaffId && !sellerUserId)
+        throw new BadRequestException('Nhân viên hưởng hoa hồng không hợp lệ hoặc không hoạt động.');
+
+      let customerId = String(body.customerId || SYSTEM_GUEST_CUSTOMER_ID);
+      let bookingId: string | null = null;
+      let linkedUserPackageId: string | null = null;
+      let subtotal = 0;
+      let discount = 0;
+      let points = 0;
+      let preTax = 0;
+      let vatAmount = 0;
+      let total = 0;
+      const lines: Array<{ name: string; type: string; quantity: number; price: number }> = [];
+      let packageId: string | null = null;
+
+      if (kind === 'BOOKING') {
+        bookingId = String(body.bookingId || '');
+        if (!this.isUuid(bookingId)) throw new BadRequestException('Lịch hẹn không hợp lệ.');
+        const booking = (await client.query('SELECT * FROM bookings WHERE id=$1 FOR UPDATE', [bookingId])).rows[0];
+        if (!booking) throw new NotFoundException('Không tìm thấy lịch hẹn.');
+        if (booking.branch_id !== shift.branch_id)
+          throw new BadRequestException('Ca thu ngân không khớp chi nhánh của lịch hẹn.');
+        if (['CANCELLED', 'NO_SHOW'].includes(booking.status))
+          throw new ConflictException('Lịch hẹn đã bị hủy hoặc khách không đến.');
+        if (booking.payment_status === 'PAID')
+          throw new ConflictException('Lịch hẹn đã được thanh toán.');
+        customerId = booking.customer_id;
+        linkedUserPackageId = String(booking.special_notes || '').match(/user_package_id=([0-9a-f-]{36})/i)?.[1] || null;
+        const catalogPackageId = String(booking.special_notes || '').match(/package_id=([0-9a-f-]{36})/i)?.[1] || null;
+        if (catalogPackageId && !linkedUserPackageId && customerId === SYSTEM_GUEST_CUSTOMER_ID)
+          throw new BadRequestException('Không cho phép khách vãng lai kích hoạt gói liệu trình.');
+        const bItems = (await client.query(
+          'SELECT bi.price, s.name FROM booking_items bi JOIN services s ON s.id=bi.service_id WHERE bi.booking_id=$1 ORDER BY bi.created_at,bi.id',
+          [bookingId],
+        )).rows;
+        if (!bItems.length) throw new ConflictException('Lịch hẹn chưa có dịch vụ để thu tiền.');
+        subtotal = Number(booking.base_total);
+        discount = Number(booking.discount_amount || 0);
+        points = Number(booking.points_discount || 0);
+        preTax = Math.max(0, subtotal - discount - points);
+        vatAmount = Math.round(preTax * vatRate) / 100;
+        total = preTax + vatAmount;
+        if (total <= 0) throw new BadRequestException('Tổng thanh toán phải lớn hơn 0.');
+        for (const row of bItems) {
+          lines.push({ name: row.name, type: catalogPackageId && !linkedUserPackageId ? 'PACKAGE' : 'SERVICE', quantity: 1, price: Number(row.price) });
+        }
+      } else if (kind === 'PACKAGE') {
+        packageId = String(body.packageId || '');
+        if (!this.isUuid(packageId) || !this.isUuid(customerId))
+          throw new BadRequestException('Gói liệu trình hoặc khách hàng không hợp lệ.');
+        if (customerId === SYSTEM_GUEST_CUSTOMER_ID)
+          throw new BadRequestException('Không cho phép khách vãng lai đăng ký gói liệu trình.');
+        const pkg = (await client.query(
+          'SELECT tp.*, s.is_active AS service_is_active FROM treatment_packages tp LEFT JOIN services s ON s.id=tp.service_id WHERE tp.id=$1 AND tp.is_active=true',
+          [packageId],
+        )).rows[0];
+        if (!pkg) throw new NotFoundException('Gói liệu trình không còn mở bán.');
+        if (!pkg.service_id || pkg.service_is_active !== true)
+          throw new ConflictException('Dịch vụ của gói không còn hoạt động.');
+        const configuredDiscount = Number(pkg.discount_price || 0);
+        subtotal = configuredDiscount > 0 && configuredDiscount < Number(pkg.price) ? configuredDiscount : Number(pkg.price);
+        preTax = subtotal;
+        vatAmount = Math.round(subtotal * vatRate) / 100;
+        total = preTax + vatAmount;
+        lines.push({ name: pkg.name, type: 'PACKAGE', quantity: 1, price: subtotal });
+      } else {
+        if (!this.isUuid(customerId) || !(await client.query('SELECT id FROM users WHERE id=$1 AND is_active=true', [customerId])).rowCount)
+          throw new BadRequestException('Chọn khách hàng có hồ sơ hợp lệ trước khi thu tiền.');
+        if (!Array.isArray(body.items) || !body.items.length || body.items.length > 100)
+          throw new BadRequestException('Giỏ hàng không hợp lệ.');
+        for (const item of body.items) {
+          if (!item || typeof item !== 'object' || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 100)
+            throw new BadRequestException('Số lượng không hợp lệ.');
+          const table = { SERVICE: 'services', PACKAGE: 'treatment_packages', PRODUCT: 'home_products' }[item.type];
+          const itemId = item.serviceId || item.packageId || item.productId || item.id;
+          if (!table || !this.isUuid(String(itemId))) throw new BadRequestException('Mặt hàng không hợp lệ.');
+          if (item.type === 'PACKAGE') throw new BadRequestException('Gói liệu trình phải được thanh toán trong một phiếu riêng.');
+          const row = (await client.query(`SELECT * FROM ${quote(table)} WHERE id=$1`, [itemId])).rows[0];
+          if (!row || row.is_active === false) throw new ConflictException('Mặt hàng đã ngừng kinh doanh.');
+          const base = Number(item.type === 'PRODUCT' ? row.price_min : row.price);
+          const price = Number(row.discount_price) > 0 && Number(row.discount_price) < base ? Number(row.discount_price) : base;
+          lines.push({ name: row.name, type: item.type, quantity: item.quantity, price });
+        }
+        subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
+        const cartPricing = await this.resolvePosCartPricing(client, body, subtotal, 'BANK_TRANSFER', customerId);
+        discount = cartPricing.discount;
+        points = cartPricing.pointsRedeemedAmount;
+        preTax = subtotal - discount - points;
+        vatAmount = Math.round(preTax * vatRate) / 100;
+        total = preTax + vatAmount;
+        body.resolvedCouponId = cartPricing.coupon?.id || null;
+        body.resolvedCouponCode = cartPricing.coupon?.code || null;
+        body.resolvedDiscountReason = cartPricing.discountReason;
+        body.resolvedUserVoucherId = cartPricing.userVoucher?.id || null;
+        body.resolvedRedeemPoints = cartPricing.redeemPoints || 0;
+      }
+
+      if (total <= 0 || (body.expectedTotal !== undefined && Number(body.expectedTotal) !== total))
+        throw new ConflictException('Giá hoặc tổng tiền đã thay đổi. Vui lòng kiểm tra lại.');
+
+      const invoiceCode = `HD-POS-${Date.now().toString().slice(-6)}-${randomUUID().slice(0, 4).toUpperCase()}`;
+      const orderCode = Number(`${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 89)}`);
+      const pendingMeta = {
+        kind,
+        requestId: typeof body.requestId === 'string' ? body.requestId : null,
+        packageId,
+        commissionStaffId: sellerUserId || null,
+        vatRate,
+        userVoucherId: body.resolvedUserVoucherId || null,
+        redeemPoints: Number(body.resolvedRedeemPoints || 0),
+      };
+      const inv = (await client.query(
+        `INSERT INTO invoices(invoice_code,branch_id,customer_id,cashier_id,commission_staff_id,shift_id,booking_id,user_package_id,subtotal,discount_amount,coupon_id,coupon_code,discount_reason,points_redeemed_amount,pre_tax_amount,vat_rate,vat_amount,total_amount,payment_method,payment_status,gateway_transaction_id,pending_meta)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'BANK_TRANSFER','PENDING',$19,$20::jsonb) RETURNING *`,
+        [invoiceCode,shift.branch_id,customerId,actor.id,sellerUserId,shiftId,bookingId,linkedUserPackageId,subtotal,discount,body.resolvedCouponId || null,body.resolvedCouponCode || null,body.resolvedDiscountReason || null,points,preTax,vatRate,vatAmount,total,String(orderCode),JSON.stringify(pendingMeta)],
+      )).rows[0];
+      for (const line of lines) {
+        await client.query(
+          'INSERT INTO invoice_items(invoice_id,item_name,item_type,quantity,unit_price,amount) VALUES($1,$2,$3,$4,$5,$6)',
+          [inv.id, line.name, line.type, line.quantity, line.price, line.price * line.quantity],
+        );
+      }
+      await client.query('COMMIT');
+      const transferContent = `MLD ${invoiceCode}`;
+      return {
+        kind,
+        invoiceId: inv.id,
+        invoiceCode,
+        orderCode,
+        amount: total,
+        transferContent,
+        qrUrl: buildQrUrl(total, transferContent),
+        bankBin,
+        bankAccountNo,
+        bankAccountName,
+        status: inv.payment_status,
+        isPaid: false,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.fail(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async getPendingCashierQrStatus(actor: AdminActor, invoiceId: string) {
+    this.requireCashier(actor);
+    if (!this.isUuid(invoiceId)) throw new BadRequestException('Hóa đơn không hợp lệ.');
+    const client = await this.db.connection.connect();
+    try {
+      await client.query('BEGIN');
+      let inv = (await client.query('SELECT * FROM invoices WHERE id=$1 FOR UPDATE', [invoiceId])).rows[0];
+      if (!inv) throw new NotFoundException('Không tìm thấy hóa đơn.');
+      assertCashierBranch(actor, inv.branch_id, 'cashier.collect');
+      let userPackage = inv.user_package_id ? await loadUserPackageSummary(client, inv.user_package_id) : null;
+      if (inv.payment_status === 'PENDING' && inv.gateway_transaction_id && /^\d+$/.test(String(inv.gateway_transaction_id))) {
+        userPackage = userPackage || null;
+      }
+      if (inv.payment_status === 'PAID' && !userPackage && inv.pending_meta) {
+        const settled = await settlePendingPosInvoice(client, inv, { actorId: actor.id });
+        inv = settled.invoice;
+        userPackage = settled.userPackage;
+      }
+      const sellerName = inv.commission_staff_id
+        ? (await client.query('SELECT full_name FROM users WHERE id=$1', [inv.commission_staff_id])).rows[0]?.full_name || null
+        : null;
+      await client.query('COMMIT');
+      return {
+        invoiceId: inv.id,
+        invoiceCode: inv.invoice_code,
+        paymentStatus: inv.payment_status,
+        isPaid: inv.payment_status === 'PAID',
+        invoice: inv,
+        userPackage,
+        commissionStaffName: sellerName,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.fail(error);
+    } finally {
+      client.release();
+    }
   }
 
   async treatmentDashboardStats(actor: AdminActor, branchId?: string) {
@@ -3891,13 +4460,553 @@ export class AdminService {
     paymentMethod: string,
     amount: number,
   ) {
-    await client.query(
-      `UPDATE cashier_shifts SET total_sales=total_sales+$2,
-       system_cash=system_cash+CASE WHEN $3='CASH_AT_SPA' THEN $2 ELSE 0 END,
-       transfer_sales=transfer_sales+CASE WHEN $3='BANK_TRANSFER' THEN $2 ELSE 0 END,
-       updated_at=now() WHERE id=$1`,
-      [shiftId,amount,paymentMethod],
-    );
+    await updateCashierShiftTotalsSql(client, shiftId, paymentMethod, amount);
+  }
+
+  private async verifyCertificateEligibility(client: PoolClient, enrollmentId: string) {
+    const enrollment = (
+      await client.query(
+        `SELECT e.*,
+                COALESCE(NULLIF(btrim(e.student_name),''),u.full_name) AS student_name,
+                c.title AS course_title,
+                c.minimum_theory_score,
+                c.minimum_practical_score,
+                c.minimum_attendance_rate,
+                c.require_full_payment_for_graduation
+         FROM course_enrollments e
+         JOIN users u ON u.id=e.student_id
+         JOIN courses c ON c.id=e.course_id
+         WHERE e.id=$1 FOR UPDATE OF e`,
+        [enrollmentId],
+      )
+    ).rows[0];
+    if (!enrollment) throw new NotFoundException('Không tìm thấy hồ sơ ghi danh.');
+    const record = (
+      await client.query(
+        'SELECT * FROM student_academic_records WHERE enrollment_id=$1 FOR UPDATE',
+        [enrollmentId],
+      )
+    ).rows[0];
+    if (!record || record.theory_score === null || record.practical_score === null)
+      throw new ConflictException('Học viên chưa có bảng điểm học tập hợp lệ trong hệ thống.');
+    const theory = Number(record.theory_score);
+    const practical = Number(record.practical_score);
+    const minTheory = Number(enrollment.minimum_theory_score ?? 5);
+    const minPractical = Number(enrollment.minimum_practical_score ?? 5);
+    if (!Number.isFinite(theory) || !Number.isFinite(practical) || theory < minTheory || practical < minPractical)
+      throw new ConflictException(`Điểm lý thuyết (${minTheory}) và thực hành (${minPractical}) chưa đạt ngưỡng tối thiểu của khóa học.`);
+    const minAttendance = Number(enrollment.minimum_attendance_rate ?? 0);
+    if (!record.is_graduated && minAttendance > 0 && Number(record.attendance_rate ?? 0) < minAttendance)
+      throw new ConflictException(`Tỷ lệ chuyên cần chưa đạt ngưỡng tối thiểu ${minAttendance}% của khóa học.`);
+    if (enrollment.require_full_payment_for_graduation !== false && enrollment.payment_status !== 'PAID')
+      throw new ConflictException('Học viên còn công nợ học phí, chưa đủ điều kiện cấp chứng chỉ.');
+    return { enrollment, record, theory, practical };
+  }
+
+  private validateAndComputeCouponDiscount(coupon: any, subtotal: number) {
+    if (!coupon || !coupon.is_active)
+      throw new ConflictException('Mã giảm giá không tồn tại hoặc đã ngừng kích hoạt.');
+    const now = Date.now();
+    if (coupon.valid_from && Date.parse(coupon.valid_from) > now)
+      throw new ConflictException('Mã giảm giá chưa đến thời gian hiệu lực.');
+    if (coupon.valid_to && Date.parse(coupon.valid_to) < now)
+      throw new ConflictException('Mã giảm giá đã hết hạn sử dụng.');
+    if (Number(coupon.usage_limit || 0) > 0 && Number(coupon.used_count || 0) >= Number(coupon.usage_limit))
+      throw new ConflictException('Mã giảm giá đã hết lượt sử dụng.');
+    if (Number(coupon.min_order_amount || 0) > 0 && subtotal < Number(coupon.min_order_amount))
+      throw new ConflictException('Đơn hàng chưa đạt giá trị tối thiểu để áp dụng mã giảm giá.');
+    const pct = Number(coupon.discount_percent || 0);
+    const maxDisc = Number(coupon.max_discount ?? coupon.max_discount_amount ?? 0);
+    let computed = pct > 0 ? Math.round((subtotal * pct) / 100) : Number(coupon.discount_amount || 0);
+    if (maxDisc > 0) computed = Math.min(computed, maxDisc);
+    return Math.min(subtotal, Math.max(0, computed));
+  }
+
+  private async resolvePosCartPricing(
+    client: PoolClient,
+    body: Record<string, unknown>,
+    subtotal: number,
+    paymentMethod: string,
+    customerId = SYSTEM_GUEST_CUSTOMER_ID,
+  ) {
+    const posRow = (
+      await client.query("SELECT data FROM system_settings WHERE category='pos' LIMIT 1")
+    ).rows[0];
+    const posConfig = (posRow?.data && typeof posRow.data === 'object') ? posRow.data : {};
+    if (posConfig.enable_cash === false && paymentMethod === 'CASH_AT_SPA')
+      throw new BadRequestException('Phương thức tiền mặt đang tắt trong cấu hình POS.');
+    if (posConfig.enable_vietqr === false && paymentMethod === 'BANK_TRANSFER')
+      throw new BadRequestException('Phương thức VietQR đang tắt trong cấu hình POS.');
+    if (posConfig.enable_card_pos === false && paymentMethod === 'VNPAY')
+      throw new BadRequestException('Phương thức quẹt thẻ POS đang tắt trong cấu hình POS.');
+
+    const userVoucherId = typeof body.userVoucherId === 'string' ? body.userVoucherId.trim() : '';
+    const couponCode = typeof body.couponCode === 'string' ? body.couponCode.trim().toUpperCase() : '';
+    const rawReason = typeof body.discountReason === 'string' ? body.discountReason.trim().slice(0, 500) : '';
+
+    let discount = 0;
+    let coupon: any = null;
+    let userVoucher: any = null;
+    let discountReason: string | null = rawReason || null;
+
+    if (userVoucherId) {
+      if (!this.isUuid(userVoucherId) || customerId === SYSTEM_GUEST_CUSTOMER_ID)
+        throw new BadRequestException('Voucher khách hàng không hợp lệ.');
+      const uvRow = (
+        await client.query(
+          "SELECT * FROM user_vouchers WHERE id=$1 AND user_id=$2 FOR UPDATE",
+          [userVoucherId, customerId],
+        )
+      ).rows[0];
+      if (!uvRow || uvRow.status !== 'AVAILABLE' || (uvRow.expires_at && Date.parse(uvRow.expires_at) <= Date.now()))
+        throw new ConflictException('Voucher trong ví khách hàng đã được sử dụng hoặc hết hạn.');
+      coupon = (
+        await client.query('SELECT * FROM coupons WHERE id=$1 FOR UPDATE', [uvRow.coupon_id])
+      ).rows[0];
+      discount = this.validateAndComputeCouponDiscount(coupon, subtotal);
+      userVoucher = uvRow;
+      discountReason = rawReason || `Voucher khách hàng ${coupon.code}`;
+    } else if (couponCode) {
+      coupon = (
+        await client.query('SELECT * FROM coupons WHERE upper(code)=upper($1) FOR UPDATE', [couponCode])
+      ).rows[0];
+      discount = this.validateAndComputeCouponDiscount(coupon, subtotal);
+      discountReason = rawReason || `Mã giảm giá ${coupon.code}`;
+    } else {
+      discount = Number(body.discountAmount || 0);
+      if (!Number.isFinite(discount) || discount < 0 || discount > subtotal)
+        throw new BadRequestException('Giảm giá không hợp lệ.');
+      if (discount > 0 && posConfig.require_discount_reason === true && rawReason.length < 3)
+        throw new BadRequestException('Vui lòng nhập lý do giảm giá thủ công (tối thiểu 3 ký tự).');
+    }
+
+    const redeemPoints = body.redeemPoints !== undefined && body.redeemPoints !== null ? Number(body.redeemPoints) : 0;
+    if (!Number.isInteger(redeemPoints) || redeemPoints < 0)
+      throw new BadRequestException('Số điểm thưởng quy đổi phải là số nguyên không âm.');
+
+    let pointsRedeemedAmount = 0;
+    if (redeemPoints > 0) {
+      if (customerId === SYSTEM_GUEST_CUSTOMER_ID)
+        throw new BadRequestException('Khách vãng lai không thể quy đổi điểm thưởng.');
+      if (posConfig.enable_loyalty_points === false)
+        throw new BadRequestException('Chức năng tích/đổi điểm thưởng đang tắt trong cấu hình POS.');
+      const rule = (
+        await client.query(
+          'SELECT redeem_value_per_point, max_redeem_percent_per_order FROM loyalty_point_settings WHERE id=1 AND is_active=true LIMIT 1',
+        )
+      ).rows[0];
+      if (!rule)
+        throw new ConflictException('Chưa kích hoạt quy tắc quy đổi điểm thưởng.');
+      const user = (
+        await client.query('SELECT reward_points FROM users WHERE id=$1 FOR UPDATE', [customerId])
+      ).rows[0];
+      if (!user || Number(user.reward_points || 0) < redeemPoints)
+        throw new ConflictException('Số điểm thưởng hiện có của khách hàng không đủ để quy đổi.');
+      const remainingAfterDiscount = Math.max(0, subtotal - discount);
+      const redeemValue = Math.round(redeemPoints * Number(rule.redeem_value_per_point || 0));
+      const maxPct = Number(rule.max_redeem_percent_per_order ?? 100);
+      const maxAllowedByPct = Math.floor((remainingAfterDiscount * maxPct) / 100);
+      if (redeemValue <= 0 || redeemValue > maxAllowedByPct)
+        throw new BadRequestException(`Số điểm quy đổi vượt mức tối đa ${maxPct}% giá trị đơn hàng.`);
+      if (remainingAfterDiscount - redeemValue <= 0)
+        throw new BadRequestException('Tổng thanh toán sau giảm giá và đổi điểm phải lớn hơn 0đ.');
+      pointsRedeemedAmount = redeemValue;
+    }
+
+    return { discount, pointsRedeemedAmount, redeemPoints, userVoucher, coupon, discountReason, posConfig };
+  }
+
+  private tryAllowedBranches(
+    actor: AdminActor,
+    permission: string,
+  ): { allowed: boolean; branches: string[] | null } {
+    try {
+      return { allowed: true, branches: allowedBranches(actor, permission) };
+    } catch (error) {
+      if (error instanceof ForbiddenException) {
+        return { allowed: false, branches: [] };
+      }
+      throw error;
+    }
+  }
+
+  async commandSearch(actor: AdminActor, rawQuery?: string) {
+    const queryText = String(rawQuery || '').trim().slice(0, 100);
+    if (queryText.length < 2) {
+      return { query: queryText, customers: [], invoices: [], enrollments: [], bookings: [] };
+    }
+    const likePattern = `%${queryText.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
+    const userScope = this.tryAllowedBranches(actor, 'users.read');
+    const invoiceScope = this.tryAllowedBranches(actor, 'invoices.read');
+    const enrollmentScope = this.tryAllowedBranches(actor, 'course_enrollments.read');
+    const bookingScope = this.tryAllowedBranches(actor, 'bookings.read');
+
+    const [customersRes, invoicesRes, enrollmentsRes, bookingsRes] = await Promise.all([
+      userScope.allowed
+        ? this.db.connection.query(
+            `SELECT u.id, u.full_name AS "fullName", u.phone, u.email, u.role, u.referral_code AS "referralCode"
+             FROM public.users u
+             WHERE (
+               COALESCE(u.full_name,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(u.phone,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(u.email,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(u.referral_code,'') ILIKE $1 ESCAPE '\\'
+             )
+             AND (
+               $2::uuid[] IS NULL
+               OR EXISTS (SELECT 1 FROM public.bookings b WHERE b.customer_id=u.id AND b.branch_id=ANY($2::uuid[]))
+               OR EXISTS (SELECT 1 FROM public.course_enrollments e JOIN public.course_batches cb ON cb.id=e.batch_id WHERE e.student_id=u.id AND cb.branch_id=ANY($2::uuid[]))
+             )
+             ORDER BY u.updated_at DESC NULLS LAST, u.created_at DESC
+             LIMIT 5`,
+            [likePattern, userScope.branches],
+          )
+        : Promise.resolve({ rows: [] }),
+      invoiceScope.allowed
+        ? this.db.connection.query(
+            `SELECT i.id, i.invoice_code AS "invoiceCode", i.total_amount::float AS "totalAmount",
+               i.payment_status AS "paymentStatus",
+               CASE
+                 WHEN i.enrollment_id IS NOT NULL THEN 'TUITION'
+                 WHEN i.user_package_id IS NOT NULL THEN 'PACKAGE'
+                 WHEN i.booking_id IS NOT NULL THEN 'BOOKING'
+                 ELSE 'CART'
+               END AS "sourceKind",
+               COALESCE(u.full_name, i.receipt_customer_name, 'Khách vãng lai') AS "customerName"
+             FROM public.invoices i
+             LEFT JOIN public.users u ON u.id=i.customer_id
+             WHERE (
+               COALESCE(i.invoice_code,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(u.full_name,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(u.phone,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(i.receipt_customer_name,'') ILIKE $1 ESCAPE '\\'
+             )
+             AND ($2::uuid[] IS NULL OR i.branch_id=ANY($2::uuid[]))
+             ORDER BY i.paid_at DESC NULLS LAST
+             LIMIT 5`,
+            [likePattern, invoiceScope.branches],
+          )
+        : Promise.resolve({ rows: [] }),
+      enrollmentScope.allowed
+        ? this.db.connection.query(
+            `SELECT e.id, COALESCE(e.order_code, '') AS "studentCode",
+               COALESCE(NULLIF(TRIM(e.student_name), ''), u.full_name, 'Chưa có tên') AS "studentName",
+               COALESCE(NULLIF(TRIM(e.student_phone), ''), u.phone, '') AS phone,
+               e.status, COALESCE(c.title, '') AS "courseTitle"
+             FROM public.course_enrollments e
+             LEFT JOIN public.users u ON u.id=e.student_id
+             LEFT JOIN public.courses c ON c.id=e.course_id
+             WHERE (
+               COALESCE(e.order_code,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(e.student_name,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(u.full_name,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(e.student_phone,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(u.phone,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(c.title,'') ILIKE $1 ESCAPE '\\'
+             )
+             AND (
+               $2::uuid[] IS NULL
+               OR EXISTS (SELECT 1 FROM public.course_batches cb WHERE cb.id=e.batch_id AND cb.branch_id=ANY($2::uuid[]))
+             )
+             ORDER BY e.enrolled_at DESC NULLS LAST
+             LIMIT 5`,
+            [likePattern, enrollmentScope.branches],
+          )
+        : Promise.resolve({ rows: [] }),
+      bookingScope.allowed
+        ? this.db.connection.query(
+            `SELECT b.id, b.booking_code AS "bookingCode", b.booking_date::text AS "bookingDate",
+               LEFT(b.start_time::text, 5) AS "startTime", b.status,
+               COALESCE(NULLIF(b.booked_for_name,''), u.full_name, '') AS "customerName"
+             FROM public.bookings b
+             LEFT JOIN public.users u ON u.id=b.customer_id
+             WHERE (
+               COALESCE(b.booking_code,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(b.booked_for_name,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(b.booked_for_phone,'') ILIKE $1 ESCAPE '\\'
+               OR COALESCE(u.full_name,'') ILIKE $1 ESCAPE '\\'
+             )
+             AND ($2::uuid[] IS NULL OR b.branch_id=ANY($2::uuid[]))
+             ORDER BY b.booking_date DESC, b.start_time DESC
+             LIMIT 5`,
+            [likePattern, bookingScope.branches],
+          )
+        : Promise.resolve({ rows: [] }),
+    ]);
+
+    return {
+      query: queryText,
+      customers: customersRes.rows,
+      invoices: invoicesRes.rows,
+      enrollments: enrollmentsRes.rows,
+      bookings: bookingsRes.rows,
+    };
+  }
+
+  private resolveActionBranchScope(
+    actor: AdminActor,
+    permission: string,
+    requestedBranchId?: string,
+  ): { allowed: boolean; branches: string[] | null } {
+    const scope = this.tryAllowedBranches(actor, permission);
+    if (!scope.allowed) return scope;
+    const requested = String(requestedBranchId || '').trim();
+    if (!requested || requested === 'ALL') return scope;
+    if (!this.isUuid(requested)) return { allowed: false, branches: [] };
+    if (scope.branches === null) return { allowed: true, branches: [requested] };
+    return scope.branches.includes(requested)
+      ? { allowed: true, branches: [requested] }
+      : { allowed: false, branches: [] };
+  }
+
+  async getActionCenter(actor: AdminActor, requestedBranchId?: string) {
+    const bookingScope = this.resolveActionBranchScope(actor, 'bookings.read', requestedBranchId);
+    const ticketScope = this.resolveActionBranchScope(actor, 'support_tickets.read', requestedBranchId);
+    const outboxScope = this.resolveActionBranchScope(actor, 'treatment_inventory_outbox.read', requestedBranchId);
+    const enrollmentScope = this.resolveActionBranchScope(actor, 'course_enrollments.read', requestedBranchId);
+    const certScope = this.resolveActionBranchScope(actor, 'student_certificates.read', requestedBranchId);
+
+    const [
+      overdueCountRes,
+      overdueRowsRes,
+      custTicketsCountRes,
+      custTicketsRowsRes,
+      internalTicketsCountRes,
+      internalTicketsRowsRes,
+      outboxCountRes,
+      outboxRowsRes,
+      enrollCountRes,
+      enrollRowsRes,
+      certCountRes,
+      certRowsRes,
+    ] = await Promise.all([
+      bookingScope.allowed
+        ? this.db.connection.query(
+            `SELECT count(*)::int AS cnt FROM public.bookings b
+             WHERE b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE')
+               AND (b.booking_date + COALESCE(b.end_time, b.start_time) + interval '15 minutes') < (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
+               AND ($1::uuid[] IS NULL OR b.branch_id = ANY($1::uuid[]))`,
+            [bookingScope.branches],
+          )
+        : Promise.resolve({ rows: [{ cnt: 0 }] }),
+      bookingScope.allowed
+        ? this.db.connection.query(
+            `SELECT b.id, b.booking_code AS code, b.booking_date::text AS day,
+               LEFT(b.start_time::text, 5) AS "startTime",
+               COALESCE(NULLIF(b.booked_for_name, ''), u.full_name, 'Khách hàng') AS title
+             FROM public.bookings b
+             LEFT JOIN public.users u ON u.id = b.customer_id
+             WHERE b.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE')
+               AND (b.booking_date + COALESCE(b.end_time, b.start_time) + interval '15 minutes') < (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
+               AND ($1::uuid[] IS NULL OR b.branch_id = ANY($1::uuid[]))
+             ORDER BY b.booking_date DESC, b.start_time DESC
+             LIMIT 4`,
+            [bookingScope.branches],
+          )
+        : Promise.resolve({ rows: [] }),
+      ticketScope.allowed
+        ? this.db.connection.query(
+            `SELECT count(*)::int AS cnt FROM public.support_tickets st
+             WHERE st.status::text = 'PENDING'
+               AND (
+                 $1::uuid[] IS NULL
+                 OR EXISTS (SELECT 1 FROM public.bookings b WHERE b.customer_id = st.customer_id AND b.branch_id = ANY($1::uuid[]))
+                 OR EXISTS (SELECT 1 FROM public.course_enrollments e JOIN public.course_batches cb ON cb.id = e.batch_id WHERE e.student_id = st.customer_id AND cb.branch_id = ANY($1::uuid[]))
+               )`,
+            [ticketScope.branches],
+          )
+        : Promise.resolve({ rows: [{ cnt: 0 }] }),
+      ticketScope.allowed
+        ? this.db.connection.query(
+            `SELECT st.id, st.subject AS title, COALESCE(u.full_name, u.phone, 'Khách hàng') AS subtitle,
+               st.created_at AS "createdAt"
+             FROM public.support_tickets st
+             LEFT JOIN public.users u ON u.id = st.customer_id
+             WHERE st.status::text = 'PENDING'
+               AND (
+                 $1::uuid[] IS NULL
+                 OR EXISTS (SELECT 1 FROM public.bookings b WHERE b.customer_id = st.customer_id AND b.branch_id = ANY($1::uuid[]))
+                 OR EXISTS (SELECT 1 FROM public.course_enrollments e JOIN public.course_batches cb ON cb.id = e.batch_id WHERE e.student_id = st.customer_id AND cb.branch_id = ANY($1::uuid[]))
+               )
+             ORDER BY st.created_at DESC
+             LIMIT 4`,
+            [ticketScope.branches],
+          )
+        : Promise.resolve({ rows: [] }),
+      ticketScope.allowed
+        ? this.db.connection.query(
+            `SELECT count(*)::int AS cnt FROM public.admin_support_tickets ast
+             WHERE ast.status = 'OPEN'
+               AND ($1::uuid[] IS NULL OR ast.branch_id = ANY($1::uuid[]) OR ast.branch_id IS NULL)`,
+            [ticketScope.branches],
+          ).catch(() => ({ rows: [{ cnt: 0 }] }))
+        : Promise.resolve({ rows: [{ cnt: 0 }] }),
+      ticketScope.allowed
+        ? this.db.connection.query(
+            `SELECT ast.id, COALESCE(ast.ticket_code, '') AS code, ast.title, ast.created_at AS "createdAt"
+             FROM public.admin_support_tickets ast
+             WHERE ast.status = 'OPEN'
+               AND ($1::uuid[] IS NULL OR ast.branch_id = ANY($1::uuid[]) OR ast.branch_id IS NULL)
+             ORDER BY ast.created_at DESC
+             LIMIT 4`,
+            [ticketScope.branches],
+          ).catch(() => ({ rows: [] }))
+        : Promise.resolve({ rows: [] }),
+      outboxScope.allowed
+        ? this.db.connection.query(
+            `SELECT count(*)::int AS cnt FROM public.treatment_inventory_outbox o
+             WHERE o.sync_status IN ('FAILED', 'PENDING_SYNC')
+               AND ($1::uuid[] IS NULL OR o.branch_id = ANY($1::uuid[]))`,
+            [outboxScope.branches],
+          )
+        : Promise.resolve({ rows: [{ cnt: 0 }] }),
+      outboxScope.allowed
+        ? this.db.connection.query(
+            `SELECT o.id, o.sync_status AS status, COALESCE(b.booking_code, o.operation_type) AS code,
+               COALESCE(o.sync_error, o.notes, 'Chờ đồng bộ tồn kho vật tư') AS subtitle,
+               o.created_at AS "createdAt"
+             FROM public.treatment_inventory_outbox o
+             LEFT JOIN public.bookings b ON b.id = o.booking_id
+             WHERE o.sync_status IN ('FAILED', 'PENDING_SYNC')
+               AND ($1::uuid[] IS NULL OR o.branch_id = ANY($1::uuid[]))
+             ORDER BY CASE WHEN o.sync_status = 'FAILED' THEN 0 ELSE 1 END, o.created_at DESC
+             LIMIT 4`,
+            [outboxScope.branches],
+          )
+        : Promise.resolve({ rows: [] }),
+      enrollmentScope.allowed
+        ? this.db.connection.query(
+            `SELECT count(*)::int AS cnt FROM public.course_enrollments e
+             WHERE e.amount_paid >= e.required_deposit
+               AND e.student_status = 'NOT_APPROVED'
+               AND e.status::text NOT IN ('DROPPED', 'GRADUATED')
+               AND ($1::uuid[] IS NULL OR EXISTS (SELECT 1 FROM public.course_batches cb WHERE cb.id = e.batch_id AND cb.branch_id = ANY($1::uuid[])))`,
+            [enrollmentScope.branches],
+          )
+        : Promise.resolve({ rows: [{ cnt: 0 }] }),
+      enrollmentScope.allowed
+        ? this.db.connection.query(
+            `SELECT e.id, COALESCE(e.order_code, '') AS code,
+               COALESCE(NULLIF(TRIM(e.student_name), ''), u.full_name, 'Học viên') AS title,
+               COALESCE(c.title, 'Khóa đào tạo') AS subtitle,
+               e.enrolled_at AS "createdAt"
+             FROM public.course_enrollments e
+             LEFT JOIN public.users u ON u.id = e.student_id
+             LEFT JOIN public.courses c ON c.id = e.course_id
+             WHERE e.amount_paid >= e.required_deposit
+               AND e.student_status = 'NOT_APPROVED'
+               AND e.status::text NOT IN ('DROPPED', 'GRADUATED')
+               AND ($1::uuid[] IS NULL OR EXISTS (SELECT 1 FROM public.course_batches cb WHERE cb.id = e.batch_id AND cb.branch_id = ANY($1::uuid[])))
+             ORDER BY e.enrolled_at DESC NULLS LAST
+             LIMIT 4`,
+            [enrollmentScope.branches],
+          )
+        : Promise.resolve({ rows: [] }),
+      certScope.allowed
+        ? this.db.connection.query(
+            `SELECT count(*)::int AS cnt FROM public.student_certificates sc
+             WHERE sc.status = 'DRAFT'
+               AND ($1::uuid[] IS NULL OR EXISTS (
+                 SELECT 1 FROM public.course_enrollments e JOIN public.course_batches cb ON cb.id = e.batch_id
+                 WHERE e.id = sc.enrollment_id AND cb.branch_id = ANY($1::uuid[])
+               ))`,
+            [certScope.branches],
+          )
+        : Promise.resolve({ rows: [{ cnt: 0 }] }),
+      certScope.allowed
+        ? this.db.connection.query(
+            `SELECT sc.id, sc.certificate_code AS code, sc.student_name AS title,
+               sc.course_title AS subtitle, sc.created_at AS "createdAt"
+             FROM public.student_certificates sc
+             WHERE sc.status = 'DRAFT'
+               AND ($1::uuid[] IS NULL OR EXISTS (
+                 SELECT 1 FROM public.course_enrollments e JOIN public.course_batches cb ON cb.id = e.batch_id
+                 WHERE e.id = sc.enrollment_id AND cb.branch_id = ANY($1::uuid[])
+               ))
+             ORDER BY sc.created_at DESC
+             LIMIT 4`,
+            [certScope.branches],
+          )
+        : Promise.resolve({ rows: [] }),
+    ]);
+
+    const overdueBookings = Number(overdueCountRes.rows[0]?.cnt || 0);
+    const pendingTickets =
+      Number(custTicketsCountRes.rows[0]?.cnt || 0) +
+      Number(internalTicketsCountRes.rows[0]?.cnt || 0);
+    const failedInventoryOutbox = Number(outboxCountRes.rows[0]?.cnt || 0);
+    const pendingEnrollmentApprovals = Number(enrollCountRes.rows[0]?.cnt || 0);
+    const draftCertificates = Number(certCountRes.rows[0]?.cnt || 0);
+
+    const items = [
+      ...overdueRowsRes.rows.map((r: any) => ({
+        id: `booking-${r.id}`,
+        category: 'OVERDUE_BOOKING',
+        badge: 'Lịch quá hạn',
+        title: `${r.code || 'Lịch hẹn'} · ${r.title}`,
+        subtitle: `Khung giờ ${r.day} ${r.startTime} chưa xử lý`,
+        link: `/staff-schedule?booking=${encodeURIComponent(r.code || r.id)}&date=${encodeURIComponent(r.day || '')}`,
+      })),
+      ...outboxRowsRes.rows.map((r: any) => ({
+        id: `outbox-${r.id}`,
+        category: 'INVENTORY_OUTBOX',
+        badge: r.status === 'FAILED' ? 'Lỗi xuất kho' : 'Chờ đồng bộ kho',
+        title: `Phiếu kho ${r.code}`,
+        subtitle: r.subtitle,
+        link: '/treatment-inventory',
+      })),
+      ...enrollRowsRes.rows.map((r: any) => ({
+        id: `enroll-${r.id}`,
+        category: 'ENROLLMENT_APPROVAL',
+        badge: 'Chờ duyệt nhập học',
+        title: `${r.title}${r.code ? ` (${r.code})` : ''}`,
+        subtitle: r.subtitle,
+        link: `/academy-enrollment?enrollmentId=${r.id}`,
+      })),
+      ...certRowsRes.rows.map((r: any) => ({
+        id: `cert-${r.id}`,
+        category: 'DRAFT_CERTIFICATE',
+        badge: 'Chứng chỉ nháp',
+        title: `${r.title} · ${r.code}`,
+        subtitle: r.subtitle,
+        link: '/certificates?status=DRAFT',
+      })),
+      ...custTicketsRowsRes.rows.map((r: any) => ({
+        id: `cust-ticket-${r.id}`,
+        category: 'SUPPORT_TICKET',
+        badge: 'Ticket khách hàng',
+        title: r.title,
+        subtitle: r.subtitle,
+        link: '/help?tab=customer-tickets',
+      })),
+      ...internalTicketsRowsRes.rows.map((r: any) => ({
+        id: `internal-ticket-${r.id}`,
+        category: 'SUPPORT_TICKET',
+        badge: 'Ticket nội bộ',
+        title: `${r.code ? `${r.code} · ` : ''}${r.title}`,
+        subtitle: 'Yêu cầu nội bộ đang mở',
+        link: '/help',
+      })),
+    ];
+
+    const totalCount =
+      overdueBookings +
+      pendingTickets +
+      failedInventoryOutbox +
+      pendingEnrollmentApprovals +
+      draftCertificates;
+
+    return {
+      totalCount,
+      counts: {
+        overdueBookings,
+        pendingTickets,
+        failedInventoryOutbox,
+        pendingEnrollmentApprovals,
+        draftCertificates,
+      },
+      items,
+    };
   }
 
   private async audit(

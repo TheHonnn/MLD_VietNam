@@ -25,6 +25,10 @@ import {
   Plus,
   UserPlus,
   ClipboardCheck,
+  AlertTriangle,
+  Inbox,
+  CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -36,6 +40,8 @@ import {
   supabaseService,
   customerService,
 } from '../services';
+import { actionCenterService } from '../services/actionCenter.service';
+import type { ActionCenterSummary } from './action-center.rules';
 import {
   Invoice,
   Booking,
@@ -104,6 +110,8 @@ export const W01_Dashboard: React.FC = () => {
   const [customers, setCustomers] = useState<CustomerUser[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [actionCenter, setActionCenter] = useState<ActionCenterSummary | null>(null);
+  const [isLoadingActions, setIsLoadingActions] = useState(true);
 
   // Listen to Global Branch Changes and Branch List Updates from other modules
   useEffect(() => {
@@ -254,9 +262,24 @@ export const W01_Dashboard: React.FC = () => {
     }
   }, []);
 
+  const fetchActionCenter = useCallback(async () => {
+    setIsLoadingActions(true);
+    try {
+      const summary = await actionCenterService.getSummary(selectedBranchId);
+      setActionCenter(summary);
+    } catch {
+    } finally {
+      setIsLoadingActions(false);
+    }
+  }, [selectedBranchId]);
+
   useEffect(() => {
     fetchData(true);
   }, [fetchData]);
+
+  useEffect(() => {
+    void fetchActionCenter();
+  }, [fetchActionCenter]);
 
   // Realtime WebSocket synchronization
   const [realtimeToast, setRealtimeToast] = useState<{
@@ -267,6 +290,7 @@ export const W01_Dashboard: React.FC = () => {
   const { isLive, lastSyncTime, forceSync } = useRealtimeSync({
     onDataChange: (event) => {
       fetchData(false);
+      void fetchActionCenter();
       const actionLabel =
         event.table === 'bookings'
           ? 'Lịch hẹn mới'
@@ -610,14 +634,13 @@ export const W01_Dashboard: React.FC = () => {
     {
       label: 'Khách hàng cần chăm sóc',
       detail: 'Mở hồ sơ để xem lịch sử và ghi chú',
-      count: 0,
+      count: activePackages.length,
       icon: ClipboardCheck,
       route: '/customers',
       tone: 'green',
     },
   ] as const;
 
-  // 3-Pillar Revenue Structure (1 Đào tạo, 2 Dịch vụ trị liệu, 3 Sản phẩm mang về)
   const trainingRevenue = useMemo(() => {
     const invTraining = filteredInvoices
       .filter(
@@ -631,33 +654,46 @@ export const W01_Dashboard: React.FC = () => {
 
   const treatmentRevenue = useMemo(() => {
     return filteredInvoices
-      .filter(
-        (inv) =>
-          inv.paymentStatus === 'PAID' &&
-          (Boolean(inv.bookingId) ||
-            Boolean(inv.userPackageId) ||
-            inv.serviceCategory === 'SERVICE' ||
-            inv.serviceCategory === 'PACKAGE')
-      )
-      .reduce((s, i) => s + i.totalAmount, 0);
+      .filter((inv) => inv.paymentStatus === 'PAID')
+      .reduce((sum, inv) => {
+        if (Boolean(inv.enrollmentId) || inv.serviceCategory === 'ACADEMY') return sum;
+        if (inv.items && inv.items.length > 0 && inv.items.some((it) => it.itemType === 'PRODUCT') && inv.items.some((it) => it.itemType !== 'PRODUCT')) {
+          const servicePart = inv.items.filter((it) => it.itemType !== 'PRODUCT').reduce((acc, it) => acc + Number(it.amount || 0), 0);
+          return sum + servicePart;
+        }
+        if (
+          Boolean(inv.bookingId) ||
+          Boolean(inv.userPackageId) ||
+          inv.serviceCategory === 'SERVICE' ||
+          inv.serviceCategory === 'PACKAGE'
+        ) {
+          return sum + inv.totalAmount;
+        }
+        return sum;
+      }, 0);
   }, [filteredInvoices]);
 
   const productRevenue = useMemo(() => {
     return filteredInvoices
-      .filter((inv) => {
-        if (inv.paymentStatus !== 'PAID') return false;
-        if (inv.serviceCategory === 'OTHER') return true;
-        // Retail POS invoices: no bookingId, no userPackageId, no enrollmentId
-        return (
+      .filter((inv) => inv.paymentStatus === 'PAID')
+      .reduce((sum, inv) => {
+        if (Boolean(inv.enrollmentId) || inv.serviceCategory === 'ACADEMY') return sum;
+        if (inv.items && inv.items.length > 0 && inv.items.some((it) => it.itemType === 'PRODUCT') && inv.items.some((it) => it.itemType !== 'PRODUCT')) {
+          const prodPart = inv.items.filter((it) => it.itemType === 'PRODUCT').reduce((acc, it) => acc + Number(it.amount || 0), 0);
+          return sum + prodPart;
+        }
+        if (inv.serviceCategory === 'OTHER') return sum + inv.totalAmount;
+        if (
           !inv.bookingId &&
           !inv.userPackageId &&
           !inv.enrollmentId &&
-          inv.serviceCategory !== 'ACADEMY' &&
           inv.serviceCategory !== 'SERVICE' &&
           inv.serviceCategory !== 'PACKAGE'
-        );
-      })
-      .reduce((s, i) => s + i.totalAmount, 0);
+        ) {
+          return sum + inv.totalAmount;
+        }
+        return sum;
+      }, 0);
   }, [filteredInvoices]);
 
   const revenueBreakdown: RevenueBreakdownData = useMemo(
@@ -1089,9 +1125,6 @@ export const W01_Dashboard: React.FC = () => {
                                 </div>
                               </div>
                             </div>
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#FAF0E6] text-[#8A4F23]">
-                              {c.membershipTier}
-                            </span>
                           </div>
                         ))}
                       </div>
@@ -1636,7 +1669,126 @@ export const W01_Dashboard: React.FC = () => {
 
         {/* Right Column (4 of 12 cols on desktop) */}
         <div className="xl:col-span-4 space-y-4">
-          {/* Biểu đồ cơ cấu doanh thu 3 phần: 1 Đào tạo, 2 Dịch vụ trị liệu, 3 Sản phẩm mang về */}
+          <div className="bg-white rounded-2xl border border-[#CBD5E1] overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-[#E2E8F0] bg-[#EFF6EE] flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-[#004890] text-white flex items-center justify-center shrink-0">
+                  <Inbox className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-[#004890] truncate">
+                    Trung tâm Tác vụ Cần Duyệt
+                  </h3>
+                  <p className="text-[11px] text-[#64748B] truncate">
+                    Đồng bộ realtime theo quyền & chi nhánh
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-[#985018] text-white">
+                  {isLoadingActions ? '...' : `${actionCenter?.totalCount || 0} mục`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void fetchActionCenter()}
+                  aria-label="Làm mới trung tâm tác vụ"
+                  className="p-1.5 rounded-lg bg-white border border-[#CBD5E1] text-[#004890] hover:bg-[#DEEAF6] cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingActions ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3.5 space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 gap-2 text-[11px]">
+                {[
+                  {
+                    label: 'Lịch quá hạn',
+                    count: actionCenter?.counts.overdueBookings || 0,
+                    to: '/staff-schedule',
+                  },
+                  {
+                    label: 'Phiếu hỗ trợ chờ',
+                    count: actionCenter?.counts.pendingTickets || 0,
+                    to: '/help?tab=customer-tickets',
+                  },
+                  {
+                    label: 'Lỗi đồng bộ kho',
+                    count: actionCenter?.counts.failedInventoryOutbox || 0,
+                    to: '/treatment-inventory',
+                  },
+                  {
+                    label: 'Chờ duyệt nhập học',
+                    count: actionCenter?.counts.pendingEnrollmentApprovals || 0,
+                    to: '/academy-enrollment',
+                  },
+                  {
+                    label: 'Chứng chỉ nháp',
+                    count: actionCenter?.counts.draftCertificates || 0,
+                    to: '/certificates?status=DRAFT',
+                  },
+                ].map((stat) => (
+                  <button
+                    key={stat.to}
+                    type="button"
+                    onClick={() => navigate(stat.to)}
+                    className={`flex items-center justify-between px-2.5 py-2 rounded-xl border text-left transition-colors cursor-pointer ${
+                      stat.count > 0
+                        ? 'bg-[#FFF8F1] border-[#E5C8AA] hover:border-[#985018] text-[#3E200C]'
+                        : 'bg-[#F8FAFC] border-[#E2E8F0] hover:border-[#004890] text-[#64748B]'
+                    }`}
+                  >
+                    <span className="font-semibold truncate pr-1">{stat.label}</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded-md font-extrabold text-[10.5px] shrink-0 ${
+                        stat.count > 0 ? 'bg-[#985018] text-white' : 'bg-[#E2E8F0] text-[#475569]'
+                      }`}
+                    >
+                      {stat.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {actionCenter && actionCenter.items.length > 0 ? (
+                <div className="space-y-1.5 max-h-64 overflow-y-auto pr-0.5">
+                  {actionCenter.items.slice(0, 6).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => navigate(item.link)}
+                      className="w-full p-2.5 rounded-xl border border-[#E2E8F0] hover:border-[#004890] hover:bg-[#DEEAF6]/35 bg-white text-left flex items-center justify-between gap-2 transition-colors cursor-pointer group"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <AlertTriangle className="w-3 h-3 text-[#985018] shrink-0" />
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#FAF0E4] text-[#985018]">
+                            {item.badge}
+                          </span>
+                        </div>
+                        <div className="text-xs font-bold text-[#0F172A] truncate mt-1">
+                          {item.title}
+                        </div>
+                        <div className="text-[10.5px] text-[#64748B] truncate">
+                          {item.subtitle}
+                        </div>
+                      </div>
+                      <span className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-bold text-[#004890] group-hover:translate-x-0.5 transition-transform">
+                        <span>Xử lý</span>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-[#EFF6EE] border border-[#CBD5E1]/70 text-xs text-[#208C58] font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>Hệ thống hiện không còn tồn đọng cần xử lý gấp.</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           <RevenueBreakdownChart
             data={revenueBreakdown}
             branchName={selectedBranchLabel}

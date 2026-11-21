@@ -4,12 +4,16 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/admin_models.dart';
+import 'pending_consultation_card.dart';
+import 'quick_contact_actions.dart';
 
 class AdminCandidateCard extends StatelessWidget {
   final AdminCandidateModel candidate;
   final VoidCallback? onAssignBatch;
   final VoidCallback? onConfirmConsultation;
   final VoidCallback? onViewDetail;
+  final Future<void> Function(String note)? onAddConsultationNote;
+  final VoidCallback? onArchiveCandidate;
   final bool isCompact;
 
   const AdminCandidateCard({
@@ -18,6 +22,8 @@ class AdminCandidateCard extends StatelessWidget {
     this.onAssignBatch,
     this.onConfirmConsultation,
     this.onViewDetail,
+    this.onAddConsultationNote,
+    this.onArchiveCandidate,
     this.isCompact = true,
   });
 
@@ -69,11 +75,21 @@ class AdminCandidateCard extends StatelessWidget {
         badgeText = const Color(0xFF0D6832);
         badgeLabel = 'Đang theo học';
         break;
+      case 'NOT_GRADUATED':
+        badgeBg = const Color(0xFFFFF7ED);
+        badgeText = const Color(0xFFC2410C);
+        badgeLabel = 'Chưa tốt nghiệp';
+        break;
       case 'GRADUATED':
       case 'COMPLETED':
         badgeBg = const Color(0xFFF3F4F6);
         badgeText = const Color(0xFF4B5563);
         badgeLabel = 'Tốt nghiệp';
+        break;
+      case 'ARCHIVED':
+        badgeBg = const Color(0xFFF3F4F6);
+        badgeText = const Color(0xFF6B7280);
+        badgeLabel = 'Lưu trữ khách';
         break;
       case 'DROPPED':
         badgeBg = const Color(0xFFFEE2E2);
@@ -87,6 +103,23 @@ class AdminCandidateCard extends StatelessWidget {
     }
 
     final isPaidFull = candidate.tuitionTotal > 0 && candidate.amountPaid >= candidate.tuitionTotal;
+    final normalizedStatus = candidate.status.toUpperCase();
+    final isConsulting = normalizedStatus == 'PENDING' ||
+        normalizedStatus == 'PENDING_CONSULTATION' ||
+        normalizedStatus == 'CONSULTING' ||
+        normalizedStatus == 'PENDING_APPROVAL';
+    final isGradGroup = normalizedStatus == 'NOT_GRADUATED' ||
+        normalizedStatus == 'COMPLETED' ||
+        normalizedStatus == 'GRADUATED';
+
+    if (isCompact && isConsulting) {
+      return PendingConsultationCard(
+        candidate: candidate,
+        onViewDetail: onViewDetail,
+        onAddConsultationNote: onAddConsultationNote,
+        onArchiveCandidate: onArchiveCandidate,
+      );
+    }
 
     if (isCompact) {
       return Container(
@@ -180,7 +213,7 @@ class AdminCandidateCard extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                '${candidate.candidatePhone.isNotEmpty ? "${candidate.candidatePhone} · " : ""}${candidate.courseTitle}',
+                                '${candidate.studentCode != null && candidate.studentCode!.isNotEmpty ? "Mã HV: ${candidate.studentCode} · " : ""}${candidate.candidatePhone.isNotEmpty ? "${candidate.candidatePhone} · " : ""}${candidate.courseTitle}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTypography.zaloFont(
@@ -199,6 +232,73 @@ class AdminCandidateCard extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (isConsulting) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  candidate.targetAudience,
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: candidate.consultationCount >= 3
+                                      ? const Color(0xFFFEE2E2)
+                                      : const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Tư vấn ${candidate.consultationCount}/3',
+                                  style: AppTypography.zaloFont(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: candidate.consultationCount >= 3
+                                        ? const Color(0xFFDC2626)
+                                        : const Color(0xFFB45309),
+                                  ),
+                                ),
+                              ),
+                              if (candidate.latestConsultationSummary != null) ...[
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    candidate.latestConsultationSummary!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 9.5,
+                                      fontStyle: FontStyle.italic,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                        if (isGradGroup &&
+                            (candidate.candidateEmail != null && candidate.candidateEmail!.isNotEmpty)) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Email: ${candidate.candidateEmail}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.zaloFont(fontSize: 10, color: AppColors.textSecondary),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -223,6 +323,8 @@ class AdminCandidateCard extends StatelessWidget {
                         ),
                       ),
                     )
+                  else if (isGradGroup && candidate.candidatePhone.isNotEmpty)
+                    QuickContactActions(phone: candidate.candidatePhone, compact: true)
                   else if (candidate.candidatePhone.isNotEmpty)
                     InkWell(
                       onTap: () => _callCandidate(candidate.candidatePhone),
@@ -287,11 +389,15 @@ class AdminCandidateCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        candidate.orderCode,
+                        (candidate.studentCode != null && candidate.studentCode!.isNotEmpty)
+                            ? 'Mã HV: ${candidate.studentCode}'
+                            : candidate.orderCode,
                         style: AppTypography.zaloFont(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF4B5563),
+                          color: (candidate.studentCode != null && candidate.studentCode!.isNotEmpty)
+                              ? const Color(0xFF00693F)
+                              : const Color(0xFF4B5563),
                         ),
                       ),
                     ),
@@ -501,7 +607,7 @@ class AdminCandidateCard extends StatelessWidget {
                     icon: const Icon(Icons.group_add_rounded, size: 16),
                     label: Text(
                       'Xếp lớp ngay',
-                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w700),
+                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF00693F),
@@ -517,7 +623,7 @@ class AdminCandidateCard extends StatelessWidget {
                     icon: const Icon(Icons.check_rounded, size: 16),
                     label: Text(
                       'Đã tư vấn',
-                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600),
+                      style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,

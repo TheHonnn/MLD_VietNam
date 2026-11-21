@@ -17,6 +17,7 @@ class ProductRepository {
       id: 'prod-001',
       name: 'Băng ép đa lớp MLD Pro Care',
       category: 'Băng ép y khoa',
+      treatmentPackageGroup: 'Chăm sóc mở rộng',
       priceMin: 350000,
       priceMax: 500000,
       unit: 'Cuộn',
@@ -30,6 +31,7 @@ class ProductRepository {
       id: 'prod-002',
       name: 'Kem dưỡng ẩm phục hồi da MLD Bio Skin',
       category: 'Kem dưỡng da y khoa',
+      treatmentPackageGroup: 'Chăm sóc khu trú',
       priceMin: 420000,
       priceMax: 420000,
       unit: 'Tuýp 200ml',
@@ -43,6 +45,7 @@ class ProductRepository {
       id: 'prod-003',
       name: 'Vớ y khoa áp lực MLD Class 2',
       category: 'Tất vớ áp lực',
+      treatmentPackageGroup: 'Chăm sóc toàn diện',
       priceMin: 850000,
       priceMax: 950000,
       unit: 'Đôi',
@@ -90,22 +93,15 @@ class ProductRepository {
     }
   }
 
-  /// Lấy danh mục sản phẩm duy nhất
   Future<List<String>> getCategories() async {
-    final products = await getProducts();
-    final categories = <String>{'Tất cả'};
-    for (final p in products) {
-      if (p.category.trim().isNotEmpty) {
-        categories.add(p.category.trim());
-      }
-    }
-    return categories.toList();
+    return ['Tất cả', ...HomeProductModel.treatmentPackageGroups];
   }
 
   /// Admin: Thêm sản phẩm mới vào Supabase
   Future<bool> createProduct({
     required String name,
     required String category,
+    String? treatmentPackageGroup,
     required double priceMin,
     required double priceMax,
     required String unit,
@@ -114,21 +110,23 @@ class ProductRepository {
     String? imageUrl,
     bool isActive = true,
   }) async {
+    final cleanDetails = List<String>.from(details)..remove('STATUS:INACTIVE');
+    if (!isActive) {
+      cleanDetails.add('STATUS:INACTIVE');
+    }
+    final resolvedGroup = HomeProductModel.resolvePackageGroup(treatmentPackageGroup, category);
+    final payload = <String, dynamic>{
+      'name': name,
+      'category': category,
+      'treatment_package_group': resolvedGroup,
+      'price_min': priceMin,
+      'price_max': priceMax,
+      'unit': unit,
+      'details': cleanDetails,
+      'sort_order': sortOrder,
+      if (imageUrl != null && imageUrl.isNotEmpty) 'image_url': imageUrl,
+    };
     try {
-      final cleanDetails = List<String>.from(details)..remove('STATUS:INACTIVE');
-      if (!isActive) {
-        cleanDetails.add('STATUS:INACTIVE');
-      }
-      final payload = <String, dynamic>{
-        'name': name,
-        'category': category,
-        'price_min': priceMin,
-        'price_max': priceMax,
-        'unit': unit,
-        'details': cleanDetails,
-        'sort_order': sortOrder,
-        if (imageUrl != null && imageUrl.isNotEmpty) 'image_url': imageUrl,
-      };
       final res = await _apiClient.dio.post(
         '/rest/v1/home_products',
         data: payload,
@@ -139,6 +137,18 @@ class ProductRepository {
       }
       return false;
     } catch (e) {
+      try {
+        final fallbackPayload = Map<String, dynamic>.from(payload)
+          ..remove('treatment_package_group');
+        final res = await _apiClient.dio.post(
+          '/rest/v1/home_products',
+          data: fallbackPayload,
+        );
+        if (res.statusCode == 201 || res.statusCode == 200) {
+          await getProducts(forceRefresh: true);
+          return true;
+        }
+      } catch (_) {}
       debugPrint('[ProductRepository] createProduct error: $e');
       return false;
     }
@@ -156,6 +166,20 @@ class ProductRepository {
       }
       return false;
     } catch (e) {
+      if (data.containsKey('treatment_package_group')) {
+        try {
+          final fallbackData = Map<String, dynamic>.from(data)
+            ..remove('treatment_package_group');
+          final res = await _apiClient.dio.patch(
+            '/rest/v1/home_products?id=eq.$id',
+            data: fallbackData,
+          );
+          if (res.statusCode == 200 || res.statusCode == 204) {
+            await getProducts(forceRefresh: true);
+            return true;
+          }
+        } catch (_) {}
+      }
       debugPrint('[ProductRepository] updateProduct error: $e');
       return false;
     }

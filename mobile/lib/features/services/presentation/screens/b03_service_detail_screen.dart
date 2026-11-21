@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../home/data/models/home_models.dart';
+import '../../../home/data/repositories/branch_repository.dart';
 import '../../../home/data/repositories/mock_home_repository.dart';
 import '../../../directory/presentation/screens/b07_specialist_listing_screen.dart';
 import '../../../directory/presentation/screens/b08_specialist_profile_screen.dart';
@@ -187,9 +188,15 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                           right: 16,
                           child: Row(
                             children: [
-                              // Favorite
                               InkWell(
-                                onTap: () {
+                                onTap: () async {
+                                  if (!await GuestAuthPrompt.ensureLoggedIn(
+                                    context,
+                                    message: 'Quý khách vui lòng đăng nhập hoặc đăng ký tài khoản để lưu dịch vụ yêu thích.',
+                                  )) {
+                                    return;
+                                  }
+                                  if (!mounted) return;
                                   setState(() {
                                     _isFavorite = !_isFavorite;
                                   });
@@ -425,7 +432,9 @@ class _B03ServiceDetailScreenState extends State<B03ServiceDetailScreen> {
                           ),
                           const SizedBox(height: 8),
                           _buildInfoBullet(
-                            'Chi nhánh phục vụ: Chi nhánh Quận 3, Chi nhánh Cầu Giấy.',
+                            BranchRepository.instance.cachedBranches.isNotEmpty
+                                ? 'Chi nhánh phục vụ: ${BranchRepository.instance.cachedBranches.map((b) => b.name).join(', ')}.'
+                                : 'Chi nhánh phục vụ: Chi nhánh Quận 3, Chi nhánh Cầu Giấy.',
                           ),
                           const SizedBox(height: 14),
 

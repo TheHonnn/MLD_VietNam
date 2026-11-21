@@ -30,7 +30,7 @@ services:
       - key: JWT_REFRESH_EXPIRES_IN
         value: 30d
       - key: CORS_ORIGIN
-        value: "https://mldvietnam.vn,https://admin.mldvietnam.vn,https://mld-web-admin.vercel.app"
+        value: "https://mldvietnam.vn,https://admin.mldvietnam.vn,https://mld-web-admin.vercel.app,https://mld-vietnam.vercel.app"
       - key: MAIL_FROM_NAME
         value: "MLD Việt Nam"
       - key: MAIL_FROM_ADDRESS

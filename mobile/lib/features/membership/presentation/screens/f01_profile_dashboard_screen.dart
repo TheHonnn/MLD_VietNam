@@ -26,6 +26,7 @@ import 'f04_loyalty_points_screen.dart';
 import 'f05_my_vouchers_screen.dart';
 import 'f08_settings_screen.dart';
 import '../../../treatment/presentation/screens/d05_service_review_screen.dart';
+import '../../../treatment/presentation/screens/d12_faq_screen.dart';
 
 
 /// Screen F01: Trang Cá nhân chuẩn Design System (#2860EB)
@@ -54,6 +55,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     super.initState();
     _profile = _repo.profile;
     AuthService.instance.isLoggedInNotifier.addListener(_onAuthStatusChanged);
+    _repo.availableVouchersCountNotifier.addListener(_onVouchersChanged);
 
     if (AuthService.instance.isAuthenticated && !AuthService.instance.isGuest) {
       _loadData();
@@ -63,7 +65,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
   @override
   void dispose() {
     AuthService.instance.isLoggedInNotifier.removeListener(_onAuthStatusChanged);
+    _repo.availableVouchersCountNotifier.removeListener(_onVouchersChanged);
     super.dispose();
+  }
+
+  void _onVouchersChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onAuthStatusChanged() {
@@ -102,6 +109,9 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
   }
 
   void _refreshProfile() {
+    MembershipRepository.instance.fetchVouchers().then((_) {
+      if (mounted) setState(() {});
+    }).catchError((_) {});
     setState(() {
       _profile = _repo.profile;
     });
@@ -389,6 +399,29 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                                 color: AppColors.textSecondary,
                               ),
                             ),
+                            if (isUserLoggedIn &&
+                                _profile.studentCode != null &&
+                                _profile.studentCode!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6EE),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: AppColors.accent.withValues(alpha: 0.35),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Học viên · Mã HV: ${_profile.studentCode}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -535,11 +568,15 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       ],
                     ),
                   ),
-                  onTap: () => _requireLoginAndRun(() {
-                    Navigator.push(
+                  onTap: () => _requireLoginAndRun(() async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const F05MyVouchersScreen()),
                     );
+                    if (mounted) {
+                      _loadData();
+                      setState(() {});
+                    }
                   }, title: 'Ví Voucher của tôi', message: 'Vui lòng đăng nhập để xem danh sách voucher và mã ưu đãi.'),
                 ),
                 const Divider(height: 1, indent: 54, color: AppColors.border),
@@ -833,6 +870,17 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
               _buildSectionHeader(context.tr('TÀI KHOẢN & HỆ THỐNG', 'ACCOUNT & SETTINGS')),
               const SizedBox(height: 8),
               _buildCardContainer([
+                _buildMenuItem(
+                  icon: Icons.help_outline_rounded,
+                  title: context.tr('Hỏi đáp thường gặp (FAQs)', 'Frequently Asked Questions'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const D12FaqScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 50, color: AppColors.border),
                 _buildMenuItem(
                   icon: Icons.settings_outlined,
                   title: context.tr('Cài đặt tài khoản', 'Account Settings'),

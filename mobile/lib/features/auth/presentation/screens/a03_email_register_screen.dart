@@ -4,6 +4,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../membership/presentation/screens/legal_document_screen.dart';
 import '../../widgets/primary_button.dart';
 import 'a04_otp_screen.dart';
 
@@ -634,7 +635,56 @@ class _A03EmailRegisterScreenState extends State<A03EmailRegisterScreen> {
                 ),
               ],
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Bằng việc đăng ký, bạn đồng ý với ',
+                    style: GoogleFonts.beVietnamPro(fontSize: 12, color: textMuted),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const LegalDocumentScreen(type: LegalDocType.termsOfService),
+                      ),
+                    ),
+                    child: Text(
+                      'Điều khoản sử dụng',
+                      style: GoogleFonts.beVietnamPro(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: primaryNavy,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    ' & ',
+                    style: GoogleFonts.beVietnamPro(fontSize: 12, color: textMuted),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const LegalDocumentScreen(type: LegalDocType.privacyPolicy),
+                      ),
+                    ),
+                    child: Text(
+                      'Chính sách bảo mật',
+                      style: GoogleFonts.beVietnamPro(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: primaryNavy,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
 
               Wrap(
                 alignment: WrapAlignment.center,

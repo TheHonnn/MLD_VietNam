@@ -9,7 +9,7 @@ import {
 import { supabaseService } from './supabaseService';
 import { legacyRead } from './adminAdapter';
 
-export type StaffWithProfile = User & { staffProfile: StaffProfile };
+export type StaffWithProfile = User & { staffProfile: StaffProfile; technicianId?: string | null };
 
 export const staffService = {
   async getStaffList(params?: {
@@ -19,7 +19,15 @@ export const staffService = {
     search?: string;
   }): Promise<ApiResponse<StaffWithProfile[]>> {
     try {
-      const liveUsers = await supabaseService.getUsers(params?.search);
+      const [liveUsers, technicians, rawProfiles] = await Promise.all([
+        supabaseService.getStaffUsers(params?.search),
+        supabaseService.getTechnicians().catch(() => []),
+        legacyRead<StaffProfile>('staff_profiles').catch(() => []),
+      ]);
+      const profiles =
+        Array.isArray(rawProfiles) && rawProfiles.length > 0
+          ? rawProfiles
+          : await supabaseService.getStaffProfiles().catch(() => []);
       const staffRoles = [
         UserRole.TECHNICIAN,
         UserRole.INSTRUCTOR,
@@ -29,14 +37,36 @@ export const staffService = {
         UserRole.ADMIN,
         UserRole.SUPER_ADMIN,
       ];
-      
-      const profiles=await legacyRead<StaffProfile>('staff_profiles');
-      const result:StaffWithProfile[]=[];
-      for(const user of liveUsers||[]){
-        if(!staffRoles.includes(user.role)||params?.role&&user.role!==params.role)continue;
-        const profile=profiles.find(p=>p.userId===user.id);
-        if(!profile||params?.branchId&&profile.branchId!==params.branchId||params?.department&&profile.department!==params.department)continue;
-        result.push({...user,staffProfile:profile});
+
+      const result: StaffWithProfile[] = [];
+      for (const user of liveUsers || []) {
+        if (user.isActive === false || !staffRoles.includes(user.role) || (params?.role && user.role !== params.role)) {
+          continue;
+        }
+        const profile = profiles.find((p) => p.userId === user.id);
+        const tech = (technicians || []).find((t) => t.userId === user.id && t.isActive !== false);
+        const effectiveBranchId = profile?.branchId || tech?.branchId || '';
+        if (params?.branchId && effectiveBranchId && effectiveBranchId !== params.branchId) continue;
+        if (params?.department && profile?.department !== params.department) continue;
+        result.push({
+          ...user,
+          technicianId: tech?.id || null,
+          staffProfile: profile ?? {
+            id: '',
+            userId: user.id,
+            branchId: effectiveBranchId,
+            employeeCode: '',
+            department: StaffDepartment.RECEPTION,
+            position: String(user.role || 'Nhân viên'),
+            employmentType: EmploymentType.FULL_TIME,
+            baseSalary: 0,
+            commissionRate: 0,
+            packageCommissionRate: 0,
+            productCommissionRate: 0,
+            hireDate: '',
+            isActive: true,
+          },
+        });
       }
 
       return {

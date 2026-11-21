@@ -48,12 +48,16 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Ứng dụng cần quyền sử dụng máy ảnh để chụp ảnh đại diện hồ sơ và quét mã QR điểm danh, check-in.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Ứng dụng cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện hồ sơ.</string>
+	<string>Ứng dụng cần quyền truy cập thư viện ảnh để cập nhật ảnh đại diện hồ sơ và tải ảnh sản phẩm.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Ứng dụng cần quyền lưu ảnh mã QR hoặc tài liệu vào thư viện ảnh của bạn.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>tel</string>
+		<string>sms</string>
 		<string>https</string>
 		<string>mailto</string>
+		<string>zalo</string>
 	</array>
 </dict>
 </plist>

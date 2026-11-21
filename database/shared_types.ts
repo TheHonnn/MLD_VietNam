@@ -313,6 +313,8 @@ export interface StaffProfile {
   employmentType: EmploymentType;
   baseSalary: number;
   commissionRate: number;
+  packageCommissionRate?: number;
+  productCommissionRate?: number;
   hireDate: string;
   resignationDate?: string | null;
   idCardNumber?: string | null;
@@ -581,6 +583,7 @@ export interface Invoice {
   branchId: string;
   customerId: string;
   cashierId?: string | null;
+  commissionStaffId?: string | null;
   bookingId?: string | null;
   userPackageId?: string | null;
   enrollmentId?: string | null;
@@ -649,7 +652,7 @@ export interface VoucherDistributionRule {
   isActive: boolean;
 }
 
-export type TaxonomyType = 'TARGET_AUDIENCE' | 'TARGET_NEED' | 'CONTACT_CHANNEL';
+export type TaxonomyType = 'TARGET_AUDIENCE' | 'TARGET_NEED' | 'CONTACT_CHANNEL' | 'BOOKING_TIME_SLOT';
 
 export interface PortalTaxonomyItem {
   id: string;

@@ -19,6 +19,7 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
   final TreatmentRepository _repo = TreatmentRepository.instance;
 
   final List<String> _categories = [
+    'Tất cả',
     'Chăm sóc cơ thể.',
     'Chăm sóc da.',
     'Thư giãn.',
@@ -26,7 +27,47 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
     'Kiến thức sức khỏe.',
   ];
 
-  String _selectedCategory = 'Chăm sóc cơ thể.';
+  String _selectedCategory = 'Tất cả';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadArticles();
+  }
+
+  Future<void> _loadArticles() async {
+    await _repo.fetchGuidelineArticles();
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Widget _buildGuidelineImage(String url, {double? width, required double height, IconData fallbackIcon = Icons.article}) {
+    final trimmed = url.trim();
+    Widget fallback() => Container(
+          width: width,
+          height: height,
+          color: AppColors.mintBackground,
+          child: Icon(fallbackIcon, color: AppColors.accent, size: 32),
+        );
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return Image.network(
+        trimmed,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback(),
+      );
+    }
+    if (trimmed.isEmpty) return fallback();
+    return Image.asset(
+      trimmed,
+      width: width,
+      height: height,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => fallback(),
+    );
+  }
 
   void _showArticleDetail(HomeCareArticleModel article) {
     showModalBottomSheet(
@@ -89,16 +130,11 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                 const SizedBox(height: 16),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: Image.asset(
+                  child: _buildGuidelineImage(
                     article.imageUrl,
-                    height: 200,
                     width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 200,
-                      color: AppColors.mintBackground,
-                      child: const Icon(Icons.spa, color: AppColors.accent, size: 48),
-                    ),
+                    height: 200,
+                    fallbackIcon: Icons.spa,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -152,8 +188,15 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
 
   @override
   Widget build(BuildContext context) {
-    final articles = _repo.getGuidelineArticles();
-    final featuredArticle = articles.isNotEmpty ? articles[0] : null;
+    final allArticles = _repo.getGuidelineArticles();
+    final normSelected = _selectedCategory.replaceAll('.', '').trim().toLowerCase();
+    final articles = _selectedCategory == 'Tất cả'
+        ? allArticles
+        : allArticles.where((a) {
+            final cat = a.category.replaceAll('.', '').trim().toLowerCase();
+            return cat == normSelected || cat.contains(normSelected) || normSelected.contains(cat);
+          }).toList();
+    final featuredArticle = allArticles.isNotEmpty ? allArticles[0] : null;
 
     return Scaffold(
       backgroundColor: AppColors.background, // #F8F1E8
@@ -398,17 +441,11 @@ class _D06HomeCareGuidelinesScreenState extends State<D06HomeCareGuidelinesScree
                                       borderRadius: BorderRadius.circular(12),
                                       child: Stack(
                                         children: [
-                                          Image.asset(
+                                          _buildGuidelineImage(
                                             art.imageUrl,
                                             width: 88,
                                             height: 104,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) => Container(
-                                              width: 88,
-                                              height: 104,
-                                              color: AppColors.mintBackground,
-                                              child: const Icon(Icons.article, color: AppColors.accent),
-                                            ),
+                                            fallbackIcon: Icons.article,
                                           ),
                                           if (art.isVideo)
                                             Positioned.fill(

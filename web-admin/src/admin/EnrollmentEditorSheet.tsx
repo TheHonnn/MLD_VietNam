@@ -284,7 +284,7 @@ export const EnrollmentEditorSheet: React.FC<EnrollmentEditorSheetProps> = ({
         const data = await res.json();
         if (mounted && Array.isArray(data) && data.length > 0) {
           const u = data[0];
-          setPhoneMatchHint(`Tìm thấy tài khoản có sẵn: ${u.full_name} (${u.phone}) - Hạng: ${u.membership_tier || "Thành viên"}`);
+          setPhoneMatchHint(`Tìm thấy tài khoản có sẵn: ${u.full_name} (${u.phone})`);
         } else if (mounted) {
           setPhoneMatchHint(null);
         }
@@ -577,7 +577,7 @@ export const EnrollmentEditorSheet: React.FC<EnrollmentEditorSheetProps> = ({
                       <div className="font-bold text-[#2C241E] text-sm flex items-center gap-2">
                         <span>{fullName}</span>
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white text-[#985018] border border-[#E8DFD8]">
-                          {selectedStudentObj?.membership_tier || "Học viên"}
+                          Học viên
                         </span>
                       </div>
                       <div className="text-[#7F6E60] flex items-center gap-3 mt-0.5">

@@ -360,6 +360,8 @@ export interface StaffProfile {
   employmentType: EmploymentType;
   baseSalary: number;
   commissionRate: number;
+  packageCommissionRate?: number;
+  productCommissionRate?: number;
   hireDate: string;
   resignationDate?: string | null;
   idCardNumber?: string | null;
@@ -842,8 +844,18 @@ export interface Invoice {
   branchId: string;
   customerId: string;
   cashierId?: string | null;
+  commissionStaffId?: string | null;
+  commissionStaffName?: string | null;
   bookingId?: string | null;
   userPackageId?: string | null;
+  userPackage?: {
+    id?: string;
+    packageName?: string | null;
+    totalSessions: number;
+    completedSessions: number;
+    remainingSessions?: number;
+    expiresAt?: string | null;
+  } | null;
   enrollmentId?: string | null;
   shiftId?: string | null;
   subtotal: number;
@@ -961,7 +973,7 @@ export interface StaffCommission {
   invoiceId?: string | null;
   tuitionTransactionId?: string | null;
   userPackageId?: string | null;
-  commissionType: 'SERVICE_DIRECT' | 'PACKAGE_UPSELL' | 'CSAT_BONUS' | 'COURSE_ENROLLMENT' | 'TREATMENT_PATHWAY';
+  commissionType: 'SERVICE_DIRECT' | 'PACKAGE_UPSELL' | 'CSAT_BONUS' | 'COURSE_ENROLLMENT' | 'TREATMENT_PATHWAY' | 'PRODUCT_SALE' | 'TREATMENT_SESSION' | 'REVERSAL';
   baseAmount: number;
   percentage: number;
   commissionAmount: number;
@@ -1118,7 +1130,7 @@ export interface PortalContacts {
   updatedAt: string;
 }
 
-export type TaxonomyType = 'TARGET_AUDIENCE' | 'TARGET_NEED' | 'CONTACT_CHANNEL';
+export type TaxonomyType = 'TARGET_AUDIENCE' | 'TARGET_NEED' | 'CONTACT_CHANNEL' | 'BOOKING_TIME_SLOT';
 
 export interface PortalTaxonomyItem {
   id: string;

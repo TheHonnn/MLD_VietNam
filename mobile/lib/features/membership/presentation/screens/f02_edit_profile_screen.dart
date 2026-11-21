@@ -100,7 +100,7 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
         emergencyContactName: _emergencyNameController.text.trim(),
         emergencyContactPhone: _emergencyPhoneController.text.trim(),
       );
-      await _repo.updateProfile(updated);
+      final ok = await _repo.updateProfile(updated);
 
       if (mounted) {
         setState(() {
@@ -108,11 +108,20 @@ class _F02EditProfileScreenState extends State<F02EditProfileScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(context.tr('Cập nhật thông tin cá nhân thành công!', 'Profile updated successfully!')),
-            backgroundColor: const Color(0xFF059669),
+            content: Text(
+              ok
+                  ? context.tr('Cập nhật thông tin cá nhân thành công!', 'Profile updated successfully!')
+                  : context.tr(
+                      'Đã lưu tạm trên thiết bị, chưa đồng bộ được máy chủ. Vui lòng thử lại.',
+                      'Saved locally, failed to sync with server. Please retry.',
+                    ),
+            ),
+            backgroundColor: ok ? const Color(0xFF059669) : const Color(0xFFD97706),
           ),
         );
-        Navigator.pop(context);
+        if (ok) {
+          Navigator.pop(context);
+        }
       }
     } catch (_) {
       if (mounted) {

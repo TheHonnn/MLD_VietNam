@@ -674,7 +674,7 @@ export const apiClient = {
   async staffAdminRead(path:string,params:Record<string,string>={},signal?:AbortSignal){
     try{return await responseJson(await fetch(`${API_BASE_URL}/staff/${path}?${new URLSearchParams(params)}`,{cache:'no-store',signal}));}catch{return {error:'Không thể tải dữ liệu quản trị. Vui lòng thử lại.'};}
   },
-  async staffAdminSave(path:string,body:Record<string,unknown>,method:'PUT'|'PATCH'){
+  async staffAdminSave(path:string,body:Record<string,unknown>,method:'PUT'|'PATCH'|'POST'){
     try{return await responseJson(await fetch(`${API_BASE_URL}/staff/${path}`,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));}catch{return {error:'Không thể lưu thay đổi. Vui lòng thử lại.'};}
   },
   async shareJournal(id:string){
@@ -730,6 +730,14 @@ export const apiClient = {
   async getPortalBanners(){
     try{return await responseJson(await fetch(`${API_BASE_URL}/portal/banners`));}
     catch{return {error:'Không thể tải banner trang chủ.'};}
+  },
+  async getPortalSettings(){
+    try{
+      const res=await fetch(`${API_BASE_URL}/portal/settings`);
+      if(!res.ok)return null;
+      return await res.json();
+    }
+    catch{return null;}
   },
 
   async getTreatmentPlans() {
@@ -860,6 +868,59 @@ export const apiClient = {
       return await responseJson(res);
     } catch {
       return null;
+    }
+  },
+
+  async deleteAccount() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/account`, { method: 'DELETE' });
+      const data = await responseJson(res);
+      if (data?.deleted) {
+        session.clear();
+      }
+      return data;
+    } catch {
+      return { error: 'Không thể kết nối máy chủ. Vui lòng thử lại.' };
+    }
+  },
+
+  async getPaymentGatewayConfig() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/payments/gateway/config`);
+      return await responseJson(res);
+    } catch {
+      return { provider: 'UNCONFIGURED', configured: false, supportedModes: ['UNCONFIGURED'] };
+    }
+  },
+
+  async createPaymentGatewayIntent(data: { amount: number; description: string; targetType?: string; targetId?: string; referenceCode?: string }) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/payments/gateway/intent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      return await responseJson(res);
+    } catch {
+      return { error: 'Không thể tạo giao dịch thanh toán tự động.' };
+    }
+  },
+
+  async checkPaymentGatewayStatus(orderCode: number) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/payments/gateway/status/${orderCode}`);
+      return await responseJson(res);
+    } catch {
+      return { error: 'Không thể kiểm tra trạng thái thanh toán.' };
+    }
+  },
+
+  async getStaffShifts(month?: string) {
+    try {
+      const qs = month ? `?month=${encodeURIComponent(month)}` : '';
+      return await responseJson(await fetch(`${API_BASE_URL}/staff/shifts${qs}`));
+    } catch {
+      return { error: 'Không thể tải lịch ca làm việc.' };
     }
   },
 

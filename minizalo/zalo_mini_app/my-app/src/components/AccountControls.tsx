@@ -42,7 +42,7 @@ type AccountSession={id:string;deviceLabel:string;createdAt:string;lastSeenAt:st
 const time=(value:string)=>new Date(value).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'});
 export function AccountSessions({userId,userName,phone,onClose,onLogout}:{userId:string;userName:string;phone?:string;onClose:()=>void;onLogout:()=>Promise<void>}){
   const [items,setItems]=useState<AccountSession[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[version,setVersion]=useState(0),[hasMore,setHasMore]=useState(false);
-  const [confirm,setConfirm]=useState<{id?:string;label:string}|null>(null),lock=useRef(false),mounted=useRef(true);
+  const [confirm,setConfirm]=useState<{id?:string;label:string;deleteAccount?:boolean}|null>(null),lock=useRef(false),mounted=useRef(true);
   const request=useRef(0);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;request.current++;};},[]);
   useBackAction(true,()=>{if(!lock.current){if(confirm)setConfirm(null);else onClose();}},3);
@@ -65,6 +65,12 @@ export function AccountSessions({userId,userName,phone,onClose,onLogout}:{userId
     if(!confirm||lock.current)return;lock.current=true;request.current++;setBusy(true);setError('');setNotice('');
     const target=confirm,epoch=apiClient.sessionVersion();
     try{
+      if(target.deleteAccount){
+        const res=await apiClient.deleteAccount();
+        if(!mounted.current||epoch!==apiClient.sessionVersion())return;
+        if(!res?.deleted){setError(res?.error||'Không thể xóa tài khoản.');return;}
+        await onLogout();return;
+      }
       const result=await apiClient.revokeAccountSession(target.id);
       if(!mounted.current||epoch!==apiClient.sessionVersion())return;
       if(!result?.revoked){setError(result?.error||'Không thể thu hồi phiên đăng nhập.');return;}
@@ -78,7 +84,7 @@ export function AccountSessions({userId,userName,phone,onClose,onLogout}:{userId
       {hasMore&&<p>100 phiên gần nhất</p>}
       {items.map(item=><article className="account-session" key={item.id} data-session-id={item.id}><div><strong>{item.deviceLabel}</strong>{item.isCurrent&&<span>Phiên hiện tại</span>}</div><p>Đăng nhập: {time(item.createdAt)}</p><p>Hoạt động gần nhất: {time(item.lastSeenAt)}</p><p>Hết hạn: {time(item.expiresAt)}</p><button type="button" disabled={busy||loading} onClick={()=>setConfirm({id:item.id,label:item.isCurrent?'phiên hiện tại':item.deviceLabel})}>Đăng xuất phiên</button></article>)}
     </main>
-    <footer><button type="button" disabled={busy||loading||(!hasMore&&!items.some(item=>!item.isCurrent))} onClick={()=>setConfirm({label:'tất cả phiên khác'})}>Đăng xuất các phiên khác</button><button type="button" disabled={busy} onClick={()=>setVersion(value=>value+1)}>Cập nhật danh sách</button></footer>
-    {confirm&&<div className="account-confirm" role="alertdialog" aria-modal="true" aria-label="Xác nhận đăng xuất phiên"><div><h2>Đăng xuất {confirm.label}?</h2><p>Dữ liệu trên hệ thống được giữ nguyên.</p><button type="button" disabled={busy} onClick={()=>void revoke()}>{busy?'Đang đăng xuất...':'Xác nhận đăng xuất'}</button><button type="button" disabled={busy} onClick={()=>setConfirm(null)}>Hủy</button></div></div>}
+    <footer><button type="button" disabled={busy||loading||(!hasMore&&!items.some(item=>!item.isCurrent))} onClick={()=>setConfirm({label:'tất cả phiên khác'})}>Đăng xuất các phiên khác</button><button type="button" disabled={busy} onClick={()=>setVersion(value=>value+1)}>Cập nhật danh sách</button><button type="button" disabled={busy} onClick={()=>setConfirm({label:'vĩnh viễn tài khoản',deleteAccount:true})}>Xóa tài khoản</button></footer>
+    {confirm&&<div className="account-confirm" role="alertdialog" aria-modal="true" aria-label="Xác nhận thao tác"><div><h2>{confirm.deleteAccount?'Xóa tài khoản?':`Đăng xuất ${confirm.label}?`}</h2><p>{confirm.deleteAccount?'Tài khoản sẽ bị vô hiệu hóa và đăng xuất khỏi mọi thiết bị.':'Dữ liệu trên hệ thống được giữ nguyên.'}</p><button type="button" disabled={busy} onClick={()=>void revoke()}>{busy?'Đang xử lý...':'Xác nhận'}</button><button type="button" disabled={busy} onClick={()=>setConfirm(null)}>Hủy</button></div></div>}
   </section>;
 }

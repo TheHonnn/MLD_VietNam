@@ -47,7 +47,7 @@ void main() {
       expect(find.byType(MainLayoutScreen), findsOneWidget);
     });
 
-    testWidgets('A03LoginScreen displays Explore Now buttons for guest access', (tester) async {
+    testWidgets('A03LoginScreen displays single guest explore button without header duplicate', (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -55,8 +55,7 @@ void main() {
       await tester.pumpWidget(_buildWrapper(const A03LoginScreen()));
       await tester.pumpAndSettle();
 
-      // Kiểm tra có nút Khám phá ngay trên header và outline button bên dưới
-      expect(find.text('Khám phá ngay'), findsOneWidget);
+      expect(find.text('Khám phá ngay'), findsNothing);
       expect(find.text('Khám phá ứng dụng (Không cần đăng nhập)'), findsOneWidget);
     });
 

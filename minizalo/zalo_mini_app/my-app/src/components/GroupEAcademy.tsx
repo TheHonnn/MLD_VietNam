@@ -611,14 +611,14 @@ export const GroupEAcademy: React.FC<GroupEAcademyProps> = ({ courses, userId, u
   return <div className="academy-screen">
     {(loading || error) && <div className="academy-feedback">{loading && <p role="status">Đang tải dữ liệu...</p>}{error && <p role="alert" className="academy-error">{error} {onRefresh && <button onClick={onRefresh}>Thử lại</button>}</p>}</div>}
     {tab !== 'catalog' && tab !== 'certificates' && (!userId || enrollmentAuthRequired) && <div className="academy-feedback"><button className="academy-primary" onClick={onRequireLogin}>Đăng nhập với Zalo</button></div>}
-    {tab !== 'certificates' && (notice || actionError || quizDraftError || enrollmentLoading || enrollmentError) && <div className="academy-feedback">
+    {tab !== 'certificates' && (notice || actionError || quizDraftError || (tab !== 'catalog' && (enrollmentLoading || enrollmentError))) && <div className="academy-feedback">
       {notice && <p role="status">{notice}</p>}
       {actionError && <p role="alert" className="academy-error">{actionError}</p>}
       {quizDraftError && <p role="alert" className="academy-error">{quizDraftError}</p>}
-      {enrollmentLoading && <p role="status">Đang tải đăng ký học...</p>}
-      {enrollmentError && <p role="alert" className="academy-error">{enrollmentError} <button onClick={() => setEnrollmentVersion(value => value + 1)}>Thử lại</button></p>}
+      {tab !== 'catalog' && enrollmentLoading && <p role="status">Đang tải đăng ký học...</p>}
+      {tab !== 'catalog' && enrollmentError && <p role="alert" className="academy-error">{enrollmentError} <button onClick={() => setEnrollmentVersion(value => value + 1)}>Thử lại</button></p>}
     </div>}
-    {tab === 'catalog' && ['home', 'catalog'].includes(catalogView) && <><div className="academy-body academy-chips"><button type="button" className="academy-outline" onClick={openMine}>Khóa học của tôi</button><button type="button" className="academy-outline" onClick={openCertificates}>Giấy chứng nhận</button></div><AcademyCatalog initialFilters={catalogFilters} key={catalogFilters?.id||catalogSearch?.id} initialQuery={catalogSearch?.query} initialAudience={catalogAudience} courses={courses} branches={branches} branchId={branchId} onBranch={setBranchId} instructorId={instructorId} onCourse={showCourse} /></>}
+    {tab === 'catalog' && ['home', 'catalog'].includes(catalogView) && <><div className="academy-quick-bar"><button type="button" className="academy-outline" onClick={openMine}>Khóa học của tôi</button><button type="button" className="academy-outline" onClick={openCertificates}>Giấy chứng nhận</button></div><AcademyCatalog initialFilters={catalogFilters} key={catalogFilters?.id||catalogSearch?.id} initialQuery={catalogSearch?.query} initialAudience={catalogAudience} courses={courses} branches={branches} branchId={branchId} onBranch={setBranchId} instructorId={instructorId} onCourse={showCourse} /></>}
     {tab === 'catalog' && !['home', 'catalog'].includes(catalogView) && !selected && !(catalogView === 'payment' && paymentEnrollment) && <AcademyHeader title="Khóa học" onBack={openCatalog} />}
     {tab === 'catalog' && catalogView === 'course' && selected && <AcademyCourseDetail course={selected} onBack={openCatalog} onInstructor={() => setCatalogView('instructor')} onRegister={beginRegistration} registered={enrollments.some(entry => entry.courseId === selected.id && entry.status !== 'dropped')} onPreview={openLesson} />}
     {tab === 'catalog' && catalogView === 'instructor' && selected && <AcademyInstructor course={selected} onBack={() => setCatalogView('course')} onCourses={() => { openCatalog(); setInstructorId(selected.instructorProfile?.id || ''); }} />}

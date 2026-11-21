@@ -148,7 +148,7 @@ void main() {
       expect(find.textContaining('Chưa đánh giá'), findsOneWidget);
       expect(find.textContaining('Đánh giá của tôi'), findsOneWidget);
       expect(find.text('Dịch vụ trị liệu'), findsWidgets);
-      expect(find.text('Sản phẩm bổ trợ'), findsWidgets);
+      expect(find.text('Sản phẩm liệu trình'), findsWidgets);
       expect(find.text('Đánh giá ngay'), findsWidgets);
       expect(find.textContaining('+50 điểm'), findsWidgets);
     });
@@ -169,7 +169,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final productChip = find.text('Sản phẩm bổ trợ').first;
+      final productChip = find.text('Sản phẩm liệu trình').first;
       await tester.ensureVisible(productChip);
       await tester.tap(productChip);
       await tester.pumpAndSettle();

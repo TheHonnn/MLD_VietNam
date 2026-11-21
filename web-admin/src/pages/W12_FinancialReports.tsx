@@ -11,9 +11,14 @@ import {
   CheckCircle2,
   X,
   Download,
+  Printer,
 } from 'lucide-react';
 import { posService, academyService, bookingService, branchService } from '../services';
 import * as XLSX from 'xlsx';
+import { useAdmin } from '../admin/Auth';
+import { SavedFilterPresetsBar } from '../components/common';
+import { buildPresetStorageKey } from '../utils/savedFilterPresets';
+import { exportCsvWithBom, printStructuredTable } from '../utils/reportExport';
 import {
   Invoice,
   TuitionTransaction,
@@ -58,9 +63,17 @@ interface DailyRevenueBar {
 }
 
 export const W12_FinancialReports: React.FC = () => {
-  const [dateRange, setDateRange] = useState(() => new Intl.DateTimeFormat('sv-SE', {
-    timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit',
-  }).format(new Date()));
+  const { user } = useAdmin();
+  const currentMonth = useMemo(
+    () =>
+      new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        year: 'numeric',
+        month: '2-digit',
+      }).format(new Date()),
+    [],
+  );
+  const [dateRange, setDateRange] = useState(currentMonth);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [methodFilter, setMethodFilter] = useState('all');
   const [branchFilter, setBranchFilter] = useState('all');
@@ -144,12 +157,13 @@ export const W12_FinancialReports: React.FC = () => {
         && (!inv.enrollmentId || !enrollmentIdsWithLedger.has(inv.enrollmentId)))
       .forEach((inv) => {
         const isRefunded = inv.paymentStatus === 'REFUNDED';
-        const d = (isRefunded && inv.refundedAt ? new Date(inv.refundedAt) : inv.paidAt ? new Date(inv.paidAt) : new Date());
-        const dateStr = d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
-        const dateKey = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).format(d);
+        const paidDate = inv.paidAt ? new Date(inv.paidAt) : new Date();
+        const paidDateStr = paidDate.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+        const paidDateKey = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).format(paidDate);
 
         const isCourse = Boolean(inv.enrollmentId) || inv.serviceCategory === 'ACADEMY';
         const isPackage = Boolean(inv.userPackageId) || inv.serviceCategory === 'PACKAGE';
+        const isProduct = inv.serviceCategory === 'OTHER' || Boolean(inv.items?.length && inv.items.every((it) => it.itemType === 'PRODUCT'));
         const category: 'service' | 'package' | 'course' = isCourse ? 'course' : isPackage ? 'package' : 'service';
 
         const methodType: 'pos' | 'online' | 'bank' =
@@ -163,32 +177,62 @@ export const W12_FinancialReports: React.FC = () => {
             ? 'Ví điện tử MoMo'
             : inv.paymentMethod === 'BANK_TRANSFER'
             ? 'Chuyển khoản QR'
+            : inv.paymentMethod === 'VNPAY' || (inv.paymentMethod as string) === 'CREDIT_CARD'
+            ? 'Quẹt thẻ POS'
             : 'Thanh toán tại cơ sở';
 
         processedInvoiceCodes.add(inv.invoiceCode);
 
-        const netAmount = isRefunded
-          ? -Math.abs(inv.refundAmount || inv.totalAmount)
-          : (inv.totalAmount - (inv.refundAmount || 0));
+        const dynamicTitle =
+          inv.receiptDescription?.trim() ||
+          inv.serviceTitle?.trim() ||
+          (inv.items?.length ? inv.items.map((it) => it.itemName).filter(Boolean).join(', ') : '');
+
+        const grossAmount = Number(inv.totalAmount || 0);
+        const refundedValue = Math.abs(Number(inv.refundAmount || (isRefunded ? inv.totalAmount : 0) || 0));
 
         list.push({
           id: inv.id,
           code: inv.invoiceCode,
-          date: dateStr,
-          dateKey,
-          description: isCourse
-            ? 'Học phí đào tạo kỹ thuật viên MLD'
-            : isPackage
-            ? 'Gói liệu trình chăm sóc da 8 buổi'
-            : 'Dịch vụ Massage trị liệu & chăm sóc da',
+          date: paidDateStr,
+          dateKey: paidDateKey,
+          description:
+            dynamicTitle ||
+            (isCourse
+              ? 'Học phí đào tạo kỹ thuật viên MLD'
+              : isPackage
+              ? 'Gói liệu trình trị liệu MLD'
+              : isProduct
+              ? 'Sản phẩm chăm sóc tại nhà'
+              : 'Dịch vụ trị liệu dẫn lưu MLD'),
           method,
           methodType,
           category,
-          amountNumber: netAmount,
-          amount: `${netAmount < 0 ? '-' : ''}${Math.abs(netAmount).toLocaleString('vi-VN')}đ`,
-          statusText: isRefunded ? 'Đã hoàn tiền' : 'Đã thanh toán',
+          amountNumber: grossAmount,
+          amount: `${grossAmount.toLocaleString('vi-VN')}đ`,
+          statusText: 'Đã thanh toán',
           branchId: inv.branchId,
         });
+
+        if (refundedValue > 0) {
+          const refundDate = inv.refundedAt ? new Date(inv.refundedAt) : paidDate;
+          const refundDateStr = refundDate.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+          const refundDateKey = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).format(refundDate);
+          list.push({
+            id: `${inv.id}-refund`,
+            code: `${inv.invoiceCode}-REFUND`,
+            date: refundDateStr,
+            dateKey: refundDateKey,
+            description: `Hoàn tiền hóa đơn ${inv.invoiceCode}${dynamicTitle ? ` · ${dynamicTitle}` : ''}`,
+            method,
+            methodType,
+            category,
+            amountNumber: -refundedValue,
+            amount: `-${refundedValue.toLocaleString('vi-VN')}đ`,
+            statusText: 'Đã hoàn tiền',
+            branchId: inv.branchId,
+          });
+        }
       });
 
     // From Tuition Transactions (Chỉ bổ sung các giao dịch học phí chưa được lập hóa đơn trong bảng invoices)
@@ -486,26 +530,15 @@ export const W12_FinancialReports: React.FC = () => {
         ];
         const csvRows = filteredInvoices.map((inv, idx) => [
           idx + 1,
-          `"${inv.code}"`,
-          `"${inv.date}"`,
-          `"${(inv.description || '').replace(/"/g, '""')}"`,
-          `"${inv.category === 'service' ? 'Dịch vụ Spa' : inv.category === 'package' ? 'Gói liệu trình' : 'Học phí học viện'}"`,
-          `"${inv.method}"`,
+          inv.code,
+          inv.date,
+          inv.description || '',
+          inv.category === 'service' ? 'Dịch vụ Spa' : inv.category === 'package' ? 'Gói liệu trình' : 'Học phí học viện',
+          inv.method,
           inv.amountNumber,
-          `"${inv.statusText}"`,
+          inv.statusText,
         ]);
-        const csvContent =
-          '\uFEFF' +
-          [headers.join(','), ...csvRows.map((r) => r.join(','))].join('\r\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `Bao_Cao_Doanh_Thu_MLD_${fileDateStr}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        exportCsvWithBom(`Bao_Cao_Doanh_Thu_MLD_${fileDateStr}.csv`, headers, csvRows);
       }
 
       setIsExportModalOpen(false);
@@ -514,6 +547,75 @@ export const W12_FinancialReports: React.FC = () => {
       console.error('Export error:', err);
       showToast('Có lỗi khi tạo tệp báo cáo.');
     }
+  };
+
+  const reportStorageKey = buildPresetStorageKey('w12_reports', user?.id);
+  const currentReportFilters = {
+    dateRange,
+    categoryFilter,
+    methodFilter,
+    branchFilter,
+  };
+  const reportBuiltInPresets = [
+    {
+      id: 'this-month',
+      name: 'Tháng hiện tại',
+      filters: { dateRange: currentMonth, categoryFilter: 'all', methodFilter: 'all', branchFilter: 'all' },
+    },
+    {
+      id: 'vietqr-month',
+      name: 'VietQR tháng này',
+      filters: { dateRange: currentMonth, categoryFilter: 'all', methodFilter: 'bank', branchFilter: 'all' },
+    },
+    {
+      id: 'tuition-month',
+      name: 'Học phí đào tạo',
+      filters: { dateRange: currentMonth, categoryFilter: 'course', methodFilter: 'all', branchFilter: 'all' },
+    },
+    {
+      id: 'packages-month',
+      name: 'Gói liệu trình',
+      filters: { dateRange: currentMonth, categoryFilter: 'package', methodFilter: 'all', branchFilter: 'all' },
+    },
+  ];
+  const hasReportFilters =
+    dateRange !== currentMonth ||
+    categoryFilter !== 'all' ||
+    methodFilter !== 'all' ||
+    branchFilter !== 'all';
+  const applyReportFilters = (next: Partial<typeof currentReportFilters>) => {
+    setDateRange(String(next.dateRange || currentMonth));
+    setCategoryFilter(String(next.categoryFilter || 'all'));
+    setMethodFilter(String(next.methodFilter || 'all'));
+    setBranchFilter(String(next.branchFilter || 'all'));
+  };
+  const resetReportFilters = () => {
+    setDateRange(currentMonth);
+    setCategoryFilter('all');
+    setMethodFilter('all');
+    setBranchFilter('all');
+  };
+  const handlePrintReport = () => {
+    printStructuredTable({
+      title: 'Bảng kê Đối soát Doanh thu & Biên nhận',
+      subtitle: `Kỳ báo cáo: ${dateRange} · ${filteredInvoices.length} chứng từ`,
+      summaryItems: [
+        { label: 'Tổng đã thu', value: `${totalCollected.toLocaleString('vi-VN')}đ` },
+        { label: 'Hoàn tiền', value: `${totalRefund.toLocaleString('vi-VN')}đ` },
+        { label: 'Thực thu', value: `${netRevenue.toLocaleString('vi-VN')}đ` },
+        { label: 'Công nợ cần thu', value: `${totalReceivables.toLocaleString('vi-VN')}đ` },
+      ],
+      headers: ['STT', 'Mã chứng từ', 'Ngày', 'Nội dung', 'Phương thức', 'Số tiền', 'Trạng thái'],
+      rows: filteredInvoices.map((inv, idx) => [
+        idx + 1,
+        inv.code,
+        inv.date,
+        inv.description,
+        inv.method,
+        inv.amount,
+        inv.statusText,
+      ]),
+    });
   };
 
   if (loadState !== 'ready') return (
@@ -542,13 +644,25 @@ export const W12_FinancialReports: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsExportModalOpen(true)}
-          disabled={loadState !== 'ready'}
-          className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
-        >
-          Xuất báo cáo
-        </button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handlePrintReport}
+            disabled={loadState !== 'ready' || filteredInvoices.length === 0}
+            className="px-4 py-2.5 bg-white border border-[#E5D7C9] text-[#2C241E] hover:bg-[#FAF5EF] text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            <Printer className="w-3.5 h-3.5 text-[#208C58]" />
+            <span>In đối soát</span>
+          </button>
+
+          <button
+            onClick={() => setIsExportModalOpen(true)}
+            disabled={loadState !== 'ready'}
+            className="px-5 py-2.5 bg-[#8D4B1A] hover:bg-[#783E15] text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
+          >
+            Xuất báo cáo
+          </button>
+        </div>
       </div>
 
       {/* 2. Search & Filter Bar */}
@@ -608,6 +722,17 @@ export const W12_FinancialReports: React.FC = () => {
             ))}
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-[#8C7A6B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+
+        <div className="w-full pt-2 border-t border-[#F4ECE3]">
+          <SavedFilterPresetsBar
+            storageKey={reportStorageKey}
+            builtInPresets={reportBuiltInPresets}
+            currentFilters={currentReportFilters}
+            hasActiveFilters={hasReportFilters}
+            onApplyFilters={applyReportFilters}
+            onResetFilters={resetReportFilters}
+          />
         </div>
       </div>
 

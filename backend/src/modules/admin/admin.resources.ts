@@ -22,6 +22,11 @@ export const ADMIN_RESOURCES: Record<
     actions: ['create', 'update', 'action'],
   },
   reviews: { title: 'Đánh giá', group: 'Khách hàng' },
+  consultation_surveys: {
+    title: 'Khảo sát tiền dịch vụ',
+    group: 'Khách hàng',
+    readonly: true,
+  },
   support_tickets: {
     title: 'Yêu cầu hỗ trợ',
     group: 'Khách hàng',
@@ -37,7 +42,6 @@ export const ADMIN_RESOURCES: Record<
   coupons: { title: 'Mã giảm giá', group: 'Voucher', actions: ['create','update'] },
   voucher_distribution_rules: { title: 'Quy tắc phân phối', group: 'Voucher', actions: ['create','update'] },
   user_vouchers: { title: 'Voucher khách hàng', group: 'Voucher', actions: ['create'] },
-  membership_tier_rules: { title: 'Hạng thành viên', group: 'Voucher', actions: ['update'] },
   loyalty_point_settings: { title: 'Cấu hình điểm thưởng', group: 'Voucher', actions: ['update'] },
   point_transactions: {
     title: 'Lịch sử điểm',

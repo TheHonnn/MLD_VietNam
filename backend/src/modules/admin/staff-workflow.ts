@@ -37,6 +37,14 @@ export async function validateStaffWorkflow(
     if (linked && linked.rowCount && (row.is_active === false || row.branch_id !== previous?.branch_id)) {
       throw new ConflictException('Ngừng hoạt động hồ sơ kỹ thuật viên liên kết trước khi đổi chi nhánh hoặc ngừng hồ sơ nhân viên.');
     }
+    for (const rateField of ['commission_rate', 'package_commission_rate', 'product_commission_rate'] as const) {
+      if (row[rateField] !== undefined && row[rateField] !== null) {
+        const val = Number(row[rateField]);
+        if (!Number.isFinite(val) || val < 0 || val > 100) {
+          throw new BadRequestException('Tỷ lệ hoa hồng phải nằm trong khoảng từ 0 đến 100%.');
+        }
+      }
+    }
     return;
   }
 

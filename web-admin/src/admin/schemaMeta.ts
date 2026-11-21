@@ -1027,6 +1027,28 @@ export const SCHEMA_COLUMNS: Record<string, Column[]> = {
       "reference": null
     },
     {
+      "name": "package_commission_rate",
+      "type": "numeric",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
+      "name": "product_commission_rate",
+      "type": "numeric",
+      "required": false,
+      "hasDefault": true,
+      "maxLength": null,
+      "options": [],
+      "primary": false,
+      "writable": true,
+      "reference": null
+    },
+    {
       "name": "hire_date",
       "type": "date",
       "required": false,

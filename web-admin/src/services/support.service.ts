@@ -74,6 +74,36 @@ export interface CreateTicketPayload {
   environment_info?: Record<string, any>;
 }
 
+export interface UpdateTicketPayload {
+  status?: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  admin_reply?: string;
+  assigned_to?: string;
+}
+
+export interface CustomerSupportTicket {
+  id: string;
+  customer_id: string;
+  category?: string;
+  subject: string;
+  message: string;
+  status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  admin_reply?: string;
+  resolved_at?: string;
+  created_at: string;
+  customer?: {
+    id: string;
+    full_name: string;
+    phone?: string;
+    email?: string;
+  };
+}
+
+export interface UpdateCustomerTicketPayload {
+  status?: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  admin_reply?: string;
+}
+
 export class SupportApiService {
   /**
    * 1. Lấy dữ liệu chẩn đoán hệ thống
@@ -247,6 +277,92 @@ export class SupportApiService {
 
     const created = await res.json();
     return Array.isArray(created) ? created[0] : created;
+  }
+
+  async updateTicket(id: string, payload: UpdateTicketPayload): Promise<AdminSupportTicket> {
+    try {
+      const resp = await adminApi<AdminSupportTicket>(`support/tickets/${encodeURIComponent(id)}/update`, payload);
+      if (resp && resp.id) return resp;
+    } catch {
+    }
+
+    const patchBody: Record<string, any> = { ...payload };
+    if (payload.status && ['RESOLVED', 'CLOSED'].includes(payload.status)) {
+      patchBody.resolved_at = new Date().toISOString();
+    }
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/admin_support_tickets?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: {
+        ...getSupabaseHeaders(),
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(patchBody),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Không thể cập nhật phiếu hỗ trợ.');
+    }
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows[0] : rows;
+  }
+
+  async getCustomerTickets(
+    params?: { status?: string; search?: string },
+    signal?: AbortSignal,
+  ): Promise<CustomerSupportTicket[]> {
+    try {
+      const q = new URLSearchParams();
+      if (params?.status && params.status !== 'ALL') q.append('status', params.status);
+      if (params?.search) q.append('search', params.search);
+      const qs = q.toString() ? `?${q.toString()}` : '';
+      const resp = await adminApi<CustomerSupportTicket[]>(`support/customer-tickets${qs}`, undefined, signal);
+      if (Array.isArray(resp)) return resp;
+    } catch {
+    }
+
+    try {
+      let url = `${SUPABASE_URL}/rest/v1/support_tickets?select=*,customer:users(id,full_name,phone,email)&order=created_at.desc`;
+      if (params?.status && params.status !== 'ALL') url += `&status=eq.${encodeURIComponent(params.status)}`;
+      const res = await fetch(url, {
+        headers: getSupabaseHeaders(),
+        signal,
+      });
+      if (res.ok) {
+        return (await res.json()) as CustomerSupportTicket[];
+      }
+    } catch {
+    }
+    return [];
+  }
+
+  async updateCustomerTicket(
+    id: string,
+    payload: UpdateCustomerTicketPayload,
+  ): Promise<CustomerSupportTicket> {
+    try {
+      const resp = await adminApi<CustomerSupportTicket>(`support/customer-tickets/${encodeURIComponent(id)}/update`, payload);
+      if (resp && resp.id) return resp;
+    } catch {
+    }
+
+    const patchBody: Record<string, any> = { ...payload };
+    if (payload.status && ['RESOLVED', 'CLOSED'].includes(payload.status)) {
+      patchBody.resolved_at = new Date().toISOString();
+    }
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/support_tickets?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: {
+        ...getSupabaseHeaders(),
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(patchBody),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Không thể cập nhật phiếu hỗ trợ khách hàng.');
+    }
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows[0] : rows;
   }
 }
 

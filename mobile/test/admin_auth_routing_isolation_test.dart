@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/core/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -92,6 +93,47 @@ void main() {
       expect(AuthService.instance.currentRole, isNull);
       expect(AuthService.instance.isAdmin, isFalse);
       expect(AuthService.instance.isStaff, isFalse);
+    });
+
+    test('7. Switching user without role clears stale RECEPTIONIST role and extracts role from JWT', () async {
+      await AuthService.instance.saveSession(
+        accessToken: 'fake_receptionist_token',
+        userId: 'rec_123',
+        role: 'RECEPTIONIST',
+      );
+      expect(AuthService.instance.isAdmin, isFalse);
+      expect(AuthService.instance.isReceptionist, isTrue);
+
+      final header = base64Url.encode(utf8.encode(jsonEncode({'alg': 'HS256', 'typ': 'JWT'}))).replaceAll('=', '');
+      final payload = base64Url.encode(utf8.encode(jsonEncode({'sub': 'adm_999', 'role': 'SUPER_ADMIN'}))).replaceAll('=', '');
+      final adminJwt = '$header.$payload.sig';
+
+      await AuthService.instance.saveSession(
+        accessToken: adminJwt,
+        userId: 'adm_999',
+      );
+
+      expect(AuthService.instance.currentRole, equals('SUPER_ADMIN'));
+      expect(AuthService.instance.isAdmin, isTrue);
+      expect(AuthService.instance.isReceptionist, isFalse);
+      expect(AuthService.instance.isStaff, isTrue);
+    });
+
+    test('8. Permissions granted via updateProfile unlock hasPermission and isStaff cleanly', () async {
+      await AuthService.instance.saveSession(
+        accessToken: 'fake_token',
+        userId: 'staff_01',
+        role: 'STAFF',
+      );
+      expect(AuthService.instance.isAdmin, isFalse);
+      expect(AuthService.instance.hasPermission('course_enrollments.update'), isFalse);
+
+      await AuthService.instance.updateProfile(
+        role: 'BRANCH_MANAGER',
+        permissions: ['course_enrollments.update', 'services.read'],
+      );
+      expect(AuthService.instance.hasPermission('course_enrollments.update'), isTrue);
+      expect(AuthService.instance.isStaff, isTrue);
     });
   });
 }

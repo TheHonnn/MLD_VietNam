@@ -39,6 +39,7 @@ class ApiClient {
         onRequest: (options, handler) async {
           // 0. Xác định tuyến Backend Gateway NestJS
           final isNestBackendRoute = (options.path.startsWith('/auth/') && !options.path.startsWith('/auth/v1/')) ||
+              options.path.startsWith('/admin/') ||
               options.path.startsWith('/academy/') ||
               options.path.startsWith('/treatment/') ||
               options.path.startsWith('/membership/') ||
@@ -55,12 +56,16 @@ class ApiClient {
             options.path = '$backendBase${options.path}';
           }
 
-          // 1. Luôn bảo đảm apikey cho Supabase
-          if (!options.headers.containsKey('apikey')) {
+          final isSupabase = options.baseUrl.contains('supabase.co') ||
+              options.path.contains('supabase.co') ||
+              options.path.startsWith('/rest/v1/') ||
+              options.path.startsWith('/auth/v1/') ||
+              options.path.startsWith('/storage/v1/');
+
+          if (isSupabase && !options.headers.containsKey('apikey')) {
             options.headers['apikey'] = ApiEndpoints.supabaseAnonKey;
           }
 
-          // 2. Tự động đính kèm Accept-Language
           if (!options.headers.containsKey('Accept-Language')) {
             try {
               final prefs = await SharedPreferences.getInstance();
@@ -71,16 +76,31 @@ class ApiClient {
             }
           }
 
-          // 3. Đính kèm Bearer token: NestJS token cho backend NestJS, Supabase anon key cho Supabase REST
-          if (!options.headers.containsKey('Authorization')) {
-            if (isNestBackendRoute) {
+          if (isSupabase) {
+            final supaToken = await AuthService.instance.getSupabaseToken();
+            final currentAuth = options.headers['Authorization']?.toString();
+            final isCurrentAnon = currentAuth == null ||
+                currentAuth == 'Bearer ${ApiEndpoints.supabaseAnonKey}' ||
+                currentAuth == 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}';
+            final isCurrentNest = currentAuth != null &&
+                AuthService.instance.cachedAccessToken != null &&
+                currentAuth == 'Bearer ${AuthService.instance.cachedAccessToken}';
+
+            if (supaToken != null && supaToken.isNotEmpty) {
+              if (isCurrentAnon || isCurrentNest) {
+                options.headers['Authorization'] = 'Bearer $supaToken';
+              }
+            } else {
+              if (currentAuth == null || isCurrentNest) {
+                options.headers['Authorization'] = 'Bearer ${ApiEndpoints.supabaseAnonKey}';
+              }
+            }
+          } else {
+            if (!options.headers.containsKey('Authorization')) {
               final token = await AuthService.instance.getAccessToken();
               if (token != null && token.isNotEmpty) {
                 options.headers['Authorization'] = 'Bearer $token';
               }
-            } else {
-              // Tuyến Supabase REST: Luôn dùng Supabase Anon Key làm Bearer token
-              options.headers['Authorization'] = 'Bearer ${ApiEndpoints.supabaseAnonKey}';
             }
           }
           return handler.next(options);
@@ -100,21 +120,24 @@ class ApiClient {
                 path.contains(ApiEndpoints.authRegisterEmail) ||
                 path.contains(ApiEndpoints.authRefresh) ||
                 path.contains(ApiEndpoints.authForgotPassword) ||
-                path.contains(ApiEndpoints.authResetPassword);
+                path.contains(ApiEndpoints.authResetPassword) ||
+                path.contains('/auth/v1/token');
 
             if (!isAuthBypassRoute) {
               final currentRefreshToken = await AuthService.instance.getRefreshToken();
               if (currentRefreshToken != null && currentRefreshToken.isNotEmpty) {
                 try {
-                  // Sử dụng Dio riêng biệt để gọi refresh, tránh lặp interceptor
+                  var refreshBase = ApiEndpoints.backendBaseUrl.replaceAll(RegExp(r'/+$'), '');
+                  if (!refreshBase.endsWith('/api/v1')) {
+                    refreshBase = '$refreshBase/api/v1';
+                  }
                   final refreshDio = Dio(
                     BaseOptions(
-                      baseUrl: _dio.options.baseUrl,
+                      baseUrl: refreshBase,
                       connectTimeout: const Duration(seconds: 10),
                       receiveTimeout: const Duration(seconds: 10),
                       headers: {
                         'Content-Type': 'application/json',
-                        'apikey': ApiEndpoints.supabaseAnonKey,
                       },
                     ),
                   );
@@ -127,12 +150,15 @@ class ApiClient {
                   if (refreshResponse.statusCode == 200 && refreshResponse.data != null) {
                     final newAccessToken = refreshResponse.data['accessToken'] as String?;
                     final newRefreshToken = refreshResponse.data['refreshToken'] as String?;
+                    final refreshedRole = (refreshResponse.data['role'] ??
+                            refreshResponse.data['user']?['role'])
+                        ?.toString();
 
                     if (newAccessToken != null && newAccessToken.isNotEmpty) {
-                      // Lưu token mới đã rotate
                       await AuthService.instance.refreshSession(
                         newAccessToken: newAccessToken,
                         newRefreshToken: newRefreshToken,
+                        role: refreshedRole,
                       );
 
                       // Cập nhật header Authorization cho request ban đầu bị lỗi và retry

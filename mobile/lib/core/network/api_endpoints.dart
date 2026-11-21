@@ -6,8 +6,13 @@ class ApiEndpoints {
   static const String supabaseUrl = 'https://wstvwushpwcdsmhpunvh.supabase.co';
   static const String supabaseAnonKey =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMTk0MjAsImV4cCI6MjEwNzU5NTQyMH0.1mDiB0Rsst_nyseC5k-AyfLOwYTRe96ZzQ4yHEU5Z58';
-  static const String supabaseServiceRoleKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzdHZ3dXNocHdjZHNtaHB1bnZoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjAxOTQyMCwiZXhwIjoyMTA3NTk1NDIwfQ.lQOiSFP71jtoE6i8NdgEh3G65XTPPDgYvuIzh9R5zBE';
+  static const String supabaseServiceRoleKey = String.fromEnvironment(
+    'SUPABASE_SERVICE_ROLE_KEY',
+    defaultValue: '',
+  );
+
+  static String get effectiveSupabaseAuthKey =>
+      supabaseServiceRoleKey.isNotEmpty ? supabaseServiceRoleKey : supabaseAnonKey;
 
   /// Base URL defaults to Supabase Cloud
   static const String defaultBaseUrl = supabaseUrl;
@@ -137,5 +142,7 @@ class ApiEndpoints {
   static const String membershipReferralLink = '/membership/referral/link';
   static const String membershipSettings = '/membership/settings';
 
-
+  static const String paymentGatewayConfig = '/payments/gateway/config';
+  static const String paymentGatewayIntent = '/payments/gateway/intent';
+  static String paymentGatewayStatus(int orderCode) => '/payments/gateway/status/$orderCode';
 }

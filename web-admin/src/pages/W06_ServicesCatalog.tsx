@@ -15,12 +15,18 @@ import {
   FileText,
   Search,
   X,
+  Trash2,
 } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { toast, AdminTabs } from '../components/common';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { matchSearch } from '../utils/searchUtils';
 import { adminApi } from '../admin/api';
+
+interface ServiceCategoryItem {
+  id: string;
+  name: string;
+}
 
 interface ServiceItem {
   id: string;
@@ -86,6 +92,7 @@ export const W06_ServicesCatalog: React.FC = () => {
   };
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [packages, setPackages] = useState<TreatmentPackageItem[]>([]);
+  const [categories, setCategories] = useState<ServiceCategoryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [catalogError, setCatalogError] = useState('');
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
@@ -102,17 +109,19 @@ export const W06_ServicesCatalog: React.FC = () => {
     duration?: number;
     validityMonths?: number;
     description?: string;
+    categoryId?: string;
+    serviceId?: string;
+    isActive?: boolean;
   } | null>(null);
   const [savingEdit, setSavingEdit] = useState<boolean>(false);
 
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Fetch live data from Supabase
   const fetchData = async () => {
     try {
       setLoading(true);
       setCatalogError('');
-      const [srvRes, pkgRes] = await Promise.all([
+      const [srvRes, pkgRes, catRes] = await Promise.all([
         supabase
           .from('services')
           .select('*')
@@ -121,6 +130,10 @@ export const W06_ServicesCatalog: React.FC = () => {
           .from('treatment_packages')
           .select('*')
           .order('total_sessions', { ascending: true }),
+        supabase
+          .from('service_categories')
+          .select('id, name')
+          .order('name', { ascending: true }),
       ]);
 
       if (srvRes.error || pkgRes.error) throw srvRes.error || pkgRes.error;
@@ -130,6 +143,9 @@ export const W06_ServicesCatalog: React.FC = () => {
       }
       if (pkgRes.data) {
         setPackages(pkgRes.data);
+      }
+      if (catRes.data) {
+        setCategories(catRes.data);
       }
     } catch (err: any) {
       console.error('Lỗi khi tải bảng giá:', err);
@@ -246,32 +262,87 @@ export const W06_ServicesCatalog: React.FC = () => {
       }
       setSavingEdit(true);
       if (editingItem.type === 'service') {
-        await adminApi('services/update', {
-          key: { id: editingItem.id },
-          values: {
-            price: editingItem.price,
-            discount_price: editingItem.price,
-            name: editingItem.name.trim(),
-            duration_minutes: editingItem.duration,
-            full_description: editingItem.description,
-          },
-        });
-        toast.success(`Đã cập nhật dịch vụ "${editingItem.name}" thành công!`);
+        const resolvedCategoryId =
+          editingItem.categoryId ||
+          categories[0]?.id ||
+          services[0]?.category_id ||
+          undefined;
+        if (!editingItem.id) {
+          const slug = editingItem.name
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '') + '-' + Date.now().toString().slice(-4);
+          await adminApi('services/create', {
+            values: {
+              category_id: resolvedCategoryId,
+              name: editingItem.name.trim(),
+              slug,
+              short_description: editingItem.description || editingItem.name.trim(),
+              full_description: editingItem.description || editingItem.name.trim(),
+              price: editingItem.price,
+              discount_price: editingItem.price,
+              duration_minutes: editingItem.duration || 60,
+              image_url: 'https://example.invalid/service.png',
+              is_active: editingItem.isActive ?? true,
+            },
+          });
+          toast.success(`Đã tạo dịch vụ "${editingItem.name}" thành công!`);
+        } else {
+          await adminApi('services/update', {
+            key: { id: editingItem.id },
+            values: {
+              category_id: resolvedCategoryId,
+              price: editingItem.price,
+              discount_price: editingItem.price,
+              name: editingItem.name.trim(),
+              duration_minutes: editingItem.duration,
+              full_description: editingItem.description,
+              is_active: editingItem.isActive ?? true,
+            },
+          });
+          toast.success(`Đã cập nhật dịch vụ "${editingItem.name}" thành công!`);
+        }
       } else {
-        await adminApi('treatment_packages/update', {
-          key: { id: editingItem.id },
-          values: {
-            price: editingItem.price,
-            discount_price: editingItem.price,
-            name: editingItem.name.trim(),
-            total_sessions: editingItem.sessions,
-            validity_months: editingItem.validityMonths,
-            description: editingItem.description,
-          },
-        });
-        toast.success(
-          `Đã cập nhật gói liệu trình "${editingItem.name}" thành công!`,
-        );
+        const resolvedServiceId = editingItem.serviceId || services[0]?.id;
+        if (!resolvedServiceId) {
+          throw new Error('Cần có ít nhất 1 dịch vụ gốc trước khi lưu gói liệu trình.');
+        }
+        if (!editingItem.id) {
+          await adminApi('treatment_packages/create', {
+            values: {
+              name: editingItem.name.trim(),
+              service_id: resolvedServiceId,
+              total_sessions: editingItem.sessions || 5,
+              price: editingItem.price,
+              discount_price: editingItem.price,
+              validity_months: editingItem.validityMonths || 6,
+              description: editingItem.description || editingItem.name.trim(),
+              image_url: 'https://example.invalid/package.png',
+              is_active: editingItem.isActive ?? true,
+            },
+          });
+          toast.success(`Đã tạo gói liệu trình "${editingItem.name}" thành công!`);
+        } else {
+          await adminApi('treatment_packages/update', {
+            key: { id: editingItem.id },
+            values: {
+              service_id: resolvedServiceId,
+              price: editingItem.price,
+              discount_price: editingItem.price,
+              name: editingItem.name.trim(),
+              total_sessions: editingItem.sessions,
+              validity_months: editingItem.validityMonths,
+              description: editingItem.description,
+              is_active: editingItem.isActive ?? true,
+            },
+          });
+          toast.success(
+            `Đã cập nhật gói liệu trình "${editingItem.name}" thành công!`,
+          );
+        }
       }
 
       setEditingItem(null);
@@ -279,6 +350,50 @@ export const W06_ServicesCatalog: React.FC = () => {
     } catch (err: any) {
       console.error('Lỗi lưu cập nhật:', err);
       toast.error(err.message || 'Không thể lưu thay đổi');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleToggleItemActive = async () => {
+    if (!editingItem || !editingItem.id) return;
+    try {
+      setSavingEdit(true);
+      const nextActive = !(editingItem.isActive ?? true);
+      const resource = editingItem.type === 'service' ? 'services/update' : 'treatment_packages/update';
+      await adminApi(resource, {
+        key: { id: editingItem.id },
+        values: { is_active: nextActive },
+      });
+      toast.success(nextActive ? 'Đã kích hoạt bán trở lại' : 'Đã tạm ngừng cung cấp mục này');
+      setEditingItem(null);
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Không thể thay đổi trạng thái');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteItem = async () => {
+    if (!editingItem || !editingItem.id) return;
+    const confirmed = window.confirm(
+      `Bạn chắc chắn muốn xóa vĩnh viễn "${editingItem.name}"? Nếu mục đã phát sinh giao dịch hoặc lịch hẹn, hệ thống sẽ từ chối và bạn nên chọn Tạm ngừng.`,
+    );
+    if (!confirmed) return;
+    try {
+      setSavingEdit(true);
+      const resource = editingItem.type === 'service' ? 'services/delete' : 'treatment_packages/delete';
+      await adminApi(resource, {
+        key: { id: editingItem.id },
+      });
+      toast.success(`Đã xóa "${editingItem.name}" thành công!`);
+      setEditingItem(null);
+      await fetchData();
+    } catch (err: any) {
+      toast.error(
+        err?.message || 'Không thể xóa mục đã có dữ liệu liên kết. Vui lòng chuyển sang Tạm ngừng.',
+      );
     } finally {
       setSavingEdit(false);
     }
@@ -407,6 +522,28 @@ export const W06_ServicesCatalog: React.FC = () => {
             <RefreshCw
               className={`w-4 h-4 text-[#8A4F23] ${loading ? 'animate-spin' : ''}`}
             />
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setEditingItem({
+                type: activeTab === 'packages' ? 'package' : 'service',
+                id: '',
+                name: '',
+                price: 500000,
+                duration: 60,
+                sessions: 10,
+                validityMonths: 6,
+                description: '',
+                categoryId: categories[0]?.id || services[0]?.category_id || '',
+                serviceId: services[0]?.id || '',
+                isActive: true,
+              })
+            }
+            className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-white hover:bg-[#FAF6F0] text-[#985018] border border-[#985018]/30 flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+          >
+            <span>+ Thêm {activeTab === 'packages' ? 'gói liệu trình' : 'dịch vụ'}</span>
           </button>
 
           <button
@@ -541,6 +678,8 @@ export const W06_ServicesCatalog: React.FC = () => {
                             price: service.price,
                             duration: service.duration_minutes,
                             description: service.full_description,
+                            categoryId: service.category_id,
+                            isActive: service.is_active,
                           })
                         }
                       >
@@ -579,6 +718,8 @@ export const W06_ServicesCatalog: React.FC = () => {
                                       sessions: pkg.total_sessions,
                                       validityMonths: pkg.validity_months,
                                       description: pkg.description,
+                                      serviceId: pkg.service_id,
+                                      isActive: pkg.is_active,
                                     })
                                   }
                                 >
@@ -672,6 +813,8 @@ export const W06_ServicesCatalog: React.FC = () => {
                             price: service.price,
                             duration: service.duration_minutes,
                             description: service.full_description,
+                            categoryId: service.category_id,
+                            isActive: service.is_active,
                           })
                         }
                       >
@@ -854,6 +997,8 @@ export const W06_ServicesCatalog: React.FC = () => {
                           sessions: pkg.total_sessions,
                           validityMonths: pkg.validity_months,
                           description: pkg.description,
+                          serviceId: pkg.service_id,
+                          isActive: pkg.is_active,
                         })
                       }
                       className="flex-1 py-2 text-xs font-bold rounded-xl bg-white hover:bg-[#FAF6F0] text-[#2C241E] border border-[#E8DFD8] transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
@@ -912,7 +1057,7 @@ export const W06_ServicesCatalog: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-[#EFE4D9]">
               <h3 className="text-base font-extrabold text-[#2C241E] flex items-center gap-2">
                 <Pencil className="w-4 h-4 text-[#985018]" />
-                <span>Chỉnh Sửa Giá Niêm Yết</span>
+                <span>{editingItem.id ? 'Chỉnh Sửa Giá Niêm Yết' : 'Thêm Mới Bảng Giá'}</span>
               </h3>
               <button
                 type="button"
@@ -972,41 +1117,110 @@ export const W06_ServicesCatalog: React.FC = () => {
                 </span>
               </div>
 
-              {editingItem.type === 'package' && (
+              {editingItem.type === 'service' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-[#2C241E] mb-1">
-                      Tổng số buổi:
+                      Danh mục dịch vụ:
                     </label>
-                    <input
-                      type="number"
-                      value={editingItem.sessions || 10}
+                    <select
+                      value={editingItem.categoryId || ''}
                       onChange={(e) =>
                         setEditingItem({
                           ...editingItem,
-                          sessions: parseInt(e.target.value) || 10,
+                          categoryId: e.target.value,
                         })
                       }
                       className="w-full px-3 py-2 text-xs border border-[#E8DFD8] rounded-xl bg-white text-[#2C241E] font-medium focus:border-[#985018] focus:outline-none shadow-2xs"
-                    />
+                    >
+                      <option value="">-- Chọn danh mục --</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-[#2C241E] mb-1">
-                      Hạn dùng (tháng):
+                      Thời lượng (phút):
                     </label>
                     <input
                       type="number"
-                      value={editingItem.validityMonths || 3}
+                      min="15"
+                      step="15"
+                      value={editingItem.duration || 60}
                       onChange={(e) =>
                         setEditingItem({
                           ...editingItem,
-                          validityMonths: parseInt(e.target.value) || 3,
+                          duration: parseInt(e.target.value, 10) || 60,
                         })
                       }
                       className="w-full px-3 py-2 text-xs border border-[#E8DFD8] rounded-xl bg-white text-[#2C241E] font-medium focus:border-[#985018] focus:outline-none shadow-2xs"
                     />
                   </div>
                 </div>
+              )}
+
+              {editingItem.type === 'package' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-[#2C241E] mb-1">
+                      Dịch vụ gốc áp dụng:
+                    </label>
+                    <select
+                      value={editingItem.serviceId || ''}
+                      onChange={(e) =>
+                        setEditingItem({
+                          ...editingItem,
+                          serviceId: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 text-xs border border-[#E8DFD8] rounded-xl bg-white text-[#2C241E] font-medium focus:border-[#985018] focus:outline-none shadow-2xs"
+                    >
+                      <option value="">-- Chọn dịch vụ gốc --</option>
+                      {services.map((srv) => (
+                        <option key={srv.id} value={srv.id}>
+                          {srv.name} ({formatVND(srv.price)}đ)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1">
+                        Tổng số buổi:
+                      </label>
+                      <input
+                        type="number"
+                        value={editingItem.sessions || 10}
+                        onChange={(e) =>
+                          setEditingItem({
+                            ...editingItem,
+                            sessions: parseInt(e.target.value) || 10,
+                          })
+                        }
+                        className="w-full px-3 py-2 text-xs border border-[#E8DFD8] rounded-xl bg-white text-[#2C241E] font-medium focus:border-[#985018] focus:outline-none shadow-2xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#2C241E] mb-1">
+                        Hạn dùng (tháng):
+                      </label>
+                      <input
+                        type="number"
+                        value={editingItem.validityMonths || 3}
+                        onChange={(e) =>
+                          setEditingItem({
+                            ...editingItem,
+                            validityMonths: parseInt(e.target.value) || 3,
+                          })
+                        }
+                        className="w-full px-3 py-2 text-xs border border-[#E8DFD8] rounded-xl bg-white text-[#2C241E] font-medium focus:border-[#985018] focus:outline-none shadow-2xs"
+                      />
+                    </div>
+                  </div>
+                </>
               )}
 
               <div>
@@ -1027,32 +1241,61 @@ export const W06_ServicesCatalog: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 mt-5 pt-3 border-t border-[#EFE4D9]">
-              <button
-                type="button"
-                onClick={() => setEditingItem(null)}
-                className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-[#73675F] transition-colors cursor-pointer"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                disabled={savingEdit}
-                onClick={handleSaveEdit}
-                className="px-4 py-2 text-xs font-bold rounded-xl bg-[#985018] hover:bg-[#854412] text-white transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                {savingEdit ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    Đang lưu...
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    Lưu Thay Đổi
-                  </>
-                )}
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-5 pt-3 border-t border-[#EFE4D9]">
+              {editingItem.id ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={savingEdit}
+                    onClick={handleToggleItemActive}
+                    className={`px-3 py-2 text-xs font-bold rounded-xl border transition-colors cursor-pointer disabled:opacity-50 ${
+                      editingItem.isActive ?? true
+                        ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                    }`}
+                  >
+                    {(editingItem.isActive ?? true) ? 'Tạm ngừng' : 'Mở bán lại'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingEdit}
+                    onClick={handleDeleteItem}
+                    className="px-2.5 py-2 text-xs font-bold rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Xóa
+                  </button>
+                </div>
+              ) : (
+                <div />
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingItem(null)}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-[#73675F] transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={savingEdit}
+                  onClick={handleSaveEdit}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-[#985018] hover:bg-[#854412] text-white transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {savingEdit ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Đang lưu...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      Lưu Thay Đổi
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

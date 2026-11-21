@@ -1,8 +1,9 @@
 import type { Resource } from './api';
 const routeResources: Record<string, string[]> = {
-  '/branches': ['branches', 'branch_rooms'], '/customers': ['users', 'reviews', 'consultation_surveys'],
+  '/branches': ['branches', 'branch_rooms'], '/customers': ['users', 'reviews'],
   '/staff-schedule': ['staff_profiles', 'technicians', 'technician_shifts', 'technician_slots'],
   '/medical-records': ['treatment_packages', 'user_packages', 'treatment_journal', 'home_care_guidelines'],
+  '/treatment-inventory': ['branch_material_stock', 'treatment_inventory_outbox'],
   '/services-catalog': ['services', 'treatment_packages', 'service_categories'],
   '/cashier-pos': ['cashier', 'invoices', 'tuition_transactions'], '/home-products': ['home_products'],
   '/academy-enrollment': ['course_enrollments', 'tuition_transactions'], '/instructors': ['instructors'],
@@ -10,14 +11,13 @@ const routeResources: Record<string, string[]> = {
   '/curriculum': ['courses', 'course_batches', 'batch_schedules', 'course_lessons', 'course_quizzes', 'quiz_questions'],
   '/certificates': ['student_certificates', 'certificate_templates'],
   '/reports': ['invoices', 'tuition_transactions'], '/commissions': ['staff_commissions'],
-  // Portal CMS stores banners, documents and community content in the shared
-  // content table; using the physical table name keeps menu visibility aligned
-  // with the backend resource catalog and assigned CRUD scopes.
-  '/portal-content': ['miniapp_shared_content', 'documents', 'email_templates'], '/zalo-zns': ['zalo_zns_logs'],
+  '/portal-content': ['miniapp_shared_content', 'email_templates'], '/zalo-zns': ['users', 'bookings'],
 };
 export function canAccessAdminPath(path: string, role: string, resources: Resource[]) {
   const route = path.split('?')[0];
   if (role === 'SUPER_ADMIN') return true;
+  if (['/zalo-zns', '/settings'].includes(route) && !['ADMIN'].includes(role)) return false;
+  if (route === '/cashier-pos' && !['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'CASHIER'].includes(role)) return false;
   if (role === 'ADMIN') {
     const protectedNames = ['roles','permissions','role_permissions','user_roles','audit_logs'];
     const resource = route.startsWith('/manage/') ? route.slice('/manage/'.length) : '';

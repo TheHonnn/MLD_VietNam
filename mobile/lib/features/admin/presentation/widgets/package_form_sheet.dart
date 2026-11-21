@@ -134,7 +134,7 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Lỗi lưu gói bổ trợ. Vui lòng kiểm tra lại kết nối!'),
+            content: Text('Lỗi lưu gói liệu trình. Vui lòng kiểm tra lại kết nối!'),
             backgroundColor: Color(0xFFE11D48),
           ),
         );
@@ -184,9 +184,6 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.82,
       ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -206,7 +203,7 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                   children: [
                     Expanded(
                       child: Text(
-                        isEdit ? 'Chỉnh sửa Gói bổ trợ' : 'Thêm Gói bổ trợ mới',
+                        isEdit ? 'Chỉnh sửa Liệu trình' : 'Thêm Liệu trình mới',
                         style: AppTypography.zaloFont(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -228,7 +225,7 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
 
                 // 1. Tên gói
                 Text(
-                  'Tên gói bổ trợ / Liệu trình *',
+                  'Tên liệu trình *',
                   style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                 ),
                 const SizedBox(height: 6),
@@ -251,7 +248,7 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Ảnh đại diện gói bổ trợ (Link hoặc từ máy)',
+                        'Ảnh đại diện liệu trình (Link hoặc từ máy)',
                         style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                       ),
                     ),
@@ -388,14 +385,14 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
 
                 // 2. Số buổi & Thời hạn sử dụng
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Số buổi
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Số buổi điều trị *',
+                            'Số buổi (= số ca) *',
                             style: AppTypography.zaloFont(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textHeading),
                           ),
                           const SizedBox(height: 6),
@@ -413,11 +410,11 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                           ),
                           const SizedBox(height: 6),
                           // Chip chọn nhanh số buổi
-                          Row(
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
                             children: [10, 20, 30].map((s) {
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: InkWell(
+                              return InkWell(
                                   onTap: () => setState(() => _sessionsController.text = s.toString()),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -429,7 +426,7 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                                       ),
                                     ),
                                     child: Text(
-                                      '$s buổi',
+                                      '$s buổi ($s ca)',
                                       style: AppTypography.zaloFont(
                                         fontSize: 10.5,
                                         fontWeight: FontWeight.w600,
@@ -437,8 +434,7 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                                       ),
                                     ),
                                   ),
-                                ),
-                              );
+                                );
                             }).toList(),
                           ),
                         ],
@@ -650,7 +646,6 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                       const SizedBox(width: 8),
                       Switch(
                         value: _isActive,
-                        activeThumbColor: const Color(0xFF00693F),
                         onChanged: (val) => setState(() => _isActive = val),
                       ),
                     ],
@@ -664,24 +659,23 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _submit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE8F6ED),
-                      foregroundColor: const Color(0xFF00693F),
+                      backgroundColor: const Color(0xFF00693F),
+                      foregroundColor: Colors.white,
                       elevation: 0,
-                      side: const BorderSide(color: Color(0xFF00693F), width: 1.2),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     child: _isSaving
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(color: Color(0xFF00693F), strokeWidth: 2),
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                           )
                         : Text(
-                            isEdit ? 'Lưu thay đổi gói bổ trợ' : 'Xác nhận tạo mới gói',
+                            isEdit ? 'Lưu thay đổi liệu trình' : 'Xác nhận tạo mới liệu trình',
                             style: AppTypography.zaloFont(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: const Color(0xFF00693F),
+                              color: Colors.white,
                             ),
                           ),
                   ),

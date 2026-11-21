@@ -102,8 +102,16 @@ export function AdminAuth({ children }: { children: React.ReactNode }) {
 
     const restoreSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error || !session?.user?.email) {
+        const sessionResult = await supabase.auth.getSession();
+        let session = sessionResult.data.session;
+        const expiresAtMs = session?.expires_at ? session.expires_at * 1000 : 0;
+        if (session && expiresAtMs > 0 && expiresAtMs <= Date.now() + 60_000) {
+          const refreshed = await supabase.auth.refreshSession();
+          if (refreshed.data?.session) {
+            session = refreshed.data.session;
+          }
+        }
+        if (sessionResult.error || !session?.user?.email) {
           if (isMounted) {
             setUser(null);
             setLoading(false);

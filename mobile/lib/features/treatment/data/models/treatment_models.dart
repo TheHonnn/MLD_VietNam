@@ -50,29 +50,33 @@ class TreatmentSessionModel {
 /// Mô hình Gói liệu trình của người dùng (D01 & D02)
 class UserPackageModel {
   final String id;
-  final String packageCode; // Mã liệu trình (VD: MLD-PKG-001)
-  final String packageName; // Tên liệu trình
-  final String serviceName; // Tên dịch vụ
-  final String customerName; // Tên khách hàng
-  final String description; // Mô tả liệu trình
-  final String imageUrl; // Ảnh minh họa
-  final int totalSessions; // Tổng số buổi cần điều trị
-  final int completedSessions; // Số buổi đã thực hiện
-  final PackageStatus status; // Trạng thái gói
-  final String expiryDate; // Hạn sử dụng
-  final String specialistName; // Chuyên viên phụ trách
-  final String branchName; // Chi nhánh
-  final double price; // Giá gói
+  final String packageCode;
+  final String packageName;
+  final String? serviceId;
+  final String serviceName;
+  final int durationMinutes;
+  final String customerName;
+  final String description;
+  final String imageUrl;
+  final int totalSessions;
+  final int completedSessions;
+  final PackageStatus status;
+  final String expiryDate;
+  final String specialistName;
+  final String branchName;
+  final double price;
   final String nextAppointmentText;
   final String nextAppointmentDate;
   final String nextAppointmentService;
-  final List<TreatmentSessionModel> sessions; // Danh sách các buổi
+  final List<TreatmentSessionModel> sessions;
 
   const UserPackageModel({
     required this.id,
     this.packageCode = '',
     required this.packageName,
+    this.serviceId,
     this.serviceName = '',
+    this.durationMinutes = 60,
     this.customerName = '',
     this.description = '',
     this.imageUrl = 'assets/images/specialist_hero_1.png',
@@ -90,6 +94,10 @@ class UserPackageModel {
   });
 
   int get remainingSessions => (totalSessions - completedSessions).clamp(0, totalSessions);
+  int get totalShifts => totalSessions;
+  int get completedShifts => completedSessions;
+  int get remainingShifts => remainingSessions;
+  String get sessionsToShiftsLabel => '$totalSessions buổi ($totalSessions ca)';
   double get progressPercent => totalSessions > 0 ? (completedSessions / totalSessions).clamp(0.0, 1.0) : 0.0;
   bool get isActive => status == PackageStatus.active;
 }
@@ -406,6 +414,19 @@ class HomeCareArticleModel {
     this.authorText = 'Ban chuyên môn MLD',
     this.isVideo = false,
   });
+
+  factory HomeCareArticleModel.fromJson(Map<String, dynamic> json) {
+    return HomeCareArticleModel(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      category: json['category']?.toString() ?? 'Chăm sóc cơ thể',
+      readTimeText: json['read_time_text']?.toString() ?? '${json['read_time_minutes'] ?? 3} phút đọc',
+      summary: json['summary']?.toString() ?? json['content']?.toString() ?? '',
+      imageUrl: json['image_url']?.toString() ?? json['thumbnail_url']?.toString() ?? '',
+      authorText: json['author_name']?.toString() ?? 'Ban chuyên môn MLD',
+      isVideo: json['is_video'] == true || (json['video_url']?.toString().isNotEmpty == true),
+    );
+  }
 }
 
 /// Tin nhắn hỗ trợ khách hàng (D07 CustomerSupport)

@@ -16,6 +16,7 @@ import { AdminExceptionFilter } from '../admin.filter';
 import { SupportService } from './support.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
+import { UpdateCustomerTicketDto } from './dto/update-customer-ticket.dto';
 import { QueryTicketsDto } from './dto/query-tickets.dto';
 
 @ApiTags('Web Admin - Hỗ trợ kỹ thuật & Vận hành')
@@ -67,5 +68,45 @@ export class SupportController {
     @Body() dto: UpdateTicketDto,
   ) {
     return this.service.updateTicket(req.admin, id, dto);
+  }
+
+  @Post('tickets/:id/update')
+  @ApiOperation({ summary: 'Cập nhật trạng thái / phản hồi phiếu hỗ trợ (POST)' })
+  async updateTicketPost(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateTicketDto,
+  ) {
+    return this.service.updateTicket(req.admin, id, dto);
+  }
+
+  @Get('customer-tickets')
+  @ApiOperation({ summary: 'Lấy danh sách phiếu hỗ trợ của khách hàng từ Mobile App' })
+  async getCustomerTickets(
+    @Req() req: any,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.service.getCustomerTickets(req.admin, status, search);
+  }
+
+  @Patch('customer-tickets/:id')
+  @ApiOperation({ summary: 'Phản hồi / cập nhật trạng thái phiếu hỗ trợ khách hàng' })
+  async updateCustomerTicket(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: UpdateCustomerTicketDto,
+  ) {
+    return this.service.updateCustomerTicket(req.admin, id, body);
+  }
+
+  @Post('customer-tickets/:id/update')
+  @ApiOperation({ summary: 'Phản hồi / cập nhật trạng thái phiếu hỗ trợ khách hàng (POST)' })
+  async updateCustomerTicketPost(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: UpdateCustomerTicketDto,
+  ) {
+    return this.service.updateCustomerTicket(req.admin, id, body);
   }
 }

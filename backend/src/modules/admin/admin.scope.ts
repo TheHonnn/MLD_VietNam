@@ -30,6 +30,7 @@ export function branchPredicate(table: string, row: string, parameter: string, c
     treatment_stock_movements: `EXISTS(SELECT 1 FROM branch_material_stock s WHERE s.id=${row}.stock_id AND s.branch_id=ANY(${parameter}::uuid[]))`,
     post_care_outbox: `EXISTS(SELECT 1 FROM treatment_journal j JOIN bookings b ON b.id=j.booking_id WHERE j.id=${row}.treatment_journal_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
     home_care_deliveries: `EXISTS(SELECT 1 FROM bookings b WHERE b.id=${row}.booking_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
+    consultation_surveys: `EXISTS(SELECT 1 FROM bookings b WHERE b.id=${row}.booking_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
     booking_items: `EXISTS(SELECT 1 FROM bookings b WHERE b.id=${row}.booking_id AND b.branch_id=ANY(${parameter}::uuid[]))`,
     invoice_items: `EXISTS(SELECT 1 FROM invoices i WHERE i.id=${row}.invoice_id AND i.branch_id=ANY(${parameter}::uuid[]))`,
     course_enrollments: `EXISTS(SELECT 1 FROM course_batches b WHERE b.id=${row}.batch_id AND b.branch_id=ANY(${parameter}::uuid[]))`,

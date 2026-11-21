@@ -20,9 +20,176 @@ class BookingRepository {
 
   final ApiClient _apiClient = ApiClient.instance;
   final List<AppointmentItemModel> _appointments = [];
+  String? lastBookingError;
 
   void clear() {
     _appointments.clear();
+    lastBookingError = null;
+  }
+
+  AppointmentItemModel parseSupabaseBookingRow(Map<String, dynamic> item) {
+    final branch = item['branches'] as Map<String, dynamic>?;
+    final tech = item['technicians'] as Map<String, dynamic>?;
+    final items = item['booking_items'] as List?;
+    final firstItem = (items != null && items.isNotEmpty)
+        ? items.first as Map<String, dynamic>?
+        : null;
+    final svc = firstItem?['services'] as Map<String, dynamic>?;
+
+    final baseTotalVal = (item['base_total'] as num?)?.toDouble();
+    final finalPriceVal = (item['final_price'] as num?)?.toDouble();
+    final discountAmt = (item['discount_amount'] as num?)?.toDouble() ?? 0.0;
+    final pointsUsedVal = (item['points_used'] as num?)?.toInt() ?? 0;
+    final pointsDiscVal = (item['points_discount'] as num?)?.toDouble() ?? 0.0;
+    final price = finalPriceVal ?? baseTotalVal ?? 650000.0;
+
+    final dateStr =
+        item['booking_date']?.toString() ?? DateTime.now().toIso8601String();
+    final startTime = item['start_time']?.toString() ?? '14:00';
+    final endTime = item['end_time']?.toString() ?? '15:00';
+
+    AppointmentStatus parsedStatus = AppointmentStatus.pending;
+    final st = item['status']?.toString().toUpperCase();
+    if (st == 'CONFIRMED') parsedStatus = AppointmentStatus.confirmed;
+    if (st == 'CHECKED_IN') parsedStatus = AppointmentStatus.checkedIn;
+    if (st == 'IN_SERVICE') parsedStatus = AppointmentStatus.inService;
+    if (st == 'COMPLETED') parsedStatus = AppointmentStatus.completed;
+    if (st == 'CANCELLED') parsedStatus = AppointmentStatus.cancelled;
+    if (st == 'NO_SHOW') parsedStatus = AppointmentStatus.noShow;
+
+    DateTime parsedDate;
+    try {
+      parsedDate = DateTime.parse(dateStr);
+    } catch (_) {
+      parsedDate = DateTime.now();
+    }
+
+    DateTime parsedCreatedAt;
+    try {
+      parsedCreatedAt = item['created_at'] != null
+          ? DateTime.parse(item['created_at'].toString())
+          : DateTime.now();
+    } catch (_) {
+      parsedCreatedAt = DateTime.now();
+    }
+
+    String extractedEmail = '';
+    String extractedAddress = '';
+    var rawNotes =
+        item['special_notes']?.toString() ?? item['notes']?.toString() ?? '';
+    final explicitPkgId = item['user_package_id']?.toString();
+    if (explicitPkgId != null &&
+        explicitPkgId.isNotEmpty &&
+        !rawNotes.contains('user_package_id=')) {
+      rawNotes = rawNotes.isEmpty
+          ? 'user_package_id=$explicitPkgId'
+          : '$rawNotes | user_package_id=$explicitPkgId';
+    }
+
+    final emailMatch = RegExp(r'Email:\s*([^\s|]+)').firstMatch(rawNotes);
+    if (emailMatch != null) extractedEmail = emailMatch.group(1)?.trim() ?? '';
+    final addressMatch = RegExp(r'Địa chỉ:\s*([^|\n]+)').firstMatch(rawNotes);
+    if (addressMatch != null) {
+      extractedAddress = addressMatch.group(1)?.trim() ?? '';
+    }
+
+    final isClinicalFlag = item['is_clinical_completed'] == true;
+    final rawSessionStatus =
+        item['session_status']?.toString().toUpperCase() ?? 'NOT_STARTED';
+    final resolvedSessionStatus =
+        isClinicalFlag ? 'COMPLETED' : rawSessionStatus;
+
+    return AppointmentItemModel(
+      id: item['id']?.toString() ?? 'apt-${DateTime.now().millisecondsSinceEpoch}',
+      bookingCode: item['booking_code']?.toString() ?? 'MLD-BK-0001',
+      branchId: item['branch_id']?.toString(),
+      serviceId: firstItem?['service_id']?.toString(),
+      technicianId: item['technician_id']?.toString(),
+      serviceName:
+          svc?['name']?.toString() ?? 'Dịch vụ Massage & Trị liệu Vodder',
+      serviceImage: svc?['image_url']?.toString() ?? 'assets/images/logo.webp',
+      durationMinutes: (firstItem?['duration_minutes'] as num?)?.toInt() ?? 60,
+      branchName: branch?['name']?.toString() ?? 'Chi nhánh MLD Việt Nam',
+      branchAddress: branch?['address']?.toString() ?? 'Hà Nội & TP. Hồ Chí Minh',
+      branchPhone: branch?['phone']?.toString() ?? '096.7786.399',
+      specialistName: tech?['full_name']?.toString() ?? 'Chuyên viên Vodder',
+      specialistTitle: tech?['title']?.toString() ?? 'Kỹ thuật viên dưỡng sinh',
+      specialistAvatar:
+          tech?['avatar_url']?.toString() ?? 'assets/images/logo.webp',
+      appointmentDate: parsedDate,
+      timeSlot: '$startTime - $endTime',
+      customerName: item['booked_for_name']?.toString() ?? 'Khách hàng',
+      customerPhone: item['booked_for_phone']?.toString() ?? '',
+      customerEmail: extractedEmail,
+      customerAddress: extractedAddress,
+      specialNotes: rawNotes,
+      cancellationReason: item['cancellation_reason']?.toString(),
+      totalAmount: price,
+      depositAmount: price * 0.3,
+      remainingAmount: price * 0.7,
+      paymentMethod: item['payment_method']?.toString() ?? 'CASH_AT_SPA',
+      paymentStatus:
+          item['payment_status']?.toString().toUpperCase() ?? 'UNPAID',
+      sessionStatus: resolvedSessionStatus,
+      status: parsedStatus,
+      createdAt: parsedCreatedAt,
+      timeline: const [
+        BookingTimelineEvent(
+          title: 'Đã xác nhận',
+          description: 'Đã lưu trên hệ thống',
+          isCompleted: true,
+          isCurrent: true,
+        ),
+      ],
+      couponId: item['coupon_id']?.toString(),
+      couponCode: item['coupon_code']?.toString(),
+      discountAmount: discountAmt,
+      pointsUsed: pointsUsedVal,
+      pointsDiscount: pointsDiscVal,
+      baseTotal: baseTotalVal,
+      finalPrice: finalPriceVal,
+      userVoucherId: item['user_voucher_id']?.toString(),
+    );
+  }
+
+  AppointmentItemModel? getOpenBookingForUserPackage(String userPackageId) {
+    final target = userPackageId.trim().toLowerCase();
+    if (target.isEmpty) return null;
+    for (final a in _appointments) {
+      final isOpenStatus = a.status == AppointmentStatus.pending ||
+          a.status == AppointmentStatus.confirmed ||
+          a.status == AppointmentStatus.checkedIn ||
+          a.status == AppointmentStatus.inService;
+      if (isOpenStatus &&
+          !a.isClinicalCompleted &&
+          a.userPackageId?.toLowerCase() == target) {
+        return a;
+      }
+    }
+    return null;
+  }
+
+  bool _shouldFallbackToSupabase(Object error) {
+    if (error is! DioException) return true;
+    final code = error.response?.statusCode;
+    if (code == null) return true;
+    return code == 404 || code == 502 || code == 503;
+  }
+
+  String _extractDioErrorMessage(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map) {
+        final msg = data['message'];
+        if (msg is List && msg.isNotEmpty) {
+          return msg.first.toString();
+        }
+        if (msg != null && msg.toString().trim().isNotEmpty) {
+          return msg.toString().trim();
+        }
+      }
+    }
+    return 'Không thể đặt lịch hẹn. Vui lòng thử lại.';
   }
 
   // --- GETTERS ĐỒNG BỘ CHO UI ---
@@ -61,10 +228,16 @@ class BookingRepository {
 
   // --- API BACKEND INTEGRATION ---
 
-  /// C09: Lấy danh sách lịch hẹn của tôi từ Supabase Cloud REST
   Future<List<AppointmentItemModel>> fetchMyAppointments({AppointmentStatus? status}) async {
+    if (!AuthService.instance.isLoggedIn) {
+      return _appointments;
+    }
+    final userId = (AuthService.instance.currentUserId ?? '').trim();
+    if (userId.isEmpty) {
+      return _appointments;
+    }
     try {
-      String query = '/rest/v1/bookings?select=*,branches(name,address,phone),technicians(full_name,title,avatar_url),booking_items(*,services(*))&order=booking_date.desc,start_time.asc';
+      String query = '/rest/v1/bookings?customer_id=eq.$userId&select=*,branches(name,address,phone),technicians(full_name,title,avatar_url),booking_items(*,services(*))&order=booking_date.desc,start_time.asc';
       if (status != null) {
         query += '&status=eq.${status.name.toUpperCase()}';
       }
@@ -77,78 +250,7 @@ class BookingRepository {
           final list = <AppointmentItemModel>[];
           for (final item in raw) {
             if (item is Map<String, dynamic>) {
-              final branch = item['branches'] as Map<String, dynamic>?;
-              final tech = item['technicians'] as Map<String, dynamic>?;
-              final items = item['booking_items'] as List?;
-              final firstItem = (items != null && items.isNotEmpty) ? items.first as Map<String, dynamic>? : null;
-              final svc = firstItem?['services'] as Map<String, dynamic>?;
-
-              final price = (item['final_price'] as num?)?.toDouble() ??
-                  (item['base_total'] as num?)?.toDouble() ??
-                  650000.0;
-              final dateStr = item['booking_date']?.toString() ?? DateTime.now().toIso8601String();
-              final startTime = item['start_time']?.toString() ?? '14:00';
-              final endTime = item['end_time']?.toString() ?? '15:00';
-
-              AppointmentStatus parsedStatus = AppointmentStatus.pending;
-              final st = item['status']?.toString().toUpperCase();
-              if (st == 'CONFIRMED') parsedStatus = AppointmentStatus.confirmed;
-              if (st == 'CHECKED_IN') parsedStatus = AppointmentStatus.checkedIn;
-              if (st == 'IN_SERVICE') parsedStatus = AppointmentStatus.inService;
-              if (st == 'COMPLETED') parsedStatus = AppointmentStatus.completed;
-              if (st == 'CANCELLED') parsedStatus = AppointmentStatus.cancelled;
-              if (st == 'NO_SHOW') parsedStatus = AppointmentStatus.noShow;
-
-              DateTime parsedDate;
-              try {
-                parsedDate = DateTime.parse(dateStr);
-              } catch (_) {
-                parsedDate = DateTime.now();
-              }
-
-              String extractedEmail = '';
-              String extractedAddress = '';
-              final rawNotes = item['special_notes']?.toString() ?? item['notes']?.toString() ?? '';
-              final emailMatch = RegExp(r'Email:\s*([^\s|]+)').firstMatch(rawNotes);
-              if (emailMatch != null) extractedEmail = emailMatch.group(1)?.trim() ?? '';
-              final addressMatch = RegExp(r'Địa chỉ:\s*([^|\n]+)').firstMatch(rawNotes);
-              if (addressMatch != null) extractedAddress = addressMatch.group(1)?.trim() ?? '';
-
-              list.add(
-                AppointmentItemModel(
-                  id: item['id']?.toString() ?? 'apt-${DateTime.now().millisecondsSinceEpoch}',
-                  bookingCode: item['booking_code']?.toString() ?? 'MLD-BK-0001',
-                  branchId: item['branch_id']?.toString(),
-                  serviceId: firstItem?['service_id']?.toString(),
-                  technicianId: item['technician_id']?.toString(),
-                  serviceName: svc?['name']?.toString() ?? 'Dịch vụ Massage & Trị liệu Vodder',
-                  serviceImage: svc?['image_url']?.toString() ?? 'assets/images/logo.webp',
-                  durationMinutes: (firstItem?['duration_minutes'] as num?)?.toInt() ?? 60,
-                  branchName: branch?['name']?.toString() ?? 'Chi nhánh MLD Việt Nam',
-                  branchAddress: branch?['address']?.toString() ?? 'Hà Nội & TP. Hồ Chí Minh',
-                  branchPhone: branch?['phone']?.toString() ?? '096.7786.399',
-                  specialistName: tech?['full_name']?.toString() ?? 'Chuyên viên Vodder',
-                  specialistTitle: tech?['title']?.toString() ?? 'Kỹ thuật viên dưỡng sinh',
-                  specialistAvatar: tech?['avatar_url']?.toString() ?? 'assets/images/logo.webp',
-                  appointmentDate: parsedDate,
-                  timeSlot: '$startTime - $endTime',
-                  customerName: item['booked_for_name']?.toString() ?? 'Khách hàng',
-                  customerPhone: item['booked_for_phone']?.toString() ?? '',
-                  customerEmail: extractedEmail,
-                  customerAddress: extractedAddress,
-                  specialNotes: rawNotes,
-                  cancellationReason: item['cancellation_reason']?.toString(),
-                  totalAmount: price,
-                  depositAmount: price * 0.3,
-                  remainingAmount: price * 0.7,
-                  paymentMethod: item['payment_method']?.toString() ?? 'CASH_AT_SPA',
-                  status: parsedStatus,
-                  createdAt: DateTime.now(),
-                  timeline: const [
-                    BookingTimelineEvent(title: 'Đã xác nhận', description: 'Đã lưu trên hệ thống', isCompleted: true, isCurrent: true),
-                  ],
-                ),
-              );
+              list.add(parseSupabaseBookingRow(item));
             }
           }
 
@@ -276,7 +378,7 @@ class BookingRepository {
   }
 
   Future<String?> createAppointment(AppointmentItemModel appointment, [BookingFlowState? flow]) async {
-    // 1. Luôn đưa ngay vào danh sách local để hiển thị lập tức trên UI (Optimistic update)
+    lastBookingError = null;
     _appointments.removeWhere((item) => item.bookingCode == appointment.bookingCode);
     _appointments.insert(0, appointment);
 
@@ -299,24 +401,29 @@ class BookingRepository {
       }
     } catch (e) {
       debugPrint('>>> [BookingRepository] createAppointment error: $e');
+      lastBookingError ??= _extractDioErrorMessage(e);
     }
 
-    return appointment.id;
+    _appointments.removeWhere((item) => item.bookingCode == appointment.bookingCode);
+    lastBookingError ??= 'Không thể đặt lịch hẹn. Vui lòng kiểm tra khung giờ hoặc gói liệu trình và thử lại.';
+    return null;
   }
 
   Future<String?> _syncAppointmentDirect(AppointmentItemModel appointment, {String? flowSpecialNotes}) async {
     try {
       final dateStr = '${appointment.appointmentDate.year}-${appointment.appointmentDate.month.toString().padLeft(2, '0')}-${appointment.appointmentDate.day.toString().padLeft(2, '0')}';
       final slotParts = appointment.timeSlot.split('-');
-      String startTime = slotParts.first.trim();
-      String endTime = slotParts.length > 1 ? slotParts.last.trim() : '15:00';
-      if (!RegExp(r'^\d{1,2}:\d{2}').hasMatch(startTime)) startTime = '09:00';
-      if (!RegExp(r'^\d{1,2}:\d{2}').hasMatch(endTime)) endTime = '10:00';
-      if (startTime.length == 5) startTime = '$startTime:00';
-      if (endTime.length == 5) endTime = '$endTime:00';
+      String startTimeShort = slotParts.first.trim();
+      String endTimeShort = slotParts.length > 1 ? slotParts.last.trim() : '15:00';
+      if (!RegExp(r'^\d{1,2}:\d{2}').hasMatch(startTimeShort)) startTimeShort = '09:00';
+      if (!RegExp(r'^\d{1,2}:\d{2}').hasMatch(endTimeShort)) endTimeShort = '10:00';
+      if (startTimeShort.length > 5) startTimeShort = startTimeShort.substring(0, 5);
+      if (endTimeShort.length > 5) endTimeShort = endTimeShort.substring(0, 5);
+      final startTime = '$startTimeShort:00';
+      final endTime = '$endTimeShort:00';
 
       String method = appointment.paymentMethod.toUpperCase();
-      if (method == 'BANK_TRANSFER') {
+      if (method == 'BANK_TRANSFER' || method == 'VIETQR') {
         method = 'BANK_TRANSFER';
       } else if (method == 'MOMO') {
         method = 'MOMO';
@@ -373,7 +480,6 @@ class BookingRepository {
           ? matchedCustomerId
           : 'bbbbbbbb-0001-0001-0001-000000000001';
 
-      // Ghép Email & Địa chỉ vào special_notes để lưu trữ an toàn trong DB
       final notesBuffer = <String>[];
       if (appointment.customerEmail.trim().isNotEmpty) {
         notesBuffer.add('Email: ${appointment.customerEmail.trim()}');
@@ -386,6 +492,7 @@ class BookingRepository {
         notesBuffer.add(extraNotes);
       }
       final combinedNotes = notesBuffer.join(' | ');
+      final linkedUserPackageId = RegExp(r'user_package_id=([0-9a-fA-F-]+)').firstMatch(combinedNotes)?.group(1);
 
       double appliedDiscount = appointment.discountAmount;
       double appliedFinalPrice = appointment.finalPrice ?? appointment.totalAmount;
@@ -396,10 +503,10 @@ class BookingRepository {
         bool alreadyUsed = false;
         try {
           final uvCheck = await _apiClient.dio.get(
-            '/rest/v1/user_vouchers?user_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=eq.USED&select=id&limit=1',
+            '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?user_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=eq.USED&select=id&limit=1',
             options: Options(headers: {
-              'apikey': ApiEndpoints.supabaseServiceRoleKey,
-              'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+              'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+              'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             }),
           );
           if (uvCheck.statusCode == 200 && uvCheck.data is List && (uvCheck.data as List).isNotEmpty) {
@@ -408,10 +515,10 @@ class BookingRepository {
 
           if (!alreadyUsed) {
             final bkCheck = await _apiClient.dio.get(
-              '/rest/v1/bookings?customer_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=neq.CANCELLED&select=id&limit=1',
+              '${ApiEndpoints.supabaseUrl}/rest/v1/bookings?customer_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=neq.CANCELLED&select=id&limit=1',
               options: Options(headers: {
-                'apikey': ApiEndpoints.supabaseServiceRoleKey,
-                'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+                'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
               }),
             );
             if (bkCheck.statusCode == 200 && bkCheck.data is List && (bkCheck.data as List).isNotEmpty) {
@@ -421,7 +528,6 @@ class BookingRepository {
         } catch (_) {}
 
         if (alreadyUsed) {
-          debugPrint('>>> [BookingRepository] FRAUD PREVENTION: Coupon $appliedCouponId already used by customer $effectiveCustomerId! Discount cancelled.');
           appliedDiscount = 0.0;
           appliedFinalPrice = (appointment.baseTotal ?? appointment.totalAmount) - appointment.pointsDiscount;
           appliedCouponId = null;
@@ -429,147 +535,238 @@ class BookingRepository {
         }
       }
 
-      final bookingPayload = {
-        'booking_code': appointment.bookingCode,
-        'customer_id': effectiveCustomerId,
-        'branch_id': effectiveBranchId,
-        'technician_id': effectiveTechId,
-        'booking_date': dateStr,
-        'start_time': startTime,
-        'end_time': endTime,
-        'status': 'PENDING',
-        'payment_status': 'UNPAID',
-        'payment_method': method,
-        'base_total': appointment.baseTotal ?? appointment.totalAmount,
-        'discount_amount': appliedDiscount,
-        'points_used': appointment.pointsUsed,
-        'points_discount': appointment.pointsDiscount,
-        'final_price': appliedFinalPrice,
-        if (appliedCouponId != null && appliedCouponId.isNotEmpty)
-          'coupon_id': appliedCouponId,
-        'booked_for_name': appointment.customerName,
-        'booked_for_phone': appointment.customerPhone,
-        'special_notes': combinedNotes,
-        'qr_code_hash': 'QR-${appointment.bookingCode}-${DateTime.now().millisecondsSinceEpoch}',
-      };
+      String? realId;
+      bool canFallback = false;
 
-      final res = await _apiClient.dio.post(
-        '/rest/v1/bookings',
-        data: bookingPayload,
-        options: Options(headers: {'Prefer': 'return=representation'}),
-      );
+      try {
+        final gwRes = await _apiClient.dio.post(
+          ApiEndpoints.bookingCreate,
+          data: {
+            'branchId': effectiveBranchId,
+            'serviceId': effectiveServiceId,
+            if (techId != null && uuidRegex.hasMatch(techId)) 'technicianId': techId,
+            'bookingDate': dateStr,
+            'startTime': startTimeShort,
+            'endTime': endTimeShort,
+            'bookedForName': appointment.customerName,
+            'bookedForPhone': appointment.customerPhone,
+            if (appointment.customerEmail.trim().isNotEmpty) 'bookedForEmail': appointment.customerEmail.trim(),
+            if (combinedNotes.isNotEmpty) 'specialNotes': combinedNotes,
+            'paymentMethod': method,
+            if (appointment.couponCode != null && appointment.couponCode!.trim().isNotEmpty)
+              'couponCode': appointment.couponCode!.trim(),
+            'bookingCode': appointment.bookingCode,
+            if (linkedUserPackageId != null && uuidRegex.hasMatch(linkedUserPackageId))
+              'userPackageId': linkedUserPackageId,
+          },
+        );
+        if (gwRes.statusCode == 200 || gwRes.statusCode == 201) {
+          final raw = gwRes.data is Map ? (gwRes.data['data'] ?? gwRes.data) : null;
+          if (raw is Map) {
+            realId = raw['id']?.toString() ?? raw['booking']?['id']?.toString();
+          }
+        }
+      } catch (e) {
+        if (!_shouldFallbackToSupabase(e)) {
+          lastBookingError = _extractDioErrorMessage(e);
+          return null;
+        }
+        canFallback = true;
+      }
 
-      if (res.statusCode == 200 || res.statusCode == 201) {
-        final body = res.data;
-        final data = (body is List && body.isNotEmpty)
-            ? body.first
-            : (body is Map ? (body['data'] ?? body) : null);
-        final realId = data?['id']?.toString();
-        if (realId != null && realId.isNotEmpty) {
+      if ((realId == null || realId.isEmpty) && canFallback) {
+        if (linkedUserPackageId != null && uuidRegex.hasMatch(linkedUserPackageId)) {
+          final upkgRes = await _apiClient.dio.get(
+            '/rest/v1/user_packages?id=eq.$linkedUserPackageId&select=id,customer_id,status,completed_sessions,total_sessions,expires_at&limit=1',
+          );
+          if (upkgRes.data is List && (upkgRes.data as List).isNotEmpty) {
+            final pkgRow = (upkgRes.data as List).first as Map;
+            final pkgStatus = pkgRow['status']?.toString().toUpperCase() ?? '';
+            if (pkgStatus != 'ACTIVE') {
+              lastBookingError = 'Gói liệu trình đang ở trạng thái $pkgStatus, không thể đặt buổi.';
+              return null;
+            }
+            final expStr = pkgRow['expires_at']?.toString();
+            if (expStr != null && expStr.isNotEmpty) {
+              final expDt = DateTime.tryParse(expStr);
+              if (expDt != null && expDt.isBefore(DateTime.now())) {
+                lastBookingError = 'Gói liệu trình đã hết hạn sử dụng.';
+                return null;
+              }
+            }
+            final completed = (pkgRow['completed_sessions'] as num?)?.toInt() ?? 0;
+            final total = (pkgRow['total_sessions'] as num?)?.toInt() ?? 0;
+            if (completed >= total) {
+              lastBookingError = 'Gói liệu trình đã hoàn thành đủ tất cả các buổi.';
+              return null;
+            }
+            final openRes = await _apiClient.dio.get(
+              '/rest/v1/bookings?customer_id=eq.${pkgRow['customer_id']}&status=in.(PENDING,CONFIRMED,CHECKED_IN,IN_SERVICE)&select=id,session_status,special_notes',
+            );
+            if (openRes.data is List) {
+              final reserved = (openRes.data as List).where((row) {
+                if (row is! Map) return false;
+                final notesStr = row['special_notes']?.toString() ?? '';
+                final linked = RegExp(r'user_package_id=([0-9a-fA-F-]+)').firstMatch(notesStr)?.group(1);
+                return linked?.toLowerCase() == linkedUserPackageId.toLowerCase() &&
+                    row['session_status']?.toString().toUpperCase() != 'COMPLETED';
+              }).length;
+              if (reserved > 0 && completed + reserved >= total) {
+                lastBookingError = 'Gói liệu trình đã đặt đủ số buổi còn lại.';
+                return null;
+              }
+            }
+          }
+        }
+
+        final bookingPayload = {
+          'booking_code': appointment.bookingCode,
+          'customer_id': effectiveCustomerId,
+          'branch_id': effectiveBranchId,
+          'technician_id': effectiveTechId,
+          'booking_date': dateStr,
+          'start_time': startTime,
+          'end_time': endTime,
+          'status': 'PENDING',
+          'session_status': 'NOT_STARTED',
+          'payment_status': 'UNPAID',
+          'payment_method': method,
+          'base_total': appointment.baseTotal ?? appointment.totalAmount,
+          'discount_amount': appliedDiscount,
+          'points_used': appointment.pointsUsed,
+          'points_discount': appointment.pointsDiscount,
+          'final_price': appliedFinalPrice,
+          if (appliedCouponId != null && appliedCouponId.isNotEmpty)
+            'coupon_id': appliedCouponId,
+          'booked_for_name': appointment.customerName,
+          'booked_for_phone': appointment.customerPhone,
+          'special_notes': combinedNotes,
+          'qr_code_hash': 'QR-${appointment.bookingCode}-${DateTime.now().millisecondsSinceEpoch}',
+        };
+
+        final res = await _apiClient.dio.post(
+          '/rest/v1/bookings',
+          data: bookingPayload,
+          options: Options(headers: {'Prefer': 'return=representation'}),
+        );
+
+        if (res.statusCode == 200 || res.statusCode == 201) {
+          final body = res.data;
+          final data = (body is List && body.isNotEmpty)
+              ? body.first
+              : (body is Map ? (body['data'] ?? body) : null);
+          realId = data?['id']?.toString();
+          if (realId != null && realId.isNotEmpty) {
+            try {
+              await _apiClient.dio.post(
+                '/rest/v1/booking_items',
+                data: {
+                  'booking_id': realId,
+                  'service_id': effectiveServiceId,
+                  'technician_id': effectiveTechId,
+                  'duration_minutes': appointment.durationMinutes,
+                  'price': appointment.baseTotal ?? appointment.totalAmount,
+                },
+              );
+            } catch (_) {}
+          }
+        }
+      }
+
+      if (realId != null && realId.isNotEmpty) {
+        if (appliedCouponId != null || appliedUserVoucherId != null || appointment.couponCode != null) {
+          MembershipRepository.instance.markVoucherUsed(
+            couponId: appliedCouponId,
+            userVoucherId: appliedUserVoucherId,
+            couponCode: appointment.couponCode,
+          );
+        }
+
+        if (appliedUserVoucherId != null && appliedUserVoucherId.isNotEmpty) {
           try {
-            await _apiClient.dio.post(
-              '/rest/v1/booking_items',
+            await _apiClient.dio.patch(
+              '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?id=eq.$appliedUserVoucherId',
               data: {
-                'booking_id': realId,
-                'service_id': effectiveServiceId,
-                'technician_id': effectiveTechId,
-                'duration_minutes': appointment.durationMinutes,
-                'price': appointment.baseTotal ?? appointment.totalAmount,
+                'status': 'USED',
+                'used_at': DateTime.now().toIso8601String(),
+                'used_in_booking_id': realId,
               },
+              options: Options(headers: {
+                'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+              }),
             );
           } catch (_) {}
-
-          if (appliedUserVoucherId != null && appliedUserVoucherId.isNotEmpty) {
-            try {
+        } else if (appliedCouponId != null && appliedCouponId.isNotEmpty) {
+          try {
+            final uvRes = await _apiClient.dio.get(
+              '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?user_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=eq.AVAILABLE&limit=1',
+              options: Options(headers: {
+                'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+              }),
+            );
+            if (uvRes.statusCode == 200 && uvRes.data is List && (uvRes.data as List).isNotEmpty) {
+              final uvId = (uvRes.data as List).first['id'];
               await _apiClient.dio.patch(
-                '/rest/v1/user_vouchers?id=eq.$appliedUserVoucherId',
+                '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?id=eq.$uvId',
                 data: {
                   'status': 'USED',
                   'used_at': DateTime.now().toIso8601String(),
                   'used_in_booking_id': realId,
                 },
                 options: Options(headers: {
-                  'apikey': ApiEndpoints.supabaseServiceRoleKey,
-                  'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                  'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
                 }),
               );
-            } catch (e) {
-              debugPrint('>>> [BookingRepository] Update user_voucher status error: $e');
-            }
-          } else if (appliedCouponId != null && appliedCouponId.isNotEmpty) {
-            try {
-              final uvRes = await _apiClient.dio.get(
-                '/rest/v1/user_vouchers?user_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=eq.AVAILABLE&limit=1',
+            } else {
+              await _apiClient.dio.post(
+                '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers',
+                data: {
+                  'user_id': effectiveCustomerId,
+                  'coupon_id': appliedCouponId,
+                  'source_trigger': 'PUBLIC_CLAIM',
+                  'status': 'USED',
+                  'claimed_at': DateTime.now().toIso8601String(),
+                  'expires_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+                  'used_at': DateTime.now().toIso8601String(),
+                  'used_in_booking_id': realId,
+                },
                 options: Options(headers: {
-                  'apikey': ApiEndpoints.supabaseServiceRoleKey,
-                  'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
+                  'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
                 }),
               );
-              if (uvRes.statusCode == 200 && uvRes.data is List && (uvRes.data as List).isNotEmpty) {
-                final uvId = (uvRes.data as List).first['id'];
-                await _apiClient.dio.patch(
-                  '/rest/v1/user_vouchers?id=eq.$uvId',
-                  data: {
-                    'status': 'USED',
-                    'used_at': DateTime.now().toIso8601String(),
-                    'used_in_booking_id': realId,
-                  },
-                  options: Options(headers: {
-                    'apikey': ApiEndpoints.supabaseServiceRoleKey,
-                    'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
-                  }),
-                );
-              } else {
-                await _apiClient.dio.post(
-                  '/rest/v1/user_vouchers',
-                  data: {
-                    'user_id': effectiveCustomerId,
-                    'coupon_id': appliedCouponId,
-                    'source_trigger': 'PUBLIC_CLAIM',
-                    'status': 'USED',
-                    'claimed_at': DateTime.now().toIso8601String(),
-                    'expires_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
-                    'used_at': DateTime.now().toIso8601String(),
-                    'used_in_booking_id': realId,
-                  },
-                  options: Options(headers: {
-                    'apikey': ApiEndpoints.supabaseServiceRoleKey,
-                    'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
-                  }),
-                );
-              }
-            } catch (e) {
-              debugPrint('>>> [BookingRepository] Record used coupon error: $e');
             }
-          }
-
-          if (appliedCouponId != null && appliedCouponId.isNotEmpty) {
-            try {
-              final cRes = await _apiClient.dio.get(
-                '/rest/v1/coupons?id=eq.$appliedCouponId&select=used_count&limit=1',
-                options: Options(headers: {
-                  'apikey': ApiEndpoints.supabaseServiceRoleKey,
-                  'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
-                }),
-              );
-              if (cRes.statusCode == 200 && cRes.data is List && (cRes.data as List).isNotEmpty) {
-                final currentUsed = (cRes.data as List).first['used_count'] as int? ?? 0;
-                await _apiClient.dio.patch(
-                  '/rest/v1/coupons?id=eq.$appliedCouponId',
-                  data: {'used_count': currentUsed + 1},
-                  options: Options(headers: {
-                    'apikey': ApiEndpoints.supabaseServiceRoleKey,
-                    'Authorization': 'Bearer ${ApiEndpoints.supabaseServiceRoleKey}',
-                  }),
-                );
-              }
-            } catch (_) {}
-          }
-          return realId;
+          } catch (_) {}
         }
+
+        if (appliedCouponId != null && appliedCouponId.isNotEmpty) {
+          try {
+            final cRes = await _apiClient.dio.get(
+              '${ApiEndpoints.supabaseUrl}/rest/v1/coupons?id=eq.$appliedCouponId&select=used_count&limit=1',
+              options: Options(headers: {
+                'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+              }),
+            );
+            if (cRes.statusCode == 200 && cRes.data is List && (cRes.data as List).isNotEmpty) {
+              final currentUsed = (cRes.data as List).first['used_count'] as int? ?? 0;
+              await _apiClient.dio.patch(
+                '${ApiEndpoints.supabaseUrl}/rest/v1/coupons?id=eq.$appliedCouponId',
+                data: {'used_count': currentUsed + 1},
+                options: Options(headers: {
+                  'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
+                }),
+              );
+            }
+          } catch (_) {}
+        }
+
+        try {
+          MembershipRepository.instance.fetchVouchers();
+        } catch (_) {}
+
+        return realId;
       }
     } catch (e) {
-      debugPrint('>>> [BookingRepository] Sync appointment direct notice: $e');
+      lastBookingError ??= _extractDioErrorMessage(e);
     }
     return null;
   }
@@ -813,7 +1010,7 @@ class BookingRepository {
       }
       return false;
     } catch (e) {
-      debugPrint('>>> [BookingRepository] Error on rescheduling booking: ');
+      debugPrint('>>> [BookingRepository] Error on rescheduling booking: $e');
       return false;
     }
   }
