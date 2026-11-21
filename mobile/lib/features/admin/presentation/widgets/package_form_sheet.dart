@@ -465,29 +465,27 @@ class _PackageFormSheetState extends State<PackageFormSheet> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          // Chip chọn nhanh thời hạn
-                          Row(
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
                             children: [3, 6, 12].map((m) {
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: InkWell(
-                                  onTap: () => setState(() => _validityMonthsController.text = m.toString()),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: _validityMonthsController.text == m.toString() ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: _validityMonthsController.text == m.toString() ? const Color(0xFF00693F) : Colors.transparent,
-                                      ),
+                              return InkWell(
+                                onTap: () => setState(() => _validityMonthsController.text = m.toString()),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: _validityMonthsController.text == m.toString() ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: _validityMonthsController.text == m.toString() ? const Color(0xFF00693F) : Colors.transparent,
                                     ),
-                                    child: Text(
-                                      '$m tháng',
-                                      style: AppTypography.zaloFont(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: _validityMonthsController.text == m.toString() ? const Color(0xFF00693F) : const Color(0xFF6B7280),
-                                      ),
+                                  ),
+                                  child: Text(
+                                    '$m tháng',
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: _validityMonthsController.text == m.toString() ? const Color(0xFF00693F) : const Color(0xFF6B7280),
                                     ),
                                   ),
                                 ),

@@ -754,7 +754,11 @@ class _CourseFormSheetState extends State<CourseFormSheet> {
                         )
                       : Text(
                           isEdit ? 'Lưu khóa học' : 'Tạo mới Khóa đào tạo',
-                          style: AppTypography.zaloFont(fontSize: 13.5, fontWeight: FontWeight.w700),
+                          style: AppTypography.zaloFont(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
                         ),
                 ),
               ),
