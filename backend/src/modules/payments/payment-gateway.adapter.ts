@@ -116,15 +116,15 @@ export class PaymentGatewayAdapter {
   }
 
   get bankBin(): string {
-    return this.readEnv('PAYMENT_BANK_BIN') || this.readEnv('PAYOS_BANK_BIN');
+    return this.readEnv('PAYMENT_BANK_BIN') || this.readEnv('PAYOS_BANK_BIN') || '970422';
   }
 
   get bankAccountNo(): string {
-    return this.readEnv('PAYMENT_BANK_ACCOUNT_NO') || this.readEnv('PAYOS_BANK_ACCOUNT_NO');
+    return this.readEnv('PAYMENT_BANK_ACCOUNT_NO') || this.readEnv('PAYOS_BANK_ACCOUNT_NO') || '0394316963';
   }
 
   get bankAccountName(): string {
-    return this.readEnv('PAYMENT_BANK_ACCOUNT_NAME') || this.readEnv('PAYOS_BANK_ACCOUNT_NAME');
+    return this.readEnv('PAYMENT_BANK_ACCOUNT_NAME') || this.readEnv('PAYOS_BANK_ACCOUNT_NAME') || 'BUI THE HOANG';
   }
 
   get returnUrl(): string {
