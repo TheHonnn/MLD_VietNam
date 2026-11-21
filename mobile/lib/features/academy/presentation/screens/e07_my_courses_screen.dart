@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/app_translation.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/supabase_data_service.dart';
+import '../../../payments/presentation/widgets/auto_payment_checkout_sheet.dart';
 import '../widgets/academy_widgets.dart';
 import 'e01_academy_home_screen.dart';
 import '../../data/models/academy_models.dart';
@@ -487,37 +490,50 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
             builder: (ctx) {
               final isPending = !AcademyRepository.instance.isCourseApproved(course.id, course.title);
               if (isPending) {
-                return SizedBox(
-                  width: double.infinity,
-                  height: 42,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            context.tr(
-                              'Khóa học đang chờ duyệt.',
-                              'Course is pending approval.',
-                            ),
-                          ),
-                          backgroundColor: const Color(0xFFD97706),
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 42,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
                         ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: Text(
-                      context.tr('Chờ duyệt', 'Pending Approval'),
-                      style: const TextStyle(
-                        
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
+                        child: Text(
+                          context.tr('Chờ duyệt', 'Pending Approval'),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFB45309),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.qr_code_2_rounded, size: 17, color: Colors.white),
+                        label: Text(
+                          context.tr('Thanh toán luôn', 'Pay Now'),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => _openPaymentForPendingCourse(course),
+                      ),
+                    ),
+                  ],
                 );
               }
 
@@ -539,7 +555,7 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
                   ),
                   child: Text(
                     context.tr('Vào học ngay', 'Start Learning'),
-                    style: const TextStyle( fontSize: 13.5, fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
                   ),
                 ),
               );
@@ -547,6 +563,59 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _openPaymentForPendingCourse(CourseModel course) {
+    final refCode = (course.customerCode != null && course.customerCode!.isNotEmpty)
+        ? course.customerCode!
+        : (AuthService.instance.phoneNotifier.value ?? 'MLD');
+    final amount = course.depositFee >= 1000 ? course.depositFee : course.tuitionFee;
+
+    AutoPaymentCheckoutSheet.show(
+      context,
+      amount: amount,
+      description: 'MLD HV $refCode',
+      targetType: 'ENROLLMENT',
+      targetId: course.enrollmentId ?? course.id,
+      referenceCode: refCode,
+      customerName: AuthService.instance.currentDisplayName ?? 'Học viên MLD',
+      customerPhone: AuthService.instance.phoneNotifier.value ?? '',
+      onPaymentSuccess: (status) async {
+        final approvedCourse = course.copyWith(
+          status: 'ACTIVE',
+          approvalStatus: 'APPROVED',
+        );
+        AcademyRepository.instance.enrollCourseLocal(approvedCourse);
+        if (course.enrollmentId != null && course.enrollmentId!.isNotEmpty) {
+          try {
+            await SupabaseDataService.instance.updateCourseEnrollmentStatus(
+              enrollmentId: course.enrollmentId!,
+              status: 'ACTIVE',
+              approvalStatus: 'APPROVED',
+              paymentStatus: 'PAID',
+              admissionStatus: 'STUDYING',
+              amountPaid: amount,
+            );
+          } catch (_) {}
+        }
+        if (!mounted) return;
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr(
+              'Thanh toán thành công! Khóa học đã được mở cho bạn.',
+              'Payment successful! Course lessons are now unlocked for you.',
+            )),
+            backgroundColor: AppColors.accent,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => E08ClassDetailScreen(course: approvedCourse)),
+        );
+      },
     );
   }
 

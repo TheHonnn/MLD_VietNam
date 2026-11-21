@@ -1023,12 +1023,12 @@ class AdminQuizSubmissionModel {
   }
 }
 
-/// 10. Điểm dữ liệu biểu đồ doanh thu (Grid Chart Data Point)
 class AdminRevenuePoint {
-  final String label; // Thứ Hai, 14/11, hoặc tên ngày/phân hệ
+  final String label;
   final String dateIso;
   final double totalAmount;
   final double serviceAmount;
+  final double packageAmount;
   final double academyAmount;
   final int transactionCount;
 
@@ -1037,19 +1037,19 @@ class AdminRevenuePoint {
     required this.dateIso,
     required this.totalAmount,
     this.serviceAmount = 0.0,
+    this.packageAmount = 0.0,
     this.academyAmount = 0.0,
     this.transactionCount = 0,
   });
 }
 
-/// 11. Mục chi tiết hóa đơn/giao dịch đối soát trong biểu đồ lưới
 class AdminRevenueItem {
   final String id;
   final String code;
   final String title;
   final String customerOrStudentName;
   final String? phone;
-  final String category; // 'SPA_SERVICE', 'ACADEMY_TUITION', 'PRODUCT'
+  final String category;
   final double amount;
   final String timestamp;
   final String status;
@@ -1069,11 +1069,16 @@ class AdminRevenueItem {
   });
 }
 
-/// 12. Báo cáo doanh thu tổng hợp (Revenue Report)
 class AdminRevenueReport {
-  final String period; // 'TODAY', 'WEEK', 'MONTH'
+  final String period;
   final double totalRevenue;
+  final double grossCollected;
+  final double refundAmount;
+  final int refundCount;
+  final double receivableAmount;
+  final int receivableCount;
   final double serviceRevenue;
+  final double packageRevenue;
   final double academyRevenue;
   final double productRevenue;
   final int totalTransactions;
@@ -1084,7 +1089,13 @@ class AdminRevenueReport {
   const AdminRevenueReport({
     required this.period,
     required this.totalRevenue,
+    this.grossCollected = 0.0,
+    this.refundAmount = 0.0,
+    this.refundCount = 0,
+    this.receivableAmount = 0.0,
+    this.receivableCount = 0,
     required this.serviceRevenue,
+    this.packageRevenue = 0.0,
     required this.academyRevenue,
     this.productRevenue = 0.0,
     required this.totalTransactions,
@@ -1097,7 +1108,13 @@ class AdminRevenueReport {
     return AdminRevenueReport(
       period: period,
       totalRevenue: 0.0,
+      grossCollected: 0.0,
+      refundAmount: 0.0,
+      refundCount: 0,
+      receivableAmount: 0.0,
+      receivableCount: 0,
       serviceRevenue: 0.0,
+      packageRevenue: 0.0,
       academyRevenue: 0.0,
       productRevenue: 0.0,
       totalTransactions: 0,
