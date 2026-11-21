@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/services/auth_service.dart';
-import '../../../../core/services/supabase_data_service.dart';
 import '../../../../core/widgets/guest_auth_prompt.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../../payments/presentation/widgets/auto_payment_checkout_sheet.dart';
@@ -168,15 +165,21 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
           '';
       final customerCode = rawCode.trim().isNotEmpty ? rawCode.trim() : 'Chờ Admin cấp mã';
       final enrollmentId = enrollResult['id']?.toString();
-      final parsedDeposit = (enrollResult['depositAmount'] as num?)?.toDouble() ?? widget.course.depositFee;
-      final payableAmount = parsedDeposit >= 1000 ? parsedDeposit : widget.course.tuitionFee;
+      final parsedTuition = (enrollResult['tuitionTotal'] as num?)?.toDouble() ?? widget.course.payableAmount;
+      final parsedPaid = (enrollResult['amountPaid'] as num?)?.toDouble() ?? (widget.course.amountPaid ?? 0.0);
+      final remaining = parsedTuition - parsedPaid;
+      final payableAmount = remaining >= 1000
+          ? remaining
+          : (widget.course.payableAmount >= 1000 ? widget.course.payableAmount : widget.course.tuitionFee);
 
-      _showPendingApprovalDialog(
+      _handlePostEnrollmentStep(
         name,
         phone,
         customerCode,
         enrollmentId: enrollmentId,
-        depositAmount: payableAmount,
+        payableAmount: payableAmount.toDouble(),
+        tuitionTotal: parsedTuition,
+        amountPaid: parsedPaid,
       );
     } catch (e) {
       if (mounted) {
@@ -191,12 +194,14 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
     }
   }
 
-  void _showPendingApprovalDialog(
+  void _handlePostEnrollmentStep(
     String studentName,
     String studentPhone,
     String customerCode, {
     String? enrollmentId,
-    double depositAmount = 0,
+    double payableAmount = 0,
+    double tuitionTotal = 0,
+    double amountPaid = 0,
   }) {
     final groupLower = widget.course.courseGroup.toLowerCase();
     final catLower = widget.course.category.toLowerCase();
@@ -209,13 +214,67 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
         targetLower.contains('làm nghề') ||
         titleLower.contains('làm nghề');
 
-    final isBeginnerCourse = !isPractitionerCourse;
-
-    final canPayOnline = isBeginnerCourse &&
+    final canPayOnline = !isPractitionerCourse &&
         enrollmentId != null &&
         enrollmentId.trim().isNotEmpty &&
-        depositAmount >= 1000;
+        payableAmount >= 1000;
     final refCode = customerCode != 'Chờ Admin cấp mã' ? customerCode : studentPhone;
+
+    if (canPayOnline) {
+      AutoPaymentCheckoutSheet.show(
+        context,
+        amount: payableAmount,
+        description: 'MLD HV $refCode',
+        targetType: 'ENROLLMENT',
+        targetId: enrollmentId,
+        referenceCode: refCode,
+        customerName: studentName,
+        customerPhone: studentPhone,
+        itemTitle: widget.course.title,
+        onPayLater: () {
+          if (!mounted) return;
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => const E07MyCoursesScreen(),
+            ),
+          );
+        },
+        onPaymentSuccess: (status) async {
+          final approvedCourse = widget.course.copyWith(
+            status: 'STUDYING',
+            approvalStatus: 'APPROVED',
+            customerCode: customerCode != 'Chờ Admin cấp mã' ? customerCode : widget.course.customerCode,
+            enrollmentId: enrollmentId,
+            tuitionTotal: tuitionTotal > 0 ? tuitionTotal : widget.course.tuitionFee,
+            amountPaid: status.amountPaid > 0 ? status.amountPaid : payableAmount,
+            paymentStatus: 'PAID',
+          );
+          AcademyRepository.instance.enrollCourseLocal(approvedCourse);
+          if (!mounted) return;
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.tr(
+                'Thanh toán thành công! Khóa học đã được mở cho bạn.',
+                'Payment successful! Course is now unlocked for you.',
+              )),
+              backgroundColor: AppColors.accent,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => E08ClassDetailScreen(course: approvedCourse),
+            ),
+          );
+        },
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -223,299 +282,164 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         backgroundColor: Colors.white,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE8F5E9),
-                  shape: BoxShape.circle,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.82,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE8F5E9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle_rounded,
+                    color: AppColors.primary,
+                    size: 36,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.primary,
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Đăng ký thành công!',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AcademyColors.heading,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.pending_actions_rounded, size: 15, color: Color(0xFFB45309)),
-                    SizedBox(width: 5),
-                    Text(
-                      'Chờ nhân viên duyệt',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFB45309),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ và liên hệ hướng dẫn bạn.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: AcademyColors.textSecondary),
-              ),
-              if (canPayOnline) ...[
-                const SizedBox(height: 6),
-                Text(
-                  context.tr(
-                    'Bạn có thể thanh toán học phí online ngay để hệ thống tự động kích hoạt và mở toàn bộ video bài học.',
-                    'You can pay tuition online now to unlock all course lessons immediately.',
+                const SizedBox(height: 14),
+                const Text(
+                  'Đăng ký thành công!',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    color: AcademyColors.heading,
                   ),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w600),
                 ),
-              ],
-              const SizedBox(height: 18),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.pending_actions_rounded, size: 15, color: Color(0xFFB45309)),
+                      SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          'Chờ nhân viên duyệt',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFB45309),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.school_outlined, size: 20, color: AppColors.primary),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            widget.course.title,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: AcademyColors.heading,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 20, thickness: 1, color: Color(0xFFE2E8F0)),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Học viên:',
-                          style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            studentName,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AcademyColors.heading,
-                            ),
-                            textAlign: TextAlign.end,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Mã học viên:',
-                          style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            customerCode,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.primary,
-                              letterSpacing: 0.5,
-                            ),
-                            textAlign: TextAlign.end,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              if (canPayOnline) ...[
+                const SizedBox(height: 14),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
                   ),
                   child: Column(
                     children: [
-                      Text(
-                        context.tr('Mã QR chuyển khoản học phí', 'Tuition Payment QR Code'),
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: AcademyColors.heading,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          'https://api.vietqr.io/image/970422-0394316963-compact2.jpg?amount=${depositAmount.round()}&addInfo=${Uri.encodeComponent('MLD HV $refCode')}&accountName=BUI%20THE%20HOANG',
-                          width: 170,
-                          height: 170,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => QrImageView(
-                            data: 'https://api.vietqr.io/image/970422-0394316963-compact2.jpg?amount=${depositAmount.round()}&addInfo=${Uri.encodeComponent('MLD HV $refCode')}',
-                            size: 170,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF86EFAC)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF15803D)),
-                            const SizedBox(width: 4),
-                            Text(
-                              context.tr('Đã đăng ký', 'Registered'),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.school_outlined, size: 20, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              widget.course.title,
                               style: const TextStyle(
-                                fontSize: 12,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF15803D),
+                                color: AcademyColors.heading,
                               ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 20, thickness: 1, color: Color(0xFFE2E8F0)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Học viên:',
+                            style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              studentName,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AcademyColors.heading,
+                              ),
+                              textAlign: TextAlign.end,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        '${NumberFormat('#,###', 'vi_VN').format(depositAmount.round())}đ',
-                        style: const TextStyle(
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.accent,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'MB Bank: 0394316963 · BUI THE HOANG',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AcademyColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Mã thanh toán: MLD HV $refCode',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Mã học viên:',
+                            style: TextStyle(fontSize: 13, color: AcademyColors.textSecondary),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              customerCode,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.primary,
+                                letterSpacing: 0.5,
+                              ),
+                              textAlign: TextAlign.end,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.check_circle_rounded, size: 19, color: Colors.white),
-                    label: Text(
-                      context.tr('Xác nhận đã chuyển khoản', 'Confirm Transfer Completed'),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    icon: const Icon(Icons.menu_book_rounded, size: 18, color: Colors.white),
+                    label: const Text(
+                      'Xem khóa học của tôi',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
+                      backgroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
-                    onPressed: () async {
+                    onPressed: () {
                       Navigator.of(ctx).pop();
-                      final approvedCourse = widget.course.copyWith(
-                        status: 'ACTIVE',
-                        approvalStatus: 'APPROVED',
-                        customerCode: customerCode,
-                        enrollmentId: enrollmentId,
-                      );
-                      AcademyRepository.instance.enrollCourseLocal(approvedCourse);
-                      if (enrollmentId != null && enrollmentId.isNotEmpty) {
-                        try {
-                          await SupabaseDataService.instance.updateCourseEnrollmentStatus(
-                            enrollmentId: enrollmentId,
-                            status: 'ACTIVE',
-                            approvalStatus: 'APPROVED',
-                            paymentStatus: 'PAID',
-                            admissionStatus: 'STUDYING',
-                            amountPaid: depositAmount,
-                          );
-                        } catch (_) {}
-                      }
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(context.tr(
-                            'Xác nhận thành công! Khóa học đã được mở cho bạn.',
-                            'Payment confirmed! Course is now unlocked for you.',
-                          )),
-                          backgroundColor: AppColors.accent,
-                          duration: const Duration(seconds: 3),
-                        ),
-                      );
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute(
-                          builder: (_) => E08ClassDetailScreen(course: approvedCourse),
+                          builder: (_) => const E07MyCoursesScreen(),
                         ),
                       );
                     },
@@ -524,119 +448,28 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.qr_code_2_rounded, size: 18, color: AppColors.primary),
-                    label: Text(
-                      context.tr('Thanh toán học phí online (QR)', 'Pay Tuition Online (QR)'),
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13.5),
-                    ),
+                  child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.primary, width: 1.5),
                       padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () {
                       Navigator.of(ctx).pop();
-                      AutoPaymentCheckoutSheet.show(
-                        context,
-                        amount: depositAmount,
-                        description: 'MLD HV $refCode',
-                        targetType: 'ENROLLMENT',
-                        targetId: enrollmentId,
-                        referenceCode: refCode,
-                        customerName: studentName,
-                        customerPhone: studentPhone,
-                        onPaymentSuccess: (status) async {
-                          final approvedCourse = widget.course.copyWith(
-                            status: 'ACTIVE',
-                            approvalStatus: 'APPROVED',
-                            customerCode: customerCode,
-                            enrollmentId: enrollmentId,
-                          );
-                          AcademyRepository.instance.enrollCourseLocal(approvedCourse);
-                          if (enrollmentId != null && enrollmentId.isNotEmpty) {
-                            try {
-                              await SupabaseDataService.instance.updateCourseEnrollmentStatus(
-                                enrollmentId: enrollmentId,
-                                status: 'ACTIVE',
-                                approvalStatus: 'APPROVED',
-                                paymentStatus: 'PAID',
-                                admissionStatus: 'STUDYING',
-                                amountPaid: depositAmount,
-                              );
-                            } catch (_) {}
-                          }
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(context.tr(
-                                'Thanh toán thành công! Khóa học đã được mở cho bạn.',
-                                'Payment successful! Course lessons are now unlocked for you.',
-                              )),
-                              backgroundColor: AppColors.accent,
-                              duration: const Duration(seconds: 3),
-                            ),
-                          );
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (_) => E08ClassDetailScreen(course: approvedCourse),
-                            ),
-                          );
-                        },
-                      );
+                      Navigator.of(context).pop();
                     },
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.menu_book_rounded, size: 18, color: Colors.white),
-                  label: const Text(
-                    'Xem khóa học của tôi',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (_) => const E07MyCoursesScreen(),
+                    child: const Text(
+                      'Về trang đào tạo',
+                      style: TextStyle(
+                        color: AcademyColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
                       ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text(
-                    'Về trang đào tạo',
-                    style: TextStyle(
-                      color: AcademyColors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1021,11 +854,13 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                                           children: [
                                             const Icon(Icons.phone_outlined, size: 12.5, color: AcademyColors.textSecondary),
                                             const SizedBox(width: 4),
-                                            Text(
-                                              'Hotline: ${branch.phone}',
-                                              style: const TextStyle(
-                                                fontSize: 11.5,
-                                                color: AcademyColors.textSecondary,
+                                            Expanded(
+                                              child: Text(
+                                                'Hotline: ${branch.phone}',
+                                                style: const TextStyle(
+                                                  fontSize: 11.5,
+                                                  color: AcademyColors.textSecondary,
+                                                ),
                                               ),
                                             ),
                                           ],

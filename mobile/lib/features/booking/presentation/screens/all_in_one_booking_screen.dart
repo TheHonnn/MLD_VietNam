@@ -14,6 +14,7 @@ import '../../../membership/data/models/membership_models.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/repositories/booking_repository.dart';
+import '../../../treatment/presentation/screens/d01_my_packages_screen.dart';
 import 'c09_my_appointments_screen.dart';
 
 /// Màn hình đặt lịch trị liệu All-in-One tinh giản theo chuẩn Design System (#2860EB)
@@ -24,6 +25,9 @@ class AllInOneBookingScreen extends StatefulWidget {
   final String? initialSpecialty;
   final String? userPackageId;
   final String? userPackageName;
+  final String? packageId;
+  final String? packageName;
+  final int? packageSessionsCount;
   final VoucherItem? initialVoucher;
   final List<String>? customTimeSlots;
 
@@ -35,6 +39,9 @@ class AllInOneBookingScreen extends StatefulWidget {
     this.initialSpecialty,
     this.userPackageId,
     this.userPackageName,
+    this.packageId,
+    this.packageName,
+    this.packageSessionsCount,
     this.initialVoucher,
     this.customTimeSlots,
   });
@@ -82,6 +89,7 @@ class AllInOneBookingScreen extends StatefulWidget {
 
 class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
   bool get _usesActivePackage => widget.userPackageId?.trim().isNotEmpty == true;
+  bool get _isPackagePurchase => !_usesActivePackage && (widget.packageId?.trim().isNotEmpty == true);
 
   late String _serviceId;
   late String _serviceTitle;
@@ -140,7 +148,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
     _serviceId = activeService.id;
     _serviceTitle = _usesActivePackage && widget.userPackageName?.trim().isNotEmpty == true
         ? widget.userPackageName!.trim()
-        : activeService.name;
+        : (_isPackagePurchase && widget.packageName?.trim().isNotEmpty == true
+            ? widget.packageName!.trim()
+            : activeService.name);
     _serviceDuration = activeService.durationMinutes;
     _pricePerPerson = _usesActivePackage ? 0 : activeService.displayPrice;
     _serviceImageUrl = activeService.imageUrl;
@@ -211,7 +221,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
             : ServiceRepository.defaultCoreVodderService.id;
         _serviceTitle = _usesActivePackage && widget.userPackageName?.trim().isNotEmpty == true
             ? widget.userPackageName!.trim()
-            : coreService.name;
+            : (_isPackagePurchase && widget.packageName?.trim().isNotEmpty == true
+                ? widget.packageName!.trim()
+                : coreService.name);
         _serviceDuration = coreService.durationMinutes;
         _serviceImageUrl = widget.initialService?.imageUrl ?? (coreService.imageUrl.isNotEmpty ? coreService.imageUrl : _serviceImageUrl);
         _pricePerPerson = _usesActivePackage ? 0 : coreService.displayPrice;
@@ -774,11 +786,14 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       }
     }
 
+    final sessionsTotal = widget.packageSessionsCount ?? 10;
     final packageReference = _usesActivePackage
         ? '[Gói liệu trình: ${widget.userPackageName ?? 'Đang sử dụng'} | user_package_id=${widget.userPackageId}]'
-        : (widget.initialService != null && widget.initialService!.categoryName.contains('Gói')
-            ? '[Đăng ký Gói liệu trình: $_serviceTitle]'
-            : '');
+        : (_isPackagePurchase
+            ? '[Gói liệu trình: ${widget.packageName ?? _serviceTitle} | Buổi 1/$sessionsTotal | package_id=${widget.packageId}]'
+            : (widget.initialService != null && widget.initialService!.categoryName.contains('Gói')
+                ? '[Đăng ký Gói liệu trình: $_serviceTitle]'
+                : ''));
     final customerNote = _noteController.text.trim();
     final synchronizedNotes = [packageReference, customerNote]
         .where((value) => value.trim().isNotEmpty)
@@ -818,16 +833,24 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       couponId: _selectedVoucher?.couponId,
       couponCode: _selectedVoucher?.code,
       userVoucherId: _selectedVoucher?.userVoucherId,
+      packageId: _isPackagePurchase ? widget.packageId : null,
+      packageName: _isPackagePurchase
+          ? (widget.packageName ?? _serviceTitle)
+          : (_usesActivePackage ? widget.userPackageName : null),
+      totalSessions: _isPackagePurchase ? sessionsTotal : null,
+      sessionNumber: _isPackagePurchase ? 1 : null,
       paymentMethod: _usesActivePackage ? 'MEMBERSHIP_WALLET' : _selectedPaymentMethod,
       paymentStatus: 'UNPAID',
-      status: AppointmentStatus.pending, // Chờ duyệt
+      status: AppointmentStatus.pending,
       createdAt: DateTime.now(),
       timeline: [
         BookingTimelineEvent(
           title: 'Đăng ký đặt lịch thành công',
           description: _usesActivePackage
               ? 'Đã ghi nhận buổi tiếp theo thuộc ${widget.userPackageName ?? 'liệu trình đang sử dụng'}. Chờ trung tâm xác nhận.'
-              : 'Hệ thống đã tiếp nhận yêu cầu đặt lịch ($_guestCount người). Chờ chuyên gia liên hệ xác nhận trong ít phút.',
+              : (_isPackagePurchase
+                  ? 'Đã đăng ký gói liệu trình ($sessionsTotal buổi) và đặt lịch Buổi 1. Các buổi tiếp theo bạn tự đặt trong mục Gói liệu trình của tôi.'
+                  : 'Hệ thống đã tiếp nhận yêu cầu đặt lịch ($_guestCount người). Chờ chuyên gia liên hệ xác nhận trong ít phút.'),
           timestamp: DateTime.now(),
           isCompleted: true,
           isCurrent: true,
@@ -896,9 +919,14 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              context.isEn
-                  ? 'Your appointment ($code) at ${_selectedBranch?.name.tr(context)} on $dateString has been booked.'
-                  : 'Lịch hẹn ($code) tại ${_selectedBranch?.name} ngày $dateString đã được ghi nhận.',
+              _isPackagePurchase
+                  ? context.tr(
+                      'Gói liệu trình (${widget.packageSessionsCount ?? 10} buổi) đã được ghi nhận và đặt lịch Buổi 1 ($code) ngày $dateString tại ${_selectedBranch?.name}. Từ Buổi 2 trở đi bạn tự đặt trong mục Gói liệu trình của tôi.',
+                      'Your ${widget.packageSessionsCount ?? 10}-session package is registered with Session 1 ($code) on $dateString at ${_selectedBranch?.name.tr(context)}. Self-book Session 2+ in My Packages.',
+                    )
+                  : (context.isEn
+                      ? 'Your appointment ($code) at ${_selectedBranch?.name.tr(context)} on $dateString has been booked.'
+                      : 'Lịch hẹn ($code) tại ${_selectedBranch?.name} ngày $dateString đã được ghi nhận.'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,
@@ -907,13 +935,41 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
               ),
             ),
             const SizedBox(height: 20),
+            if (_isPackagePurchase) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7E22CE),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const D01MyPackagesScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.layers_rounded, size: 19),
+                  label: Text(
+                    context.tr('Xem gói liệu trình của tôi', 'View My Packages'),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+                  backgroundColor: _isPackagePurchase ? Colors.white : AppColors.primary,
+                  foregroundColor: _isPackagePurchase ? AppColors.primary : Colors.white,
+                  side: _isPackagePurchase ? const BorderSide(color: AppColors.primary) : null,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
@@ -1100,9 +1156,36 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: (_isPackagePurchase || _usesActivePackage)
+                                      ? const Color(0xFFF3E8FF)
+                                      : const Color(0xFFE0F2FE),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  _isPackagePurchase
+                                      ? context.tr(
+                                          'GÓI LIỆU TRÌNH · ${widget.packageSessionsCount ?? 10} BUỔI',
+                                          'PACKAGE · ${widget.packageSessionsCount ?? 10} SESSIONS',
+                                        )
+                                      : (_usesActivePackage
+                                          ? context.tr('BUỔI TRONG GÓI LIỆU TRÌNH', 'PACKAGE SESSION')
+                                          : context.tr('DỊCH VỤ LẺ', 'SINGLE SERVICE')),
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: (_isPackagePurchase || _usesActivePackage)
+                                        ? const Color(0xFF7E22CE)
+                                        : const Color(0xFF0369A1),
+                                  ),
+                                ),
+                              ),
                               Text(
                                 _serviceTitle.tr(context),
-                                maxLines: 1,
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontSize: 17,
@@ -1126,7 +1209,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                           fit: BoxFit.scaleDown,
                                           alignment: Alignment.centerLeft,
                                           child: Text(
-                                            '$_serviceDuration phút / ca',
+                                            _isPackagePurchase
+                                                ? '${widget.packageSessionsCount ?? 10} buổi · $_serviceDuration phút / buổi'
+                                                : '$_serviceDuration phút / ca',
                                             maxLines: 1,
                                             style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
                                           ),
@@ -1135,11 +1220,13 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                                     ],
                                   ),
                                   Text(
-                                    '${_formatCurrency(_pricePerPerson)}đ',
-                                    style: const TextStyle(
+                                    _usesActivePackage
+                                        ? '0đ (Gói)'
+                                        : '${_formatCurrency(_pricePerPerson)}đ',
+                                    style: TextStyle(
                                       fontSize: 16.5,
                                       fontWeight: FontWeight.w800,
-                                      color: Color(0xFFDC2626),
+                                      color: _usesActivePackage ? AppColors.accent : const Color(0xFFDC2626),
                                     ),
                                   ),
                                 ],
@@ -1147,49 +1234,83 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                             ],
                           ),
                         ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF9FAFB),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove, size: 18),
-                                color: _guestCount > 1 ? AppColors.textPrimary : AppColors.border,
-                                onPressed: _guestCount > 1
-                                    ? () => setState(() => _guestCount--)
-                                    : null,
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                padding: EdgeInsets.zero,
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
-                                child: Text(
-                                  '$_guestCount',
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
+                        if (!_isPackagePurchase && !_usesActivePackage)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF9FAFB),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.remove, size: 18),
+                                  color: _guestCount > 1 ? AppColors.textPrimary : AppColors.border,
+                                  onPressed: _guestCount > 1
+                                      ? () => setState(() => _guestCount--)
+                                      : null,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  padding: EdgeInsets.zero,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                                  child: Text(
+                                    '$_guestCount',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimary,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add, size: 18),
-                                color: _guestCount < 10 ? AppColors.primary : AppColors.border,
-                                onPressed: _guestCount < 10
-                                    ? () => setState(() => _guestCount++)
-                                    : null,
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                padding: EdgeInsets.zero,
-                              ),
-                            ],
+                                IconButton(
+                                  icon: const Icon(Icons.add, size: 18),
+                                  color: _guestCount < 10 ? AppColors.primary : AppColors.border,
+                                  onPressed: _guestCount < 10
+                                      ? () => setState(() => _guestCount++)
+                                      : null,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  padding: EdgeInsets.zero,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
                       ],
                     ),
+                    if (_isPackagePurchase) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3E8FF).withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFD8B4FE)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.event_repeat_rounded, size: 17, color: Color(0xFF7E22CE)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                context.tr(
+                                  'Lịch đặt dưới đây là Buổi 1/${widget.packageSessionsCount ?? 10}. Sau khi đăng ký, gói sẽ xuất hiện trong "Gói liệu trình của tôi" để bạn tự đặt Buổi 2 trở đi.',
+                                  'This booking schedules Session 1/${widget.packageSessionsCount ?? 10}. After registering, your package appears in "My Packages" so you can self-book Session 2+.',
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF581C87),
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 10),
                       child: Divider(height: 1, color: AppColors.border),
@@ -1750,6 +1871,20 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
+                    _buildInfoRow(
+                      context.tr('Hình thức:', 'Type:'),
+                      _isPackagePurchase
+                          ? context.tr(
+                              'Gói liệu trình (${widget.packageSessionsCount ?? 10} buổi) · Buổi 1',
+                              'Package (${widget.packageSessionsCount ?? 10} sessions) · Session 1',
+                            )
+                          : (_usesActivePackage
+                              ? context.tr('Đặt buổi từ Gói liệu trình', 'Package Session')
+                              : context.tr('Dịch vụ lẻ', 'Single Service')),
+                      valueColor: (_isPackagePurchase || _usesActivePackage)
+                          ? const Color(0xFF7E22CE)
+                          : AppColors.primary,
+                    ),
                     _buildInfoRow(context.tr('Dịch vụ:', 'Service:'), _serviceTitle.tr(context)),
                     _buildInfoRow(context.tr('Chi nhánh:', 'Branch:'), _selectedBranch != null ? _selectedBranch!.name.tr(context) : '---'),
                     _buildInfoRow(context.tr('Thời gian:', 'Time:'), '$dateDisplay | $_selectedTimeSlot'),

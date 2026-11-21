@@ -271,4 +271,106 @@ describe('PaymentsService Security & Webhook Hardening Tests', () => {
     expect(second.idempotent).toBe(true);
     expect(intentUpdateSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('rejects confirmation when PayOS reports unpaid and activates course only when full payment is received', async () => {
+    const config = new ConfigService({
+      PAYOS_CLIENT_ID: 'client-id',
+      PAYOS_API_KEY: 'api-key',
+      PAYOS_CHECKSUM_KEY: 'checksum-key',
+    });
+    const service = new PaymentsService(config, mockSupabase, mockRedis);
+
+    let payosStatusResponse: any = { status: 'PENDING', amountPaid: 0, amountRemaining: 350000 };
+    (service as any).payos = {
+      paymentRequests: {
+        get: vi.fn(async () => payosStatusResponse),
+      },
+    };
+
+    const enrollmentUpdateSpy = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    const intentUpdateSpy = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    const tuitionInsertSpy = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({ maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'tx-1' }, error: null }) }),
+    });
+
+    mockSupabase.adminClient.from = vi.fn().mockImplementation((table: string) => {
+      if (table === 'payment_gateway_intents') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'intent-enr-1',
+                  order_code: 556677,
+                  target_type: 'ENROLLMENT',
+                  target_id: 'enr-1',
+                  amount: 350000,
+                  amount_paid: 0,
+                  status: 'PENDING',
+                },
+              }),
+            }),
+          }),
+          update: intentUpdateSpy,
+        };
+      }
+      if (table === 'course_enrollments') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'enr-1',
+                  student_id: 'stu-1',
+                  course_id: 'course-1',
+                  amount_paid: 0,
+                  tuition_total: 350000,
+                  status: 'PENDING_APPROVAL',
+                  approval_status: 'PENDING_APPROVAL',
+                  payment_status: 'UNPAID',
+                },
+              }),
+            }),
+          }),
+          update: enrollmentUpdateSpy,
+        };
+      }
+      if (table === 'tuition_transactions') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null }),
+            }),
+          }),
+          insert: tuitionInsertSpy,
+        };
+      }
+      return { select: vi.fn(), update: vi.fn() };
+    });
+
+    const unpaidRes = await service.checkGatewayIntentStatus(556677);
+    expect(unpaidRes.isPaid).toBe(false);
+    expect(unpaidRes.message).toContain('Vui lòng thanh toán');
+    expect(enrollmentUpdateSpy).not.toHaveBeenCalled();
+
+    payosStatusResponse = { status: 'PAID', amountPaid: 100000, amountRemaining: 250000 };
+    const partialRes = await service.checkGatewayIntentStatus(556677);
+    expect(partialRes.isPaid).toBe(false);
+    expect(enrollmentUpdateSpy).not.toHaveBeenCalled();
+
+    payosStatusResponse = { status: 'PAID', amountPaid: 350000, amountRemaining: 0 };
+    const paidRes = await service.checkGatewayIntentStatus(556677);
+    expect(paidRes.isPaid).toBe(true);
+    expect(paidRes.status).toBe('PAID');
+    expect(intentUpdateSpy).toHaveBeenCalledWith(expect.objectContaining({ status: 'PAID', amount_paid: 350000 }));
+    expect(enrollmentUpdateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'STUDYING',
+        approval_status: 'APPROVED',
+        payment_status: 'PAID',
+        amount_paid: 350000,
+      }),
+    );
+    expect(tuitionInsertSpy).toHaveBeenCalledTimes(1);
+  });
 });

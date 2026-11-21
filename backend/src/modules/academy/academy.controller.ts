@@ -200,6 +200,18 @@ export class AcademyController {
   ) {
     return this.academyService.extendEnrollment(id, body?.extensionMonths || 3, body?.reason || 'Gia hạn theo yêu cầu');
   }
+
+  @Post('enrollments/:id/cancel')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Học viên hủy đăng ký khóa học' })
+  async cancelEnrollment(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.academyService.cancelEnrollment(id, userId);
+  }
 }
 
 

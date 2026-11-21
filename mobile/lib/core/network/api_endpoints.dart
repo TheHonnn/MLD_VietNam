@@ -114,6 +114,7 @@ class ApiEndpoints {
   static const String academyCourses = '/academy/courses';
   static String academyCourseDetail(String id) => '/academy/courses/$id';
   static const String academyEnroll = '/academy/enroll';
+  static String academyCancelEnrollment(String id) => '/academy/enrollments/$id/cancel';
   static const String academyMyCourses = '/academy/my-courses';
   static const String academySchedule = '/academy/schedule';
   static const String academyResults = '/academy/results';
@@ -145,4 +146,6 @@ class ApiEndpoints {
   static const String paymentGatewayConfig = '/payments/gateway/config';
   static const String paymentGatewayIntent = '/payments/gateway/intent';
   static String paymentGatewayStatus(int orderCode) => '/payments/gateway/status/$orderCode';
+  static const String paymentCreatePayosLink = '/payments/create-payos-link';
+  static String paymentPayosStatus(int orderCode) => '/payments/payos/status/$orderCode';
 }

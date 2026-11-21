@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
@@ -9,6 +10,21 @@ class PaymentGatewayRepository {
   factory PaymentGatewayRepository() => instance;
 
   final ApiClient _apiClient = ApiClient.instance;
+
+  @visibleForTesting
+  Future<PaymentGatewayIntentModel> Function({
+    required double amount,
+    required String description,
+    required String targetType,
+    String? targetId,
+    String? referenceCode,
+    String? customerId,
+    String? customerName,
+    String? customerPhone,
+  })? debugCreateIntentOverride;
+
+  @visibleForTesting
+  Future<PaymentGatewayStatusModel> Function(int orderCode)? debugCheckStatusOverride;
 
   static const String defaultBankBin = '970422';
   static const String defaultBankAccountNo = '0394316963';
@@ -30,14 +46,7 @@ class PaymentGatewayRepository {
     } catch (e) {
       debugPrint('[PaymentGatewayRepository] getGatewayConfig error: $e');
     }
-    return const PaymentGatewayConfigModel(
-      provider: 'PAYOS',
-      configured: true,
-      supportedModes: ['GATEWAY_CHECKOUT', 'VIETQR', 'BANK_TRANSFER'],
-      bankBin: defaultBankBin,
-      bankAccountNo: defaultBankAccountNo,
-      bankAccountName: defaultBankAccountName,
-    );
+    return PaymentGatewayConfigModel.unconfigured();
   }
 
   Future<PaymentGatewayIntentModel> createPaymentIntent({
@@ -50,17 +59,34 @@ class PaymentGatewayRepository {
     String? customerName,
     String? customerPhone,
   }) async {
-    final orderCode = int.tryParse(DateTime.now().millisecondsSinceEpoch.toString().substring(7)) ?? 100001;
-    final cleanDesc = description.trim().replaceAll(RegExp(r'[^a-zA-Z0-9\s_-]'), '').trim();
-    final effectiveDesc = cleanDesc.isNotEmpty ? cleanDesc : 'MLD $orderCode';
-    final vietQrUrl = 'https://api.vietqr.io/image/$defaultBankBin-$defaultBankAccountNo-compact2.jpg?amount=${amount.round()}&addInfo=${Uri.encodeComponent(effectiveDesc)}&accountName=${Uri.encodeComponent(defaultBankAccountName)}';
+    final override = debugCreateIntentOverride;
+    if (override != null) {
+      return override(
+        amount: amount,
+        description: description,
+        targetType: targetType,
+        targetId: targetId,
+        referenceCode: referenceCode,
+        customerId: customerId,
+        customerName: customerName,
+        customerPhone: customerPhone,
+      );
+    }
+
+    final cleanDesc = description
+        .trim()
+        .replaceAll(RegExp(r'[^a-zA-Z0-9\s_-]'), '')
+        .trim();
+    final effectiveDesc = cleanDesc.isNotEmpty
+        ? (cleanDesc.length > 25 ? cleanDesc.substring(0, 25) : cleanDesc)
+        : 'MLD ${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
 
     try {
       final res = await _apiClient.dio.post(
         ApiEndpoints.paymentGatewayIntent,
         data: {
           'amount': amount.round(),
-          'description': description,
+          'description': effectiveDesc,
           'targetType': targetType,
           if (targetId != null && targetId.isNotEmpty) 'targetId': targetId,
           if (referenceCode != null && referenceCode.isNotEmpty) 'referenceCode': referenceCode,
@@ -73,143 +99,169 @@ class PaymentGatewayRepository {
         final raw = res.data['data'] ?? res.data;
         if (raw is Map) {
           final intent = PaymentGatewayIntentModel.fromJson(Map<String, dynamic>.from(raw));
-          if (intent.qrCode.isNotEmpty && intent.accountNumber.isNotEmpty) {
+          if (intent.orderCode > 0 && intent.qrCode.isNotEmpty && intent.accountNumber.isNotEmpty) {
             return intent;
           }
           return intent.copyWith(
-            bankBin: intent.bankBin.isNotEmpty ? intent.bankBin : defaultBankBin,
-            accountNumber: intent.accountNumber.isNotEmpty ? intent.accountNumber : defaultBankAccountNo,
-            accountName: intent.accountName.isNotEmpty ? intent.accountName : defaultBankAccountName,
-            qrCode: intent.qrCode.isNotEmpty ? intent.qrCode : vietQrUrl,
-            gatewayConfigured: true,
+            gatewayConfigured: false,
+            message: intent.message.isNotEmpty
+                ? intent.message
+                : 'Cổng thanh toán PayOS trên máy chủ chưa được cấu hình đầy đủ.',
           );
         }
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        try {
+          final legacyRes = await _apiClient.dio.post(
+            ApiEndpoints.paymentCreatePayosLink,
+            data: {
+              'amount': amount.round(),
+              'description': effectiveDesc,
+              if (targetType == 'BOOKING' && targetId != null) 'bookingId': targetId,
+              if (targetType == 'BOOKING' && referenceCode != null) 'bookingCode': referenceCode,
+              if (targetType == 'ENROLLMENT' && targetId != null) 'enrollmentId': targetId,
+              if (targetType == 'INVOICE' && targetId != null) 'invoiceId': targetId,
+              if (customerName != null && customerName.isNotEmpty) 'customerName': customerName,
+              if (customerPhone != null && customerPhone.isNotEmpty) 'customerPhone': customerPhone,
+            },
+          );
+          if ((legacyRes.statusCode == 200 || legacyRes.statusCode == 201) && legacyRes.data is Map) {
+            final raw = legacyRes.data['data'] ?? legacyRes.data;
+            if (raw is Map) {
+              final map = Map<String, dynamic>.from(raw);
+              final qr = map['qrCode']?.toString() ?? '';
+              final accNo = map['accountNumber']?.toString() ?? '';
+              final oCode = int.tryParse(map['orderCode']?.toString() ?? '0') ?? 0;
+              final configured = map['gatewayConfigured'] == true ||
+                  (qr.isNotEmpty && !qr.startsWith('http') && accNo.isNotEmpty);
+              return PaymentGatewayIntentModel(
+                orderCode: oCode,
+                provider: 'PAYOS',
+                gatewayConfigured: configured,
+                targetType: targetType,
+                targetId: targetId,
+                referenceCode: referenceCode,
+                amount: (map['amount'] as num?)?.toDouble() ?? amount,
+                description: map['description']?.toString() ?? effectiveDesc,
+                bankBin: map['bin']?.toString() ?? defaultBankBin,
+                accountNumber: accNo,
+                accountName: map['accountName']?.toString() ?? defaultBankAccountName,
+                qrCode: configured ? qr : '',
+                checkoutUrl: map['checkoutUrl']?.toString() ?? '',
+                status: 'PENDING',
+                isPaid: false,
+                message: configured
+                    ? 'Quét mã VietQR bằng ứng dụng ngân hàng để thanh toán.'
+                    : 'Máy chủ cổng thanh toán PayOS chưa được kích hoạt.',
+              );
+            }
+          }
+        } catch (legacyErr) {
+          debugPrint('[PaymentGatewayRepository] legacy createPaymentIntent error: $legacyErr');
+        }
+      } else {
+        debugPrint('[PaymentGatewayRepository] createPaymentIntent error: $e');
       }
     } catch (e) {
       debugPrint('[PaymentGatewayRepository] createPaymentIntent error: $e');
     }
 
-    try {
-      await _apiClient.dio.post(
-        '/rest/v1/payment_gateway_intents',
-        data: {
-          'order_code': orderCode,
-          'provider': 'PAYOS',
-          'target_type': targetType,
-          if (targetId != null && targetId.isNotEmpty) 'target_id': targetId,
-          if (referenceCode != null && referenceCode.isNotEmpty) 'reference_code': referenceCode,
-          if (customerId != null && customerId.isNotEmpty) 'customer_id': customerId,
-          'amount': amount.round(),
-          'status': 'PENDING',
-          'qr_code': vietQrUrl,
-          'bank_bin': defaultBankBin,
-          'bank_account_no': defaultBankAccountNo,
-          'bank_account_name': defaultBankAccountName,
-          'description': effectiveDesc,
-        },
-      );
-    } catch (_) {}
-
     return PaymentGatewayIntentModel(
-      orderCode: orderCode,
+      orderCode: 0,
       provider: 'PAYOS',
-      gatewayConfigured: true,
+      gatewayConfigured: false,
       targetType: targetType,
       targetId: targetId,
       referenceCode: referenceCode,
       amount: amount,
       description: effectiveDesc,
       bankBin: defaultBankBin,
-      accountNumber: defaultBankAccountNo,
-      accountName: defaultBankAccountName,
-      qrCode: vietQrUrl,
-      status: 'PENDING',
+      accountNumber: '',
+      accountName: '',
+      qrCode: '',
+      status: 'UNAVAILABLE',
       isPaid: false,
-      message: 'Quét mã VietQR MBBank để chuyển khoản trực tuyến tự động.',
+      message: 'Không thể kết nối máy chủ thanh toán PayOS. Vui lòng thử lại sau.',
     );
   }
 
   Future<PaymentGatewayStatusModel> checkPaymentStatus(int orderCode) async {
+    final override = debugCheckStatusOverride;
+    if (override != null) {
+      return override(orderCode);
+    }
+
+    if (orderCode <= 0) {
+      return const PaymentGatewayStatusModel(
+        orderCode: 0,
+        provider: 'PAYOS',
+        configured: false,
+        isPaid: false,
+        status: 'PENDING',
+        message: 'Vui lòng thanh toán. Mã giao dịch không hợp lệ.',
+      );
+    }
+
     try {
       final res = await _apiClient.dio.get(ApiEndpoints.paymentGatewayStatus(orderCode));
       if (res.statusCode == 200 && res.data is Map) {
         final raw = res.data['data'] ?? res.data;
         if (raw is Map) {
-          return PaymentGatewayStatusModel.fromJson(Map<String, dynamic>.from(raw));
+          final parsed = PaymentGatewayStatusModel.fromJson(Map<String, dynamic>.from(raw));
+          if (!parsed.isPaid && parsed.message.isEmpty) {
+            return PaymentGatewayStatusModel(
+              orderCode: parsed.orderCode,
+              provider: parsed.provider,
+              configured: parsed.configured,
+              isPaid: false,
+              status: parsed.status,
+              amountPaid: parsed.amountPaid,
+              amountRemaining: parsed.amountRemaining,
+              paidAt: parsed.paidAt,
+              message: 'Vui lòng thanh toán. Hệ thống chưa nhận được tiền về tài khoản trung tâm.',
+            );
+          }
+          return parsed;
         }
       }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        try {
+          final legacyRes = await _apiClient.dio.get(ApiEndpoints.paymentPayosStatus(orderCode));
+          if (legacyRes.statusCode == 200 && legacyRes.data is Map) {
+            final raw = legacyRes.data['data'] ?? legacyRes.data;
+            if (raw is Map) {
+              final map = Map<String, dynamic>.from(raw);
+              final isPaid = map['isPaid'] == true || map['status']?.toString().toUpperCase() == 'PAID';
+              return PaymentGatewayStatusModel(
+                orderCode: orderCode,
+                provider: 'PAYOS',
+                configured: true,
+                isPaid: isPaid,
+                status: isPaid ? 'PAID' : (map['status']?.toString() ?? 'PENDING'),
+                amountPaid: (map['amountPaid'] as num?)?.toDouble() ?? 0.0,
+                amountRemaining: (map['amountRemaining'] as num?)?.toDouble() ?? 0.0,
+                message: isPaid
+                    ? (map['message']?.toString() ?? 'Thanh toán thành công!')
+                    : 'Vui lòng thanh toán. Hệ thống chưa nhận được tiền về tài khoản trung tâm.',
+              );
+            }
+          }
+        } catch (_) {}
+      }
+      debugPrint('[PaymentGatewayRepository] checkPaymentStatus error: $e');
     } catch (e) {
       debugPrint('[PaymentGatewayRepository] checkPaymentStatus error: $e');
     }
 
-    try {
-      final res = await _apiClient.dio.get(
-        '/rest/v1/payment_gateway_intents?order_code=eq.$orderCode&select=*',
-      );
-      if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
-        final item = (res.data as List).first;
-        if (item is Map) {
-          final status = (item['status']?.toString() ?? 'PENDING').toUpperCase();
-          final isPaid = status == 'PAID';
-          return PaymentGatewayStatusModel(
-            orderCode: orderCode,
-            provider: item['provider']?.toString() ?? 'PAYOS',
-            configured: true,
-            isPaid: isPaid,
-            status: status,
-            amountPaid: (item['amount_paid'] as num?)?.toDouble() ?? 0.0,
-            message: isPaid ? 'Thanh toán thành công' : 'Đang chờ xác nhận giao dịch chuyển khoản.',
-          );
-        }
-      }
-    } catch (_) {}
-
     return PaymentGatewayStatusModel(
       orderCode: orderCode,
       provider: 'PAYOS',
-      configured: true,
+      configured: false,
       isPaid: false,
       status: 'PENDING',
-      message: 'Đang chờ hệ thống đối soát giao dịch chuyển khoản.',
-    );
-  }
-
-  Future<PaymentGatewayStatusModel> confirmPaymentManually(
-    int orderCode, {
-    String? targetType,
-    String? targetId,
-  }) async {
-    try {
-      await _apiClient.dio.patch(
-        '/rest/v1/payment_gateway_intents?order_code=eq.$orderCode',
-        data: {
-          'status': 'PAID',
-          'paid_at': DateTime.now().toIso8601String(),
-        },
-      );
-    } catch (_) {}
-
-    if (targetType == 'ENROLLMENT' && targetId != null && targetId.isNotEmpty) {
-      try {
-        await _apiClient.dio.patch(
-          '/rest/v1/course_enrollments?id=eq.$targetId',
-          data: {
-            'status': 'ACTIVE',
-            'approval_status': 'APPROVED',
-            'payment_status': 'PAID',
-            'admission_status': 'STUDYING',
-          },
-        );
-      } catch (_) {}
-    }
-
-    return PaymentGatewayStatusModel(
-      orderCode: orderCode,
-      provider: 'PAYOS',
-      configured: true,
-      isPaid: true,
-      status: 'PAID',
-      message: 'Giao dịch chuyển khoản đã được ghi nhận thành công!',
+      message: 'Vui lòng thanh toán. Hệ thống chưa nhận được tiền về tài khoản trung tâm.',
     );
   }
 }

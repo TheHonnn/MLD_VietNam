@@ -188,13 +188,11 @@ export class AcademyService {
    * E05/E06: Đăng ký (Ghi danh) khóa học & nhận thông tin thanh toán đặt cọc
    */
   async enrollCourse(userId: string, dto: EnrollCourseDto) {
-    const { courseId, batchId, studentName, studentPhone, studentEmail, selectedBranch, selectedShift } = dto;
-    const depositAmount = dto.depositAmount || 2000000;
+    const { courseId, batchId, studentName, studentPhone, studentEmail, selectedBranch, selectedShift, studentAddress, studentType } = dto;
     const enrollmentCode = `MLD-EDU-${Date.now().toString().slice(-6)}`;
 
     let studentId = (userId && userId !== 'default-user') ? userId : null;
 
-    // 1. Kiểm tra tài khoản người dùng hoặc tìm theo SĐT/Email
       if (studentId) {
         const { data: existingUser } = await this.supabaseService.adminClient
           .from('users')
@@ -217,7 +215,6 @@ export class AcademyService {
             .eq('id', studentId);
         }
       } else {
-        // Tìm theo số điện thoại
         if (studentPhone) {
           const { data: userByPhone } = await this.supabaseService.adminClient
             .from('users')
@@ -227,7 +224,6 @@ export class AcademyService {
           if (userByPhone?.id) studentId = userByPhone.id;
         }
 
-        // Tìm theo email nếu chưa tìm thấy
         if (!studentId && studentEmail) {
           const { data: userByEmail } = await this.supabaseService.adminClient
             .from('users')
@@ -237,7 +233,6 @@ export class AcademyService {
           if (userByEmail?.id) studentId = userByEmail.id;
         }
 
-        // Nếu vẫn chưa có tài khoản, tạo mới trong bảng users
         if (!studentId) {
           const { data: newUser } = await this.supabaseService.adminClient
             .from('users')
@@ -261,10 +256,10 @@ export class AcademyService {
 
       const { data: duplicateEnrollment } = await this.supabaseService.adminClient
         .from('course_enrollments')
-        .select('id, status')
+        .select('id, status, tuition_total, amount_paid')
         .eq('student_id', studentId)
         .eq('course_id', courseId)
-        .not('status', 'in', '(GRADUATED,DROPPED)')
+        .not('status', 'in', '(GRADUATED,DROPPED,ARCHIVED)')
         .limit(1)
         .maybeSingle();
       if (duplicateEnrollment) {
@@ -272,24 +267,29 @@ export class AcademyService {
           success: false,
           statusCode: 409,
           message: 'Bạn đã có một hồ sơ đang được xử lý cho khóa học này.',
-          data: { id: duplicateEnrollment.id, status: duplicateEnrollment.status },
+          data: {
+            id: duplicateEnrollment.id,
+            status: duplicateEnrollment.status,
+            tuitionTotal: Number(duplicateEnrollment.tuition_total || 0),
+            amountPaid: Number(duplicateEnrollment.amount_paid || 0),
+          },
         };
       }
 
-      // 2. Lấy thông tin học phí khóa học
-      let tuitionTotal = 15000000;
-      let requiredDeposit = depositAmount;
-      try {
-        const { data: cData } = await this.supabaseService.adminClient
-          .from('courses')
-          .select('tuition_fee, deposit_amount')
-          .eq('id', courseId)
-          .maybeSingle();
-        if (cData?.tuition_fee) {
-          tuitionTotal = Number(cData.tuition_fee);
-        }
-        if (cData?.deposit_amount) requiredDeposit = Number(cData.deposit_amount);
-      } catch (_) {}
+      const { data: cData, error: cError } = await this.supabaseService.adminClient
+        .from('courses')
+        .select('id, tuition_fee, deposit_amount')
+        .eq('id', courseId)
+        .maybeSingle();
+      if (cError || !cData || Number(cData.tuition_fee || 0) <= 0) {
+        throw new BadRequestException('Không tìm thấy thông tin học phí hợp lệ của khóa học.');
+      }
+
+      const tuitionTotal = Number(cData.tuition_fee);
+      const isBeginner = String(studentType || '').toUpperCase() === 'BEGINNER';
+      const requiredDeposit = isBeginner
+        ? tuitionTotal
+        : Number(cData.deposit_amount || dto.depositAmount || tuitionTotal);
 
       let studentCode: string | null = null;
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -312,6 +312,11 @@ export class AcademyService {
         }
       } catch (_) {}
 
+      const notesParts = [`Mã HV: ${customerCode}`, `Mã hồ sơ: ${enrollmentCode}`];
+      if (studentAddress && studentAddress.trim()) {
+        notesParts.push(`Địa chỉ: ${studentAddress.trim()}`);
+      }
+
       const { data: enrollment, error: enrollmentError } = await this.supabaseService.adminClient
         .from('course_enrollments')
         .insert({
@@ -325,15 +330,16 @@ export class AcademyService {
           student_phone: studentPhone,
           student_email: studentEmail || null,
           selected_branch: selectedBranch || 'Chi nhánh Quận 3 - TP.HCM',
+          student_type: studentType || 'BEGINNER',
           approval_status: 'PENDING_APPROVAL',
           consultation_status: 'PENDING_CONSULTATION',
           payment_status: 'UNPAID',
           student_status: 'NOT_APPROVED',
           required_deposit: requiredDeposit,
           order_code: customerCode,
-          approval_notes: `Mã HV: ${customerCode}; Mã hồ sơ: ${enrollmentCode}`,
+          approval_notes: notesParts.join('; '),
         })
-        .select('id, status, approval_status')
+        .select('id, status, approval_status, tuition_total, amount_paid')
         .single();
 
       if (enrollmentError || !enrollment) {
@@ -343,7 +349,7 @@ export class AcademyService {
 
     return {
       success: true,
-      message: 'Đã nhận hồ sơ đăng ký. Nhân viên sẽ kiểm tra và liên hệ về học phí, lịch học.',
+      message: 'Đã nhận hồ sơ đăng ký.',
       data: {
         id: enrollment.id,
         enrollmentCode,
@@ -356,7 +362,8 @@ export class AcademyService {
         selectedBranch: selectedBranch || 'Chi nhánh Quận 3',
         selectedShift: selectedShift || 'Thứ 6–7–Chủ nhật · 13:00–17:00',
         depositAmount: requiredDeposit,
-        tuitionTotal,
+        tuitionTotal: Number(enrollment.tuition_total || tuitionTotal),
+        amountPaid: Number(enrollment.amount_paid || 0),
         status: enrollment.status,
         approvalStatus: enrollment.approval_status,
       },
@@ -582,6 +589,7 @@ export class AcademyService {
             student_status,
             approval_notes,
             order_code,
+            payment_status,
             tuition_total,
             amount_paid,
             completed_lessons_count,
@@ -597,6 +605,8 @@ export class AcademyService {
               title,
               code,
               image_url,
+              tuition_fee,
+              deposit_amount,
               total_lessons,
               total_hours,
               course_categories (name),
@@ -610,7 +620,9 @@ export class AcademyService {
               branches (name)
             )
           `)
-          .eq('student_id', userId);
+          .eq('student_id', userId)
+          .not('status', 'in', '(DROPPED,ARCHIVED)')
+          .neq('approval_status', 'CANCELLED');
 
         if (!error && data && data.length > 0) {
           let userStudentCode: string | null = null;
@@ -633,7 +645,6 @@ export class AcademyService {
               ['ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'].includes(String(item.student_status).toUpperCase()) ||
               ['ENROLLED', 'STUDYING', 'COMPLETED', 'GRADUATED'].includes(String(item.status).toUpperCase());
 
-            // TÍNH TOÁN HIỆU LỰC 365 NGÀY THEO CHUẨN ĐẶC TẢ GIAI ĐOẠN 2
             const validUntil = item.valid_until || (item.enrolled_at ? new Date(new Date(item.enrolled_at).getTime() + 365 * 24 * 60 * 60 * 1000).toISOString() : null);
             const nowTime = Date.now();
             const validTime = validUntil ? new Date(validUntil).getTime() : 0;
@@ -643,6 +654,9 @@ export class AcademyService {
             const computedAccessStatus = isExpired
               ? 'EXPIRED'
               : (item.access_status === 'EXTENDED' ? 'EXTENDED' : (isExpiringSoon ? 'EXPIRING_SOON' : 'ACTIVE'));
+
+            const tuitionTotalVal = Number(item.tuition_total || item.courses?.tuition_fee || 0);
+            const amountPaidVal = Number(item.amount_paid || 0);
 
             return {
               id: item.id,
@@ -656,6 +670,11 @@ export class AcademyService {
               completedLessons: item.completed_lessons_count || 0,
               totalLessons: item.courses?.total_lessons || 20,
               progressPercentage: item.progress_percent || 0,
+              tuitionFee: Number(item.courses?.tuition_fee || tuitionTotalVal),
+              depositAmount: Number(item.courses?.deposit_amount || 0),
+              tuitionTotal: tuitionTotalVal,
+              amountPaid: amountPaidVal,
+              paymentStatus: item.payment_status || 'UNPAID',
               status: item.status,
               approvalStatus: isApproved ? 'APPROVED' : (item.approval_status || item.student_status || 'NOT_APPROVED'),
               studentStatus: item.student_status,
@@ -862,6 +881,68 @@ export class AcademyService {
         message: err.message || 'Lỗi gia hạn học viên',
       };
     }
+  }
+
+  async cancelEnrollment(enrollmentId: string, userId: string) {
+    const { data: enrollment, error } = await this.supabaseService.adminClient
+      .from('course_enrollments')
+      .select('id, student_id, course_id, batch_id, status, approval_status, amount_paid, payment_status')
+      .eq('id', enrollmentId)
+      .maybeSingle();
+
+    if (error || !enrollment) {
+      throw new NotFoundException('Không tìm thấy hồ sơ đăng ký khóa học.');
+    }
+
+    if (userId && enrollment.student_id !== userId) {
+      throw new BadRequestException('Bạn không có quyền hủy hồ sơ đăng ký này.');
+    }
+
+    const currentStatus = String(enrollment.status || '').toUpperCase();
+    if (currentStatus === 'GRADUATED') {
+      throw new BadRequestException('Không thể hủy khóa học đã hoàn thành tốt nghiệp.');
+    }
+    if (currentStatus === 'DROPPED' || String(enrollment.approval_status || '').toUpperCase() === 'CANCELLED') {
+      return {
+        success: true,
+        message: 'Khóa học đã được hủy đăng ký trước đó.',
+      };
+    }
+
+    const { error: updateErr } = await this.supabaseService.adminClient
+      .from('course_enrollments')
+      .update({
+        status: 'DROPPED',
+        approval_status: 'CANCELLED',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', enrollmentId);
+
+    if (updateErr) {
+      throw new InternalServerErrorException('Không thể hủy đăng ký khóa học. Vui lòng thử lại.');
+    }
+
+    if (enrollment.batch_id) {
+      try {
+        const { data: batch } = await this.supabaseService.adminClient
+          .from('course_batches')
+          .select('enrolled_count')
+          .eq('id', enrollment.batch_id)
+          .maybeSingle();
+        if (batch && Number(batch.enrolled_count || 0) > 0) {
+          await this.supabaseService.adminClient
+            .from('course_batches')
+            .update({ enrolled_count: Number(batch.enrolled_count) - 1 })
+            .eq('id', enrollment.batch_id);
+        }
+      } catch (_) {}
+    }
+
+    return {
+      success: true,
+      message: 'Đã hủy đăng ký khóa học thành công.',
+      data: { id: enrollmentId, status: 'DROPPED', approvalStatus: 'CANCELLED' },
+    };
   }
 
   async getMySchedule(userId: string) {

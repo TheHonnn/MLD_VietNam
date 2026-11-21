@@ -429,15 +429,95 @@ class AdminRepository {
 
       final res = await _apiClient.dio.get(query);
       if (res.data is List) {
-        return (res.data as List)
+        final bookings = (res.data as List)
             .map((item) => AdminBookingModel.fromJson(item as Map<String, dynamic>))
             .toList();
+        return await _enrichBookingPackages(bookings);
       }
       return [];
     } catch (e) {
       debugPrint('[AdminRepository] fetchBookings error: $e');
       return [];
     }
+  }
+
+  Future<List<AdminBookingModel>> _enrichBookingPackages(
+    List<AdminBookingModel> bookings,
+  ) async {
+    if (bookings.isEmpty) return bookings;
+    final upkgIds = bookings
+        .map((b) => b.userPackageId)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    final bookingIds = bookings
+        .where((b) => b.isPackageSession && b.id.isNotEmpty)
+        .map((b) => b.id)
+        .toSet()
+        .toList();
+
+    if (upkgIds.isEmpty && bookingIds.isEmpty) return bookings;
+
+    final Map<String, Map<String, dynamic>> pkgMap = {};
+    final Map<String, int> sessionNumByBooking = {};
+
+    try {
+      if (upkgIds.isNotEmpty) {
+        final pRes = await _apiClient.dio.get(
+          '/rest/v1/user_packages?id=in.(${upkgIds.join(',')})&select=id,total_sessions,completed_sessions,status,treatment_packages(name)',
+        );
+        if (pRes.statusCode == 200 && pRes.data is List) {
+          for (final row in (pRes.data as List)) {
+            if (row is Map && row['id'] != null) {
+              pkgMap[row['id'].toString()] = Map<String, dynamic>.from(row);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    try {
+      if (bookingIds.isNotEmpty) {
+        final jRes = await _apiClient.dio.get(
+          '/rest/v1/treatment_journal?booking_id=in.(${bookingIds.join(',')})&is_reversed=is.false&select=booking_id,session_number',
+        );
+        if (jRes.statusCode == 200 && jRes.data is List) {
+          for (final row in (jRes.data as List)) {
+            if (row is Map && row['booking_id'] != null) {
+              final sn = (row['session_number'] as num?)?.toInt();
+              if (sn != null && sn > 0) {
+                sessionNumByBooking[row['booking_id'].toString()] = sn;
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    return bookings.map((b) {
+      final upId = b.userPackageId;
+      final pkgData = upId != null ? pkgMap[upId] : null;
+      final tpObj = pkgData?['treatment_packages'];
+      final tpName = tpObj is Map
+          ? tpObj['name']?.toString()
+          : (tpObj is List && tpObj.isNotEmpty && tpObj.first is Map
+              ? tpObj.first['name']?.toString()
+              : null);
+      final totalSess = (pkgData?['total_sessions'] as num?)?.toInt() ?? b.totalSessions;
+      final completedSess = (pkgData?['completed_sessions'] as num?)?.toInt() ?? b.completedSessions;
+      final recordedSess = sessionNumByBooking[b.id] ?? b.sessionNumber;
+
+      if (tpName == null && totalSess == null && completedSess == null && recordedSess == null) {
+        return b;
+      }
+      return b.copyWith(
+        packageName: tpName ?? b.packageName,
+        totalSessions: totalSess,
+        completedSessions: completedSess,
+        sessionNumber: recordedSess,
+      );
+    }).toList();
   }
 
   String _extractDioErrorMessage(Object error, String fallback) {
@@ -543,6 +623,19 @@ class AdminRepository {
       try {
         current = await _fetchSingleBookingSnapshot(bookingId);
         resolvedPackageId = extractUserPackageId(current?['special_notes']?.toString());
+        if ((resolvedPackageId == null || resolvedPackageId.isEmpty) && current != null) {
+          final notes = current['special_notes']?.toString() ?? '';
+          final catPkgId = RegExp(r'package_id=([0-9a-fA-F-]+)').firstMatch(notes)?.group(1);
+          final custId = current['customer_id']?.toString() ?? '';
+          if (catPkgId != null && custId.isNotEmpty) {
+            final upRes = await _apiClient.dio.get(
+              '/rest/v1/user_packages?customer_id=eq.$custId&package_id=eq.$catPkgId&status=eq.ACTIVE&order=purchased_at.desc&limit=1',
+            );
+            if (upRes.statusCode == 200 && upRes.data is List && (upRes.data as List).isNotEmpty) {
+              resolvedPackageId = (upRes.data as List).first['id']?.toString();
+            }
+          }
+        }
       } catch (_) {}
     }
 
@@ -627,6 +720,19 @@ class AdminRepository {
       try {
         current = await _fetchSingleBookingSnapshot(bookingId);
         resolvedPackageId = extractUserPackageId(current?['special_notes']?.toString());
+        if ((resolvedPackageId == null || resolvedPackageId.isEmpty) && current != null) {
+          final notes = current['special_notes']?.toString() ?? '';
+          final catPkgId = RegExp(r'package_id=([0-9a-fA-F-]+)').firstMatch(notes)?.group(1);
+          final custId = current['customer_id']?.toString() ?? '';
+          if (catPkgId != null && custId.isNotEmpty) {
+            final upRes = await _apiClient.dio.get(
+              '/rest/v1/user_packages?customer_id=eq.$custId&package_id=eq.$catPkgId&status=eq.ACTIVE&order=purchased_at.desc&limit=1',
+            );
+            if (upRes.statusCode == 200 && upRes.data is List && (upRes.data as List).isNotEmpty) {
+              resolvedPackageId = (upRes.data as List).first['id']?.toString();
+            }
+          }
+        }
       } catch (_) {}
     }
 
@@ -2443,9 +2549,10 @@ class AdminRepository {
 
       final res = await _apiClient.dio.get(query);
       if (res.statusCode == 200 && res.data is List) {
-        return (res.data as List)
+        final bookings = (res.data as List)
             .map((e) => AdminBookingModel.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList();
+        return await _enrichBookingPackages(bookings);
       }
     } catch (e) {
       debugPrint('[AdminRepository] fetchMonthlyBookings error: $e');

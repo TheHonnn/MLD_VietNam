@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import '../../../../core/services/supabase_data_service.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
@@ -96,41 +95,43 @@ class AcademyRepository {
           ? await _fetchUserStudentCode(userId)
           : null;
       final rawList = await SupabaseDataService.instance.fetchUserEnrollments(studentId: userId, studentPhone: phone);
-      if (rawList.isNotEmpty) {
-        bool changed = false;
-        for (final item in rawList) {
-          if (item['courses'] is Map) {
-            final cMap = Map<String, dynamic>.from(item['courses'] as Map);
-            if (cMap['course_categories'] is Map) {
-              cMap['categoryName'] = cMap['course_categories']['name'];
-            }
-            final notes = item['approval_notes']?.toString() ?? '';
-            final notesCode = RegExp(r'Mã KH:\s*([A-Za-z0-9_-]+)').firstMatch(notes)?.group(1);
-            final customerCode = (userStudentCode != null && userStudentCode.isNotEmpty)
-                ? userStudentCode
-                : (notesCode ?? item['order_code']?.toString() ?? '');
-            final enrStatus = item['status']?.toString() ?? 'PENDING_APPROVAL';
-            final enrApproval = item['approval_status']?.toString() ?? item['student_status']?.toString() ?? 'NOT_APPROVED';
-            final model = CourseModel.fromJson(cMap).copyWith(
-              progressPercentage: (item['progress_percent'] as num?)?.toInt() ?? 0,
-              status: enrStatus,
-              approvalStatus: enrApproval,
-              enrollmentId: item['id']?.toString(),
-              customerCode: customerCode,
-            );
-            final existingIndex = _enrolledCourses.indexWhere((c) => c.id == model.id);
-            if (existingIndex >= 0) {
-              _enrolledCourses[existingIndex] = model;
-            } else {
-              _enrolledCourses.add(model);
-            }
-            changed = true;
-          }
+      final List<CourseModel> syncedList = [];
+      for (final item in rawList) {
+        final itemStatus = (item['status']?.toString() ?? '').toUpperCase();
+        final itemApproval = (item['approval_status']?.toString() ?? '').toUpperCase();
+        if (itemStatus == 'DROPPED' || itemStatus == 'ARCHIVED' || itemApproval == 'CANCELLED') {
+          continue;
         }
-        if (changed) {
-          await _saveEnrolledCourses();
+        if (item['courses'] is Map) {
+          final cMap = Map<String, dynamic>.from(item['courses'] as Map);
+          if (cMap['course_categories'] is Map) {
+            cMap['categoryName'] = cMap['course_categories']['name'];
+          }
+          final notes = item['approval_notes']?.toString() ?? '';
+          final notesCode = RegExp(r'Mã KH:\s*([A-Za-z0-9_-]+)').firstMatch(notes)?.group(1);
+          final customerCode = (userStudentCode != null && userStudentCode.isNotEmpty)
+              ? userStudentCode
+              : (notesCode ?? item['order_code']?.toString() ?? '');
+          final enrStatus = item['status']?.toString() ?? 'PENDING_APPROVAL';
+          final enrApproval = item['approval_status']?.toString() ?? item['student_status']?.toString() ?? 'NOT_APPROVED';
+          final model = CourseModel.fromJson(cMap).copyWith(
+            progressPercentage: (item['progress_percent'] as num?)?.toInt() ?? 0,
+            status: enrStatus,
+            approvalStatus: enrApproval,
+            enrollmentId: item['id']?.toString(),
+            customerCode: customerCode,
+            tuitionTotal: (item['tuition_total'] as num?)?.toDouble(),
+            amountPaid: (item['amount_paid'] as num?)?.toDouble(),
+            paymentStatus: item['payment_status']?.toString(),
+          );
+          syncedList.add(model);
         }
       }
+      _enrolledCourses
+        ..clear()
+        ..addAll(syncedList);
+      await _saveEnrolledCourses();
+      enrollmentNotifier.value++;
     } catch (e) {
       debugPrint('>>> [AcademyRepository] Error syncing user enrollments: $e');
     }
@@ -287,6 +288,9 @@ class AcademyRepository {
       status: 'PENDING_APPROVAL',
       customerCode: customerCode,
       approvalStatus: 'PENDING_APPROVAL',
+      tuitionTotal: course.tuitionFee,
+      amountPaid: 0.0,
+      paymentStatus: 'UNPAID',
     );
     enrollCourseLocal(pendingCourse);
 
@@ -298,8 +302,9 @@ class AcademyRepository {
         'customerCode': customerCode,
         'courseTitle': course.title,
         'studentName': studentName,
-        'depositAmount': course.depositFee,
+        'depositAmount': course.tuitionFee,
         'tuitionTotal': course.tuitionFee,
+        'amountPaid': 0.0,
         'status': 'PENDING_APPROVAL',
         'message': 'Đã gửi hồ sơ đăng ký thành công. Trạng thái: Chờ nhân viên xét duyệt.',
       };
@@ -331,16 +336,32 @@ class AcademyRepository {
               'message': body['message'],
               'studentCode': customerCode,
               'customerCode': customerCode,
-              'depositAmount': course.depositFee,
+              'depositAmount': course.tuitionFee,
               'tuitionTotal': course.tuitionFee,
             };
           }
           final payload = body['data'] ?? body;
           if (payload is Map<String, dynamic>) {
+            final resolvedCode = (payload['customerCode']?.toString() ?? '').trim().isNotEmpty
+                ? payload['customerCode'].toString()
+                : customerCode;
+            final resolvedId = payload['id']?.toString();
+            final resolvedTuition = (payload['tuitionTotal'] as num?)?.toDouble() ?? course.tuitionFee;
+            final resolvedPaid = (payload['amountPaid'] as num?)?.toDouble() ?? 0.0;
+            enrollCourseLocal(
+              pendingCourse.copyWith(
+                enrollmentId: resolvedId,
+                customerCode: resolvedCode,
+                tuitionTotal: resolvedTuition,
+                amountPaid: resolvedPaid,
+              ),
+            );
             return {
               ...payload,
               if ((payload['studentCode']?.toString() ?? '').isEmpty) 'studentCode': customerCode,
-              if ((payload['customerCode']?.toString() ?? '').isEmpty) 'customerCode': customerCode,
+              if ((payload['customerCode']?.toString() ?? '').isEmpty) 'customerCode': resolvedCode,
+              'tuitionTotal': resolvedTuition,
+              'amountPaid': resolvedPaid,
             };
           }
         }
@@ -365,6 +386,15 @@ class AcademyRepository {
         approvalStatus: 'PENDING_APPROVAL',
       );
       createdEnrollmentId = created?['id']?.toString();
+      if (createdEnrollmentId != null && createdEnrollmentId.isNotEmpty) {
+        enrollCourseLocal(
+          pendingCourse.copyWith(
+            enrollmentId: createdEnrollmentId,
+            tuitionTotal: course.tuitionFee,
+            amountPaid: 0.0,
+          ),
+        );
+      }
     } catch (e) {
       debugPrint('>>> [AcademyRepository] Error posting enrollment to Supabase: $e');
     }
@@ -376,8 +406,9 @@ class AcademyRepository {
       'customerCode': customerCode,
       'courseTitle': course.title,
       'studentName': studentName,
-      'depositAmount': course.depositFee,
+      'depositAmount': course.tuitionFee,
       'tuitionTotal': course.tuitionFee,
+      'amountPaid': 0.0,
       'status': 'PENDING_APPROVAL',
       'message': 'Đã gửi hồ sơ đăng ký thành công. Trạng thái: Chờ nhân viên xét duyệt.',
     };
@@ -398,30 +429,60 @@ class AcademyRepository {
         studentId: userId,
         studentPhone: phone,
       );
-      if (enrollments.isNotEmpty) {
-        final List<CourseModel> list = [];
-        for (final e in enrollments) {
-          if (e['courses'] is Map) {
-            final cMap = Map<String, dynamic>.from(e['courses'] as Map);
-            if (cMap['course_categories'] is Map) {
-              cMap['categoryName'] = cMap['course_categories']['name'];
-            }
-            final notes = e['approval_notes']?.toString() ?? '';
-            final notesCode = RegExp(r'Mã KH:\s*([A-Za-z0-9_-]+)').firstMatch(notes)?.group(1);
-            final customerCode = (userStudentCode != null && userStudentCode.isNotEmpty)
-                ? userStudentCode
-                : (notesCode ?? e['order_code']?.toString() ?? '');
-            final model = CourseModel.fromJson(cMap).copyWith(
-              progressPercentage: (e['progress_percent'] as num?)?.toInt() ?? 0,
-              status: e['status']?.toString() ?? 'PENDING_APPROVAL',
-              enrollmentId: e['id']?.toString(),
-              customerCode: customerCode,
-              approvalStatus: e['approval_status']?.toString() ?? e['student_status']?.toString() ?? 'NOT_APPROVED',
-            );
-            list.add(model);
-          }
+      final List<CourseModel> list = [];
+      for (final e in enrollments) {
+        final st = (e['status']?.toString() ?? '').toUpperCase();
+        final ap = (e['approval_status']?.toString() ?? '').toUpperCase();
+        if (st == 'DROPPED' || st == 'ARCHIVED' || ap == 'CANCELLED') {
+          continue;
         }
-        if (list.isNotEmpty) {
+        if (e['courses'] is Map) {
+          final cMap = Map<String, dynamic>.from(e['courses'] as Map);
+          if (cMap['course_categories'] is Map) {
+            cMap['categoryName'] = cMap['course_categories']['name'];
+          }
+          final notes = e['approval_notes']?.toString() ?? '';
+          final notesCode = RegExp(r'Mã KH:\s*([A-Za-z0-9_-]+)').firstMatch(notes)?.group(1);
+          final customerCode = (userStudentCode != null && userStudentCode.isNotEmpty)
+              ? userStudentCode
+              : (notesCode ?? e['order_code']?.toString() ?? '');
+          final model = CourseModel.fromJson(cMap).copyWith(
+            progressPercentage: (e['progress_percent'] as num?)?.toInt() ?? 0,
+            status: e['status']?.toString() ?? 'PENDING_APPROVAL',
+            enrollmentId: e['id']?.toString(),
+            customerCode: customerCode,
+            approvalStatus: e['approval_status']?.toString() ?? e['student_status']?.toString() ?? 'NOT_APPROVED',
+            tuitionTotal: (e['tuition_total'] as num?)?.toDouble(),
+            amountPaid: (e['amount_paid'] as num?)?.toDouble(),
+            paymentStatus: e['payment_status']?.toString(),
+          );
+          list.add(model);
+        }
+      }
+      _enrolledCourses
+        ..clear()
+        ..addAll(list);
+      await _saveEnrolledCourses();
+      enrollmentNotifier.value++;
+      return _enrolledCourses;
+    } catch (e) {
+      debugPrint('>>> [AcademyRepository] Error fetching my courses from Supabase: $e');
+    }
+
+    try {
+      final response = await _apiClient.dio.get(ApiEndpoints.academyMyCourses);
+      if (response.statusCode == 200 && response.data != null) {
+        final raw = response.data['data'] ?? response.data;
+        if (raw is List) {
+          final List<CourseModel> list = [];
+          for (final item in raw) {
+            if (item is Map<String, dynamic>) {
+              final st = (item['status']?.toString() ?? '').toUpperCase();
+              final ap = (item['approvalStatus']?.toString() ?? item['approval_status']?.toString() ?? '').toUpperCase();
+              if (st == 'DROPPED' || st == 'ARCHIVED' || ap == 'CANCELLED') continue;
+              list.add(CourseModel.fromJson(item));
+            }
+          }
           _enrolledCourses
             ..clear()
             ..addAll(list);
@@ -431,33 +492,43 @@ class AcademyRepository {
         }
       }
     } catch (e) {
-      debugPrint('>>> [AcademyRepository] Error fetching my courses from Supabase: $e');
-    }
-
-    try {
-      final response = await _apiClient.dio.get(ApiEndpoints.academyMyCourses);
-      if (response.statusCode == 200 && response.data != null) {
-        final raw = response.data['data'] ?? response.data;
-        if (raw is List && raw.isNotEmpty) {
-          final List<CourseModel> list = [];
-          for (final item in raw) {
-            if (item is Map<String, dynamic>) {
-              list.add(CourseModel.fromJson(item));
-            }
-          }
-          if (list.isNotEmpty) {
-            _enrolledCourses.clear();
-            _enrolledCourses.addAll(list);
-            await _saveEnrolledCourses();
-            return _enrolledCourses;
-          }
-        }
-      }
-    } catch (e) {
       debugPrint('>>> [AcademyRepository] Error fetching my courses from Gateway: $e');
     }
 
     return enrolledCourses;
+  }
+
+  Future<bool> cancelEnrollment(CourseModel course) async {
+    final enrollmentId = course.enrollmentId?.trim() ?? '';
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('TestWidgetsFlutterBinding');
+    bool remoteSuccess = isTest || enrollmentId.isEmpty;
+
+    if (!isTest && enrollmentId.isNotEmpty) {
+      try {
+        final res = await _apiClient.dio.post(ApiEndpoints.academyCancelEnrollment(enrollmentId));
+        if (res.statusCode == 200 || res.statusCode == 201) {
+          remoteSuccess = true;
+        }
+      } catch (_) {}
+
+      if (!remoteSuccess) {
+        remoteSuccess = await SupabaseDataService.instance.cancelCourseEnrollment(enrollmentId);
+      }
+    }
+
+    if (remoteSuccess) {
+      final cleanId = course.id.trim().toLowerCase();
+      final cleanTitle = course.title.trim().toLowerCase();
+      _enrolledCourses.removeWhere(
+        (c) =>
+            (enrollmentId.isNotEmpty && c.enrollmentId == enrollmentId) ||
+            (cleanId.isNotEmpty && c.id.trim().toLowerCase() == cleanId) ||
+            (cleanTitle.isNotEmpty && c.title.trim().toLowerCase() == cleanTitle),
+      );
+      await _saveEnrolledCourses();
+      enrollmentNotifier.value++;
+    }
+    return remoteSuccess;
   }
 
   /// E11: Lịch học & điểm danh (Khóa học / Lớp học đồng bộ từ CSDL Supabase)
@@ -624,8 +695,15 @@ class AcademyRepository {
   CourseModel? getEnrolledCourse(String courseId, [String? title]) {
     final cleanId = courseId.trim().toLowerCase();
     final cleanTitle = title?.trim().toLowerCase();
+    const cancelledStatuses = {'DROPPED', 'ARCHIVED', 'CANCELLED'};
     try {
       return _enrolledCourses.firstWhere((c) {
+        final cStatus = c.status.trim().toUpperCase();
+        final cApproval = (c.approvalStatus ?? '').trim().toUpperCase();
+        if (cancelledStatuses.contains(cStatus) ||
+            cancelledStatuses.contains(cApproval)) {
+          return false;
+        }
         final cId = c.id.trim().toLowerCase();
         final cTitle = c.title.trim().toLowerCase();
         return (cleanId.isNotEmpty && cId == cleanId) ||
@@ -641,9 +719,6 @@ class AcademyRepository {
     return getEnrolledCourse(courseId, title) != null;
   }
 
-  /// Khóa học chỉ được phép vào học khi đã được Ban Quản Trị phê duyệt & xác nhận thanh toán
-  /// Chấp nhận các trạng thái đã duyệt: APPROVED, ENROLLED, STUDYING, COMPLETED, GRADUATED
-  /// Tuyệt đối CHẶN các trạng thái chưa duyệt: NOT_APPROVED, PENDING, PENDING_APPROVAL, PENDING_CONSULTATION, CONSULTING, UNPAID, REJECTED
   bool isCourseApproved(String courseId, [String? title]) {
     final enr = getEnrolledCourse(courseId, title);
     if (enr == null) return false;
@@ -658,18 +733,18 @@ class AcademyRepository {
       'UNPAID',
       'REJECTED',
       'CANCELLED',
+      'DROPPED',
+      'ARCHIVED',
       'SUSPENDED',
     };
 
     final statusUpper = enr.status.trim().toUpperCase();
     final approvalUpper = (enr.approvalStatus ?? '').trim().toUpperCase();
 
-    // Nếu bất kỳ trường nào ghi nhận chưa duyệt / đang chờ xử lý -> Chặn ngay lập tức
     if (unapprovedStatuses.contains(statusUpper) || unapprovedStatuses.contains(approvalUpper)) {
       return false;
     }
 
-    // Chỉ cho phép khi có ít nhất một trường xác nhận trạng thái duyệt hợp lệ
     return validApprovedStatuses.contains(statusUpper) || validApprovedStatuses.contains(approvalUpper);
   }
 

@@ -198,6 +198,17 @@ export class PaymentGatewayAdapter {
         };
       } catch (err: any) {
         this.logger.warn(`[GatewayAdapter:PAYOS] Create error: ${err?.message || err}`);
+        return {
+          provider: 'PAYOS',
+          gatewayConfigured: false,
+          qrCode: '',
+          checkoutUrl: '',
+          bankBin: this.bankBin,
+          accountNumber: this.bankAccountNo,
+          accountName: this.bankAccountName,
+          gatewayTransactionId: null,
+          message: `Không thể tạo giao dịch PayOS: ${err?.message || 'Lỗi kết nối PayOS'}`,
+        };
       }
     }
 
@@ -248,20 +259,18 @@ export class PaymentGatewayAdapter {
       }
     }
 
-    if (this.bankAccountNo && this.bankBin) {
+    if (this.isConfigured && this.bankAccountNo && this.bankBin) {
       const vietQrUrl = `https://api.vietqr.io/image/${this.bankBin}-${this.bankAccountNo}-compact2.jpg?amount=${Math.round(params.amount)}&addInfo=${encodeURIComponent(params.description)}&accountName=${encodeURIComponent(this.bankAccountName)}`;
       return {
         provider: activeProvider === 'UNCONFIGURED' ? 'VIETQR' : activeProvider,
-        gatewayConfigured: this.isConfigured,
+        gatewayConfigured: true,
         qrCode: vietQrUrl,
         checkoutUrl: '',
         bankBin: this.bankBin,
         accountNumber: this.bankAccountNo,
         accountName: this.bankAccountName,
         gatewayTransactionId: null,
-        message: this.isConfigured
-          ? 'Tạo mã QR chuyển khoản tự động thành công'
-          : 'Đang chờ cấu hình khóa cổng thanh toán trung gian',
+        message: 'Tạo mã QR chuyển khoản tự động thành công',
       };
     }
 
@@ -274,7 +283,7 @@ export class PaymentGatewayAdapter {
       accountNumber: this.bankAccountNo,
       accountName: this.bankAccountName,
       gatewayTransactionId: null,
-      message: 'Cổng thanh toán trung gian đang để trống cấu hình. Vui lòng bổ sung biến môi trường PAYMENT_GATEWAY_* để kích hoạt.',
+      message: 'Cổng thanh toán trung gian chưa được cấu hình khóa API.',
     };
   }
 
@@ -286,18 +295,27 @@ export class PaymentGatewayAdapter {
     if (this.provider === 'PAYOS' && payosClient) {
       try {
         const payosInfo = await payosClient.paymentRequests.get(orderCode);
-        const isPaid = String(payosInfo?.status || '').toUpperCase() === 'PAID';
+        const amountPaid = Number(payosInfo?.amountPaid || 0);
+        const isPaid = String(payosInfo?.status || '').toUpperCase() === 'PAID' && amountPaid > 0;
         return {
           configured: true,
           provider: 'PAYOS',
           isPaid,
           status: isPaid ? 'PAID' : String(payosInfo?.status || 'PENDING').toUpperCase(),
-          amountPaid: Number(payosInfo?.amountPaid || 0),
-          gatewayTransactionId: String(orderCode),
+          amountPaid,
+          gatewayTransactionId: String(payosInfo?.id || orderCode),
           rawPayload: payosInfo,
         };
       } catch (err: any) {
         this.logger.warn(`[GatewayAdapter:PAYOS] Status query failed: ${err?.message || err}`);
+        return {
+          configured: true,
+          provider: 'PAYOS',
+          isPaid: false,
+          status: 'PENDING',
+          amountPaid: 0,
+          gatewayTransactionId: gatewayTransactionId || String(orderCode),
+        };
       }
     }
 

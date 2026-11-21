@@ -109,6 +109,10 @@ class AdminBookingModel {
   final String? checkedOutAt;
   final String? notes;
   final String? cancellationReason;
+  final String? packageName;
+  final int? totalSessions;
+  final int? completedSessions;
+  final int? sessionNumber;
 
   const AdminBookingModel({
     required this.id,
@@ -133,6 +137,10 @@ class AdminBookingModel {
     this.checkedOutAt,
     this.notes,
     this.cancellationReason,
+    this.packageName,
+    this.totalSessions,
+    this.completedSessions,
+    this.sessionNumber,
   });
 
   factory AdminBookingModel.fromJson(Map<String, dynamic> json) {
@@ -194,6 +202,10 @@ class AdminBookingModel {
       checkedOutAt: json['checked_out_at']?.toString(),
       notes: json['notes']?.toString() ?? json['special_notes']?.toString(),
       cancellationReason: json['cancellation_reason']?.toString() ?? json['cancel_reason']?.toString(),
+      packageName: json['package_name']?.toString(),
+      totalSessions: (json['total_sessions'] as num?)?.toInt(),
+      completedSessions: (json['completed_sessions'] as num?)?.toInt(),
+      sessionNumber: (json['session_number'] as num?)?.toInt(),
     );
   }
 
@@ -203,9 +215,58 @@ class AdminBookingModel {
     return RegExp(r'user_package_id=([0-9a-fA-F-]+)').firstMatch(n)?.group(1);
   }
 
+  String? get catalogPackageId {
+    final n = notes ?? '';
+    if (n.isEmpty) return null;
+    return RegExp(r'package_id=([0-9a-fA-F-]+)').firstMatch(n)?.group(1);
+  }
+
   bool get isPackageSession {
     final n = notes ?? '';
-    return userPackageId != null || n.contains('Gói liệu trình') || paymentMethod == 'MEMBERSHIP_WALLET';
+    return userPackageId != null ||
+        catalogPackageId != null ||
+        n.contains('Gói liệu trình') ||
+        paymentMethod == 'MEMBERSHIP_WALLET';
+  }
+
+  String get displayPackageName {
+    if (packageName != null && packageName!.trim().isNotEmpty) {
+      return packageName!.trim();
+    }
+    final n = notes ?? '';
+    final m = RegExp(r'Gói liệu trình:\s*([^|\]]+)', caseSensitive: false).firstMatch(n);
+    if (m != null && (m.group(1)?.trim().isNotEmpty ?? false)) {
+      return m.group(1)!.trim();
+    }
+    return serviceName;
+  }
+
+  int? get parsedNoteSessionNumber {
+    final n = notes ?? '';
+    final m = RegExp(r'Buổi\s+(\d+)(?:\s*/\s*(\d+))?', caseSensitive: false).firstMatch(n);
+    if (m != null) return int.tryParse(m.group(1) ?? '');
+    return null;
+  }
+
+  int? get parsedNoteTotalSessions {
+    final n = notes ?? '';
+    final m = RegExp(r'Buổi\s+\d+\s*/\s*(\d+)', caseSensitive: false).firstMatch(n);
+    if (m != null) return int.tryParse(m.group(1) ?? '');
+    return null;
+  }
+
+  int? get effectiveTotalSessions => totalSessions ?? parsedNoteTotalSessions;
+
+  int get effectiveSessionNumber {
+    if (sessionNumber != null && sessionNumber! > 0) return sessionNumber!;
+    if (completedSessions != null) {
+      final total = effectiveTotalSessions ?? 999;
+      if (isClinicalCompleted) {
+        return completedSessions!.clamp(1, total);
+      }
+      return (completedSessions! + 1).clamp(1, total);
+    }
+    return parsedNoteSessionNumber ?? 1;
   }
 
   bool get isClinicalCompleted => sessionStatus == 'COMPLETED';
@@ -221,6 +282,10 @@ class AdminBookingModel {
     String? serviceStartedAt,
     String? checkedOutAt,
     String? cancellationReason,
+    String? packageName,
+    int? totalSessions,
+    int? completedSessions,
+    int? sessionNumber,
   }) {
     return AdminBookingModel(
       id: id,
@@ -245,6 +310,10 @@ class AdminBookingModel {
       checkedOutAt: checkedOutAt ?? this.checkedOutAt,
       notes: notes,
       cancellationReason: cancellationReason ?? this.cancellationReason,
+      packageName: packageName ?? this.packageName,
+      totalSessions: totalSessions ?? this.totalSessions,
+      completedSessions: completedSessions ?? this.completedSessions,
+      sessionNumber: sessionNumber ?? this.sessionNumber,
     );
   }
 }

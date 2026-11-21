@@ -185,9 +185,9 @@ void main() {
         ),
       );
 
-      expect(find.text('Ghi nhật ký & Trừ buổi'), findsOneWidget);
+      expect(find.text('Xác nhận Buổi 1/?'), findsOneWidget);
 
-      await tester.tap(find.text('Ghi nhật ký & Trừ buổi'));
+      await tester.tap(find.text('Xác nhận Buổi 1/?'));
       await tester.pump();
       expect(finishFired, isTrue);
     });

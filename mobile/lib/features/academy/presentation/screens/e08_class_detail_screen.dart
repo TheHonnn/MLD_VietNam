@@ -391,7 +391,9 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                   ),
                                                 ),
                                                 const SizedBox(height: 6),
-                                                Row(
+                                                Wrap(
+                                                  spacing: 6,
+                                                  runSpacing: 4,
                                                   children: [
                                                     if (isDone)
                                                       Container(
@@ -438,12 +440,15 @@ class _E08ClassDetailScreenState extends State<E08ClassDetailScreen> {
                                                           children: [
                                                             const Icon(Icons.lock_outline_rounded, size: 12, color: AppColors.textPlaceholder),
                                                             const SizedBox(width: 4),
-                                                            Text(
-                                                              context.tr('Chưa mở khóa', 'Locked'),
-                                                              style: GoogleFonts.beVietnamPro(
-                                                                fontSize: 10.5,
-                                                                fontWeight: FontWeight.w600,
-                                                                color: AppColors.textSecondary,
+                                                            Flexible(
+                                                              child: Text(
+                                                                context.tr('Chưa mở khóa', 'Locked'),
+                                                                overflow: TextOverflow.ellipsis,
+                                                                style: GoogleFonts.beVietnamPro(
+                                                                  fontSize: 10.5,
+                                                                  fontWeight: FontWeight.w600,
+                                                                  color: AppColors.textSecondary,
+                                                                ),
                                                               ),
                                                             ),
                                                           ],
