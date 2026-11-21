@@ -50,43 +50,47 @@ class _D02PackageDetailsScreenState extends State<D02PackageDetailsScreen> {
 
     // Tạo danh sách buổi: Ưu tiên sessions từ API; nếu rỗng thì sinh khung các buổi theo totalSessions
     final List<TreatmentSessionModel> displaySessions = [];
-    if (package.sessions.isNotEmpty) {
-      displaySessions.addAll(package.sessions);
-    } else {
-      final total = package.totalSessions > 0 ? package.totalSessions : 1;
-      for (int i = 1; i <= total; i++) {
-        final isDone = i <= package.completedSessions;
-        final isCurrent = i == package.completedSessions + 1 && package.status == PackageStatus.active;
-        String statusText = 'PENDING';
-        if (isDone) {
-          statusText = 'COMPLETED';
-        } else if (isCurrent) {
-          statusText = 'IN_PROGRESS';
-        }
-
-        displaySessions.add(
-          TreatmentSessionModel(
-            id: 'sess-$i',
-            sessionNumber: i,
-            packageCode: packageCodeDisplay,
-            packageName: package.packageName,
-            serviceName: serviceDisplayName,
-            customerName: customerDisplayName,
-            treatmentTime: isDone ? 'Đã hoàn thành' : (isCurrent ? 'Dự kiến buổi tiếp theo' : 'Chưa lên lịch'),
-            totalSessions: total,
-            status: statusText,
-            title: isDone
-                ? context.tr('Khai thông & Dẫn lưu bạch huyết buổi $i', 'Lymphatic Drainage Session $i')
-                : context.tr('Liệu trình trị liệu phục hồi buổi $i', 'Recovery Therapy Session $i'),
-            content: isDone
-                ? context.tr('Đã hoàn thành liệu trình kỹ thuật MLD tiêu chuẩn, hỗ trợ giải phóng dịch ứ và tuần hoàn bạch huyết.', 'Completed standard MLD technique, promoting lymph fluid drainage.')
-                : context.tr('Chuyên viên sẽ ghi chép nội dung kỹ thuật và đánh giá sau khi buổi điều trị hoàn tất.', 'Specialist will record clinical notes and progress upon session completion.'),
-            evidenceImages: const [],
-            specialistName: package.specialistName,
-            branchName: package.branchName,
-          ),
-        );
+    final Map<int, TreatmentSessionModel> completedByNumber = {
+      for (final s in package.sessions) s.sessionNumber: s,
+    };
+    final total = package.totalSessions > 0 ? package.totalSessions : (completedByNumber.length > 0 ? completedByNumber.length : 1);
+    for (int i = 1; i <= total; i++) {
+      final recorded = completedByNumber[i];
+      if (recorded != null) {
+        displaySessions.add(recorded);
+        continue;
       }
+      final isDone = i <= package.completedSessions;
+      final isCurrent = i == package.completedSessions + 1 && package.status == PackageStatus.active;
+      String statusText = 'PENDING';
+      if (isDone) {
+        statusText = 'COMPLETED';
+      } else if (isCurrent) {
+        statusText = 'IN_PROGRESS';
+      }
+
+      displaySessions.add(
+        TreatmentSessionModel(
+          id: 'sess-$i',
+          sessionNumber: i,
+          packageCode: packageCodeDisplay,
+          packageName: package.packageName,
+          serviceName: serviceDisplayName,
+          customerName: customerDisplayName,
+          treatmentTime: isDone ? 'Đã hoàn thành' : (isCurrent ? 'Dự kiến buổi tiếp theo' : 'Chưa lên lịch'),
+          totalSessions: total,
+          status: statusText,
+          title: isDone
+              ? context.tr('Khai thông & Dẫn lưu bạch huyết buổi $i', 'Lymphatic Drainage Session $i')
+              : context.tr('Liệu trình trị liệu phục hồi buổi $i', 'Recovery Therapy Session $i'),
+          content: isDone
+              ? context.tr('Đã hoàn thành liệu trình kỹ thuật MLD tiêu chuẩn, hỗ trợ giải phóng dịch ứ và tuần hoàn bạch huyết.', 'Completed standard MLD technique, promoting lymph fluid drainage.')
+              : context.tr('Chuyên viên sẽ ghi chép nội dung kỹ thuật và đánh giá sau khi buổi điều trị hoàn tất.', 'Specialist will record clinical notes and progress upon session completion.'),
+          evidenceImages: const [],
+          specialistName: package.specialistName,
+          branchName: package.branchName,
+        ),
+      );
     }
 
     return Scaffold(

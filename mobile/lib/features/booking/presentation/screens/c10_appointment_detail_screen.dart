@@ -284,6 +284,17 @@ class _C10AppointmentDetailScreenState extends State<C10AppointmentDetailScreen>
                       style: const TextStyle( fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 12),
+                    _buildDetailRow(
+                      context.tr('Hình thức:', 'Type:'),
+                      app.isPackageSession
+                          ? (app.parsedSessionNumber != null
+                              ? context.tr(
+                                  'Gói liệu trình · Buổi ${app.parsedSessionNumber}${app.parsedTotalSessions != null ? '/${app.parsedTotalSessions}' : ''}',
+                                  'Package · Session ${app.parsedSessionNumber}${app.parsedTotalSessions != null ? '/${app.parsedTotalSessions}' : ''}',
+                                )
+                              : context.tr('Gói liệu trình', 'Treatment Package'))
+                          : context.tr('Dịch vụ lẻ', 'Single Service'),
+                    ),
                     _buildDetailRow(context.tr('Dịch vụ:', 'Service:'), app.serviceName.tr(context)),
                     _buildDetailRow(context.tr('Chi nhánh:', 'Branch:'), app.branchName.tr(context)),
                     _buildDetailRow(context.tr('Địa chỉ:', 'Address:'), app.branchAddress.tr(context)),

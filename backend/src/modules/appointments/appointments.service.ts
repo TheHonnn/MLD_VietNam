@@ -137,11 +137,18 @@ export class AppointmentsService {
     }
 
     let resolvedPackagePrice: number | null = null;
-    if (!srv) {
-      const lookupPkgId = uuidRegex.test(requestedCatalogPackageId) ? requestedCatalogPackageId : targetServiceId;
+    let createdUserPackageId: string | null = null;
+    const wantsCatalogPackage =
+      !requestedUserPackageId &&
+      ((requestedCatalogPackageId && uuidRegex.test(requestedCatalogPackageId)) || !srv);
+
+    if (wantsCatalogPackage) {
+      const lookupPkgId = uuidRegex.test(requestedCatalogPackageId)
+        ? requestedCatalogPackageId
+        : targetServiceId;
       const { data: catalogPkg } = await this.supabaseService.adminClient
         .from('treatment_packages')
-        .select('id, name, service_id, price, discount_price, is_active')
+        .select('id, name, service_id, total_sessions, validity_months, price, discount_price, is_active')
         .eq('id', lookupPkgId)
         .maybeSingle();
       if (catalogPkg && catalogPkg.is_active !== false) {
@@ -161,9 +168,35 @@ export class AppointmentsService {
         const pkgBase = Number(catalogPkg.price || 0);
         const pkgDiscount = Number(catalogPkg.discount_price || 0);
         resolvedPackagePrice = pkgDiscount > 0 && pkgDiscount < pkgBase ? pkgDiscount : pkgBase;
-        if (!/package_id=/i.test(effectiveSpecialNotes)) {
-          effectiveSpecialNotes = [effectiveSpecialNotes.trim(), `[package_id=${catalogPkg.id}]`].filter(Boolean).join(' ');
+        const totalSessions = Number(catalogPkg.total_sessions || 10);
+        const validityMonths = Number(catalogPkg.validity_months || 6);
+        const expiresAt = new Date();
+        expiresAt.setMonth(expiresAt.getMonth() + validityMonths);
+
+        const { data: createdPkg, error: createdPkgErr } = await this.supabaseService.adminClient
+          .from('user_packages')
+          .insert({
+            customer_id: effectiveUserId,
+            package_id: catalogPkg.id,
+            total_sessions: totalSessions,
+            completed_sessions: 0,
+            status: 'ACTIVE',
+            expires_at: expiresAt.toISOString(),
+          })
+          .select('id')
+          .maybeSingle();
+
+        if (!createdPkgErr && createdPkg?.id) {
+          createdUserPackageId = createdPkg.id;
         }
+
+        const pkgNotes = [
+          effectiveSpecialNotes.trim(),
+          `[Gói liệu trình: ${catalogPkg.name} | Buổi 1/${totalSessions}]`,
+          `[package_id=${catalogPkg.id}]`,
+          createdUserPackageId ? `[user_package_id=${createdUserPackageId}]` : '',
+        ].filter(Boolean);
+        effectiveSpecialNotes = pkgNotes.join(' ');
       }
     }
 
@@ -226,6 +259,15 @@ export class AppointmentsService {
           srv = pkgSrv;
           targetServiceId = pkgSrv.id;
         }
+      }
+      const nextSessionNumber = Math.min(totalSessions, completedSessions + reservedCount + 1);
+      if (!/Buổi \d+/i.test(effectiveSpecialNotes)) {
+        effectiveSpecialNotes = [
+          effectiveSpecialNotes.trim(),
+          `[Buổi ${nextSessionNumber}/${totalSessions}]`,
+        ]
+          .filter(Boolean)
+          .join(' ');
       }
       if (!/user_package_id=/i.test(effectiveSpecialNotes)) {
         effectiveSpecialNotes = [effectiveSpecialNotes.trim(), `[user_package_id=${requestedUserPackageId}]`].filter(Boolean).join(' ');
@@ -408,6 +450,12 @@ export class AppointmentsService {
         if (itemCleanupError || bookingCleanupError) {
           this.logger.error(`Không thể hoàn tác booking ${createdBooking.id} sau lỗi lưu.`);
         }
+      }
+      if (createdUserPackageId) {
+        await this.supabaseService.adminClient
+          .from('user_packages')
+          .delete()
+          .eq('id', createdUserPackageId);
       }
       if (err instanceof HttpException) throw err;
       this.logger.error(`Lỗi ghi DB booking: ${err.message}`);

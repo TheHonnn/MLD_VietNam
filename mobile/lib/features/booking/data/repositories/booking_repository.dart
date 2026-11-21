@@ -86,6 +86,12 @@ class BookingRepository {
           : '$rawNotes | user_package_id=$explicitPkgId';
     }
 
+    final pkgIdMatch = RegExp(r'package_id=([0-9a-fA-F-]+)').firstMatch(rawNotes)?.group(1);
+    final pkgNameMatch = RegExp(r'Gói liệu trình:\s*([^|\]]+)', caseSensitive: false).firstMatch(rawNotes)?.group(1)?.trim();
+    final sessMatch = RegExp(r'Buổi\s+(\d+)(?:\s*/\s*(\d+))?', caseSensitive: false).firstMatch(rawNotes);
+    final parsedSessNum = sessMatch != null ? int.tryParse(sessMatch.group(1) ?? '') : null;
+    final parsedSessTot = sessMatch != null ? int.tryParse(sessMatch.group(2) ?? '') : null;
+
     final emailMatch = RegExp(r'Email:\s*([^\s|]+)').firstMatch(rawNotes);
     if (emailMatch != null) extractedEmail = emailMatch.group(1)?.trim() ?? '';
     final addressMatch = RegExp(r'Địa chỉ:\s*([^|\n]+)').firstMatch(rawNotes);
@@ -149,6 +155,10 @@ class BookingRepository {
       baseTotal: baseTotalVal,
       finalPrice: finalPriceVal,
       userVoucherId: item['user_voucher_id']?.toString(),
+      packageId: pkgIdMatch,
+      packageName: pkgNameMatch,
+      sessionNumber: parsedSessNum,
+      totalSessions: parsedSessTot,
     );
   }
 
@@ -536,6 +546,7 @@ class BookingRepository {
       }
 
       String? realId;
+      String? resolvedSpecialNotes;
       bool canFallback = false;
 
       try {
@@ -558,12 +569,15 @@ class BookingRepository {
             'bookingCode': appointment.bookingCode,
             if (linkedUserPackageId != null && uuidRegex.hasMatch(linkedUserPackageId))
               'userPackageId': linkedUserPackageId,
+            if (appointment.packageId != null && uuidRegex.hasMatch(appointment.packageId!))
+              'packageId': appointment.packageId,
           },
         );
         if (gwRes.statusCode == 200 || gwRes.statusCode == 201) {
           final raw = gwRes.data is Map ? (gwRes.data['data'] ?? gwRes.data) : null;
           if (raw is Map) {
             realId = raw['id']?.toString() ?? raw['booking']?['id']?.toString();
+            resolvedSpecialNotes = raw['special_notes']?.toString() ?? raw['booking']?['special_notes']?.toString();
           }
         }
       } catch (e) {
@@ -575,6 +589,45 @@ class BookingRepository {
       }
 
       if ((realId == null || realId.isEmpty) && canFallback) {
+        String effectiveNotesForFallback = combinedNotes;
+        final catalogPackageId = appointment.catalogPackageId;
+        if (linkedUserPackageId == null &&
+            catalogPackageId != null &&
+            uuidRegex.hasMatch(catalogPackageId)) {
+          try {
+            final pkgDefRes = await _apiClient.dio.get(
+              '/rest/v1/treatment_packages?id=eq.$catalogPackageId&select=id,name,total_sessions,validity_months,service_id&limit=1',
+            );
+            if (pkgDefRes.data is List && (pkgDefRes.data as List).isNotEmpty) {
+              final pkgDef = (pkgDefRes.data as List).first as Map;
+              final totalSess = (pkgDef['total_sessions'] as num?)?.toInt() ?? 10;
+              final valMonths = (pkgDef['validity_months'] as num?)?.toInt() ?? 6;
+              final expDate = DateTime.now().add(Duration(days: valMonths * 30));
+              final createdPkgRes = await _apiClient.dio.post(
+                '/rest/v1/user_packages',
+                data: {
+                  'customer_id': effectiveCustomerId,
+                  'package_id': catalogPackageId,
+                  'total_sessions': totalSess,
+                  'completed_sessions': 0,
+                  'status': 'ACTIVE',
+                  'expires_at': expDate.toIso8601String(),
+                },
+                options: Options(headers: {'Prefer': 'return=representation'}),
+              );
+              if (createdPkgRes.data is List && (createdPkgRes.data as List).isNotEmpty) {
+                final newPkgId = (createdPkgRes.data as List).first['id']?.toString();
+                if (newPkgId != null && newPkgId.isNotEmpty) {
+                  effectiveNotesForFallback = [
+                    effectiveNotesForFallback,
+                    '[user_package_id=$newPkgId]',
+                  ].where((s) => s.trim().isNotEmpty).join(' ');
+                  resolvedSpecialNotes = effectiveNotesForFallback;
+                }
+              }
+            }
+          } catch (_) {}
+        }
         if (linkedUserPackageId != null && uuidRegex.hasMatch(linkedUserPackageId)) {
           final upkgRes = await _apiClient.dio.get(
             '/rest/v1/user_packages?id=eq.$linkedUserPackageId&select=id,customer_id,status,completed_sessions,total_sessions,expires_at&limit=1',
@@ -640,7 +693,7 @@ class BookingRepository {
             'coupon_id': appliedCouponId,
           'booked_for_name': appointment.customerName,
           'booked_for_phone': appointment.customerPhone,
-          'special_notes': combinedNotes,
+          'special_notes': effectiveNotesForFallback,
           'qr_code_hash': 'QR-${appointment.bookingCode}-${DateTime.now().millisecondsSinceEpoch}',
         };
 
@@ -762,6 +815,14 @@ class BookingRepository {
         try {
           MembershipRepository.instance.fetchVouchers();
         } catch (_) {}
+
+        if (resolvedSpecialNotes != null && resolvedSpecialNotes.isNotEmpty) {
+          final idx = _appointments.indexWhere((a) => a.bookingCode == appointment.bookingCode);
+          if (idx != -1) {
+            final currentItem = _appointments[idx];
+            _appointments[idx] = currentItem.copyWith(specialNotes: resolvedSpecialNotes);
+          }
+        }
 
         return realId;
       }

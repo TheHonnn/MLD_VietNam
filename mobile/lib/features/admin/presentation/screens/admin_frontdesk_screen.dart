@@ -345,7 +345,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
   }
 
   Future<void> _handleFinishService(AdminBookingModel b) async {
-    if (b.userPackageId == null) {
+    if (!b.isPackageSession) {
       setState(() => _processingBookingId = b.id);
       final success = await _repository.completeClinicalSession(bookingId: b.id);
       if (mounted) {
@@ -366,9 +366,13 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
       return;
     }
 
+    final sessionNum = b.effectiveSessionNumber;
+    final totalSessStr = b.effectiveTotalSessions?.toString() ?? '?';
+    final pkgDisplayName = b.displayPackageName;
+
     final conditionBeforeController = TextEditingController(text: 'Tình trạng ổn định trước trị liệu');
     final conditionAfterController = TextEditingController(text: 'Giảm ứ trệ, cơ thể thư giãn sau buổi trị liệu');
-    final treatmentNotesController = TextEditingController(text: 'Thực hiện đúng phác đồ ${b.serviceName}');
+    final treatmentNotesController = TextEditingController(text: 'Thực hiện đúng phác đồ $pkgDisplayName (Buổi $sessionNum/$totalSessStr)');
     final homeCareController = TextEditingController(text: 'Uống đủ nước ấm, nghỉ ngơi nhẹ nhàng trong 24h');
     final adverseController = TextEditingController();
     bool hasAbnormalReaction = false;
@@ -409,16 +413,16 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Hoàn tất buổi liệu trình & Ghi nhật ký',
+                    'Xác nhận hoàn thành Buổi $sessionNum/$totalSessStr',
                     style: AppTypography.zaloFont(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
+                      color: const Color(0xFF7E22CE),
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${b.customerName} • ${b.serviceName}',
+                    '${b.customerName} • $pkgDisplayName',
                     style: AppTypography.zaloFont(fontSize: 13, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 14),
@@ -510,7 +514,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
                       },
                       icon: const Icon(Icons.task_alt_rounded, size: 18),
                       label: Text(
-                        'Lưu nhật ký & Trừ 1 buổi gói',
+                        'Xác nhận hoàn thành Buổi $sessionNum/$totalSessStr',
                         style: AppTypography.zaloFont(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -551,7 +555,7 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
         setState(() => _processingBookingId = null);
         if (success) {
           _showToast(
-            'Đã lưu nhật ký trị liệu và trừ 1 buổi cho ${b.customerName}!',
+            'Đã xác nhận $pkgDisplayName: Buổi $sessionNum/$totalSessStr đã hoàn thành!',
             const Color(0xFF047857),
           );
           _refreshActiveView();
@@ -566,6 +570,48 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
   }
 
   Future<void> _handleCheckOut(AdminBookingModel b) async {
+    if (b.isClinicalCompleted && !b.isPaid) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.point_of_sale_rounded, color: Color(0xFFD97706)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Vui lòng ra quầy thanh toán',
+                  style: AppTypography.zaloFont(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            b.isPackageSession
+                ? 'Vui lòng ra quầy thu ngân (POS) để thanh toán cho lịch ${b.bookingCode} của ${b.customerName}.\n\nHệ thống đã ghi nhận: ${b.displayPackageName} - Buổi ${b.effectiveSessionNumber}/${b.effectiveTotalSessions ?? '?'} đã hoàn thành.'
+                : 'Ứng dụng Admin di động không thực hiện thu tiền trực tiếp. Vui lòng ra quầy thu ngân (POS) để thanh toán cho lịch hẹn ${b.bookingCode} của ${b.customerName}.',
+            style: AppTypography.zaloFont(fontSize: 13.5, color: AppColors.textPrimary),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: Text(
+                'Đã hiểu',
+                style: AppTypography.zaloFont(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     setState(() => _processingBookingId = b.id);
     final success = await _repository.checkOutBooking(b.id);
     if (mounted) {
@@ -779,7 +825,16 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
             _buildDetailRow('Khách hàng:', b.customerName),
             _buildDetailRow('Số điện thoại:', b.customerPhone),
             _buildDetailRow('Thời gian hẹn:', '${b.startTime} - ${b.endTime}'),
-            _buildDetailRow('Dịch vụ:', b.serviceName),
+            _buildDetailRow(
+              'Hình thức:',
+              b.isPackageSession
+                  ? 'Gói liệu trình · Buổi ${b.effectiveSessionNumber}/${b.effectiveTotalSessions ?? '?'}'
+                  : 'Dịch vụ lẻ',
+            ),
+            _buildDetailRow(
+              b.isPackageSession ? 'Gói liệu trình:' : 'Dịch vụ:',
+              b.isPackageSession ? b.displayPackageName : b.serviceName,
+            ),
             if (b.technicianName != null && b.technicianName!.isNotEmpty)
               _buildDetailRow('Kỹ thuật viên:', b.technicianName!),
             const SizedBox(height: 20),
@@ -898,7 +953,16 @@ class _AdminFrontdeskScreenState extends State<AdminFrontdeskScreen> {
             const SizedBox(height: 8),
             _buildDetailRow('Khách hàng:', b.customerName),
             _buildDetailRow('Số điện thoại:', b.customerPhone),
-            _buildDetailRow('Dịch vụ:', b.serviceName),
+            _buildDetailRow(
+              'Hình thức:',
+              b.isPackageSession
+                  ? 'Gói liệu trình · Buổi ${b.effectiveSessionNumber}/${b.effectiveTotalSessions ?? '?'}'
+                  : 'Dịch vụ lẻ',
+            ),
+            _buildDetailRow(
+              b.isPackageSession ? 'Gói liệu trình:' : 'Dịch vụ:',
+              b.isPackageSession ? b.displayPackageName : b.serviceName,
+            ),
             _buildDetailRow('Ngày hẹn:', b.bookingDate),
             _buildDetailRow('Khung giờ:', '${b.startTime} - ${b.endTime}'),
             _buildDetailRow('Trạng thái:', b.status),

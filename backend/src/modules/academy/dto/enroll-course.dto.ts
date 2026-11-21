@@ -41,5 +41,20 @@ export class EnrollCourseDto {
   @IsOptional()
   @IsNumber()
   depositAmount?: number;
+
+  @ApiProperty({ description: 'Địa chỉ học viên', required: false })
+  @IsOptional()
+  @IsString()
+  studentAddress?: string;
+
+  @ApiProperty({ description: 'Phân loại học viên', required: false, example: 'BEGINNER' })
+  @IsOptional()
+  @IsString()
+  studentType?: string;
+
+  @ApiProperty({ description: 'Trạng thái khởi tạo hồ sơ', required: false })
+  @IsOptional()
+  @IsString()
+  status?: string;
 }
 

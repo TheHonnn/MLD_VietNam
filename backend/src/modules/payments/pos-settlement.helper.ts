@@ -398,6 +398,14 @@ export async function settlePendingPosInvoice(
           activatedPackage = await loadUserPackageSummary(client, createdPkg.id);
         }
       } else if (existingUserPkgId) {
+        if (!paidInvoice.user_package_id) {
+          paidInvoice = (
+            await client.query('UPDATE invoices SET user_package_id=$2 WHERE id=$1 RETURNING *', [
+              paidInvoice.id,
+              existingUserPkgId,
+            ])
+          ).rows[0];
+        }
         activatedPackage = await loadUserPackageSummary(client, existingUserPkgId);
       }
 

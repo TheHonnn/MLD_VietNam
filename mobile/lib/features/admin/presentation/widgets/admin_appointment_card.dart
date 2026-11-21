@@ -84,7 +84,11 @@ class AdminAppointmentCard extends StatelessWidget {
         if (booking.isClinicalCompleted) {
           statusBg = const Color(0xFFECFDF5);
           statusText = const Color(0xFF047857);
-          statusLabel = booking.isPaid ? 'Chờ đóng ca' : 'Chờ thu tiền';
+          statusLabel = booking.isPaid
+              ? 'Chờ đóng ca'
+              : (booking.isPackageSession
+                  ? 'Buổi ${booking.effectiveSessionNumber}/${booking.effectiveTotalSessions ?? '?'} xong · Chờ thu'
+                  : 'Chờ thu tiền');
           statusIcon = booking.isPaid ? Icons.assignment_turned_in_rounded : Icons.payments_rounded;
         } else {
           statusBg = const Color(0xFFF3E8FF);
@@ -203,12 +207,13 @@ class AdminAppointmentCard extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                '${booking.serviceName}${booking.technicianName != null ? " · ${booking.technicianName}" : ""}',
+                                '${booking.isPackageSession ? "Gói LT · Buổi ${booking.effectiveSessionNumber}/${booking.effectiveTotalSessions ?? '?'}: ${booking.displayPackageName}" : booking.serviceName}${booking.technicianName != null ? " · ${booking.technicianName}" : ""}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTypography.zaloFont(
                                   fontSize: 10.5,
-                                  color: AppColors.textSecondary,
+                                  fontWeight: booking.isPackageSession ? FontWeight.w600 : FontWeight.w400,
+                                  color: booking.isPackageSession ? const Color(0xFF7E22CE) : AppColors.textSecondary,
                                 ),
                               ),
                             ),
@@ -306,7 +311,9 @@ class AdminAppointmentCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          booking.isPackageSession ? 'Nhật ký' : 'Xong CM',
+                          booking.isPackageSession
+                              ? 'Buổi ${booking.effectiveSessionNumber}/${booking.effectiveTotalSessions ?? '?'}'
+                              : 'Xong CM',
                           style: AppTypography.zaloFont(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
@@ -527,40 +534,84 @@ class AdminAppointmentCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
+                    color: booking.isPackageSession ? const Color(0xFFFAF5FF) : const Color(0xFFF9FAFB),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFF3F4F6)),
+                    border: Border.all(
+                      color: booking.isPackageSession ? const Color(0xFFE9D5FF) : const Color(0xFFF3F4F6),
+                    ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            const Icon(Icons.spa_rounded, size: 15, color: Color(0xFFE11D48)),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: booking.isPackageSession ? const Color(0xFF7E22CE) : const Color(0xFF0284C7),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              booking.isPackageSession
+                                  ? 'GÓI LIỆU TRÌNH · BUỔI ${booking.effectiveSessionNumber}/${booking.effectiveTotalSessions ?? '?'}'
+                                  : 'DỊCH VỤ LẺ',
+                              style: AppTypography.zaloFont(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          if (booking.isPackageSession && booking.completedSessions != null) ...[
                             const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                booking.serviceName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.zaloFont(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textHeading,
-                                ),
+                            Text(
+                              'Đã xong ${booking.completedSessions}/${booking.effectiveTotalSessions ?? '?'} buổi',
+                              style: AppTypography.zaloFont(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF6B21A8),
                               ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
-                      Text(
-                        _formatPrice(booking.finalPrice),
-                        style: AppTypography.zaloFont(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFE11D48),
-                        ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  booking.isPackageSession ? Icons.layers_rounded : Icons.spa_rounded,
+                                  size: 15,
+                                  color: booking.isPackageSession ? const Color(0xFF7E22CE) : const Color(0xFFE11D48),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    booking.isPackageSession ? booking.displayPackageName : booking.serviceName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.zaloFont(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textHeading,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            _formatPrice(booking.finalPrice),
+                            style: AppTypography.zaloFont(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: booking.isPackageSession ? const Color(0xFF7E22CE) : const Color(0xFFE11D48),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -778,7 +829,9 @@ class AdminAppointmentCard extends StatelessWidget {
               size: 16,
             ),
             label: Text(
-              booking.isPackageSession ? 'Ghi nhật ký & Trừ buổi' : 'Hoàn tất chuyên môn',
+              booking.isPackageSession
+                  ? 'Xác nhận Buổi ${booking.effectiveSessionNumber}/${booking.effectiveTotalSessions ?? '?'}'
+                  : 'Hoàn tất chuyên môn',
               style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
             ),
             style: ElevatedButton.styleFrom(

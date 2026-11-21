@@ -7,6 +7,9 @@ import 'package:medical_healthcare_app/features/academy/data/models/academy_mode
 import 'package:medical_healthcare_app/features/academy/data/repositories/academy_repository.dart';
 import 'package:medical_healthcare_app/features/academy/presentation/screens/e05_enrollment_form_screen.dart';
 import 'package:medical_healthcare_app/features/admin/data/models/admin_models.dart';
+import 'package:medical_healthcare_app/features/payments/data/models/payment_gateway_models.dart';
+import 'package:medical_healthcare_app/features/payments/data/repositories/payment_gateway_repository.dart';
+import 'package:medical_healthcare_app/features/payments/presentation/widgets/auto_payment_checkout_sheet.dart';
 
 Widget _buildTestApp({required Widget home}) {
   return MaterialApp(
@@ -98,16 +101,48 @@ void main() {
       expect(candidate.status, equals('PENDING_CONSULTATION'));
     });
 
-    testWidgets('5. Submitting E05 displays clean success dialog with zero notes and proper action buttons', (tester) async {
+    testWidgets('5. Submitting E05 displays compact PayOS payment sheet with exact course amount and zero overflow', (tester) async {
       AuthService.instance.isLoggedInNotifier.value = true;
-      tester.view.physicalSize = const Size(420, 1600);
+      AcademyRepository.instance.clearEnrolledCourses();
+      PaymentGatewayRepository.instance.debugCreateIntentOverride = ({
+        required double amount,
+        required String description,
+        required String targetType,
+        String? targetId,
+        String? referenceCode,
+        String? customerId,
+        String? customerName,
+        String? customerPhone,
+      }) async =>
+          PaymentGatewayIntentModel(
+            orderCode: 998877,
+            provider: 'PAYOS',
+            gatewayConfigured: true,
+            targetType: targetType,
+            targetId: targetId,
+            referenceCode: referenceCode,
+            amount: amount,
+            description: description,
+            bankBin: '970422',
+            accountNumber: '0394316963',
+            accountName: 'BUI THE HOANG',
+            qrCode: '00020101021238570010A0000007270127000697042201130394316963',
+            checkoutUrl: 'https://pay.payos.vn/web/998877',
+            status: 'PENDING',
+            isPaid: false,
+          );
+      tester.view.physicalSize = const Size(360, 640);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
         tester.view.resetPhysicalSize();
         AuthService.instance.isLoggedInNotifier.value = false;
+        PaymentGatewayRepository.instance.debugCreateIntentOverride = null;
       });
 
-      final unEnrolledCourse = MockAcademyData.courses[1];
+      final unEnrolledCourse = MockAcademyData.courses[1].copyWith(
+        tuitionFee: 350000,
+        depositFee: 100000,
+      );
       await tester.pumpWidget(_buildTestApp(home: E05EnrollmentFormScreen(course: unEnrolledCourse)));
       await tester.pumpAndSettle();
 
@@ -121,12 +156,13 @@ void main() {
       await tester.tap(submitBtn);
       await tester.pumpAndSettle();
 
-      expect(find.text('Đăng ký thành công!'), findsOneWidget);
-      expect(find.text('Chờ nhân viên duyệt'), findsOneWidget);
-      expect(find.text('Thanh toán học phí online (QR)'), findsOneWidget);
-      expect(find.text('Xem khóa học của tôi'), findsOneWidget);
-      expect(find.text('Về trang đào tạo'), findsOneWidget);
-      expect(find.descendant(of: find.byType(Dialog), matching: find.text('Nguyễn Văn Test')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expect(find.byType(AutoPaymentCheckoutSheet), findsOneWidget);
+      expect(find.text('Đã đăng ký'), findsOneWidget);
+      expect(find.text('350.000đ'), findsWidgets);
+      expect(find.text('100.000đ'), findsNothing);
+      expect(find.text('Xác nhận đã chuyển khoản'), findsOneWidget);
+      expect(find.text('Để sau · Xem khóa học của tôi'), findsOneWidget);
 
       expect(find.textContaining('Bước 1:'), findsNothing);
       expect(find.textContaining('Hồ sơ của học viên'), findsNothing);

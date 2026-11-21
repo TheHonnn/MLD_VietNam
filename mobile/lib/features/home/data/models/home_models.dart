@@ -70,6 +70,7 @@ class TreatmentPackageModel {
   final String description;
   final List<String> features;
   final int validityMonths;
+  final String? serviceId;
 
   const TreatmentPackageModel({
     required this.id,
@@ -85,6 +86,7 @@ class TreatmentPackageModel {
     this.description = '',
     this.features = const [],
     this.validityMonths = 6,
+    this.serviceId,
   });
 
   String get durationText => duration;
@@ -123,6 +125,7 @@ class TreatmentPackageModel {
       description: desc,
       features: desc.isNotEmpty ? [desc] : const [],
       validityMonths: months,
+      serviceId: json['service_id']?.toString() ?? json['serviceId']?.toString(),
     );
   }
 }

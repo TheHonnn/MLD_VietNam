@@ -327,19 +327,40 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       } catch (_) {}
     }
 
-    final service = item.singleService ??
-        SpaServiceModel(
-          id: item.package?.id ?? item.id,
-          name: item.title,
-          categoryName: item.category.isNotEmpty ? item.category : 'Gói liệu trình',
-          shortDescription: item.description,
-          fullDescription: item.package?.description ?? item.description,
-          durationMinutes: 60,
-          price: item.price,
-          imageUrl: item.imageUrl,
-          steps: const ['Khám & tư vấn phác đồ', 'Tiến hành liệu trình chuyên sâu', 'Theo dõi phục hồi & dặn dò'],
-          benefits: const ['Liệu trình chuẩn Y khoa MLD', 'Tiết kiệm chi phí', 'Cam kết hiệu quả tối ưu'],
-        );
+    SpaServiceModel? resolvedLinkedService = item.singleService;
+    if (resolvedLinkedService == null && item.isPackage && item.package != null) {
+      final linkedId = item.package!.serviceId?.trim() ?? '';
+      if (linkedId.isNotEmpty) {
+        try {
+          resolvedLinkedService = _services.firstWhere((s) => s.id == linkedId);
+        } catch (_) {}
+      }
+    }
+
+    final service = (resolvedLinkedService != null && item.isPackage)
+        ? resolvedLinkedService.copyWith(
+            name: item.title,
+            categoryName: 'Gói liệu trình',
+            price: item.price,
+            discountPrice: item.price,
+          )
+        : (resolvedLinkedService ??
+            SpaServiceModel(
+              id: item.package?.serviceId?.isNotEmpty == true
+                  ? item.package!.serviceId!
+                  : (item.package?.id ?? item.id),
+              name: item.title,
+              categoryName: item.isPackage
+                  ? 'Gói liệu trình'
+                  : (item.category.isNotEmpty ? item.category : 'Dịch vụ lẻ'),
+              shortDescription: item.description,
+              fullDescription: item.package?.description ?? item.description,
+              durationMinutes: 60,
+              price: item.price,
+              imageUrl: item.imageUrl,
+              steps: const ['Khám & tư vấn phác đồ', 'Tiến hành liệu trình chuyên sâu', 'Theo dõi phục hồi & dặn dò'],
+              benefits: const ['Liệu trình chuẩn Y khoa MLD', 'Tiết kiệm chi phí', 'Cam kết hiệu quả tối ưu'],
+            ));
 
     Navigator.push(
       context,
@@ -351,6 +372,9 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
           initialSpecialty: service.categoryName.isNotEmpty ? service.categoryName : null,
           userPackageId: null,
           userPackageName: null,
+          packageId: item.isPackage ? (item.package?.id ?? item.id) : null,
+          packageName: item.isPackage ? item.title : null,
+          packageSessionsCount: item.isPackage ? (item.package?.sessionsCount ?? 10) : null,
           initialVoucher: _appliedVoucher,
         ),
       ),

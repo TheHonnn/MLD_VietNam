@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_healthcare_app/features/booking/presentation/screens/all_in_one_booking_screen.dart';
 import 'package:medical_healthcare_app/features/payments/data/models/payment_gateway_models.dart';
+import 'package:medical_healthcare_app/features/payments/data/repositories/payment_gateway_repository.dart';
 import 'package:medical_healthcare_app/features/payments/presentation/widgets/auto_payment_checkout_sheet.dart';
 import 'package:medical_healthcare_app/l10n/app_localizations.dart';
 
@@ -102,12 +103,22 @@ void main() {
       );
 
       expect(find.text('BK-112233'), findsOneWidget);
-      expect(find.text('Chờ cấu hình cổng'), findsOneWidget);
-      expect(find.text('Cổng thanh toán trung gian đang chờ cấu hình'), findsOneWidget);
-      expect(find.text('Kiểm tra trạng thái thanh toán'), findsOneWidget);
+      expect(find.text('Chưa kết nối PayOS'), findsOneWidget);
+      expect(find.text('Không thể khởi tạo mã QR PayOS'), findsOneWidget);
+      expect(find.text('Tạo lại mã QR thanh toán'), findsOneWidget);
     });
 
-    testWidgets('AutoPaymentCheckoutSheet renders QR & checkout link when gateway is configured', (tester) async {
+    testWidgets('AutoPaymentCheckoutSheet renders QR & checkout link when gateway is configured and rejects unpaid confirm', (tester) async {
+      PaymentGatewayRepository.instance.debugCheckStatusOverride = (orderCode) async => const PaymentGatewayStatusModel(
+        orderCode: 445566,
+        provider: 'PAYOS',
+        configured: true,
+        isPaid: false,
+        status: 'PENDING',
+        message: 'Vui lòng thanh toán. Hệ thống chưa nhận được tiền về tài khoản trung tâm.',
+      );
+      addTearDown(() => PaymentGatewayRepository.instance.debugCheckStatusOverride = null);
+
       const activeIntent = PaymentGatewayIntentModel(
         orderCode: 445566,
         provider: 'PAYOS',
@@ -137,8 +148,17 @@ void main() {
       );
 
       expect(find.text('PAYOS'), findsOneWidget);
+      expect(find.text('950.000đ'), findsWidgets);
       expect(find.text('Mở cổng thanh toán'), findsOneWidget);
-      expect(find.text('Kiểm tra trạng thái thanh toán'), findsOneWidget);
+      expect(find.text('Xác nhận đã chuyển khoản'), findsOneWidget);
+
+      final confirmBtn = find.text('Xác nhận đã chuyển khoản');
+      await tester.ensureVisible(confirmBtn);
+      await tester.tap(confirmBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Vui lòng thanh toán'), findsOneWidget);
+      expect(find.text('Thanh toán thành công!'), findsNothing);
     });
 
     testWidgets('AllInOneBookingScreen simplifies booking flow without payment step', (tester) async {

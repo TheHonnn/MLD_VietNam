@@ -259,8 +259,10 @@ describe('AppointmentsService.createBooking', () => {
   it('resolves catalog treatment_packages.id into its underlying service_id and package price', async () => {
     const insertedPayloads: any[] = [];
     const insertedItems: any[] = [];
+    const insertedUserPackages: any[] = [];
     const pkgUuid = '99999999-9999-4999-8999-999999999999';
     const srvUuid = '88888888-8888-4888-8888-888888888888';
+    const createdUserPkgUuid = '77777777-7777-4777-8777-777777777777';
     const supabaseService: any = {
       adminClient: {
         from: vi.fn((table: string) => {
@@ -289,10 +291,26 @@ describe('AppointmentsService.createBooking', () => {
                   id: pkgUuid,
                   name: 'Goi 10 buoi MLD',
                   service_id: srvUuid,
+                  total_sessions: 10,
+                  validity_months: 6,
                   price: 4500000,
                   discount_price: 3900000,
                   is_active: true,
                 },
+                error: null,
+              })),
+            };
+            return q;
+          }
+          if (table === 'user_packages') {
+            const q: any = {
+              insert: vi.fn((payload: any) => {
+                insertedUserPackages.push(payload);
+                return q;
+              }),
+              select: vi.fn(() => q),
+              maybeSingle: vi.fn(async () => ({
+                data: { id: createdUserPkgUuid },
                 error: null,
               })),
             };
@@ -341,6 +359,10 @@ describe('AppointmentsService.createBooking', () => {
     expect(insertedPayloads[0].base_total).toBe(3900000);
     expect(insertedPayloads[0].final_price).toBe(3900000);
     expect(insertedPayloads[0].special_notes).toContain(`[package_id=${pkgUuid}]`);
+    expect(insertedPayloads[0].special_notes).toContain(`[user_package_id=${createdUserPkgUuid}]`);
+    expect(insertedPayloads[0].special_notes).toContain('Buổi 1/10');
+    expect(insertedUserPackages[0].total_sessions).toBe(10);
+    expect(insertedUserPackages[0].completed_sessions).toBe(0);
     expect(insertedItems[0].service_id).toBe(srvUuid);
     expect(insertedItems[0].price).toBe(3900000);
   });

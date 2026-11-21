@@ -133,6 +133,10 @@ class AppointmentItemModel {
   final double? baseTotal;
   final double? finalPrice;
   final String? userVoucherId;
+  final String? packageId;
+  final String? packageName;
+  final int? totalSessions;
+  final int? sessionNumber;
 
   const AppointmentItemModel({
     required this.id,
@@ -174,6 +178,10 @@ class AppointmentItemModel {
     this.baseTotal,
     this.finalPrice,
     this.userVoucherId,
+    this.packageId,
+    this.packageName,
+    this.totalSessions,
+    this.sessionNumber,
   });
 
   String? get userPackageId {
@@ -181,8 +189,31 @@ class AppointmentItemModel {
     return RegExp(r'user_package_id=([0-9a-fA-F-]+)').firstMatch(specialNotes)?.group(1);
   }
 
+  String? get catalogPackageId {
+    if (packageId != null && packageId!.isNotEmpty) return packageId;
+    if (specialNotes.isEmpty) return null;
+    return RegExp(r'package_id=([0-9a-fA-F-]+)').firstMatch(specialNotes)?.group(1);
+  }
+
+  int? get parsedSessionNumber {
+    if (sessionNumber != null) return sessionNumber;
+    final match = RegExp(r'Buổi\s+(\d+)(?:\s*/\s*(\d+))?', caseSensitive: false).firstMatch(specialNotes);
+    if (match != null) return int.tryParse(match.group(1) ?? '');
+    return null;
+  }
+
+  int? get parsedTotalSessions {
+    if (totalSessions != null) return totalSessions;
+    final match = RegExp(r'Buổi\s+\d+\s*/\s*(\d+)', caseSensitive: false).firstMatch(specialNotes);
+    if (match != null) return int.tryParse(match.group(1) ?? '');
+    return null;
+  }
+
   bool get isPackageSession =>
-      userPackageId != null || paymentMethod.toUpperCase() == 'MEMBERSHIP_WALLET';
+      userPackageId != null ||
+      catalogPackageId != null ||
+      specialNotes.contains('Gói liệu trình') ||
+      paymentMethod.toUpperCase() == 'MEMBERSHIP_WALLET';
 
   bool get isClinicalCompleted => sessionStatus.toUpperCase() == 'COMPLETED';
 
@@ -226,6 +257,10 @@ class AppointmentItemModel {
     double? baseTotal,
     double? finalPrice,
     String? userVoucherId,
+    String? packageId,
+    String? packageName,
+    int? totalSessions,
+    int? sessionNumber,
   }) {
     return AppointmentItemModel(
       id: id ?? this.id,
@@ -267,6 +302,10 @@ class AppointmentItemModel {
       baseTotal: baseTotal ?? this.baseTotal,
       finalPrice: finalPrice ?? this.finalPrice,
       userVoucherId: userVoucherId ?? this.userVoucherId,
+      packageId: packageId ?? this.packageId,
+      packageName: packageName ?? this.packageName,
+      totalSessions: totalSessions ?? this.totalSessions,
+      sessionNumber: sessionNumber ?? this.sessionNumber,
     );
   }
 }

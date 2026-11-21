@@ -489,75 +489,130 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
           Builder(
             builder: (ctx) {
               final isPending = !AcademyRepository.instance.isCourseApproved(course.id, course.title);
-              if (isPending) {
-                return Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 42,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF3C7),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFFDE68A)),
+              final gLower = course.courseGroup.toLowerCase();
+              final cLower = course.category.toLowerCase();
+              final tLower = course.targetAudience.toLowerCase();
+              final titleLower = course.title.toLowerCase();
+              final isPractitioner = gLower.contains('làm nghề') ||
+                  cLower.contains('làm nghề') ||
+                  tLower.contains('làm nghề') ||
+                  titleLower.contains('làm nghề');
+              final isGraduated = course.status.trim().toUpperCase() == 'GRADUATED';
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (isPending && isPractitioner)
+                    Container(
+                      height: 42,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: Text(
+                        context.tr('Chờ nhân viên duyệt', 'Pending Staff Approval'),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFB45309),
+                        ),
+                      ),
+                    )
+                  else if (isPending)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 42,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFFDE68A)),
+                            ),
+                            child: Text(
+                              context.tr('Chờ duyệt', 'Pending Approval'),
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFB45309),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.qr_code_2_rounded, size: 17, color: Colors.white),
+                            label: Text(
+                              context.tr('Thanh toán luôn', 'Pay Now'),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.accent,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () => _openPaymentForPendingCourse(course),
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    SizedBox(
+                      width: double.infinity,
+                      height: 42,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => E08ClassDetailScreen(course: course)),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
                         ),
                         child: Text(
-                          context.tr('Chờ duyệt', 'Pending Approval'),
+                          context.tr('Vào học ngay', 'Start Learning'),
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  if (!isGraduated) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 38,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _confirmAndCancelEnrollment(course),
+                        icon: const Icon(Icons.cancel_outlined, size: 16, color: Color(0xFFDC2626)),
+                        label: Text(
+                          context.tr('Hủy khóa học', 'Cancel Course'),
                           style: const TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFFB45309),
+                            color: Color(0xFFDC2626),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.qr_code_2_rounded, size: 17, color: Colors.white),
-                        label: Text(
-                          context.tr('Thanh toán luôn', 'Pay Now'),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.accent,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFFCA5A5)),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        onPressed: () => _openPaymentForPendingCourse(course),
                       ),
                     ),
                   ],
-                );
-              }
-
-              return SizedBox(
-                width: double.infinity,
-                height: 42,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => E08ClassDetailScreen(course: course)),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    context.tr('Vào học ngay', 'Start Learning'),
-                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
-                  ),
-                ),
+                ],
               );
             },
           ),
@@ -566,11 +621,75 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
     );
   }
 
-  void _openPaymentForPendingCourse(CourseModel course) {
+  Future<void> _confirmAndCancelEnrollment(CourseModel course) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          context.tr('Xác nhận hủy khóa học', 'Confirm Course Cancellation'),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AcademyColors.heading),
+        ),
+        content: Text(
+          context.tr(
+            'Bạn có chắc muốn hủy đăng ký khóa học "${course.title}" không?',
+            'Are you sure you want to cancel your enrollment for "${course.title}"?',
+          ),
+          style: const TextStyle(fontSize: 13.5, color: AcademyColors.textPrimary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(context.tr('Không', 'No')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            child: Text(context.tr('Hủy khóa học', 'Cancel Course')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    final ok = await AcademyRepository.instance.cancelEnrollment(course);
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? context.tr('Đã hủy đăng ký khóa học.', 'Course enrollment cancelled.')
+              : context.tr('Không thể hủy khóa học lúc này. Vui lòng thử lại.', 'Unable to cancel course right now.'),
+        ),
+        backgroundColor: ok ? AppColors.primary : AppColors.error,
+      ),
+    );
+  }
+
+  Future<void> _openPaymentForPendingCourse(CourseModel course) async {
     final refCode = (course.customerCode != null && course.customerCode!.isNotEmpty)
         ? course.customerCode!
         : (AuthService.instance.phoneNotifier.value ?? 'MLD');
-    final amount = course.depositFee >= 1000 ? course.depositFee : course.tuitionFee;
+    double amount = course.payableAmount;
+    if (course.enrollmentId != null && course.enrollmentId!.isNotEmpty) {
+      final latest = await SupabaseDataService.instance.fetchEnrollmentById(course.enrollmentId!);
+      if (latest != null) {
+        final tTotal = (latest['tuition_total'] as num?)?.toDouble() ?? 0;
+        final tPaid = (latest['amount_paid'] as num?)?.toDouble() ?? 0;
+        if (tTotal - tPaid >= 1000) {
+          amount = tTotal - tPaid;
+        }
+      }
+    }
+    if (amount < 1000) {
+      amount = course.tuitionFee;
+    }
+    if (!mounted) return;
 
     AutoPaymentCheckoutSheet.show(
       context,
@@ -581,23 +700,18 @@ class _E07MyCoursesScreenState extends State<E07MyCoursesScreen> {
       referenceCode: refCode,
       customerName: AuthService.instance.currentDisplayName ?? 'Học viên MLD',
       customerPhone: AuthService.instance.phoneNotifier.value ?? '',
+      itemTitle: course.title,
       onPaymentSuccess: (status) async {
         final approvedCourse = course.copyWith(
-          status: 'ACTIVE',
+          status: 'STUDYING',
           approvalStatus: 'APPROVED',
+          amountPaid: status.amountPaid > 0 ? status.amountPaid : amount,
+          paymentStatus: 'PAID',
         );
         AcademyRepository.instance.enrollCourseLocal(approvedCourse);
-        if (course.enrollmentId != null && course.enrollmentId!.isNotEmpty) {
-          try {
-            await SupabaseDataService.instance.updateCourseEnrollmentStatus(
-              enrollmentId: course.enrollmentId!,
-              status: 'ACTIVE',
-              approvalStatus: 'APPROVED',
-              paymentStatus: 'PAID',
-              admissionStatus: 'STUDYING',
-              amountPaid: amount,
-            );
-          } catch (_) {}
+        if (!mounted) return;
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
         }
         if (!mounted) return;
         setState(() {});

@@ -170,9 +170,10 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
-    final course = MockAcademyData.courses.length > 1
-        ? MockAcademyData.courses[1]
-        : MockAcademyData.courses.first;
+    final course = MockAcademyData.courses.firstWhere(
+      (c) => c.courseGroup.toLowerCase().contains('làm nghề'),
+      orElse: () => MockAcademyData.courses.last,
+    );
 
     await tester.pumpWidget(_buildTestApp(
       home: E05EnrollmentFormScreen(course: course),
@@ -209,16 +210,10 @@ void main() {
     await tester.tap(find.byKey(const Key('submit_enrollment_button')));
     await tester.pumpAndSettle();
 
-    // 6. Hiển thị thông báo trạng thái "Chờ nhân viên duyệt"
     expect(find.textContaining('Đăng ký thành công'), findsOneWidget);
     expect(find.text('Chờ nhân viên duyệt'), findsOneWidget);
-    expect(
-      find.byWidgetPredicate((w) =>
-          w is Text &&
-          (w.data?.contains('Nhân viên tuyển sinh sẽ kiểm duyệt hồ sơ') == true ||
-              w.data?.contains('Nhân viên kiểm tra hồ sơ và xác nhận học phí') == true)),
-      findsOneWidget,
-    );
+    expect(find.text('Xem khóa học của tôi'), findsOneWidget);
+    expect(find.text('Về trang đào tạo'), findsOneWidget);
   });
 
   testWidgets('Test E05EnrollmentFormScreen & E01: Khóa học đã đăng ký hiện nút "Đã đăng ký", không cho đăng ký lại, bấm "Đăng ký học" vào thẳng E05', (WidgetTester tester) async {

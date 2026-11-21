@@ -29,6 +29,9 @@ class CourseModel {
   final String? customerCode;
   final String? approvalStatus;
   final int totalVideos;
+  final double? tuitionTotal;
+  final double? amountPaid;
+  final String? paymentStatus;
 
   const CourseModel({
     required this.id,
@@ -59,6 +62,9 @@ class CourseModel {
     this.customerCode,
     this.approvalStatus,
     this.totalVideos = 4,
+    this.tuitionTotal,
+    this.amountPaid,
+    this.paymentStatus,
   });
 
   factory CourseModel.fromJson(Map<String, dynamic> json) {
@@ -129,6 +135,9 @@ class CourseModel {
           json['customerCode']?.toString(),
       approvalStatus: json['approval_status']?.toString() ?? json['approvalStatus']?.toString(),
       totalVideos: videoCount,
+      tuitionTotal: (json['tuitionTotal'] as num?)?.toDouble() ?? (json['tuition_total'] as num?)?.toDouble(),
+      amountPaid: (json['amountPaid'] as num?)?.toDouble() ?? (json['amount_paid'] as num?)?.toDouble(),
+      paymentStatus: json['paymentStatus']?.toString() ?? json['payment_status']?.toString(),
     );
   }
 
@@ -161,6 +170,9 @@ class CourseModel {
     String? customerCode,
     String? approvalStatus,
     int? totalVideos,
+    double? tuitionTotal,
+    double? amountPaid,
+    String? paymentStatus,
   }) {
     return CourseModel(
       id: id ?? this.id,
@@ -191,6 +203,9 @@ class CourseModel {
       customerCode: customerCode ?? this.customerCode,
       approvalStatus: approvalStatus ?? this.approvalStatus,
       totalVideos: totalVideos ?? this.totalVideos,
+      tuitionTotal: tuitionTotal ?? this.tuitionTotal,
+      amountPaid: amountPaid ?? this.amountPaid,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
     );
   }
 
@@ -224,7 +239,16 @@ class CourseModel {
     'approvalStatus': approvalStatus,
     'total_lessons': totalVideos,
     'totalVideos': totalVideos,
+    'tuitionTotal': tuitionTotal,
+    'amountPaid': amountPaid,
+    'paymentStatus': paymentStatus,
   };
+
+  double get payableAmount {
+    final total = (tuitionTotal != null && tuitionTotal! > 0) ? tuitionTotal! : tuitionFee;
+    final remaining = total - (amountPaid ?? 0.0);
+    return remaining > 0 ? remaining : total;
+  }
 
   int get sessionCount {
     final match = RegExp(r'(\\d+)\\s*buổi').firstMatch(schedule);

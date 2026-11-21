@@ -138,15 +138,16 @@ export class PaymentsService {
       await this.redisService.set(`payos:order:${orderCode}`, JSON.stringify(mappingData), 86400);
     } catch (_) {}
 
-    // Chuẩn hóa dữ liệu trả về cho Mobile App
-    const qrCode = payosRes?.qrCode || this.generateStandardVietQR(dto.amount, cleanDesc);
-    const checkoutUrl = payosRes?.checkoutUrl || `https://pay.payos.vn/web/${orderCode}`;
+    const qrCode = payosRes?.qrCode || '';
+    const checkoutUrl = payosRes?.checkoutUrl || '';
     const accountNumber = payosRes?.accountNumber || this.bankAccountNo;
     const accountName = payosRes?.accountName || this.bankAccountName;
     const bin = payosRes?.bin || this.bankBin;
+    const gatewayConfigured = Boolean(payosRes?.qrCode);
 
     return {
       orderCode,
+      gatewayConfigured,
       amount: dto.amount,
       description: cleanDesc,
       bin,
@@ -157,6 +158,9 @@ export class PaymentsService {
       checkoutUrl,
       status: 'PENDING',
       isPaid: false,
+      message: gatewayConfigured
+        ? 'Tạo mã thanh toán VietQR PayOS thành công'
+        : 'Cổng thanh toán PayOS chưa sẵn sàng hoặc thiếu cấu hình máy chủ.',
     };
   }
 
@@ -258,9 +262,13 @@ export class PaymentsService {
       }
 
       const payosInfo = await this.payos.paymentRequests.get(orderCode);
-      const isPaid = payosInfo.status === 'PAID';
+      const expectedAmount = Number(mapping?.amount || 0);
+      const amountPaid = Number(payosInfo?.amountPaid || 0);
+      const isPaid = String(payosInfo?.status || '').toUpperCase() === 'PAID'
+        && amountPaid > 0
+        && (expectedAmount <= 0 || amountPaid >= expectedAmount);
 
-      this.logger.log(`[PayOS Check] orderCode: ${orderCode} -> status: ${payosInfo.status}, amountPaid: ${payosInfo.amountPaid}đ`);
+      this.logger.log(`[PayOS Check] orderCode: ${orderCode} -> status: ${payosInfo.status}, amountPaid: ${amountPaid}đ`);
 
       if (isPaid) {
         await this.handlePaymentSuccess(orderCode, mapping, payosInfo);
@@ -269,7 +277,7 @@ export class PaymentsService {
           orderCode,
           isPaid: true,
           status: 'PAID',
-          amountPaid: payosInfo.amountPaid,
+          amountPaid,
           invoiceId: mapping?.invoiceId || paidInvoice?.id,
           message: 'Thanh toán thành công! Hệ thống đã ghi nhận giao dịch.',
           bookingId: mapping?.bookingId,
@@ -280,9 +288,9 @@ export class PaymentsService {
         orderCode,
         isPaid: false,
         status: payosInfo.status || 'PENDING',
-        amountPaid: payosInfo.amountPaid || 0,
-        amountRemaining: payosInfo.amountRemaining || (mapping?.amount || 0),
-        message: 'Hệ thống chưa nhận được tiền từ ngân hàng. Vui lòng chuyển khoản đúng số tiền và nội dung, hoặc chờ trong giây lát.',
+        amountPaid,
+        amountRemaining: payosInfo.amountRemaining || Math.max(0, expectedAmount - amountPaid),
+        message: 'Vui lòng thanh toán. Hệ thống chưa nhận được tiền về tài khoản trung tâm.',
       };
     } catch (err: any) {
       this.logger.error(`[PayOS Check Error] orderCode ${orderCode}: ${err?.message || err}`);
@@ -343,7 +351,22 @@ export class PaymentsService {
       }
 
       if (webhookBody.code === '00') {
-        await this.handlePaymentSuccess(orderCode, mapping, verifiedData);
+        const { data: gwIntent } = await this.supabaseService.adminClient
+          .from('payment_gateway_intents')
+          .select('order_code')
+          .eq('order_code', orderCode)
+          .maybeSingle();
+        if (gwIntent) {
+          await this.reconcileGatewayPayment({
+            orderCode,
+            provider: 'PAYOS',
+            amount: Number(verifiedData?.amount || 0),
+            gatewayTransactionId: String(verifiedData?.reference || orderCode),
+            rawPayload: verifiedData || webhookBody,
+          });
+        } else {
+          await this.handlePaymentSuccess(orderCode, mapping, verifiedData);
+        }
       }
 
       return { success: true, message: 'Webhook processed successfully' };
@@ -577,12 +600,19 @@ export class PaymentsService {
         const prevPaid = Number(currentEnr?.amount_paid || 0);
         const totalTuition = Number(currentEnr?.tuition_total || amountPaid);
         const nextPaid = Math.min(totalTuition, prevPaid + amountPaid);
+        const fullPaid = nextPaid >= totalTuition;
 
         await this.supabaseService.adminClient
           .from('course_enrollments')
           .update({
             amount_paid: nextPaid,
-            payment_status: nextPaid >= totalTuition ? 'PAID' : 'PARTIALLY_PAID',
+            payment_status: fullPaid ? 'PAID' : 'PARTIALLY_PAID',
+            status: fullPaid ? 'STUDYING' : 'DEPOSITED',
+            approval_status: fullPaid ? 'APPROVED' : 'PENDING_APPROVAL',
+            student_status: fullPaid ? 'APPROVED' : 'NOT_APPROVED',
+            consultation_status: 'CONFIRMED',
+            access_status: 'ACTIVE',
+            ...(fullPaid ? { approved_at: new Date().toISOString() } : {}),
           })
           .eq('id', targetEnrollmentId);
 
@@ -1412,6 +1442,14 @@ export class PaymentsService {
     } catch (_) {}
 
     if (dbIntent && String(dbIntent.status || '').toUpperCase() === 'PAID') {
+      if (String(dbIntent.target_type || '').toUpperCase() === 'ENROLLMENT' && dbIntent.target_id) {
+        await this.activateEnrollmentOnPaid(
+          String(dbIntent.target_id),
+          Number(dbIntent.amount_paid || dbIntent.amount || 0),
+          Number(dbIntent.order_code || orderCode),
+          dbIntent.paid_at || new Date().toISOString(),
+        );
+      }
       return {
         orderCode,
         provider: dbIntent.provider || this.gatewayAdapter.provider,
@@ -1431,7 +1469,10 @@ export class PaymentsService {
       this.payos,
     );
 
-    if (remote.isPaid) {
+    const expectedAmount = Number(dbIntent?.amount || 0);
+    const hasSufficientFunds = remote.amountPaid > 0 && (expectedAmount <= 0 || remote.amountPaid >= expectedAmount);
+
+    if (remote.isPaid && hasSufficientFunds) {
       const reconciled = await this.reconcileGatewayPayment({
         orderCode,
         provider: remote.provider,
@@ -1460,12 +1501,63 @@ export class PaymentsService {
       isPaid: false,
       status: dbIntent?.status || remote.status || 'PENDING',
       amountPaid: Number(dbIntent?.amount_paid || remote.amountPaid || 0),
-      amountRemaining: Number(dbIntent?.amount || 0),
+      amountRemaining: Math.max(0, Number(dbIntent?.amount || 0) - Number(remote.amountPaid || 0)),
       paidAt: null,
       message: remote.configured
-        ? 'Chưa ghi nhận thanh toán thành công từ cổng trung gian.'
-        : 'Cổng thanh toán trung gian đang ở chế độ chờ cấu hình.',
+        ? 'Vui lòng thanh toán. Hệ thống chưa nhận được tiền về tài khoản trung tâm.'
+        : 'Cổng thanh toán trung gian chưa được cấu hình trên máy chủ.',
     };
+  }
+
+  private async activateEnrollmentOnPaid(
+    enrollmentId: string,
+    paidAmount: number,
+    orderCode: number,
+    paidAt: string,
+  ) {
+    try {
+      const { data: enr } = await this.supabaseService.adminClient
+        .from('course_enrollments')
+        .select('id, amount_paid, tuition_total, status, approval_status, payment_status')
+        .eq('id', enrollmentId)
+        .maybeSingle();
+      if (!enr) return;
+
+      const totalTuition = Number(enr.tuition_total || paidAmount || 0);
+      const prevPaid = Number(enr.amount_paid || 0);
+      const nextPaid = enr.payment_status === 'PAID'
+        ? Math.max(prevPaid, paidAmount)
+        : Math.min(totalTuition > 0 ? totalTuition : prevPaid + paidAmount, prevPaid + paidAmount);
+      const fullPaid = totalTuition <= 0 || nextPaid >= totalTuition;
+
+      if (enr.payment_status !== 'PAID' || enr.approval_status !== 'APPROVED') {
+        await this.supabaseService.adminClient
+          .from('course_enrollments')
+          .update({
+            payment_status: fullPaid ? 'PAID' : 'PARTIALLY_PAID',
+            amount_paid: nextPaid,
+            status: fullPaid ? 'STUDYING' : 'DEPOSITED',
+            approval_status: fullPaid ? 'APPROVED' : 'PENDING_APPROVAL',
+            student_status: fullPaid ? 'APPROVED' : 'NOT_APPROVED',
+            consultation_status: 'CONFIRMED',
+            access_status: 'ACTIVE',
+            ...(fullPaid ? { approved_at: paidAt } : {}),
+          })
+          .eq('id', enrollmentId);
+      }
+
+      if (paidAmount > 0 && orderCode > 0) {
+        await this.ensureEnrollmentPayment(
+          enrollmentId,
+          paidAmount,
+          `TX-PAYOS-${orderCode}`,
+          undefined,
+          `Thanh toán học phí online PayOS #${orderCode}`,
+        );
+      }
+    } catch (e) {
+      this.logger.warn(`[ActivateEnrollmentOnPaid Warning]: ${e}`);
+    }
   }
 
   async handleGenericGatewayWebhook(
@@ -1583,16 +1675,12 @@ export class PaymentsService {
         await query;
       } catch (_) {}
     } else if (targetType === 'ENROLLMENT' && targetId) {
-      try {
-        await this.supabaseService.adminClient
-          .from('course_enrollments')
-          .update({
-            payment_status: 'PAID',
-            amount_paid: effectiveAmount,
-            status: 'ENROLLED',
-          })
-          .eq('id', targetId);
-      } catch (_) {}
+      await this.activateEnrollmentOnPaid(
+        targetId,
+        effectiveAmount,
+        effectiveOrderCode,
+        paidAt,
+      );
     } else if (targetType === 'INVOICE' && targetId) {
       try {
         await this.supabaseService.adminClient

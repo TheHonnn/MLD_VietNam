@@ -813,9 +813,70 @@ class SupabaseDataService {
         ),
       );
       if (response.data == null) return [];
-      return List<Map<String, dynamic>>.from(response.data!);
+      return List<Map<String, dynamic>>.from(response.data!).where((item) {
+        final st = (item['status']?.toString() ?? '').toUpperCase();
+        final ap = (item['approval_status']?.toString() ?? '').toUpperCase();
+        return st != 'DROPPED' && st != 'ARCHIVED' && ap != 'CANCELLED';
+      }).toList();
     } catch (_) {
       return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchEnrollmentById(String enrollmentId) async {
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return null;
+      }
+    } catch (_) {}
+
+    if (enrollmentId.trim().isEmpty || !RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(enrollmentId.trim())) {
+      return null;
+    }
+
+    try {
+      final response = await _client.get<List<dynamic>>(
+        ApiEndpoints.courseEnrollments,
+        queryParameters: {
+          'id': 'eq.${enrollmentId.trim()}',
+          'select': 'id,tuition_total,amount_paid,payment_status,status,approval_status,order_code,courses(tuition_fee)',
+          'limit': 1,
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+          },
+        ),
+      );
+      if (response.data != null && response.data!.isNotEmpty) {
+        return Map<String, dynamic>.from(response.data!.first as Map);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<bool> cancelCourseEnrollment(String enrollmentId) async {
+    try {
+      final response = await _client.patch(
+        '${ApiEndpoints.courseEnrollments}?id=eq.$enrollmentId',
+        data: {
+          'status': 'DROPPED',
+          'approval_status': 'CANCELLED',
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        options: Options(
+          headers: {
+            'apikey': ApiEndpoints.supabaseAnonKey,
+            'Authorization': 'Bearer ${ApiEndpoints.supabaseAnonKey}',
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+        ),
+      );
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -930,18 +991,19 @@ class SupabaseDataService {
     required String status,
     String? approvalStatus,
     String? paymentStatus,
-    String? admissionStatus,
     double? amountPaid,
   }) async {
+    final normalizedStatus = status.toUpperCase() == 'ACTIVE' ? 'STUDYING' : status;
     try {
       final response = await _client.patch(
         '${ApiEndpoints.courseEnrollments}?id=eq.$enrollmentId',
         data: {
-          'status': status,
+          'status': normalizedStatus,
           if (approvalStatus != null) 'approval_status': approvalStatus,
           if (paymentStatus != null) 'payment_status': paymentStatus,
-          if (admissionStatus != null) 'admission_status': admissionStatus,
           if (amountPaid != null) 'amount_paid': amountPaid,
+          if (approvalStatus == 'APPROVED') 'student_status': 'APPROVED',
+          if (approvalStatus == 'APPROVED') 'consultation_status': 'CONFIRMED',
           'updated_at': DateTime.now().toIso8601String(),
         },
         options: Options(

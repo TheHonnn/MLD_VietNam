@@ -227,14 +227,48 @@ class _C09MyAppointmentsScreenState extends State<C09MyAppointmentsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              BookingStatusBadge(status: app.status),
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    BookingStatusBadge(status: app.status),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: app.isPackageSession
+                            ? const Color(0xFFF3E8FF)
+                            : const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        app.isPackageSession
+                            ? (app.parsedSessionNumber != null
+                                ? context.tr(
+                                    'Gói LT · Buổi ${app.parsedSessionNumber}${app.parsedTotalSessions != null ? '/${app.parsedTotalSessions}' : ''}',
+                                    'Pkg · Session ${app.parsedSessionNumber}${app.parsedTotalSessions != null ? '/${app.parsedTotalSessions}' : ''}',
+                                  )
+                                : context.tr('Gói liệu trình', 'Package'))
+                            : context.tr('Dịch vụ lẻ', 'Single'),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: app.isPackageSession
+                              ? const Color(0xFF7E22CE)
+                              : const Color(0xFF0369A1),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   app.bookingCode,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textSecondary,
