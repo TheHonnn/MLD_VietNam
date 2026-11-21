@@ -1728,11 +1728,18 @@ class AdminRepository {
   static bool isTestCode(String? code) {
     if (code == null) return false;
     final upper = code.toUpperCase();
-    return upper.contains('TEST') ||
-        upper.contains('UAT') ||
-        upper.contains('E2E') ||
-        upper.contains('SEC') ||
-        upper.contains('EXPIRY');
+    if (upper.startsWith('TEST-') ||
+        upper.startsWith('UAT-') ||
+        upper.startsWith('SEC-') ||
+        upper.startsWith('EXPIRY-') ||
+        upper.startsWith('E2E-') ||
+        upper.contains('-TEST-') ||
+        upper.contains('-UAT-') ||
+        upper.contains('-SEC-') ||
+        upper.contains('-E2E-')) {
+      return true;
+    }
+    return false;
   }
 
   static bool isDateInRange(String? dateStr, String startIso, String endIso) {
@@ -2072,7 +2079,7 @@ class AdminRepository {
     List<dynamic> invoices = [];
     try {
       final invRes = await _apiClient.dio.get(
-        '/rest/v1/invoices?select=id,invoice_code,branch_id,booking_id,user_package_id,enrollment_id,total_amount,refund_amount,payment_status,paid_at,created_at,branches(name),invoice_items(item_type,amount)&payment_status=eq.PAID$branchParam&order=paid_at.desc',
+        '/rest/v1/invoices?select=id,invoice_code,branch_id,booking_id,user_package_id,enrollment_id,total_amount,refund_amount,payment_status,paid_at,branches(name),invoice_items(item_type,amount)&payment_status=eq.PAID$branchParam&order=paid_at.desc',
       );
       if (invRes.data is List) {
         invoices = invRes.data as List;
@@ -2080,7 +2087,7 @@ class AdminRepository {
     } catch (_) {
       try {
         final invResFallback = await _apiClient.dio.get(
-          '/rest/v1/invoices?select=id,invoice_code,branch_id,booking_id,user_package_id,enrollment_id,total_amount,refund_amount,payment_status,paid_at,created_at,branches(name)&payment_status=eq.PAID$branchParam&order=paid_at.desc',
+          '/rest/v1/invoices?select=id,invoice_code,branch_id,booking_id,user_package_id,enrollment_id,total_amount,refund_amount,payment_status,paid_at,branches(name)&payment_status=eq.PAID$branchParam&order=paid_at.desc',
         );
         if (invResFallback.data is List) {
           invoices = invResFallback.data as List;
