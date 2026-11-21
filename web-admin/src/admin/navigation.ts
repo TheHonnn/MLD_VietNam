@@ -25,7 +25,7 @@ export const ADMIN_NAVIGATION_GROUPS: NavigationGroup[] = [
     item('medical-records','Hồ sơ phác đồ MLD','/medical-records'),item('user_packages'),item('treatment_journal'),item('home_care_guidelines'),
   ]),
   group('Dịch vụ & Định mức',['services','treatment_packages','home_products','service_categories','service_materials'],[
-    item('catalog','Bảng giá & Gói liệu trình','/services-catalog'),item('home_products','Sản phẩm mang về','/home-products'),item('service_categories'),item('service_materials'),item('treatment-inventory','Kho vật tư điều trị','/treatment-inventory'),
+    item('catalog','Bảng giá & Gói liệu trình','/services-catalog'),item('home_products','Sản phẩm mang về','/home-products'),item('service_materials'),item('treatment-inventory','Kho vật tư điều trị','/treatment-inventory'),
   ]),
   group('Nhân sự & Kỹ thuật viên',['staff_profiles','departments','technicians','technician_shifts','staff_commissions'],[
     item('staff-schedule','Lịch trực & Điều phối ca','/staff-schedule'),item('staff_profiles'),item('departments'),item('technicians'),item('technician_shifts'),item('staff_commissions','Hoa hồng KTV & Thưởng','/commissions'),
