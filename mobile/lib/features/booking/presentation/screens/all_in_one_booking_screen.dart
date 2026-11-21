@@ -189,7 +189,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
       if (mounted) {
         setState(() {
           _availableVouchers = list.where((v) => v.status == 'AVAILABLE').toList();
-          if (_selectedVoucher != null && !_availableVouchers.any((v) => v.code == _selectedVoucher!.code)) {
+          if (_selectedVoucher != null &&
+              widget.initialVoucher?.code != _selectedVoucher!.code &&
+              !_availableVouchers.any((v) => v.code == _selectedVoucher!.code)) {
             _selectedVoucher = null;
           }
         });
@@ -970,8 +972,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final weekdayStr = _selectedDate.weekday + 1 == 8 ? 'CN' : 'T${_selectedDate.weekday + 1}';
     final dateDisplay =
-        'Thứ ${_selectedDate.weekday + 1 == 8 ? "Chủ Nhật" : "${_selectedDate.weekday + 1}"}, ${_selectedDate.day.toString().padLeft(2, "0")}/${_selectedDate.month.toString().padLeft(2, "0")}/${_selectedDate.year}';
+        '$weekdayStr, ${_selectedDate.day.toString().padLeft(2, "0")}/${_selectedDate.month.toString().padLeft(2, "0")}/${_selectedDate.year}';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -1288,27 +1291,34 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        InkWell(
-                          onTap: _pickDate,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.calendar_today_outlined, size: 15, color: AppColors.primary),
-                                const SizedBox(width: 6),
-                                Text(
-                                  dateDisplay,
-                                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.primary),
-                                ),
-                                const SizedBox(width: 3),
-                                const Icon(Icons.arrow_drop_down, size: 18, color: AppColors.primary),
-                              ],
+                        Flexible(
+                          fit: FlexFit.loose,
+                          child: InkWell(
+                            onTap: _pickDate,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.calendar_today_outlined, size: 15, color: AppColors.primary),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      dateDisplay,
+                                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  const Icon(Icons.arrow_drop_down, size: 18, color: AppColors.primary),
+                                ],
+                              ),
                             ),
                           ),
                         ),

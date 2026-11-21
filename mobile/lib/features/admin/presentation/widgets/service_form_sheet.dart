@@ -209,11 +209,11 @@ class _ServiceFormSheetState extends State<ServiceFormSheet> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.82,
       ),
-      padding: EdgeInsets.only(
+      padding: const EdgeInsets.only(
         left: 20,
         right: 20,
         top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        bottom: 20,
       ),
       decoration: BoxDecoration(
         color: Colors.white,

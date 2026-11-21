@@ -177,6 +177,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
 
       String? accessToken;
       String? refreshToken;
+      String? supabaseToken;
       Map<String, dynamic>? user;
 
       try {
@@ -194,6 +195,20 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
         accessToken = data['accessToken'] as String?;
         refreshToken = data['refreshToken'] as String?;
         user = data['user'] as Map<String, dynamic>?;
+
+        try {
+          final supaRes = await ApiClient.instance.post(
+            '/auth/v1/token?grant_type=password',
+            data: {
+              'email': email,
+              'password': password,
+            },
+          );
+          final supaData = supaRes.data;
+          if (supaData is Map && supaData['access_token'] != null) {
+            supabaseToken = supaData['access_token'] as String?;
+          }
+        } catch (_) {}
       } catch (backendError) {
         try {
           final supaRes = await ApiClient.instance.post(
@@ -207,6 +222,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
           if (supaData is Map && supaData['access_token'] != null) {
             accessToken = supaData['access_token'] as String?;
             refreshToken = supaData['refresh_token'] as String?;
+            supabaseToken = accessToken;
             final supaUser = supaData['user'] as Map<String, dynamic>?;
             final meta = (supaUser?['user_metadata'] as Map<String, dynamic>?) ?? {};
             user = {
@@ -274,6 +290,7 @@ class _A03LoginScreenState extends State<A03LoginScreen> {
         await AuthService.instance.saveSession(
           accessToken: accessToken,
           refreshToken: refreshToken,
+          supabaseToken: supabaseToken,
           userId: user?['id'] as String?,
           phone: loggedInPhone,
           displayName: loggedInName,

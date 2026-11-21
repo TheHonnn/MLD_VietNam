@@ -152,19 +152,48 @@ class AdminRepository {
         monthRev = monthReport.totalRevenue;
       } catch (_) {}
 
-      // B. Thống kê Học viên mới hôm nay & tháng này (Tuyển sinh & Ghi danh)
       int todayStudents = 0;
       int monthStudents = 0;
       try {
+        final now = DateTime.now();
+        final nextMonth = DateTime(now.year, now.month + 1, 1);
+        final nextMonthStart = DateTime(nextMonth.year, nextMonth.month, 1);
+        final nextMonthEnd = DateTime(nextMonth.year, nextMonth.month + 1, 0, 23, 59, 59);
+
         final studentRes = await _apiClient.dio.get(
-          '/rest/v1/course_enrollments?select=id,enrolled_at&enrolled_at=gte.$monthStartStr',
+          '/rest/v1/course_enrollments?select=id,status,enrolled_at,batch_id,course_batches(start_date,end_date)&order=enrolled_at.desc',
         );
         if (studentRes.data is List) {
           for (final s in studentRes.data) {
-            monthStudents++;
             final enrolledAt = s['enrolled_at']?.toString() ?? '';
             if (enrolledAt.startsWith(todayStr)) {
               todayStudents++;
+            }
+            final st = (s['status']?.toString() ?? '').toUpperCase();
+            if (st == 'ARCHIVED' || st == 'DROPPED') continue;
+
+            final batchObj = s['course_batches'];
+            final startRaw = batchObj is Map ? batchObj['start_date']?.toString() : null;
+            final endRaw = batchObj is Map ? batchObj['end_date']?.toString() : null;
+            final startDate = startRaw != null ? DateTime.tryParse(startRaw) : null;
+            final endDate = endRaw != null ? DateTime.tryParse(endRaw) : null;
+
+            bool belongsToNextMonth = false;
+            if (startDate != null) {
+              if (endDate != null) {
+                belongsToNextMonth = !startDate.isAfter(nextMonthEnd) && !endDate.isBefore(nextMonthStart);
+              } else {
+                belongsToNextMonth = startDate.year == nextMonth.year && startDate.month == nextMonth.month;
+              }
+            } else {
+              final created = DateTime.tryParse(enrolledAt);
+              if (created != null) {
+                belongsToNextMonth = created.year == nextMonth.year && created.month == nextMonth.month;
+              }
+            }
+
+            if (belongsToNextMonth) {
+              monthStudents++;
             }
           }
         }
@@ -315,20 +344,44 @@ class AdminRepository {
 
     try {
       final now = DateTime.now();
-      final monthStart = DateFormat('yyyy-MM-01').format(now);
+      final nextMonth = DateTime(now.year, now.month + 1, 1);
+      final nextMonthStart = DateTime(nextMonth.year, nextMonth.month, 1);
+      final nextMonthEnd = DateTime(nextMonth.year, nextMonth.month + 1, 0, 23, 59, 59);
+
       final res = await _apiClient.dio.get(
-        '${ApiEndpoints.supabaseUrl}/rest/v1/course_enrollments?select=id,order_code,student_name,student_phone,status,student_status,amount_paid,tuition_total,enrolled_at,courses(title),course_batches(batch_code)&enrolled_at=gte.$monthStart&order=enrolled_at.desc&limit=30',
-        options: Options(headers: {
-          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-        }),
+        '${ApiEndpoints.supabaseUrl}/rest/v1/course_enrollments?select=id,order_code,student_name,student_phone,status,student_status,amount_paid,tuition_total,enrolled_at,courses(title),course_batches(batch_code,start_date,end_date)&order=enrolled_at.desc',
       );
       if (res.data is List) {
         for (final e in res.data) {
+          final st = (e['status']?.toString() ?? '').toUpperCase();
+          if (st == 'ARCHIVED' || st == 'DROPPED') continue;
+
+          final enrolledAt = e['enrolled_at']?.toString() ?? '';
+          final batchObj = e['course_batches'];
+          final startRaw = batchObj is Map ? batchObj['start_date']?.toString() : null;
+          final endRaw = batchObj is Map ? batchObj['end_date']?.toString() : null;
+          final startDate = startRaw != null ? DateTime.tryParse(startRaw) : null;
+          final endDate = endRaw != null ? DateTime.tryParse(endRaw) : null;
+
+          bool belongsToNextMonth = false;
+          if (startDate != null) {
+            if (endDate != null) {
+              belongsToNextMonth = !startDate.isAfter(nextMonthEnd) && !endDate.isBefore(nextMonthStart);
+            } else {
+              belongsToNextMonth = startDate.year == nextMonth.year && startDate.month == nextMonth.month;
+            }
+          } else {
+            final created = DateTime.tryParse(enrolledAt);
+            if (created != null) {
+              belongsToNextMonth = created.year == nextMonth.year && created.month == nextMonth.month;
+            }
+          }
+
+          if (!belongsToNextMonth) continue;
+
           final sName = e['student_name']?.toString() ?? 'Học viên';
           final cObj = e['courses'];
           final cTitle = cObj is Map ? cObj['title']?.toString() ?? 'Khóa học MLD' : 'Khóa học MLD';
-          final batchObj = e['course_batches'];
           final batchCode = batchObj is Map ? batchObj['batch_code']?.toString() : null;
           final isStudying = batchCode != null && batchCode.isNotEmpty;
           final statusLabel = isStudying ? 'Đang học ($batchCode)' : 'Đã đăng ký';
@@ -338,7 +391,7 @@ class AdminRepository {
             type: AdminActionType.newQuizSubmission,
             title: '$sName · $cTitle',
             subtitle: 'Trạng thái: $statusLabel',
-            timeAgo: 'Tháng ${now.month}/${now.year}',
+            timeAgo: 'Tháng ${nextMonth.month}/${nextMonth.year}',
             secondaryInfo: e['student_phone']?.toString(),
             rawId: e['id']?.toString() ?? '',
             rawData: e as Map<String, dynamic>,
@@ -448,12 +501,6 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.get(
         '${ApiEndpoints.supabaseUrl}/rest/v1/bookings?id=eq.$bookingId&select=id,customer_id,technician_id,assigned_room_id,booking_date,start_time,end_time,status,session_status,payment_status,payment_method,final_price,special_notes&limit=1',
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
         return Map<String, dynamic>.from((res.data as List).first as Map);
@@ -476,8 +523,6 @@ class AdminRepository {
         data: {'status': 'CONFIRMED'},
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             'Prefer': 'return=representation',
           },
         ),
@@ -723,10 +768,6 @@ class AdminRepository {
       // 1. Tìm coupon theo mã
       final cRes = await _apiClient.dio.get(
         '${ApiEndpoints.supabaseUrl}/rest/v1/coupons?code=eq.$couponCode&select=*',
-        options: Options(headers: {
-          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-        }),
       );
       if (cRes.statusCode != 200 || cRes.data is! List || (cRes.data as List).isEmpty) {
         return false;
@@ -737,10 +778,6 @@ class AdminRepository {
       // 2. Kiểm tra xem đã có voucher này chưa
       final existRes = await _apiClient.dio.get(
         '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?user_id=eq.$userId&coupon_id=eq.$couponId&status=eq.AVAILABLE&select=id',
-        options: Options(headers: {
-          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-        }),
       );
       if (existRes.statusCode == 200 && existRes.data is List && (existRes.data as List).isNotEmpty) {
         return true;
@@ -760,8 +797,6 @@ class AdminRepository {
           'expires_at': expiresAt,
         },
         options: Options(headers: {
-          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
           'Prefer': 'return=representation',
         }),
       );
@@ -777,10 +812,6 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.get(
         '${ApiEndpoints.supabaseUrl}/rest/v1/bookings?id=eq.$bookingId&select=user_id,customer_id',
-        options: Options(headers: {
-          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-        }),
       );
       if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
         final b = (res.data as List).first as Map<String, dynamic>;
@@ -799,10 +830,6 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.get(
         '${ApiEndpoints.supabaseUrl}/rest/v1/course_enrollments?id=eq.$candidateId&select=user_id',
-        options: Options(headers: {
-          'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-          'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-        }),
       );
       if (res.statusCode == 200 && res.data is List && (res.data as List).isNotEmpty) {
         final enr = (res.data as List).first as Map<String, dynamic>;
@@ -847,15 +874,7 @@ class AdminRepository {
     try {
       String query =
           '/rest/v1/course_enrollments?select=*,courses(title,learning_outcomes),course_batches(batch_code,start_date,end_date)&order=enrolled_at.desc';
-      final res = await _apiClient.dio.get(
-        query,
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
-      );
+      final res = await _apiClient.dio.get(query);
       if (res.data is List) {
         final rawRows = (res.data as List)
             .map((item) => Map<String, dynamic>.from(item as Map))
@@ -870,12 +889,6 @@ class AdminRepository {
           try {
             final userRes = await _apiClient.dio.get(
               '/rest/v1/users?id=in.(${studentIds.join(',')})&select=id,student_code,role',
-              options: Options(
-                headers: {
-                  'apikey': ApiEndpoints.supabaseAnonKey,
-                  'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-                },
-              ),
             );
             if (userRes.data is List) {
               for (final u in (userRes.data as List)) {
@@ -944,12 +957,6 @@ class AdminRepository {
       if (nextCode != null) {
         final dupRes = await _apiClient.dio.get(
           '/rest/v1/users?select=id&student_code=ilike.${Uri.encodeComponent(nextCode)}&id=neq.$studentId&limit=1',
-          options: Options(
-            headers: {
-              'apikey': ApiEndpoints.supabaseAnonKey,
-              'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-            },
-          ),
         );
         if (dupRes.data is List && (dupRes.data as List).isNotEmpty) {
           return 'Mã học viên "$nextCode" đã tồn tại trên hệ thống.';
@@ -966,12 +973,6 @@ class AdminRepository {
       final res = await _apiClient.dio.patch(
         '/rest/v1/users?id=eq.$studentId',
         data: payload,
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       if (res.statusCode == 200 || res.statusCode == 204) {
         return null;
@@ -992,12 +993,6 @@ class AdminRepository {
           'status': 'ENROLLED',
           'student_status': 'ENROLLED',
         },
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -1016,12 +1011,6 @@ class AdminRepository {
           'approval_status': 'APPROVED',
           'student_status': 'APPROVED',
         },
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -1035,12 +1024,6 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.get(
         '/rest/v1/course_batches?select=*,courses(title),branches(name),instructors!course_batches_instructor_id_fkey(full_name)&course_id=eq.$courseId&order=start_date.asc',
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       if (res.data is List) {
         return (res.data as List)
@@ -1059,12 +1042,6 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.get(
         '/rest/v1/course_batches?select=*,courses(title),branches(name),instructors!course_batches_instructor_id_fkey(full_name)&order=start_date.desc',
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       if (res.data is List) {
         return (res.data as List)
@@ -1109,8 +1086,6 @@ class AdminRepository {
         },
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             'Prefer': 'return=representation',
           },
         ),
@@ -1136,12 +1111,6 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.get(
         '/rest/v1/instructors?select=id,full_name,title&order=full_name.asc',
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       if (res.data is List) {
         return (res.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
@@ -1157,12 +1126,6 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.get(
         '/rest/v1/batch_schedules?select=*,branch_rooms(name)&batch_id=eq.$batchId&order=session_date.asc,start_time.asc',
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       if (res.data is List && (res.data as List).isNotEmpty) {
         return (res.data as List)
@@ -1226,8 +1189,6 @@ class AdminRepository {
         },
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             'Prefer': 'return=representation',
           },
         ),
@@ -1272,8 +1233,6 @@ class AdminRepository {
         },
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             'Prefer': 'return=representation',
           },
         ),
@@ -1300,12 +1259,6 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.delete(
         '/rest/v1/batch_schedules?id=eq.$scheduleId',
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } on DioException catch (e) {
@@ -1329,12 +1282,6 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.get(
         '/rest/v1/student_attendance?schedule_id=eq.$scheduleId&select=enrollment_id,status',
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       if (res.data is List) {
         final Map<String, String> map = {};
@@ -1370,8 +1317,6 @@ class AdminRepository {
         },
         options: Options(
           headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
             'Prefer': 'resolution=merge-duplicates',
           },
         ),
@@ -1408,12 +1353,6 @@ class AdminRepository {
           'enrolled_at': DateTime.now().toIso8601String(),
           if (notes != null && notes.isNotEmpty) 'approval_notes': notes,
         },
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       return res.statusCode == 201 || res.statusCode == 200;
     } catch (e) {
@@ -1457,12 +1396,6 @@ class AdminRepository {
       final res = await _apiClient.dio.patch(
         '/rest/v1/course_enrollments?id=eq.$candidateId',
         data: patchData,
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -1474,12 +1407,6 @@ class AdminRepository {
           final res = await _apiClient.dio.patch(
             '/rest/v1/course_enrollments?id=eq.$candidateId',
             data: fallbackData,
-            options: Options(
-              headers: {
-                'apikey': ApiEndpoints.supabaseAnonKey,
-                'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-              },
-            ),
           );
           return res.statusCode == 200 || res.statusCode == 204;
         } catch (_) {}
@@ -1524,12 +1451,6 @@ class AdminRepository {
       final res = await _apiClient.dio.patch(
         '/rest/v1/course_enrollments?id=eq.$enrollmentId',
         data: payload,
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       if (res.statusCode == 200 || res.statusCode == 204) {
         return {
@@ -1549,12 +1470,6 @@ class AdminRepository {
           final res = await _apiClient.dio.patch(
             '/rest/v1/course_enrollments?id=eq.$enrollmentId',
             data: fallbackPayload,
-            options: Options(
-              headers: {
-                'apikey': ApiEndpoints.supabaseAnonKey,
-                'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-              },
-            ),
           );
           if (res.statusCode == 200 || res.statusCode == 204) {
             return {
@@ -1575,12 +1490,6 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.delete(
         '/rest/v1/course_enrollments?id=eq.$candidateId',
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -1726,15 +1635,7 @@ class AdminRepository {
       if (level != null && level.isNotEmpty && level != 'ALL') {
         query += '&level=eq.$level';
       }
-      final res = await _apiClient.dio.get(
-        query,
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
-      );
+      final res = await _apiClient.dio.get(query);
       if (res.data is List) {
         return (res.data as List)
             .map((item) => AdminCourseModel.fromJson(item as Map<String, dynamic>))
@@ -1790,12 +1691,6 @@ class AdminRepository {
     try {
       final res = await _apiClient.dio.get(
         '/rest/v1/quiz_submissions?select=*,course_quizzes(title),course_enrollments(student_name,student_phone,courses(title))&order=submitted_at.desc',
-        options: Options(
-          headers: {
-            'apikey': ApiEndpoints.supabaseAnonKey,
-            'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
-          },
-        ),
       );
       if (res.data is List) {
         return (res.data as List)
@@ -1872,10 +1767,17 @@ class AdminRepository {
         ? branchId
         : null;
 
-    final invoicedEnrollmentIds = <String>{};
-    final invoicedCodes = <String>{};
-    final explicitTxEnrollmentIds = <String>{};
+    final enrollmentIdsWithLedger = <String>{};
+    for (final t in tuitions) {
+      if (t is Map && (t['payment_status']?.toString() ?? '').toUpperCase() == 'PAID') {
+        final eId = t['enrollment_id']?.toString();
+        if (eId != null && eId.isNotEmpty) {
+          enrollmentIdsWithLedger.add(eId);
+        }
+      }
+    }
 
+    final invoicedCodes = <String>{};
     final List<AdminRevenueItem> items = [];
     double serviceRev = 0.0;
     double academyRev = 0.0;
@@ -1891,20 +1793,21 @@ class AdminRepository {
         continue;
       }
 
-      final pDateStr = inv['paid_at']?.toString() ?? inv['created_at']?.toString() ?? '';
-      if (!isDateInRange(pDateStr, startIso, endIso)) continue;
-
       final status = (inv['payment_status']?.toString() ?? '').toUpperCase();
       if (status != 'PAID') continue;
+
+      final enrollmentId = inv['enrollment_id']?.toString();
+      if (enrollmentId != null && enrollmentId.isNotEmpty && enrollmentIdsWithLedger.contains(enrollmentId)) {
+        continue;
+      }
+
+      final pDateStr = inv['paid_at']?.toString() ?? inv['created_at']?.toString() ?? '';
+      if (!isDateInRange(pDateStr, startIso, endIso)) continue;
 
       final totalAmt = double.tryParse(inv['total_amount']?.toString() ?? '0') ?? 0.0;
       final refundAmt = double.tryParse(inv['refund_amount']?.toString() ?? '0') ?? 0.0;
       final netAmt = (totalAmt - refundAmt > 0) ? (totalAmt - refundAmt) : 0.0;
 
-      final enrollmentId = inv['enrollment_id']?.toString();
-      if (enrollmentId != null && enrollmentId.isNotEmpty) {
-        invoicedEnrollmentIds.add(enrollmentId);
-      }
       if (code.isNotEmpty) {
         invoicedCodes.add(code);
       }
@@ -1929,7 +1832,9 @@ class AdminRepository {
         productRev += netAmt;
       } else {
         category = 'SPA_SERVICE';
-        itemTitle = 'Hóa đơn dịch vụ trị liệu';
+        itemTitle = (inv['user_package_id'] != null || upperCode.startsWith('HD-LT-'))
+            ? 'Gói liệu trình trị liệu'
+            : 'Hóa đơn dịch vụ trị liệu';
         serviceRev += netAmt;
       }
 
@@ -1954,9 +1859,6 @@ class AdminRepository {
       final tStatus = (t['payment_status']?.toString() ?? '').toUpperCase();
       if (tStatus != 'PAID') continue;
 
-      final tEnrId = t['enrollment_id']?.toString();
-      if (tEnrId != null && invoicedEnrollmentIds.contains(tEnrId)) continue;
-
       final tCode = (t['transaction_code']?.toString() ?? '').trim();
       if (tCode.isNotEmpty && invoicedCodes.contains(tCode)) continue;
 
@@ -1967,10 +1869,6 @@ class AdminRepository {
 
       final tDateStr = t['paid_at']?.toString() ?? '';
       if (!isDateInRange(tDateStr, startIso, endIso)) continue;
-
-      if (tEnrId != null && tEnrId.isNotEmpty) {
-        explicitTxEnrollmentIds.add(tEnrId);
-      }
 
       final rawAmt = double.tryParse(t['amount']?.toString() ?? '0') ?? 0.0;
       final tType = (t['transaction_type']?.toString() ?? '').toUpperCase();
@@ -1994,48 +1892,49 @@ class AdminRepository {
       ));
     }
 
-    final existingEnrollmentIds = <String>{...invoicedEnrollmentIds, ...explicitTxEnrollmentIds};
-    for (final e in enrollments) {
-      if (e is! Map) continue;
-      final eId = e['id']?.toString() ?? '';
-      if (eId.isEmpty || existingEnrollmentIds.contains(eId)) continue;
+    if (invoices.isEmpty && tuitions.isEmpty) {
+      for (final e in enrollments) {
+        if (e is! Map) continue;
+        final eId = e['id']?.toString() ?? '';
+        if (eId.isEmpty) continue;
 
-      final amtPaid = double.tryParse(e['amount_paid']?.toString() ?? '0') ?? 0.0;
-      if (amtPaid <= 0) continue;
+        final amtPaid = double.tryParse(e['amount_paid']?.toString() ?? '0') ?? 0.0;
+        if (amtPaid <= 0) continue;
 
-      if (effectiveBranchId != null) {
-        final batchObj = e['course_batches'];
-        final batchBranchId = batchObj is Map ? batchObj['branch_id']?.toString() : null;
-        final selBranch = e['selected_branch']?.toString();
-        if (batchBranchId != null && batchBranchId.isNotEmpty) {
-          if (batchBranchId != effectiveBranchId) continue;
-        } else if (selBranch != null && selBranch.isNotEmpty) {
-          if (selBranch != effectiveBranchId) continue;
+        if (effectiveBranchId != null) {
+          final batchObj = e['course_batches'];
+          final batchBranchId = batchObj is Map ? batchObj['branch_id']?.toString() : null;
+          final selBranch = e['selected_branch']?.toString();
+          if (batchBranchId != null && batchBranchId.isNotEmpty) {
+            if (batchBranchId != effectiveBranchId) continue;
+          } else if (selBranch != null && selBranch.isNotEmpty) {
+            if (selBranch != effectiveBranchId) continue;
+          }
         }
+
+        final eDateStr = e['approved_at']?.toString() ?? e['enrolled_at']?.toString() ?? '';
+        if (!isDateInRange(eDateStr, startIso, endIso)) continue;
+
+        academyRev += amtPaid;
+
+        final cObj = e['courses'];
+        final cTitle = cObj is Map ? cObj['title']?.toString() : 'Khóa học';
+        final sName = e['student_name']?.toString() ?? 'Học viên';
+        final eCode = e['order_code']?.toString() ?? 'ENR-${eId.length >= 6 ? eId.substring(eId.length - 6).toUpperCase() : eId}';
+
+        items.add(AdminRevenueItem(
+          id: 'enr_$eId',
+          code: eCode,
+          title: 'Học phí: $cTitle',
+          customerOrStudentName: sName,
+          phone: e['student_phone']?.toString(),
+          category: 'ACADEMY_TUITION',
+          amount: amtPaid,
+          timestamp: eDateStr,
+          status: 'PAID',
+          branchName: e['selected_branch']?.toString(),
+        ));
       }
-
-      final eDateStr = e['approved_at']?.toString() ?? e['enrolled_at']?.toString() ?? '';
-      if (!isDateInRange(eDateStr, startIso, endIso)) continue;
-
-      academyRev += amtPaid;
-
-      final cObj = e['courses'];
-      final cTitle = cObj is Map ? cObj['title']?.toString() : 'Khóa học';
-      final sName = e['student_name']?.toString() ?? 'Học viên';
-      final eCode = e['order_code']?.toString() ?? 'ENR-${eId.length >= 6 ? eId.substring(eId.length - 6).toUpperCase() : eId}';
-
-      items.add(AdminRevenueItem(
-        id: 'enr_$eId',
-        code: eCode,
-        title: 'Học phí: $cTitle',
-        customerOrStudentName: sName,
-        phone: e['student_phone']?.toString(),
-        category: 'ACADEMY_TUITION',
-        amount: amtPaid,
-        timestamp: eDateStr,
-        status: 'PAID',
-        branchName: e['selected_branch']?.toString(),
-      ));
     }
 
     items.sort((a, b) => b.timestamp.compareTo(a.timestamp));

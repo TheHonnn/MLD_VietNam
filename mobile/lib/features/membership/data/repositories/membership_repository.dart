@@ -1337,6 +1337,20 @@ class MembershipRepository {
     return List.unmodifiable(_vouchers);
   }
 
+  void markVoucherUsed({String? couponId, String? userVoucherId, String? couponCode}) {
+    final cleanCode = (couponCode ?? '').trim().toUpperCase();
+    for (int i = 0; i < _vouchers.length; i++) {
+      final v = _vouchers[i];
+      final matchesCoupon = couponId != null && couponId.isNotEmpty && v.couponId == couponId;
+      final matchesUserVoucher = userVoucherId != null && userVoucherId.isNotEmpty && v.userVoucherId == userVoucherId;
+      final matchesCode = cleanCode.isNotEmpty && v.code.toUpperCase() == cleanCode;
+      if (matchesCoupon || matchesUserVoucher || matchesCode) {
+        _vouchers[i] = v.copyWith(status: 'USED', statusText: 'Đã sử dụng');
+      }
+    }
+    availableVouchersCountNotifier.value = _vouchers.where((v) => v.status == 'AVAILABLE').length;
+  }
+
   String _formatVoucherAmount(double amt) {
     if (amt >= 1000000) {
       final val = amt / 1000000;

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -11,6 +12,7 @@ import '../../data/repositories/admin_repository.dart';
 import '../widgets/service_form_sheet.dart';
 import '../widgets/package_form_sheet.dart';
 import '../widgets/product_form_sheet.dart';
+import '../widgets/course_form_sheet.dart';
 import '../../../../core/services/top_notification_service.dart';
 import '../../../../core/widgets/smart_image.dart';
 
@@ -66,6 +68,16 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
     try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        final banners = await _repository.fetchBanners();
+        if (mounted) {
+          setState(() {
+            _banners = banners;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
       final results = await Future.wait([
         _repository.fetchServices(),
         _repository.fetchTreatmentPackages(),
@@ -251,9 +263,24 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
   }
 
   void _openCourseForm([AdminCourseModel? course]) {
-    TopNotificationService.showInfo(
-      title: 'Quản lý khóa học',
-      message: 'Chương trình đào tạo và video bài giảng được quản lý trực tiếp trên Web Admin.',
+    if (!AuthService.instance.isAdmin) return;
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: CourseFormSheet(
+          course: course,
+          onSaved: () {
+            TopNotificationService.showSuccess(
+              title: 'Thành công',
+              message: course != null ? 'Đã lưu thay đổi khóa học!' : 'Đã tạo mới khóa học thành công!',
+            );
+            _fetchData();
+          },
+        ),
+      ),
     );
   }
 
@@ -448,7 +475,7 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
           ],
         ),
         actions: [
-          if (AuthService.instance.isAdmin && _selectedSegment != 2)
+          if (AuthService.instance.isAdmin)
             Padding(
               padding: const EdgeInsets.only(right: 14),
               child: GestureDetector(
@@ -457,6 +484,8 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                     _openServiceForm();
                   } else if (_selectedSegment == 1) {
                     _openPackageForm();
+                  } else if (_selectedSegment == 2) {
+                    _openCourseForm();
                   } else if (_selectedSegment == 3) {
                     _openProductForm();
                   } else if (_selectedSegment == 4) {
@@ -487,9 +516,11 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                             ? 'Thêm DV'
                             : _selectedSegment == 1
                                 ? 'Thêm gói'
-                                : _selectedSegment == 3
-                                    ? 'Thêm SP'
-                                    : 'Thêm Banner',
+                                : _selectedSegment == 2
+                                    ? 'Thêm mới'
+                                    : _selectedSegment == 3
+                                        ? 'Thêm SP'
+                                        : 'Thêm Banner',
                         style: const TextStyle(
                           color: Color(0xFF00693F),
                           fontSize: 12,
@@ -536,7 +567,6 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
             ),
           ),
 
-          // 2. Ô tìm kiếm
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
@@ -842,8 +872,6 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
                           Expanded(
                             child: Text(
                               c.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                               style: AppTypography.zaloFont(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
@@ -972,15 +1000,45 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
       );
     }
 
+    final sessionGroups = <int, List<AdminTreatmentPackageModel>>{};
+    for (final p in _filteredPackages) {
+      sessionGroups.putIfAbsent(p.totalSessions, () => []).add(p);
+    }
+    final sortedSessionKeys = sessionGroups.keys.toList()..sort();
+
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 20),
-      itemCount: _filteredPackages.length,
-      itemBuilder: (ctx, index) {
-        final p = _filteredPackages[index];
-        final isToggling = _togglingId == p.id;
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 24),
+      itemCount: sortedSessionKeys.length,
+      itemBuilder: (ctx, groupIdx) {
+        final sessions = sortedSessionKeys[groupIdx];
+        final pkgsInGroup = sessionGroups[sessions]!;
+
+        AdminTreatmentPackageModel? khuTru;
+        AdminTreatmentPackageModel? moRong;
+        AdminTreatmentPackageModel? toanDien;
+        final others = <AdminTreatmentPackageModel>[];
+
+        for (final p in pkgsInGroup) {
+          final lower = p.name.toLowerCase();
+          if (lower.contains('khu trú') || lower.contains('khu tru')) {
+            khuTru = p;
+          } else if (lower.contains('mở rộng') || lower.contains('mo rong')) {
+            moRong = p;
+          } else if (lower.contains('toàn diện') || lower.contains('toan dien')) {
+            toanDien = p;
+          } else {
+            others.add(p);
+          }
+        }
+
+        final tierCols = [
+          (pkg: khuTru, tierName: 'Khu trú', color: const Color(0xFF0284C7), bgColor: const Color(0xFFE0F2FE)),
+          (pkg: moRong, tierName: 'Mở rộng', color: const Color(0xFF7C3AED), bgColor: const Color(0xFFEDE9FE)),
+          (pkg: toanDien, tierName: 'Toàn diện', color: const Color(0xFF00693F), bgColor: const Color(0xFFE8F6ED)),
+        ];
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 8),
+          margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -994,128 +1052,244 @@ class _AdminCatalogScreenState extends State<AdminCatalogScreen> {
               ),
             ],
           ),
-          child: InkWell(
-            onTap: AuthService.instance.isAdmin ? () => _openPackageForm(p) : null,
-            borderRadius: BorderRadius.circular(14),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 54,
-                    height: 54,
-                    color: const Color(0xFFE8F6ED),
-                    child: _buildPackageThumbnail(p),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8F6ED),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '${p.totalSessions} buổi = ${p.totalSessions} ca · Hạn ${p.validityMonths} tháng',
-                              style: AppTypography.zaloFont(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF00693F),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              p.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.zaloFont(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textHeading,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          Text(
-                            _formatPrice(p.price),
-                            style: AppTypography.zaloFont(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF00693F),
-                            ),
-                          ),
-                          if (p.discountPrice != null && p.discountPrice! > 0 && p.discountPrice! < p.price) ...[
-                            const SizedBox(width: 6),
-                            Text(
-                              _formatPrice(p.discountPrice!),
-                              style: AppTypography.zaloFont(
-                                fontSize: 11,
-                                color: AppColors.textSecondary,
-                                decoration: TextDecoration.lineThrough,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      if (p.description.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          p.description,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.zaloFont(
-                            fontSize: 10.5,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (!AuthService.instance.isAdmin)
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: p.isActive ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                      color: const Color(0xFFE8F6ED),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      p.isActive ? 'Đang mở' : 'Tạm dừng',
-                      style: TextStyle(
+                      'LIỆU TRÌNH $sessions BUỔI',
+                      style: AppTypography.zaloFont(
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: p.isActive ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF00693F),
+                        letterSpacing: 0.5,
                       ),
                     ),
-                  )
-                else if (isToggling)
-                  const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00693F)),
-                  )
-                else
-                  Switch(
-                    value: p.isActive,
-                    onChanged: (_) => _handleTogglePackage(p),
+                  ),
+                  Text(
+                    'Khu trú · Mở rộng · Toàn diện',
+                    style: AppTypography.zaloFont(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (int i = 0; i < tierCols.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 6),
+                    Expanded(
+                      child: _buildTierPackageCard(
+                        tierCols[i].pkg,
+                        tierCols[i].tierName,
+                        sessions,
+                        tierCols[i].color,
+                        tierCols[i].bgColor,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (others.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                for (final p in others)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: _buildSinglePackageCard(p),
                   ),
               ],
-            ),
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildTierPackageCard(
+    AdminTreatmentPackageModel? p,
+    String tierName,
+    int sessions,
+    Color color,
+    Color bgColor,
+  ) {
+    if (p == null) {
+      return Container(
+        height: 120,
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Center(
+          child: Text(
+            '$tierName\n(Chưa tạo)',
+            textAlign: TextAlign.center,
+            style: AppTypography.zaloFont(
+              fontSize: 10,
+              color: const Color(0xFF9CA3AF),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final isToggling = _togglingId == p.id;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: AuthService.instance.isAdmin ? () => _openPackageForm(p) : null,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: bgColor.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  tierName.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: AppTypography.zaloFont(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                p.name,
+                style: AppTypography.zaloFont(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textHeading,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                _formatPrice(p.price),
+                style: AppTypography.zaloFont(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${p.totalSessions} buổi · Hạn ${p.validityMonths}th',
+                style: AppTypography.zaloFont(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: p.isActive ? const Color(0xFFE8F6ED) : const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      p.isActive ? 'Mở' : 'Dừng',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: p.isActive ? const Color(0xFF00693F) : const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ),
+                  if (AuthService.instance.isAdmin)
+                    isToggling
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF00693F)),
+                          )
+                        : Transform.scale(
+                            scale: 0.65,
+                            alignment: Alignment.centerRight,
+                            child: Switch(
+                              value: p.isActive,
+                              onChanged: (_) => _handleTogglePackage(p),
+                            ),
+                          ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSinglePackageCard(AdminTreatmentPackageModel p) {
+    final isToggling = _togglingId == p.id;
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: InkWell(
+        onTap: AuthService.instance.isAdmin ? () => _openPackageForm(p) : null,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    p.name,
+                    style: AppTypography.zaloFont(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textHeading),
+                  ),
+                  Text(
+                    '${_formatPrice(p.price)} · ${p.totalSessions} buổi',
+                    style: AppTypography.zaloFont(fontSize: 11, color: const Color(0xFF00693F), fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            if (AuthService.instance.isAdmin)
+              isToggling
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 1.5))
+                  : Transform.scale(
+                      scale: 0.75,
+                      child: Switch(value: p.isActive, onChanged: (_) => _handleTogglePackage(p)),
+                    ),
+          ],
+        ),
+      ),
     );
   }
 

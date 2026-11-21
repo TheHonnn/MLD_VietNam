@@ -340,9 +340,9 @@ void main() {
 
       expect(report.serviceRevenue, 800000);
       expect(report.productRevenue, 500000);
-      expect(report.academyRevenue, 60000000);
-      expect(report.totalRevenue, 61300000);
-      expect(report.totalTransactions, 6);
+      expect(report.academyRevenue, 50000000);
+      expect(report.totalRevenue, 51300000);
+      expect(report.totalTransactions, 5);
     });
   });
 }

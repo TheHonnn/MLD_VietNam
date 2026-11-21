@@ -674,6 +674,14 @@ class BookingRepository {
       }
 
       if (realId != null && realId.isNotEmpty) {
+        if (appliedCouponId != null || appliedUserVoucherId != null || appointment.couponCode != null) {
+          MembershipRepository.instance.markVoucherUsed(
+            couponId: appliedCouponId,
+            userVoucherId: appliedUserVoucherId,
+            couponCode: appointment.couponCode,
+          );
+        }
+
         if (appliedUserVoucherId != null && appliedUserVoucherId.isNotEmpty) {
           try {
             await _apiClient.dio.patch(
@@ -685,7 +693,6 @@ class BookingRepository {
               },
               options: Options(headers: {
                 'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-                'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
               }),
             );
           } catch (_) {}
@@ -695,7 +702,6 @@ class BookingRepository {
               '${ApiEndpoints.supabaseUrl}/rest/v1/user_vouchers?user_id=eq.$effectiveCustomerId&coupon_id=eq.$appliedCouponId&status=eq.AVAILABLE&limit=1',
               options: Options(headers: {
                 'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-                'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
               }),
             );
             if (uvRes.statusCode == 200 && uvRes.data is List && (uvRes.data as List).isNotEmpty) {
@@ -709,7 +715,6 @@ class BookingRepository {
                 },
                 options: Options(headers: {
                   'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-                  'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
                 }),
               );
             } else {
@@ -727,7 +732,6 @@ class BookingRepository {
                 },
                 options: Options(headers: {
                   'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-                  'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
                 }),
               );
             }
@@ -740,7 +744,6 @@ class BookingRepository {
               '${ApiEndpoints.supabaseUrl}/rest/v1/coupons?id=eq.$appliedCouponId&select=used_count&limit=1',
               options: Options(headers: {
                 'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-                'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
               }),
             );
             if (cRes.statusCode == 200 && cRes.data is List && (cRes.data as List).isNotEmpty) {
@@ -750,7 +753,6 @@ class BookingRepository {
                 data: {'used_count': currentUsed + 1},
                 options: Options(headers: {
                   'apikey': ApiEndpoints.effectiveSupabaseAuthKey,
-                  'Authorization': 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}',
                 }),
               );
             }

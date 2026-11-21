@@ -55,6 +55,7 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
     super.initState();
     _profile = _repo.profile;
     AuthService.instance.isLoggedInNotifier.addListener(_onAuthStatusChanged);
+    _repo.availableVouchersCountNotifier.addListener(_onVouchersChanged);
 
     if (AuthService.instance.isAuthenticated && !AuthService.instance.isGuest) {
       _loadData();
@@ -64,7 +65,12 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
   @override
   void dispose() {
     AuthService.instance.isLoggedInNotifier.removeListener(_onAuthStatusChanged);
+    _repo.availableVouchersCountNotifier.removeListener(_onVouchersChanged);
     super.dispose();
+  }
+
+  void _onVouchersChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onAuthStatusChanged() {
@@ -562,11 +568,15 @@ class _F01ProfileDashboardScreenState extends State<F01ProfileDashboardScreen> {
                       ],
                     ),
                   ),
-                  onTap: () => _requireLoginAndRun(() {
-                    Navigator.push(
+                  onTap: () => _requireLoginAndRun(() async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const F05MyVouchersScreen()),
                     );
+                    if (mounted) {
+                      _loadData();
+                      setState(() {});
+                    }
                   }, title: 'Ví Voucher của tôi', message: 'Vui lòng đăng nhập để xem danh sách voucher và mã ưu đãi.'),
                 ),
                 const Divider(height: 1, indent: 54, color: AppColors.border),

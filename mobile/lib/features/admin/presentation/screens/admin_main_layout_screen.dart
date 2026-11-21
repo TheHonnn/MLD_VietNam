@@ -11,6 +11,7 @@ import 'admin_dashboard_screen.dart';
 import 'admin_frontdesk_screen.dart';
 import 'admin_academy_screen.dart';
 import 'admin_catalog_screen.dart';
+import 'admin_profile_screen.dart';
 import '../widgets/admin_qr_scanner_modal.dart';
 
 class AdminMainLayoutScreen extends StatefulWidget {
@@ -37,7 +38,7 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
   @override
   void initState() {
     super.initState();
-    final maxIndex = _isFullAdmin ? 3 : 2;
+    final maxIndex = _isFullAdmin ? 4 : 2;
     _currentIndex = widget.initialTab.clamp(0, maxIndex);
     AuthService.instance.roleNotifier.addListener(_onRoleChanged);
     _syncAdminSession();
@@ -51,7 +52,7 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
 
   void _onRoleChanged() {
     if (!mounted) return;
-    final maxIndex = _isFullAdmin ? 3 : 2;
+    final maxIndex = _isFullAdmin ? 4 : 2;
     setState(() {
       _currentIndex = _currentIndex.clamp(0, maxIndex);
     });
@@ -97,7 +98,7 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
         return;
       }
     }
-    final maxIndex = _isFullAdmin ? 3 : 2;
+    final maxIndex = _isFullAdmin ? 4 : 2;
     setState(() {
       _isSyncingSession = false;
       _currentIndex = _currentIndex.clamp(0, maxIndex);
@@ -107,13 +108,13 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
   void _onNavigateTab(int index, {String? subTab}) {
     int targetIndex = index;
     if (!_isFullAdmin) {
-      if (index == 3) {
+      if (index == 4 || index == 3) {
         targetIndex = 2;
       } else if (index == 2) {
         targetIndex = 1;
       }
     }
-    final maxIndex = _isFullAdmin ? 3 : 2;
+    final maxIndex = _isFullAdmin ? 4 : 2;
     setState(() {
       _currentIndex = targetIndex.clamp(0, maxIndex);
       _subTab = subTab;
@@ -230,6 +231,9 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
               key: ValueKey('catalog_$_subTab'),
               initialTab: _subTab,
             ),
+            AdminProfileScreen(
+              onLogout: _handleLogout,
+            ),
           ]
         : [
             AdminDashboardScreen(
@@ -243,9 +247,8 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
               pendingQrCode: _pendingQrCode,
               qrScanNonce: _qrScanNonce,
             ),
-            AdminCatalogScreen(
-              key: ValueKey('catalog_$_subTab'),
-              initialTab: _subTab,
+            AdminProfileScreen(
+              onLogout: _handleLogout,
             ),
           ];
 
@@ -281,13 +284,12 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
                       _buildNavItem(1, 'Tiếp đón', Icons.calendar_month_rounded),
                       _buildNavItem(2, 'Tuyển sinh', Icons.view_kanban_rounded),
                       _buildNavItem(3, 'Danh mục & SP', Icons.storefront_rounded),
-                      _buildLogoutItem(),
+                      _buildNavItem(4, 'Cá nhân', Icons.person_rounded),
                     ]
                   : [
                       _buildNavItem(0, 'Tổng quan', Icons.grid_view_rounded),
                       _buildNavItem(1, 'Tiếp đón', Icons.calendar_month_rounded),
-                      _buildNavItem(2, 'Danh mục & SP', Icons.storefront_rounded),
-                      _buildLogoutItem(),
+                      _buildNavItem(2, 'Cá nhân', Icons.person_rounded),
                     ],
             ),
           ),
@@ -342,42 +344,4 @@ class _AdminMainLayoutScreenState extends State<AdminMainLayoutScreen> {
       ),
     );
   }
-
-  Widget _buildLogoutItem() {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _handleLogout,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          margin: const EdgeInsets.only(right: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE11D48),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.logout_rounded,
-                size: 15,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Đăng xuất',
-                style: AppTypography.zaloFont(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
-

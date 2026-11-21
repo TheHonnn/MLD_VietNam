@@ -199,7 +199,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
         ),
         actions: [
-          // Nút Quét mã QR tiếp đón nhanh
           IconButton(
             tooltip: 'Quét mã QR Tiếp đón',
             onPressed: widget.onOpenQrScanner,
@@ -263,7 +262,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             : ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 children: [
-                  // 1. Dropdown chọn Chi nhánh
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                     decoration: BoxDecoration(
@@ -328,7 +326,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 2. Thống kê Doanh thu (Hôm nay & Tháng đặt ngang nhau - Bấm vào xem Biểu đồ Lưới)
                   Row(
                     children: [
                       Expanded(
@@ -366,7 +363,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 3. Thống kê Học viên (Hôm nay & Tháng đặt ngang nhau theo yêu cầu)
                   Row(
                     children: [
                       Expanded(
@@ -383,9 +379,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: AdminKpiCard(
-                          title: 'Học viên tháng ${now.month}',
+                          title: 'Học viên tháng ${DateTime(now.year, now.month + 1, 1).month}',
                           value: '${_metrics.monthStudentsCount} học viên',
-                          subtitle: 'Tháng ${now.month}/${now.year}',
+                          subtitle: 'Tháng ${DateTime(now.year, now.month + 1, 1).month}/${DateTime(now.year, now.month + 1, 1).year} · Đang học & Đã ĐK',
                           icon: Icons.groups_rounded,
                           iconColor: const Color(0xFF7C3AED),
                           iconBgColor: const Color(0xFFEDE9FE),
@@ -396,7 +392,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 4. Thống kê Vận hành Lịch hẹn & Chờ lớp (Đặt ngang nhau)
                   Row(
                     children: [
                       Expanded(
@@ -426,7 +421,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 4. KHUNG CẦN DUYỆT GẤP: PHÂN RA 3 Ô ĐỘC LẬP THEO YÊU CẦU
                   Builder(
                     builder: (context) {
                       final bookingItems = _actionItems.where((it) => it.type == AdminActionType.pendingBooking).toList();
@@ -464,7 +458,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         case 2:
                         default:
                           activeItems = studentItems;
-                          activeCategoryTitle = 'Học viên theo tháng';
+                          activeCategoryTitle = 'Học viên tháng ${DateTime(now.year, now.month + 1, 1).month}';
                           activeCategoryIcon = Icons.groups_rounded;
                           activeCategoryColor = const Color(0xFF00693F);
                           onOpenTab = () => widget.onNavigateTab?.call(2, subTab: 'MONTHLY_STUDENTS');
@@ -475,7 +469,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Header Việc cần duyệt gấp
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -522,7 +515,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           const SizedBox(height: 8),
 
-                          // 3 Ô PHÂN LOẠI CẦN DUYỆT GẤP
                           Row(
                             children: [
                               _buildApprovalBox(
@@ -548,7 +540,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               _buildApprovalBox(
                                 index: 2,
                                 title: 'Học viên tháng',
-                                subtitle: 'Đang học & Đã ĐK',
+                                subtitle: 'Tháng ${DateTime(now.year, now.month + 1, 1).month} · Đang học & ĐK',
                                 count: studentCount,
                                 icon: Icons.groups_rounded,
                                 color: const Color(0xFF00693F),
@@ -558,7 +550,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           const SizedBox(height: 14),
 
-                          // Header Danh sách theo Ô đang chọn
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -637,7 +628,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           const SizedBox(height: 8),
 
-                          // Danh sách các mục thuộc ô đang chọn
                           if (activeItems.isEmpty)
                             Container(
                               width: double.infinity,
@@ -698,7 +688,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 18),
 
-                  // 5. Phím tắt Thao tác nhanh (Quick Action Shortcuts)
                   Text(
                     'THAO TÁC NHANH',
                     style: AppTypography.zaloFont(
@@ -795,6 +784,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  void _navigateToApprovalTab(int index) {
+    switch (index) {
+      case 0:
+        widget.onNavigateTab?.call(1, subTab: 'PENDING');
+        break;
+      case 1:
+        widget.onNavigateTab?.call(2, subTab: 'PAID_WAITING_CLASS');
+        break;
+      case 2:
+      default:
+        widget.onNavigateTab?.call(2, subTab: 'MONTHLY_STUDENTS');
+        break;
+    }
+  }
+
   Widget _buildApprovalBox({
     required int index,
     required String title,
@@ -812,16 +816,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            if (index == 2 && widget.onNavigateTab != null) {
-              widget.onNavigateTab?.call(2, subTab: 'MONTHLY_STUDENTS');
-              return;
-            }
-            if (_selectedApprovalBox == index && hasItems) {
-              _showCategoryApprovalSheet(context, index);
+            if (_selectedApprovalBox == index) {
+              _navigateToApprovalTab(index);
             } else {
               setState(() => _selectedApprovalBox = index);
             }
           },
+          onDoubleTap: () => _navigateToApprovalTab(index),
           borderRadius: BorderRadius.circular(14),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),

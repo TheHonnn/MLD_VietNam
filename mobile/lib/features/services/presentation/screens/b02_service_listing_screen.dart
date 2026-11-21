@@ -268,6 +268,18 @@ class _B02ServiceListingScreenState extends State<B02ServiceListingScreen> {
       }
 
       // 2. Lọc theo Từ khóa tìm kiếm
+      if (_selectedBranch != 'Tất cả cơ sở' && _selectedBranch != 'Tất cả') {
+        final br = _branches.where((b) => b.name == _selectedBranch).firstOrNull;
+        if (br != null && br.services.isNotEmpty) {
+          final brServices = br.services.map((s) => s.toLowerCase()).toList();
+          final itemCat = item.category.toLowerCase();
+          final itemTitle = item.title.toLowerCase();
+          final matchesBranch = brServices.any((s) =>
+              itemCat.contains(s) || itemTitle.contains(s) || s.contains(itemCat) || s.contains(itemTitle));
+          if (!matchesBranch) return false;
+        }
+      }
+
       if (query.isNotEmpty) {
         final matchesTitle = item.title.toLowerCase().contains(query);
         final matchesDesc = item.description.toLowerCase().contains(query);

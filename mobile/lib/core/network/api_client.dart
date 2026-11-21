@@ -56,12 +56,16 @@ class ApiClient {
             options.path = '$backendBase${options.path}';
           }
 
-          // 1. Luôn bảo đảm apikey cho Supabase
-          if (!options.headers.containsKey('apikey')) {
+          final isSupabase = options.baseUrl.contains('supabase.co') ||
+              options.path.contains('supabase.co') ||
+              options.path.startsWith('/rest/v1/') ||
+              options.path.startsWith('/auth/v1/') ||
+              options.path.startsWith('/storage/v1/');
+
+          if (isSupabase && !options.headers.containsKey('apikey')) {
             options.headers['apikey'] = ApiEndpoints.supabaseAnonKey;
           }
 
-          // 2. Tự động đính kèm Accept-Language
           if (!options.headers.containsKey('Accept-Language')) {
             try {
               final prefs = await SharedPreferences.getInstance();
@@ -72,12 +76,31 @@ class ApiClient {
             }
           }
 
-          if (!options.headers.containsKey('Authorization')) {
-            final token = await AuthService.instance.getAccessToken();
-            if (token != null && token.isNotEmpty) {
-              options.headers['Authorization'] = 'Bearer $token';
+          if (isSupabase) {
+            final supaToken = await AuthService.instance.getSupabaseToken();
+            final currentAuth = options.headers['Authorization']?.toString();
+            final isCurrentAnon = currentAuth == null ||
+                currentAuth == 'Bearer ${ApiEndpoints.supabaseAnonKey}' ||
+                currentAuth == 'Bearer ${ApiEndpoints.effectiveSupabaseAuthKey}';
+            final isCurrentNest = currentAuth != null &&
+                AuthService.instance.cachedAccessToken != null &&
+                currentAuth == 'Bearer ${AuthService.instance.cachedAccessToken}';
+
+            if (supaToken != null && supaToken.isNotEmpty) {
+              if (isCurrentAnon || isCurrentNest) {
+                options.headers['Authorization'] = 'Bearer $supaToken';
+              }
             } else {
-              options.headers['Authorization'] = 'Bearer ${ApiEndpoints.supabaseAnonKey}';
+              if (currentAuth == null || isCurrentNest) {
+                options.headers['Authorization'] = 'Bearer ${ApiEndpoints.supabaseAnonKey}';
+              }
+            }
+          } else {
+            if (!options.headers.containsKey('Authorization')) {
+              final token = await AuthService.instance.getAccessToken();
+              if (token != null && token.isNotEmpty) {
+                options.headers['Authorization'] = 'Bearer $token';
+              }
             }
           }
           return handler.next(options);
