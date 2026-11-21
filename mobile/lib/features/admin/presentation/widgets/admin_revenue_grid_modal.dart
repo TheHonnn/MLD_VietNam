@@ -195,28 +195,27 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
                       controller: scrollController,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       children: [
-                        // 1. KPI Summary Cards
                         Row(
                           children: [
                             Expanded(
                               child: _buildMetricCard(
-                                title: 'Tổng thực thu',
-                                value: _formatCurrency(_report.totalRevenue),
-                                subtitle: '${_report.totalTransactions} giao dịch',
-                                color: const Color(0xFF00693F),
-                                bgColor: const Color(0xFFE8F6ED),
-                                icon: Icons.account_balance_wallet_rounded,
+                                title: 'Đã thu',
+                                value: _formatCurrency(_report.grossCollected),
+                                subtitle: '${_report.totalTransactions} biên nhận hoàn tất',
+                                color: const Color(0xFF004890),
+                                bgColor: const Color(0xFFEFF6FF),
+                                icon: Icons.receipt_long_rounded,
                               ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: _buildMetricCard(
-                                title: 'Học viện MLD',
-                                value: _formatCurrency(_report.academyRevenue),
-                                subtitle: 'Học phí & Tiền cọc',
-                                color: const Color(0xFF7C3AED),
-                                bgColor: const Color(0xFFEDE9FE),
-                                icon: Icons.school_rounded,
+                                title: 'Hoàn tiền',
+                                value: _formatCurrency(_report.refundAmount),
+                                subtitle: '${_report.refundCount} khoản hoàn trong kỳ',
+                                color: const Color(0xFFDC2626),
+                                bgColor: const Color(0xFFFEF2F2),
+                                icon: Icons.replay_rounded,
                               ),
                             ),
                           ],
@@ -226,30 +225,106 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
                           children: [
                             Expanded(
                               child: _buildMetricCard(
-                                title: 'Dịch vụ Spa',
-                                value: _formatCurrency(_report.serviceRevenue),
-                                subtitle: 'Trị liệu & Chăm sóc',
-                                color: const Color(0xFF1E40AF),
-                                bgColor: const Color(0xFFEFF6FF),
-                                icon: Icons.spa_rounded,
+                                title: 'Thực thu',
+                                value: _formatCurrency(_report.totalRevenue),
+                                subtitle: 'Đã trừ hoàn tiền',
+                                color: const Color(0xFF00693F),
+                                bgColor: const Color(0xFFE8F6ED),
+                                icon: Icons.account_balance_wallet_rounded,
                               ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: _buildMetricCard(
-                                title: 'Giá trị TB / đơn',
-                                value: _formatCurrency(_report.averageTicket),
-                                subtitle: 'Bình quân giao dịch',
+                                title: 'Cần thu ngay',
+                                value: _formatCurrency(_report.receivableAmount),
+                                subtitle: '${_report.receivableCount} khoản công nợ / chờ quyết toán',
                                 color: const Color(0xFFD97706),
                                 bgColor: const Color(0xFFFEF3C7),
-                                icon: Icons.analytics_rounded,
+                                icon: Icons.schedule_rounded,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
 
-                        // 2. Interactive Revenue Grid Chart
+                        Builder(
+                          builder: (context) {
+                            final total = _report.totalRevenue > 0 ? _report.totalRevenue : 1.0;
+                            final servRatio = (_report.serviceRevenue / total).clamp(0.0, 1.0);
+                            final packRatio = (_report.packageRevenue / total).clamp(0.0, 1.0);
+                            final acadRatio = (_report.academyRevenue / total).clamp(0.0, 1.0);
+
+                            final servPct = (servRatio * 100).toStringAsFixed(1);
+                            final packPct = (packRatio * 100).toStringAsFixed(1);
+                            final acadPct = (acadRatio * 100).toStringAsFixed(1);
+
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: const Color(0xFFE5E7EB)),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.02),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.pie_chart_rounded, size: 18, color: Color(0xFF004890)),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'CƠ CẤU KHOẢN ĐÃ THU',
+                                        style: AppTypography.zaloFont(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5,
+                                          color: AppColors.textHeading,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 14),
+
+                                  _buildCategoryProgressRow(
+                                    label: 'Dịch vụ',
+                                    amount: _formatCurrency(_report.serviceRevenue),
+                                    pct: servPct,
+                                    ratio: servRatio,
+                                    color: const Color(0xFF0EA5E9),
+                                  ),
+                                  const SizedBox(height: 10),
+
+                                  _buildCategoryProgressRow(
+                                    label: 'Liệu trình',
+                                    amount: _formatCurrency(_report.packageRevenue),
+                                    pct: packPct,
+                                    ratio: packRatio,
+                                    color: const Color(0xFFF59E0B),
+                                  ),
+                                  const SizedBox(height: 10),
+
+                                  _buildCategoryProgressRow(
+                                    label: 'Học phí',
+                                    amount: _formatCurrency(_report.academyRevenue),
+                                    pct: acadPct,
+                                    ratio: acadRatio,
+                                    color: const Color(0xFF208C58),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -275,7 +350,7 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
                                       const Icon(Icons.bar_chart_rounded, size: 18, color: Color(0xFF00693F)),
                                       const SizedBox(width: 6),
                                       Text(
-                                        'BIỂU ĐỒ LƯỚI THEO CỘT',
+                                        'THỰC THU TỪNG NGÀY',
                                         style: AppTypography.zaloFont(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,
@@ -285,25 +360,32 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
                                       ),
                                     ],
                                   ),
-                                  // Legend
                                   Row(
                                     children: [
-                                      _buildLegendDot(const Color(0xFF7C3AED), 'Học viện'),
-                                      const SizedBox(width: 10),
-                                      _buildLegendDot(const Color(0xFF1E40AF), 'Dịch vụ'),
+                                      _buildLegendDot(const Color(0xFF7C3AED), 'Học phí'),
+                                      const SizedBox(width: 8),
+                                      _buildLegendDot(const Color(0xFFF59E0B), 'Liệu trình'),
+                                      const SizedBox(width: 8),
+                                      _buildLegendDot(const Color(0xFF0EA5E9), 'Dịch vụ'),
                                     ],
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 18),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Đơn vị: VND · Đã thu theo ngày, không gồm khoản chờ thanh toán',
+                                style: AppTypography.zaloFont(
+                                  fontSize: 10,
+                                  color: const Color(0xFF9CA3AF),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
 
-                              // Grid Chart Component
                               SizedBox(
                                 height: 210,
                                 child: _buildGridChart(gridCeiling),
                               ),
 
-                              // Tooltip / Selection detail if tapped
                               if (_selectedPointIndex != null &&
                                   _selectedPointIndex! < _report.chartPoints.length) ...[
                                 const SizedBox(height: 14),
@@ -474,6 +556,55 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
     );
   }
 
+  Widget _buildCategoryProgressRow({
+    required String label,
+    required String amount,
+    required String pct,
+    required double ratio,
+    required Color color,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: AppTypography.zaloFont(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textHeading,
+              ),
+            ),
+            Text(
+              '$amount · $pct%',
+              style: AppTypography.zaloFont(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textHeading,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            height: 7,
+            width: double.infinity,
+            color: const Color(0xFFF1F5F9),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: ratio.clamp(0.0, 1.0),
+              child: Container(color: color),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildLegendDot(Color color, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -507,12 +638,10 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
       );
     }
 
-    // Reference values for 4 horizontal gridlines
     final levels = [1.0, 0.66, 0.33, 0.0];
 
     return Stack(
       children: [
-        // 1. Horizontal Gridlines & Y-Axis Scale
         Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: levels.map((fraction) {
@@ -543,7 +672,6 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
           }).toList(),
         ),
 
-        // 2. Vertical Bars Grouped along X-Axis
         Padding(
           padding: const EdgeInsets.only(left: 54, bottom: 22, top: 8),
           child: Row(
@@ -554,8 +682,8 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
               final isSelected = _selectedPointIndex == idx;
               final heightFraction = gridCeiling > 0 ? (p.totalAmount / gridCeiling).clamp(0.02, 1.0) : 0.02;
 
-              // Proportions of academy vs service
               final double acadRatio = p.totalAmount > 0 ? (p.academyAmount / p.totalAmount) : 0.0;
+              final double packRatio = p.totalAmount > 0 ? (p.packageAmount / p.totalAmount) : 0.0;
               final double servRatio = p.totalAmount > 0 ? (p.serviceAmount / p.totalAmount) : 0.0;
 
               return Expanded(
@@ -568,7 +696,6 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      // Amount label on top
                       if (p.totalAmount > 0)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4),
@@ -582,7 +709,6 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
                           ),
                         ),
 
-                      // Stacked Bar Container
                       Container(
                         width: 28,
                         height: 140 * heightFraction,
@@ -601,10 +727,15 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
                                   flex: (acadRatio * 100).toInt().clamp(1, 100),
                                   child: Container(color: const Color(0xFF7C3AED)),
                                 ),
+                              if (packRatio > 0)
+                                Flexible(
+                                  flex: (packRatio * 100).toInt().clamp(1, 100),
+                                  child: Container(color: const Color(0xFFF59E0B)),
+                                ),
                               if (servRatio > 0)
                                 Flexible(
                                   flex: (servRatio * 100).toInt().clamp(1, 100),
-                                  child: Container(color: const Color(0xFF1E40AF)),
+                                  child: Container(color: const Color(0xFF0EA5E9)),
                                 ),
                             ],
                           ),
@@ -612,7 +743,6 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
                       ),
                       const SizedBox(height: 6),
 
-                      // X-Axis Label
                       Text(
                         p.label,
                         textAlign: TextAlign.center,
@@ -646,27 +776,29 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Chi tiết mốc: ${p.label}',
-                style: AppTypography.zaloFont(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF166534),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Chi tiết mốc: ${p.label}',
+                  style: AppTypography.zaloFont(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF166534),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                'Học viện: ${_formatCurrency(p.academyAmount)} · Dịch vụ: ${_formatCurrency(p.serviceAmount)}',
-                style: AppTypography.zaloFont(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF15803D),
+                const SizedBox(height: 3),
+                Text(
+                  'Học phí: ${_formatCurrency(p.academyAmount)} · Liệu trình: ${_formatCurrency(p.packageAmount)} · Dịch vụ: ${_formatCurrency(p.serviceAmount)}',
+                  style: AppTypography.zaloFont(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF15803D),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -690,17 +822,27 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
 
   Widget _buildTransactionRow(AdminRevenueItem it) {
     final isAcademy = it.category == 'ACADEMY_TUITION';
+    final isPackage = it.category == 'TREATMENT_PACKAGE';
     final isProduct = it.category == 'PRODUCT';
     final isRefund = it.amount < 0 || it.status == 'REFUND';
     final badgeColor = isAcademy
         ? const Color(0xFF7C3AED)
-        : (isProduct ? const Color(0xFFD97706) : const Color(0xFF1E40AF));
+        : (isPackage
+            ? const Color(0xFFD97706)
+            : (isProduct ? const Color(0xFF10B981) : const Color(0xFF0284C7)));
     final badgeBg = isAcademy
         ? const Color(0xFFEDE9FE)
-        : (isProduct ? const Color(0xFFFEF3C7) : const Color(0xFFEFF6FF));
+        : (isPackage
+            ? const Color(0xFFFEF3C7)
+            : (isProduct ? const Color(0xFFD1FAE5) : const Color(0xFFE0F2FE)));
     final badgeText = isAcademy
-        ? 'HỌC VIỆN'
-        : (isProduct ? 'SẢN PHẨM' : 'SPA TRỊ LIỆU');
+        ? 'HỌC PHÍ'
+        : (isPackage ? 'LIỆU TRÌNH' : (isProduct ? 'SẢN PHẨM' : 'DỊCH VỤ'));
+    final badgeIcon = isAcademy
+        ? Icons.school_rounded
+        : (isPackage
+            ? Icons.spa_rounded
+            : (isProduct ? Icons.shopping_bag_rounded : Icons.self_improvement_rounded));
 
     String timeFormatted = it.timestamp;
     try {
@@ -727,16 +869,13 @@ class _AdminRevenueGridModalState extends State<AdminRevenueGridModal> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              isAcademy
-                  ? Icons.school_rounded
-                  : (isProduct ? Icons.shopping_bag_rounded : Icons.spa_rounded),
+              badgeIcon,
               color: badgeColor,
               size: 20,
             ),
           ),
           const SizedBox(width: 12),
 
-          // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

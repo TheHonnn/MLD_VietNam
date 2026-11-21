@@ -132,6 +132,7 @@ class AdminRepository {
           invoices: raw['invoices'] ?? const [],
           tuitions: raw['tuitions'] ?? const [],
           enrollments: raw['enrollments'] ?? const [],
+          bookings: raw['bookings'] ?? const [],
           branchId: branchId,
           startIso: todayStr,
           endIso: todayStr,
@@ -142,6 +143,7 @@ class AdminRepository {
           invoices: raw['invoices'] ?? const [],
           tuitions: raw['tuitions'] ?? const [],
           enrollments: raw['enrollments'] ?? const [],
+          bookings: raw['bookings'] ?? const [],
           branchId: branchId,
           startIso: monthStartStr,
           endIso: monthEndStr,
@@ -1763,6 +1765,7 @@ class AdminRepository {
     required List<dynamic> invoices,
     required List<dynamic> tuitions,
     required List<dynamic> enrollments,
+    List<dynamic>? bookings,
     String? branchId,
     required String startIso,
     required String endIso,
@@ -1786,7 +1789,11 @@ class AdminRepository {
 
     final invoicedCodes = <String>{};
     final List<AdminRevenueItem> items = [];
+    double grossCollected = 0.0;
+    double totalRefundAmt = 0.0;
+    int totalRefundCount = 0;
     double serviceRev = 0.0;
+    double packageRev = 0.0;
     double academyRev = 0.0;
     double productRev = 0.0;
 
@@ -1815,12 +1822,19 @@ class AdminRepository {
       final refundAmt = double.tryParse(inv['refund_amount']?.toString() ?? '0') ?? 0.0;
       final netAmt = (totalAmt - refundAmt > 0) ? (totalAmt - refundAmt) : 0.0;
 
+      grossCollected += totalAmt;
+      if (refundAmt > 0) {
+        totalRefundAmt += refundAmt;
+        totalRefundCount++;
+      }
+
       if (code.isNotEmpty) {
         invoicedCodes.add(code);
       }
 
       final upperCode = code.toUpperCase();
       final isAcademy = (enrollmentId != null && enrollmentId.isNotEmpty) || upperCode.startsWith('HD-HP-');
+      final isPackage = (inv['user_package_id'] != null) || upperCode.startsWith('HD-LT-');
 
       final rawItems = inv['invoice_items'];
       final itemsList = (rawItems is List) ? rawItems : const [];
@@ -1833,15 +1847,17 @@ class AdminRepository {
         category = 'ACADEMY_TUITION';
         itemTitle = 'Học phí học viện';
         academyRev += netAmt;
+      } else if (isPackage) {
+        category = 'TREATMENT_PACKAGE';
+        itemTitle = 'Gói liệu trình trị liệu';
+        packageRev += netAmt;
       } else if (allProductItems || (inv['booking_id'] == null && inv['user_package_id'] == null && !upperCode.startsWith('HD-SPA-') && !upperCode.startsWith('HD-DV-') && !upperCode.startsWith('HD-LT-') && hasItems)) {
         category = 'PRODUCT';
         itemTitle = 'Hóa đơn sản phẩm';
         productRev += netAmt;
       } else {
         category = 'SPA_SERVICE';
-        itemTitle = (inv['user_package_id'] != null || upperCode.startsWith('HD-LT-'))
-            ? 'Gói liệu trình trị liệu'
-            : 'Hóa đơn dịch vụ trị liệu';
+        itemTitle = 'Dịch vụ trị liệu dẫn lưu MLD';
         serviceRev += netAmt;
       }
 
@@ -1881,6 +1897,13 @@ class AdminRepository {
       final tType = (t['transaction_type']?.toString() ?? '').toUpperCase();
       final isRefund = tType == 'REFUND';
       final netAmt = isRefund ? -rawAmt : rawAmt;
+
+      if (isRefund) {
+        totalRefundAmt += rawAmt;
+        totalRefundCount++;
+      } else {
+        grossCollected += rawAmt;
+      }
 
       academyRev += netAmt;
 
@@ -1922,6 +1945,7 @@ class AdminRepository {
         final eDateStr = e['approved_at']?.toString() ?? e['enrolled_at']?.toString() ?? '';
         if (!isDateInRange(eDateStr, startIso, endIso)) continue;
 
+        grossCollected += amtPaid;
         academyRev += amtPaid;
 
         final cObj = e['courses'];
@@ -1944,9 +1968,33 @@ class AdminRepository {
       }
     }
 
+    double receivableAmt = 0.0;
+    int receivableCnt = 0;
+    if (bookings != null) {
+      for (final b in bookings) {
+        if (b is! Map) continue;
+        final pStatus = (b['payment_status']?.toString() ?? '').toUpperCase();
+        final bStatus = (b['status']?.toString() ?? '').toUpperCase();
+        if (pStatus == 'UNPAID' || bStatus == 'PENDING') {
+          final p = double.tryParse(b['final_price']?.toString() ?? b['base_total']?.toString() ?? '0') ?? 0.0;
+          receivableAmt += p;
+          receivableCnt++;
+        }
+      }
+    }
+    for (final t in tuitions) {
+      if (t is! Map) continue;
+      final tStatus = (t['payment_status']?.toString() ?? '').toUpperCase();
+      if (tStatus != 'PAID') {
+        final p = double.tryParse(t['amount']?.toString() ?? '0') ?? 0.0;
+        receivableAmt += p;
+        receivableCnt++;
+      }
+    }
+
     items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    final totalRev = serviceRev + academyRev + productRev;
+    final totalRev = serviceRev + packageRev + academyRev + productRev;
     final totalCount = items.length;
     final avgTicket = (totalCount > 0 && totalRev > 0) ? (totalRev / totalCount) : 0.0;
 
@@ -1961,6 +2009,7 @@ class AdminRepository {
       for (final s in shifts) {
         double sTotal = 0.0;
         double sAcad = 0.0;
+        double sPack = 0.0;
         double sServ = 0.0;
         int sCount = 0;
 
@@ -1976,6 +2025,7 @@ class AdminRepository {
             sTotal += it.amount;
             sCount++;
             if (it.category == 'ACADEMY_TUITION') sAcad += it.amount;
+            if (it.category == 'TREATMENT_PACKAGE') sPack += it.amount;
             if (it.category == 'SPA_SERVICE') sServ += it.amount;
           }
         }
@@ -1985,20 +2035,34 @@ class AdminRepository {
           dateIso: startIso,
           totalAmount: sTotal,
           academyAmount: sAcad,
+          packageAmount: sPack,
           serviceAmount: sServ,
           transactionCount: sCount,
         ));
       }
-    } else if (period == 'WEEK') {
-      final weekdays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    } else {
+      final days = <String>[];
+      final todayKey = DateFormat('yyyy-MM-dd').format(now);
+      final parts = startIso.split('-');
+      final year = int.tryParse(parts[0]) ?? now.year;
+      final month = parts.length > 1 ? (int.tryParse(parts[1]) ?? now.month) : now.month;
+      final lastDay = DateTime(year, month + 1, 0).day;
+      final endKey = (startIso.startsWith(todayKey.substring(0, 7)) || period == 'WEEK')
+          ? todayKey
+          : DateFormat('yyyy-MM-dd').format(DateTime(year, month, lastDay));
+      final endDate = DateTime.tryParse(endKey) ?? now;
       for (int i = 6; i >= 0; i--) {
-        final targetDate = now.subtract(Duration(days: i));
-        final targetStr = DateFormat('yyyy-MM-dd').format(targetDate);
-        final weekdayStr = weekdays[(targetDate.weekday - 1).clamp(0, 6)];
-        final displayLabel = '$weekdayStr (${DateFormat('dd/MM').format(targetDate)})';
+        final d = endDate.subtract(Duration(days: i));
+        days.add(DateFormat('yyyy-MM-dd').format(d));
+      }
+
+      for (final targetStr in days) {
+        final targetDt = DateTime.parse(targetStr);
+        final displayLabel = DateFormat('dd/MM').format(targetDt);
 
         double dTotal = 0.0;
         double dAcad = 0.0;
+        double dPack = 0.0;
         double dServ = 0.0;
         int dCount = 0;
 
@@ -2007,6 +2071,7 @@ class AdminRepository {
             dTotal += it.amount;
             dCount++;
             if (it.category == 'ACADEMY_TUITION') dAcad += it.amount;
+            if (it.category == 'TREATMENT_PACKAGE') dPack += it.amount;
             if (it.category == 'SPA_SERVICE') dServ += it.amount;
           }
         }
@@ -2016,44 +2081,9 @@ class AdminRepository {
           dateIso: targetStr,
           totalAmount: dTotal,
           academyAmount: dAcad,
+          packageAmount: dPack,
           serviceAmount: dServ,
           transactionCount: dCount,
-        ));
-      }
-    } else {
-      final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
-      final weeks = [
-        {'label': 'Tuần 1 (1 - 7)', 'start': 1, 'end': 7},
-        {'label': 'Tuần 2 (8 - 14)', 'start': 8, 'end': 14},
-        {'label': 'Tuần 3 (15 - 21)', 'start': 15, 'end': 21},
-        {'label': 'Tuần 4 (22 - $lastDayOfMonth)', 'start': 22, 'end': 31},
-      ];
-
-      for (final w in weeks) {
-        double wTotal = 0.0;
-        double wAcad = 0.0;
-        double wServ = 0.0;
-        int wCount = 0;
-
-        for (final it in items) {
-          final dt = DateTime.tryParse(it.timestamp)?.toLocal();
-          if (dt != null && dt.month == now.month && dt.year == now.year) {
-            if (dt.day >= (w['start'] as int) && dt.day <= (w['end'] as int)) {
-              wTotal += it.amount;
-              wCount++;
-              if (it.category == 'ACADEMY_TUITION') wAcad += it.amount;
-              if (it.category == 'SPA_SERVICE') wServ += it.amount;
-            }
-          }
-        }
-
-        points.add(AdminRevenuePoint(
-          label: w['label'] as String,
-          dateIso: DateFormat('yyyy-MM').format(now),
-          totalAmount: wTotal,
-          academyAmount: wAcad,
-          serviceAmount: wServ,
-          transactionCount: wCount,
         ));
       }
     }
@@ -2061,7 +2091,13 @@ class AdminRepository {
     return AdminRevenueReport(
       period: period,
       totalRevenue: totalRev,
+      grossCollected: grossCollected,
+      refundAmount: totalRefundAmt,
+      refundCount: totalRefundCount,
+      receivableAmount: receivableAmt,
+      receivableCount: receivableCnt,
       serviceRevenue: serviceRev,
+      packageRevenue: packageRev,
       academyRevenue: academyRev,
       productRevenue: productRev,
       totalTransactions: totalCount,
@@ -2115,10 +2151,21 @@ class AdminRepository {
       }
     } catch (_) {}
 
+    List<dynamic> bookings = [];
+    try {
+      final bkRes = await _apiClient.dio.get(
+        '/rest/v1/bookings?select=id,booking_code,payment_status,status,final_price,base_total$branchParam',
+      );
+      if (bkRes.data is List) {
+        bookings = bkRes.data as List;
+      }
+    } catch (_) {}
+
     return {
       'invoices': invoices,
       'tuitions': tuitions,
       'enrollments': enrollments,
+      'bookings': bookings,
     };
   }
 
@@ -2148,6 +2195,7 @@ class AdminRepository {
         invoices: raw['invoices'] ?? const [],
         tuitions: raw['tuitions'] ?? const [],
         enrollments: raw['enrollments'] ?? const [],
+        bookings: raw['bookings'] ?? const [],
         branchId: branchId,
         startIso: startIso,
         endIso: endIso,

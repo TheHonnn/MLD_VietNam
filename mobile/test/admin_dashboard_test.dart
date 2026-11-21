@@ -327,10 +327,28 @@ void main() {
         },
       ];
 
+      final bookings = [
+        {
+          'id': 'bk_unpaid_1',
+          'booking_code': 'MLD-DL-001',
+          'payment_status': 'UNPAID',
+          'status': 'CONFIRMED',
+          'final_price': '1700000',
+        },
+        {
+          'id': 'bk_unpaid_2',
+          'booking_code': 'MLD-DL-002',
+          'payment_status': 'UNPAID',
+          'status': 'PENDING',
+          'base_total': '900000',
+        },
+      ];
+
       final report = AdminRepository.computeRevenueEngine(
         invoices: invoices,
         tuitions: tuitions,
         enrollments: enrollments,
+        bookings: bookings,
         branchId: 'branch_q3',
         startIso: '2026-11-20',
         endIso: '2026-11-20',
@@ -342,6 +360,11 @@ void main() {
       expect(report.productRevenue, 500000);
       expect(report.academyRevenue, 50000000);
       expect(report.totalRevenue, 51300000);
+      expect(report.grossCollected, 56500000);
+      expect(report.refundAmount, 5200000);
+      expect(report.refundCount, 2);
+      expect(report.receivableAmount, 2600000);
+      expect(report.receivableCount, 2);
       expect(report.totalTransactions, 5);
     });
   });

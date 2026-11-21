@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/localization/app_translation.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/validators.dart';
@@ -371,12 +373,106 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
               ),
               const SizedBox(height: 20),
               if (canPayOnline) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        context.tr('Mã QR chuyển khoản học phí', 'Tuition Payment QR Code'),
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: AcademyColors.heading,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          'https://api.vietqr.io/image/970422-0394316963-compact2.jpg?amount=${depositAmount.round()}&addInfo=${Uri.encodeComponent('MLD HV $refCode')}&accountName=BUI%20THE%20HOANG',
+                          width: 170,
+                          height: 170,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => QrImageView(
+                            data: 'https://api.vietqr.io/image/970422-0394316963-compact2.jpg?amount=${depositAmount.round()}&addInfo=${Uri.encodeComponent('MLD HV $refCode')}',
+                            size: 170,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF86EFAC)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF15803D)),
+                            const SizedBox(width: 4),
+                            Text(
+                              context.tr('Đã đăng ký', 'Registered'),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF15803D),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${NumberFormat('#,###', 'vi_VN').format(depositAmount.round())}đ',
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'MB Bank: 0394316963 · BUI THE HOANG',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AcademyColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Mã thanh toán: MLD HV $refCode',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.qr_code_2_rounded, size: 19, color: Colors.white),
+                    icon: const Icon(Icons.check_circle_rounded, size: 19, color: Colors.white),
                     label: Text(
-                      context.tr('Thanh toán học phí online (QR)', 'Pay Tuition Online (QR)'),
+                      context.tr('Xác nhận đã chuyển khoản', 'Confirm Transfer Completed'),
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -384,6 +480,60 @@ class _E05EnrollmentFormScreenState extends State<E05EnrollmentFormScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
+                    ),
+                    onPressed: () async {
+                      Navigator.of(ctx).pop();
+                      final approvedCourse = widget.course.copyWith(
+                        status: 'ACTIVE',
+                        approvalStatus: 'APPROVED',
+                        customerCode: customerCode,
+                        enrollmentId: enrollmentId,
+                      );
+                      AcademyRepository.instance.enrollCourseLocal(approvedCourse);
+                      if (enrollmentId != null && enrollmentId.isNotEmpty) {
+                        try {
+                          await SupabaseDataService.instance.updateCourseEnrollmentStatus(
+                            enrollmentId: enrollmentId,
+                            status: 'ACTIVE',
+                            approvalStatus: 'APPROVED',
+                            paymentStatus: 'PAID',
+                            admissionStatus: 'STUDYING',
+                            amountPaid: depositAmount,
+                          );
+                        } catch (_) {}
+                      }
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(context.tr(
+                            'Xác nhận thành công! Khóa học đã được mở cho bạn.',
+                            'Payment confirmed! Course is now unlocked for you.',
+                          )),
+                          backgroundColor: AppColors.accent,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (_) => E08ClassDetailScreen(course: approvedCourse),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.qr_code_2_rounded, size: 18, color: AppColors.primary),
+                    label: Text(
+                      context.tr('Thanh toán học phí online (QR)', 'Pay Tuition Online (QR)'),
+                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13.5),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.primary, width: 1.5),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () {
                       Navigator.of(ctx).pop();

@@ -6,6 +6,7 @@ import 'package:medical_healthcare_app/core/services/auth_service.dart';
 import 'package:medical_healthcare_app/features/academy/data/models/academy_models.dart';
 import 'package:medical_healthcare_app/features/academy/data/repositories/academy_repository.dart';
 import 'package:medical_healthcare_app/features/academy/presentation/screens/e05_enrollment_form_screen.dart';
+import 'package:medical_healthcare_app/features/academy/presentation/screens/e07_my_courses_screen.dart';
 import 'package:medical_healthcare_app/l10n/app_localizations.dart';
 
 Widget _buildTestApp({required Widget home}) {
@@ -96,7 +97,10 @@ void main() {
 
     expect(find.text('Đăng ký thành công!'), findsOneWidget);
     expect(find.text('Chờ nhân viên duyệt'), findsOneWidget);
+    expect(find.text('Đã đăng ký'), findsOneWidget);
+    expect(find.text('Xác nhận đã chuyển khoản'), findsOneWidget);
     expect(find.text('Thanh toán học phí online (QR)'), findsOneWidget);
+    expect(find.textContaining('Mã thanh toán:'), findsOneWidget);
   });
 
   testWidgets('Practitioner course blocks online QR payment and shows consultation notice', (tester) async {
@@ -120,7 +124,32 @@ void main() {
     expect(find.text('Đăng ký thành công!'), findsOneWidget);
     expect(find.text('Chờ nhân viên duyệt'), findsOneWidget);
     expect(find.text('Thanh toán học phí online (QR)'), findsNothing);
+    expect(find.text('Xác nhận đã chuyển khoản'), findsNothing);
     expect(find.text('Xem khóa học của tôi'), findsOneWidget);
+  });
+
+  testWidgets('E07MyCoursesScreen displays Chờ duyệt and Thanh toán luôn for pending courses', (tester) async {
+    tester.view.physicalSize = const Size(420, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final pendingCourse = beginnerCourse.copyWith(
+      status: 'PENDING_APPROVAL',
+      approvalStatus: 'PENDING_APPROVAL',
+      customerCode: 'HV-TEST-001',
+      enrollmentId: 'enr-test-1',
+    );
+    AcademyRepository.instance.enrollCourseLocal(pendingCourse);
+
+    await tester.pumpWidget(
+      _buildTestApp(
+        home: const E07MyCoursesScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Chờ duyệt'), findsWidgets);
+    expect(find.text('Thanh toán luôn'), findsOneWidget);
   });
 
   testWidgets('Course approval state recognizes ACTIVE as valid approved status', (tester) async {

@@ -348,7 +348,7 @@ class _AutoPaymentCheckoutSheetState extends State<AutoPaymentCheckoutSheet> {
                           )
                         : const Icon(Icons.check_circle_outline_rounded, size: 19, color: AppColors.primary),
                     label: Text(
-                      context.tr('Tôi đã chuyển khoản thành công', 'I have completed payment'),
+                      context.tr('Xác nhận đã chuyển khoản', 'Confirm Transfer Completed'),
                       style: AppTypography.zaloFont(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w700,
@@ -384,6 +384,25 @@ class _AutoPaymentCheckoutSheetState extends State<AutoPaymentCheckoutSheet> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (widget.targetType == 'ENROLLMENT') ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Text(
+                    context.tr('Đã đăng ký', 'Registered'),
+                    style: AppTypography.zaloFont(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF15803D),
+                    ),
+                  ),
+                ),
+              ],
               Text(
                 intent.referenceCode ?? 'Đơn #${intent.orderCode}',
                 style: AppTypography.zaloFont(
