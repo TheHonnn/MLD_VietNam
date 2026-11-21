@@ -12,7 +12,6 @@ import '../../../home/data/repositories/mock_home_repository.dart';
 import '../../../home/data/repositories/service_repository.dart';
 import '../../../membership/data/models/membership_models.dart';
 import '../../../membership/data/repositories/membership_repository.dart';
-import '../../../payments/presentation/widgets/auto_payment_checkout_sheet.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/repositories/booking_repository.dart';
 import 'c09_my_appointments_screen.dart';
@@ -908,39 +907,6 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            if (!_usesActivePackage && _selectedPaymentMethod == 'BANK_TRANSFER' && _totalPrice > 0) ...[
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    AutoPaymentCheckoutSheet.show(
-                      context,
-                      amount: _totalPrice,
-                      description: 'MLD $code',
-                      targetType: 'BOOKING',
-                      targetId: bookingId,
-                      referenceCode: code,
-                      customerName: _nameController.text.trim(),
-                      customerPhone: _phoneController.text.trim(),
-                    );
-                  },
-                  icon: const Icon(Icons.qr_code_2_rounded, size: 20),
-                  label: Text(
-                    context.tr('Thanh toán online ngay', 'Pay Online Now'),
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -1824,102 +1790,9 @@ class _AllInOneBookingScreenState extends State<AllInOneBookingScreen> {
                   ],
                 ),
               ),
-              if (!_usesActivePackage) ...[
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.tr('Phương thức thanh toán', 'Payment Method'),
-                        style: const TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      _buildPaymentMethodOption(
-                        value: 'CASH_AT_SPA',
-                        icon: Icons.storefront_rounded,
-                        title: context.tr('Thanh toán tại cơ sở', 'Pay at Spa'),
-                        subtitle: context.tr('Thanh toán trực tiếp tại quầy lễ tân khi đến làm dịch vụ', 'Pay at reception upon arrival'),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildPaymentMethodOption(
-                        value: 'BANK_TRANSFER',
-                        icon: Icons.qr_code_scanner_rounded,
-                        title: context.tr('Thanh toán online tự động', 'Automatic Online Payment'),
-                        subtitle: context.tr('Thanh toán trực tuyến qua cổng trung gian / VietQR tự động xác nhận', 'Instant confirmation via Payment Gateway / VietQR'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: 16),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentMethodOption({
-    required String value,
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    final isSelected = _selectedPaymentMethod == value;
-    return InkWell(
-      onTap: () => setState(() => _selectedPaymentMethod = value),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.iceBlue.withValues(alpha: 0.45) : const Color(0xFFF9FAFB),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 22, color: isSelected ? AppColors.primary : AppColors.textSecondary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-              color: isSelected ? AppColors.primary : AppColors.textSecondary,
-              size: 20,
-            ),
-          ],
         ),
       ),
     );

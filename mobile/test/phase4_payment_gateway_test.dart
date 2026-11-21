@@ -141,7 +141,7 @@ void main() {
       expect(find.text('Kiểm tra trạng thái thanh toán'), findsOneWidget);
     });
 
-    testWidgets('AllInOneBookingScreen allows switching to online automatic payment method', (tester) async {
+    testWidgets('AllInOneBookingScreen simplifies booking flow without payment step', (tester) async {
       tester.view.physicalSize = const Size(400, 1600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -151,13 +151,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Thanh toán tại cơ sở'), findsOneWidget);
-      expect(find.text('Thanh toán online tự động'), findsOneWidget);
-
-      await tester.ensureVisible(find.text('Thanh toán online tự động'));
-      await tester.tap(find.text('Thanh toán online tự động'));
-      await tester.pump();
-      expect(find.byIcon(Icons.radio_button_checked_rounded), findsOneWidget);
+      expect(find.text('Phương thức thanh toán'), findsNothing);
+      expect(find.text('Thanh toán online tự động'), findsNothing);
     });
   });
 }
